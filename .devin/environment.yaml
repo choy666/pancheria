@@ -1,0 +1,54 @@
+# Ambiente estandarizado para el sistema de gestión de la panchería.
+# Este blueprint puede usarse con:
+#   devin.exe cloud drs blueprint-create --repo <owner/repo> --from-file .devin/environment.yaml
+# No se incluyen secretos ni credenciales. Configúralos en el panel de secretos de Devin.
+
+initialize:
+  - name: "Instalar Node.js 20 LTS"
+    uses: github.com/actions/setup-node@v4
+    with:
+      node-version: "20"
+
+maintenance:
+  - name: "Instalar dependencias del proyecto"
+    run: npm install
+
+knowledge:
+  - name: estructura
+    contents: |
+      Proyecto Next.js 16 con App Router, shadcn/ui, Drizzle ORM y PostgreSQL (Neon).
+      - `src/app/` — rutas y páginas del panel/administración
+      - `src/app/api/` — endpoints de la API
+      - `src/db/` — esquema, conexión y seeds de Drizzle
+      - `src/repositories/` — capa de repositorios
+      - `src/application/services/` — servicios de aplicación
+      - `src/components/` — componentes React
+      - `drizzle/` — migraciones generadas por Drizzle Kit
+      - `PLAN.md` — plan de implementación completo
+
+  - name: install
+    contents: npm install
+
+  - name: lint
+    contents: npm run lint
+
+  - name: test
+    contents: |
+      Tests unitarios: npm test
+      Tests end-to-end: npx playwright test
+
+  - name: build
+    contents: |
+      npm run build
+
+  - name: database
+    contents: |
+      1. Copiar `.env.example` a `.env.local` y completar las variables.
+      2. Generar/empujar migraciones: npx drizzle-kit push
+      3. Ejecutar seed de administrador: npx tsx src/db/seeds.ts
+      4. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+
+  - name: start
+    contents: |
+      npm run dev
+      La aplicación se ejecutará en http://localhost:3000
