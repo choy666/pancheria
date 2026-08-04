@@ -40,3 +40,15 @@ Copiar `.env.example` a `.env.local` y completar:
 ## Notas del plan
 - Ver `PLAN.md` para la arquitectura, esquema de base de datos, endpoints y fases de implementación.
 - Tecnologías: Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
+
+## Despliegue en Vercel
+1. Conectar el repositorio de GitHub en el dashboard de Vercel.
+2. Configurar las variables de entorno en Vercel:
+   - `DATABASE_URL`
+   - `NEXTAUTH_URL` (la URL de producción, por ejemplo `https://pancheria-five.vercel.app`)
+   - `NEXTAUTH_SECRET`
+   - `ADMIN_USERNAME`
+   - `ADMIN_PASSWORD`
+3. Ejecutar `npx drizzle-kit push` en producción para sincronizar el schema.
+4. Ejecutar `npx tsx src/db/seeds.ts` para crear el usuario admin y datos iniciales.
+5. Hacer push a `main` para que Vercel haga el deploy automático.

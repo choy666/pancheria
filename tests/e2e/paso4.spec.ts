@@ -1,0 +1,73 @@
+import { test, expect } from '@playwright/test';
+
+const adminUsername = process.env.ADMIN_USERNAME || '';
+const adminPassword = process.env.ADMIN_PASSWORD || '';
+
+test.describe('Paso 4 - Flujos avanzados', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="username"]', adminUsername);
+    await page.fill('input[name="password"]', adminPassword);
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL('/', { timeout: 15000 });
+  });
+
+  test('anula una venta y verifica reintegro de stock', async ({ page }) => {
+    const productsResponse = await page.request.get('/api/productos');
+    const products = await productsResponse.json() as { id: number; name: string }[];
+    const product = products.find((p) => p.name === 'Panchuque completo');
+    if (!product) throw new Error('Producto no encontrado');
+
+    const saleResponse = await page.request.post('/api/ventas', {
+      data: {
+        items: [{ productId: product.id, quantity: 1 }],
+        paymentMethod: 'cash',
+        idempotencyKey: `test-${Date.now()}`,
+      },
+    });
+    expect(saleResponse.status()).toBe(201);
+    const sale = await saleResponse.json() as { id: number };
+
+    await page.goto('/ventas/historial');
+    await page.getByTestId(`anular-sale-${sale.id}`).click();
+    await page.fill('input#cancel-reason', 'Error de carga');
+    await page.getByRole('button', { name: 'Confirmar anulación' }).click();
+
+    await expect(page.getByTestId(`row-sale-${sale.id}`).getByText('Anulada')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('muestra historial de stock tras un ajuste', async ({ page }) => {
+    await page.goto('/stock');
+    const row = page.getByRole('row', { name: /Pan de panchuque/ });
+    await row.getByRole('button', { name: 'Ajustar' }).first().click();
+    await page.fill('input#adjust-quantity', '5');
+    await page.fill('textarea#adjust-reason', 'Ajuste de prueba historial');
+    await page.getByRole('button', { name: 'Guardar ajuste' }).click();
+    await expect(page).toHaveURL('/stock', { timeout: 10000 });
+
+    await page.goto('/stock');
+    const historyRow = page.getByRole('row', { name: /Pan de panchuque/ });
+    await historyRow.getByRole('button', { name: 'Historial' }).first().click();
+    await expect(page.getByText('Ajuste de prueba historial').first()).toBeVisible();
+  });
+
+  test('elimina un producto y desaparece del listado', async ({ page }) => {
+    await page.goto('/productos/nuevo');
+    const name = `Producto a eliminar ${Date.now()}`;
+    await page.fill('input#name', name);
+    await page.fill('input#price', '100');
+    await page.fill('input#unit', 'unidad');
+    await page.fill('input#stock', '10');
+    await page.fill('input#minStock', '2');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page).toHaveURL('/productos', { timeout: 10000 });
+
+    const row = page.getByRole('row', { name: new RegExp(name) });
+    await expect(row).toBeVisible();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await row.getByRole('button', { name: 'Eliminar' }).click();
+
+    await expect(page.getByRole('row', { name: new RegExp(name) })).toHaveCount(0, { timeout: 10000 });
+  });
+});

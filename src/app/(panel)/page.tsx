@@ -13,7 +13,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Pantalla táctil para registrar ventas rápidas.
           </p>
-          <Link href="/panel/ventas" className="mt-4 inline-block">
+          <Link href="/ventas" className="mt-4 inline-block">
             <Button>Ir a ventas</Button>
           </Link>
         </CardContent>
@@ -27,7 +27,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Administrar productos, insumos y recetas.
           </p>
-          <Link href="/panel/productos" className="mt-4 inline-block">
+          <Link href="/productos" className="mt-4 inline-block">
             <Button variant="outline">Ir a productos</Button>
           </Link>
         </CardContent>
@@ -41,7 +41,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Ver alertas y ajustar stock manualmente.
           </p>
-          <Link href="/panel/stock" className="mt-4 inline-block">
+          <Link href="/stock" className="mt-4 inline-block">
             <Button variant="outline">Ir a stock</Button>
           </Link>
         </CardContent>
@@ -55,7 +55,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Generar el cierre diario de caja.
           </p>
-          <Link href="/panel/cierre" className="mt-4 inline-block">
+          <Link href="/cierre" className="mt-4 inline-block">
             <Button variant="outline">Ir a cierre</Button>
           </Link>
         </CardContent>

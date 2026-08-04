@@ -1,4 +1,4 @@
-import { signIn } from '@/auth';
+﻿import { signIn } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,40 +20,40 @@ export default function LoginPage() {
     await signIn('credentials', {
       username,
       password,
-      redirectTo: '/panel',
+      redirectTo: '/',
     });
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+    <div className='flex min-h-full items-center justify-center p-4'>
+      <Card className='w-full max-w-sm'>
         <CardHeader>
           <CardTitle>Iniciar sesión</CardTitle>
           <CardDescription>Sistema de gestión de la panchería</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Usuario</Label>
+          <form action={handleSubmit} className='space-y-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='username'>Usuario</Label>
               <Input
-                id="username"
-                name="username"
-                type="text"
+                id='username'
+                name='username'
+                type='text'
                 required
-                autoComplete="username"
+                autoComplete='username'
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+            <div className='space-y-2'>
+              <Label htmlFor='password'>Contraseña</Label>
               <Input
-                id="password"
-                name="password"
-                type="password"
+                id='password'
+                name='password'
+                type='password'
                 required
-                autoComplete="current-password"
+                autoComplete='current-password'
               />
             </div>
-            <Button type="submit" className="w-full">
+            <Button type='submit' className='w-full'>
               Ingresar
             </Button>
           </form>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,8 +19,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
+import { StockHistory } from './stock-history';
 
 interface StockProduct {
   id: number;
@@ -35,10 +34,12 @@ interface StockProduct {
 }
 
 export function StockList() {
-  const router = useRouter();
   const [products, setProducts] = useState<StockProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<StockProduct | null>(
+    null
+  );
+  const [dialogMode, setDialogMode] = useState<'adjust' | 'history' | null>(
     null
   );
   const [quantity, setQuantity] = useState(0);
@@ -49,7 +50,7 @@ export function StockList() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch('/api/stock');
+        const response = await fetch('/api/stock', { credentials: 'include' });
         if (!response.ok) throw new Error('Error al cargar stock');
         setProducts((await response.json()) as StockProduct[]);
       } catch (err) {
@@ -72,6 +73,7 @@ export function StockList() {
       const response = await fetch('/api/stock/ajustar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           productId: selectedProduct.id,
           quantity,
@@ -85,11 +87,11 @@ export function StockList() {
       }
 
       setSelectedProduct(null);
+      setDialogMode(null);
       setQuantity(0);
       setReason('');
-      router.refresh();
 
-      const reload = await fetch('/api/stock');
+      const reload = await fetch('/api/stock', { credentials: 'include' });
       if (reload.ok) setProducts((await reload.json()) as StockProduct[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -137,56 +139,99 @@ export function StockList() {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Dialog>
-                    <DialogTrigger>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedProduct(product)}
-                      >
-                        Ajustar
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Ajustar stock: {product.name}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 pt-4">
-                        <div className="space-y-2">
-                          <Label htmlFor={`quantity-${product.id}`}>
-                            Cantidad (positiva para sumar, negativa para restar)
-                          </Label>
-                          <Input
-                            id={`quantity-${product.id}`}
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => setQuantity(Number(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`reason-${product.id}`}>Motivo</Label>
-                          <Textarea
-                            id={`reason-${product.id}`}
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                          />
-                        </div>
-                        <Button
-                          onClick={handleSubmit}
-                          disabled={isSubmitting}
-                          className="w-full"
-                        >
-                          {isSubmitting ? 'Guardando...' : 'Guardar ajuste'}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setDialogMode('adjust');
+                        setQuantity(0);
+                        setReason('');
+                        setError(null);
+                      }}
+                    >
+                      Ajustar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setDialogMode('history');
+                      }}
+                    >
+                      Historial
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        open={dialogMode === 'adjust' && selectedProduct !== null}
+        onOpenChange={(open) => {
+          if (!open) setDialogMode(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajustar stock: {selectedProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="adjust-quantity">
+                Cantidad (positiva para sumar, negativa para restar)
+              </Label>
+              <Input
+                id="adjust-quantity"
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="adjust-reason">Motivo</Label>
+              <Textarea
+                id="adjust-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting ? 'Guardando...' : 'Guardar ajuste'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialogMode === 'history' && selectedProduct !== null}
+        onOpenChange={(open) => {
+          if (!open) setDialogMode(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Historial de stock</DialogTitle>
+          </DialogHeader>
+          <div className="pt-4">
+            {selectedProduct && (
+              <StockHistory
+                productId={selectedProduct.id}
+                productName={selectedProduct.name}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

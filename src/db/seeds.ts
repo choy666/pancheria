@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { db } from './index';
@@ -43,7 +42,7 @@ async function seedSampleData() {
     return;
   }
 
-  const [bread, sausage, beverage, ketchup, napkin] = await db
+  const seededProducts = await db
     .insert(products)
     .values([
       {
@@ -106,12 +105,18 @@ async function seedSampleData() {
     ])
     .returning({ id: products.id, name: products.name });
 
-  const compoundProduct = [bread, sausage, beverage, ketchup, napkin].find(
-    (p) => p.name === 'Panchuque completo'
-  );
+  const findProduct = (name: string) =>
+    seededProducts.find((p) => p.name === name);
 
-  if (!compoundProduct) {
-    console.error('No se pudo crear el producto compuesto de ejemplo.');
+  const bread = findProduct('Pan de panchuque');
+  const sausage = findProduct('Salchicha');
+  const beverage = findProduct('Gaseosa 500ml');
+  const ketchup = findProduct('Ketchup');
+  const napkin = findProduct('Servilleta');
+  const compoundProduct = findProduct('Panchuque completo');
+
+  if (!bread || !sausage || !beverage || !ketchup || !napkin || !compoundProduct) {
+    console.error('No se pudo crear alguno de los productos de ejemplo.');
     return;
   }
 

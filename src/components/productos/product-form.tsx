@@ -44,8 +44,7 @@ export function ProductForm({ product }: ProductFormProps) {
 
   const isCritical = form.type === 'critical_supply';
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleSubmit() {
     setIsSubmitting(true);
     setError(null);
 
@@ -55,10 +54,13 @@ export function ProductForm({ product }: ProductFormProps) {
         : '/api/productos';
       const method = product ? 'PUT' : 'POST';
 
+      const body = JSON.stringify(form);
+      console.log('SENDING PRODUCT', body);
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        credentials: 'include',
+        body,
       });
 
       if (!response.ok) {
@@ -66,7 +68,7 @@ export function ProductForm({ product }: ProductFormProps) {
         throw new Error(data.error || 'Error al guardar el producto');
       }
 
-      router.push('/panel/productos');
+      router.push('/productos');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -219,13 +221,13 @@ export function ProductForm({ product }: ProductFormProps) {
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push('/panel/productos')}
+          onClick={() => router.push('/productos')}
         >
           Cancelar
         </Button>

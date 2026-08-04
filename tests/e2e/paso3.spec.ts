@@ -1,0 +1,80 @@
+﻿import { test, expect } from '@playwright/test';
+
+const adminUsername = process.env.ADMIN_USERNAME || '';
+const adminPassword = process.env.ADMIN_PASSWORD || '';
+
+test.describe('Paso 3 - Login y navegacion completa', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="username"]', adminUsername);
+    await page.fill('input[name="password"]', adminPassword);
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL('/', { timeout: 15000 });
+  });
+
+  test('navega por todos los links del menu', async ({ page }) => {
+    const menu = [
+      { name: 'Ventas', url: '/ventas' },
+      { name: 'Productos', url: '/productos' },
+      { name: 'Stock', url: '/stock' },
+      { name: 'Cierre', url: '/cierre' },
+      { name: 'Panel', url: '/' },
+    ];
+
+    for (const item of menu) {
+      const nav = page.locator('nav');
+      await nav.getByRole('button', { name: item.name }).click();
+      await expect(page).toHaveURL(item.url);
+    }
+  });
+
+  test('crea y edita un producto manual', async ({ page }) => {
+    const baseName = `Producto test E2E ${Date.now()}`;
+    await page.goto('/productos/nuevo');
+    await page.fill('input#name', baseName);
+    await page.fill('textarea#description', 'Descripcion de prueba');
+    await page.fill('input#price', '100');
+    await page.fill('input#unit', 'unidad');
+    await page.fill('input#stock', '50');
+    await page.fill('input#minStock', '10');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page).toHaveURL('/productos', { timeout: 10000 });
+
+    const row = page.getByRole('row', { name: new RegExp(baseName) });
+    await expect(row).toBeVisible();
+    await row.getByRole('button', { name: 'Editar' }).click();
+    await expect(page).toHaveURL(/productos\/\d+\/editar/);
+
+    const editedName = `${baseName} editado`;
+    await page.fill('input#name', editedName);
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page).toHaveURL('/productos', { timeout: 10000 });
+    await expect(page.getByText(editedName)).toBeVisible();
+  });
+
+  test('registra una venta', async ({ page }) => {
+    await page.goto('/ventas');
+    await page.getByText('Panchuque completo').click();
+    await page.getByRole('button', { name: 'Confirmar venta' }).click();
+    await expect(page).toHaveURL('/ventas', { timeout: 10000 });
+  });
+
+  test('ajusta stock', async ({ page }) => {
+    await page.goto('/stock');
+    const row = page.getByRole('row', { name: /Pan de panchuque/ });
+    await row.getByRole('button', { name: 'Ajustar' }).first().click();
+    await page.fill('input#adjust-quantity', '10');
+    await page.fill('textarea#adjust-reason', 'Ajuste de prueba');
+    await page.getByRole('button', { name: 'Guardar ajuste' }).click();
+    await expect(page).toHaveURL('/stock', { timeout: 10000 });
+  });
+
+  test('genera un cierre y cierra sesion', async ({ page }) => {
+    await page.goto('/cierre');
+    await page.getByRole('button', { name: 'Generar cierre' }).click();
+    await expect(page.getByText('Total:')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await expect(page).toHaveURL('/login', { timeout: 10000 });
+  });
+});

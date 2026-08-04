@@ -9,6 +9,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ProductActions } from '@/components/productos/product-actions';
+import { deleteProduct } from './actions';
 import * as productService from '@/application/services/productService';
 
 const productTypeLabels: Record<string, string> = {
@@ -30,7 +32,7 @@ export default async function ProductsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Productos e insumos</h1>
-        <Link href="/panel/productos/nuevo">
+        <Link href="/productos/nuevo">
           <Button>Nuevo producto</Button>
         </Link>
       </div>
@@ -80,20 +82,12 @@ export default async function ProductsPage() {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    {product.type === 'compound' && (
-                      <Link href={`/panel/recetas/${product.id}/editar`}>
-                        <Button variant="outline" size="sm">
-                          Receta
-                        </Button>
-                      </Link>
-                    )}
-                    <Link href={`/panel/productos/${product.id}/editar`}>
-                      <Button variant="ghost" size="sm">
-                        Editar
-                      </Button>
-                    </Link>
-                  </div>
+                  <ProductActions
+                    productId={product.id}
+                    productName={product.name}
+                    isCompound={product.type === 'compound'}
+                    deleteProduct={deleteProduct}
+                  />
                 </TableCell>
               </TableRow>
             ))}

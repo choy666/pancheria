@@ -1,7 +1,10 @@
+import dotenv from 'dotenv';
 import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from './schema';
-// test
+
+// Cargar variables de entorno antes de inicializar la conexión.
+dotenv.config({ path: '.env.local' });
 
 const databaseUrl = process.env.DATABASE_URL;
 

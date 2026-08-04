@@ -30,7 +30,7 @@ export function ClosurePanel() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(`/api/cierre?date=${date}`);
+        const response = await fetch(`/api/cierre?date=${date}`, { credentials: 'include' });
         if (response.ok) {
           setClosure((await response.json()) as Closure | null);
         } else {
@@ -52,6 +52,7 @@ export function ClosurePanel() {
       const response = await fetch('/api/cierre', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ date }),
       });
 
@@ -76,6 +77,38 @@ export function ClosurePanel() {
     ? (JSON.parse(closure.criticalSuppliesSummary) as Record<string, number>)
     : {};
 
+  function downloadCsv() {
+    if (!closure) return;
+
+    const lines: string[] = [];
+    lines.push('Fecha', closure.date.split('T')[0]);
+    lines.push('Total', closure.total.toFixed(2));
+    lines.push('Efectivo', closure.cashTotal.toFixed(2));
+    lines.push('Transferencia', closure.transferTotal.toFixed(2));
+    lines.push('Ventas', String(closure.totalSales));
+    lines.push('');
+    lines.push('Producto,Cantidad');
+    Object.entries(productsSummary).forEach(([name, quantity]) => {
+      lines.push(`${name},${quantity}`);
+    });
+    lines.push('');
+    lines.push('Insumo crítico,Cantidad');
+    Object.entries(criticalSuppliesSummary).forEach(([name, quantity]) => {
+      lines.push(`${name},${quantity}`);
+    });
+
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cierre-${closure.date.split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-4">
       {error && (
@@ -84,7 +117,7 @@ export function ClosurePanel() {
         </div>
       )}
 
-      <div className="flex items-end gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-2">
           <Label htmlFor="date">Fecha</Label>
           <Input
@@ -97,6 +130,11 @@ export function ClosurePanel() {
         <Button onClick={handleGenerate} disabled={isSubmitting}>
           {isSubmitting ? 'Generando...' : 'Generar cierre'}
         </Button>
+        {closure && (
+          <Button variant="outline" onClick={downloadCsv}>
+            Descargar CSV
+          </Button>
+        )}
       </div>
 
       {closure && (

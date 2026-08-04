@@ -2,6 +2,8 @@ import type { NextAuthConfig } from 'next-auth';
 
 export const authConfig = {
   providers: [],
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   session: {
     strategy: 'jwt',
   },
@@ -11,13 +13,15 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnPanel = nextUrl.pathname.startsWith('/panel');
+      const isLoginPage = nextUrl.pathname === '/login';
 
-      if (isOnPanel) {
-        return isLoggedIn;
+      // Permitir el acceso a la pagina de login y a las rutas publicas.
+      if (isLoginPage) {
+        return true;
       }
 
-      return true;
+      // Proteger el resto del panel: requerir sesion activa.
+      return isLoggedIn;
     },
     jwt({ token, user }) {
       if (user) {

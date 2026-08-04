@@ -111,6 +111,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
       const response = await fetch('/api/recetas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           compoundProductId: productId,
           items,
@@ -122,7 +123,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
         throw new Error(data.error || 'Error al guardar la receta');
       }
 
-      router.push('/panel/productos');
+      router.push('/productos');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -229,7 +230,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push('/panel/productos')}
+          onClick={() => router.push('/productos')}
         >
           Cancelar
         </Button>

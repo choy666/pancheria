@@ -33,7 +33,7 @@ export function SalesTerminal() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch('/api/productos');
+        const response = await fetch('/api/productos', { credentials: 'include' });
         if (!response.ok) throw new Error('Error al cargar productos');
 
         const allProducts = (await response.json()) as Product[];
@@ -43,7 +43,7 @@ export function SalesTerminal() {
 
         const withAvailability = await Promise.all(
           sellable.map(async (p) => {
-            const res = await fetch(`/api/productos/disponibilidad?productId=${p.id}`);
+            const res = await fetch(`/api/productos/disponibilidad?productId=${p.id}`, { credentials: 'include' });
             const data = (await res.json()) as { availability: number };
             return { ...p, availability: data.availability };
           })
@@ -113,6 +113,7 @@ export function SalesTerminal() {
       const response = await fetch('/api/ventas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           items: cart.map((item) => ({
             productId: item.product.id,
