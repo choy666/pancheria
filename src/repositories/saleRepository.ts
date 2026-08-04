@@ -1,0 +1,90 @@
+import { eq, and, gte, lt } from 'drizzle-orm';
+import { db } from '@/db';
+import { sales, saleItems } from '@/db/schema';
+import type { PaymentMethod } from '@/domain/types';
+
+export async function findById(id: number) {
+  return db.query.sales.findFirst({
+    where: eq(sales.id, id),
+    with: {
+      items: {
+        with: {
+          product: true,
+        },
+      },
+    },
+  });
+}
+
+export async function findByDateRange(start: Date, end: Date, status?: 'active' | 'cancelled') {
+  const conditions = [
+    gte(sales.createdAt, start),
+    lt(sales.createdAt, end),
+  ];
+
+  if (status) {
+    conditions.push(eq(sales.status, status));
+  }
+
+  return db.query.sales.findMany({
+    where: and(...conditions),
+    orderBy: (sales, { desc }) => [desc(sales.createdAt)],
+    with: {
+      items: {
+        with: {
+          product: true,
+        },
+      },
+    },
+  });
+}
+
+export async function create(params: {
+  total: number;
+  paymentMethod: PaymentMethod;
+  idempotencyKey: string;
+  items: {
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+  }[];
+}) {
+  const { total, paymentMethod, idempotencyKey, items } = params;
+
+  const [sale] = await db
+    .insert(sales)
+    .values({
+      total,
+      paymentMethod,
+      idempotencyKey,
+    })
+    .returning();
+
+  if (!sale) throw new Error('No se pudo crear la venta.');
+
+  await db.insert(saleItems).values(
+    items.map((item) => ({
+      saleId: sale.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+    }))
+  );
+
+  return sale;
+}
+
+export async function cancel(id: number, reason: string) {
+  const [result] = await db
+    .update(sales)
+    .set({
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancellationReason: reason,
+    })
+    .where(eq(sales.id, id))
+    .returning();
+  return result ?? null;
+}
