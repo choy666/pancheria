@@ -42,13 +42,49 @@ Copiar `.env.example` a `.env.local` y completar:
 - Tecnologías: Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
 
 ## Despliegue en Vercel
+
+### Opción A — deploy manual con Vercel CLI (recomendado para aprender)
+
+1. Asegurate de tener `.env.local` completo con `DATABASE_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME` y `ADMIN_PASSWORD`.
+2. Login en Vercel CLI:
+   ```bash
+   vercel login
+   ```
+3. Si el proyecto ya existe y tiene Framework Preset incorrecto o Deployment Protection activado, eliminarlo y recrearlo:
+   ```bash
+   vercel project remove <nombre-proyecto>
+   Remove-Item -Path .vercel/project.json, .vercel/README.txt -Force
+   vercel --prod --yes
+   ```
+   - El CLI detectará Next.js automáticamente y conectará el repositorio de GitHub si existe.
+   - Anotá el dominio de producción asignado (por ejemplo `https://pancheria-alpha.vercel.app`).
+4. Subir las variables de entorno a Vercel:
+   ```bash
+   $db = (Get-Content .env.local | Select-String '^DATABASE_URL=(.*)').Matches.Groups[1].Value; $db | vercel env add DATABASE_URL production
+   $secret = (Get-Content .env.local | Select-String '^NEXTAUTH_SECRET=(.*)').Matches.Groups[1].Value; $secret | vercel env add NEXTAUTH_SECRET production
+   $user = (Get-Content .env.local | Select-String '^ADMIN_USERNAME=(.*)').Matches.Groups[1].Value; $user | vercel env add ADMIN_USERNAME production
+   $pass = (Get-Content .env.local | Select-String '^ADMIN_PASSWORD=(.*)').Matches.Groups[1].Value; $pass | vercel env add ADMIN_PASSWORD production
+   echo "https://<dominio-produccion>.vercel.app" | vercel env add NEXTAUTH_URL production
+   ```
+5. Sincronizar la base de datos de producción:
+   ```bash
+   npx drizzle-kit push
+   npx tsx src/db/seeds.ts
+   ```
+6. Redeployar para que las variables de entorno formen parte del build:
+   ```bash
+   vercel --prod --yes
+   ```
+
+### Notas importantes para futuros proyectos Next.js en Vercel
+
+- Siempre verificar en `vercel inspect <url>` que `Builds` contenga funciones serverless (`λ`); si aparece `Framework Preset: Other`, el proyecto no detectó Next.js y no servirá las rutas del App Router. En ese caso, recrear el proyecto como se indica arriba.
+- Si la URL muestra la pantalla de login de Vercel en lugar de la app, es porque **Vercel Authentication** (Deployment Protection) está activado. Deshabilitarlo desde el dashboard: **Settings → Deployment Protection → Vercel Authentication**.
+- `NEXTAUTH_URL` debe coincidir con el dominio de producción asignado por Vercel (el alias del deployment, no la URL única generada).
+- Con GitHub conectado, cualquier `push` a `main` genera un deploy automático y lo asigna al dominio de producción.
+
+### Opción B — deploy automático desde GitHub
 1. Conectar el repositorio de GitHub en el dashboard de Vercel.
-2. Configurar las variables de entorno en Vercel:
-   - `DATABASE_URL`
-   - `NEXTAUTH_URL` (la URL de producción, por ejemplo `https://pancheria-five.vercel.app`)
-   - `NEXTAUTH_SECRET`
-   - `ADMIN_USERNAME`
-   - `ADMIN_PASSWORD`
-3. Ejecutar `npx drizzle-kit push` en producción para sincronizar el schema.
-4. Ejecutar `npx tsx src/db/seeds.ts` para crear el usuario admin y datos iniciales.
-5. Hacer push a `main` para que Vercel haga el deploy automático.
+2. Configurar las variables de entorno en Vercel.
+3. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
+4. Hacer push a `main` para que Vercel haga el deploy automático.
