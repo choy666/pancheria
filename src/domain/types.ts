@@ -14,6 +14,22 @@ export type StockMovementType =
   | 'manual_adjustment'
   | 'restock';
 
+export type ProductRow = {
+  id: number;
+  name: string;
+  description: string | null;
+  type: ProductType;
+  criticalSupplyType: CriticalSupplyType | null;
+  price: number;
+  unit: string;
+  stock: number;
+  minStock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+};
+
 export type Product = {
   id: number;
   name: string;
