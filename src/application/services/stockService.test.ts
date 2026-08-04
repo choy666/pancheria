@@ -8,7 +8,7 @@ jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/stockMovementRepository');
 jest.mock('@/db', () => ({
   db: {
-    transaction: jest.fn(async (callback) => {
+    transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) => {
       const tx = {
         update: jest.fn().mockReturnThis(),
         set: jest.fn().mockReturnThis(),

@@ -22,7 +22,7 @@ describe('calculateAvailability', () => {
   });
 
   test('devuelve 0 si el producto no existe', async () => {
-    mockedProductRepository.findById.mockResolvedValue(undefined);
+    mockedProductRepository.findById.mockResolvedValue(null);
     const result = await calculateAvailability(999);
     expect(result).toBe(0);
   });
@@ -47,7 +47,7 @@ describe('calculateAvailability', () => {
       type: 'compound',
     } as any);
 
-    mockedDb.query.recipes.findMany.mockResolvedValue([
+    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
       {
         id: 1,
         compoundProductId: 1,
@@ -78,7 +78,7 @@ describe('calculateAvailability', () => {
       type: 'compound',
     } as any);
 
-    mockedDb.query.recipes.findMany.mockResolvedValue([
+    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
       {
         id: 1,
         compoundProductId: 1,

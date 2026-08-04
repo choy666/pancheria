@@ -58,7 +58,7 @@ describe('productService', () => {
       mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as any);
 
       const result = await createProduct(data);
-      expect(result.id).toBe(1);
+      expect(result!.id).toBe(1);
     });
   });
 
@@ -68,7 +68,7 @@ describe('productService', () => {
       mockedProductRepository.softDelete.mockResolvedValue({ id: 1 } as any);
 
       const result = await deleteProduct(1);
-      expect(result.id).toBe(1);
+      expect(result!.id).toBe(1);
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
     });
   });
@@ -102,7 +102,7 @@ describe('productService', () => {
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
 
       const result = await updateProduct(1, data);
-      expect(result.name).toBe('Nuevo nombre');
+      expect(result!.name).toBe('Nuevo nombre');
     });
   });
 });
