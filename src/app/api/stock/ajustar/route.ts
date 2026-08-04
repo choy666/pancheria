@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { stockAdjustmentSchema } from '@/lib/zod-schemas';
 import * as stockService from '@/application/services/stockService';
-import { DomainError, NotFoundError } from '@/domain/errors';
+import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
     const body = await request.json();
     const data = stockAdjustmentSchema.parse(body);
     const result = await stockService.adjustStock(
@@ -15,6 +17,10 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Datos inválidos', details: error.issues },

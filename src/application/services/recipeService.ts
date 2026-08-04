@@ -31,6 +31,18 @@ export async function saveRecipe(
     );
   }
 
+  const uniqueSupplyIds = new Set(items.map((item) => item.supplyId));
+
+  if (uniqueSupplyIds.has(compoundProductId)) {
+    throw new ValidationError(
+      'Una receta no puede incluir al propio producto compuesto como insumo.'
+    );
+  }
+
+  if (uniqueSupplyIds.size !== items.length) {
+    throw new ValidationError('No puede haber insumos duplicados en la receta.');
+  }
+
   const supplyIds = items.map((item) => item.supplyId);
   const supplies = await productRepository.findByIds(supplyIds);
 
@@ -47,6 +59,12 @@ export async function saveRecipe(
     if (item.autoDiscount && supply.type !== 'critical_supply') {
       throw new ValidationError(
         `El insumo ${supply.name} no es crítico y no puede tener descuento automático.`
+      );
+    }
+
+    if (item.autoDiscount && supply.deletedAt) {
+      throw new ValidationError(
+        `El insumo ${supply.name} está eliminado y no puede usarse en recetas.`
       );
     }
   }

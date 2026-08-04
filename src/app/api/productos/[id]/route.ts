@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { productSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
-import { DomainError, NotFoundError } from '@/domain/errors';
+import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
+import { requireAuth } from '@/lib/auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,10 +11,15 @@ interface RouteParams {
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
+    await requireAuth();
     const { id } = await params;
     const product = await productService.getProductById(Number(id));
     return NextResponse.json(product);
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
     if (error instanceof NotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
@@ -28,12 +34,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    await requireAuth();
     const { id } = await params;
     const body = await request.json();
     const data = productSchema.partial().parse(body);
     const product = await productService.updateProduct(Number(id), data);
     return NextResponse.json(product);
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Datos inválidos', details: error.issues },
@@ -55,10 +66,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
+    await requireAuth();
     const { id } = await params;
     await productService.deleteProduct(Number(id));
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
     if (error instanceof NotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }

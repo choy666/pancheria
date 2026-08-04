@@ -9,7 +9,7 @@ const databaseUrl = process.env.DATABASE_URL;
 // En runtime, DATABASE_URL debe estar definida en .env.local.
 const pool = new Pool({
   connectionString:
-    databaseUrl || 'postgresql://localhost:5432/pancheria_placeholder',
+    databaseUrl || 'postgresql://placeholder',
 });
 
 export const db = drizzle(pool, { schema });

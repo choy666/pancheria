@@ -80,11 +80,20 @@ export default async function ProductsPage() {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/panel/productos/${product.id}/editar`}>
-                    <Button variant="ghost" size="sm">
-                      Editar
-                    </Button>
-                  </Link>
+                  <div className="flex justify-end gap-2">
+                    {product.type === 'compound' && (
+                      <Link href={`/panel/recetas/${product.id}/editar`}>
+                        <Button variant="outline" size="sm">
+                          Receta
+                        </Button>
+                      </Link>
+                    )}
+                    <Link href={`/panel/productos/${product.id}/editar`}>
+                      <Button variant="ghost" size="sm">
+                        Editar
+                      </Button>
+                    </Link>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

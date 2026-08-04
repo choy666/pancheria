@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { productSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
-import { DomainError } from '@/domain/errors';
+import { DomainError, UnauthorizedError } from '@/domain/errors';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
+  try {
+    await requireAuth();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    return NextResponse.json(
+      { error: 'Error al verificar sesión' },
+      { status: 500 }
+    );
+  }
   try {
     const products = await productService.listActiveProducts();
     return NextResponse.json(products);
@@ -19,6 +31,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
     const body = await request.json();
     const data = productSchema.parse(body);
     const product = await productService.createProduct(data);
@@ -29,6 +42,10 @@ export async function POST(request: NextRequest) {
         { error: 'Datos inválidos', details: error.issues },
         { status: 400 }
       );
+    }
+
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
     if (error instanceof DomainError) {
