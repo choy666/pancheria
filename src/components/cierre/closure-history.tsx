@@ -57,16 +57,16 @@ export function ClosureHistory() {
   if (error) return <p className="text-destructive">{error}</p>;
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border">
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Ventas</TableHead>
+              <TableHead className="hidden sm:table-cell">Ventas</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Efectivo</TableHead>
-              <TableHead>Transferencia</TableHead>
+              <TableHead className="hidden md:table-cell">Efectivo</TableHead>
+              <TableHead className="hidden lg:table-cell">Transferencia</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -75,10 +75,10 @@ export function ClosureHistory() {
                 <TableCell>
                   {new Date(closure.date).toLocaleDateString('es-AR')}
                 </TableCell>
-                <TableCell>{closure.totalSales}</TableCell>
-                <TableCell>${closure.total.toFixed(2)}</TableCell>
-                <TableCell>${closure.cashTotal.toFixed(2)}</TableCell>
-                <TableCell>${closure.transferTotal.toFixed(2)}</TableCell>
+                <TableCell className="hidden sm:table-cell font-mono">{closure.totalSales}</TableCell>
+                <TableCell className="font-mono font-medium text-primary">${closure.total.toFixed(2)}</TableCell>
+                <TableCell className="hidden md:table-cell font-mono">${closure.cashTotal.toFixed(2)}</TableCell>
+                <TableCell className="hidden lg:table-cell font-mono">${closure.transferTotal.toFixed(2)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

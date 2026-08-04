@@ -11,8 +11,8 @@ export default async function SalesHistoryPage() {
   const sales = await saleRepository.findByDateRange(start, end);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Historial de ventas</h1>
+    <div className="space-y-5">
+      <h1 className="text-2xl font-semibold tracking-tight">Historial de ventas</h1>
       <SalesHistory sales={sales} />
     </div>
   );

@@ -15,8 +15,8 @@ export default async function EditRecipePage({ params }: PageParams) {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Receta: {product.name}</h1>
+    <div className="space-y-5">
+      <h1 className="text-2xl font-semibold tracking-tight">Receta: {product.name}</h1>
       <RecipeEditor productId={product.id} />
     </div>
   );

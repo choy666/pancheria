@@ -15,8 +15,8 @@ export default async function EditProductPage({ params }: PageParams) {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Editar producto</h1>
+    <div className="space-y-5">
+      <h1 className="text-2xl font-semibold tracking-tight">Editar producto</h1>
       <ProductForm product={product} />
     </div>
   );

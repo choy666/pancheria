@@ -102,21 +102,21 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {error && isDialogOpen && (
-        <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
         </div>
       )}
 
-      <div className="rounded-md border">
+      <div className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Hora</TableHead>
-              <TableHead>Productos</TableHead>
+              <TableHead className="hidden sm:table-cell">Productos</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Pago</TableHead>
+              <TableHead className="hidden md:table-cell">Pago</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -127,16 +127,16 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
                 <TableCell>
                   {formatTime(sale.createdAt)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden sm:table-cell max-w-[260px] truncate">
                   {sale.items
                     .map((item) => `${item.product.name} x${item.quantity}`)
                     .join(', ')}
                 </TableCell>
-                <TableCell>${sale.total.toFixed(2)}</TableCell>
-                <TableCell>{paymentLabels[sale.paymentMethod]}</TableCell>
+                <TableCell className="font-mono">${sale.total.toFixed(2)}</TableCell>
+                <TableCell className="hidden md:table-cell">{paymentLabels[sale.paymentMethod]}</TableCell>
                 <TableCell>
                   {sale.status === 'active' ? (
-                    <Badge>Activa</Badge>
+                    <Badge variant="default">Activa</Badge>
                   ) : (
                     <Badge variant="secondary">Anulada</Badge>
                   )}
@@ -165,8 +165,8 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
             <DialogTitle>Anular venta #{selectedSale?.id}</DialogTitle>
           </DialogHeader>
           {selectedSale && (
-            <div className="space-y-4 pt-4">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-5 pt-4">
+              <p className="text-base leading-relaxed text-muted-foreground">
                 Productos:{' '}
                 {selectedSale.items
                   .map(
@@ -174,7 +174,7 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
                   )
                   .join(', ')}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-mono text-lg font-semibold text-foreground">
                 Total: ${selectedSale.total.toFixed(2)}
               </p>
               <div className="space-y-2">
@@ -187,7 +187,7 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
                 />
               </div>
               {error && (
-                <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+                <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
                   {error}
                 </div>
               )}

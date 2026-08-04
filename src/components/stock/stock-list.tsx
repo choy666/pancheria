@@ -103,20 +103,20 @@ export function StockList() {
   if (loading) return <p>Cargando...</p>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
         </div>
       )}
 
-      <div className="rounded-md border">
+      <div className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Producto</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Mínimo</TableHead>
+              <TableHead className="hidden sm:table-cell">Stock</TableHead>
+              <TableHead className="hidden md:table-cell">Mínimo</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -124,11 +124,16 @@ export function StockList() {
           <TableBody>
             {products.map((product) => (
               <TableRow key={product.id}>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>
+                <TableCell className="font-medium">
+                  <span className="block">{product.name}</span>
+                  <span className="font-mono text-sm text-muted-foreground sm:hidden">
+                    {product.stock} / {product.minStock} {product.unit}
+                  </span>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell font-mono">
                   {product.stock} {product.unit}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell font-mono">
                   {product.minStock} {product.unit}
                 </TableCell>
                 <TableCell>

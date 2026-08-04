@@ -20,16 +20,18 @@ export function LoginForm() {
 
   return (
     <div className='flex min-h-full items-center justify-center p-4'>
-      <Card className='w-full max-w-sm'>
-        <CardHeader>
-          <CardTitle>Iniciar sesión</CardTitle>
-          <CardDescription>Sistema de gestión de la panchería</CardDescription>
+      <Card className='w-full max-w-sm rounded-2xl'>
+        <CardHeader className='space-y-1'>
+          <CardTitle className='text-2xl font-semibold tracking-tight'>Iniciar sesión</CardTitle>
+          <CardDescription className='text-base'>
+            Sistema de gestión de la panchería
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className='space-y-4'>
+          <form action={formAction} className='space-y-5'>
             {state?.error && (
               <p
-                className='text-sm text-red-600'
+                className='rounded-lg bg-destructive/15 p-3 text-base text-destructive'
                 role='alert'
                 aria-live='polite'
               >
@@ -44,6 +46,7 @@ export function LoginForm() {
                 type='text'
                 required
                 autoComplete='username'
+                placeholder='Ingresá tu usuario'
               />
             </div>
             <div className='space-y-2'>
@@ -54,6 +57,7 @@ export function LoginForm() {
                 type='password'
                 required
                 autoComplete='current-password'
+                placeholder='••••••••'
               />
             </div>
             <Button type='submit' className='w-full' disabled={isPending}>

@@ -29,23 +29,23 @@ export default async function ProductsPage() {
   const products = await productService.listProducts();
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Productos e insumos</h1>
-        <Link href="/productos/nuevo">
-          <Button>Nuevo producto</Button>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Productos e insumos</h1>
+        <Link href="/productos/nuevo" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto">Nuevo producto</Button>
         </Link>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Mínimo</TableHead>
-              <TableHead>Precio</TableHead>
+              <TableHead>Producto</TableHead>
+              <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+              <TableHead className="hidden md:table-cell">Stock</TableHead>
+              <TableHead className="hidden lg:table-cell">Mínimo</TableHead>
+              <TableHead className="hidden lg:table-cell">Precio</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -53,8 +53,16 @@ export default async function ProductsPage() {
           <TableBody>
             {products.map((product) => (
               <TableRow key={product.id}>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>
+                <TableCell className="font-medium">
+                  <span className="block">{product.name}</span>
+                  <span className="text-sm text-muted-foreground sm:hidden">
+                    {productTypeLabels[product.type]}
+                    {product.criticalSupplyType
+                      ? ` · ${criticalTypeLabels[product.criticalSupplyType]}`
+                      : ''}
+                  </span>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <Badge variant="outline">
                     {productTypeLabels[product.type]}
                     {product.criticalSupplyType
@@ -62,7 +70,7 @@ export default async function ProductsPage() {
                       : ''}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell font-mono">
                   {product.stock} {product.unit}
                   {product.stock <= product.minStock && (
                     <Badge variant="destructive" className="ml-2">
@@ -70,13 +78,15 @@ export default async function ProductsPage() {
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell font-mono">
                   {product.minStock} {product.unit}
                 </TableCell>
-                <TableCell>${product.price.toFixed(2)}</TableCell>
+                <TableCell className="hidden lg:table-cell font-mono">
+                  ${product.price.toFixed(2)}
+                </TableCell>
                 <TableCell>
                   {product.isActive ? (
-                    <Badge>Activo</Badge>
+                    <Badge variant="default">Activo</Badge>
                   ) : (
                     <Badge variant="secondary">Inactivo</Badge>
                   )}

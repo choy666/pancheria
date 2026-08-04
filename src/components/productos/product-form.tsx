@@ -78,9 +78,9 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
         </div>
       )}
@@ -106,7 +106,7 @@ export function ProductForm({ product }: ProductFormProps) {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="type">Tipo</Label>
           <Select
@@ -154,7 +154,7 @@ export function ProductForm({ product }: ProductFormProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
           <Label htmlFor="price">Precio</Label>
           <Input
@@ -209,18 +209,18 @@ export function ProductForm({ product }: ProductFormProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-card p-4">
         <input
           id="isActive"
           type="checkbox"
           checked={form.isActive}
           onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-          className="h-4 w-4"
+          className="h-5 w-5 accent-primary"
         />
-        <Label htmlFor="isActive">Activo</Label>
+        <Label htmlFor="isActive" className="mb-0">Activo</Label>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>

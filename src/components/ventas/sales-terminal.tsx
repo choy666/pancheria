@@ -141,31 +141,35 @@ export function SalesTerminal() {
   if (loading) return <p>Cargando...</p>;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-4">
+    <div className="grid gap-5 lg:grid-cols-3">
+      <div className="space-y-4 lg:col-span-2">
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+          <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
             {error}
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
             <Card
               key={product.id}
-              className={`cursor-pointer transition-colors ${
-                product.availability <= 0 ? 'opacity-60' : 'hover:bg-muted'
+              className={`cursor-pointer touch-manipulation transition-all ${
+                product.availability <= 0
+                  ? 'opacity-50'
+                  : 'hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98]'
               }`}
               onClick={() => addToCart(product)}
             >
-              <CardHeader className="p-4">
-                <CardTitle className="text-lg">{product.name}</CardTitle>
+              <CardHeader className="p-5">
+                <CardTitle className="text-lg font-semibold leading-tight">
+                  {product.name}
+                </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <p className="text-2xl font-bold">
+              <CardContent className="p-5 pt-0">
+                <p className="font-mono text-2xl font-bold text-primary">
                   ${product.price.toFixed(2)}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-1 text-base text-muted-foreground">
                   Disponible: {product.availability} {product.unit}
                 </p>
               </CardContent>
@@ -175,23 +179,25 @@ export function SalesTerminal() {
       </div>
 
       <div className="space-y-4">
-        <Card>
+        <Card className="lg:sticky lg:top-24">
           <CardHeader>
-            <CardTitle>Pedido</CardTitle>
+            <CardTitle className="text-lg">Pedido</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             {cart.length === 0 ? (
-              <p className="text-muted-foreground">El carrito está vacío.</p>
+              <p className="text-base text-muted-foreground">
+                El carrito está vacío.
+              </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 {cart.map((item) => (
                   <li
                     key={item.product.id}
-                    className="flex items-center justify-between"
+                    className="flex items-center justify-between gap-3"
                   >
-                    <div>
-                      <p className="font-medium">{item.product.name}</p>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{item.product.name}</p>
+                      <p className="font-mono text-sm text-muted-foreground">
                         ${item.product.price.toFixed(2)} x {item.quantity}
                       </p>
                     </div>
@@ -199,18 +205,22 @@ export function SalesTerminal() {
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        size="icon-sm"
+                        aria-label="Disminuir cantidad"
                         onClick={() =>
                           updateQuantity(item.product.id, item.quantity - 1)
                         }
                       >
                         -
                       </Button>
-                      <span className="w-6 text-center">{item.quantity}</span>
+                      <span className="min-w-8 text-center font-mono text-base">
+                        {item.quantity}
+                      </span>
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        size="icon-sm"
+                        aria-label="Aumentar cantidad"
                         onClick={() =>
                           updateQuantity(item.product.id, item.quantity + 1)
                         }
@@ -223,15 +233,16 @@ export function SalesTerminal() {
               </ul>
             )}
 
-            <div className="border-t pt-4">
-              <p className="text-2xl font-bold">Total: ${total.toFixed(2)}</p>
+            <div className="border-t border-white/10 pt-4">
+              <p className="font-mono text-2xl font-bold">
+                Total: ${total.toFixed(2)}
+              </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
                 variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                className="flex-1"
                 onClick={() => setPaymentMethod('cash')}
               >
                 Efectivo
@@ -239,7 +250,6 @@ export function SalesTerminal() {
               <Button
                 type="button"
                 variant={paymentMethod === 'transfer' ? 'default' : 'outline'}
-                className="flex-1"
                 onClick={() => setPaymentMethod('transfer')}
               >
                 Transferencia

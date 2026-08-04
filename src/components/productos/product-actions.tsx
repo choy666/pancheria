@@ -30,7 +30,7 @@ export function ProductActions({
   }
 
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex flex-wrap justify-end gap-2">
       {isCompound && (
         <Link href={`/recetas/${productId}/editar`}>
           <Button variant="outline" size="sm">
@@ -45,7 +45,7 @@ export function ProductActions({
           variant="ghost"
           size="sm"
           disabled={isDeleting}
-          className="text-destructive"
+          className="text-destructive hover:text-destructive"
         >
           {isDeleting ? 'Eliminando...' : 'Eliminar'}
         </Button>

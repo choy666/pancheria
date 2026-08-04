@@ -135,9 +135,9 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
   if (loading) return <p>Cargando...</p>;
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-5">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
         </div>
       )}
@@ -149,9 +149,9 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
           return (
             <div
               key={index}
-              className="flex flex-wrap items-end gap-2 rounded-md border p-3"
+              className="grid grid-cols-1 gap-4 rounded-2xl border border-white/8 bg-card p-4 sm:grid-cols-2 lg:grid-cols-4"
             >
-              <div className="min-w-[200px] flex-1 space-y-2">
+              <div className="min-w-0 space-y-2 sm:col-span-2">
                 <Label>Insumo</Label>
                 <Select
                   value={item.supplyId.toString()}
@@ -172,7 +172,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
                 </Select>
               </div>
 
-              <div className="w-28 space-y-2">
+              <div className="space-y-2">
                 <Label>Cantidad</Label>
                 <Input
                   type="number"
@@ -184,7 +184,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
                 />
               </div>
 
-              <div className="flex items-center gap-2 pb-2">
+              <div className="flex items-center gap-3">
                 <input
                   id={`auto-${index}`}
                   type="checkbox"
@@ -193,7 +193,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
                   onChange={(e) =>
                     updateItem(index, { autoDiscount: e.target.checked })
                   }
-                  className="h-4 w-4"
+                  className="h-5 w-5 accent-primary"
                 />
                 <Label htmlFor={`auto-${index}`} className="mb-0">
                   Descuento automático
@@ -205,6 +205,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => removeItem(index)}
+                className="justify-self-start"
               >
                 Quitar
               </Button>
@@ -213,17 +214,19 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
         })}
       </div>
 
-      <Button type="button" variant="outline" onClick={addItem}>
-        Agregar insumo
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" onClick={addItem}>
+          Agregar insumo
+        </Button>
 
-      {items.some((item) => item.autoDiscount) && (
-        <Badge variant="default" className="ml-2">
-          Receta válida
-        </Badge>
-      )}
+        {items.some((item) => item.autoDiscount) && (
+          <Badge variant="default" className="ml-0">
+            Receta válida
+          </Badge>
+        )}
+      </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <Button onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? 'Guardando...' : 'Guardar receta'}
         </Button>

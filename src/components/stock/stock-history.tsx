@@ -70,17 +70,17 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-base leading-relaxed text-muted-foreground">
         Historial de movimientos para <strong>{productName}</strong>
       </p>
-      <div className="rounded-md border">
+      <div className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Tipo</TableHead>
+              <TableHead className="hidden sm:table-cell">Tipo</TableHead>
               <TableHead>Cantidad</TableHead>
-              <TableHead>Motivo</TableHead>
+              <TableHead className="hidden md:table-cell">Motivo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -89,16 +89,16 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
                 <TableCell>
                   {formatDateTime(movement.createdAt)}
                 </TableCell>
-                <TableCell>{typeLabels[movement.type]}</TableCell>
+                <TableCell className="hidden sm:table-cell">{typeLabels[movement.type]}</TableCell>
                 <TableCell
-                  className={
-                    movement.quantity > 0 ? 'text-green-600' : 'text-red-600'
-                  }
+                  className={`font-mono font-medium ${
+                    movement.quantity > 0 ? 'text-emerald-400' : 'text-destructive'
+                  }`}
                 >
                   {movement.quantity > 0 ? '+' : ''}
                   {movement.quantity}
                 </TableCell>
-                <TableCell>{movement.reason || '-'}</TableCell>
+                <TableCell className="hidden md:table-cell max-w-[200px] truncate">{movement.reason || '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -110,15 +110,15 @@ export function ClosurePanel() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-destructive">
+        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
         </div>
       )}
 
       <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-2">
+        <div className="w-full space-y-2 sm:w-auto">
           <Label htmlFor="date">Fecha</Label>
           <Input
             id="date"
@@ -127,42 +127,48 @@ export function ClosurePanel() {
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
-        <Button onClick={handleGenerate} disabled={isSubmitting}>
+        <Button onClick={handleGenerate} disabled={isSubmitting} className="w-full sm:w-auto">
           {isSubmitting ? 'Generando...' : 'Generar cierre'}
         </Button>
         {closure && (
-          <Button variant="outline" onClick={downloadCsv}>
+          <Button variant="outline" onClick={downloadCsv} className="w-full sm:w-auto">
             Descargar CSV
           </Button>
         )}
       </div>
 
       {closure && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card className="border-primary/20">
             <CardHeader>
-              <CardTitle>Resumen de caja</CardTitle>
+              <CardTitle className="text-lg">Resumen de caja</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-2xl font-bold">
+            <CardContent className="space-y-3">
+              <p className="font-mono text-2xl font-bold text-primary">
                 Total: ${closure.total.toFixed(2)}
               </p>
-              <p>Efectivo: ${closure.cashTotal.toFixed(2)}</p>
-              <p>Transferencia: ${closure.transferTotal.toFixed(2)}</p>
-              <p>Ventas: {closure.totalSales}</p>
+              <div className="grid grid-cols-2 gap-3 text-base">
+                <p className="rounded-lg bg-muted/30 p-3">
+                  Efectivo: <span className="font-mono font-medium">${closure.cashTotal.toFixed(2)}</span>
+                </p>
+                <p className="rounded-lg bg-muted/30 p-3">
+                  Transferencia: <span className="font-mono font-medium">${closure.transferTotal.toFixed(2)}</span>
+                </p>
+              </div>
+              <p className="text-base">Ventas: <span className="font-mono font-semibold">{closure.totalSales}</span></p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Productos vendidos</CardTitle>
+              <CardTitle className="text-lg">Productos vendidos</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {Object.entries(productsSummary).map(([name, quantity]) => (
-                  <li key={name} className="flex justify-between">
+                  <li key={name} className="flex items-center justify-between rounded-lg bg-muted/20 p-2">
                     <span>{name}</span>
-                    <span className="font-medium">{quantity}</span>
+                    <span className="font-mono font-medium">{quantity}</span>
                   </li>
                 ))}
               </ul>
@@ -171,14 +177,14 @@ export function ClosurePanel() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Consumo de insumos críticos</CardTitle>
+              <CardTitle className="text-lg">Consumo de insumos críticos</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {Object.entries(criticalSuppliesSummary).map(([name, quantity]) => (
-                  <li key={name} className="flex justify-between">
+                  <li key={name} className="flex items-center justify-between rounded-lg bg-muted/20 p-2">
                     <span>{name}</span>
-                    <span className="font-medium">{quantity}</span>
+                    <span className="font-mono font-medium">{quantity}</span>
                   </li>
                 ))}
               </ul>
