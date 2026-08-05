@@ -1,4 +1,5 @@
 ﻿import { test, expect } from '@playwright/test';
+import { ensureCashRegisterOpen } from './helpers';
 
 const adminUsername = process.env.ADMIN_USERNAME || '';
 const adminPassword = process.env.ADMIN_PASSWORD || '';
@@ -23,7 +24,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
 
     for (const item of menu) {
       const nav = page.locator('nav');
-      await nav.getByRole('button', { name: item.name }).click();
+      await nav.getByRole('link', { name: item.name }).click();
       await expect(page).toHaveURL(item.url);
     }
   });
@@ -53,6 +54,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   });
 
   test('registra una venta', async ({ page }) => {
+    await ensureCashRegisterOpen(page);
     await page.goto('/ventas');
     await page.getByText('Panchuque completo').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
@@ -69,10 +71,13 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await expect(page).toHaveURL('/stock', { timeout: 10000 });
   });
 
-  test('genera un cierre y cierra sesion', async ({ page }) => {
+  test('cierra la caja y cierra sesion', async ({ page }) => {
+    await ensureCashRegisterOpen(page);
     await page.goto('/cierre');
-    await page.getByRole('button', { name: 'Generar cierre' }).click();
     await expect(page.getByText('Total:')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Cerrar caja' }).click();
+    await expect(page.getByText('No hay una caja abierta.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
     await expect(page).toHaveURL('/login', { timeout: 10000 });

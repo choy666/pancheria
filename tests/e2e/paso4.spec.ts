@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureCashRegisterOpen } from './helpers';
 
 const adminUsername = process.env.ADMIN_USERNAME || '';
 const adminPassword = process.env.ADMIN_PASSWORD || '';
@@ -13,6 +14,8 @@ test.describe('Paso 4 - Flujos avanzados', () => {
   });
 
   test('anula una venta y verifica reintegro de stock', async ({ page }) => {
+    await ensureCashRegisterOpen(page);
+
     const productsResponse = await page.request.get('/api/productos');
     const products = await productsResponse.json() as { id: number; name: string }[];
     const product = products.find((p) => p.name === 'Panchuque completo');
