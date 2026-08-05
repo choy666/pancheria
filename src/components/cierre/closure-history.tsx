@@ -73,7 +73,7 @@ export function ClosureHistory() {
             {closures.map((closure) => (
               <TableRow key={closure.id}>
                 <TableCell>
-                  {new Date(closure.date).toLocaleDateString('es-AR')}
+                  {new Date(closure.date).toLocaleDateString('es-AR', { timeZone: 'UTC' })}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell font-mono">{closure.totalSales}</TableCell>
                 <TableCell className="font-mono font-medium text-primary">${closure.total.toFixed(2)}</TableCell>

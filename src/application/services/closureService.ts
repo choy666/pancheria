@@ -126,11 +126,7 @@ export async function generateClosure(date: Date) {
     return result;
   });
 
-  return {
-    ...closure,
-    productsSummary,
-    criticalSuppliesSummary,
-  };
+  return closure;
 }
 
 export async function getClosureByDate(date: Date) {

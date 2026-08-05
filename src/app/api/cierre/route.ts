@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const date = dateParam ? new Date(dateParam) : new Date();
 
     const closure = await closureService.getClosureByDate(date);
-    return NextResponse.json(closure);
+    return NextResponse.json(closure ?? null);
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });

@@ -3,17 +3,17 @@ import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from './schema';
 
-// Cargar variables de entorno antes de inicializar la conexión.
+// Cargar .env.local para scripts que corren fuera de Next.js (seed, drizzle-kit).
+// En Vercel el archivo no existe, por lo que dotenv no hace nada y process.env
+// sigue viniendo de las variables configuradas en la plataforma.
 dotenv.config({ path: '.env.local' });
 
 const databaseUrl = process.env.DATABASE_URL;
 
-// Durante el build de Next.js no se realiza ninguna consulta,
-// por lo que se permite un placeholder para evitar errores de inicialización.
-// En runtime, DATABASE_URL debe estar definida en .env.local.
+// En runtime DATABASE_URL debe estar definida en las variables de entorno.
+// El placeholder permite que el build de Next.js no falle si aún no está cargada.
 const pool = new Pool({
-  connectionString:
-    databaseUrl || 'postgresql://placeholder',
+  connectionString: databaseUrl || 'postgresql://placeholder',
 });
 
 export const db = drizzle(pool, { schema });
