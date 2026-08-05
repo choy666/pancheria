@@ -26,9 +26,13 @@ test.describe('Paso 4 - Flujos avanzados', () => {
       },
     });
     expect(saleResponse.status()).toBe(201);
-    const sale = await saleResponse.json() as { id: number };
+    const sale = await saleResponse.json() as { id: number; cashRegisterId: number | null };
 
-    await page.goto('/ventas/historial');
+    if (!sale.cashRegisterId) {
+      throw new Error('La venta no tiene caja asignada.');
+    }
+
+    await page.goto(`/ventas/historial/${sale.cashRegisterId}`);
     await page.getByTestId(`anular-sale-${sale.id}`).click();
     await page.fill('input#cancel-reason', 'Error de carga');
     await page.getByRole('button', { name: 'Confirmar anulación' }).click();

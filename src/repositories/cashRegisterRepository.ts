@@ -1,6 +1,7 @@
 import { eq, and, desc, gte, lte } from 'drizzle-orm';
 import { db } from '@/db';
 import { cashRegisters } from '@/db/schema';
+import type { CashRegisterStatus } from '@/domain/types';
 
 export async function findOpen() {
   return db.query.cashRegisters.findFirst({
@@ -13,6 +14,7 @@ export async function findById(id: number) {
     where: eq(cashRegisters.id, id),
     with: {
       sales: {
+        orderBy: (sales, { desc }) => [desc(sales.createdAt)],
         with: {
           items: {
             with: {
@@ -25,15 +27,28 @@ export async function findById(id: number) {
   });
 }
 
-export async function findClosedInRange(start: Date, end: Date) {
+export async function findInRange(
+  start: Date,
+  end: Date,
+  status?: CashRegisterStatus
+) {
+  const conditions = [
+    gte(cashRegisters.openedAt, start),
+    lte(cashRegisters.openedAt, end),
+  ];
+
+  if (status) {
+    conditions.push(eq(cashRegisters.status, status));
+  }
+
   return db.query.cashRegisters.findMany({
-    where: and(
-      eq(cashRegisters.status, 'closed'),
-      gte(cashRegisters.openedAt, start),
-      lte(cashRegisters.openedAt, end)
-    ),
+    where: and(...conditions),
     orderBy: [desc(cashRegisters.openedAt)],
   });
+}
+
+export async function findClosedInRange(start: Date, end: Date) {
+  return findInRange(start, end, 'closed');
 }
 
 export async function create(data: {

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 interface CashRegister {
   id: number;
@@ -29,13 +30,18 @@ interface CashRegister {
   totalSales: number;
 }
 
+interface CajaHistoryProps {
+  detailRoute?: string;
+  statusFilter?: 'all' | 'closed';
+}
+
 function formatDateTime(date: string | Date | null): string {
   if (!date) return '-';
   return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: es });
 }
 
 function safeFormatDuration(duration: Duration | null): string {
-  if (!duration) return '-';
+  if (!duration) return 'En curso';
   const text = formatDuration(duration, {
     format: ['hours', 'minutes'],
     locale: es,
@@ -43,7 +49,10 @@ function safeFormatDuration(duration: Duration | null): string {
   return text || '0m';
 }
 
-export function CajaHistory() {
+export function CajaHistory({
+  detailRoute = '/cierre',
+  statusFilter = 'closed',
+}: CajaHistoryProps) {
   const router = useRouter();
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +69,10 @@ export function CajaHistory() {
           end: end.toISOString().split('T')[0],
         });
 
+        if (statusFilter !== 'all') {
+          params.set('status', statusFilter);
+        }
+
         const response = await fetch(`${CAJA_HISTORIAL_API}?${params}`, {
           credentials: 'include',
         });
@@ -73,7 +86,7 @@ export function CajaHistory() {
     }
 
     load();
-  }, []);
+  }, [statusFilter]);
 
   if (loading) return <p>Cargando...</p>;
   if (error) return <p className="text-destructive">{error}</p>;
@@ -84,9 +97,11 @@ export function CajaHistory() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="hidden sm:table-cell">ID</TableHead>
               <TableHead>Apertura</TableHead>
               <TableHead>Cierre</TableHead>
-              <TableHead>Duración</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="hidden sm:table-cell">Duración</TableHead>
               <TableHead className="hidden sm:table-cell">Ventas</TableHead>
               <TableHead>Total</TableHead>
               <TableHead className="hidden md:table-cell">Efectivo</TableHead>
@@ -100,19 +115,36 @@ export function CajaHistory() {
               const closedAt = cashRegister.closedAt
                 ? new Date(cashRegister.closedAt)
                 : null;
-              const duration = closedAt
-                ? intervalToDuration({ start: openedAt, end: closedAt })
-                : null;
+              const duration = intervalToDuration({
+                start: openedAt,
+                end: closedAt ?? new Date(),
+              });
 
               return (
                 <TableRow
                   key={cashRegister.id}
                   className="cursor-pointer"
-                  onClick={() => router.push(`/cierre/${cashRegister.id}`)}
+                  onClick={() =>
+                    router.push(`${detailRoute}/${cashRegister.id}`)
+                  }
                 >
+                  <TableCell className="hidden sm:table-cell font-mono">
+                    #{cashRegister.id}
+                  </TableCell>
                   <TableCell>{formatDateTime(cashRegister.openedAt)}</TableCell>
                   <TableCell>{formatDateTime(cashRegister.closedAt)}</TableCell>
-                  <TableCell>{safeFormatDuration(duration)}</TableCell>
+                  <TableCell>
+                    {cashRegister.status === 'open' ? (
+                      <Badge variant="default">Abierta</Badge>
+                    ) : (
+                      <Badge variant="secondary">Cerrada</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {cashRegister.status === 'open'
+                      ? 'En curso'
+                      : safeFormatDuration(duration)}
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell font-mono">
                     {cashRegister.totalSales}
                   </TableCell>

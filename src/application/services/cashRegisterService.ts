@@ -7,6 +7,7 @@ import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { addHours } from 'date-fns';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
+import type { CashRegisterStatus } from '@/domain/types';
 
 export async function getOpenCashRegister() {
   const cashRegister = await cashRegisterRepository.findOpen();
@@ -219,8 +220,12 @@ export async function getCashRegisterById(id: number) {
   return cashRegisterRepository.findById(id);
 }
 
-export async function listCashRegisterHistory(start: Date, end: Date) {
-  return cashRegisterRepository.findClosedInRange(start, end);
+export async function listCashRegisterHistory(
+  start: Date,
+  end: Date,
+  status?: CashRegisterStatus
+) {
+  return cashRegisterRepository.findInRange(start, end, status);
 }
 
 export async function autoCloseIfNeeded() {

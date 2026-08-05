@@ -3,6 +3,7 @@ import { subDays } from 'date-fns';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
+import type { CashRegisterStatus } from '@/domain/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,10 +14,14 @@ export async function GET(request: NextRequest) {
 
     const end = endParam ? new Date(endParam) : new Date();
     const start = startParam ? new Date(startParam) : subDays(end, 30);
+    const statusParam = searchParams.get('status');
+    const status: CashRegisterStatus | undefined =
+      statusParam === 'open' || statusParam === 'closed' ? statusParam : undefined;
 
     const cashRegisters = await cashRegisterService.listCashRegisterHistory(
       start,
-      end
+      end,
+      status
     );
     return NextResponse.json(cashRegisters);
   } catch (error) {
