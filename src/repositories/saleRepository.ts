@@ -1,7 +1,7 @@
 import { eq, and, gte, lt } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, saleItems } from '@/db/schema';
-import type { PaymentMethod } from '@/domain/types';
+import type { PaymentMethod, SaleStatus } from '@/domain/types';
 
 export async function findById(id: number) {
   return db.query.sales.findFirst({
@@ -16,11 +16,35 @@ export async function findById(id: number) {
   });
 }
 
-export async function findByDateRange(start: Date, end: Date, status?: 'active' | 'cancelled') {
-  const conditions = [
-    gte(sales.createdAt, start),
-    lt(sales.createdAt, end),
-  ];
+export async function findByDateRange(
+  start: Date,
+  end: Date,
+  status?: SaleStatus
+) {
+  const conditions = [gte(sales.createdAt, start), lt(sales.createdAt, end)];
+
+  if (status) {
+    conditions.push(eq(sales.status, status));
+  }
+
+  return db.query.sales.findMany({
+    where: and(...conditions),
+    orderBy: (sales, { desc }) => [desc(sales.createdAt)],
+    with: {
+      items: {
+        with: {
+          product: true,
+        },
+      },
+    },
+  });
+}
+
+export async function findByCashRegisterId(
+  cashRegisterId: number,
+  status?: SaleStatus
+) {
+  const conditions = [eq(sales.cashRegisterId, cashRegisterId)];
 
   if (status) {
     conditions.push(eq(sales.status, status));
@@ -42,6 +66,7 @@ export async function findByDateRange(start: Date, end: Date, status?: 'active' 
 export async function create(params: {
   total: number;
   paymentMethod: PaymentMethod;
+  cashRegisterId?: number | null;
   idempotencyKey: string;
   items: {
     productId: number;
@@ -50,13 +75,14 @@ export async function create(params: {
     subtotal: number;
   }[];
 }) {
-  const { total, paymentMethod, idempotencyKey, items } = params;
+  const { total, paymentMethod, cashRegisterId, idempotencyKey, items } = params;
 
   const [sale] = await db
     .insert(sales)
     .values({
       total,
       paymentMethod,
+      cashRegisterId,
       idempotencyKey,
     })
     .returning();

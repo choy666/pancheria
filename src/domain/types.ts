@@ -8,6 +8,8 @@ export type PaymentMethod = 'cash' | 'transfer';
 
 export type SaleStatus = 'active' | 'cancelled';
 
+export type CashRegisterStatus = 'open' | 'closed';
+
 export type StockMovementType =
   | 'sale'
   | 'cancellation'
@@ -75,11 +77,31 @@ export type Sale = {
   total: Money;
   paymentMethod: PaymentMethod;
   status: SaleStatus;
+  cashRegisterId: number | null;
+  cashRegister?: CashRegister | null;
   idempotencyKey: string | null;
   createdAt: Date;
   cancelledAt: Date | null;
   cancellationReason: string | null;
   items?: SaleItem[];
+};
+
+export type CashRegister = {
+  id: number;
+  openedAt: Date;
+  closedAt: Date | null;
+  openedBy: string;
+  closedBy: string | null;
+  status: CashRegisterStatus;
+  autoClosed: boolean;
+  total: Money;
+  cashTotal: Money;
+  transferTotal: Money;
+  totalSales: number;
+  productsSummary: Record<string, number>;
+  criticalSuppliesSummary: Record<string, number>;
+  createdAt: Date;
+  sales?: Sale[];
 };
 
 export type StockMovement = {

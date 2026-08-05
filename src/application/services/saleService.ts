@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { products, recipes, sales, saleItems, stockMovements } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import { isIdempotencyKeyUsed } from '@/application/idempotencyService';
+import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as productRepository from '@/repositories/productRepository';
 import { addMoney, multiplyMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import {
@@ -51,6 +52,14 @@ export async function confirmSale(params: {
 
   if (await isIdempotencyKeyUsed(idempotencyKey)) {
     throw new ValidationError('La venta ya fue procesada.');
+  }
+
+  const cashRegister = await cashRegisterService.getOpenCashRegister();
+
+  if (!cashRegister) {
+    throw new ValidationError(
+      'No hay una caja abierta. Abrí la caja para comenzar a vender.'
+    );
   }
 
   const productIds = items.map((item) => item.productId);
@@ -109,6 +118,7 @@ export async function confirmSale(params: {
       .values({
         total: moneyToNumber(saleTotal),
         paymentMethod,
+        cashRegisterId: cashRegister.id,
         idempotencyKey,
       })
       .returning();

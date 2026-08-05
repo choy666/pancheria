@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ClosurePanel } from '@/components/cierre/closure-panel';
+import { CajaPanel } from '@/components/caja/caja-panel';
 
 export default function ClosurePage() {
   return (
@@ -13,7 +13,7 @@ export default function ClosurePage() {
           </Button>
         </Link>
       </div>
-      <ClosurePanel />
+      <CajaPanel />
     </div>
   );
 }

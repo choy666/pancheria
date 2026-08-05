@@ -11,6 +11,16 @@ export async function GET(request: NextRequest) {
     await requireAuth();
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get('date');
+    const cashRegisterIdParam = searchParams.get('cashRegisterId');
+
+    if (cashRegisterIdParam) {
+      const sales = await saleRepository.findByCashRegisterId(
+        Number(cashRegisterIdParam),
+        'active'
+      );
+      return NextResponse.json(sales);
+    }
+
     const date = dateParam ? new Date(dateParam) : new Date();
 
     const start = new Date(date);

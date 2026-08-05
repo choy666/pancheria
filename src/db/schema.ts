@@ -35,6 +35,11 @@ export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
   'restock',
 ]);
 
+export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
+  'open',
+  'closed',
+]);
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   username: varchar('username', { length: 255 }).notNull().unique(),
@@ -89,6 +94,30 @@ export const recipes = pgTable(
   })
 );
 
+export const cashRegisters = pgTable(
+  'cash_registers',
+  {
+    id: serial('id').primaryKey(),
+    openedAt: timestamp('opened_at').defaultNow().notNull(),
+    closedAt: timestamp('closed_at'),
+    openedBy: varchar('opened_by', { length: 255 }).notNull(),
+    closedBy: varchar('closed_by', { length: 255 }),
+    status: cashRegisterStatusEnum('status').default('open').notNull(),
+    autoClosed: boolean('auto_closed').default(false).notNull(),
+    total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
+    cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
+    transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
+    totalSales: integer('total_sales').default(0).notNull(),
+    productsSummary: text('products_summary').default('{}').notNull(),
+    criticalSuppliesSummary: text('critical_supplies_summary').default('{}').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index('cash_registers_status_idx').on(table.status),
+    openedAtIdx: index('cash_registers_opened_at_idx').on(table.openedAt),
+  })
+);
+
 export const sales = pgTable(
   'sales',
   {
@@ -96,6 +125,7 @@ export const sales = pgTable(
     total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     paymentMethod: paymentMethodEnum('payment_method').notNull(),
     status: saleStatusEnum('status').default('active').notNull(),
+    cashRegisterId: integer('cash_register_id').references(() => cashRegisters.id),
     idempotencyKey: varchar('idempotency_key', { length: 255 }).unique(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     cancelledAt: timestamp('cancelled_at'),
@@ -103,6 +133,10 @@ export const sales = pgTable(
   },
   (table) => ({
     createdAtIdx: index('sales_created_at_idx').on(table.createdAt),
+    cashRegisterCreatedAtIdx: index('sales_cash_register_created_at_idx').on(
+      table.cashRegisterId,
+      table.createdAt
+    ),
   })
 );
 
@@ -178,7 +212,15 @@ export const recipesRelations = relations(recipes, ({ one }) => ({
   }),
 }));
 
-export const salesRelations = relations(sales, ({ many }) => ({
+export const cashRegistersRelations = relations(cashRegisters, ({ many }) => ({
+  sales: many(sales),
+}));
+
+export const salesRelations = relations(sales, ({ one, many }) => ({
+  cashRegister: one(cashRegisters, {
+    fields: [sales.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
   items: many(saleItems),
   stockMovements: many(stockMovements),
 }));
