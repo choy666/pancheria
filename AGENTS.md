@@ -29,6 +29,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
 - `ADMIN_USERNAME` — usuario administrador único.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
+- `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms).
 
 ## Configuración del blueprint de Devin
 - El blueprint para el snapshot de Devin vive en `.devin/environment.yaml`.

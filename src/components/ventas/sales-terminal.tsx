@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CajaStatus } from '@/components/caja/caja-status';
+import { useCashRegister } from '@/hooks/useCashRegister';
 
 interface Product {
   id: number;
@@ -22,15 +23,6 @@ interface CartItem {
   quantity: number;
 }
 
-interface CashRegister {
-  id: number;
-  openedAt: string;
-  closedAt: string | null;
-  openedBy: string;
-  status: 'open' | 'closed';
-  autoClosed: boolean;
-}
-
 export function SalesTerminal() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
@@ -40,66 +32,14 @@ export function SalesTerminal() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [cashRegister, setCashRegister] = useState<CashRegister | null>(null);
-  const [cashLoading, setCashLoading] = useState(true);
-  const [cashError, setCashError] = useState<string | null>(null);
-
-  async function loadCashRegister() {
-    setCashLoading(true);
-    setCashError(null);
-    try {
-      const response = await fetch('/api/caja', { credentials: 'include' });
-      if (!response.ok) throw new Error('Error al cargar estado de caja');
-      const data = (await response.json()) as CashRegister | { status: 'closed' };
-      if ('status' in data && data.status === 'closed') {
-        setCashRegister(null);
-      } else {
-        setCashRegister(data as CashRegister);
-      }
-    } catch (err) {
-      setCashError(err instanceof Error ? err.message : 'Error desconocido');
-      setCashRegister(null);
-    } finally {
-      setCashLoading(false);
-    }
-  }
-
-  async function handleOpenCashRegister() {
-    setCashError(null);
-    try {
-      const response = await fetch('/api/caja/abrir', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al abrir la caja');
-      }
-      const data = (await response.json()) as CashRegister;
-      setCashRegister(data);
-    } catch (err) {
-      setCashError(err instanceof Error ? err.message : 'Error desconocido');
-    }
-  }
-
-  async function handleCloseCashRegister() {
-    setCashError(null);
-    try {
-      const response = await fetch('/api/caja/cerrar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al cerrar la caja');
-      }
-      setCashRegister(null);
-    } catch (err) {
-      setCashError(err instanceof Error ? err.message : 'Error desconocido');
-    }
-  }
+  const {
+    cashRegister,
+    loading: cashLoading,
+    error: cashError,
+    open,
+    close,
+    refresh,
+  } = useCashRegister();
 
   useEffect(() => {
     async function load() {
@@ -130,7 +70,6 @@ export function SalesTerminal() {
 
     const timer = setTimeout(() => {
       void load();
-      void loadCashRegister();
     }, 0);
     return () => clearTimeout(timer);
   }, []);
@@ -185,7 +124,7 @@ export function SalesTerminal() {
 
     if (!cashRegister || cashRegister.status !== 'open') {
       setError('No hay una caja abierta. Abrí la caja para comenzar a vender.');
-      await loadCashRegister();
+      await refresh();
       return;
     }
 
@@ -214,13 +153,14 @@ export function SalesTerminal() {
 
       setCart([]);
       router.refresh();
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       if (
         err instanceof Error &&
         err.message.includes('No hay una caja abierta')
       ) {
-        await loadCashRegister();
+        await refresh();
       }
     } finally {
       setIsSubmitting(false);
@@ -235,8 +175,8 @@ export function SalesTerminal() {
     <div className="space-y-5">
       <CajaStatus
         cashRegister={cashRegister}
-        onOpen={handleOpenCashRegister}
-        onClose={handleCloseCashRegister}
+        onOpen={open}
+        onClose={close}
         loading={cashLoading}
         error={cashError}
       />

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, recipes, sales, cashRegisters } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
@@ -6,8 +6,7 @@ import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { addHours } from 'date-fns';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-
-const AUTO_CLOSE_HOURS = 12;
+import { AUTO_CLOSE_HOURS } from '@/config/caja';
 
 export async function getOpenCashRegister() {
   const cashRegister = await cashRegisterRepository.findOpen();
@@ -52,7 +51,7 @@ export async function openCashRegister(openedBy: string) {
   });
 }
 
-async function calculateCashRegisterSummary(cashRegisterId: number) {
+export async function calculateCashRegisterSummary(cashRegisterId: number) {
   const activeSales = await db.query.sales.findMany({
     where: and(
       eq(sales.status, 'active'),
@@ -72,6 +71,8 @@ async function calculateCashRegisterSummary(cashRegisterId: number) {
   const productsSummary: Record<string, number> = {};
   const criticalSuppliesSummary: Record<string, number> = {};
 
+  const compoundProductIds = new Set<number>();
+
   for (const sale of activeSales) {
     const saleTotal = parseMoney(sale.total);
     if (sale.paymentMethod === 'cash') {
@@ -84,29 +85,54 @@ async function calculateCashRegisterSummary(cashRegisterId: number) {
       const product = item.product;
       if (!product) continue;
 
-      const key = product.name;
-      productsSummary[key] = (productsSummary[key] ?? 0) + item.quantity;
+      productsSummary[product.name] =
+        (productsSummary[product.name] ?? 0) + item.quantity;
 
       if (product.type === 'compound') {
-        const recipe = await db.query.recipes.findMany({
-          where: eq(recipes.compoundProductId, product.id),
-          with: { supply: true },
-        });
-
-        for (const recipeItem of recipe) {
-          if (!recipeItem.autoDiscount) continue;
-
-          const consumed = recipeItem.quantity * item.quantity;
-          const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
-          criticalSuppliesSummary[supplyName] =
-            (criticalSuppliesSummary[supplyName] ?? 0) + consumed;
-        }
+        compoundProductIds.add(product.id);
       } else if (
         product.type === 'critical_supply' &&
         product.criticalSupplyType === 'beverage'
       ) {
-        criticalSuppliesSummary[key] =
-          (criticalSuppliesSummary[key] ?? 0) + item.quantity;
+        criticalSuppliesSummary[product.name] =
+          (criticalSuppliesSummary[product.name] ?? 0) + item.quantity;
+      }
+    }
+  }
+
+  const recipesByProduct = new Map<number, { autoDiscount: boolean; quantity: number; supplyId: number; supply: { name: string } | null }[]>();
+
+  if (compoundProductIds.size > 0) {
+    const allRecipes = await db.query.recipes.findMany({
+      where: inArray(
+        recipes.compoundProductId,
+        Array.from(compoundProductIds)
+      ),
+      with: { supply: true },
+    });
+
+    for (const recipeItem of allRecipes) {
+      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+        recipesByProduct.set(recipeItem.compoundProductId, []);
+      }
+      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+    }
+  }
+
+  for (const sale of activeSales) {
+    for (const item of sale.items ?? []) {
+      const product = item.product;
+      if (!product || product.type !== 'compound') continue;
+
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+
+        const consumed = recipeItem.quantity * item.quantity;
+        const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
+        criticalSuppliesSummary[supplyName] =
+          (criticalSuppliesSummary[supplyName] ?? 0) + consumed;
       }
     }
   }
@@ -134,6 +160,21 @@ async function calculateCashRegisterSummary(cashRegisterId: number) {
     totalSales: activeSales.length,
     productsSummary: JSON.stringify(productsSummary),
     criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
+  };
+}
+
+export async function getOpenCashRegisterSummary() {
+  const cashRegister = await getOpenCashRegister();
+
+  if (!cashRegister) return null;
+
+  const summary = await calculateCashRegisterSummary(cashRegister.id);
+
+  return {
+    ...cashRegister,
+    ...summary,
+    productsSummary: JSON.parse(summary.productsSummary),
+    criticalSuppliesSummary: JSON.parse(summary.criticalSuppliesSummary),
   };
 }
 

@@ -1,21 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Duration } from 'date-fns';
-import { addHours, format, formatDuration, intervalToDuration } from 'date-fns';
+import {
+  addHours,
+  format,
+  formatDuration,
+  intervalToDuration,
+} from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-interface CashRegister {
-  id: number;
-  openedAt: string;
-  closedAt: string | null;
-  openedBy: string;
-  status: 'open' | 'closed';
-  autoClosed: boolean;
-}
+import { AUTO_CLOSE_HOURS } from '@/config/caja';
+import type { CashRegister } from '@/config/caja';
 
 interface CajaStatusProps {
   cashRegister: CashRegister | null;
@@ -25,7 +23,14 @@ interface CajaStatusProps {
   error: string | null;
 }
 
-const AUTO_CLOSE_HOURS = 12;
+function safeFormatDuration(duration: Duration | null): string {
+  if (!duration) return '0m';
+  const text = formatDuration(duration, {
+    format: ['hours', 'minutes'],
+    locale: es,
+  });
+  return text || '0m';
+}
 
 export function CajaStatus({
   cashRegister,
@@ -35,6 +40,12 @@ export function CajaStatus({
   error,
 }: CajaStatusProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [now, setNow] = useState<Date | null>(() => new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleOpen() {
     setIsSubmitting(true);
@@ -78,20 +89,12 @@ export function CajaStatus({
 
   const openedAt = new Date(cashRegister.openedAt);
   const autoCloseAt = addHours(openedAt, AUTO_CLOSE_HOURS);
-  const now = new Date();
+  const current = now ?? new Date();
 
-  const elapsed = intervalToDuration({ start: openedAt, end: now });
-  const remaining = intervalToDuration({ start: now, end: autoCloseAt });
+  const elapsed = intervalToDuration({ start: openedAt, end: current });
+  const remaining = intervalToDuration({ start: current, end: autoCloseAt });
 
   const openedAtTime = format(openedAt, 'HH:mm', { locale: es });
-
-function safeFormatDuration(duration: Duration): string {
-  const text = formatDuration(duration, {
-    format: ['hours', 'minutes'],
-    locale: es,
-  });
-  return text || '0m';
-}
 
   return (
     <Card className="border-primary/30">
@@ -112,7 +115,9 @@ function safeFormatDuration(duration: Duration): string {
         </p>
         <p className="text-base text-muted-foreground">
           Se cierra automáticamente en{' '}
-          <span className="font-mono text-foreground">{safeFormatDuration(remaining)}</span>
+          <span className="font-mono text-foreground">
+            {safeFormatDuration(remaining)}
+          </span>
         </p>
         <Button
           type="button"
