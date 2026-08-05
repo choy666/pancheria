@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PRODUCTOS_API } from '@/config/api';
 import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
 
@@ -50,12 +51,11 @@ export function ProductForm({ product }: ProductFormProps) {
 
     try {
       const url = product
-        ? `/api/productos/${product.id}`
-        : '/api/productos';
+        ? `${PRODUCTOS_API}/${product.id}`
+        : PRODUCTOS_API;
       const method = product ? 'PUT' : 'POST';
 
       const body = JSON.stringify(form);
-      console.log('SENDING PRODUCT', body);
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },

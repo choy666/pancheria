@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { CIERRE_HISTORIAL_API } from '@/config/api';
 
 interface Closure {
   id: number;
@@ -38,7 +39,7 @@ export function ClosureHistory() {
           end: end.toISOString().split('T')[0],
         });
 
-        const response = await fetch(`/api/cierre/historial?${params}`, {
+        const response = await fetch(`${CIERRE_HISTORIAL_API}?${params}`, {
           credentials: 'include',
         });
         if (!response.ok) throw new Error('Error al cargar cierres');

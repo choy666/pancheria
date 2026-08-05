@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { STOCK_API, STOCK_AJUSTAR_API } from '@/config/api';
 import {
   Dialog,
   DialogContent,
@@ -50,7 +51,7 @@ export function StockList() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch('/api/stock', { credentials: 'include' });
+        const response = await fetch(STOCK_API, { credentials: 'include' });
         if (!response.ok) throw new Error('Error al cargar stock');
         setProducts((await response.json()) as StockProduct[]);
       } catch (err) {
@@ -70,7 +71,7 @@ export function StockList() {
     setError(null);
 
     try {
-      const response = await fetch('/api/stock/ajustar', {
+      const response = await fetch(STOCK_AJUSTAR_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -91,7 +92,7 @@ export function StockList() {
       setQuantity(0);
       setReason('');
 
-      const reload = await fetch('/api/stock', { credentials: 'include' });
+      const reload = await fetch(STOCK_API, { credentials: 'include' });
       if (reload.ok) setProducts((await reload.json()) as StockProduct[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');

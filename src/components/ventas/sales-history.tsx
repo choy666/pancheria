@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { VENTAS_API } from '@/config/api';
 
 interface Sale {
   id: number;
@@ -66,7 +67,7 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/ventas/${selectedSale.id}/anular`, {
+      const response = await fetch(`${VENTAS_API}/${selectedSale.id}/anular`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

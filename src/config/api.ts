@@ -1,0 +1,10 @@
+export const PRODUCTOS_API = '/api/productos';
+export const PRODUCTOS_DISPONIBILIDAD_API = '/api/productos/disponibilidad';
+export const RECETAS_API = '/api/recetas';
+export const STOCK_API = '/api/stock';
+export const STOCK_AJUSTAR_API = '/api/stock/ajustar';
+export const STOCK_MOVIMIENTOS_API = '/api/stock/movimientos';
+export const VENTAS_API = '/api/ventas';
+export const CAJA_HISTORIAL_API = '/api/caja/historial';
+export const CIERRE_API = '/api/cierre';
+export const CIERRE_HISTORIAL_API = '/api/cierre/historial';

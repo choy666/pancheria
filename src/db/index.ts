@@ -11,9 +11,12 @@ dotenv.config({ path: '.env.local' });
 const databaseUrl = process.env.DATABASE_URL;
 
 // En runtime DATABASE_URL debe estar definida en las variables de entorno.
-// El placeholder permite que el build de Next.js no falle si aún no está cargada.
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL no está definida en las variables de entorno.');
+}
+
 const pool = new Pool({
-  connectionString: databaseUrl || 'postgresql://placeholder',
+  connectionString: databaseUrl,
 });
 
 export const db = drizzle(pool, { schema });

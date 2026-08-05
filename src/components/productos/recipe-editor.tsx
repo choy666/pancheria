@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
 import {
   Select,
   SelectContent,
@@ -44,8 +45,8 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
     async function load() {
       try {
         const [productsRes, recipeRes] = await Promise.all([
-          fetch('/api/productos'),
-          fetch(`/api/recetas?productId=${productId}`),
+          fetch(PRODUCTOS_API, { credentials: 'include' }),
+          fetch(`${RECETAS_API}?productId=${productId}`, { credentials: 'include' }),
         ]);
 
         if (!productsRes.ok) throw new Error('Error al cargar productos');
@@ -108,7 +109,7 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
     setError(null);
 
     try {
-      const response = await fetch('/api/recetas', {
+      const response = await fetch(RECETAS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

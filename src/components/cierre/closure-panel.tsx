@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CIERRE_API } from '@/config/api';
 
 interface Closure {
   id: number;
@@ -30,7 +31,7 @@ export function ClosurePanel() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(`/api/cierre?date=${date}`, { credentials: 'include' });
+        const response = await fetch(`${CIERRE_API}?date=${date}`, { credentials: 'include' });
         if (response.ok) {
           setClosure((await response.json()) as Closure | null);
         } else {
@@ -49,7 +50,7 @@ export function ClosurePanel() {
     setError(null);
 
     try {
-      const response = await fetch('/api/cierre', {
+      const response = await fetch(CIERRE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

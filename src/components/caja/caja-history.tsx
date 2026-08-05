@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Duration } from 'date-fns';
 import { addDays, format, formatDuration, intervalToDuration } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { CAJA_HISTORIAL_API } from '@/config/api';
 import {
   Table,
   TableBody,
@@ -59,7 +60,7 @@ export function CajaHistory() {
           end: end.toISOString().split('T')[0],
         });
 
-        const response = await fetch(`/api/caja/historial?${params}`, {
+        const response = await fetch(`${CAJA_HISTORIAL_API}?${params}`, {
           credentials: 'include',
         });
         if (!response.ok) throw new Error('Error al cargar historial de cajas');

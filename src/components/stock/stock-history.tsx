@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { STOCK_MOVIMIENTOS_API } from '@/config/api';
 
 interface StockMovement {
   id: number;
@@ -50,7 +51,7 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
     async function load() {
       try {
         const response = await fetch(
-          `/api/stock/movimientos?productId=${productId}`,
+          `${STOCK_MOVIMIENTOS_API}?productId=${productId}`,
           { credentials: 'include' }
         );
         if (!response.ok) throw new Error('Error al cargar historial');

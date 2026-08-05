@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
+import {
+  PRODUCTOS_API,
+  PRODUCTOS_DISPONIBILIDAD_API,
+  VENTAS_API,
+} from '@/config/api';
 
 interface Product {
   id: number;
@@ -44,7 +49,7 @@ export function SalesTerminal() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch('/api/productos', { credentials: 'include' });
+        const response = await fetch(PRODUCTOS_API, { credentials: 'include' });
         if (!response.ok) throw new Error('Error al cargar productos');
 
         const allProducts = (await response.json()) as Product[];
@@ -54,7 +59,10 @@ export function SalesTerminal() {
 
         const withAvailability = await Promise.all(
           sellable.map(async (p) => {
-            const res = await fetch(`/api/productos/disponibilidad?productId=${p.id}`, { credentials: 'include' });
+            const res = await fetch(
+              `${PRODUCTOS_DISPONIBILIDAD_API}?productId=${p.id}`,
+              { credentials: 'include' }
+            );
             const data = (await res.json()) as { availability: number };
             return { ...p, availability: data.availability };
           })
@@ -132,7 +140,7 @@ export function SalesTerminal() {
     setError(null);
 
     try {
-      const response = await fetch('/api/ventas', {
+      const response = await fetch(VENTAS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
