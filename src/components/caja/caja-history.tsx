@@ -32,11 +32,13 @@ interface CashRegister {
 interface CajaHistoryProps {
   detailRoute?: string;
   statusFilter?: 'all' | 'closed';
+  showAutoColumn?: boolean;
 }
 
 export function CajaHistory({
   detailRoute = '/cierre',
   statusFilter = 'closed',
+  showAutoColumn = true,
 }: CajaHistoryProps) {
   const router = useRouter();
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
@@ -91,7 +93,9 @@ export function CajaHistory({
               <TableHead>Total</TableHead>
               <TableHead className="hidden md:table-cell">Efectivo</TableHead>
               <TableHead className="hidden lg:table-cell">Transferencia</TableHead>
-              <TableHead className="hidden sm:table-cell">Auto</TableHead>
+              {showAutoColumn && (
+                <TableHead className="hidden sm:table-cell">Auto</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -142,9 +146,11 @@ export function CajaHistory({
                   <TableCell className="hidden lg:table-cell font-mono">
                     ${cashRegister.transferTotal.toFixed(2)}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {cashRegister.autoClosed ? 'Sí' : 'No'}
-                  </TableCell>
+                  {showAutoColumn && (
+                    <TableCell className="hidden sm:table-cell">
+                      {cashRegister.autoClosed ? 'Sí' : 'No'}
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

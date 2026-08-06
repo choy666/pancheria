@@ -8,7 +8,11 @@ export default function VentasHistorialPage() {
         Historial de cierres de caja
       </h1>
       <Suspense fallback={<p className="text-muted-foreground">Cargando...</p>}>
-        <CajaHistory detailRoute="/ventas/historial" statusFilter="all" />
+        <CajaHistory
+          detailRoute="/ventas/historial"
+          statusFilter="all"
+          showAutoColumn={false}
+        />
       </Suspense>
     </div>
   );
