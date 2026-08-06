@@ -179,11 +179,16 @@ export async function cancelSale(id: number, reason: string) {
     where: eq(sales.id, id),
     with: {
       items: true,
+      cashRegister: true,
     },
   });
 
   if (!sale) throw new NotFoundError('Venta', id);
   if (sale.status === 'cancelled') return sale;
+
+  if (!sale.cashRegister || sale.cashRegister.deletedAt) {
+    throw new ValidationError('No se puede anular una venta de una caja eliminada.');
+  }
 
   return executeInTransaction(async (tx) => {
     for (const item of sale.items ?? []) {

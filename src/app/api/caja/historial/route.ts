@@ -3,6 +3,7 @@ import { subDays } from 'date-fns';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
+import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
 import type { CashRegisterStatus } from '@/domain/types';
 
 export async function GET(request: NextRequest) {
@@ -13,7 +14,9 @@ export async function GET(request: NextRequest) {
     const endParam = searchParams.get('end');
 
     const end = endParam ? new Date(endParam) : new Date();
-    const start = startParam ? new Date(startParam) : subDays(end, 30);
+    const start = startParam
+      ? new Date(startParam)
+      : subDays(end, DEFAULT_CAJA_HISTORY_DAYS);
     const statusParam = searchParams.get('status');
     const status: CashRegisterStatus | undefined =
       statusParam === 'open' || statusParam === 'closed' ? statusParam : undefined;

@@ -101,6 +101,7 @@ export type CashRegister = {
   productsSummary: Record<string, number>;
   criticalSuppliesSummary: Record<string, number>;
   createdAt: Date;
+  deletedAt: Date | null;
   sales?: Sale[];
 };
 

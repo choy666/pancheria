@@ -39,9 +39,10 @@ interface Sale {
 
 interface SalesHistoryProps {
   sales: Sale[];
+  allowCancel?: boolean;
 }
 
-export function SalesHistory({ sales }: SalesHistoryProps) {
+export function SalesHistory({ sales, allowCancel = true }: SalesHistoryProps) {
   const router = useRouter();
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -137,7 +138,7 @@ export function SalesHistory({ sales }: SalesHistoryProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  {sale.status === 'active' && (
+                  {sale.status === 'active' && allowCancel && (
                     <Button
                       variant="destructive"
                       size="sm"

@@ -1,4 +1,4 @@
-import { eq, and, gte, lt, lte } from 'drizzle-orm';
+import { eq, and, gte, lt, lte, isNotNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, recipes, sales, dailyClosures } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
@@ -33,6 +33,7 @@ export async function generateClosure(date: Date) {
   const activeSales = await db.query.sales.findMany({
     where: and(
       eq(sales.status, 'active'),
+      isNotNull(sales.cashRegisterId),
       gte(sales.createdAt, start),
       lt(sales.createdAt, end)
     ),

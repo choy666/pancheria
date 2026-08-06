@@ -110,11 +110,13 @@ export const cashRegisters = pgTable(
     totalSales: integer('total_sales').default(0).notNull(),
     productsSummary: text('products_summary').default('{}').notNull(),
     criticalSuppliesSummary: text('critical_supplies_summary').default('{}').notNull(),
+    deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
     statusIdx: index('cash_registers_status_idx').on(table.status),
     openedAtIdx: index('cash_registers_opened_at_idx').on(table.openedAt),
+    deletedAtIdx: index('cash_registers_deleted_at_idx').on(table.deletedAt),
   })
 );
 

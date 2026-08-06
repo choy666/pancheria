@@ -2,11 +2,15 @@ import {
   getOpenCashRegister,
   openCashRegister,
   closeCashRegister,
+  deleteCashRegister,
+  restoreCashRegister,
+  permanentlyDeleteCashRegister,
+  getCashRegisterById,
 } from './cashRegisterService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
-import { ValidationError } from '@/domain/errors';
+import { ValidationError, NotFoundError } from '@/domain/errors';
 
 jest.mock('@/repositories/cashRegisterRepository');
 jest.mock('@/application/transactionService', () => ({
@@ -181,6 +185,118 @@ describe('cashRegisterService', () => {
 
       expect(result?.status).toBe('closed');
       expect(result?.totalSales).toBe(1);
+    });
+  });
+
+  describe('getCashRegisterById', () => {
+    test('obtiene una caja por su ID', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: null,
+      } as any);
+
+      const result = await getCashRegisterById(1);
+
+      expect(result?.id).toBe(1);
+      expect(mockedCashRegisterRepository.findById).toHaveBeenCalledWith(1, false);
+    });
+  });
+
+  describe('deleteCashRegister', () => {
+    test('realiza soft delete de una caja cerrada', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: null,
+      } as any);
+      mockedCashRegisterRepository.softDelete.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: new Date(),
+      } as any);
+
+      const result = await deleteCashRegister(1);
+
+      expect(result?.id).toBe(1);
+      expect(mockedCashRegisterRepository.softDelete).toHaveBeenCalledWith(1);
+    });
+
+    test('rechaza eliminar una caja abierta', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'open',
+        deletedAt: null,
+      } as any);
+
+      await expect(deleteCashRegister(1)).rejects.toThrow(ValidationError);
+      expect(mockedCashRegisterRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    test('lanza NotFoundError si la caja no existe', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue(undefined);
+
+      await expect(deleteCashRegister(1)).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe('restoreCashRegister', () => {
+    test('restaura una caja eliminada', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: new Date(),
+      } as any);
+      mockedCashRegisterRepository.restore.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: null,
+      } as any);
+
+      const result = await restoreCashRegister(1);
+
+      expect(result?.deletedAt).toBeNull();
+      expect(mockedCashRegisterRepository.restore).toHaveBeenCalledWith(1);
+    });
+
+    test('rechaza restaurar una caja no eliminada', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: null,
+      } as any);
+
+      await expect(restoreCashRegister(1)).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('permanentlyDeleteCashRegister', () => {
+    test('elimina definitivamente una caja en la papelera', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: new Date(),
+      } as any);
+      mockedCashRegisterRepository.hardDelete.mockResolvedValue({
+        deleted: true,
+      } as any);
+
+      const result = await permanentlyDeleteCashRegister(1);
+
+      expect(result).toEqual({ deleted: true });
+      expect(mockedCashRegisterRepository.hardDelete).toHaveBeenCalledWith(1);
+    });
+
+    test('rechaza eliminar definitivamente una caja no eliminada', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+        deletedAt: null,
+      } as any);
+
+      await expect(permanentlyDeleteCashRegister(1)).rejects.toThrow(
+        ValidationError
+      );
     });
   });
 });

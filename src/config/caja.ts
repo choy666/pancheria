@@ -2,6 +2,8 @@ export const AUTO_CLOSE_HOURS = 12;
 
 export const DEFAULT_CAJA_REFRESH_INTERVAL_MS = 5000;
 
+export const DEFAULT_CAJA_HISTORY_DAYS = 30;
+
 export const CAJA_RESUMEN_API = '/api/caja/resumen';
 export const CAJA_OPEN_API = '/api/caja/abrir';
 export const CAJA_CLOSE_API = '/api/caja/cerrar';
@@ -21,6 +23,7 @@ export interface CashRegister {
   productsSummary: Record<string, number>;
   criticalSuppliesSummary: Record<string, number>;
   createdAt: string;
+  deletedAt?: string | null;
 }
 
 export function getCajaRefreshInterval(): number {

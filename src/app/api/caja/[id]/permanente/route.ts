@@ -1,0 +1,40 @@
+import { NextRequest, NextResponse } from 'next/server';
+import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
+import { requireAuth } from '@/lib/auth';
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    await requireAuth();
+    const { id } = await params;
+    const result = await cashRegisterService.permanentlyDeleteCashRegister(
+      Number(id)
+    );
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
+    if (error instanceof DomainError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    console.error('Error al eliminar caja permanentemente:', error);
+    return NextResponse.json(
+      { error: 'Error al eliminar caja permanentemente' },
+      { status: 500 }
+    );
+  }
+}

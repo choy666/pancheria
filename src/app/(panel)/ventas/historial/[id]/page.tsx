@@ -1,26 +1,34 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { intervalToDuration } from 'date-fns';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SalesHistory } from '@/components/ventas/sales-history';
+import { CashRegisterDetailActions } from '@/components/caja/cash-register-detail-actions';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
-export default async function CashRegisterSalesDetailPage({ params }: Props) {
+export default async function CashRegisterSalesDetailPage({
+  params,
+  searchParams,
+}: Props) {
   const { id } = await params;
-  const cashRegister = await cashRegisterService.getCashRegisterById(Number(id));
+  const { from } = await searchParams;
+  const cashRegister = await cashRegisterService.getCashRegisterById(
+    Number(id),
+    true
+  );
 
   if (!cashRegister) {
     notFound();
   }
 
-  const isOpen = cashRegister.status === 'open';
+  const isOpen = cashRegister.status === 'open' && !cashRegister.deletedAt;
+  const fromTrash = from === 'trash';
 
   // Para cajas abiertas se calcula el resumen en tiempo real.
   const liveSummary = isOpen
@@ -68,12 +76,23 @@ export default async function CashRegisterSalesDetailPage({ params }: Props) {
             <Badge variant="secondary">Cerrada</Badge>
           )}
         </div>
-        <Link href="/ventas/historial" className="w-full sm:w-auto">
-          <Button variant="outline" className="w-full sm:w-auto">
-            Volver al historial
-          </Button>
-        </Link>
+        <CashRegisterDetailActions
+          cashRegister={{
+            id: cashRegister.id,
+            status: cashRegister.status,
+            deletedAt: cashRegister.deletedAt
+              ? cashRegister.deletedAt.toISOString()
+              : null,
+          }}
+          fromTrash={fromTrash}
+        />
       </div>
+
+      {cashRegister.deletedAt && (
+        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
+          Esta caja fue eliminada el {formatDateTime(cashRegister.deletedAt)}.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="border-primary/20">
@@ -171,7 +190,10 @@ export default async function CashRegisterSalesDetailPage({ params }: Props) {
 
       <div className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Ventas de la caja</h2>
-        <SalesHistory sales={cashRegister.sales ?? []} />
+        <SalesHistory
+          sales={cashRegister.sales ?? []}
+          allowCancel={!cashRegister.deletedAt}
+        />
       </div>
     </div>
   );

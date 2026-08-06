@@ -101,7 +101,15 @@ export async function calculateCashRegisterSummary(cashRegisterId: number) {
     }
   }
 
-  const recipesByProduct = new Map<number, { autoDiscount: boolean; quantity: number; supplyId: number; supply: { name: string } | null }[]>();
+  const recipesByProduct = new Map<
+    number,
+    {
+      autoDiscount: boolean;
+      quantity: number;
+      supplyId: number;
+      supply: { name: string } | null;
+    }[]
+  >();
 
   if (compoundProductIds.size > 0) {
     const allRecipes = await db.query.recipes.findMany({
@@ -216,8 +224,8 @@ export async function getCurrentCashRegister() {
   return getOpenCashRegister();
 }
 
-export async function getCashRegisterById(id: number) {
-  return cashRegisterRepository.findById(id);
+export async function getCashRegisterById(id: number, includeDeleted = false) {
+  return cashRegisterRepository.findById(id, includeDeleted);
 }
 
 export async function listCashRegisterHistory(
@@ -226,6 +234,48 @@ export async function listCashRegisterHistory(
   status?: CashRegisterStatus
 ) {
   return cashRegisterRepository.findInRange(start, end, status);
+}
+
+export async function deleteCashRegister(id: number) {
+  const cashRegister = await cashRegisterRepository.findById(id);
+
+  if (!cashRegister) {
+    throw new NotFoundError('Caja', id);
+  }
+
+  if (cashRegister.status === 'open') {
+    throw new ValidationError('No se puede eliminar una caja abierta.');
+  }
+
+  return cashRegisterRepository.softDelete(id);
+}
+
+export async function restoreCashRegister(id: number) {
+  const cashRegister = await cashRegisterRepository.findById(id, true);
+
+  if (!cashRegister || cashRegister.deletedAt === null) {
+    throw new ValidationError('La caja no está eliminada.');
+  }
+
+  return cashRegisterRepository.restore(id);
+}
+
+export async function permanentlyDeleteCashRegister(id: number) {
+  const cashRegister = await cashRegisterRepository.findById(id, true);
+
+  if (!cashRegister || cashRegister.deletedAt === null) {
+    throw new ValidationError('La caja no está en la papelera.');
+  }
+
+  return cashRegisterRepository.hardDelete(id);
+}
+
+export async function listDeletedCashRegisterHistory(start: Date, end: Date) {
+  return cashRegisterRepository.findDeletedInRange(start, end);
+}
+
+export async function emptyTrash(start: Date, end: Date) {
+  return cashRegisterRepository.hardDeleteAllDeletedInRange(start, end);
 }
 
 export async function autoCloseIfNeeded() {
