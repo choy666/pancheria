@@ -1,29 +1,14 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import type { Duration } from 'date-fns';
-import { format, formatDuration, intervalToDuration } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { intervalToDuration } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { formatDateTime, safeFormatDuration } from '@/lib/date';
 
 interface Props {
   params: Promise<{ id: string }>;
-}
-
-function formatDateTime(date: Date | string | null): string {
-  if (!date) return '-';
-  return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: es });
-}
-
-function safeFormatDuration(duration: Duration | null): string {
-  if (!duration) return 'En curso';
-  const text = formatDuration(duration, {
-    format: ['hours', 'minutes'],
-    locale: es,
-  });
-  return text || '0m';
 }
 
 export default async function CashRegisterDetailPage({ params }: Props) {
@@ -85,7 +70,7 @@ export default async function CashRegisterDetailPage({ params }: Props) {
                 </>
               )}
               <br />
-              Duración: {safeFormatDuration(duration)}
+              Duración: {safeFormatDuration(duration, 'En curso')}
               <br />
               Abierta por: {cashRegister.openedBy}
               {cashRegister.closedBy && (

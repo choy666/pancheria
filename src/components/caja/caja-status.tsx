@@ -1,19 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Duration } from 'date-fns';
-import {
-  addHours,
-  format,
-  formatDuration,
-  intervalToDuration,
-} from 'date-fns';
+import { addHours, format, intervalToDuration } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
+import { safeFormatDuration } from '@/lib/date';
 
 interface CajaStatusProps {
   cashRegister: CashRegister | null;
@@ -21,15 +16,6 @@ interface CajaStatusProps {
   onClose: () => Promise<void>;
   loading: boolean;
   error: string | null;
-}
-
-function safeFormatDuration(duration: Duration | null): string {
-  if (!duration) return '0m';
-  const text = formatDuration(duration, {
-    format: ['hours', 'minutes'],
-    locale: es,
-  });
-  return text || '0m';
 }
 
 export function CajaStatus({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { subDays } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -31,8 +32,7 @@ export function ClosureHistory() {
     async function load() {
       try {
         const end = new Date();
-        const start = new Date();
-        start.setDate(start.getDate() - 30);
+        const start = subDays(end, 30);
 
         const params = new URLSearchParams({
           start: start.toISOString().split('T')[0],

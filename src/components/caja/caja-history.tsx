@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Duration } from 'date-fns';
-import { addDays, format, formatDuration, intervalToDuration } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addDays, intervalToDuration } from 'date-fns';
 import { CAJA_HISTORIAL_API } from '@/config/api';
 import {
   Table,
@@ -15,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { formatDateTime, safeFormatDuration } from '@/lib/date';
 
 interface CashRegister {
   id: number;
@@ -33,20 +32,6 @@ interface CashRegister {
 interface CajaHistoryProps {
   detailRoute?: string;
   statusFilter?: 'all' | 'closed';
-}
-
-function formatDateTime(date: string | Date | null): string {
-  if (!date) return '-';
-  return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: es });
-}
-
-function safeFormatDuration(duration: Duration | null): string {
-  if (!duration) return 'En curso';
-  const text = formatDuration(duration, {
-    format: ['hours', 'minutes'],
-    locale: es,
-  });
-  return text || '0m';
 }
 
 export function CajaHistory({
@@ -143,7 +128,7 @@ export function CajaHistory({
                   <TableCell className="hidden sm:table-cell">
                     {cashRegister.status === 'open'
                       ? 'En curso'
-                      : safeFormatDuration(duration)}
+                      : safeFormatDuration(duration, 'En curso')}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell font-mono">
                     {cashRegister.totalSales}

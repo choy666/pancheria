@@ -1,38 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Duration } from 'date-fns';
-import {
-  addHours,
-  format,
-  formatDuration,
-  intervalToDuration,
-} from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addHours, intervalToDuration } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
-
-function formatDateTime(date: string | Date | null): string {
-  if (!date) return '-';
-  return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: es });
-}
-
-function safeFormatDuration(duration: Duration | null): string {
-  if (!duration) return '0m';
-  const text = formatDuration(duration, {
-    format: ['hours', 'minutes'],
-    locale: es,
-  });
-  return text || '0m';
-}
-
-function formatLastUpdated(date: Date | null): string {
-  if (!date) return '-';
-  return format(date, 'HH:mm:ss', { locale: es });
-}
+import { formatDateTime, safeFormatDuration, formatLastUpdated } from '@/lib/date';
 
 export function CajaPanel() {
   const { cashRegister, loading, error, lastUpdated, open, close } =
