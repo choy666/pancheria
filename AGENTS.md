@@ -38,9 +38,8 @@ Copiar `.env.example` a `.env.local` y completar:
   1. `devin.exe cloud drs blueprint-create --repo <owner/repo> --from-file .devin/environment.yaml`
   2. `devin.exe cloud drs build`
 
-## Notas del plan
-- Ver `PLAN.md` para la arquitectura, esquema de base de datos, endpoints y fases de implementación.
-- Tecnologías: Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
+## Tecnologías
+- Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
 
 ## Despliegue en Vercel
 
