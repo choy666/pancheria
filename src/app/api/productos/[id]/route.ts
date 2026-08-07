@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { productSchema } from '@/lib/zod-schemas';
+import { productUpdateSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
 import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     await requireAuth();
     const { id } = await params;
     const body = await request.json();
-    const data = productSchema.partial().parse(body);
+    const data = productUpdateSchema.parse(body);
     const product = await productService.updateProduct(Number(id), data);
     return NextResponse.json(product);
   } catch (error) {

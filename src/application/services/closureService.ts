@@ -7,15 +7,23 @@ import { ValidationError } from '@/domain/errors';
 
 
 function startOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
 }
 
 function endOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    )
+  );
 }
 
 export async function generateClosure(date: Date) {
@@ -25,6 +33,7 @@ export async function generateClosure(date: Date) {
   const existing = await db.query.dailyClosures.findFirst({
     where: eq(dailyClosures.date, start),
   });
+
 
   if (existing) {
     throw new ValidationError('Ya existe un cierre para la fecha seleccionada.');

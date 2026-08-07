@@ -8,7 +8,7 @@ export const productTypeSchema = z.enum([
 
 export const criticalSupplyTypeSchema = z.enum(['bread', 'sausage', 'beverage']);
 
-export const productSchema = z.object({
+const productBaseSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional().nullable(),
   type: productTypeSchema,
@@ -20,16 +20,70 @@ export const productSchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 
-export const recipeItemSchema = z.object({
-  supplyId: z.number().int().positive(),
-  quantity: z.number().int().positive(),
-  autoDiscount: z.boolean(),
-});
+export const productSchema = productBaseSchema
+  .refine(
+    (data) => !(data.type === 'critical_supply' && !data.criticalSupplyType),
+    {
+      message: 'Los insumos críticos deben tener un tipo de insumo crítico.',
+      path: ['criticalSupplyType'],
+    }
+  )
+  .refine(
+    (data) => !(data.type !== 'critical_supply' && data.criticalSupplyType),
+    {
+      message: 'Solo los insumos críticos pueden tener un tipo de insumo crítico.',
+      path: ['criticalSupplyType'],
+    }
+  );
 
-export const recipeSchema = z.object({
-  compoundProductId: z.number().int().positive(),
-  items: z.array(recipeItemSchema).min(1),
-});
+// Esquema parcial para actualizaciones: no incluye el .refine() cruzado
+// porque Zod v4 no permite .partial() sobre esquemas con refinamientos.
+// La validación cruzada sigue ejecutándose en productService.updateProduct.
+export const productUpdateSchema = productBaseSchema.partial();
+
+export const recipeItemSchema = z
+  .object({
+    supplyId: z.number().int().positive(),
+    quantity: z.number().int().positive(),
+    autoDiscount: z.boolean(),
+    supplyType: productTypeSchema.optional(),
+  })
+  .refine(
+    (data) =>
+      !data.autoDiscount ||
+      !data.supplyType ||
+      data.supplyType === 'critical_supply',
+    {
+      message: 'Solo los insumos críticos pueden tener descuento automático.',
+      path: ['autoDiscount'],
+    }
+  );
+
+export const recipeSchema = z
+  .object({
+    compoundProductId: z.number().int().positive(),
+    items: z.array(recipeItemSchema).min(1),
+  })
+  .superRefine((data, ctx) => {
+    const supplyIds = data.items.map((item) => item.supplyId);
+
+    if (new Set(supplyIds).size !== supplyIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'No puede haber insumos duplicados en la receta.',
+        path: ['items'],
+      });
+    }
+
+    if (supplyIds.includes(data.compoundProductId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Una receta no puede incluir al propio producto compuesto como insumo.',
+        path: ['items'],
+      });
+    }
+  });
 
 export const saleItemSchema = z.object({
   productId: z.number().int().positive(),
