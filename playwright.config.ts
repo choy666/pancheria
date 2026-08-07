@@ -3,16 +3,20 @@ import { defineConfig, devices } from '@playwright/test';
 
 dotenv.config({ path: '.env.local' });
 
+const baseURL = process.env.BASE_URL || 'http://localhost:3000';
+const useGlobalSetup = !process.env.NO_GLOBAL_SETUP;
+const useWebServer = !process.env.NO_WEB_SERVER;
+
 export default defineConfig({
   testDir: './tests/e2e',
-  globalSetup: './tests/e2e/global-setup.ts',
+  globalSetup: useGlobalSetup ? './tests/e2e/global-setup.ts' : undefined,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -21,9 +25,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: useWebServer
+    ? {
+        command: 'npm run dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+      }
+    : undefined,
 });
