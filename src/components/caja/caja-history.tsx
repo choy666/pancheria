@@ -1,14 +1,10 @@
 'use client';
 
-import { use, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { subDays, intervalToDuration } from 'date-fns';
-import {
-  CAJA_API,
-  CAJA_HISTORIAL_API,
-  CAJA_ELIMINADAS_API,
-} from '@/config/api';
-import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
+import { intervalToDuration } from 'date-fns';
+import { Loader2 } from 'lucide-react';
+import { CAJA_API, CAJA_ELIMINADAS_API } from '@/config/api';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -21,22 +17,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
-
-interface CashRegister {
-  id: number;
-  openedAt: string;
-  closedAt: string | null;
-  openedBy: string;
-  closedBy: string | null;
-  status: 'open' | 'closed';
-  autoClosed: boolean;
-  total: number;
-  cashTotal: number;
-  transferTotal: number;
-  totalSales: number;
-  deletedAt: string | null;
-  createdAt: string;
-}
+import {
+  useCashRegisterHistory,
+  type CashRegister,
+} from '@/components/caja/use-cash-register-history';
 
 interface CajaHistoryProps {
   detailRoute?: string;
@@ -47,57 +31,6 @@ interface CajaHistoryProps {
   onRestore?: (id: number) => Promise<void>;
   onPermanentDelete?: (id: number) => Promise<void>;
   onEmptyTrash?: (start: string, end: string) => Promise<void>;
-}
-
-type LoadResult =
-  | {
-      data: CashRegister[];
-      startDate: string;
-      endDate: string;
-    }
-  | { error: string };
-
-function buildCashRegisterPromise(
-  statusFilter: 'all' | 'closed',
-  deletedOnly: boolean,
-  _refreshKey: number
-): Promise<LoadResult> {
-  void _refreshKey;
-  const end = new Date();
-  const start = subDays(end, DEFAULT_CAJA_HISTORY_DAYS);
-  const endStr = end.toISOString().split('T')[0];
-  const startStr = start.toISOString().split('T')[0];
-
-  const params = new URLSearchParams({
-    start: startStr,
-    end: endStr,
-  });
-
-  const endpoint = deletedOnly ? CAJA_ELIMINADAS_API : CAJA_HISTORIAL_API;
-
-  if (!deletedOnly && statusFilter !== 'all') {
-    params.set('status', statusFilter);
-  }
-
-  return fetch(`${endpoint}?${params}`, {
-    credentials: 'include',
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar historial de cajas');
-      }
-
-      const data = (await response.json()) as CashRegister[];
-      return {
-        data,
-        startDate: startStr,
-        endDate: endStr,
-      };
-    })
-    .catch((err) => ({
-      error: err instanceof Error ? err.message : 'Error desconocido',
-    }));
 }
 
 export function CajaHistory({
@@ -111,14 +44,15 @@ export function CajaHistory({
   onEmptyTrash,
 }: CajaHistoryProps) {
   const router = useRouter();
-  const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const promise = useMemo(
-    () => buildCashRegisterPromise(statusFilter, deletedOnly, refreshKey),
-    [statusFilter, deletedOnly, refreshKey]
-  );
-  const result = use(promise);
+  const {
+    data: cashRegisters,
+    startDate,
+    endDate,
+    error,
+    isLoading,
+    refresh,
+  } = useCashRegisterHistory({ statusFilter, deletedOnly });
 
   async function handleDelete(id: number) {
     try {
@@ -136,7 +70,7 @@ export function CajaHistory({
         }
       }
 
-      setRefreshKey((prev) => prev + 1);
+      refresh();
       setActionError(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
@@ -159,7 +93,7 @@ export function CajaHistory({
         }
       }
 
-      setRefreshKey((prev) => prev + 1);
+      refresh();
       setActionError(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
@@ -184,7 +118,7 @@ export function CajaHistory({
         }
       }
 
-      setRefreshKey((prev) => prev + 1);
+      refresh();
       setActionError(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
@@ -210,18 +144,29 @@ export function CajaHistory({
         }
       }
 
-      setRefreshKey((prev) => prev + 1);
+      refresh();
       setActionError(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
     }
   }
 
-  if ('error' in result) {
-    return <p className="text-destructive">{result.error}</p>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground">
+        <Loader2 className="size-6 animate-spin" />
+        <span>Cargando historial...</span>
+      </div>
+    );
   }
 
-  const { data: cashRegisters, startDate, endDate } = result;
+  if (error) {
+    return <p className="text-destructive">{error}</p>;
+  }
+
+  if (!cashRegisters || !startDate || !endDate) {
+    return <p className="text-destructive">Error inesperado al cargar cajas</p>;
+  }
 
   return (
     <div className="space-y-5">
@@ -271,7 +216,7 @@ export function CajaHistory({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cashRegisters.map((cashRegister) => {
+            {cashRegisters.map((cashRegister: CashRegister) => {
               const openedAt = new Date(cashRegister.openedAt);
               const closedAt = cashRegister.closedAt
                 ? new Date(cashRegister.closedAt)

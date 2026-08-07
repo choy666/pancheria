@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
@@ -14,13 +13,11 @@ export default function VentasHistorialPage() {
           <Button variant="outline">Cajas eliminadas</Button>
         </Link>
       </div>
-      <Suspense fallback={<p className="text-muted-foreground">Cargando...</p>}>
-        <CajaHistory
-          detailRoute="/ventas/historial"
-          statusFilter="all"
-          showAutoColumn={false}
-        />
-      </Suspense>
+      <CajaHistory
+        detailRoute="/ventas/historial"
+        statusFilter="all"
+        showAutoColumn={false}
+      />
     </div>
   );
 }
