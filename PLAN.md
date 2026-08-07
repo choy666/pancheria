@@ -1,8 +1,10 @@
-# Plan de Implementación: Sistema de Gestión para Panchería (v1)
+# Plan de Implementación: Sistema de Gestión para Panchería (v2)
 
 ## 1. Resumen Ejecutivo
 
-Este documento describe el plan paso a paso para construir un sistema web de gestión de stock y ventas para una panchería. El sistema está pensado para uso exclusivo del administrador, con una única cuenta de acceso, pantallas táctiles simples, control automático de insumos críticos (panes, salchichas y bebidas enteras), control manual de insumos de cocina/envase, registro de ventas con efectivo o transferencia, y cierre diario de caja.
+Este documento describe el plan para el sistema web de gestión de stock y ventas de una panchería. El sistema está pensado para uso exclusivo del administrador, con una única cuenta de acceso, pantallas táctiles simples, control automático de insumos críticos (panes, salchichas y bebidas enteras), control manual de insumos de cocina/envase, registro de ventas con efectivo o transferencia, gestión de cajas y cierre diario de caja.
+
+La versión 2 incorpora el módulo de **cajas** (`cash_registers`), que permite abrir y cerrar turnos de venta, calcular resúmenes en tiempo real, mantener un historial con papelera y realizar cierres automáticos. También se actualizan los endpoints, las pantallas y los flujos para reflejar el estado actual del producto.
 
 ## 2. Fases y Tareas
 
@@ -31,13 +33,13 @@ Este documento describe el plan paso a paso para construir un sistema web de ges
 3. Implementar `idempotencyService` para confirmación de ventas.
 4. Implementar utilidades de dinero con `Money` y `parseMoney`.
 5. Crear capa de repositorios para cada entidad.
-6. Crear servicios de aplicación para autenticación, productos, ventas, stock y cierre.
+6. Crear servicios de aplicación para autenticación, productos, ventas, stock, cierre y caja.
 
 ### Fase 3: Autenticación
 
 1. Instalar y configurar NextAuth v5 (Auth.js).
 2. Crear esquema de credenciales con usuario y contraseña hash.
-3. Implementar middleware de protección de rutas.
+3. Implementar protección de rutas mediante callback `authorized` de NextAuth.
 4. Crear pantalla de inicio de sesión.
 
 ### Fase 4: Gestión de productos e insumos
@@ -51,7 +53,7 @@ Este documento describe el plan paso a paso para construir un sistema web de ges
 
 1. Crear editor de recetas para productos compuestos.
 2. Definir insumos críticos con descuento automático y manuales informativos.
-3. Validar que las recetas tengan al menos un insumo crítico.
+3. Validar que las recetas tengan al menos un insumo crítico con descuento automático.
 
 ### Fase 6: Ventas
 
@@ -60,30 +62,40 @@ Este documento describe el plan paso a paso para construir un sistema web de ges
 3. Validar disponibilidad según stock crítico.
 4. Implementar carrito con cantidades y totales.
 5. Seleccionar forma de pago (efectivo o transferencia).
-6. Confirmar venta con descuento atómico de stock.
+6. Confirmar venta con descuento atómico de stock e idempotencia.
 7. Implementar anulación de ventas con reintegro de stock.
+8. Asociar cada venta a la caja abierta.
 
 ### Fase 7: Stock
 
 1. Crear pantalla de stock general con alertas.
-2. Implementar historial de movimientos.
+2. Implementar historial de movimientos por producto.
 3. Crear formulario de ajuste manual con motivo.
 
-### Fase 8: Reportes y cierre de caja
+### Fase 8: Caja
+
+1. Crear módulo de caja (`cash_registers`) con apertura y cierre.
+2. Calcular resumen de caja en tiempo real (totales, medios de pago, productos e insumos críticos).
+3. Implementar cierre automático de cajas abiertas tras un tiempo configurable.
+4. Crear historial de cajas con posibilidad de eliminar y restaurar (papelera).
+5. Mostrar resumen de caja en la terminal de ventas.
+
+### Fase 9: Reportes y cierre diario
 
 1. Crear pantalla de cierre diario.
 2. Calcular totales, medios de pago y consumo de insumos críticos.
 3. Generar resumen histórico por fecha.
-4. Permitir impresión o exportación simple (PDF/CSV opcional).
+4. Permitir exportación simple en CSV.
+5. Mantener el cierre diario independiente del resumen por caja.
 
-### Fase 9: Testing
+### Fase 10: Testing
 
 1. Configurar Jest para tests unitarios.
-2. Escribir tests de servicios de aplicación y lógica de ventas.
+2. Escribir tests de servicios de aplicación, repositorios y lógica de ventas.
 3. Configurar Playwright para tests end-to-end.
-4. Escribir tests de login, venta, anulación y cierre.
+4. Escribir tests de login, caja, venta, anulación, cierre y papelera.
 
-### Fase 10: Despliegue
+### Fase 11: Despliegue
 
 1. Subir código a GitHub.
 2. Conectar repositorio a Vercel.
@@ -116,7 +128,9 @@ pancheria/
     ├── app/
     │   ├── (auth)/
     │   │   └── login/
-    │   │       └── page.tsx
+    │   │       ├── page.tsx
+    │   │       ├── login-form.tsx
+    │   │       └── actions.ts
     │   ├── (panel)/
     │   │   ├── layout.tsx
     │   │   ├── page.tsx                     # dashboard
@@ -125,94 +139,139 @@ pancheria/
     │   │   │   ├── [id]/
     │   │   │   │   └── editar/
     │   │   │   │       └── page.tsx
-    │   │   │   └── nuevo/
-    │   │   │       └── page.tsx
+    │   │   │   ├── nuevo/
+    │   │   │   │   └── page.tsx
+    │   │   │   └── actions.ts
     │   │   ├── recetas/
     │   │   │   └── [productId]/
     │   │   │       └── editar/
     │   │   │           └── page.tsx
     │   │   ├── ventas/
     │   │   │   ├── page.tsx
-    │   │   │   └── [id]/
-    │   │   │       └── page.tsx
+    │   │   │   └── historial/
+    │   │   │       ├── page.tsx
+    │   │   │       ├── [id]/
+    │   │   │       │   └── page.tsx
+    │   │   │       └── eliminadas/
+    │   │   │           └── page.tsx
     │   │   ├── stock/
     │   │   │   └── page.tsx
     │   │   └── cierre/
-    │   │       └── page.tsx
+    │   │       ├── page.tsx
+    │   │       ├── historial/
+    │   │       │   └── page.tsx
+    │   │       └── [id]/
+    │   │           └── page.tsx
     │   ├── api/
     │   │   ├── auth/
     │   │   │   └── [...nextauth]/
     │   │   │       └── route.ts
+    │   │   ├── caja/
+    │   │   │   ├── route.ts
+    │   │   │   ├── abrir/
+    │   │   │   │   └── route.ts
+    │   │   │   ├── cerrar/
+    │   │   │   │   └── route.ts
+    │   │   │   ├── [id]/
+    │   │   │   │   ├── route.ts
+    │   │   │   │   ├── permanente/
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── restaurar/
+    │   │   │   │       └── route.ts
+    │   │   │   ├── eliminadas/
+    │   │   │   │   └── route.ts
+    │   │   │   ├── historial/
+    │   │   │   │   └── route.ts
+    │   │   │   └── resumen/
+    │   │   │       └── route.ts
+    │   │   ├── cierre/
+    │   │   │   ├── route.ts
+    │   │   │   └── historial/
+    │   │   │       └── route.ts
     │   │   ├── productos/
-    │   │   │   └── route.ts
-    │   │   ├── productos/[id]/
-    │   │   │   └── route.ts
+    │   │   │   ├── route.ts
+    │   │   │   ├── [id]/
+    │   │   │   │   └── route.ts
+    │   │   │   └── disponibilidad/
+    │   │   │       └── route.ts
     │   │   ├── recetas/
     │   │   │   └── route.ts
-    │   │   ├── ventas/
-    │   │   │   └── route.ts
-    │   │   ├── ventas/[id]/
-    │   │   │   └── anular/
-    │   │   │       └── route.ts
     │   │   ├── stock/
-    │   │   │   └── ajustar/
+    │   │   │   ├── route.ts
+    │   │   │   ├── ajustar/
+    │   │   │   │   └── route.ts
+    │   │   │   └── movimientos/
     │   │   │       └── route.ts
-    │   │   └── cierre/
-    │   │       └── route.ts
+    │   │   └── ventas/
+    │   │       ├── route.ts
+    │   │       └── [id]/
+    │   │           └── anular/
+    │   │               └── route.ts
     │   ├── globals.css
     │   └── layout.tsx
     ├── components/
     │   ├── ui/                              # componentes de shadcn/ui
+    │   ├── caja/
+    │   ├── cierre/
+    │   ├── panel/
     │   ├── productos/
-    │   ├── ventas/
     │   ├── stock/
-    │   └── cierre/
+    │   └── ventas/
+    ├── config/
+    │   ├── api.ts
+    │   └── caja.ts
     ├── db/
     │   ├── index.ts
     │   ├── schema.ts
     │   └── seeds.ts
+    ├── hooks/
+    │   └── useCashRegister.ts
     ├── lib/
+    │   ├── auth.ts
+    │   ├── date.ts
     │   ├── money.ts
-    │   ├── zod-schemas.ts
-    │   └── utils.ts
+    │   ├── utils.ts
+    │   └── zod-schemas.ts
     ├── repositories/
+    │   ├── cashRegisterRepository.ts
+    │   ├── dailyClosureRepository.ts
     │   ├── productRepository.ts
     │   ├── recipeRepository.ts
     │   ├── saleRepository.ts
-    │   ├── stockMovementRepository.ts
-    │   └── dailyClosureRepository.ts
+    │   └── stockMovementRepository.ts
     ├── application/
     │   ├── services/
     │   │   ├── authService.ts
+    │   │   ├── cashRegisterService.ts
+    │   │   ├── closureService.ts
     │   │   ├── productService.ts
     │   │   ├── recipeService.ts
     │   │   ├── saleService.ts
-    │   │   ├── stockService.ts
-    │   │   └── closureService.ts
+    │   │   └── stockService.ts
+    │   ├── idempotencyService.ts
     │   └── transactionService.ts
     ├── domain/
     │   ├── types.ts
     │   └── errors.ts
     ├── auth.ts
     ├── auth.config.ts
-    └── middleware.ts
+    └── proxy.ts
 ```
 
 ## 4. Dependencias
 
 ### Core
 
-- `next`: ^16.0.0
-- `react`: ^19.0.0
-- `react-dom`: ^19.0.0
+- `next`: ^16.3.0
+- `react`: ^19.2.8
+- `react-dom`: ^19.2.8
 - `typescript`: ^5.x
-- `tailwindcss`: ^4.x o ^3.4.x según la plantilla de shadcn/ui
-- `@tailwindcss/postcss` (si aplica)
+- `tailwindcss`: ^4.x
+- `@tailwindcss/postcss`
 
 ### Autenticación
 
-- `next-auth`: ^5.0.0-beta.x (Auth.js para Next.js)
-- `@auth/drizzle-adapter`
+- `next-auth`: ^5.0.0-beta.x (Auth.js)
 
 ### Base de datos
 
@@ -225,9 +284,9 @@ pancheria/
 ### Validación y utilidades
 
 - `zod`
-- `dinero.js` o `@dinerojs/currencies` para Money
-- `date-fns` para manejo de fechas
-- `uuid` o `nanoid` para claves de idempotencia
+- `dinero.js`
+- `date-fns`
+- `nanoid`
 
 ### UI
 
@@ -245,30 +304,58 @@ pancheria/
 - `ts-jest`
 - `@playwright/test`
 
-### Comando de instalación sugerido
-
-```bash
-npm install next@^16 react@^19 react-dom@^19 typescript @types/node @types/react @types/react-dom tailwindcss postcss autoprefixer
-npx shadcn@latest init --yes --template next --base-color neutral
-npm install next-auth@beta @auth/drizzle-adapter
-npm install drizzle-orm drizzle-kit pg @neondatabase/serverless dotenv
-npm install zod dinero.js @dinerojs/currencies date-fns nanoid
-npm install lucide-react class-variance-authority clsx tailwind-merge
-npm install -D jest @testing-library/react @testing-library/jest-dom ts-jest @playwright/test @types/jest
-```
-
 ## 5. Esquema de Base de Datos (Drizzle)
 
 ### Archivo `src/db/schema.ts`
 
 ```typescript
-import { pgTable, serial, varchar, text, integer, boolean, timestamp, numeric, pgEnum } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  serial,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  numeric,
+  pgEnum,
+  index,
+  relations,
+} from 'drizzle-orm/pg-core';
 
-export const productTypeEnum = pgEnum('product_type', ['critical_supply', 'compound', 'manual_supply']);
-export const criticalSupplyTypeEnum = pgEnum('critical_supply_type', ['bread', 'sausage', 'beverage']);
-export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'transfer']);
-export const saleStatusEnum = pgEnum('sale_status', ['active', 'cancelled']);
-export const stockMovementTypeEnum = pgEnum('stock_movement_type', ['sale', 'cancellation', 'manual_adjustment', 'restock']);
+export const productTypeEnum = pgEnum('product_type', [
+  'critical_supply',
+  'compound',
+  'manual_supply',
+]);
+
+export const criticalSupplyTypeEnum = pgEnum('critical_supply_type', [
+  'bread',
+  'sausage',
+  'beverage',
+]);
+
+export const paymentMethodEnum = pgEnum('payment_method', [
+  'cash',
+  'transfer',
+]);
+
+export const saleStatusEnum = pgEnum('sale_status', [
+  'active',
+  'cancelled',
+]);
+
+export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
+  'sale',
+  'cancellation',
+  'manual_adjustment',
+  'restock',
+]);
+
+export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
+  'open',
+  'closed',
+]);
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -277,72 +364,257 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export const products = pgTable('products', {
-  id: serial('id').primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  description: text('description'),
-  type: productTypeEnum('type').notNull(),
-  criticalSupplyType: criticalSupplyTypeEnum('critical_supply_type'),
-  price: numeric('price', { precision: 10, scale: 2 }).notNull(),
-  unit: varchar('unit', { length: 50 }).notNull(),
-  stock: integer('stock').default(0).notNull(),
-  minStock: integer('min_stock').default(0).notNull(),
-  isActive: boolean('is_active').default(true).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  deletedAt: timestamp('deleted_at'),
-});
+export const products = pgTable(
+  'products',
+  {
+    id: serial('id').primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    type: productTypeEnum('type').notNull(),
+    criticalSupplyType: criticalSupplyTypeEnum('critical_supply_type'),
+    price: numeric('price', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    }).notNull(),
+    unit: varchar('unit', { length: 50 }).notNull(),
+    stock: integer('stock').default(0).notNull(),
+    minStock: integer('min_stock').default(0).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (table) => ({
+    typeIdx: index('products_type_idx').on(table.type),
+    activeDeletedIdx: index('products_active_deleted_idx').on(
+      table.isActive,
+      table.deletedAt
+    ),
+  })
+);
 
-export const recipes = pgTable('recipes', {
-  id: serial('id').primaryKey(),
-  compoundProductId: integer('compound_product_id').notNull().references(() => products.id),
-  supplyId: integer('supply_id').notNull().references(() => products.id),
-  quantity: integer('quantity').notNull(),
-  autoDiscount: boolean('auto_discount').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export const recipes = pgTable(
+  'recipes',
+  {
+    id: serial('id').primaryKey(),
+    compoundProductId: integer('compound_product_id')
+      .notNull()
+      .references(() => products.id),
+    supplyId: integer('supply_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: integer('quantity').notNull(),
+    autoDiscount: boolean('auto_discount').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    compoundProductIdx: index('recipes_compound_product_idx').on(
+      table.compoundProductId
+    ),
+  })
+);
 
-export const sales = pgTable('sales', {
-  id: serial('id').primaryKey(),
-  total: numeric('total', { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: paymentMethodEnum('payment_method').notNull(),
-  status: saleStatusEnum('status').default('active').notNull(),
-  idempotencyKey: varchar('idempotency_key', { length: 255 }).unique(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  cancelledAt: timestamp('cancelled_at'),
-  cancellationReason: text('cancellation_reason'),
-});
+export const cashRegisters = pgTable(
+  'cash_registers',
+  {
+    id: serial('id').primaryKey(),
+    openedAt: timestamp('opened_at').defaultNow().notNull(),
+    closedAt: timestamp('closed_at'),
+    openedBy: varchar('opened_by', { length: 255 }).notNull(),
+    closedBy: varchar('closed_by', { length: 255 }),
+    status: cashRegisterStatusEnum('status').default('open').notNull(),
+    autoClosed: boolean('auto_closed').default(false).notNull(),
+    total: numeric('total', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    })
+      .default(0)
+      .notNull(),
+    cashTotal: numeric('cash_total', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    })
+      .default(0)
+      .notNull(),
+    transferTotal: numeric('transfer_total', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    })
+      .default(0)
+      .notNull(),
+    totalSales: integer('total_sales').default(0).notNull(),
+    productsSummary: text('products_summary').default('{}').notNull(),
+    criticalSuppliesSummary: text('critical_supplies_summary')
+      .default('{}')
+      .notNull(),
+    deletedAt: timestamp('deleted_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index('cash_registers_status_idx').on(table.status),
+    openedAtIdx: index('cash_registers_opened_at_idx').on(table.openedAt),
+    deletedAtIdx: index('cash_registers_deleted_at_idx').on(table.deletedAt),
+  })
+);
 
-export const saleItems = pgTable('sale_items', {
-  id: serial('id').primaryKey(),
-  saleId: integer('sale_id').notNull().references(() => sales.id),
-  productId: integer('product_id').notNull().references(() => products.id),
-  quantity: integer('quantity').notNull(),
-  unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
-  subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
-});
+export const sales = pgTable(
+  'sales',
+  {
+    id: serial('id').primaryKey(),
+    total: numeric('total', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    }).notNull(),
+    paymentMethod: paymentMethodEnum('payment_method').notNull(),
+    status: saleStatusEnum('status').default('active').notNull(),
+    cashRegisterId: integer('cash_register_id').references(
+      () => cashRegisters.id
+    ),
+    idempotencyKey: varchar('idempotency_key', { length: 255 }).unique(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    cancelledAt: timestamp('cancelled_at'),
+    cancellationReason: text('cancellation_reason'),
+  },
+  (table) => ({
+    createdAtIdx: index('sales_created_at_idx').on(table.createdAt),
+    cashRegisterCreatedAtIdx: index('sales_cash_register_created_at_idx').on(
+      table.cashRegisterId,
+      table.createdAt
+    ),
+  })
+);
 
-export const stockMovements = pgTable('stock_movements', {
-  id: serial('id').primaryKey(),
-  productId: integer('product_id').notNull().references(() => products.id),
-  type: stockMovementTypeEnum('type').notNull(),
-  quantity: integer('quantity').notNull(),
-  reason: text('reason'),
-  saleId: integer('sale_id').references(() => sales.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export const saleItems = pgTable(
+  'sale_items',
+  {
+    id: serial('id').primaryKey(),
+    saleId: integer('sale_id')
+      .notNull()
+      .references(() => sales.id),
+    productId: integer('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: integer('quantity').notNull(),
+    unitPrice: numeric('unit_price', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    }).notNull(),
+    subtotal: numeric('subtotal', {
+      precision: 10,
+      scale: 2,
+      mode: 'number',
+    }).notNull(),
+  },
+  (table) => ({
+    saleIdx: index('sale_items_sale_idx').on(table.saleId),
+  })
+);
+
+export const stockMovements = pgTable(
+  'stock_movements',
+  {
+    id: serial('id').primaryKey(),
+    productId: integer('product_id')
+      .notNull()
+      .references(() => products.id),
+    type: stockMovementTypeEnum('type').notNull(),
+    quantity: integer('quantity').notNull(),
+    reason: text('reason'),
+    saleId: integer('sale_id').references(() => sales.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    productCreatedAtIdx: index('stock_movements_product_created_at_idx').on(
+      table.productId,
+      table.createdAt
+    ),
+  })
+);
 
 export const dailyClosures = pgTable('daily_closures', {
   id: serial('id').primaryKey(),
   date: timestamp('date').notNull().unique(),
-  total: numeric('total', { precision: 10, scale: 2 }).notNull(),
-  cashTotal: numeric('cash_total', { precision: 10, scale: 2 }).notNull(),
-  transferTotal: numeric('transfer_total', { precision: 10, scale: 2 }).notNull(),
+  total: numeric('total', {
+    precision: 10,
+    scale: 2,
+    mode: 'number',
+  }).notNull(),
+  cashTotal: numeric('cash_total', {
+    precision: 10,
+    scale: 2,
+    mode: 'number',
+  }).notNull(),
+  transferTotal: numeric('transfer_total', {
+    precision: 10,
+    scale: 2,
+    mode: 'number',
+  }).notNull(),
   totalSales: integer('total_sales').notNull(),
   productsSummary: text('products_summary').notNull(),
   criticalSuppliesSummary: text('critical_supplies_summary').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+export const productsRelations = relations(products, ({ many }) => ({
+  recipes: many(recipes, { relationName: 'compoundProduct' }),
+  supplyRecipes: many(recipes, { relationName: 'supply' }),
+  saleItems: many(saleItems),
+  stockMovements: many(stockMovements),
+}));
+
+export const recipesRelations = relations(recipes, ({ one }) => ({
+  compoundProduct: one(products, {
+    fields: [recipes.compoundProductId],
+    references: [products.id],
+    relationName: 'compoundProduct',
+  }),
+  supply: one(products, {
+    fields: [recipes.supplyId],
+    references: [products.id],
+    relationName: 'supply',
+  }),
+}));
+
+export const cashRegistersRelations = relations(cashRegisters, ({ many }) => ({
+  sales: many(sales),
+}));
+
+export const salesRelations = relations(sales, ({ one, many }) => ({
+  cashRegister: one(cashRegisters, {
+    fields: [sales.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
+  items: many(saleItems),
+  stockMovements: many(stockMovements),
+}));
+
+export const saleItemsRelations = relations(saleItems, ({ one }) => ({
+  sale: one(sales, {
+    fields: [saleItems.saleId],
+    references: [sales.id],
+  }),
+  product: one(products, {
+    fields: [saleItems.productId],
+    references: [products.id],
+  }),
+}));
+
+export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
+  product: one(products, {
+    fields: [stockMovements.productId],
+    references: [products.id],
+  }),
+  sale: one(sales, {
+    fields: [stockMovements.saleId],
+    references: [sales.id],
+  }),
+}));
 ```
 
 ### Relaciones e índices
@@ -353,47 +625,115 @@ export const dailyClosures = pgTable('daily_closures', {
 - Índice en `sale_items(sale_id)`.
 - Índice en `stock_movements(product_id, created_at)`.
 - Índice en `sales(created_at)`.
+- Índice en `sales(cash_register_id, created_at)`.
+- Índice en `cash_registers(status)`, `(opened_at)` y `(deleted_at)`.
 
 ## 6. Endpoints de API
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/auth/[...nextauth]` | Inicio y cierre de sesión con NextAuth v5 |
-| GET/POST | `/api/productos` | Listar y crear productos |
+| GET/POST | `/api/productos` | Listar activos y crear producto |
 | GET/PUT/DELETE | `/api/productos/[id]` | Obtener, actualizar o eliminar producto |
-| POST | `/api/recetas` | Crear o actualizar receta de producto compuesto |
+| GET | `/api/productos/disponibilidad?productId=x` | Calcular disponibilidad de un producto |
 | GET | `/api/recetas?productId=x` | Obtener receta de un producto |
+| POST | `/api/recetas` | Crear o actualizar receta de producto compuesto |
+| GET | `/api/ventas` | Listar ventas del día o de una caja |
 | POST | `/api/ventas` | Confirmar venta |
-| GET | `/api/ventas` | Listar ventas del día |
-| GET | `/api/ventas/[id]` | Detalle de venta |
 | POST | `/api/ventas/[id]/anular` | Anular venta y reintegrar stock |
 | POST | `/api/stock/ajustar` | Ajustar stock manualmente |
 | GET | `/api/stock` | Obtener stock con alertas |
-| GET | `/api/cierre` | Obtener cierre diario |
+| GET | `/api/stock/movimientos?productId=x` | Historial de movimientos de un producto |
+| GET | `/api/cierre` | Obtener cierre diario por fecha |
 | POST | `/api/cierre` | Generar cierre diario |
+| GET | `/api/cierre/historial` | Listar cierres por rango de fechas |
+| GET | `/api/caja` | Obtener caja abierta o estado `closed` |
+| POST | `/api/caja/abrir` | Abrir una nueva caja |
+| POST | `/api/caja/cerrar` | Cerrar la caja actual o una específica |
+| GET | `/api/caja/[id]` | Detalle de una caja incluyendo ventas |
+| DELETE | `/api/caja/[id]` | Mover una caja a la papelera |
+| POST | `/api/caja/[id]/restaurar` | Restaurar una caja eliminada |
+| POST | `/api/caja/[id]/permanente` | Eliminar permanentemente una caja de la papelera |
+| GET | `/api/caja/historial` | Historial de cajas por rango y estado |
+| GET | `/api/caja/eliminadas` | Cajas en la papelera por rango |
+| GET | `/api/caja/resumen` | Resumen en tiempo real de la caja abierta |
 
 ### Validación Zod sugerida
 
 ```typescript
 import { z } from 'zod';
 
-export const productSchema = z.object({
+const productBaseSchema = z.object({
   name: z.string().min(1).max(255),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(1000).optional().nullable(),
   type: z.enum(['critical_supply', 'compound', 'manual_supply']),
   criticalSupplyType: z.enum(['bread', 'sausage', 'beverage']).optional().nullable(),
   price: z.coerce.number().nonnegative(),
   unit: z.string().min(1).max(50),
-  stock: z.coerce.number().int().nonnegative(),
-  minStock: z.coerce.number().int().nonnegative(),
-  isActive: z.coerce.boolean(),
+  stock: z.coerce.number().int().nonnegative().default(0),
+  minStock: z.coerce.number().int().nonnegative().default(0),
+  isActive: z.coerce.boolean().default(true),
 });
 
-export const recipeItemSchema = z.object({
-  supplyId: z.number().int().positive(),
-  quantity: z.number().int().positive(),
-  autoDiscount: z.boolean(),
-});
+export const productSchema = productBaseSchema
+  .refine(
+    (data) => !(data.type === 'critical_supply' && !data.criticalSupplyType),
+    {
+      message: 'Los insumos críticos deben tener un tipo de insumo crítico.',
+      path: ['criticalSupplyType'],
+    }
+  )
+  .refine(
+    (data) => !(data.type !== 'critical_supply' && data.criticalSupplyType),
+    {
+      message: 'Solo los insumos críticos pueden tener un tipo de insumo crítico.',
+      path: ['criticalSupplyType'],
+    }
+  );
+
+export const productUpdateSchema = productBaseSchema.partial();
+
+export const recipeItemSchema = z
+  .object({
+    supplyId: z.number().int().positive(),
+    quantity: z.number().int().positive(),
+    autoDiscount: z.boolean(),
+    supplyType: z.enum(['critical_supply', 'compound', 'manual_supply']).optional(),
+  })
+  .refine(
+    (data) =>
+      !data.autoDiscount || !data.supplyType || data.supplyType === 'critical_supply',
+    {
+      message: 'Solo los insumos críticos pueden tener descuento automático.',
+      path: ['autoDiscount'],
+    }
+  );
+
+export const recipeSchema = z
+  .object({
+    compoundProductId: z.number().int().positive(),
+    items: z.array(recipeItemSchema).min(1),
+  })
+  .superRefine((data, ctx) => {
+    const supplyIds = data.items.map((item) => item.supplyId);
+
+    if (new Set(supplyIds).size !== supplyIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'No puede haber insumos duplicados en la receta.',
+        path: ['items'],
+      });
+    }
+
+    if (supplyIds.includes(data.compoundProductId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Una receta no puede incluir al propio producto compuesto como insumo.',
+        path: ['items'],
+      });
+    }
+  });
 
 export const saleItemSchema = z.object({
   productId: z.number().int().positive(),
@@ -411,152 +751,157 @@ export const stockAdjustmentSchema = z.object({
   quantity: z.number().int(),
   reason: z.string().min(3).max(500),
 });
+
+export const cancellationSchema = z.object({
+  reason: z.string().min(3).max(500),
+});
 ```
 
-## 7. Pantallas y Componentes
+## 7. Variables de entorno
 
-### 7.1 Pantalla de login
+Copiar `.env.example` a `.env.local` y completar:
 
-- Formulario con usuario y contraseña.
-- Validación con Zod en cliente y servidor.
-- Redirección al panel al autenticarse.
+```env
+# URL de conexión a PostgreSQL (Neon u otra instancia).
+DATABASE_URL=postgresql://...
 
-### 7.2 Panel de ventas
+# URL base de la app, por defecto http://localhost:3000.
+NEXTAUTH_URL=http://localhost:3000
 
-- Grilla táctil de productos activos.
-- Tarjetas grandes con nombre, precio y stock disponible.
-- Selector de cantidad por producto.
-- Resumen del pedido con subtotal y total.
-- Botones de pago: efectivo y transferencia.
-- Botón de confirmar venta con idempotencia.
+# Secreto para firmar sesiones de NextAuth.
+NEXTAUTH_SECRET=generar_con_openssl_rand_base64_32
 
-### 7.3 Productos
+# Usuario administrador único.
+ADMIN_USERNAME=admin
 
-- Tabla de productos con filtros por tipo.
-- Formulario de creación y edición.
-- Botón de activar/inactivar y eliminar (soft delete).
-- Indicador de stock bajo.
+# Contraseña en texto plano; el seed la hashea con bcrypt.
+ADMIN_PASSWORD=...
 
-### 7.4 Recetas
+# Intervalo de refresco del panel de caja en milisegundos.
+NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS=5000
+```
 
-- Pantalla accesible desde productos compuestos.
-- Lista de insumos con cantidad y tipo de descuento.
-- Buscador de insumos existentes.
-- Botón de guardar receta.
+> Nota: las credenciales de administrador se obtienen de las variables de entorno. No deben estar hardcodeadas en el código fuente.
 
-### 7.5 Stock
+## 8. Configuración de NextAuth v5
 
-- Lista de productos con stock actual, mínimo y estado.
-- Alertas visuales para stock bajo.
-- Botón de ajuste manual con motivo.
-- Historial de movimientos por producto.
+Archivo `src/auth.config.ts`:
 
-### 7.6 Cierre de caja
+```typescript
+import type { NextAuthConfig } from 'next-auth';
 
-- Resumen del día: total, efectivo, transferencia, cantidad de ventas.
-- Listado de productos vendidos.
-- Consumo de insumos críticos.
-- Stock actual de insumos críticos.
-- Botón de imprimir o exportar.
-- Calendario para consultar cierres históricos.
+export const authConfig = {
+  providers: [],
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: 'jwt',
+  },
+  pages: {
+    signIn: '/login',
+  },
+  callbacks: {
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const isLoginPage = nextUrl.pathname === '/login';
 
-### Componentes de shadcn/ui sugeridos
+      if (isLoginPage) {
+        return true;
+      }
 
-- `button`
-- `card`
-- `input`
-- `label`
-- `select`
-- `dialog`
-- `table`
-- `badge`
-- `tabs`
-- `toast` o `sonner`
-- `scroll-area`
-- `calendar`
-
-## 8. Autenticación
-
-### Configuración de NextAuth v5
+      return isLoggedIn;
+    },
+    jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (token?.id) {
+        session.user.id = token.id as string;
+      }
+      return session;
+    },
+  },
+} satisfies NextAuthConfig;
+```
 
 Archivo `src/auth.ts`:
 
 ```typescript
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { DrizzleAdapter } from '@auth/drizzle-adapter';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
-import { loginSchema } from '@/lib/zod-schemas';
+import { authConfig } from './auth.config';
+import { verifyCredentials } from '@/application/services/authService';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db),
+  ...authConfig,
   providers: [
     Credentials({
+      name: 'credentials',
       credentials: {
-        username: { label: 'Usuario' },
+        username: { label: 'Usuario', type: 'text' },
         password: { label: 'Contraseña', type: 'password' },
       },
-      authorize: async (credentials) => {
-        const parsed = loginSchema.parse(credentials);
-        const user = await db.query.users.findFirst({
-          where: eq(users.username, parsed.username),
-        });
-        if (!user) return null;
-        const isValid = await bcrypt.compare(parsed.password, user.passwordHash);
-        if (!isValid) return null;
-        return { id: String(user.id), name: user.username };
+      async authorize(credentials) {
+        const { username, password } = credentials as {
+          username: string;
+          password: string;
+        };
+
+        if (!username || !password) {
+          return null;
+        }
+
+        const user = await verifyCredentials(username, password);
+
+        if (!user) {
+          return null;
+        }
+
+        return { id: user.id.toString(), name: user.username };
       },
     }),
   ],
-  pages: {
-    signIn: '/login',
-  },
-  session: { strategy: 'jwt' },
 });
 ```
-
-Archivo `src/middleware.ts`:
-
-```typescript
-export { auth as middleware } from '@/auth';
-
-export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|login).*)'],
-};
-```
-
-### Variables de entorno
-
-```env
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=generar_con_openssl_rand_base64_32
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD_HASH=hash_generado_con_bcrypt
-DATABASE_URL=postgresql://...
-```
-
-> Nota: las credenciales de administrador se obtienen de las variables de entorno. No deben estar hardcodeadas en el código fuente.
 
 ### Seed del administrador
 
 ```typescript
+import { eq } from 'drizzle-orm';
+import bcrypt from 'bcrypt';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import bcrypt from 'bcryptjs';
 
 export async function seedAdmin() {
   const username = process.env.ADMIN_USERNAME;
   const password = process.env.ADMIN_PASSWORD;
-  if (!username || !password) return;
-  const exists = await db.query.users.findFirst({ where: eq(users.username, username) });
-  if (exists) return;
+
+  if (!username || !password) {
+    console.warn(
+      'ADMIN_USERNAME o ADMIN_PASSWORD no están definidos. Se omite el seed de administrador.'
+    );
+    return;
+  }
+
+  const existing = await db.query.users.findFirst({
+    where: eq(users.username, username),
+  });
+
+  if (existing) {
+    console.log('El usuario administrador ya existe.');
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
   await db.insert(users).values({
     username,
-    passwordHash: await bcrypt.hash(password, 10),
+    passwordHash,
   });
+
+  console.log('Usuario administrador creado.');
 }
 ```
 
@@ -567,10 +912,34 @@ export async function seedAdmin() {
 Para un producto compuesto, la cantidad máxima vendible está dada por el insumo crítico con menor relación `stock / cantidadEnReceta`.
 
 ```typescript
-function calcularDisponibilidad(producto: Producto, receta: Receta[], stock: Record<number, number>): number {
-  const criticos = receta.filter((r) => r.autoDiscount);
-  if (criticos.length === 0) return 0;
-  return Math.min(...criticos.map((r) => Math.floor(stock[r.supplyId] / r.quantity)));
+export async function calculateAvailability(productId: number): Promise<number> {
+  const product = await productRepository.findById(productId);
+  if (!product) return 0;
+
+  if (product.type === 'compound') {
+    const recipe = await db.query.recipes.findMany({
+      where: eq(recipes.compoundProductId, productId),
+      with: { supply: true },
+    });
+
+    const criticalItems = recipe.filter((r) => r.autoDiscount);
+    if (criticalItems.length === 0) return 0;
+
+    return Math.min(
+      ...criticalItems.map((r) =>
+        Math.floor((r.supply?.stock ?? 0) / r.quantity)
+      )
+    );
+  }
+
+  if (
+    product.type === 'critical_supply' &&
+    product.criticalSupplyType === 'beverage'
+  ) {
+    return product.stock;
+  }
+
+  return 0;
 }
 ```
 
@@ -578,13 +947,13 @@ function calcularDisponibilidad(producto: Producto, receta: Receta[], stock: Rec
 
 Flujo dentro de `transactionService.execute`:
 
-1. Verificar clave de idempotencia.
-2. Validar cada ítem de la venta con Zod.
-3. Para cada producto compuesto, calcular disponibilidad.
-4. Para cada producto compuesto y cada insumo crítico de su receta, descontar `cantidadReceta * cantidadVendida` del stock.
-5. Para cada insumo crítico vendido directamente, descontar la cantidad vendida de su stock.
-6. Para cada bebida entera, descontar unidades del stock.
-7. Insertar la venta, los ítems y los movimientos de stock.
+1. Verificar que exista una caja abierta.
+2. Verificar clave de idempotencia.
+3. Validar cada ítem de la venta con Zod.
+4. Para cada producto compuesto, calcular disponibilidad.
+5. Para cada producto compuesto y cada insumo crítico de su receta, descontar `cantidadReceta * cantidadVendida` del stock.
+6. Para cada bebida entera, descontar la cantidad vendida de su stock.
+7. Insertar la venta, los ítems y los movimientos de stock, asociando la venta a la caja abierta.
 8. Calcular el total usando `Money`.
 
 ### 9.3 Anulación de venta
@@ -593,47 +962,109 @@ Flujo:
 
 1. Buscar la venta por ID.
 2. Si ya está anulada, retornar.
-3. Reintegrar el stock de todos los insumos críticos que se descontaron en la venta.
-4. Crear movimientos de tipo `cancellation`.
-5. Marcar la venta como `cancelled` con fecha y motivo.
+3. No permitir anular ventas de cajas eliminadas.
+4. Reintegrar el stock de todos los insumos críticos que se descontaron en la venta.
+5. Crear movimientos de tipo `cancellation`.
+6. Marcar la venta como `cancelled` con fecha y motivo.
 
 ### 9.4 Stock manual
 
 Los insumos manuales se muestran en la receta como informativos. No se descuentan automáticamente. Se ajustan desde la pantalla de stock con motivo: compra, merma, cierre de envase o corrección.
 
-## 10. Manejo de Dinero
+## 10. Módulo de Caja
+
+### 10.1 Entidad `cash_registers`
+
+Una caja representa un turno de ventas. Tiene los siguientes estados y campos clave:
+
+- `status`: `open` o `closed`.
+- `openedAt`, `closedAt`: fechas de apertura y cierre.
+- `openedBy`, `closedBy`: usuario que abre o cierra.
+- `autoClosed`: indica si se cerró automáticamente.
+- `total`, `cashTotal`, `transferTotal`: totales calculados al cerrar.
+- `totalSales`: cantidad de ventas asociadas.
+- `productsSummary`, `criticalSuppliesSummary`: resúmenes serializados en JSON.
+- `deletedAt`: permite soft delete y papelera.
+
+### 10.2 Apertura y cierre
+
+- No puede haber más de una caja abierta a la vez.
+- Al cerrar se recalculan totales, medios de pago y consumo de insumos críticos de las ventas activas asociadas.
+- El cierre puede ser manual desde la UI o automático cuando la caja supera un tiempo configurable (`AUTO_CLOSE_HOURS`, por defecto 12 horas).
+
+### 10.3 Resumen en tiempo real
+
+- `/api/caja/resumen` devuelve el resumen de la caja abierta calculado sobre el conjunto de ventas activas.
+- El panel de caja se refresca automáticamente según `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS`.
+
+### 10.4 Historial y papelera
+
+- `/ventas/historial` muestra el historial de cajas cerradas.
+- `/ventas/historial/eliminadas` muestra las cajas en papelera.
+- Las cajas cerradas pueden moverse a papelera (soft delete) y restaurarse.
+- Las cajas en papelera pueden eliminarse definitivamente; al hacerlo, sus ventas conservan `cashRegisterId = null`.
+
+## 11. Manejo de Dinero
 
 Utilizar `dinero.js` para evitar errores de punto flotante.
 
 ```typescript
-import { dinero, add, multiply, toDecimal } from 'dinero.js';
-import { ARS } from '@dinerojs/currencies';
+import { dinero, toDecimal, add, multiply, type Dinero } from 'dinero.js';
 
-export function parseMoney(amount: number) {
-  return dinero({ amount: Math.round(amount * 100), currency: ARS });
+export const ARS = {
+  code: 'ARS',
+  base: 10,
+  exponent: 2,
+} as const;
+
+export type Money = Dinero<number, 'ARS'>;
+
+export function parseMoney(amount: number): Money {
+  return dinero({
+    amount: Math.round(amount * 100),
+    currency: ARS,
+  });
 }
 
-export function moneyToNumber(money: any) {
+export function moneyToNumber(money: Money): number {
   return Number(toDecimal(money));
 }
 
-export function moneyToString(money: any) {
+export function moneyToString(money: Money): string {
   return toDecimal(money);
+}
+
+export function addMoney(a: Money, b: Money): Money {
+  return add(a, b);
+}
+
+export function multiplyMoney(money: Money, factor: number): Money {
+  return multiply(money, { amount: Math.round(factor * 100), scale: 2 });
+}
+
+export function sumMoney(monies: Money[]): Money {
+  let total = dinero({ amount: 0, currency: ARS }) as Money;
+  for (const money of monies) {
+    total = add(total, money);
+  }
+  return total;
 }
 ```
 
-Todos los precios, totales, subtotales y reportes se calculan con `dinero`.
+Todos los precios, totales, subtotales y reportes se calculan con `Money`.
 
-## 11. Transacciones e Idempotencia
+## 12. Transacciones e Idempotencia
 
 ### transactionService
 
 ```typescript
 import { db } from '@/db';
 
-export async function executeInTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
-  return db.transaction(async (tx) => {
-    return await fn(tx);
+export async function executeInTransaction<T>(
+  fn: (tx: typeof db) => Promise<T>
+): Promise<T> {
+  return await db.transaction(async (tx) => {
+    return await fn(tx as unknown as typeof db);
   });
 }
 ```
@@ -641,11 +1072,11 @@ export async function executeInTransaction<T>(fn: (tx: any) => Promise<T>): Prom
 ### idempotencyService
 
 ```typescript
+import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 
-export async function isIdempotencyKeyUsed(key: string) {
+export async function isIdempotencyKeyUsed(key: string): Promise<boolean> {
   const existing = await db.query.sales.findFirst({
     where: eq(sales.idempotencyKey, key),
   });
@@ -655,11 +1086,11 @@ export async function isIdempotencyKeyUsed(key: string) {
 
 La clave de idempotencia se genera en el cliente para cada intento de confirmación de venta.
 
-## 12. Reportes y Cierre de Caja
+## 13. Reportes y Cierre Diario
 
 ### Cierre diario
 
-El cierre se genera al finalizar el día y persiste en `daily_closures`.
+El cierre se genera al finalizar el día y persiste en `daily_closures`. Se calcula por fecha UTC, independientemente de la caja asociada a cada venta.
 
 ```typescript
 type CierreDiario = {
@@ -682,32 +1113,92 @@ type CierreDiario = {
 5. Para bebidas vendidas directamente, sumar unidades.
 6. Obtener stock actual de insumos críticos.
 7. Persistir el cierre y devolver resumen.
+8. Permitir exportar el resumen como CSV.
 
-## 13. Testing
+## 14. Pantallas y Componentes
 
-### 13.1 Tests unitarios con Jest
+### 14.1 Pantalla de login
+
+- Formulario con usuario y contraseña.
+- Validación con Zod en cliente y servidor.
+- Redirección al panel al autenticarse.
+
+### 14.2 Panel de control (dashboard)
+
+- Accesos directos a Ventas, Productos, Stock y Cierre.
+
+### 14.3 Panel de ventas
+
+- Grilla táctil de productos activos (compuestos y bebidas).
+- Tarjetas grandes con nombre, precio y stock disponible.
+- Selector de cantidad por producto.
+- Resumen del pedido con subtotal y total.
+- Botones de pago: efectivo y transferencia.
+- Botón de confirmar venta con idempotencia.
+- Estado de la caja: abrir/cerrar y resumen en tiempo real.
+
+### 14.4 Pantalla de productos
+
+- Listado de productos con stock, mínimo, precio y estado.
+- Alertas de stock bajo.
+- Acciones: editar, eliminar (soft delete) y acceso al editor de receta para productos compuestos.
+- Formulario de creación y edición con selector de tipo e insumo crítico.
+
+### 14.5 Pantalla de recetas
+
+- Editor de recetas para productos compuestos.
+- Selección de insumos con cantidad y tipo de descuento.
+- Validación de al menos un insumo crítico con descuento automático.
+
+### 14.6 Pantalla de stock
+
+- Listado de productos con alertas de stock bajo.
+- Botones para ajustar stock y ver historial de movimientos.
+- Formulario de ajuste con cantidad y motivo.
+
+### 14.7 Pantalla de cierre
+
+- Selector de fecha.
+- Generación de cierre diario.
+- Visualización de totales, productos vendidos e insumos críticos consumidos.
+- Descarga de resumen en CSV.
+- Panel de caja con apertura, cierre, resumen en vivo y tiempo restante hasta cierre automático.
+
+### 14.8 Historial de cajas
+
+- Listado de cajas cerradas con totales y estado.
+- Acceso al detalle de cada caja, incluyendo ventas y resumen.
+- Papelera de cajas eliminadas con opción de restaurar o eliminar permanentemente.
+
+## 15. Testing
+
+### 15.1 Tests unitarios con Jest
 
 Cobertura mínima:
 
-- `productService.test.ts`: CRUD y soft delete.
+- `productService.test.ts`: CRUD, soft delete y cambio de tipo.
 - `saleService.test.ts`: cálculo de disponibilidad, descuento de stock, anulación.
 - `stockService.test.ts`: ajuste manual y alertas.
+- `recipeService.test.ts`: validaciones de recetas.
+- `cashRegisterService.test.ts`: apertura, cierre, resumen y papelera.
+- `closureService.test.ts`: generación de cierre diario.
 - `money.test.ts`: conversiones y cálculos con dinero.
+- `zod-schemas.test.ts`: validaciones de esquemas.
 
-### 13.2 Tests end-to-end con Playwright
+### 15.2 Tests end-to-end con Playwright
 
 Escenarios:
 
 1. Login fallido y exitoso.
 2. Crear un producto compuesto con receta.
-3. Realizar una venta y verificar descuento de stock.
+3. Abrir caja, realizar una venta y verificar descuento de stock.
 4. Anular una venta y verificar reintegro.
 5. Generar cierre diario y validar totales.
+6. Verificar historial de cajas, papelera y eliminación permanente.
 
-### 13.3 Configuración de Jest
+### 15.3 Configuración de Jest
 
 ```typescript
-// jest.config.ts
 import type { Config } from 'jest';
 
 const config: Config = {
@@ -717,14 +1208,21 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
+  transform: {
+    '^.+\\.(ts|tsx|js|mjs)$': 'ts-jest',
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(dinero\\.js)/)',
+  ],
 };
 
 export default config;
 ```
 
-## 14. Despliegue
+## 16. Despliegue
 
-### 14.1 GitHub
+### 16.1 GitHub
 
 1. Inicializar repositorio local: `git init`.
 2. Crear `.gitignore` para Next.js, Vercel, Neon y dependencias.
@@ -732,7 +1230,7 @@ export default config;
 4. Crear repositorio remoto en GitHub.
 5. Subir cambios a la rama principal.
 
-### 14.2 Vercel
+### 16.2 Vercel
 
 1. Importar proyecto desde GitHub.
 2. Configurar framework preset: Next.js.
@@ -742,18 +1240,19 @@ export default config;
    - `NEXTAUTH_URL` (dominio de Vercel)
    - `ADMIN_USERNAME`
    - `ADMIN_PASSWORD`
+   - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS`
 4. Ejecutar migraciones desde consola local o script de build:
    - `npx drizzle-kit push`.
 5. Desplegar y verificar.
 
-### 14.3 Neon
+### 16.3 Neon
 
 1. Crear proyecto y base de datos.
 2. Copiar la URL de conexión.
 3. Configurar migraciones en producción.
-4. Ejecutar seed de administrador una sola vez.
+4. Ejecutar seed de administrador una sola vez: `npx tsx src/db/seeds.ts`.
 
-## 15. Decisiones Técnicas
+## 17. Decisiones Técnicas
 
 | Decisión | Justificación |
 |----------|---------------|
@@ -765,40 +1264,23 @@ export default config;
 | NextAuth v5 | Solución oficial para autenticación en Next.js. |
 | Money con dinero.js | Evita errores de precisión en cálculos monetarios. |
 | Repository + Application Services | Separa acceso a datos de lógica de negocio y facilita tests. |
-| Transacciones atómicas | Garantiza consistencia de stock y ventas. |
+| Transacciones atómicas | Garantiza consistencia de stock, ventas y caja. |
 | Zod | Validaciones robustas y tipadas en formularios y endpoints. |
 
-## 16. Exclusiones
+## 18. Exclusiones
 
 - Sin pasarela de pagos reales.
 - Sin facturación electrónica.
-- Sin múltiples roles ni usuarios.
-- Sin tienda online pública.
-- Sin delivery ni integraciones con terceros.
-- Sin notificaciones push ni por correo.
+- Sin múltiples usuarios o roles.
+- Sin sincronización offline.
+- Sin impresión de tickets física.
 
-## 17. Checklist de Ejecución
+## 19. Notas de cambios de v1 a v2
 
-- [ ] Proyecto Next.js 16 creado con TypeScript y Tailwind.
-- [ ] shadcn/ui instalado y componentes base listos.
-- [ ] Drizzle ORM conectado a PostgreSQL en Neon.
-- [ ] Esquema de base de datos creado y migrado.
-- [ ] NextAuth v5 configurado con una sola cuenta de administrador.
-- [ ] Login funcional y rutas protegidas.
-- [ ] CRUD de productos e insumos con soft delete.
-- [ ] Recetas para productos compuestos.
-- [ ] Pantalla de ventas táctil con validación de stock.
-- [ ] Descuento automático de panes, salchichas y bebidas.
-- [ ] Stock manual con ajustes y alertas.
-- [ ] Anulación de ventas con reintegro.
-- [ ] Cierre diario con resumen.
-- [ ] Tests unitarios con Jest.
-- [ ] Tests E2E con Playwright.
-- [ ] Código en GitHub y desplegado en Vercel.
-
-## 18. Próximos Pasos Sugeridos
-
-1. Validar este plan con el cliente o usuario final.
-2. Priorizar las funcionalidades si es necesario un MVP más reducido.
-3. Generar el `environment.yaml` para el entorno de desarrollo estandarizado.
-4. Iniciar la Fase 0 y crear el repositorio.
+- Se agrega el módulo completo de **caja** (`cash_registers`) con apertura, cierre, resumen en vivo, cierre automático, historial y papelera.
+- Las ventas quedan asociadas obligatoriamente a una caja abierta.
+- Se agregan endpoints `/api/caja/*`, `/api/cierre/historial`, `/api/productos/disponibilidad`, `/api/stock/movimientos`.
+- Se agregan pantallas de historial de cajas, detalle de caja, cajas eliminadas y cierre con panel de caja.
+- Se renombra y amplía la fase de reportes para separar cierre diario y cierre de caja.
+- Se actualiza la estructura de carpetas y dependencias.
+- Se elimina la referencia a `src/middleware.ts`; la protección de rutas se realiza mediante el callback `authorized` de `auth.config.ts`.
