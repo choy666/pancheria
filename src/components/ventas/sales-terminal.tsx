@@ -7,11 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
-import {
-  PRODUCTOS_API,
-  PRODUCTOS_DISPONIBILIDAD_API,
-  VENTAS_API,
-} from '@/config/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PRODUCTOS_API, VENTAS_API } from '@/config/api';
 
 interface Product {
   id: number;
@@ -49,7 +46,9 @@ export function SalesTerminal() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(PRODUCTOS_API, { credentials: 'include' });
+        const response = await fetch(`${PRODUCTOS_API}?includeAvailability=true`, {
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error('Error al cargar productos');
 
         const allProducts = (await response.json()) as Product[];
@@ -57,18 +56,7 @@ export function SalesTerminal() {
           (p) => p.type === 'compound' || p.criticalSupplyType === 'beverage'
         );
 
-        const withAvailability = await Promise.all(
-          sellable.map(async (p) => {
-            const res = await fetch(
-              `${PRODUCTOS_DISPONIBILIDAD_API}?productId=${p.id}`,
-              { credentials: 'include' }
-            );
-            const data = (await res.json()) as { availability: number };
-            return { ...p, availability: data.availability };
-          })
-        );
-
-        setProducts(withAvailability);
+        setProducts(sellable);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error desconocido');
       } finally {
@@ -76,10 +64,7 @@ export function SalesTerminal() {
       }
     }
 
-    const timer = setTimeout(() => {
-      void load();
-    }, 0);
-    return () => clearTimeout(timer);
+    queueMicrotask(() => void load());
   }, []);
 
   function addToCart(product: Product) {
@@ -175,7 +160,18 @@ export function SalesTerminal() {
     }
   }
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-24 w-full" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+      </div>
+    );
+  }
 
   const cartDisabled = !cashRegister || cashRegister.status !== 'open';
 

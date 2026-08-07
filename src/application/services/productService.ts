@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import * as productRepository from '@/repositories/productRepository';
+import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
 
@@ -17,6 +18,16 @@ export async function getProductById(id: number, includeDeleted = false) {
 
 export async function listActiveProducts() {
   return productRepository.findActive();
+}
+
+export async function listActiveProductsWithAvailability() {
+  const active = await listActiveProducts();
+  const ids = active.map((product) => product.id);
+  const availability = await saleService.calculateAvailabilityForProductIds(ids);
+  return active.map((product) => ({
+    ...product,
+    availability: availability[product.id] ?? 0,
+  }));
 }
 
 export async function createProduct(data: ProductInsert) {

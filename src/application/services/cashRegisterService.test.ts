@@ -127,29 +127,13 @@ describe('cashRegisterService', () => {
         openedBy: 'admin',
         status: 'open',
         autoClosed: false,
+        total: 2000,
+        cashTotal: 2000,
+        transferTotal: 0,
+        totalSales: 1,
+        productsSummary: '{"Gaseosa":2}',
+        criticalSuppliesSummary: '{"Gaseosa":2}',
       } as any);
-
-      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
-        {
-          id: 1,
-          total: 2000,
-          paymentMethod: 'cash',
-          status: 'active',
-          items: [
-            {
-              quantity: 2,
-              product: {
-                id: 2,
-                name: 'Gaseosa',
-                type: 'critical_supply',
-                criticalSupplyType: 'beverage',
-              },
-            },
-          ],
-        },
-      ] as any);
-
-      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
         { id: 2, name: 'Gaseosa', type: 'critical_supply', isActive: true },

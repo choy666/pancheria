@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CIERRE_HISTORIAL_API } from '@/config/api';
 
 interface Closure {
@@ -54,7 +55,13 @@ export function ClosureHistory() {
     load();
   }, []);
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
   if (error) return <p className="text-destructive">{error}</p>;
 
   return (

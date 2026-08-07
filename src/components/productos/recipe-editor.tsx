@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
 import {
   Select,
@@ -133,7 +134,13 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
     }
   }
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="max-w-3xl space-y-5">
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl space-y-5">

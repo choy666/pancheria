@@ -228,6 +228,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([
@@ -259,6 +265,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([
@@ -290,6 +302,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([
@@ -328,6 +346,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([
@@ -376,6 +400,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([
@@ -417,6 +447,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([
@@ -448,6 +484,12 @@ describe('confirmSale', () => {
       openedAt: new Date(),
       openedBy: 'admin',
       status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
     } as any);
 
     setProducts([

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCashRegister } from '@/hooks/useCashRegister';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import { formatDateTime, safeFormatDuration, formatLastUpdated } from '@/lib/date';
 
@@ -32,7 +33,18 @@ export function CajaPanel() {
     setIsSubmitting(false);
   }
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-24 w-full" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+      </div>
+    );
+  }
 
   if (!cashRegister) {
     return (

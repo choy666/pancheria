@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { STOCK_API, STOCK_AJUSTAR_API } from '@/config/api';
 import {
   Dialog,
@@ -101,7 +102,14 @@ export function StockList() {
     }
   }
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-10 w-full max-w-sm" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

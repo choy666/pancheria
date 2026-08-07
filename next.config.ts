@@ -1,5 +1,15 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+import withBundleAnalyzer from '@next/bundle-analyzer';
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  compress: true,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns'],
+  },
+};
 
-export default nextConfig;
+const withAnalyzer = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
+
+export default withAnalyzer(nextConfig);

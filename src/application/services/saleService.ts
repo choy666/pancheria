@@ -1,18 +1,43 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, recipes, sales, saleItems, stockMovements } from '@/db/schema';
+import {
+  cashRegisters,
+  products,
+  recipes,
+  sales,
+  saleItems,
+  stockMovements,
+} from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import { isIdempotencyKeyUsed } from '@/application/idempotencyService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as productRepository from '@/repositories/productRepository';
-import { addMoney, multiplyMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import {
+  addMoney,
+  multiplyMoney,
+  moneyToNumber,
+  parseMoney,
+} from '@/lib/money';
 import { nowUTC } from '@/lib/date';
 import {
   InsufficientStockError,
   NotFoundError,
   ValidationError,
 } from '@/domain/errors';
-import type { PaymentMethod, SaleItemInput } from '@/domain/types';
+import type { PaymentMethod, ProductRow, SaleItemInput } from '@/domain/types';
+
+type RecipeWithSupply = typeof recipes.$inferSelect & {
+  supply: ProductRow | null;
+};
+
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 export async function calculateAvailability(productId: number): Promise<number> {
   const product = await productRepository.findById(productId);
@@ -44,6 +69,177 @@ export async function calculateAvailability(productId: number): Promise<number> 
   return 0;
 }
 
+export async function calculateAvailabilityForProductIds(
+  productIds: number[]
+): Promise<Record<number, number>> {
+  if (productIds.length === 0) return {};
+
+  const productsList = await productRepository.findByIds(productIds);
+  const productById = new Map(productsList.map((p) => [p.id, p]));
+
+  const compoundProductIds = productsList
+    .filter((p) => p.type === 'compound')
+    .map((p) => p.id);
+
+  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+
+  if (compoundProductIds.length > 0) {
+    const allRecipes = (await db.query.recipes.findMany({
+      where: inArray(recipes.compoundProductId, compoundProductIds),
+      with: { supply: true },
+    })) as RecipeWithSupply[];
+
+    for (const recipeItem of allRecipes) {
+      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+        recipesByProduct.set(recipeItem.compoundProductId, []);
+      }
+      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+    }
+  }
+
+  const availabilityById: Record<number, number> = {};
+
+  for (const productId of productIds) {
+    const product = productById.get(productId);
+    if (!product) {
+      availabilityById[productId] = 0;
+      continue;
+    }
+
+    if (product.type === 'compound') {
+      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
+        (r) => r.autoDiscount
+      );
+      if (criticalItems.length === 0) {
+        availabilityById[product.id] = 0;
+      } else {
+        availabilityById[product.id] = Math.min(
+          ...criticalItems.map((r) =>
+            Math.floor((r.supply?.stock ?? 0) / r.quantity)
+          )
+        );
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      availabilityById[product.id] = product.stock;
+    } else {
+      availabilityById[product.id] = 0;
+    }
+  }
+
+  return availabilityById;
+}
+
+function availabilityFromRecipes(
+  product: ProductRow,
+  recipesByProduct: Map<number, RecipeWithSupply[]>
+): number {
+  if (product.type === 'compound') {
+    const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
+      (r) => r.autoDiscount
+    );
+    if (criticalItems.length === 0) return 0;
+    return Math.min(
+      ...criticalItems.map((r) =>
+        Math.floor((r.supply?.stock ?? 0) / r.quantity)
+      )
+    );
+  }
+
+  if (
+    product.type === 'critical_supply' &&
+    product.criticalSupplyType === 'beverage'
+  ) {
+    return product.stock;
+  }
+
+  return 0;
+}
+
+async function updateCashRegisterSummary(
+  tx: typeof db,
+  cashRegister: {
+    id: number;
+    total: number;
+    cashTotal: number;
+    transferTotal: number;
+    totalSales: number;
+    productsSummary: string | null;
+    criticalSuppliesSummary: string | null;
+  } | null,
+  saleItems: { productId: number; quantity: number }[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  paymentMethod: PaymentMethod,
+  saleTotal: number,
+  operation: 'add' | 'subtract'
+) {
+  if (!cashRegister || typeof cashRegister.productsSummary !== 'string') return;
+
+  const sign = operation === 'add' ? 1 : -1;
+
+  const total = cashRegister.total + sign * saleTotal;
+  const cashTotal =
+    cashRegister.cashTotal +
+    (paymentMethod === 'cash' ? sign * saleTotal : 0);
+  const transferTotal =
+    cashRegister.transferTotal +
+    (paymentMethod === 'transfer' ? sign * saleTotal : 0);
+  const totalSales = cashRegister.totalSales + sign;
+
+  const productsSummary = safeJsonParse<Record<string, number>>(
+    cashRegister.productsSummary,
+    {}
+  );
+  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
+    cashRegister.criticalSuppliesSummary,
+    {}
+  );
+
+  for (const item of saleItems) {
+    const product = productById.get(item.productId);
+    if (!product) continue;
+
+    productsSummary[product.name] =
+      (productsSummary[product.name] ?? 0) + sign * item.quantity;
+
+    if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      criticalSuppliesSummary[product.name] =
+        (criticalSuppliesSummary[product.name] ?? 0) +
+        sign * item.quantity;
+    }
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+
+        const consumed = recipeItem.quantity * item.quantity;
+        const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
+        criticalSuppliesSummary[supplyName] =
+          (criticalSuppliesSummary[supplyName] ?? 0) + sign * consumed;
+      }
+    }
+  }
+
+  await tx
+    .update(cashRegisters)
+    .set({
+      total,
+      cashTotal,
+      transferTotal,
+      totalSales,
+      productsSummary: JSON.stringify(productsSummary),
+      criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
+    })
+    .where(eq(cashRegisters.id, cashRegister.id));
+}
+
 export async function confirmSale(params: {
   items: SaleItemInput[];
   paymentMethod: PaymentMethod;
@@ -72,6 +268,25 @@ export async function confirmSale(params: {
 
   const productById = new Map(productsList.map((p) => [p.id, p]));
 
+  const compoundProductIds = productsList
+    .filter((p) => p.type === 'compound')
+    .map((p) => p.id);
+
+  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+  if (compoundProductIds.length > 0) {
+    const allRecipes = (await db.query.recipes.findMany({
+      where: inArray(recipes.compoundProductId, compoundProductIds),
+      with: { supply: true },
+    })) as RecipeWithSupply[];
+
+    for (const recipeItem of allRecipes) {
+      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+        recipesByProduct.set(recipeItem.compoundProductId, []);
+      }
+      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+    }
+  }
+
   for (const item of items) {
     const product = productById.get(item.productId);
     if (!product) throw new NotFoundError('Producto', item.productId);
@@ -85,7 +300,7 @@ export async function confirmSale(params: {
       );
     }
 
-    const available = await calculateAvailability(product.id);
+    const available = availabilityFromRecipes(product, recipesByProduct);
     if (available < item.quantity) {
       throw new InsufficientStockError(product.name, available, item.quantity);
     }
@@ -135,11 +350,9 @@ export async function confirmSale(params: {
       const product = productById.get(item.productId)!;
 
       if (product.type === 'compound') {
-        const recipe = await tx.query.recipes.findMany({
-          where: eq(recipes.compoundProductId, product.id),
-        });
+        const recipeList = recipesByProduct.get(product.id) ?? [];
 
-        for (const recipeItem of recipe) {
+        for (const recipeItem of recipeList) {
           if (!recipeItem.autoDiscount) continue;
 
           const consumed = recipeItem.quantity * item.quantity;
@@ -171,18 +384,47 @@ export async function confirmSale(params: {
       }
     }
 
+    await updateCashRegisterSummary(
+      tx,
+      cashRegister,
+      saleItemValues,
+      productById,
+      recipesByProduct,
+      paymentMethod,
+      moneyToNumber(saleTotal),
+      'add'
+    );
+
     return sale;
   });
 }
 
 export async function cancelSale(id: number, reason: string) {
-  const sale = await db.query.sales.findFirst({
+  const sale = (await db.query.sales.findFirst({
     where: eq(sales.id, id),
     with: {
       items: true,
       cashRegister: true,
     },
-  });
+  })) as {
+    id: number;
+    total: number;
+    paymentMethod: PaymentMethod;
+    status: 'active' | 'cancelled';
+    cashRegisterId: number | null;
+    items: { productId: number; quantity: number }[];
+    cashRegister: {
+      id: number;
+      total: number;
+      cashTotal: number;
+      transferTotal: number;
+      totalSales: number;
+      productsSummary: string | null;
+      criticalSuppliesSummary: string | null;
+      status: 'open' | 'closed';
+      deletedAt: Date | null;
+    } | null;
+  } | undefined;
 
   if (!sale) throw new NotFoundError('Venta', id);
   if (sale.status === 'cancelled') return sale;
@@ -192,16 +434,38 @@ export async function cancelSale(id: number, reason: string) {
   }
 
   return executeInTransaction(async (tx) => {
+    const productIds = (sale.items ?? []).map((item) => item.productId);
+    const productsList =
+      productIds.length > 0 ? await productRepository.findByIds(productIds) : [];
+    const productById = new Map(productsList.map((p) => [p.id, p]));
+
+    const compoundProductIds = productsList
+      .filter((p) => p.type === 'compound')
+      .map((p) => p.id);
+
+    const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+    if (compoundProductIds.length > 0) {
+      const allRecipes = (await tx.query.recipes.findMany({
+        where: inArray(recipes.compoundProductId, compoundProductIds),
+        with: { supply: true },
+      })) as RecipeWithSupply[];
+
+      for (const recipeItem of allRecipes) {
+        if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+          recipesByProduct.set(recipeItem.compoundProductId, []);
+        }
+        recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+      }
+    }
+
     for (const item of sale.items ?? []) {
-      const product = await productRepository.findById(item.productId);
+      const product = productById.get(item.productId);
       if (!product) continue;
 
       if (product.type === 'compound') {
-        const recipe = await tx.query.recipes.findMany({
-          where: eq(recipes.compoundProductId, product.id),
-        });
+        const recipeList = recipesByProduct.get(product.id) ?? [];
 
-        for (const recipeItem of recipe) {
+        for (const recipeItem of recipeList) {
           if (!recipeItem.autoDiscount) continue;
 
           const reintegrated = recipeItem.quantity * item.quantity;
@@ -242,6 +506,17 @@ export async function cancelSale(id: number, reason: string) {
       })
       .where(eq(sales.id, id))
       .returning();
+
+    await updateCashRegisterSummary(
+      tx,
+      sale.cashRegister,
+      sale.items ?? [],
+      productById,
+      recipesByProduct,
+      sale.paymentMethod,
+      sale.total,
+      'subtract'
+    );
 
     return updated;
   });

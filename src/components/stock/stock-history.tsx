@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { STOCK_MOVIMIENTOS_API } from '@/config/api';
 
 interface StockMovement {
@@ -66,7 +67,13 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
     load();
   }, [productId]);
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
   if (error) return <p className="text-destructive">{error}</p>;
 
   return (

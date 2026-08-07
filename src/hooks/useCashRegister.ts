@@ -59,15 +59,37 @@ export function useCashRegister(): UseCashRegisterResult {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => void fetchCaja(), 0);
-    const interval = setInterval(
-      () => void fetchCaja(),
-      getCajaRefreshInterval()
-    );
+    queueMicrotask(() => void fetchCaja());
+
+    const intervalDuration = getCajaRefreshInterval();
+    let intervalId: NodeJS.Timeout | null = null;
+
+    function startInterval() {
+      intervalId = setInterval(() => void fetchCaja(), intervalDuration);
+    }
+
+    function stopInterval() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        queueMicrotask(() => void fetchCaja());
+        startInterval();
+      }
+    }
+
+    startInterval();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      clearTimeout(timer);
-      clearInterval(interval);
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchCaja]);
 

@@ -6,7 +6,7 @@ import { logError } from '@/lib/logger';
 import { DomainError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await requireAuth();
   } catch (error) {
@@ -19,7 +19,13 @@ export async function GET() {
     );
   }
   try {
-    const products = await productService.listActiveProducts();
+    const { searchParams } = new URL(request.url);
+    const includeAvailability = searchParams.get('includeAvailability') === 'true';
+
+    const products = includeAvailability
+      ? await productService.listActiveProductsWithAvailability()
+      : await productService.listActiveProducts();
+
     return NextResponse.json(products);
   } catch (error) {
     logError('Error al listar productos', error);

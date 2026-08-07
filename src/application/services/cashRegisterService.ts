@@ -10,6 +10,15 @@ import { NotFoundError, ValidationError } from '@/domain/errors';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegisterStatus } from '@/domain/types';
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function getOpenCashRegister() {
   const cashRegister = await cashRegisterRepository.findOpen();
 
@@ -178,13 +187,32 @@ export async function getOpenCashRegisterSummary() {
 
   if (!cashRegister) return null;
 
-  const summary = await calculateCashRegisterSummary(cashRegister.id);
+  const productsSummary = safeJsonParse<Record<string, number>>(
+    cashRegister.productsSummary,
+    {}
+  );
+  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
+    cashRegister.criticalSuppliesSummary,
+    {}
+  );
+
+  const activeCriticalSupplies = await db.query.products.findMany({
+    where: and(
+      eq(products.type, 'critical_supply'),
+      eq(products.isActive, true)
+    ),
+  });
+
+  for (const supply of activeCriticalSupplies) {
+    if (criticalSuppliesSummary[supply.name] === undefined) {
+      criticalSuppliesSummary[supply.name] = 0;
+    }
+  }
 
   return {
     ...cashRegister,
-    ...summary,
-    productsSummary: JSON.parse(summary.productsSummary),
-    criticalSuppliesSummary: JSON.parse(summary.criticalSuppliesSummary),
+    productsSummary,
+    criticalSuppliesSummary,
   };
 }
 
