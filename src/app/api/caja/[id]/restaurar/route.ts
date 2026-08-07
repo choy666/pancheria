@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { logError } from '@/lib/logger';
+import { parseId } from '@/lib/id';
 import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -14,8 +16,15 @@ export async function POST(
   try {
     await requireAuth();
     const { id } = await params;
+    const cashRegisterId = parseId(id);
+    if (!cashRegisterId) {
+      return NextResponse.json(
+        { error: 'ID de caja inválido.' },
+        { status: 400 }
+      );
+    }
     const cashRegister = await cashRegisterService.restoreCashRegister(
-      Number(id)
+      cashRegisterId
     );
     return NextResponse.json(cashRegister);
   } catch (error) {
@@ -31,7 +40,7 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Error al restaurar caja:', error);
+    logError('Error al restaurar caja', error);
     return NextResponse.json(
       { error: 'Error al restaurar caja' },
       { status: 500 }

@@ -223,6 +223,35 @@ describe('productService', () => {
       expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
     });
 
+    test('rechaza criticalSupplyType sin type en un producto no crítico', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'manual_supply',
+      } as any);
+
+      await expect(
+        updateProduct(1, {
+          criticalSupplyType: 'bread',
+          price: 100,
+        } as any)
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza quitar criticalSupplyType de un insumo crítico', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'critical_supply',
+        criticalSupplyType: 'bread',
+      } as any);
+
+      await expect(
+        updateProduct(1, {
+          criticalSupplyType: null,
+          price: 100,
+        } as any)
+      ).rejects.toThrow(ValidationError);
+    });
+
     test('actualiza sin cambiar el tipo y no borra recetas', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,

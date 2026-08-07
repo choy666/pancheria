@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { subDays } from 'date-fns';
 import * as closureService from '@/application/services/closureService';
+import { nowUTC, parseDateStringUTC } from '@/lib/date';
+import { logError } from '@/lib/logger';
 import { UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -11,8 +13,8 @@ export async function GET(request: NextRequest) {
     const startParam = searchParams.get('start');
     const endParam = searchParams.get('end');
 
-    const end = endParam ? new Date(endParam) : new Date();
-    const start = startParam ? new Date(startParam) : subDays(end, 30);
+    const end = endParam ? parseDateStringUTC(endParam) : nowUTC();
+    const start = startParam ? parseDateStringUTC(startParam) : subDays(end, 30);
 
     const closures = await closureService.listClosures(start, end);
     return NextResponse.json(closures);
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    console.error('Error al listar cierres:', error);
+    logError('Error al listar cierres', error);
     return NextResponse.json(
       { error: 'Error al listar cierres' },
       { status: 500 }

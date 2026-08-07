@@ -38,13 +38,19 @@ export async function createProduct(data: ProductInsert) {
 export async function updateProduct(id: number, data: ProductUpdate) {
   const existing = await getProductById(id);
 
-  if (data.type === 'critical_supply' && !data.criticalSupplyType) {
+  const effectiveType = data.type ?? existing.type;
+  const effectiveCriticalSupplyType =
+    data.criticalSupplyType !== undefined
+      ? data.criticalSupplyType
+      : existing.criticalSupplyType;
+
+  if (effectiveType === 'critical_supply' && !effectiveCriticalSupplyType) {
     throw new ValidationError(
       'Los insumos críticos deben tener un tipo de insumo crítico.'
     );
   }
 
-  if (data.type && data.type !== 'critical_supply' && data.criticalSupplyType) {
+  if (effectiveType !== 'critical_supply' && effectiveCriticalSupplyType) {
     throw new ValidationError(
       'Solo los insumos críticos pueden tener un tipo de insumo crítico.'
     );

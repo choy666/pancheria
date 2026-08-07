@@ -5,6 +5,7 @@ import { executeInTransaction } from '@/application/transactionService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { addHours } from 'date-fns';
+import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegisterStatus } from '@/domain/types';
@@ -14,7 +15,7 @@ export async function getOpenCashRegister() {
 
   if (!cashRegister) return null;
 
-  const now = new Date();
+  const now = nowUTC();
   const autoCloseAt = addHours(cashRegister.openedAt, AUTO_CLOSE_HOURS);
 
   if (autoCloseAt <= now) {
@@ -47,7 +48,7 @@ export async function openCashRegister(openedBy: string) {
   }
 
   return cashRegisterRepository.create({
-    openedAt: new Date(),
+    openedAt: nowUTC(),
     openedBy,
   });
 }
@@ -205,7 +206,7 @@ export async function closeCashRegister(id: number, closedBy: string) {
       .update(cashRegisters)
       .set({
         status: 'closed',
-        closedAt: new Date(),
+        closedAt: nowUTC(),
         closedBy,
         ...summary,
       })

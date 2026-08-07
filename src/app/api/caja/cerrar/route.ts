@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { logError } from '@/lib/logger';
+import { parseId } from '@/lib/id';
 import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -7,9 +9,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     const body = await request.json().catch(() => ({}));
-    const id = body.id ? Number(body.id) : undefined;
+    const id = parseId(body.id);
 
-    if (!id || Number.isNaN(id)) {
+    if (!id) {
       const currentCashRegister = await cashRegisterService.getOpenCashRegister();
 
       if (!currentCashRegister) {
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Error al cerrar caja:', error);
+    logError('Error al cerrar caja', error);
     return NextResponse.json(
       { error: 'Error al cerrar caja' },
       { status: 500 }

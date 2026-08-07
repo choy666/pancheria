@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { logError } from '@/lib/logger';
 import { UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -13,7 +14,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    console.error('Error al obtener caja:', error);
+    logError('Error al obtener caja', error);
     return NextResponse.json(
       { error: 'Error al obtener caja' },
       { status: 500 }

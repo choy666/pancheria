@@ -1283,4 +1283,4 @@ export default config;
 - Se agregan pantallas de historial de cajas, detalle de caja, cajas eliminadas y cierre con panel de caja.
 - Se renombra y amplía la fase de reportes para separar cierre diario y cierre de caja.
 - Se actualiza la estructura de carpetas y dependencias.
-- Se elimina la referencia a `src/middleware.ts`; la protección de rutas se realiza mediante el callback `authorized` de `auth.config.ts`.
+- Se crea `src/proxy.ts` (convención de Next.js 16, antes `middleware.ts`) que exporta el proxy de autenticación de NextAuth; el callback `authorized` de `auth.config.ts` valida la sesión para las rutas protegidas.

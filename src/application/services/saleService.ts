@@ -6,6 +6,7 @@ import { isIdempotencyKeyUsed } from '@/application/idempotencyService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as productRepository from '@/repositories/productRepository';
 import { addMoney, multiplyMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { nowUTC } from '@/lib/date';
 import {
   InsufficientStockError,
   NotFoundError,
@@ -236,7 +237,7 @@ export async function cancelSale(id: number, reason: string) {
       .update(sales)
       .set({
         status: 'cancelled',
-        cancelledAt: new Date(),
+        cancelledAt: nowUTC(),
         cancellationReason: reason,
       })
       .where(eq(sales.id, id))

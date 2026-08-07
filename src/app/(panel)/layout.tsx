@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
 import { PanelHeader } from '@/components/panel/panel-header';
 import { auth, signOut } from '@/auth';
 
@@ -8,6 +9,10 @@ export default async function PanelLayout({
   children: ReactNode;
 }) {
   const session = await auth();
+
+  if (!session) {
+    redirect('/login');
+  }
 
   async function signOutAction() {
     'use server';

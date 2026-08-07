@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { productSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
+import { logError } from '@/lib/logger';
 import { DomainError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -21,7 +22,7 @@ export async function GET() {
     const products = await productService.listActiveProducts();
     return NextResponse.json(products);
   } catch (error) {
-    console.error('Error al listar productos:', error);
+    logError('Error al listar productos', error);
     return NextResponse.json(
       { error: 'Error al listar productos' },
       { status: 500 }
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Error al crear producto:', error);
+    logError('Error al crear producto', error);
     return NextResponse.json(
       { error: 'Error al crear producto' },
       { status: 500 }

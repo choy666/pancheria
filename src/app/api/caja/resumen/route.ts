@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { logError } from '@/lib/logger';
 import { UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -21,7 +22,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    console.error('Error al obtener resumen de caja:', error);
+    logError('Error al obtener resumen de caja', error);
     return NextResponse.json(
       { error: 'Error al obtener resumen de caja' },
       { status: 500 }

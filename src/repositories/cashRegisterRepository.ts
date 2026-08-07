@@ -10,6 +10,7 @@ import {
 } from 'drizzle-orm';
 import { db } from '@/db';
 import { cashRegisters, sales } from '@/db/schema';
+import { nowUTC } from '@/lib/date';
 import { executeInTransaction } from '@/application/transactionService';
 import type { CashRegisterStatus } from '@/domain/types';
 
@@ -109,7 +110,7 @@ export async function update(
 export async function softDelete(id: number) {
   const [result] = await db
     .update(cashRegisters)
-    .set({ deletedAt: new Date() })
+    .set({ deletedAt: nowUTC() })
     .where(eq(cashRegisters.id, id))
     .returning();
   return result ?? null;

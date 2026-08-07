@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { subDays } from 'date-fns';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { nowUTC, parseDateStringUTC } from '@/lib/date';
+import { logError } from '@/lib/logger';
 import { UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
@@ -13,9 +15,9 @@ export async function GET(request: NextRequest) {
     const startParam = searchParams.get('start');
     const endParam = searchParams.get('end');
 
-    const end = endParam ? new Date(endParam) : new Date();
+    const end = endParam ? parseDateStringUTC(endParam) : nowUTC();
     const start = startParam
-      ? new Date(startParam)
+      ? parseDateStringUTC(startParam)
       : subDays(end, DEFAULT_CAJA_HISTORY_DAYS);
     const statusParam = searchParams.get('status');
     const status: CashRegisterStatus | undefined =
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    console.error('Error al listar cajas:', error);
+    logError('Error al listar cajas', error);
     return NextResponse.json(
       { error: 'Error al listar cajas' },
       { status: 500 }

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import { logError } from '@/lib/logger';
+import { parseId } from '@/lib/id';
 import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -14,8 +16,15 @@ export async function GET(
   try {
     await requireAuth();
     const { id } = await params;
+    const cashRegisterId = parseId(id);
+    if (!cashRegisterId) {
+      return NextResponse.json(
+        { error: 'ID de caja inválido.' },
+        { status: 400 }
+      );
+    }
     const cashRegister = await cashRegisterService.getCashRegisterById(
-      Number(id),
+      cashRegisterId,
       true
     );
 
@@ -36,7 +45,7 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    console.error('Error al obtener caja:', error);
+    logError('Error al obtener caja', error);
     return NextResponse.json(
       { error: 'Error al obtener caja' },
       { status: 500 }
@@ -51,7 +60,14 @@ export async function DELETE(
   try {
     await requireAuth();
     const { id } = await params;
-    await cashRegisterService.deleteCashRegister(Number(id));
+    const cashRegisterId = parseId(id);
+    if (!cashRegisterId) {
+      return NextResponse.json(
+        { error: 'ID de caja inválido.' },
+        { status: 400 }
+      );
+    }
+    await cashRegisterService.deleteCashRegister(cashRegisterId);
     return NextResponse.json({ deleted: true });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
@@ -66,7 +82,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Error al eliminar caja:', error);
+    logError('Error al eliminar caja', error);
     return NextResponse.json(
       { error: 'Error al eliminar caja' },
       { status: 500 }

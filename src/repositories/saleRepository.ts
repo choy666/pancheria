@@ -1,6 +1,7 @@
 import { eq, and, gte, lt } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, saleItems } from '@/db/schema';
+import { nowUTC } from '@/lib/date';
 import type { PaymentMethod, SaleStatus } from '@/domain/types';
 
 export async function findById(id: number) {
@@ -107,7 +108,7 @@ export async function cancel(id: number, reason: string) {
     .update(sales)
     .set({
       status: 'cancelled',
-      cancelledAt: new Date(),
+      cancelledAt: nowUTC(),
       cancellationReason: reason,
     })
     .where(eq(sales.id, id))

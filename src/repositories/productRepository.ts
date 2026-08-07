@@ -1,6 +1,7 @@
 import { eq, inArray, isNull, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { products } from '@/db/schema';
+import { nowUTC } from '@/lib/date';
 import type { ProductRow } from '@/domain/types';
 import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
@@ -52,7 +53,7 @@ export async function create(data: ProductInsert): Promise<ProductRow | undefine
       ...data,
       description: data.description ?? null,
       criticalSupplyType: data.criticalSupplyType ?? null,
-      updatedAt: new Date(),
+      updatedAt: nowUTC(),
     })
     .returning();
   return result;
@@ -63,7 +64,7 @@ export async function update(id: number, data: ProductUpdate): Promise<ProductRo
     .update(products)
     .set({
       ...data,
-      updatedAt: new Date(),
+      updatedAt: nowUTC(),
     })
     .where(eq(products.id, id))
     .returning();
@@ -75,8 +76,8 @@ export async function softDelete(id: number): Promise<ProductRow | null> {
     .update(products)
     .set({
       isActive: false,
-      deletedAt: new Date(),
-      updatedAt: new Date(),
+      deletedAt: nowUTC(),
+      updatedAt: nowUTC(),
     })
     .where(eq(products.id, id))
     .returning();
@@ -89,7 +90,7 @@ export async function restore(id: number): Promise<ProductRow | null> {
     .set({
       isActive: true,
       deletedAt: null,
-      updatedAt: new Date(),
+      updatedAt: nowUTC(),
     })
     .where(eq(products.id, id))
     .returning();

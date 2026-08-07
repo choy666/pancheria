@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as stockService from '@/application/services/stockService';
+import { logError } from '@/lib/logger';
+import { parseId } from '@/lib/id';
 import { NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -7,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth();
     const { searchParams } = new URL(request.url);
-    const productId = Number(searchParams.get('productId'));
+    const productId = parseId(searchParams.get('productId'));
 
     if (!productId) {
       return NextResponse.json(
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    console.error('Error al obtener historial de stock:', error);
+    logError('Error al obtener historial de stock', error);
     return NextResponse.json(
       { error: 'Error al obtener historial de stock' },
       { status: 500 }

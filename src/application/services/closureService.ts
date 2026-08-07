@@ -3,32 +3,12 @@ import { db } from '@/db';
 import { products, recipes, sales, dailyClosures } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { startOfDayUTC, endOfDayUTC } from '@/lib/date';
 import { ValidationError } from '@/domain/errors';
 
-
-function startOfDay(date: Date) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-}
-
-function endOfDay(date: Date) {
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      23,
-      59,
-      59,
-      999
-    )
-  );
-}
-
 export async function generateClosure(date: Date) {
-  const start = startOfDay(date);
-  const end = endOfDay(date);
+  const start = startOfDayUTC(date);
+  const end = endOfDayUTC(date);
 
   const existing = await db.query.dailyClosures.findFirst({
     where: eq(dailyClosures.date, start),
@@ -140,7 +120,7 @@ export async function generateClosure(date: Date) {
 }
 
 export async function getClosureByDate(date: Date) {
-  const start = startOfDay(date);
+  const start = startOfDayUTC(date);
   return db.query.dailyClosures.findFirst({
     where: eq(dailyClosures.date, start),
   });
@@ -149,8 +129,8 @@ export async function getClosureByDate(date: Date) {
 export async function listClosures(start: Date, end: Date) {
   return db.query.dailyClosures.findMany({
     where: and(
-      gte(dailyClosures.date, startOfDay(start)),
-      lte(dailyClosures.date, endOfDay(end))
+      gte(dailyClosures.date, startOfDayUTC(start)),
+      lte(dailyClosures.date, endOfDayUTC(end))
     ),
     orderBy: (dailyClosures, { desc }) => [desc(dailyClosures.date)],
   });

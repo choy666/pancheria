@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { stockAdjustmentSchema } from '@/lib/zod-schemas';
 import * as stockService from '@/application/services/stockService';
+import { logError } from '@/lib/logger';
 import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Error al ajustar stock:', error);
+    logError('Error al ajustar stock', error);
     return NextResponse.json(
       { error: 'Error al ajustar stock' },
       { status: 500 }

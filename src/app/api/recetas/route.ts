@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { recipeSchema } from '@/lib/zod-schemas';
 import * as recipeService from '@/application/services/recipeService';
+import { logError } from '@/lib/logger';
+import { parseId } from '@/lib/id';
 import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
 import { requireAuth } from '@/lib/auth';
 
@@ -9,11 +11,11 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth();
     const { searchParams } = new URL(request.url);
-    const productId = Number(searchParams.get('productId'));
+    const productId = parseId(searchParams.get('productId'));
 
-    if (!productId || isNaN(productId)) {
+    if (!productId) {
       return NextResponse.json(
-        { error: 'Se requiere productId' },
+        { error: 'Se requiere un productId válido' },
         { status: 400 }
       );
     }
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    console.error('Error al obtener receta:', error);
+    logError('Error al obtener receta', error);
     return NextResponse.json(
       { error: 'Error al obtener receta' },
       { status: 500 }
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Error al guardar receta:', error);
+    logError('Error al guardar receta', error);
     return NextResponse.json(
       { error: 'Error al guardar receta' },
       { status: 500 }
