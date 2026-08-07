@@ -6,6 +6,12 @@ import {
   restoreCashRegister,
   permanentlyDeleteCashRegister,
   getCashRegisterById,
+  getOpenCashRegisterSummary,
+  autoCloseIfNeeded,
+  listCashRegisterHistory,
+  listDeletedCashRegisterHistory,
+  emptyTrash,
+  calculateCashRegisterSummary,
 } from './cashRegisterService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { executeInTransaction } from '@/application/transactionService';
@@ -108,6 +114,70 @@ describe('cashRegisterService', () => {
       const result = await getOpenCashRegister();
 
       expect(result).toBeNull();
+      expect(mockedExecuteInTransaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('getOpenCashRegisterSummary', () => {
+    test('devuelve totales y resumen parseado de la caja abierta', async () => {
+      const openedAt = new Date(Date.now() - 60 * 60 * 1000);
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+      } as any);
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          total: 2000,
+          paymentMethod: 'cash',
+          status: 'active',
+          items: [
+            {
+              quantity: 2,
+              product: {
+                id: 2,
+                name: 'Gaseosa',
+                type: 'critical_supply',
+                criticalSupplyType: 'beverage',
+              },
+            },
+          ],
+        },
+      ] as any);
+
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 2, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 3, name: 'Pan', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = (await getOpenCashRegisterSummary()) as any;
+
+      expect(result).not.toBeNull();
+      expect(result.id).toBe(1);
+      expect(result.status).toBe('open');
+      expect(result.total).toBe(2000);
+      expect(result.cashTotal).toBe(2000);
+      expect(result.transferTotal).toBe(0);
+      expect(result.totalSales).toBe(1);
+      expect(result.productsSummary).toEqual({ Gaseosa: 2 });
+      expect(result.criticalSuppliesSummary).toEqual({
+        Gaseosa: 2,
+        Pan: 0,
+      });
+    });
+
+    test('devuelve null si no hay caja abierta', async () => {
+      mockedCashRegisterRepository.findOpen.mockResolvedValue(undefined);
+
+      const result = await getOpenCashRegisterSummary();
+
+      expect(result).toBeNull();
     });
   });
 
@@ -186,6 +256,30 @@ describe('cashRegisterService', () => {
       expect(result?.status).toBe('closed');
       expect(result?.totalSales).toBe(1);
     });
+
+    test('rechaza cerrar una caja ya cerrada', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        status: 'closed',
+      } as any);
+
+      await expect(closeCashRegister(1, 'admin')).rejects.toThrow(
+        'La caja ya está cerrada.'
+      );
+      await expect(closeCashRegister(1, 'admin')).rejects.toThrow(ValidationError);
+      expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
+    });
+
+    test('lanza NotFoundError si la caja no existe', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue(undefined);
+
+      await expect(closeCashRegister(999, 'admin')).rejects.toThrow(
+        NotFoundError
+      );
+      await expect(closeCashRegister(999, 'admin')).rejects.toThrow(
+        'Caja con ID 999 no encontrado.'
+      );
+    });
   });
 
   describe('getCashRegisterById', () => {
@@ -200,6 +294,83 @@ describe('cashRegisterService', () => {
 
       expect(result?.id).toBe(1);
       expect(mockedCashRegisterRepository.findById).toHaveBeenCalledWith(1, false);
+    });
+  });
+
+  describe('listCashRegisterHistory', () => {
+    test('lista el historial de cajas en un rango', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+      const history = [
+        { id: 1, status: 'closed' },
+        { id: 2, status: 'open' },
+      ];
+
+      mockedCashRegisterRepository.findInRange.mockResolvedValue(history as any);
+
+      const result = await listCashRegisterHistory(start, end);
+
+      expect(result).toEqual(history);
+      expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
+        start,
+        end,
+        undefined
+      );
+    });
+
+    test('puede filtrar historial por estado', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+      const history = [{ id: 1, status: 'closed' }];
+
+      mockedCashRegisterRepository.findInRange.mockResolvedValue(history as any);
+
+      const result = await listCashRegisterHistory(start, end, 'closed');
+
+      expect(result).toEqual(history);
+      expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
+        start,
+        end,
+        'closed'
+      );
+    });
+  });
+
+  describe('listDeletedCashRegisterHistory', () => {
+    test('lista cajas eliminadas en un rango', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+      const history = [{ id: 1, deletedAt: new Date() }];
+
+      mockedCashRegisterRepository.findDeletedInRange.mockResolvedValue(
+        history as any
+      );
+
+      const result = await listDeletedCashRegisterHistory(start, end);
+
+      expect(result).toEqual(history);
+      expect(mockedCashRegisterRepository.findDeletedInRange).toHaveBeenCalledWith(
+        start,
+        end
+      );
+    });
+  });
+
+  describe('emptyTrash', () => {
+    test('elimina permanentemente las cajas en papelera del rango', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+
+      mockedCashRegisterRepository.hardDeleteAllDeletedInRange.mockResolvedValue({
+        deleted: 2,
+      } as any);
+
+      const result = await emptyTrash(start, end);
+
+      expect(result).toEqual({ deleted: 2 });
+      expect(
+        mockedCashRegisterRepository.hardDeleteAllDeletedInRange
+      ).toHaveBeenCalledWith(start, end);
     });
   });
 
@@ -297,6 +468,110 @@ describe('cashRegisterService', () => {
       await expect(permanentlyDeleteCashRegister(1)).rejects.toThrow(
         ValidationError
       );
+    });
+  });
+
+  describe('autoCloseIfNeeded', () => {
+    test('devuelve la caja si no superó las 12 horas', async () => {
+      const openedAt = new Date(Date.now() - 60 * 60 * 1000);
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+      } as any);
+
+      const result = await autoCloseIfNeeded();
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe(1);
+    });
+
+    test('cierra automáticamente una caja vencida', async () => {
+      const openedAt = new Date(Date.now() - 13 * 60 * 60 * 1000);
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+      } as any);
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await autoCloseIfNeeded();
+
+      expect(result).toBeNull();
+      expect(mockedExecuteInTransaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('calculateCashRegisterSummary', () => {
+    test('calcula totales con múltiples ventas, transferencias y bebidas', async () => {
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          total: 1500,
+          paymentMethod: 'cash',
+          status: 'active',
+          items: [
+            {
+              quantity: 1,
+              product: { id: 1, name: 'Panchuque', type: 'compound' },
+            },
+          ],
+        },
+        {
+          id: 2,
+          total: 800,
+          paymentMethod: 'transfer',
+          status: 'active',
+          items: [
+            {
+              quantity: 2,
+              product: {
+                id: 2,
+                name: 'Gaseosa',
+                type: 'critical_supply',
+                criticalSupplyType: 'beverage',
+              },
+            },
+          ],
+        },
+      ] as any);
+
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          compoundProductId: 1,
+          supplyId: 2,
+          quantity: 1,
+          autoDiscount: true,
+          supply: { id: 2, name: 'Pan' },
+        },
+      ] as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 2, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 3, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = await calculateCashRegisterSummary(1);
+
+      expect(result.total).toBe(2300);
+      expect(result.cashTotal).toBe(1500);
+      expect(result.transferTotal).toBe(800);
+      expect(result.totalSales).toBe(2);
+      expect(JSON.parse(result.productsSummary)).toEqual({
+        Panchuque: 1,
+        Gaseosa: 2,
+      });
+      expect(JSON.parse(result.criticalSuppliesSummary)).toEqual({
+        Pan: 1,
+        Gaseosa: 2,
+        Salchicha: 0,
+      });
     });
   });
 });
