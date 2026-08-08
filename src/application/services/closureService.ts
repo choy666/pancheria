@@ -41,7 +41,7 @@ export async function generateClosure(date: Date) {
     paymentMethod: 'cash' | 'transfer';
     items: {
       quantity: number;
-      product: typeof products.$inferSelect;
+      product: typeof products.$inferSelect | null;
     }[];
   }[];
 
@@ -53,7 +53,7 @@ export async function generateClosure(date: Date) {
   const compoundProductIds = new Set<number>();
   for (const sale of activeSales) {
     for (const item of sale.items ?? []) {
-      if (item.product.type === 'compound') {
+      if (item.product?.type === 'compound') {
         compoundProductIds.add(item.product.id);
       }
     }
@@ -84,6 +84,7 @@ export async function generateClosure(date: Date) {
 
     for (const item of sale.items ?? []) {
       const product = item.product;
+      if (!product) continue;
 
       const key = product.name;
       productsSummary[key] = (productsSummary[key] ?? 0) + item.quantity;
