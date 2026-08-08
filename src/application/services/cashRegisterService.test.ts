@@ -73,10 +73,13 @@ describe('cashRegisterService', () => {
         select: jest.fn(() => ({
           from: jest.fn(() => ({
             where: jest.fn(() => ({
-              for: jest.fn().mockResolvedValue(mockSelectResult),
+              for: jest.fn().mockImplementation(() =>
+                Promise.resolve(mockSelectResult)
+              ),
             })),
           })),
         })),
+        query: mockedDb.query,
         insert: jest.fn(() => ({
           values: jest.fn(() => ({
             returning: jest.fn().mockResolvedValue(mockInsertResult),
@@ -234,13 +237,15 @@ describe('cashRegisterService', () => {
     test('calcula totales y resumen al cerrar caja', async () => {
       mockUpdate.mockResolvedValue([createMockCashRegister()]);
 
-      const openedAt = new Date();
-      mockedCashRegisterRepository.findById.mockResolvedValue({
-        id: 1,
-        openedAt,
-        openedBy: 'admin',
-        status: 'open',
-      } as any);
+      mockSelectResult = [
+        {
+          id: 1,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+          deletedAt: null,
+        },
+      ];
 
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
         {
@@ -279,10 +284,13 @@ describe('cashRegisterService', () => {
     });
 
     test('rechaza cerrar una caja ya cerrada', async () => {
-      mockedCashRegisterRepository.findById.mockResolvedValue({
-        id: 1,
-        status: 'closed',
-      } as any);
+      mockSelectResult = [
+        {
+          id: 1,
+          status: 'closed',
+          deletedAt: null,
+        },
+      ];
 
       await expect(closeCashRegister(1, 'admin')).rejects.toThrow(
         'La caja ya está cerrada.'
@@ -292,7 +300,7 @@ describe('cashRegisterService', () => {
     });
 
     test('lanza NotFoundError si la caja no existe', async () => {
-      mockedCashRegisterRepository.findById.mockResolvedValue(undefined);
+      mockSelectResult = [];
 
       await expect(closeCashRegister(999, 'admin')).rejects.toThrow(
         NotFoundError

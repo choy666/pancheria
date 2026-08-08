@@ -179,14 +179,23 @@ async function updateCashRegisterSummary(
   if (!cashRegister || typeof cashRegister.productsSummary !== 'string') return;
 
   const sign = operation === 'add' ? 1 : -1;
+  const saleMoney = parseMoney(sign * saleTotal);
 
-  const total = cashRegister.total + sign * saleTotal;
+  const total = moneyToNumber(
+    addMoney(parseMoney(cashRegister.total), saleMoney)
+  );
   const cashTotal =
-    cashRegister.cashTotal +
-    (paymentMethod === 'cash' ? sign * saleTotal : 0);
+    paymentMethod === 'cash'
+      ? moneyToNumber(
+          addMoney(parseMoney(cashRegister.cashTotal), saleMoney)
+        )
+      : cashRegister.cashTotal;
   const transferTotal =
-    cashRegister.transferTotal +
-    (paymentMethod === 'transfer' ? sign * saleTotal : 0);
+    paymentMethod === 'transfer'
+      ? moneyToNumber(
+          addMoney(parseMoney(cashRegister.transferTotal), saleMoney)
+        )
+      : cashRegister.transferTotal;
   const totalSales = cashRegister.totalSales + sign;
 
   const productsSummary = safeJsonParse<Record<string, number>>(
@@ -394,6 +403,12 @@ export async function confirmSale(params: {
       throw new ValidationError('La caja abierta ya no existe.');
     }
 
+    if (lockedCashRegister.status !== 'open') {
+      throw new ValidationError(
+        'La caja fue cerrada mientras se procesaba la venta. Abrí una nueva caja para continuar.'
+      );
+    }
+
     await updateCashRegisterSummary(
       tx,
       lockedCashRegister,
@@ -527,6 +542,12 @@ export async function cancelSale(id: number, reason: string) {
 
     if (!lockedCashRegister) {
       throw new ValidationError('La caja asociada a la venta ya no existe.');
+    }
+
+    if (lockedCashRegister.status !== 'open' || lockedCashRegister.deletedAt) {
+      throw new ValidationError(
+        'La caja fue cerrada o eliminada mientras se anulaba la venta.'
+      );
     }
 
     await updateCashRegisterSummary(

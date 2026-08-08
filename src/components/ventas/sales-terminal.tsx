@@ -43,28 +43,28 @@ export function SalesTerminal() {
     refresh,
   } = useCashRegister();
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const response = await fetch(`${PRODUCTOS_API}?includeAvailability=true`, {
-          credentials: 'include',
-        });
-        if (!response.ok) throw new Error('Error al cargar productos');
+  async function fetchProducts() {
+    try {
+      const response = await fetch(`${PRODUCTOS_API}?includeAvailability=true`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Error al cargar productos');
 
-        const allProducts = (await response.json()) as Product[];
-        const sellable = allProducts.filter(
-          (p) => p.type === 'compound' || p.criticalSupplyType === 'beverage'
-        );
+      const allProducts = (await response.json()) as Product[];
+      const sellable = allProducts.filter(
+        (p) => p.type === 'compound' || p.criticalSupplyType === 'beverage'
+      );
 
-        setProducts(sellable);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
+      setProducts(sellable);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
     }
+  }
 
-    queueMicrotask(() => void load());
+  useEffect(() => {
+    queueMicrotask(() => void fetchProducts());
   }, []);
 
   function addToCart(product: Product) {
@@ -147,6 +147,7 @@ export function SalesTerminal() {
       setCart([]);
       router.refresh();
       await refresh();
+      void fetchProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       if (

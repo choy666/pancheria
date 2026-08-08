@@ -57,12 +57,23 @@ function createMockTransaction() {
     });
   const insert = jest.fn().mockReturnValue({ values: insertValues });
 
-  return { insert, insertValues, insertReturning };
+  return {
+    insert,
+    insertValues,
+    insertReturning,
+    query: mockedDb.query,
+  };
 }
 
+let mockTx: ReturnType<typeof createMockTransaction>;
+
 describe('closureService', () => {
-  afterEach(() => {
+  beforeEach(() => {
     jest.clearAllMocks();
+    mockTx = createMockTransaction();
+    mockedExecuteInTransaction.mockImplementation(async (fn: any) => {
+      return await fn(mockTx as any);
+    });
   });
 
   describe('generateClosure', () => {
@@ -78,7 +89,7 @@ describe('closureService', () => {
         'Ya existe un cierre para la fecha seleccionada.'
       );
       expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
-      expect(mockedExecuteInTransaction).not.toHaveBeenCalled();
+      expect(mockedExecuteInTransaction).toHaveBeenCalled();
     });
 
     test('calcula totales, resumen de productos e insumos críticos', async () => {

@@ -76,22 +76,29 @@ export function CajaPanel() {
 
   if (!cashRegister) {
     return (
-      <div className="space-y-5">
-        {error && (
-          <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
-            {error}
-          </div>
-        )}
-        <p className="text-muted-foreground">No hay una caja abierta.</p>
-        <Button
-          type="button"
-          onClick={handleOpen}
-          disabled={isSubmitting}
-          className="w-full sm:w-auto"
-        >
-          {isSubmitting ? 'Abriendo...' : 'Abrir caja'}
-        </Button>
-      </div>
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="text-lg">Caja actual</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
+              {error}
+            </div>
+          )}
+          <p className="text-base text-muted-foreground">
+            No hay una caja abierta. Abrí una caja para comenzar a vender.
+          </p>
+          <Button
+            type="button"
+            onClick={handleOpen}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            {isSubmitting ? 'Abriendo...' : 'Abrir caja'}
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

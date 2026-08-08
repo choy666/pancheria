@@ -46,7 +46,7 @@ export async function getOpenCashRegister() {
       const closeThreshold = addHours(locked.openedAt, AUTO_CLOSE_HOURS);
       if (closeThreshold > now) return null;
 
-      const summary = await calculateCashRegisterSummary(locked.id);
+      const summary = await calculateCashRegisterSummary(locked.id, tx);
 
       await tx
         .update(cashRegisters)
@@ -109,8 +109,11 @@ export async function openCashRegister(openedBy: string) {
   }
 }
 
-export async function calculateCashRegisterSummary(cashRegisterId: number) {
-  const activeSales = await db.query.sales.findMany({
+export async function calculateCashRegisterSummary(
+  cashRegisterId: number,
+  dbOrTx: typeof db = db
+) {
+  const activeSales = await dbOrTx.query.sales.findMany({
     where: and(
       eq(sales.status, 'active'),
       eq(sales.cashRegisterId, cashRegisterId)
@@ -169,7 +172,7 @@ export async function calculateCashRegisterSummary(cashRegisterId: number) {
   >();
 
   if (compoundProductIds.size > 0) {
-    const allRecipes = await db.query.recipes.findMany({
+    const allRecipes = await dbOrTx.query.recipes.findMany({
       where: inArray(
         recipes.compoundProductId,
         Array.from(compoundProductIds)
@@ -205,7 +208,7 @@ export async function calculateCashRegisterSummary(cashRegisterId: number) {
 
   const total = addMoney(cashTotal, transferTotal);
 
-  const criticalSupplies = await db.query.products.findMany({
+  const criticalSupplies = await dbOrTx.query.products.findMany({
     where: and(
       eq(products.type, 'critical_supply'),
       eq(products.isActive, true)
@@ -279,19 +282,23 @@ export async function getOpenCashRegisterSummary() {
 }
 
 export async function closeCashRegister(id: number, closedBy: string) {
-  const cashRegister = await cashRegisterRepository.findById(id);
-
-  if (!cashRegister) {
-    throw new NotFoundError('Caja', id);
-  }
-
-  if (cashRegister.status === 'closed') {
-    throw new ValidationError('La caja ya está cerrada.');
-  }
-
-  const summary = await calculateCashRegisterSummary(id);
-
   return executeInTransaction(async (tx) => {
+    const [cashRegister] = await tx
+      .select()
+      .from(cashRegisters)
+      .where(and(eq(cashRegisters.id, id), isNull(cashRegisters.deletedAt)))
+      .for('update');
+
+    if (!cashRegister) {
+      throw new NotFoundError('Caja', id);
+    }
+
+    if (cashRegister.status === 'closed') {
+      throw new ValidationError('La caja ya está cerrada.');
+    }
+
+    const summary = await calculateCashRegisterSummary(id, tx);
+
     const [updated] = await tx
       .update(cashRegisters)
       .set({

@@ -142,7 +142,10 @@ export function ClosurePanel() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="border-primary/20">
             <CardHeader>
-              <CardTitle className="text-lg">Resumen de caja</CardTitle>
+              <CardTitle className="text-lg">Cierre diario</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Fecha: {new Date(closure.date).toLocaleDateString('es-AR', { timeZone: 'UTC' })}
+              </p>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="font-mono text-2xl font-bold text-primary">

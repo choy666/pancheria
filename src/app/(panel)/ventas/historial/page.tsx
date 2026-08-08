@@ -7,7 +7,7 @@ export default function VentasHistorialPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Historial de cierres de caja
+          Historial de cajas
         </h1>
         <Link href="/ventas/historial/eliminadas">
           <Button variant="outline">Cajas eliminadas</Button>

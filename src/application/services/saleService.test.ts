@@ -51,6 +51,8 @@ function createMockDb() {
         for: jest.fn().mockResolvedValue([
           {
             id: 1,
+            status: 'open',
+            deletedAt: null,
             total: 0,
             cashTotal: 0,
             transferTotal: 0,
@@ -550,6 +552,8 @@ describe('cancelSale', () => {
     (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
       id: 1,
       status: 'active',
+      total: 1500,
+      paymentMethod: 'cash',
       items: [{ id: 1, productId: 1, quantity: 2 }],
       cashRegister: {
         id: 1,
