@@ -33,7 +33,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Administrar productos, insumos y recetas.
+              Administrar productos, promos y recetas.
             </p>
             <Link href="/productos" className="mt-5 inline-block">
               <Button variant="outline" className="w-full sm:w-auto">

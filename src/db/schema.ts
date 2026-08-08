@@ -18,6 +18,7 @@ export const productTypeEnum = pgEnum('product_type', [
   'critical_supply',
   'compound',
   'manual_supply',
+  'service',
 ]);
 
 export const criticalSupplyTypeEnum = pgEnum('critical_supply_type', [

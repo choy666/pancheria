@@ -81,4 +81,54 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await ensureCashRegisterClosed(page);
   });
+
+  test('un servicio se vende sin límite de stock y sin afectar el inventario', async ({
+    page,
+  }) => {
+    await ensureCashRegisterOpen(page);
+
+    const servicio = await createProductViaApi(page, {
+      name: unique('Extra E2E'),
+      type: 'service',
+      price: 250,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    await page.goto('/ventas');
+
+    const card = page
+      .locator('[data-slot="card"]')
+      .filter({ hasText: servicio.name })
+      .first();
+
+    await expect(card.getByText('Disponible: sin límite')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await card.click();
+    await card.click();
+    await card.click();
+
+    const cartItem = page
+      .getByRole('listitem')
+      .filter({ hasText: servicio.name })
+      .first();
+
+    await expect(
+      cartItem.getByText('3', { exact: true })
+    ).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Confirmar venta' }).click();
+    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.goto('/stock');
+    await expect(page.getByRole('row', { name: new RegExp(servicio.name) })).toHaveCount(0, { timeout: 10000 });
+
+    await ensureCashRegisterClosed(page);
+  });
 });

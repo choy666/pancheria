@@ -282,5 +282,59 @@ describe('recipeService', () => {
         'El producto debe ser de tipo compuesto.'
       );
     });
+
+    test('permite incluir un insumo manual con auto descuento false', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+      } as any);
+
+      mockedProductRepository.findByIds.mockResolvedValue([
+        { id: 2, name: 'Pan', type: 'critical_supply', deletedAt: null },
+        { id: 3, name: 'Ketchup', type: 'manual_supply', deletedAt: null },
+      ] as any);
+
+      mockTx.insertReturning.mockResolvedValue([]);
+
+      const items = [
+        { supplyId: 2, quantity: 1, autoDiscount: true },
+        { supplyId: 3, quantity: 1, autoDiscount: false },
+      ];
+
+      const result = await saveRecipe(1, items as any);
+      expect(result).toEqual([]);
+      expect(mockTx.insertValues).toHaveBeenCalledWith([
+        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true },
+        { compoundProductId: 1, supplyId: 3, quantity: 1, autoDiscount: false },
+      ]);
+    });
+
+    test('permite varios insumos críticos con descuento automático', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+      } as any);
+
+      mockedProductRepository.findByIds.mockResolvedValue([
+        { id: 2, name: 'Pan', type: 'critical_supply', deletedAt: null },
+        { id: 3, name: 'Salchicha', type: 'critical_supply', deletedAt: null },
+      ] as any);
+
+      mockTx.insertReturning.mockResolvedValue([]);
+
+      const items = [
+        { supplyId: 2, quantity: 1, autoDiscount: true },
+        { supplyId: 3, quantity: 2, autoDiscount: true },
+      ];
+
+      const result = await saveRecipe(1, items as any);
+      expect(result).toEqual([]);
+      expect(mockTx.insertValues).toHaveBeenCalledWith([
+        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true },
+        { compoundProductId: 1, supplyId: 3, quantity: 2, autoDiscount: true },
+      ]);
+    });
   });
 });

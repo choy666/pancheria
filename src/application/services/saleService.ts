@@ -66,6 +66,10 @@ export async function calculateAvailability(productId: number): Promise<number> 
     return product.stock;
   }
 
+  if (product.type === 'service') {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
   return 0;
 }
 
@@ -124,6 +128,8 @@ export async function calculateAvailabilityForProductIds(
       product.criticalSupplyType === 'beverage'
     ) {
       availabilityById[product.id] = product.stock;
+    } else if (product.type === 'service') {
+      availabilityById[product.id] = Number.MAX_SAFE_INTEGER;
     } else {
       availabilityById[product.id] = 0;
     }
@@ -153,6 +159,10 @@ function availabilityFromRecipes(
     product.criticalSupplyType === 'beverage'
   ) {
     return product.stock;
+  }
+
+  if (product.type === 'service') {
+    return Number.MAX_SAFE_INTEGER;
   }
 
   return 0;
@@ -302,6 +312,7 @@ export async function confirmSale(params: {
 
     if (
       product.type !== 'compound' &&
+      product.type !== 'service' &&
       product.criticalSupplyType !== 'beverage'
     ) {
       throw new ValidationError(
@@ -390,6 +401,8 @@ export async function confirmSale(params: {
           quantity: -item.quantity,
           saleId: sale.id,
         });
+      } else if (product.type === 'service') {
+        // Los servicios no generan movimientos de stock.
       }
     }
 
@@ -521,6 +534,8 @@ export async function cancelSale(id: number, reason: string) {
           quantity: item.quantity,
           saleId: sale.id,
         });
+      } else if (product.type === 'service') {
+        // Los servicios no reintegran stock al anularse.
       }
     }
 

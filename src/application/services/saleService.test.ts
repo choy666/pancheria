@@ -187,6 +187,17 @@ describe('calculateAvailability', () => {
     const result = await calculateAvailability(1);
     expect(result).toBe(0);
   });
+
+  test('devuelve disponibilidad ilimitada para servicios', async () => {
+    mockedProductRepository.findById.mockResolvedValue({
+      id: 1,
+      name: 'Agregado de toppings',
+      type: 'service',
+    } as any);
+
+    const result = await calculateAvailability(1);
+    expect(result).toBe(Number.MAX_SAFE_INTEGER);
+  });
 });
 
 describe('confirmSale', () => {
@@ -535,6 +546,107 @@ describe('confirmSale', () => {
     expect(result.total).toBe(2000);
     expect(result.cashRegisterId).toBe(1);
   });
+
+  test('permite vender un servicio sin descontar stock', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
+      id: 1,
+      openedAt: new Date(),
+      openedBy: 'admin',
+      status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
+    } as any);
+
+    setProducts([
+      {
+        id: 1,
+        name: 'Vaso de gaseosa',
+        type: 'service',
+        criticalSupplyType: null,
+        stock: 0,
+        price: 500,
+      },
+    ]);
+
+    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+
+    const result = (await confirmSale({
+      items: [{ productId: 1, quantity: 3 }],
+      paymentMethod: 'cash',
+      idempotencyKey: 'service-sale',
+    })) as any;
+
+    expect(result.total).toBe(1500);
+    expect(findCapturedUpdate(products).length).toBe(0);
+    expect(findCapturedInsert(stockMovements).length).toBe(0);
+  });
+
+  test('descuenta stock de múltiples insumos críticos en un combo', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
+      id: 1,
+      openedAt: new Date(),
+      openedBy: 'admin',
+      status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
+    } as any);
+
+    setProducts([
+      {
+        id: 1,
+        name: 'Promo Familiar',
+        type: 'compound',
+        price: 11000,
+      },
+    ]);
+
+    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 2,
+        quantity: 9,
+        autoDiscount: true,
+        supply: { stock: 100 } as any,
+      },
+      {
+        id: 2,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 18,
+        autoDiscount: true,
+        supply: { stock: 100 } as any,
+      },
+    ] as any);
+
+    const result = (await confirmSale({
+      items: [{ productId: 1, quantity: 1 }],
+      paymentMethod: 'cash',
+      idempotencyKey: 'combo-multiple',
+    })) as any;
+
+    expect(result.total).toBe(11000);
+
+    const productUpdates = findCapturedUpdate(products);
+    expect(productUpdates.length).toBe(2);
+    expect(productUpdates[0].data).toMatchObject({ stock: expect.any(Object) });
+    expect(productUpdates[1].data).toMatchObject({ stock: expect.any(Object) });
+
+    const movements = findCapturedInsert(stockMovements);
+    expect(movements.length).toBe(2);
+    expect((movements[0].data as any).quantity).toBe(-9);
+    expect((movements[1].data as any).quantity).toBe(-18);
+  });
 });
 
 describe('cancelSale', () => {
@@ -645,5 +757,38 @@ describe('cancelSale', () => {
     expect(result.status).toBe('cancelled');
     expect(mockedExecuteInTransaction).not.toHaveBeenCalled();
     expect(findCapturedUpdate(sales).length).toBe(0);
+  });
+
+  test('anula una venta de servicio sin reintegrar stock', async () => {
+    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'active',
+      total: 500,
+      paymentMethod: 'cash',
+      items: [{ id: 1, productId: 1, quantity: 1 }],
+      cashRegister: {
+        id: 1,
+        status: 'open',
+        deletedAt: null,
+      },
+    });
+
+    setProducts([
+      {
+        id: 1,
+        name: 'Vaso de gaseosa',
+        type: 'service',
+        price: 500,
+      },
+    ]);
+
+    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+
+    const result = (await cancelSale(1, 'error de carga')) as any;
+
+    expect(result.status).toBe('cancelled');
+    expect(findCapturedUpdate(sales).length).toBe(1);
+    expect(findCapturedUpdate(products).length).toBe(0);
+    expect(findCapturedInsert(stockMovements).length).toBe(0);
   });
 });

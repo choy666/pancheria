@@ -52,7 +52,10 @@ export function SalesTerminal() {
 
       const allProducts = (await response.json()) as Product[];
       const sellable = allProducts.filter(
-        (p) => p.type === 'compound' || p.criticalSupplyType === 'beverage'
+        (p) =>
+          p.type === 'compound' ||
+          p.type === 'service' ||
+          p.criticalSupplyType === 'beverage'
       );
 
       setProducts(sellable);
@@ -199,7 +202,8 @@ export function SalesTerminal() {
               <Card
                 key={product.id}
                 className={`transition-all ${
-                  product.availability <= 0 || cartDisabled
+                  (product.type !== 'service' && product.availability <= 0) ||
+                  cartDisabled
                     ? 'opacity-50'
                     : 'cursor-pointer touch-manipulation hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98]'
                 }`}
@@ -215,7 +219,9 @@ export function SalesTerminal() {
                     ${product.price.toFixed(2)}
                   </p>
                   <p className="mt-1 text-base text-muted-foreground">
-                    Disponible: {product.availability} {product.unit}
+                    {product.type === 'service'
+                      ? 'Disponible: sin límite'
+                      : `Disponible: ${product.availability} ${product.unit}`}
                   </p>
                 </CardContent>
               </Card>

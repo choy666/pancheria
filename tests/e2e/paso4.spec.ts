@@ -18,7 +18,7 @@ test.describe('Paso 4 - Flujos avanzados', () => {
 
     const productsResponse = await page.request.get('/api/productos');
     const products = await productsResponse.json() as { id: number; name: string }[];
-    const product = products.find((p) => p.name === 'Panchuque completo');
+    const product = products.find((p) => p.name === 'Promo 1');
     if (!product) throw new Error('Producto no encontrado');
 
     const saleResponse = await page.request.post('/api/ventas', {
@@ -45,7 +45,7 @@ test.describe('Paso 4 - Flujos avanzados', () => {
 
   test('muestra historial de stock tras un ajuste', async ({ page }) => {
     await page.goto('/stock');
-    const row = page.getByRole('row', { name: /Pan de panchuque/ });
+    const row = page.getByRole('row', { name: /Pan/ });
     await row.getByRole('button', { name: 'Ajustar' }).first().click();
     await page.fill('input#adjust-quantity', '5');
     await page.fill('textarea#adjust-reason', 'Ajuste de prueba historial');
@@ -53,7 +53,7 @@ test.describe('Paso 4 - Flujos avanzados', () => {
     await expect(page).toHaveURL('/stock', { timeout: 10000 });
 
     await page.goto('/stock');
-    const historyRow = page.getByRole('row', { name: /Pan de panchuque/ });
+    const historyRow = page.getByRole('row', { name: /Pan/ });
     await historyRow.getByRole('button', { name: 'Historial' }).first().click();
     await expect(page.getByText('Ajuste de prueba historial').first()).toBeVisible();
   });

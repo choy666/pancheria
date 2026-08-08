@@ -170,6 +170,21 @@ describe('productService', () => {
       expect(result!.id).toBe(1);
       expect(result!.type).toBe('compound');
     });
+
+    test('crea un servicio sin tipo crítico', async () => {
+      const data = {
+        name: 'Vaso de gaseosa',
+        type: 'service',
+        price: 500,
+        unit: 'unidad',
+      } as any;
+
+      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as any);
+
+      const result = await createProduct(data);
+      expect(result!.id).toBe(1);
+      expect(result!.type).toBe('service');
+    });
   });
 
   describe('updateProduct', () => {
@@ -265,6 +280,28 @@ describe('productService', () => {
 
       expect(result!.name).toBe('Nuevo nombre');
       expect(mockedDb.delete).not.toHaveBeenCalled();
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
+    });
+
+    test('permite cambiar un producto a tipo service', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'manual_supply',
+      } as any);
+
+      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+
+      const data = {
+        type: 'service',
+        criticalSupplyType: null,
+        price: 200,
+      } as any;
+
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
+
+      const result = await updateProduct(1, data);
+
+      expect(result!.type).toBe('service');
       expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
     });
   });

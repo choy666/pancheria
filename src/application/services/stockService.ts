@@ -8,10 +8,12 @@ import { NotFoundError, ValidationError } from '@/domain/errors';
 export async function listStockAlerts() {
   const allProducts = await productRepository.findActive();
 
-  return allProducts.map((product) => ({
-    ...product,
-    isLow: product.stock <= product.minStock,
-  }));
+  return allProducts
+    .filter((product) => product.type !== 'service')
+    .map((product) => ({
+      ...product,
+      isLow: product.stock <= product.minStock,
+    }));
 }
 
 export async function adjustStock(

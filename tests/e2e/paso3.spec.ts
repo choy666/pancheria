@@ -56,14 +56,14 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   test('registra una venta', async ({ page }) => {
     await ensureCashRegisterOpen(page);
     await page.goto('/ventas');
-    await page.getByText('Panchuque completo').click();
+    await page.getByText('Promo 1').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page).toHaveURL('/ventas', { timeout: 10000 });
   });
 
   test('ajusta stock', async ({ page }) => {
     await page.goto('/stock');
-    const row = page.getByRole('row', { name: /Pan de panchuque/ });
+    const row = page.getByRole('row', { name: /Pan/ });
     await row.getByRole('button', { name: 'Ajustar' }).first().click();
     await page.fill('input#adjust-quantity', '10');
     await page.fill('textarea#adjust-reason', 'Ajuste de prueba');

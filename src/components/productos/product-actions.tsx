@@ -31,10 +31,15 @@ export function ProductActions({
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
+      <Link href={`/productos/${productId}/editar`}>
+        <Button variant="ghost" size="sm">
+          Editar
+        </Button>
+      </Link>
       {isCompound && (
         <Link href={`/recetas/${productId}/editar`}>
           <Button variant="outline" size="sm">
-            Receta
+            Receta avanzada
           </Button>
         </Link>
       )}
@@ -50,11 +55,6 @@ export function ProductActions({
           {isDeleting ? 'Eliminando...' : 'Eliminar'}
         </Button>
       </form>
-      <Link href={`/productos/${productId}/editar`}>
-        <Button variant="ghost" size="sm">
-          Editar
-        </Button>
-      </Link>
     </div>
   );
 }

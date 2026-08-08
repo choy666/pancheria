@@ -1,6 +1,6 @@
 import { Money } from '@/lib/money';
 
-export type ProductType = 'critical_supply' | 'compound' | 'manual_supply';
+export type ProductType = 'critical_supply' | 'compound' | 'manual_supply' | 'service';
 
 export type CriticalSupplyType = 'bread' | 'sausage' | 'beverage';
 

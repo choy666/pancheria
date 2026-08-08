@@ -15,8 +15,9 @@ import * as productService from '@/application/services/productService';
 
 const productTypeLabels: Record<string, string> = {
   critical_supply: 'Insumo crítico',
-  compound: 'Compuesto',
+  compound: 'Promo',
   manual_supply: 'Insumo manual',
+  service: 'Servicio / extra',
 };
 
 const criticalTypeLabels: Record<string, string> = {
@@ -31,10 +32,17 @@ export default async function ProductsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Productos e insumos</h1>
-        <Link href="/productos/nuevo" className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto">Nuevo producto</Button>
-        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Productos y promos</h1>
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <Link href="/productos/nuevo?tab=product" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">
+              Nuevo producto
+            </Button>
+          </Link>
+          <Link href="/productos/nuevo?tab=promo" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">Nueva promo</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-white/8">

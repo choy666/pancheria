@@ -53,7 +53,13 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
         if (!productsRes.ok) throw new Error('Error al cargar productos');
 
         const products = (await productsRes.json()) as Supply[];
-        setSupplies(products.filter((p) => p.id !== productId));
+        setSupplies(
+          products.filter(
+            (p) =>
+              p.id !== productId &&
+              (p.type === 'critical_supply' || p.type === 'manual_supply')
+          )
+        );
 
         if (recipeRes.ok) {
           const recipe = (await recipeRes.json()) as {
@@ -173,7 +179,18 @@ export function RecipeEditor({ productId }: RecipeEditorProps) {
                   <SelectContent>
                     {supplies.map((s) => (
                       <SelectItem key={s.id} value={s.id.toString()}>
-                        {s.name} ({s.unit})
+                        <span className="flex items-center gap-2">
+                          {s.name} ({s.unit})
+                          {s.type === 'critical_supply' ? (
+                            <Badge variant="default" className="text-xs">
+                              {s.criticalSupplyType}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              {s.type}
+                            </Badge>
+                          )}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

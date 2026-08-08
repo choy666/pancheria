@@ -44,6 +44,7 @@ export function ProductForm({ product }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isCritical = form.type === 'critical_supply';
+  const isService = form.type === 'service';
 
   async function handleSubmit() {
     setIsSubmitting(true);
@@ -116,6 +117,8 @@ export function ProductForm({ product }: ProductFormProps) {
                 ...form,
                 type: value as ProductFormData['type'],
                 criticalSupplyType: null,
+                stock: value === 'service' ? 0 : form.stock,
+                minStock: value === 'service' ? 0 : form.minStock,
               })
             }
           >
@@ -124,8 +127,8 @@ export function ProductForm({ product }: ProductFormProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="critical_supply">Insumo crítico</SelectItem>
-              <SelectItem value="compound">Compuesto</SelectItem>
               <SelectItem value="manual_supply">Insumo manual</SelectItem>
+              <SelectItem value="service">Servicio / extra</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -186,10 +189,11 @@ export function ProductForm({ product }: ProductFormProps) {
             id="stock"
             type="number"
             min={0}
-            value={form.stock}
+            value={isService ? 0 : form.stock}
             onChange={(e) =>
               setForm({ ...form, stock: Number(e.target.value) })
             }
+            disabled={isService}
             required
           />
         </div>
@@ -200,10 +204,11 @@ export function ProductForm({ product }: ProductFormProps) {
             id="minStock"
             type="number"
             min={0}
-            value={form.minStock}
+            value={isService ? 0 : form.minStock}
             onChange={(e) =>
               setForm({ ...form, minStock: Number(e.target.value) })
             }
+            disabled={isService}
             required
           />
         </div>

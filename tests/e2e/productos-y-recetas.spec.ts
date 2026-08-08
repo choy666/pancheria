@@ -71,7 +71,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos e insumos')).toBeVisible();
+    await expect(page.getByText('Productos y promos')).toBeVisible();
 
     const panRow = page.locator('tr').filter({ hasText: new RegExp(pan.name) });
     await expect(panRow).toBeVisible();
@@ -85,7 +85,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await expect(page.getByText('Guardar receta')).toBeVisible();
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos e insumos')).toBeVisible();
+    await expect(page.getByText('Productos y promos')).toBeVisible();
 
     const manualRow = page.locator('tr').filter({ hasText: new RegExp(manual.name) });
     await expect(manualRow).toBeVisible({ timeout: 10000 });
@@ -98,6 +98,35 @@ test.describe('Ciclo de vida de productos y recetas', () => {
 
     const updatedRow = page.locator('tr').filter({ hasText: new RegExp(manual.name) });
     await expect(updatedRow.getByText('Inactivo')).toBeVisible();
+  });
+
+  test('crea una promo desde la UI con Súper Pancho y bebida', async ({
+    page,
+  }) => {
+    await login(page);
+
+    await page.goto('/productos');
+    await page.getByRole('link', { name: 'Nueva promo' }).click();
+    await expect(page).toHaveURL('/productos/nuevo?tab=promo');
+
+    const promoName = unique('Promo UI');
+    await page.fill('#promo-name', promoName);
+    await page.fill('#promo-price', '2500');
+    await page.fill('#promo-super-panchos', '2');
+    await page.check('#promo-includes-beverage');
+
+    await page.click('#promo-beverage');
+    await page.getByText('Coca de 1L (botella)').click();
+    await page.fill('#promo-beverage-quantity', '1');
+
+    await page.getByRole('button', { name: 'Guardar promo' }).click();
+    await expect(page).toHaveURL('/productos', { timeout: 10000 });
+
+    const row = page.locator('tr').filter({ hasText: new RegExp(promoName) });
+    await expect(row).toBeVisible();
+    await expect(
+      row.locator('td:nth-child(2) [data-slot="badge"]')
+    ).toHaveText('Promo');
   });
 
   test('rechaza receta sin insumo crítico con descuento automático', async ({

@@ -85,4 +85,15 @@ describe('stockService', () => {
     expect(result.length).toBe(1);
     expect(result[0].quantity).toBe(5);
   });
+
+  test('listStockAlerts excluye productos de tipo service', async () => {
+    mockedProductRepository.findActive.mockResolvedValue([
+      { id: 1, name: 'Pan', type: 'critical_supply', stock: 2, minStock: 5 } as any,
+      { id: 2, name: 'Vaso de gaseosa', type: 'service', stock: 0, minStock: 0 } as any,
+    ]);
+
+    const result = await listStockAlerts();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Pan');
+  });
 });

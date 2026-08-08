@@ -4,6 +4,7 @@ export const productTypeSchema = z.enum([
   'critical_supply',
   'compound',
   'manual_supply',
+  'service',
 ]);
 
 export const criticalSupplyTypeSchema = z.enum(['bread', 'sausage', 'beverage']);
