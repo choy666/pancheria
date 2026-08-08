@@ -147,7 +147,7 @@ export function SalesTerminal() {
       setCart([]);
       router.refresh();
       await refresh();
-      void fetchProducts();
+      await fetchProducts();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       if (

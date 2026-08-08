@@ -28,7 +28,9 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await ensureCashRegisterClosed(page);
   });
 
-  test('actualiza la disponibilidad luego de cada venta', async ({ page }) => {
+  test('actualiza la disponibilidad tras la venta y respeta el stock máximo', async ({
+    page,
+  }) => {
     await ensureCashRegisterOpen(page);
 
     const bebida = await createProductViaApi(page, {
@@ -49,22 +51,32 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       .filter({ hasText: bebida.name })
       .first();
 
-    await expect(card.getByText(/Disponible: 2/)).toBeVisible({ timeout: 10000 });
+    await expect(card.getByText('Disponible: 2 unidad')).toBeVisible({
+      timeout: 10000,
+    });
 
+    // El carrito no permite agregar más unidades de las disponibles.
     await card.click();
-    await expect(page.getByText(/Disponible: 1/)).toBeVisible({ timeout: 10000 });
+    await card.click();
+    await card.click();
+
+    const cartItem = page
+      .getByRole('listitem')
+      .filter({ hasText: bebida.name })
+      .first();
+
+    await expect(
+      cartItem.getByText('2', { exact: true })
+    ).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
       timeout: 10000,
     });
 
-    await expect(card.getByText(/Disponible: 1/)).toBeVisible({ timeout: 10000 });
-
-    await card.click();
-    await page.getByRole('button', { name: 'Confirmar venta' }).click();
-
-    await expect(card.getByText(/Disponible: 0/)).toBeVisible({ timeout: 10000 });
+    await expect(card.getByText('Disponible: 0 unidad')).toBeVisible({
+      timeout: 10000,
+    });
     await expect(card).toHaveClass(/opacity-50/);
 
     await ensureCashRegisterClosed(page);
