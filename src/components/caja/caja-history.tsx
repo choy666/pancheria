@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { intervalToDuration } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { CAJA_API, CAJA_ELIMINADAS_API } from '@/config/api';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { formatDateTime, safeFormatDuration } from '@/lib/date';
+import { formatDateTime } from '@/lib/date';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
 import {
   useCashRegisterHistory,
@@ -204,7 +203,6 @@ export function CajaHistory({
               <TableHead>Cierre</TableHead>
               {deletedOnly && <TableHead>Eliminada</TableHead>}
               <TableHead>Estado</TableHead>
-              <TableHead className="hidden sm:table-cell">Duración</TableHead>
               <TableHead className="hidden sm:table-cell">Ventas</TableHead>
               <TableHead>Total</TableHead>
               <TableHead className="hidden md:table-cell">Efectivo</TableHead>
@@ -217,15 +215,6 @@ export function CajaHistory({
           </TableHeader>
           <TableBody>
             {cashRegisters.map((cashRegister: CashRegister) => {
-              const openedAt = new Date(cashRegister.openedAt);
-              const closedAt = cashRegister.closedAt
-                ? new Date(cashRegister.closedAt)
-                : null;
-              const duration = intervalToDuration({
-                start: openedAt,
-                end: closedAt ?? new Date(),
-              });
-
               return (
                 <TableRow
                   key={cashRegister.id}
@@ -252,11 +241,6 @@ export function CajaHistory({
                     ) : (
                       <Badge variant="secondary">Cerrada</Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {cashRegister.status === 'open'
-                      ? 'En curso'
-                      : safeFormatDuration(duration, 'En curso')}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell font-mono">
                     {cashRegister.totalSales}
