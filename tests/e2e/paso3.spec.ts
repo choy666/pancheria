@@ -74,7 +74,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   test('cierra la caja y cierra sesion', async ({ page }) => {
     await ensureCashRegisterOpen(page);
     await page.goto('/cierre');
-    await expect(page.getByText('Total:')).toBeVisible();
+    await expect(page.getByText('Total:').first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Cerrar caja' }).click();
     await expect(page.getByText('No hay una caja abierta.')).toBeVisible();

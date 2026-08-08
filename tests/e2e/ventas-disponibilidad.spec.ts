@@ -131,4 +131,79 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await ensureCashRegisterClosed(page);
   });
+
+  test('una promo con Super Pancho descuenta Pan y Salchichas al vender', async ({
+    page,
+  }) => {
+    await ensureCashRegisterOpen(page);
+
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan promo'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 0,
+      unit: 'unidad',
+      stock: 10,
+      minStock: 2,
+      isActive: true,
+    });
+
+    const salchicha = await createProductViaApi(page, {
+      name: unique('Salchicha promo'),
+      type: 'critical_supply',
+      criticalSupplyType: 'sausage',
+      price: 0,
+      unit: 'unidad',
+      stock: 8,
+      minStock: 2,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo Super'),
+      type: 'compound',
+      price: 1500,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          { supplyId: pan.id, quantity: 1, autoDiscount: true },
+          { supplyId: salchicha.id, quantity: 2, autoDiscount: true },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/ventas');
+
+    const card = page
+      .locator('[data-slot="card"]')
+      .filter({ hasText: promo.name })
+      .first();
+
+    await expect(card.getByText('Disponible: 4 unidad')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await card.click();
+
+    await page.getByRole('button', { name: 'Confirmar venta' }).click();
+    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+      timeout: 10000,
+    });
+
+    const panRes = await page.request.get(`/api/productos/${pan.id}`);
+    const salchichaRes = await page.request.get(`/api/productos/${salchicha.id}`);
+
+    expect((await panRes.json()).stock).toBe(9);
+    expect((await salchichaRes.json()).stock).toBe(6);
+
+    await ensureCashRegisterClosed(page);
+  });
 });

@@ -110,7 +110,8 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await expect(page).toHaveURL('/productos/nuevo?tab=promo');
 
     const promoName = unique('Promo UI');
-    await page.fill('#promo-name', promoName);
+    await page.getByLabel('Nombre de la promo').waitFor();
+    await page.getByLabel('Nombre de la promo').fill(promoName);
     await page.fill('#promo-price', '2500');
     await page.fill('#promo-super-panchos', '2');
     await page.check('#promo-includes-beverage');
@@ -119,6 +120,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await page.getByText('Coca de 1L (botella)').click();
     await page.fill('#promo-beverage-quantity', '1');
 
+    await expect(page.locator('#promo-name')).toHaveValue(promoName);
     await page.getByRole('button', { name: 'Guardar promo' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 
