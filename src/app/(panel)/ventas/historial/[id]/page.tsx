@@ -30,10 +30,10 @@ export default async function CashRegisterSalesDetailPage({
   const isOpen = cashRegister.status === 'open' && !cashRegister.deletedAt;
   const fromTrash = from === 'trash';
 
-  // Para cajas abiertas se calcula el resumen en tiempo real.
-  const liveSummary = isOpen
-    ? await cashRegisterService.calculateCashRegisterSummary(cashRegister.id)
-    : null;
+  const summary = await cashRegisterService.parseCashRegisterSummary(
+    cashRegister,
+    isOpen
+  );
 
   const openedAt = new Date(cashRegister.openedAt);
   const closedAt = cashRegister.closedAt
@@ -44,24 +44,12 @@ export default async function CashRegisterSalesDetailPage({
     end: closedAt ?? new Date(),
   });
 
-  const total = liveSummary ? liveSummary.total : cashRegister.total;
-  const cashTotal = liveSummary
-    ? liveSummary.cashTotal
-    : cashRegister.cashTotal;
-  const transferTotal = liveSummary
-    ? liveSummary.transferTotal
-    : cashRegister.transferTotal;
-  const totalSales = liveSummary
-    ? liveSummary.totalSales
-    : cashRegister.totalSales;
+  const total = cashRegister.total;
+  const cashTotal = cashRegister.cashTotal;
+  const transferTotal = cashRegister.transferTotal;
+  const totalSales = cashRegister.totalSales;
 
-  const productsSummary = liveSummary
-    ? (JSON.parse(liveSummary.productsSummary) as Record<string, number>)
-    : (JSON.parse(cashRegister.productsSummary) as Record<string, number>);
-
-  const criticalSuppliesSummary = liveSummary
-    ? (JSON.parse(liveSummary.criticalSuppliesSummary) as Record<string, number>)
-    : (JSON.parse(cashRegister.criticalSuppliesSummary) as Record<string, number>);
+  const { productsSummary, criticalSuppliesSummary } = summary;
 
   return (
     <div className="space-y-5">
@@ -174,15 +162,17 @@ export default async function CashRegisterSalesDetailPage({
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {Object.entries(criticalSuppliesSummary).map(([name, quantity]) => (
-                <li
-                  key={name}
-                  className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
-                >
-                  <span>{name}</span>
-                  <span className="font-mono font-medium">{quantity}</span>
-                </li>
-              ))}
+              {Object.entries(criticalSuppliesSummary).map(
+                ([name, quantity]) => (
+                  <li
+                    key={name}
+                    className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+                  >
+                    <span>{name}</span>
+                    <span className="font-mono font-medium">{quantity}</span>
+                  </li>
+                )
+              )}
             </ul>
           </CardContent>
         </Card>

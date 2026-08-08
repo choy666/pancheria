@@ -182,11 +182,15 @@ export async function calculateCashRegisterSummary(cashRegisterId: number) {
   };
 }
 
-export async function getOpenCashRegisterSummary() {
-  const cashRegister = await getOpenCashRegister();
+type CashRegisterSummaryInput = {
+  productsSummary: string | null;
+  criticalSuppliesSummary: string | null;
+};
 
-  if (!cashRegister) return null;
-
+export async function parseCashRegisterSummary(
+  cashRegister: CashRegisterSummaryInput,
+  fillMissingCriticalSupplies = false
+) {
   const productsSummary = safeJsonParse<Record<string, number>>(
     cashRegister.productsSummary,
     {}
@@ -196,23 +200,34 @@ export async function getOpenCashRegisterSummary() {
     {}
   );
 
-  const activeCriticalSupplies = await db.query.products.findMany({
-    where: and(
-      eq(products.type, 'critical_supply'),
-      eq(products.isActive, true)
-    ),
-  });
+  if (fillMissingCriticalSupplies) {
+    const activeCriticalSupplies = await db.query.products.findMany({
+      where: and(
+        eq(products.type, 'critical_supply'),
+        eq(products.isActive, true)
+      ),
+    });
 
-  for (const supply of activeCriticalSupplies) {
-    if (criticalSuppliesSummary[supply.name] === undefined) {
-      criticalSuppliesSummary[supply.name] = 0;
+    for (const supply of activeCriticalSupplies) {
+      if (criticalSuppliesSummary[supply.name] === undefined) {
+        criticalSuppliesSummary[supply.name] = 0;
+      }
     }
   }
 
+  return { productsSummary, criticalSuppliesSummary };
+}
+
+export async function getOpenCashRegisterSummary() {
+  const cashRegister = await getOpenCashRegister();
+
+  if (!cashRegister) return null;
+
+  const summary = await parseCashRegisterSummary(cashRegister, true);
+
   return {
     ...cashRegister,
-    productsSummary,
-    criticalSuppliesSummary,
+    ...summary,
   };
 }
 

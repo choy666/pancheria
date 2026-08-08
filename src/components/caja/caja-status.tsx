@@ -29,8 +29,36 @@ export function CajaStatus({
   const [now, setNow] = useState<Date | null>(() => new Date());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(interval);
+    const intervalDuration = 60000;
+    let intervalId: NodeJS.Timeout | null = null;
+
+    function startInterval() {
+      intervalId = setInterval(() => setNow(new Date()), intervalDuration);
+    }
+
+    function stopInterval() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        queueMicrotask(() => setNow(new Date()));
+        startInterval();
+      }
+    }
+
+    startInterval();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   async function handleOpen() {

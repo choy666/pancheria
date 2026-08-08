@@ -1,10 +1,14 @@
-import { eq, and, gte, lt, lte, isNotNull } from 'drizzle-orm';
+import { eq, and, gte, lt, lte, isNotNull, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, recipes, sales, dailyClosures } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { startOfDayUTC, endOfDayUTC } from '@/lib/date';
 import { ValidationError } from '@/domain/errors';
+
+type RecipeWithSupply = typeof recipes.$inferSelect & {
+  supply: typeof products.$inferSelect | null;
+};
 
 export async function generateClosure(date: Date) {
   const start = startOfDayUTC(date);
@@ -14,12 +18,11 @@ export async function generateClosure(date: Date) {
     where: eq(dailyClosures.date, start),
   });
 
-
   if (existing) {
     throw new ValidationError('Ya existe un cierre para la fecha seleccionada.');
   }
 
-  const activeSales = await db.query.sales.findMany({
+  const activeSales = (await db.query.sales.findMany({
     where: and(
       eq(sales.status, 'active'),
       isNotNull(sales.cashRegisterId),
@@ -33,12 +36,43 @@ export async function generateClosure(date: Date) {
         },
       },
     },
-  });
+  })) as {
+    total: number;
+    paymentMethod: 'cash' | 'transfer';
+    items: {
+      quantity: number;
+      product: typeof products.$inferSelect;
+    }[];
+  }[];
 
   let cashTotal = parseMoney(0);
   let transferTotal = parseMoney(0);
   const productsSummary: Record<string, number> = {};
   const criticalSuppliesSummary: Record<string, number> = {};
+
+  const compoundProductIds = new Set<number>();
+  for (const sale of activeSales) {
+    for (const item of sale.items ?? []) {
+      if (item.product.type === 'compound') {
+        compoundProductIds.add(item.product.id);
+      }
+    }
+  }
+
+  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+  if (compoundProductIds.size > 0) {
+    const allRecipes = (await db.query.recipes.findMany({
+      where: inArray(recipes.compoundProductId, Array.from(compoundProductIds)),
+      with: { supply: true },
+    })) as RecipeWithSupply[];
+
+    for (const recipeItem of allRecipes) {
+      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+        recipesByProduct.set(recipeItem.compoundProductId, []);
+      }
+      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+    }
+  }
 
   for (const sale of activeSales) {
     const saleTotal = parseMoney(sale.total);
@@ -50,22 +84,19 @@ export async function generateClosure(date: Date) {
 
     for (const item of sale.items ?? []) {
       const product = item.product;
-      if (!product) continue;
 
       const key = product.name;
       productsSummary[key] = (productsSummary[key] ?? 0) + item.quantity;
 
       if (product.type === 'compound') {
-        const recipe = await db.query.recipes.findMany({
-          where: eq(recipes.compoundProductId, product.id),
-          with: { supply: true },
-        });
+        const recipeList = recipesByProduct.get(product.id) ?? [];
 
-        for (const recipeItem of recipe) {
+        for (const recipeItem of recipeList) {
           if (!recipeItem.autoDiscount) continue;
 
           const consumed = recipeItem.quantity * item.quantity;
-          const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
+          const supplyName =
+            recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
           criticalSuppliesSummary[supplyName] =
             (criticalSuppliesSummary[supplyName] ?? 0) + consumed;
         }
