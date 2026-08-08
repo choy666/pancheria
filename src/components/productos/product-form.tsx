@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API } from '@/config/api';
 import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
@@ -80,6 +81,8 @@ export function ProductForm({ product }: ProductFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
+      <ProductHelpCard variant="product" />
+
       {error && (
         <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
@@ -94,10 +97,13 @@ export function ProductForm({ product }: ProductFormProps) {
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
         />
+        <p className="text-sm text-muted-foreground">
+          Nombre visible en listados, ventas y cierres.
+        </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Descripción</Label>
+        <Label htmlFor="description">Descripcion</Label>
         <Textarea
           id="description"
           value={form.description ?? ''}
@@ -105,6 +111,9 @@ export function ProductForm({ product }: ProductFormProps) {
             setForm({ ...form, description: e.target.value || null })
           }
         />
+        <p className="text-sm text-muted-foreground">
+          Notas internas opcionales.
+        </p>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -126,15 +135,18 @@ export function ProductForm({ product }: ProductFormProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="critical_supply">Insumo crítico</SelectItem>
+              <SelectItem value="critical_supply">Insumo critico</SelectItem>
               <SelectItem value="manual_supply">Insumo manual</SelectItem>
               <SelectItem value="service">Servicio / extra</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-sm text-muted-foreground">
+            Define si se vende, si descontara stock y como se comporta.
+          </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="criticalSupplyType">Tipo de insumo crítico</Label>
+          <Label htmlFor="criticalSupplyType">Tipo de insumo critico</Label>
           <Select
             value={form.criticalSupplyType ?? ''}
             onValueChange={(value) =>
@@ -154,6 +166,10 @@ export function ProductForm({ product }: ProductFormProps) {
               <SelectItem value="beverage">Bebida</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-sm text-muted-foreground">
+            Solo aplica a insumos criticos. Pan y Salchicha son la base de las
+            promos; Bebida se vende sola o en promos.
+          </p>
         </div>
       </div>
 
@@ -171,6 +187,9 @@ export function ProductForm({ product }: ProductFormProps) {
             }
             required
           />
+          <p className="text-sm text-muted-foreground">
+            Precio de venta. Para insumos crudos suele ser 0.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -181,6 +200,9 @@ export function ProductForm({ product }: ProductFormProps) {
             onChange={(e) => setForm({ ...form, unit: e.target.value })}
             required
           />
+          <p className="text-sm text-muted-foreground">
+            Ej: unidad, botella, porcion, envase.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -196,10 +218,13 @@ export function ProductForm({ product }: ProductFormProps) {
             disabled={isService}
             required
           />
+          <p className="text-sm text-muted-foreground">
+            Cantidad disponible. No aplica a servicios.
+          </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="minStock">Stock mínimo</Label>
+          <Label htmlFor="minStock">Stock minimo</Label>
           <Input
             id="minStock"
             type="number"
@@ -211,6 +236,9 @@ export function ProductForm({ product }: ProductFormProps) {
             disabled={isService}
             required
           />
+          <p className="text-sm text-muted-foreground">
+            Umbral para alerta de stock bajo. No aplica a servicios.
+          </p>
         </div>
       </div>
 
@@ -224,6 +252,10 @@ export function ProductForm({ product }: ProductFormProps) {
         />
         <Label htmlFor="isActive" className="mb-0">Activo</Label>
       </div>
+      <p className="text-sm text-muted-foreground">
+        Si esta inactivo no aparece en la terminal ni en listados, pero no se
+        borra.
+      </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>

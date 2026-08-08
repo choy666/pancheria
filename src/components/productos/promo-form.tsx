@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
 
 interface Supply {
@@ -166,7 +167,7 @@ export function PromoForm({ product }: PromoFormProps) {
 
     if (!panSupply || !sausageSupply) {
       setError(
-        'No se encontraron Pan y Salchichas como insumos críticos. Creá esos productos primero.'
+        'No se encontraron Pan y Salchichas como insumos criticos. Crea esos productos primero.'
       );
       return;
     }
@@ -182,13 +183,13 @@ export function PromoForm({ product }: PromoFormProps) {
     }
 
     if (form.superPanchos < 1) {
-      setError('La cantidad de Súper Panchos debe ser al menos 1.');
+      setError('La cantidad de Super Panchos debe ser al menos 1.');
       return;
     }
 
     if (form.includesBeverage) {
       if (!form.beverageProductId) {
-        setError('Seleccioná una bebida.');
+        setError('Selecciona una bebida.');
         return;
       }
       if (form.beverageQuantity < 1) {
@@ -298,15 +299,17 @@ export function PromoForm({ product }: PromoFormProps) {
   if (loading) {
     return (
       <div className="max-w-2xl space-y-5">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
         <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl space-y-5">
+      <ProductHelpCard variant="promo" />
+
       {error && (
         <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
@@ -324,6 +327,9 @@ export function PromoForm({ product }: PromoFormProps) {
           placeholder="Ej: Promo 1"
           required
         />
+        <p className="text-sm text-muted-foreground">
+          Nombre visible en la terminal de ventas y cierres.
+        </p>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -340,11 +346,14 @@ export function PromoForm({ product }: PromoFormProps) {
             }
             required
           />
+          <p className="text-sm text-muted-foreground">
+            Precio fijo de la promo. No depende de los insumos.
+          </p>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="promo-super-panchos">
-            Cantidad de Súper Panchos
+            Cantidad de Super Panchos
           </Label>
           <Input
             id="promo-super-panchos"
@@ -357,7 +366,7 @@ export function PromoForm({ product }: PromoFormProps) {
             required
           />
           <p className="text-sm text-muted-foreground">
-            1 Súper Pancho = 1 pan + 2 salchichas
+            1 Super Pancho equivale a 1 Pan y 2 Salchichas.
           </p>
         </div>
       </div>
@@ -375,6 +384,10 @@ export function PromoForm({ product }: PromoFormProps) {
             Incluye bebida
           </Label>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Si la promo lleva bebida, se descontara del stock de la bebida
+          seleccionada.
+        </p>
       </div>
 
       {form.includesBeverage && (
@@ -400,6 +413,9 @@ export function PromoForm({ product }: PromoFormProps) {
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-sm text-muted-foreground">
+              Solo aparecen bebidas del catalogo con stock critico.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -417,6 +433,9 @@ export function PromoForm({ product }: PromoFormProps) {
               }
               required
             />
+            <p className="text-sm text-muted-foreground">
+              Botellas o unidades que incluye la promo.
+            </p>
           </div>
         </div>
       )}
@@ -427,7 +446,7 @@ export function PromoForm({ product }: PromoFormProps) {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Al vender una unidad de esta promo se descontará:
+            Al vender una unidad de esta promo se descontara:
           </p>
           <ul className="mt-2 list-disc pl-5 text-base">
             <li>
@@ -464,6 +483,9 @@ export function PromoForm({ product }: PromoFormProps) {
           Activa
         </Label>
       </div>
+      <p className="text-sm text-muted-foreground">
+        Si esta inactiva no aparece en la terminal de ventas.
+      </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button
