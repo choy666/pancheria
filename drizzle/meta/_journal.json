@@ -15,6 +15,13 @@
       "when": 1786050150595,
       "tag": "0001_whole_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786155508527,
+      "tag": "0002_living_union_jack",
+      "breakpoints": true
     }
   ]
 }

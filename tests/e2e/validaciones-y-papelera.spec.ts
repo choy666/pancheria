@@ -211,7 +211,7 @@ test.describe('Validaciones y casos límite', () => {
     });
     expect(anular.status()).toBe(400);
     const body = (await anular.json()) as { error?: string };
-    expect(body.error).toContain('caja eliminada');
+    expect(body.error).toContain('caja cerrada o eliminada');
 
     const historial = await page.request.get(
       `/api/ventas?cashRegisterId=${cashRegisterId}`

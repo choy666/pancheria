@@ -10,7 +10,9 @@ import {
   numeric,
   pgEnum,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const productTypeEnum = pgEnum('product_type', [
   'critical_supply',
@@ -70,6 +72,10 @@ export const products = pgTable(
       table.isActive,
       table.deletedAt
     ),
+    typeIsActiveIdx: index('products_type_is_active_idx').on(
+      table.type,
+      table.isActive
+    ),
   })
 );
 
@@ -117,6 +123,13 @@ export const cashRegisters = pgTable(
     statusIdx: index('cash_registers_status_idx').on(table.status),
     openedAtIdx: index('cash_registers_opened_at_idx').on(table.openedAt),
     deletedAtIdx: index('cash_registers_deleted_at_idx').on(table.deletedAt),
+    statusDeletedAtIdx: index('cash_registers_status_deleted_at_idx').on(
+      table.status,
+      table.deletedAt
+    ),
+    openStatusIdx: uniqueIndex('cash_registers_open_status_idx')
+      .on(table.status)
+      .where(sql`${table.status} = 'open' AND ${table.deletedAt} IS NULL`),
   })
 );
 

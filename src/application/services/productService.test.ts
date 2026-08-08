@@ -272,11 +272,23 @@ describe('productService', () => {
   describe('deleteProduct', () => {
     test('elimina un producto existente', async () => {
       mockedProductRepository.findById.mockResolvedValue({ id: 1 } as any);
+      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
       mockedProductRepository.softDelete.mockResolvedValue({ id: 1 } as any);
 
       const result = await deleteProduct(1);
       expect(result!.id).toBe(1);
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
+    });
+
+    test('rechaza eliminar un producto usado en una receta', async () => {
+      mockedProductRepository.findById.mockResolvedValue({ id: 1 } as any);
+      mockedDb.query.recipes.findFirst.mockResolvedValue({ id: 1 } as any);
+
+      await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
+      await expect(deleteProduct(1)).rejects.toThrow(
+        'No se puede eliminar el producto porque está usado en una receta.'
+      );
+      expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
     });
 
     test('lanza NotFoundError si el producto no existe', async () => {

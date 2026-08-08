@@ -180,6 +180,11 @@ export default async function CashRegisterSalesDetailPage({
 
       <div className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Ventas de la caja</h2>
+        {(cashRegister.sales ?? []).length === 50 && (
+          <div className="rounded-lg bg-muted/50 p-4 text-base text-muted-foreground">
+            Se muestran las últimas 50 ventas de la caja.
+          </div>
+        )}
         <SalesHistory
           sales={cashRegister.sales ?? []}
           allowCancel={!cashRegister.deletedAt}

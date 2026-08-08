@@ -154,6 +154,23 @@ describe('saleRepository', () => {
         })
       );
     });
+
+    test('puede paginar las ventas de una caja', async () => {
+      const expected = [{ id: 1, cashRegisterId: 1 }];
+      mockFindMany.mockResolvedValue(expected);
+
+      const result = await saleRepository.findByCashRegisterId(1, undefined, 50, 10);
+
+      expect(result).toEqual(expected);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          orderBy: expect.anything(),
+          limit: 50,
+          offset: 10,
+        })
+      );
+    });
   });
 
   describe('create', () => {

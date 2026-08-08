@@ -1,6 +1,7 @@
 import { verifyCredentials } from './authService';
 import { db } from '@/db';
 import bcrypt from 'bcrypt';
+import { ValidationError } from '@/domain/errors';
 
 jest.mock('@/db', () => ({
   db: {
@@ -25,6 +26,17 @@ const mockedDb = db as unknown as {
 const mockedBcrypt = bcrypt as unknown as {
   compare: jest.Mock;
 };
+
+function attemptFailedLogins(username: string, count: number) {
+  for (let i = 0; i < count; i += 1) {
+    mockedDb.query.users.findFirst.mockResolvedValueOnce({
+      id: 1,
+      username,
+      passwordHash: 'hash123',
+    } as any);
+    mockedBcrypt.compare.mockResolvedValueOnce(false);
+  }
+}
 
 describe('authService', () => {
   afterEach(() => {
@@ -67,5 +79,52 @@ describe('authService', () => {
 
     expect(result).toBeNull();
     expect(mockedBcrypt.compare).toHaveBeenCalledWith('mal', 'hash123');
+  });
+
+  test('bloquea después de varios intentos fallidos', async () => {
+    const username = 'brute';
+    attemptFailedLogins(username, 5);
+
+    for (let i = 0; i < 5; i += 1) {
+      const result = await verifyCredentials(username, 'mal');
+      expect(result).toBeNull();
+    }
+
+    await expect(verifyCredentials(username, 'mal')).rejects.toThrow(
+      ValidationError
+    );
+    await expect(verifyCredentials(username, 'mal')).rejects.toThrow(
+      'Demasiados intentos fallidos. Probá más tarde.'
+    );
+  });
+
+  test('limpia los intentos fallidos tras un login exitoso', async () => {
+    const username = 'clean';
+    attemptFailedLogins(username, 4);
+
+    for (let i = 0; i < 4; i += 1) {
+      await verifyCredentials(username, 'mal');
+    }
+
+    mockedDb.query.users.findFirst.mockResolvedValueOnce({
+      id: 1,
+      username,
+      passwordHash: 'hash123',
+    } as any);
+    mockedBcrypt.compare.mockResolvedValueOnce(true);
+
+    const result = await verifyCredentials(username, 'secreto');
+
+    expect(result).toEqual({ id: 1, username });
+
+    mockedDb.query.users.findFirst.mockResolvedValueOnce({
+      id: 1,
+      username,
+      passwordHash: 'hash123',
+    } as any);
+    mockedBcrypt.compare.mockResolvedValueOnce(false);
+
+    const afterSuccess = await verifyCredentials(username, 'mal');
+    expect(afterSuccess).toBeNull();
   });
 });

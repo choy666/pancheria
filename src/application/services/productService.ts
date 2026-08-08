@@ -88,6 +88,17 @@ export async function updateProduct(id: number, data: ProductUpdate) {
 
 export async function deleteProduct(id: number) {
   await getProductById(id);
+
+  const usedAsSupply = await db.query.recipes.findFirst({
+    where: eq(recipes.supplyId, id),
+  });
+
+  if (usedAsSupply) {
+    throw new ValidationError(
+      'No se puede eliminar el producto porque está usado en una receta.'
+    );
+  }
+
   return productRepository.softDelete(id);
 }
 

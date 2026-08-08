@@ -31,6 +31,7 @@ export async function findById(id: number, includeDeleted = false) {
     ),
     with: {
       sales: {
+        limit: 50,
         orderBy: (sales, { desc }) => [desc(sales.createdAt)],
         with: {
           items: {

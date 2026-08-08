@@ -1,0 +1,3 @@
+CREATE INDEX "cash_registers_status_deleted_at_idx" ON "cash_registers" USING btree ("status","deleted_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "cash_registers_open_status_idx" ON "cash_registers" USING btree ("status") WHERE "cash_registers"."status" = 'open' AND "cash_registers"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "products_type_is_active_idx" ON "products" USING btree ("type","is_active");

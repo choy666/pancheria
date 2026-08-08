@@ -47,6 +47,8 @@ const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
 >;
 
 let mockUpdate: jest.Mock;
+let mockSelectResult: unknown[];
+let mockInsertResult: unknown[];
 
 function createMockCashRegister() {
   return {
@@ -64,8 +66,22 @@ function createMockCashRegister() {
 describe('cashRegisterService', () => {
   beforeEach(() => {
     mockUpdate = jest.fn();
+    mockSelectResult = [];
+    mockInsertResult = [];
     mockedExecuteInTransaction.mockImplementation(async (fn) =>
       fn({
+        select: jest.fn(() => ({
+          from: jest.fn(() => ({
+            where: jest.fn(() => ({
+              for: jest.fn().mockResolvedValue(mockSelectResult),
+            })),
+          })),
+        })),
+        insert: jest.fn(() => ({
+          values: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue(mockInsertResult),
+          })),
+        })),
         update: () => ({
           set: () => ({
             where: () => ({
@@ -107,6 +123,17 @@ describe('cashRegisterService', () => {
         status: 'open',
         autoClosed: false,
       } as any);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          openedAt,
+          openedBy: 'admin',
+          status: 'open',
+          autoClosed: false,
+          deletedAt: null,
+        },
+      ];
 
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
@@ -167,13 +194,15 @@ describe('cashRegisterService', () => {
 
   describe('openCashRegister', () => {
     test('crea una caja nueva si no hay abierta', async () => {
-      mockedCashRegisterRepository.findOpen.mockResolvedValue(undefined);
-      mockedCashRegisterRepository.create.mockResolvedValue({
-        id: 1,
-        openedAt: new Date(),
-        openedBy: 'admin',
-        status: 'open',
-      } as any);
+      mockSelectResult = [];
+      mockInsertResult = [
+        {
+          id: 1,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+        },
+      ];
 
       const result = await openCashRegister('admin');
 
@@ -182,12 +211,20 @@ describe('cashRegisterService', () => {
     });
 
     test('rechaza apertura si ya existe una caja abierta', async () => {
-      mockedCashRegisterRepository.findOpen.mockResolvedValue({
-        id: 1,
-        openedAt: new Date(),
-        openedBy: 'admin',
-        status: 'open',
-      } as any);
+      mockSelectResult = [
+        {
+          id: 1,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+        },
+      ];
+
+      await expect(openCashRegister('admin')).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza apertura si el índice único detecta una caja concurrente', async () => {
+      mockedExecuteInTransaction.mockRejectedValueOnce({ code: '23505' });
 
       await expect(openCashRegister('admin')).rejects.toThrow(ValidationError);
     });
@@ -479,6 +516,17 @@ describe('cashRegisterService', () => {
         openedBy: 'admin',
         status: 'open',
       } as any);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          openedAt,
+          openedBy: 'admin',
+          status: 'open',
+          autoClosed: false,
+          deletedAt: null,
+        },
+      ];
 
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);

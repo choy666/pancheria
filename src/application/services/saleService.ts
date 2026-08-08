@@ -384,9 +384,19 @@ export async function confirmSale(params: {
       }
     }
 
+    const [lockedCashRegister] = await tx
+      .select()
+      .from(cashRegisters)
+      .where(eq(cashRegisters.id, cashRegister.id))
+      .for('update');
+
+    if (!lockedCashRegister) {
+      throw new ValidationError('La caja abierta ya no existe.');
+    }
+
     await updateCashRegisterSummary(
       tx,
-      cashRegister,
+      lockedCashRegister,
       saleItemValues,
       productById,
       recipesByProduct,
@@ -429,8 +439,10 @@ export async function cancelSale(id: number, reason: string) {
   if (!sale) throw new NotFoundError('Venta', id);
   if (sale.status === 'cancelled') return sale;
 
-  if (!sale.cashRegister || sale.cashRegister.deletedAt) {
-    throw new ValidationError('No se puede anular una venta de una caja eliminada.');
+  if (!sale.cashRegister || sale.cashRegister.status !== 'open') {
+    throw new ValidationError(
+      'No se puede anular una venta de una caja cerrada o eliminada.'
+    );
   }
 
   return executeInTransaction(async (tx) => {
@@ -507,9 +519,19 @@ export async function cancelSale(id: number, reason: string) {
       .where(eq(sales.id, id))
       .returning();
 
+    const [lockedCashRegister] = await tx
+      .select()
+      .from(cashRegisters)
+      .where(eq(cashRegisters.id, sale.cashRegister!.id))
+      .for('update');
+
+    if (!lockedCashRegister) {
+      throw new ValidationError('La caja asociada a la venta ya no existe.');
+    }
+
     await updateCashRegisterSummary(
       tx,
-      sale.cashRegister,
+      lockedCashRegister,
       sale.items ?? [],
       productById,
       recipesByProduct,

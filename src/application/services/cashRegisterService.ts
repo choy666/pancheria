@@ -1,4 +1,4 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, recipes, sales, cashRegisters } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
@@ -28,38 +28,85 @@ export async function getOpenCashRegister() {
   const autoCloseAt = addHours(cashRegister.openedAt, AUTO_CLOSE_HOURS);
 
   if (autoCloseAt <= now) {
-    const summary = await calculateCashRegisterSummary(cashRegister.id);
+    return executeInTransaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(cashRegisters)
+        .where(
+          and(
+            eq(cashRegisters.id, cashRegister.id),
+            eq(cashRegisters.status, 'open'),
+            isNull(cashRegisters.deletedAt)
+          )
+        )
+        .for('update');
 
-    await executeInTransaction(async (tx) => {
+      if (!locked) return null;
+
+      const closeThreshold = addHours(locked.openedAt, AUTO_CLOSE_HOURS);
+      if (closeThreshold > now) return null;
+
+      const summary = await calculateCashRegisterSummary(locked.id);
+
       await tx
         .update(cashRegisters)
         .set({
           status: 'closed',
-          closedAt: autoCloseAt,
+          closedAt: closeThreshold,
           closedBy: 'Sistema',
           autoClosed: true,
           ...summary,
         })
-        .where(eq(cashRegisters.id, cashRegister.id));
-    });
+        .where(eq(cashRegisters.id, locked.id));
 
-    return null;
+      return null;
+    });
   }
 
   return cashRegister;
 }
 
+function isUniqueViolationError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === '23505'
+  );
+}
+
 export async function openCashRegister(openedBy: string) {
-  const openCashRegister = await getOpenCashRegister();
+  try {
+    return await executeInTransaction(async (tx) => {
+      const [existingOpen] = await tx
+        .select()
+        .from(cashRegisters)
+        .where(
+          and(eq(cashRegisters.status, 'open'), isNull(cashRegisters.deletedAt))
+        )
+        .for('update');
 
-  if (openCashRegister) {
-    throw new ValidationError('Ya existe una caja abierta.');
+      if (existingOpen) {
+        throw new ValidationError('Ya existe una caja abierta.');
+      }
+
+      const [result] = await tx
+        .insert(cashRegisters)
+        .values({
+          openedAt: nowUTC(),
+          openedBy,
+          status: 'open',
+        })
+        .returning();
+
+      return result;
+    });
+  } catch (error) {
+    if (isUniqueViolationError(error)) {
+      throw new ValidationError('Ya existe una caja abierta.');
+    }
+    throw error;
   }
-
-  return cashRegisterRepository.create({
-    openedAt: nowUTC(),
-    openedBy,
-  });
 }
 
 export async function calculateCashRegisterSummary(cashRegisterId: number) {

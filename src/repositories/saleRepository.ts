@@ -43,7 +43,9 @@ export async function findByDateRange(
 
 export async function findByCashRegisterId(
   cashRegisterId: number,
-  status?: SaleStatus
+  status?: SaleStatus,
+  limit?: number,
+  offset?: number
 ) {
   const conditions = [eq(sales.cashRegisterId, cashRegisterId)];
 
@@ -54,6 +56,8 @@ export async function findByCashRegisterId(
   return db.query.sales.findMany({
     where: and(...conditions),
     orderBy: (sales, { desc }) => [desc(sales.createdAt)],
+    limit,
+    offset,
     with: {
       items: {
         with: {

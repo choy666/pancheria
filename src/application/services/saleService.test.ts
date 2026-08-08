@@ -45,7 +45,25 @@ function createMockDb() {
     })),
   }));
 
-  return { query, insert, update };
+  const select = jest.fn().mockImplementation(() => ({
+    from: jest.fn().mockImplementation(() => ({
+      where: jest.fn().mockImplementation(() => ({
+        for: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            total: 0,
+            cashTotal: 0,
+            transferTotal: 0,
+            totalSales: 0,
+            productsSummary: '{}',
+            criticalSuppliesSummary: '{}',
+          },
+        ]),
+      })),
+    })),
+  }));
+
+  return { query, insert, update, select };
 }
 
 jest.mock('@/repositories/productRepository');
@@ -533,7 +551,11 @@ describe('cancelSale', () => {
       id: 1,
       status: 'active',
       items: [{ id: 1, productId: 1, quantity: 2 }],
-      cashRegister: { deletedAt: null },
+      cashRegister: {
+        id: 1,
+        status: 'open',
+        deletedAt: null,
+      },
     });
 
     setProducts([
@@ -584,16 +606,20 @@ describe('cancelSale', () => {
     );
   });
 
-  test('rechaza anular una venta de una caja eliminada', async () => {
+  test('rechaza anular una venta de una caja cerrada', async () => {
     (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
       id: 1,
       status: 'active',
       items: [{ id: 1, productId: 1, quantity: 1 }],
-      cashRegister: { deletedAt: new Date() },
+      cashRegister: {
+        id: 1,
+        status: 'closed',
+        deletedAt: null,
+      },
     });
 
     await expect(cancelSale(1, 'error')).rejects.toThrow(
-      'No se puede anular una venta de una caja eliminada.'
+      'No se puede anular una venta de una caja cerrada o eliminada.'
     );
     await expect(cancelSale(1, 'error')).rejects.toThrow(ValidationError);
   });
@@ -603,7 +629,11 @@ describe('cancelSale', () => {
       id: 1,
       status: 'cancelled',
       items: [{ id: 1, productId: 1, quantity: 1 }],
-      cashRegister: { deletedAt: null },
+      cashRegister: {
+        id: 1,
+        status: 'open',
+        deletedAt: null,
+      },
     });
 
     const result = await cancelSale(1, 'ya anulada');
