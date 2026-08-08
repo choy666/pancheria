@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,9 +22,7 @@ interface Closure {
 
 export function ClosurePanel() {
   const router = useRouter();
-  const [date, setDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [closure, setClosure] = useState<Closure | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -7,6 +7,7 @@ import {
   CAJA_ELIMINADAS_API,
 } from '@/config/api';
 import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
+import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
 
 export interface CashRegister {
   id: number;
@@ -54,10 +55,11 @@ function loadCashRegisterHistory(
   statusFilter: 'all' | 'closed',
   deletedOnly: boolean
 ): Promise<LoadResult> {
-  const end = new Date();
-  const start = subDays(end, DEFAULT_CAJA_HISTORY_DAYS);
-  const endStr = end.toISOString().split('T')[0];
-  const startStr = start.toISOString().split('T')[0];
+  const now = nowUTC();
+  const end = endOfDayUTC(now);
+  const start = startOfDayUTC(subDays(now, DEFAULT_CAJA_HISTORY_DAYS));
+  const endStr = end.toISOString();
+  const startStr = start.toISOString();
 
   const params = new URLSearchParams({
     start: startStr,

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
+import { Pool as NeonPool } from '@neondatabase/serverless';
+import { Pool as PgPool } from 'pg';
 import * as schema from './schema';
 
 // Cargar .env.local para scripts que corren fuera de Next.js (seed, drizzle-kit).
@@ -15,8 +17,12 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL no está definida en las variables de entorno.');
 }
 
-const pool = new Pool({
-  connectionString: databaseUrl,
-});
+function isNeonDatabase(url: string): boolean {
+  return url.includes('neon.tech');
+}
 
-export const db = drizzle(pool, { schema });
+const db = isNeonDatabase(databaseUrl)
+  ? drizzleNeon(new NeonPool({ connectionString: databaseUrl }), { schema })
+  : drizzlePg(new PgPool({ connectionString: databaseUrl }), { schema });
+
+export { db };

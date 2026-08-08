@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CIERRE_HISTORIAL_API } from '@/config/api';
+import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
 
 interface Closure {
   id: number;
@@ -32,12 +33,13 @@ export function ClosureHistory() {
   useEffect(() => {
     async function load() {
       try {
-        const end = new Date();
-        const start = subDays(end, 30);
+        const now = nowUTC();
+        const end = endOfDayUTC(now);
+        const start = startOfDayUTC(subDays(now, 30));
 
         const params = new URLSearchParams({
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: start.toISOString(),
+          end: end.toISOString(),
         });
 
         const response = await fetch(`${CIERRE_HISTORIAL_API}?${params}`, {
