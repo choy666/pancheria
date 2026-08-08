@@ -52,7 +52,6 @@ export default async function ProductsPage() {
               <TableHead>Producto</TableHead>
               <TableHead className="hidden sm:table-cell">Tipo</TableHead>
               <TableHead className="hidden md:table-cell">Stock</TableHead>
-              <TableHead className="hidden lg:table-cell">Mínimo</TableHead>
               <TableHead className="hidden lg:table-cell">Precio</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -80,14 +79,11 @@ export default async function ProductsPage() {
                 </TableCell>
                 <TableCell className="hidden md:table-cell font-mono">
                   {product.stock} {product.unit}
-                  {product.stock <= product.minStock && (
+                  {product.stock <= product.minStock && product.minStock > 0 && (
                     <Badge variant="destructive" className="ml-2">
                       Bajo
                     </Badge>
                   )}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell font-mono">
-                  {product.minStock} {product.unit}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell font-mono">
                   ${product.price.toFixed(2)}

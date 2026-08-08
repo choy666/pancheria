@@ -125,7 +125,6 @@ export function StockList() {
             <TableRow>
               <TableHead>Producto</TableHead>
               <TableHead className="hidden sm:table-cell">Stock</TableHead>
-              <TableHead className="hidden md:table-cell">Mínimo</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -136,14 +135,11 @@ export function StockList() {
                 <TableCell className="font-medium">
                   <span className="block">{product.name}</span>
                   <span className="font-mono text-sm text-muted-foreground sm:hidden">
-                    {product.stock} / {product.minStock} {product.unit}
+                    {product.stock} {product.unit}
                   </span>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell font-mono">
                   {product.stock} {product.unit}
-                </TableCell>
-                <TableCell className="hidden md:table-cell font-mono">
-                  {product.minStock} {product.unit}
                 </TableCell>
                 <TableCell>
                   {product.isLow ? (

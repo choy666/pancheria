@@ -19,6 +19,18 @@ import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
 
 type ProductFormData = z.infer<typeof productSchema>;
+type ProductType = ProductFormData['type'];
+type CriticalSupplyType = ProductFormData['criticalSupplyType'];
+
+function defaultUnit(
+  type: ProductType,
+  criticalSupplyType: CriticalSupplyType
+): string {
+  if (type === 'critical_supply' && criticalSupplyType === 'beverage') {
+    return 'botella';
+  }
+  return 'unidad';
+}
 
 const emptyProduct: ProductFormData = {
   name: '',
@@ -26,7 +38,7 @@ const emptyProduct: ProductFormData = {
   type: 'manual_supply',
   criticalSupplyType: null,
   price: 0,
-  unit: '',
+  unit: 'unidad',
   stock: 0,
   minStock: 0,
   isActive: true,
@@ -46,6 +58,27 @@ export function ProductForm({ product }: ProductFormProps) {
 
   const isCritical = form.type === 'critical_supply';
   const isService = form.type === 'service';
+
+  function updateType(value: ProductType) {
+    const nextCriticalSupplyType =
+      value === 'critical_supply' ? form.criticalSupplyType : null;
+    setForm({
+      ...form,
+      type: value,
+      criticalSupplyType: nextCriticalSupplyType,
+      stock: value === 'service' ? 0 : form.stock,
+      unit: defaultUnit(value, nextCriticalSupplyType),
+    });
+  }
+
+  function updateCriticalSupplyType(value: CriticalSupplyType) {
+    const next = (value || null) as CriticalSupplyType;
+    setForm({
+      ...form,
+      criticalSupplyType: next,
+      unit: defaultUnit(form.type, next),
+    });
+  }
 
   async function handleSubmit() {
     setIsSubmitting(true);
@@ -121,15 +154,7 @@ export function ProductForm({ product }: ProductFormProps) {
           <Label htmlFor="type">Tipo</Label>
           <Select
             value={form.type}
-            onValueChange={(value) =>
-              setForm({
-                ...form,
-                type: value as ProductFormData['type'],
-                criticalSupplyType: null,
-                stock: value === 'service' ? 0 : form.stock,
-                minStock: value === 'service' ? 0 : form.minStock,
-              })
-            }
+            onValueChange={(value) => updateType(value as ProductType)}
           >
             <SelectTrigger id="type">
               <SelectValue />
@@ -150,10 +175,7 @@ export function ProductForm({ product }: ProductFormProps) {
           <Select
             value={form.criticalSupplyType ?? ''}
             onValueChange={(value) =>
-              setForm({
-                ...form,
-                criticalSupplyType: (value || null) as ProductFormData['criticalSupplyType'],
-              })
+              updateCriticalSupplyType((value || null) as CriticalSupplyType)
             }
             disabled={!isCritical}
           >
@@ -173,7 +195,7 @@ export function ProductForm({ product }: ProductFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="price">Precio</Label>
           <Input
@@ -189,19 +211,6 @@ export function ProductForm({ product }: ProductFormProps) {
           />
           <p className="text-sm text-muted-foreground">
             Precio de venta. Para insumos crudos suele ser 0.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="unit">Unidad</Label>
-          <Input
-            id="unit"
-            value={form.unit}
-            onChange={(e) => setForm({ ...form, unit: e.target.value })}
-            required
-          />
-          <p className="text-sm text-muted-foreground">
-            Ej: unidad, botella, porcion, envase.
           </p>
         </div>
 
@@ -222,24 +231,6 @@ export function ProductForm({ product }: ProductFormProps) {
             Cantidad disponible. No aplica a servicios.
           </p>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="minStock">Stock minimo</Label>
-          <Input
-            id="minStock"
-            type="number"
-            min={0}
-            value={isService ? 0 : form.minStock}
-            onChange={(e) =>
-              setForm({ ...form, minStock: Number(e.target.value) })
-            }
-            disabled={isService}
-            required
-          />
-          <p className="text-sm text-muted-foreground">
-            Umbral para alerta de stock bajo. No aplica a servicios.
-          </p>
-        </div>
       </div>
 
       <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-card p-4">
@@ -250,7 +241,9 @@ export function ProductForm({ product }: ProductFormProps) {
           onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
           className="h-5 w-5 accent-primary"
         />
-        <Label htmlFor="isActive" className="mb-0">Activo</Label>
+        <Label htmlFor="isActive" className="mb-0">
+          Activo
+        </Label>
       </div>
       <p className="text-sm text-muted-foreground">
         Si esta inactivo no aparece en la terminal ni en listados, pero no se

@@ -63,6 +63,11 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
           vende en la terminal pero no desconta stock. Ideal para agregados de
           toppings o vaso de gaseosa.
         </p>
+        <p>
+          El stock se carga al inicio y se ajusta desde la pagina Stock. La
+          unidad se asigna automaticamente (botella para bebidas, unidad para el
+          resto).
+        </p>
       </CardContent>
     </Card>
   );
