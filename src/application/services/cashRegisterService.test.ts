@@ -363,6 +363,18 @@ describe('cashRegisterService', () => {
         'closed'
       );
     });
+
+    test('propaga errores del repositorio (por ejemplo, fallo de conexión)', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+      const dbError = Object.assign(new Error('Failed query'), {
+        code: 'ECONNREFUSED',
+      });
+
+      mockedCashRegisterRepository.findInRange.mockRejectedValue(dbError);
+
+      await expect(listCashRegisterHistory(start, end)).rejects.toThrow(dbError);
+    });
   });
 
   describe('listDeletedCashRegisterHistory', () => {
