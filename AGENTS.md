@@ -17,6 +17,8 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Lint                     | `npm run lint`                                    |
 | Tests unitarios          | `npm test`                                        |
 | Tests E2E                | `npx playwright test`                             |
+
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `stock_movements`, `cash_registers` y `daily_closures`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 | Generar migraciones      | `npx drizzle-kit generate`                        |
 | Empujar migraciones      | `npx drizzle-kit push`                            |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
@@ -24,12 +26,15 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:
 
-- `DATABASE_URL` — URL de conexión a PostgreSQL (Neon).
+- `DATABASE_URL` — URL de conexión a PostgreSQL (Neon). En Vercel Postgres equivale a `POSTGRES_URL` (pooled).
+- `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`.
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
 - `ADMIN_USERNAME` — usuario administrador único.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
 - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms).
+
+> **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
 
 ## Configuración del blueprint de Devin
 - El blueprint para el snapshot de Devin vive en `.devin/environment.yaml`.
@@ -88,3 +93,12 @@ Copiar `.env.example` a `.env.local` y completar:
 2. Configurar las variables de entorno en Vercel.
 3. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
 4. Hacer push a `main` para que Vercel haga el deploy automático.
+
+## Troubleshooting
+
+### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
+
+- Verificar que `DATABASE_URL` en `.env.local` no apunte a `localhost` si no hay un PostgreSQL local corriendo.
+- Preferir usar la misma URL de Neon que en Vercel (`POSTGRES_URL`) para que dev y prod se comporten igual.
+- Revisar `src/db/index.ts` para entender el orden de resolución: `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`.
+- Para migraciones, `drizzle.config.ts` usa `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.

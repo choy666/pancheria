@@ -34,3 +34,12 @@ export class UnauthorizedError extends DomainError {
     this.name = 'UnauthorizedError';
   }
 }
+
+export class DatabaseConnectionError extends Error {
+  constructor(
+    message = 'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo y que DATABASE_URL esté configurada correctamente.'
+  ) {
+    super(message);
+    this.name = 'DatabaseConnectionError';
+  }
+}

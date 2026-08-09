@@ -74,7 +74,7 @@ describe('GET /api/caja/historial', () => {
     );
   });
 
-  test('devuelve 500 con mensaje genérico ante un error de conexión a la base de datos', async () => {
+  test('devuelve 503 ante un error de conexión a la base de datos', async () => {
     const dbError = Object.assign(
       new Error('Failed query: select from cash_registers'),
       { code: 'ECONNREFUSED' }
@@ -84,8 +84,10 @@ describe('GET /api/caja/historial', () => {
     const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
     const body = (await response.json()) as { error: string };
 
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('Error al listar cajas');
+    expect(response.status).toBe(503);
+    expect(body.error).toBe(
+      'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo.'
+    );
   });
 
   test('devuelve 500 ante cualquier error inesperado del servicio', async () => {

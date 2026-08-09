@@ -778,6 +778,24 @@ describe('cancelSale', () => {
     await expect(cancelSale(1, 'error')).rejects.toThrow(ValidationError);
   });
 
+  test('rechaza anular una venta de una caja eliminada', async () => {
+    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'active',
+      items: [{ id: 1, productId: 1, quantity: 1 }],
+      cashRegister: {
+        id: 1,
+        status: 'open',
+        deletedAt: new Date(),
+      },
+    });
+
+    await expect(cancelSale(1, 'error')).rejects.toThrow(
+      'No se puede anular una venta de una caja cerrada o eliminada.'
+    );
+    await expect(cancelSale(1, 'error')).rejects.toThrow(ValidationError);
+  });
+
   test('es idempotente: no anula una venta ya anulada', async () => {
     (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
       id: 1,

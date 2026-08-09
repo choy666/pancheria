@@ -474,7 +474,11 @@ export async function cancelSale(id: number, reason: string) {
   if (!sale) throw new NotFoundError('Venta', id);
   if (sale.status === 'cancelled') return sale;
 
-  if (!sale.cashRegister || sale.cashRegister.status !== 'open') {
+  if (
+    !sale.cashRegister ||
+    sale.cashRegister.status !== 'open' ||
+    sale.cashRegister.deletedAt
+  ) {
     throw new ValidationError(
       'No se puede anular una venta de una caja cerrada o eliminada.'
     );

@@ -117,7 +117,7 @@ Dado que la venta **se muestra en todas las cajas**, las hipótesis principales 
 
 ### 2. Datos residuales en la base de datos
 
-- [ ] Conectar a la base de datos configurada en `DATABASE_URL`.
+- [ ] Verificar que `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`) apunte a la misma base de datos en desarrollo y producción, y conectarse a ella.
 - [ ] Ejecutar consultas de auditoría:
   - `SELECT * FROM sales ORDER BY created_at DESC LIMIT 20;`
   - `SELECT * FROM sale_items ORDER BY id DESC LIMIT 20;`

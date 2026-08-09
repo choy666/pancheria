@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AUTO_CLOSE_HOURS } from '@/config/caja';
+import { AUTO_CLOSE_HOURS, CAJA_CLOCK_INTERVAL_MS } from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
 
@@ -29,7 +29,7 @@ export function CajaStatus({
   const [now, setNow] = useState<Date | null>(() => new Date());
 
   useEffect(() => {
-    const intervalDuration = 60000;
+    const intervalDuration = CAJA_CLOCK_INTERVAL_MS;
     let intervalId: NodeJS.Timeout | null = null;
 
     function startInterval() {

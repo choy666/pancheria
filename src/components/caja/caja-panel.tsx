@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AUTO_CLOSE_HOURS } from '@/config/caja';
+import { AUTO_CLOSE_HOURS, CAJA_CLOCK_INTERVAL_MS } from '@/config/caja';
 import { formatDateTime, safeFormatDuration, formatLastUpdated } from '@/lib/date';
 
 export function CajaPanel() {
@@ -17,7 +17,7 @@ export function CajaPanel() {
   const [now, setNow] = useState<Date | null>(() => new Date());
 
   useEffect(() => {
-    const intervalDuration = 60000;
+    const intervalDuration = CAJA_CLOCK_INTERVAL_MS;
     let intervalId: NodeJS.Timeout | null = null;
 
     function startInterval() {

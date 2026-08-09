@@ -44,7 +44,9 @@ test.describe('Stock, ajustes y movimientos', () => {
     await page.goto('/stock');
     const row = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
     await expect(row).toBeVisible();
-    await expect(row.getByText('2 unidad', { exact: true })).toBeVisible();
+    await expect(
+      row.locator('td', { hasText: /^2 unidad$/ }).first()
+    ).toBeVisible();
 
     await row.getByRole('button', { name: 'Ajustar' }).first().click();
     await page.fill('input#adjust-quantity', '-10');
@@ -65,7 +67,9 @@ test.describe('Stock, ajustes y movimientos', () => {
     await page.goto('/stock');
     const updatedRow = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
     await expect(updatedRow).toBeVisible();
-    await expect(updatedRow.getByText('6 unidad', { exact: true })).toBeVisible();
+    await expect(
+      updatedRow.locator('td', { hasText: /^6 unidad$/ }).first()
+    ).toBeVisible();
 
     await updatedRow.getByRole('button', { name: 'Historial' }).first().click();
     await expect(page.getByText('Ajuste positivo de prueba')).toBeVisible();

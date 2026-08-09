@@ -91,7 +91,7 @@ Stack:
 
 ### 1. Datos residuales y consistencia de la base de datos
 
-- [ ] Conectar a la base de datos configurada en `DATABASE_URL`.
+- [ ] Verificar que `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`) apunte a la misma base de datos en desarrollo y producción, y conectarse a ella.
 - [ ] Ejecutar consultas de auditoría:
   - `SELECT * FROM cash_registers WHERE status = 'open' AND deleted_at IS NULL;`
   - `SELECT id, cash_register_id, status, total, payment_method, created_at FROM sales ORDER BY created_at DESC LIMIT 20;`

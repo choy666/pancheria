@@ -10,16 +10,26 @@ import * as schema from './schema';
 // sigue viniendo de las variables configuradas en la plataforma.
 dotenv.config({ path: '.env.local' });
 
-const databaseUrl = process.env.DATABASE_URL;
+function resolveDatabaseUrl(): string {
+  const candidate =
+    process.env.DATABASE_URL ??
+    process.env.POSTGRES_URL ??
+    process.env.POSTGRES_PRISMA_URL;
 
-// En runtime DATABASE_URL debe estar definida en las variables de entorno.
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL no está definida en las variables de entorno.');
+  if (!candidate) {
+    throw new Error(
+      'No se encontró una URL de conexión a PostgreSQL. Definí DATABASE_URL, POSTGRES_URL o POSTGRES_PRISMA_URL en las variables de entorno.'
+    );
+  }
+
+  return candidate;
 }
 
 function isNeonDatabase(url: string): boolean {
   return url.includes('neon.tech');
 }
+
+const databaseUrl = resolveDatabaseUrl();
 
 const db = isNeonDatabase(databaseUrl)
   ? drizzleNeon(new NeonPool({ connectionString: databaseUrl }), { schema })

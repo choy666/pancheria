@@ -24,7 +24,6 @@ knowledge:
       - `src/application/services/` — servicios de aplicación
       - `src/components/` — componentes React
       - `drizzle/` — migraciones generadas por Drizzle Kit
-      - `PLAN.md` — plan de implementación completo
 
   - name: install
     contents: npm install
@@ -41,12 +40,18 @@ knowledge:
     contents: |
       npm run build
 
+  - name: e2e
+    contents: |
+      `npx playwright test` ejecuta `tests/e2e/global-setup.ts`, que trunca las tablas de negocio y re-seedea la base. No usar en producción.
+
   - name: database
     contents: |
       1. Copiar `.env.example` a `.env.local` y completar las variables.
-      2. Generar/empujar migraciones: npx drizzle-kit push
-      3. Ejecutar seed de administrador: npx tsx src/db/seeds.ts
-      4. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      2. `DATABASE_URL` se usa en runtime; si no está definida se resuelve desde `POSTGRES_URL` o `POSTGRES_PRISMA_URL`.
+      3. `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) se usa para migraciones con `drizzle-kit`.
+      4. Generar/empujar migraciones: npx drizzle-kit push
+      5. Ejecutar seed de administrador: npx tsx src/db/seeds.ts
+      6. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
 
   - name: start
     contents: |

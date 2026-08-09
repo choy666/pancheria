@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProductActions } from '@/components/productos/product-actions';
 import { deleteProduct } from './actions';
 import * as productService from '@/application/services/productService';
+import * as saleService from '@/application/services/saleService';
 
 const productTypeLabels: Record<string, string> = {
   critical_supply: 'Insumo crítico',
@@ -28,6 +29,9 @@ const criticalTypeLabels: Record<string, string> = {
 
 export default async function ProductsPage() {
   const products = await productService.listProducts();
+  const sellableById = await saleService.calculateAvailabilityForProductIds(
+    products.map((product) => product.id)
+  );
 
   return (
     <div className="space-y-5">
@@ -53,7 +57,7 @@ export default async function ProductsPage() {
               <TableHead className="hidden sm:table-cell">Tipo</TableHead>
               <TableHead className="hidden md:table-cell">Stock</TableHead>
               <TableHead className="hidden lg:table-cell">Precio</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead>Vendible</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -91,11 +95,26 @@ export default async function ProductsPage() {
                     : `$${product.price.toFixed(2)}`}
                 </TableCell>
                 <TableCell>
-                  {product.isActive ? (
-                    <Badge variant="default">Activo</Badge>
-                  ) : (
-                    <Badge variant="secondary">Inactivo</Badge>
-                  )}
+                  {(() => {
+                    const isSellable =
+                      product.isActive &&
+                      (sellableById[product.id] ?? 0) > 0;
+                    return isSellable ? (
+                      <Badge
+                        variant="outline"
+                        className="h-8 w-8 justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-0 font-mono text-sm font-bold text-emerald-400"
+                      >
+                        V
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="h-8 w-8 justify-center rounded-full border border-red-500/30 bg-red-500/10 p-0 font-mono text-sm font-bold text-red-400"
+                      >
+                        X
+                      </Badge>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell className="text-right">
                   <ProductActions

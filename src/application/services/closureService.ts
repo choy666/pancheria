@@ -46,7 +46,7 @@ export async function generateClosure(date: Date) {
       );
     }
 
-    const activeSales = (await tx.query.sales.findMany({
+    const salesInRange = (await tx.query.sales.findMany({
       where: and(
         eq(sales.status, 'active'),
         isNotNull(sales.cashRegisterId),
@@ -59,15 +59,21 @@ export async function generateClosure(date: Date) {
             product: true,
           },
         },
+        cashRegister: true,
       },
     })) as {
       total: number;
       paymentMethod: 'cash' | 'transfer';
+      cashRegister: { deletedAt: Date | null } | null;
       items: {
         quantity: number;
         product: typeof products.$inferSelect | null;
       }[];
     }[];
+
+    const activeSales = salesInRange.filter(
+      (sale) => sale.cashRegister?.deletedAt === null
+    );
 
     let cashTotal = parseMoney(0);
     let transferTotal = parseMoney(0);

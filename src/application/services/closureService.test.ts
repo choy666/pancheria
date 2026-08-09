@@ -145,6 +145,7 @@ describe('closureService', () => {
           status: 'active',
           cashRegisterId: 1,
           createdAt: new Date(2026, 4, 10, 12, 0),
+          cashRegister: { deletedAt: null },
           items: [
             {
               quantity: 1,
@@ -163,6 +164,7 @@ describe('closureService', () => {
           status: 'active',
           cashRegisterId: 1,
           createdAt: new Date(2026, 4, 10, 13, 0),
+          cashRegister: { deletedAt: null },
           items: [
             {
               quantity: 2,
@@ -221,6 +223,73 @@ describe('closureService', () => {
       });
 
       expect(mockTx.insert).toHaveBeenCalled();
+    });
+
+    test('ignora las ventas de cajas eliminadas al generar un cierre', async () => {
+      const date = new Date(2026, 4, 10);
+      mockedDb.query.dailyClosures.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.cashRegisters.findMany.mockResolvedValue([]);
+
+      mockedDb.query.sales.findMany.mockResolvedValue([
+        {
+          id: 1,
+          total: 1500,
+          paymentMethod: 'cash',
+          status: 'active',
+          cashRegisterId: 1,
+          createdAt: new Date(2026, 4, 10, 12, 0),
+          cashRegister: { deletedAt: new Date() },
+          items: [
+            {
+              quantity: 1,
+              product: {
+                id: 1,
+                name: 'Panchuque',
+                type: 'compound',
+              },
+            },
+          ],
+        },
+        {
+          id: 2,
+          total: 800,
+          paymentMethod: 'transfer',
+          status: 'active',
+          cashRegisterId: 2,
+          createdAt: new Date(2026, 4, 10, 13, 0),
+          cashRegister: { deletedAt: null },
+          items: [
+            {
+              quantity: 1,
+              product: {
+                id: 3,
+                name: 'Gaseosa',
+                type: 'critical_supply',
+                criticalSupplyType: 'beverage',
+              },
+            },
+          ],
+        },
+      ] as any);
+
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+
+      mockedDb.query.products.findMany.mockResolvedValue([
+        { id: 3, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const mockTx = createMockTransaction();
+      mockedExecuteInTransaction.mockImplementation(async (fn: any) => {
+        return await fn(mockTx as any);
+      });
+
+      const result = await generateClosure(date);
+
+      expect(result.total).toBe(800);
+      expect(result.totalSales).toBe(1);
+
+      const productsSummary = JSON.parse(result.productsSummary as string);
+      expect(productsSummary).toEqual({ Gaseosa: 1 });
     });
   });
 

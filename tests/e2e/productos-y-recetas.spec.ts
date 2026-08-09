@@ -97,7 +97,12 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 
     const updatedRow = page.locator('tr').filter({ hasText: new RegExp(manual.name) });
-    await expect(updatedRow.getByText('Inactivo')).toBeVisible();
+    await expect(updatedRow.locator('td:nth-child(5) [data-slot="badge"]')).toHaveText('X');
+
+    const productRes = await page.request.get(`/api/productos/${manual.id}`);
+    expect(productRes.status()).toBe(200);
+    const productData = (await productRes.json()) as { isActive: boolean };
+    expect(productData.isActive).toBe(false);
   });
 
   test('crea una promo desde la UI con Súper Pancho y bebida', async ({
@@ -110,8 +115,11 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await expect(page).toHaveURL('/productos/nuevo?tab=promo');
 
     const promoName = unique('Promo UI');
-    await page.getByLabel('Nombre de la promo').waitFor();
-    await page.getByLabel('Nombre de la promo').fill(promoName);
+    const nameInput = page.locator('#promo-name');
+    await expect(nameInput).toBeVisible();
+    await nameInput.fill(promoName);
+    await expect(nameInput).toHaveValue(promoName);
+
     await page.fill('#promo-price', '2500');
     await page.fill('#promo-super-panchos', '2');
     await page.check('#promo-includes-beverage');
@@ -119,8 +127,6 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await page.click('#promo-beverage');
     await page.getByText('Coca de 1L (botella)').click();
     await page.fill('#promo-beverage-quantity', '1');
-
-    await expect(page.locator('#promo-name')).toHaveValue(promoName);
     await page.getByRole('button', { name: 'Guardar promo' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 
