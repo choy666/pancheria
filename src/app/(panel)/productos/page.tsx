@@ -13,6 +13,7 @@ import { ProductActions } from '@/components/productos/product-actions';
 import { deleteProduct } from './actions';
 import * as productService from '@/application/services/productService';
 import * as saleService from '@/application/services/saleService';
+import type { ProductType } from '@/domain/types';
 
 const productTypeLabels: Record<string, string> = {
   critical_supply: 'Insumo crítico',
@@ -27,8 +28,40 @@ const criticalTypeLabels: Record<string, string> = {
   beverage: 'Bebida',
 };
 
+const typePriority: Record<ProductType, number> = {
+  compound: 1,
+  critical_supply: 2,
+  manual_supply: 3,
+  service: 4,
+};
+
+const productTypeBadgeClasses: Record<ProductType, string> = {
+  compound: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  critical_supply: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+  manual_supply: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+  service: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+};
+
+const productTypeTextClasses: Record<ProductType, string> = {
+  compound: 'text-amber-400',
+  critical_supply: 'text-rose-400',
+  manual_supply: 'text-sky-400',
+  service: 'text-violet-400',
+};
+
+const productTypeDotClasses: Record<ProductType, string> = {
+  compound: 'bg-amber-500',
+  critical_supply: 'bg-rose-500',
+  manual_supply: 'bg-sky-500',
+  service: 'bg-violet-500',
+};
+
 export default async function ProductsPage() {
-  const products = await productService.listProducts();
+  const products = [...(await productService.listProducts())].sort((a, b) => {
+    const priorityDiff = typePriority[a.type] - typePriority[b.type];
+    if (priorityDiff !== 0) return priorityDiff;
+    return a.name.localeCompare(b.name);
+  });
   const sellableById = await saleService.calculateAvailabilityForProductIds(
     products.map((product) => product.id)
   );
@@ -65,8 +98,14 @@ export default async function ProductsPage() {
             {products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">
-                  <span className="block">{product.name}</span>
-                  <span className="text-sm text-muted-foreground sm:hidden">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${productTypeDotClasses[product.type]}`}
+                      aria-hidden="true"
+                    />
+                    <span className="block">{product.name}</span>
+                  </div>
+                  <span className={`text-sm sm:hidden ${productTypeTextClasses[product.type]}`}>
                     {productTypeLabels[product.type]}
                     {product.criticalSupplyType
                       ? ` · ${criticalTypeLabels[product.criticalSupplyType]}`
@@ -74,7 +113,10 @@ export default async function ProductsPage() {
                   </span>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  <Badge variant="outline">
+                  <Badge
+                    variant="outline"
+                    className={productTypeBadgeClasses[product.type]}
+                  >
                     {productTypeLabels[product.type]}
                     {product.criticalSupplyType
                       ? ` - ${criticalTypeLabels[product.criticalSupplyType]}`
