@@ -310,6 +310,10 @@ export async function confirmSale(params: {
     const product = productById.get(item.productId);
     if (!product) throw new NotFoundError('Producto', item.productId);
 
+    if (!product.isActive) {
+      throw new ValidationError(`El producto ${product.name} no está activo.`);
+    }
+
     if (
       product.type !== 'compound' &&
       product.type !== 'service' &&

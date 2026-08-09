@@ -27,11 +27,11 @@ test.describe('Stock, ajustes y movimientos', () => {
     await login(page);
   });
 
-  test('muestra alerta de stock bajo y rechaza ajuste negativo excesivo', async ({
+  test('rechaza ajuste negativo excesivo y permite ajustar stock', async ({
     page,
   }) => {
     const producto = await createProductViaApi(page, {
-      name: unique('Stock bajo E2E'),
+      name: unique('Stock E2E'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
       price: 300,
@@ -43,7 +43,8 @@ test.describe('Stock, ajustes y movimientos', () => {
 
     await page.goto('/stock');
     const row = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
-    await expect(row.getByText('Stock bajo', { exact: true })).toBeVisible();
+    await expect(row).toBeVisible();
+    await expect(row.getByText('2 unidad', { exact: true })).toBeVisible();
 
     await row.getByRole('button', { name: 'Ajustar' }).first().click();
     await page.fill('input#adjust-quantity', '-10');
@@ -63,7 +64,8 @@ test.describe('Stock, ajustes y movimientos', () => {
 
     await page.goto('/stock');
     const updatedRow = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
-    await expect(updatedRow.getByText('OK', { exact: true })).toBeVisible();
+    await expect(updatedRow).toBeVisible();
+    await expect(updatedRow.getByText('6 unidad', { exact: true })).toBeVisible();
 
     await updatedRow.getByRole('button', { name: 'Historial' }).first().click();
     await expect(page.getByText('Ajuste positivo de prueba')).toBeVisible();

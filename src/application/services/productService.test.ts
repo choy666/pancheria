@@ -2,17 +2,20 @@ import {
   listProducts,
   getProductById,
   listActiveProducts,
+  listActiveProductsWithAvailability,
   createProduct,
   updateProduct,
   deleteProduct,
   restoreProduct,
 } from './productService';
 import * as productRepository from '@/repositories/productRepository';
+import * as saleService from '@/application/services/saleService';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import { ValidationError, NotFoundError } from '@/domain/errors';
 
 jest.mock('@/repositories/productRepository');
+jest.mock('@/application/services/saleService');
 jest.mock('@/db', () => ({
   db: {
     delete: jest.fn().mockReturnThis(),
@@ -28,6 +31,7 @@ jest.mock('@/db', () => ({
 const mockedProductRepository = productRepository as jest.Mocked<
   typeof productRepository
 >;
+const mockedSaleService = saleService as jest.Mocked<typeof saleService>;
 const mockedDb = db as unknown as {
   delete: jest.Mock;
   where: jest.Mock;
@@ -99,6 +103,31 @@ describe('productService', () => {
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('Pan');
       expect(mockedProductRepository.findActive).toHaveBeenCalled();
+    });
+  });
+
+  describe('listActiveProductsWithAvailability', () => {
+    test('devuelve productos activos con su disponibilidad calculada', async () => {
+      mockedProductRepository.findActive.mockResolvedValue([
+        { id: 1, name: 'Panchuque', type: 'compound' },
+        { id: 2, name: 'Pritty', type: 'critical_supply', criticalSupplyType: 'beverage' },
+        { id: 3, name: 'Aderezo', type: 'service' },
+      ] as any);
+
+      mockedSaleService.calculateAvailabilityForProductIds.mockResolvedValue({
+        1: 4,
+        2: 12,
+        3: Number.MAX_SAFE_INTEGER,
+      });
+
+      const result = await listActiveProductsWithAvailability();
+
+      expect(result).toHaveLength(3);
+      expect(result[0].availability).toBe(4);
+      expect(result[1].availability).toBe(12);
+      expect(result[2].availability).toBe(Number.MAX_SAFE_INTEGER);
+      expect(mockedProductRepository.findActive).toHaveBeenCalled();
+      expect(mockedSaleService.calculateAvailabilityForProductIds).toHaveBeenCalledWith([1, 2, 3]);
     });
   });
 

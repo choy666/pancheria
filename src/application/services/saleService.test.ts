@@ -95,11 +95,12 @@ const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
 const mockedDb = db as any;
 
 function setProducts(productsList: any[]) {
+  const normalized = productsList.map((p) => ({ isActive: true, ...p }));
   mockedProductRepository.findByIds.mockImplementation(async (ids: number[]) =>
-    productsList.filter((p) => ids.includes(p.id))
+    normalized.filter((p) => ids.includes(p.id))
   );
   mockedProductRepository.findById.mockImplementation(
-    async (id: number) => productsList.find((p) => p.id === id) ?? null
+    async (id: number) => normalized.find((p) => p.id === id) ?? null
   );
 }
 
@@ -324,6 +325,43 @@ describe('confirmSale', () => {
     ).rejects.toThrow(
       'El producto Salchicha no está disponible para la venta.'
     );
+  });
+
+  test('rechaza la venta de un producto inactivo', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
+      id: 1,
+      openedAt: new Date(),
+      openedBy: 'admin',
+      status: 'open',
+      total: 0,
+      cashTotal: 0,
+      transferTotal: 0,
+      totalSales: 0,
+      productsSummary: '{}',
+      criticalSuppliesSummary: '{}',
+    } as any);
+
+    setProducts([
+      {
+        id: 5,
+        name: 'Promo off',
+        type: 'compound',
+        stock: 0,
+        price: 2000,
+        isActive: false,
+      },
+    ]);
+
+    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+
+    await expect(
+      confirmSale({
+        items: [{ productId: 5, quantity: 1 }],
+        paymentMethod: 'cash',
+        idempotencyKey: 'inactive-sale',
+      })
+    ).rejects.toThrow('El producto Promo off no está activo.');
   });
 
   test('rechaza la venta cuando hay stock insuficiente de bebida', async () => {

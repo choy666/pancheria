@@ -2,7 +2,7 @@ import { listStockAlerts, adjustStock, getStockHistory } from './stockService';
 import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
 import { db } from '@/db';
-import { ValidationError } from '@/domain/errors';
+import { NotFoundError, ValidationError } from '@/domain/errors';
 
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/stockMovementRepository');
@@ -95,5 +95,17 @@ describe('stockService', () => {
     const result = await listStockAlerts();
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('Pan');
+  });
+
+  test('adjustStock lanza NotFoundError cuando el producto no existe', async () => {
+    mockedProductRepository.findById.mockResolvedValue(null);
+
+    await expect(adjustStock(999, 5, 'Ajuste de prueba')).rejects.toThrow(NotFoundError);
+  });
+
+  test('getStockHistory lanza NotFoundError cuando el producto no existe', async () => {
+    mockedProductRepository.findById.mockResolvedValue(null);
+
+    await expect(getStockHistory(999)).rejects.toThrow(NotFoundError);
   });
 });

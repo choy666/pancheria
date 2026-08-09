@@ -13,7 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { STOCK_API, STOCK_AJUSTAR_API } from '@/config/api';
 import {
@@ -125,7 +124,6 @@ export function StockList() {
             <TableRow>
               <TableHead>Producto</TableHead>
               <TableHead className="hidden sm:table-cell">Stock</TableHead>
-              <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -140,13 +138,6 @@ export function StockList() {
                 </TableCell>
                 <TableCell className="hidden sm:table-cell font-mono">
                   {product.stock} {product.unit}
-                </TableCell>
-                <TableCell>
-                  {product.isLow ? (
-                    <Badge variant="destructive">Stock bajo</Badge>
-                  ) : (
-                    <Badge variant="default">OK</Badge>
-                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
