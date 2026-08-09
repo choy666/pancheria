@@ -34,7 +34,6 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await page.goto('/productos/nuevo');
     await page.fill('input#name', baseName);
     await page.fill('textarea#description', 'Descripcion de prueba');
-    await page.fill('input#price', '100');
     await page.fill('input#stock', '50');
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });

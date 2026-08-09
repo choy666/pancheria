@@ -43,7 +43,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     const manual = await createProductViaApi(page, {
       name: unique('Aderezo E2E'),
       type: 'manual_supply',
-      price: 150,
+      price: 0,
       unit: 'unidad',
       stock: 30,
       minStock: 5,
@@ -166,5 +166,23 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     expect(recipeRes.status()).toBe(400);
     const body = (await recipeRes.json()) as { error?: string };
     expect(body.error).toContain('al menos un insumo crítico con descuento automático');
+  });
+
+  test('rechaza un insumo manual con precio por API', async ({ page }) => {
+    const response = await page.request.post('/api/productos', {
+      data: {
+        name: unique('Aderezo con precio'),
+        type: 'manual_supply',
+        price: 150,
+        unit: 'unidad',
+        stock: 10,
+        minStock: 2,
+        isActive: true,
+      },
+    });
+
+    expect(response.status()).toBe(400);
+    const body = (await response.json()) as { error?: string };
+    expect(body.error).toContain('Los insumos manuales no pueden tener precio.');
   });
 });

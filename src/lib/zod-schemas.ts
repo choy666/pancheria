@@ -35,12 +35,30 @@ export const productSchema = productBaseSchema
       message: 'Solo los insumos críticos pueden tener un tipo de insumo crítico.',
       path: ['criticalSupplyType'],
     }
+  )
+  .refine(
+    (data) => !(data.type === 'manual_supply' && data.price !== 0),
+    {
+      message: 'Los insumos manuales no pueden tener precio.',
+      path: ['price'],
+    }
   );
 
 // Esquema parcial para actualizaciones: no incluye el .refine() cruzado
 // porque Zod v4 no permite .partial() sobre esquemas con refinamientos.
 // La validación cruzada sigue ejecutándose en productService.updateProduct.
-export const productUpdateSchema = productBaseSchema.partial();
+export const productUpdateSchema = productBaseSchema.partial().refine(
+  (data) => {
+    if (data.type === 'manual_supply' && data.price !== undefined) {
+      return data.price === 0;
+    }
+    return true;
+  },
+  {
+    message: 'Los insumos manuales no pueden tener precio.',
+    path: ['price'],
+  }
+);
 
 export const recipeItemSchema = z
   .object({

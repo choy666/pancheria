@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API } from '@/config/api';
@@ -21,6 +20,22 @@ import type { z } from 'zod';
 type ProductFormData = z.infer<typeof productSchema>;
 type ProductType = ProductFormData['type'];
 type CriticalSupplyType = ProductFormData['criticalSupplyType'];
+
+const productTypeLabels: Record<ProductType, string> = {
+  critical_supply: 'Insumo crítico',
+  compound: 'Promo',
+  manual_supply: 'Insumo manual',
+  service: 'Servicio / extra',
+};
+
+const criticalSupplyTypeLabels: Record<
+  NonNullable<CriticalSupplyType>,
+  string
+> = {
+  bread: 'Pan',
+  sausage: 'Salchicha',
+  beverage: 'Bebida',
+};
 
 function defaultUnit(
   type: ProductType,
@@ -50,13 +65,16 @@ interface ProductFormProps {
 
 export function ProductForm({ product }: ProductFormProps) {
   const router = useRouter();
-  const [form, setForm] = useState<ProductFormData>(
-    product ? { ...product } : emptyProduct
+  const [form, setForm] = useState<ProductFormData>(() =>
+    product
+      ? { ...product, price: product.type === 'manual_supply' ? 0 : product.price }
+      : emptyProduct
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isCritical = form.type === 'critical_supply';
+  const isManual = form.type === 'manual_supply';
   const isService = form.type === 'service';
 
   function updateType(value: ProductType) {
@@ -68,6 +86,7 @@ export function ProductForm({ product }: ProductFormProps) {
       criticalSupplyType: nextCriticalSupplyType,
       stock: value === 'service' ? 0 : form.stock,
       unit: defaultUnit(value, nextCriticalSupplyType),
+      price: value === 'manual_supply' ? 0 : form.price,
     });
   }
 
@@ -80,7 +99,8 @@ export function ProductForm({ product }: ProductFormProps) {
     });
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
@@ -100,7 +120,20 @@ export function ProductForm({ product }: ProductFormProps) {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al guardar el producto');
+        const detail = data.details
+          ? data.details
+              .map(
+                (issue: {
+                  path: (string | number)[];
+                  message: string;
+                }) =>
+                  issue.path.length
+                    ? `${issue.path.join('.')}: ${issue.message}`
+                    : issue.message
+              )
+              .join('. ')
+          : data.error;
+        throw new Error(detail || 'Error al guardar el producto');
       }
 
       router.push('/productos');
@@ -136,7 +169,7 @@ export function ProductForm({ product }: ProductFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Descripcion</Label>
+        <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
           value={form.description ?? ''}
@@ -157,21 +190,23 @@ export function ProductForm({ product }: ProductFormProps) {
             onValueChange={(value) => updateType(value as ProductType)}
           >
             <SelectTrigger id="type">
-              <SelectValue />
+              <span className="flex-1 text-left">
+                {productTypeLabels[form.type]}
+              </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="critical_supply">Insumo critico</SelectItem>
+              <SelectItem value="critical_supply">Insumo crítico</SelectItem>
               <SelectItem value="manual_supply">Insumo manual</SelectItem>
               <SelectItem value="service">Servicio / extra</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            Define si se vende, si descontara stock y como se comporta.
+            Define si se vende, si descontará stock y como se comporta.
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="criticalSupplyType">Tipo de insumo critico</Label>
+          <Label htmlFor="criticalSupplyType">Tipo de insumo crítico</Label>
           <Select
             value={form.criticalSupplyType ?? ''}
             onValueChange={(value) =>
@@ -180,7 +215,11 @@ export function ProductForm({ product }: ProductFormProps) {
             disabled={!isCritical}
           >
             <SelectTrigger id="criticalSupplyType">
-              <SelectValue placeholder="Seleccionar" />
+              <span className="flex-1 text-left">
+                {form.criticalSupplyType
+                  ? criticalSupplyTypeLabels[form.criticalSupplyType]
+                  : 'Seleccionar'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="bread">Pan</SelectItem>
@@ -189,30 +228,38 @@ export function ProductForm({ product }: ProductFormProps) {
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            Solo aplica a insumos criticos. Pan y Salchicha son la base de las
+            Solo aplica a insumos críticos. Pan y Salchicha son la base de las
             promos; Bebida se vende sola o en promos.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="price">Precio</Label>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            min={0}
-            value={form.price}
-            onChange={(e) =>
-              setForm({ ...form, price: Number(e.target.value) })
-            }
-            required
-          />
-          <p className="text-sm text-muted-foreground">
-            Precio de venta. Para insumos crudos suele ser 0.
-          </p>
-        </div>
+      <div
+        className={
+          isManual
+            ? 'grid grid-cols-1 gap-5'
+            : 'grid grid-cols-1 gap-5 sm:grid-cols-2'
+        }
+      >
+        {!isManual && (
+          <div className="space-y-2">
+            <Label htmlFor="price">Precio</Label>
+            <Input
+              id="price"
+              type="number"
+              step="0.01"
+              min={0}
+              value={form.price}
+              onChange={(e) =>
+                setForm({ ...form, price: Number(e.target.value) })
+              }
+              required
+            />
+            <p className="text-sm text-muted-foreground">
+              Precio de venta. Para insumos crudos suele ser 0.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="stock">Stock inicial</Label>
@@ -246,12 +293,12 @@ export function ProductForm({ product }: ProductFormProps) {
         </Label>
       </div>
       <p className="text-sm text-muted-foreground">
-        Si esta inactivo no aparece en la terminal ni en listados, pero no se
+        Si está inactivo no aparece en la terminal ni en listados, pero no se
         borra.
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
         <Button

@@ -13,7 +13,7 @@ describe('productSchema', () => {
       description: 'Ketchup de prueba',
       type: 'manual_supply',
       criticalSupplyType: null,
-      price: '150',
+      price: '0',
       unit: 'unidad',
       stock: '10',
       minStock: '2',
@@ -22,7 +22,7 @@ describe('productSchema', () => {
 
     const result = productSchema.parse(data);
     expect(result.name).toBe('Ketchup');
-    expect(result.price).toBe(150);
+    expect(result.price).toBe(0);
     expect(result.stock).toBe(10);
     expect(result.minStock).toBe(2);
     expect(result.isActive).toBe(true);
@@ -50,6 +50,19 @@ describe('productSchema', () => {
     expect(() => productSchema.parse(data)).toThrow();
   });
 
+  test('rechaza un insumo manual con precio', () => {
+    const data = {
+      name: 'Ketchup',
+      type: 'manual_supply',
+      price: 150,
+      unit: 'unidad',
+    };
+
+    expect(() => productSchema.parse(data)).toThrow(
+      'Los insumos manuales no pueden tener precio.'
+    );
+  });
+
   test('rechaza un producto crítico sin tipo de insumo crítico', () => {
     const data = {
       name: 'Pan',
@@ -69,7 +82,7 @@ describe('productSchema', () => {
       name: 'Ketchup',
       type: 'manual_supply',
       criticalSupplyType: 'bread',
-      price: 100,
+      price: 0,
       unit: 'unidad',
     };
 

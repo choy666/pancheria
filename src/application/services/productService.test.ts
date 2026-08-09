@@ -120,17 +120,28 @@ describe('productService', () => {
           name: 'Producto',
           type: 'manual_supply',
           criticalSupplyType: 'bread',
-          price: 100,
+          price: 0,
           unit: 'unidad',
         } as any)
       ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza insumo manual con precio', async () => {
+      await expect(
+        createProduct({
+          name: 'Aderezo',
+          type: 'manual_supply',
+          price: 150,
+          unit: 'unidad',
+        } as any)
+      ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
     });
 
     test('crea un producto válido', async () => {
       const data = {
         name: 'Ketchup',
         type: 'manual_supply',
-        price: 150,
+        price: 0,
         unit: 'unidad',
       } as any;
 
@@ -199,7 +210,7 @@ describe('productService', () => {
       await expect(
         updateProduct(1, {
           type: 'manual_supply',
-          price: 100,
+          price: 0,
         } as any)
       ).rejects.toThrow(ValidationError);
     });
@@ -212,11 +223,24 @@ describe('productService', () => {
 
       mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
 
-      const data = { name: 'Nuevo nombre' } as any;
+      const data = { name: 'Nuevo nombre', price: 0 } as any;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
 
       const result = await updateProduct(1, data);
       expect(result!.name).toBe('Nuevo nombre');
+    });
+
+    test('rechaza un insumo manual con precio', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'manual_supply',
+      } as any);
+
+      await expect(
+        updateProduct(1, {
+          price: 150,
+        } as any)
+      ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
     });
 
     test('elimina las recetas al cambiar el tipo de un producto compuesto', async () => {
@@ -227,7 +251,7 @@ describe('productService', () => {
 
       mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
 
-      const data = { type: 'manual_supply', price: 100 } as any;
+      const data = { type: 'manual_supply', price: 0 } as any;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
 
       const result = await updateProduct(1, data);
@@ -247,7 +271,7 @@ describe('productService', () => {
       await expect(
         updateProduct(1, {
           criticalSupplyType: 'bread',
-          price: 100,
+          price: 0,
         } as any)
       ).rejects.toThrow(ValidationError);
     });
@@ -273,7 +297,7 @@ describe('productService', () => {
         type: 'manual_supply',
       } as any);
 
-      const data = { name: 'Nuevo nombre' } as any;
+      const data = { name: 'Nuevo nombre', price: 0 } as any;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
 
       const result = await updateProduct(1, data);

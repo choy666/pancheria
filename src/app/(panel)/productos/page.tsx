@@ -86,7 +86,9 @@ export default async function ProductsPage() {
                   )}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell font-mono">
-                  ${product.price.toFixed(2)}
+                  {product.type === 'manual_supply'
+                    ? '-'
+                    : `$${product.price.toFixed(2)}`}
                 </TableCell>
                 <TableCell>
                   {product.isActive ? (

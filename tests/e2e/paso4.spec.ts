@@ -62,7 +62,6 @@ test.describe('Paso 4 - Flujos avanzados', () => {
     await page.goto('/productos/nuevo');
     const name = `Producto a eliminar ${Date.now()}`;
     await page.fill('input#name', name);
-    await page.fill('input#price', '100');
     await page.fill('input#stock', '10');
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });

@@ -43,16 +43,21 @@ export async function createProduct(data: ProductInsert) {
     );
   }
 
+  if (data.type === 'manual_supply' && data.price !== 0) {
+    throw new ValidationError('Los insumos manuales no pueden tener precio.');
+  }
+
   return productRepository.create(data);
 }
 
 export async function updateProduct(id: number, data: ProductUpdate) {
   const existing = await getProductById(id);
+  const updateData = { ...data };
 
-  const effectiveType = data.type ?? existing.type;
+  const effectiveType = updateData.type ?? existing.type;
   const effectiveCriticalSupplyType =
-    data.criticalSupplyType !== undefined
-      ? data.criticalSupplyType
+    updateData.criticalSupplyType !== undefined
+      ? updateData.criticalSupplyType
       : existing.criticalSupplyType;
 
   if (effectiveType === 'critical_supply' && !effectiveCriticalSupplyType) {
@@ -67,7 +72,14 @@ export async function updateProduct(id: number, data: ProductUpdate) {
     );
   }
 
-  if (data.type && data.type !== existing.type) {
+  if (effectiveType === 'manual_supply') {
+    if (updateData.price !== undefined && updateData.price !== 0) {
+      throw new ValidationError('Los insumos manuales no pueden tener precio.');
+    }
+    updateData.price = 0;
+  }
+
+  if (updateData.type && updateData.type !== existing.type) {
     if (existing.type === 'compound') {
       await db.delete(recipes).where(eq(recipes.compoundProductId, id));
     }
@@ -83,7 +95,7 @@ export async function updateProduct(id: number, data: ProductUpdate) {
     }
   }
 
-  return productRepository.update(id, data);
+  return productRepository.update(id, updateData);
 }
 
 export async function deleteProduct(id: number) {
