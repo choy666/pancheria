@@ -356,6 +356,7 @@ export async function confirmSale(params: {
         paymentMethod,
         cashRegisterId: cashRegister.id,
         idempotencyKey,
+        createdAt: nowUTC(),
       })
       .returning();
 
@@ -387,6 +388,7 @@ export async function confirmSale(params: {
             type: 'sale',
             quantity: -consumed,
             saleId: sale.id,
+            createdAt: nowUTC(),
           });
         }
       } else if (product.criticalSupplyType === 'beverage') {
@@ -400,6 +402,7 @@ export async function confirmSale(params: {
           type: 'sale',
           quantity: -item.quantity,
           saleId: sale.id,
+          createdAt: nowUTC(),
         });
       } else if (product.type === 'service') {
         // Los servicios no generan movimientos de stock.
@@ -520,6 +523,7 @@ export async function cancelSale(id: number, reason: string) {
             type: 'cancellation',
             quantity: reintegrated,
             saleId: sale.id,
+            createdAt: nowUTC(),
           });
         }
       } else if (product.criticalSupplyType === 'beverage') {
@@ -533,6 +537,7 @@ export async function cancelSale(id: number, reason: string) {
           type: 'cancellation',
           quantity: item.quantity,
           saleId: sale.id,
+          createdAt: nowUTC(),
         });
       } else if (product.type === 'service') {
         // Los servicios no reintegran stock al anularse.

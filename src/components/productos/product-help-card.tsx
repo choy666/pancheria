@@ -15,23 +15,23 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Como armar una promo</CardTitle>
+          <CardTitle className="text-base">Cómo armar una promo</CardTitle>
           <CardDescription>
-            Las promos son productos con precio fijo que descuentan stock de los
+            Las promos son productos con precio fijo que descontarán stock de los
             insumos que incluyas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-base text-muted-foreground">
           <p>
-            Cada Super Pancho equivale a 1 Pan y 2 Salchichas. Si pones 2 Super
-            Panchos, se descontaran 2 Panes y 4 Salchichas.
+            Cada Super Pancho equivale a 1 Pan y 2 Salchichas. Si ponés 2 Super
+            Panchos, se descontarán 2 Panes y 4 Salchichas.
           </p>
           <p>
-            La bebida es opcional. Si la activas, se descontara del stock de la
+            La bebida es opcional. Si la activás, se descontará del stock de la
             bebida seleccionada. Si no, solo se descuentan Pan y Salchichas.
           </p>
           <p>
-            El sistema calcula cuantas unidades de la promo podes vender segun
+            El sistema calcula cuántas unidades de la promo podés vender según
             el insumo con menor disponibilidad.
           </p>
         </CardContent>
@@ -44,14 +44,14 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
       <CardHeader>
         <CardTitle className="text-base">Tipos de producto</CardTitle>
         <CardDescription>
-          Elegi el tipo segun si se vende y si debe descontar stock.
+          Elegí el tipo según si se vende y si debe descontar stock.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-base text-muted-foreground">
         <p>
-          <strong className="text-foreground">Insumo critico:</strong> se
+          <strong className="text-foreground">Insumo crítico:</strong> se
           vende solo en promos o como bebida individual, y desconta stock
-          automaticamente. Indica si es Pan, Salchicha o Bebida.
+          automáticamente. Indica si es Pan, Salchicha o Bebida.
         </p>
         <p>
           <strong className="text-foreground">Insumo manual:</strong> no se
@@ -64,8 +64,8 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
           toppings o vaso de gaseosa.
         </p>
         <p>
-          El stock se carga al inicio y se ajusta desde la pagina Stock. La
-          unidad se asigna automaticamente (botella para bebidas, unidad para el
+          El stock se carga al inicio y se ajusta desde la página Stock. La
+          unidad se asigna automáticamente (botella para bebidas, unidad para el
           resto).
         </p>
       </CardContent>

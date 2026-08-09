@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
@@ -162,12 +161,13 @@ export function PromoForm({ product }: PromoFormProps) {
     }));
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
 
     if (!panSupply || !sausageSupply) {
       setError(
-        'No se encontraron Pan y Salchichas como insumos criticos. Crea esos productos primero.'
+        'No se encontraron Pan y Salchichas como insumos críticos. Crea esos productos primero.'
       );
       return;
     }
@@ -306,8 +306,12 @@ export function PromoForm({ product }: PromoFormProps) {
     );
   }
 
+  const selectedBeverage = beverages.find(
+    (b) => b.id === form.beverageProductId
+  );
+
   return (
-    <div className="max-w-2xl space-y-5">
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
       <ProductHelpCard variant="promo" />
 
       {error && (
@@ -385,7 +389,7 @@ export function PromoForm({ product }: PromoFormProps) {
           </Label>
         </div>
         <p className="text-sm text-muted-foreground">
-          Si la promo lleva bebida, se descontara del stock de la bebida
+          Si la promo lleva bebida, se descontará del stock de la bebida
           seleccionada.
         </p>
       </div>
@@ -403,7 +407,11 @@ export function PromoForm({ product }: PromoFormProps) {
               }
             >
               <SelectTrigger id="promo-beverage">
-                <SelectValue placeholder="Seleccionar bebida" />
+                <span className="flex-1 text-left">
+                  {selectedBeverage
+                    ? `${selectedBeverage.name} (${selectedBeverage.unit})`
+                    : 'Seleccionar bebida'}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 {beverages.map((b) => (
@@ -414,7 +422,7 @@ export function PromoForm({ product }: PromoFormProps) {
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
-              Solo aparecen bebidas del catalogo con stock critico.
+              Solo aparecen bebidas del catálogo con stock crítico.
             </p>
           </div>
 
@@ -446,7 +454,7 @@ export function PromoForm({ product }: PromoFormProps) {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Al vender una unidad de esta promo se descontara:
+            Al vender una unidad de esta promo se descontará:
           </p>
           <ul className="mt-2 list-disc pl-5 text-base">
             <li>
@@ -484,13 +492,12 @@ export function PromoForm({ product }: PromoFormProps) {
         </Label>
       </div>
       <p className="text-sm text-muted-foreground">
-        Si esta inactiva no aparece en la terminal de ventas.
+        Si está inactiva no aparece en la terminal de ventas.
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={isSubmitting || loading}
         >
           {isSubmitting
@@ -507,6 +514,6 @@ export function PromoForm({ product }: PromoFormProps) {
           Cancelar
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

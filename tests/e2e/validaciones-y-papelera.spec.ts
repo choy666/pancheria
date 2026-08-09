@@ -139,7 +139,7 @@ test.describe('Validaciones y casos límite', () => {
   });
 
   test('rechaza cierre duplicado para la misma fecha', async ({ page }) => {
-    const base = new Date(Date.now() + 1000 * 365 * 86400000);
+    const base = new Date(Date.now() - 1000 * 365 * 86400000);
     let target = '';
 
     for (let i = 0; i < 10; i++) {

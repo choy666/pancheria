@@ -144,9 +144,15 @@ test.describe('Flujo completo de un día de operación', () => {
     const caja = (await resumenVenta.json()) as { id: number; status: string };
     expect(caja.status).not.toBe('closed');
 
+    await page.goto('/cierre');
+
+    await page.getByRole('button', { name: 'Cerrar caja' }).first().click();
+    await expect(page.getByText('No hay una caja abierta.')).toBeVisible({
+      timeout: 10000,
+    });
+
     const cierreDate = new Date().toISOString().split('T')[0];
 
-    await page.goto('/cierre');
     await page.getByLabel('Fecha').fill(cierreDate);
 
     await page.getByRole('button', { name: 'Generar cierre' }).click();
@@ -164,11 +170,6 @@ test.describe('Flujo completo de un día de operación', () => {
     ]);
 
     expect(download.suggestedFilename()).toContain('cierre-');
-
-    await page.getByRole('button', { name: 'Cerrar caja' }).first().click();
-    await expect(page.getByText('No hay una caja abierta.')).toBeVisible({
-      timeout: 10000,
-    });
 
     await page.goto('/cierre/historial');
     await expect(page.getByText('Historial de cierres')).toBeVisible();

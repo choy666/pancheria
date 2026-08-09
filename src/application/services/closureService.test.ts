@@ -23,6 +23,9 @@ jest.mock('@/db', () => ({
       products: {
         findMany: jest.fn(),
       },
+      cashRegisters: {
+        findMany: jest.fn(),
+      },
     },
   },
 }));
@@ -40,6 +43,7 @@ const mockedDb = db as unknown as {
     sales: { findMany: jest.Mock };
     recipes: { findMany: jest.Mock };
     products: { findMany: jest.Mock };
+    cashRegisters: { findMany: jest.Mock };
   };
 };
 
@@ -89,12 +93,49 @@ describe('closureService', () => {
         'Ya existe un cierre para la fecha seleccionada.'
       );
       expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
+      expect(mockedDb.query.cashRegisters.findMany).not.toHaveBeenCalled();
       expect(mockedExecuteInTransaction).toHaveBeenCalled();
+    });
+
+    test('rechaza generar un cierre para una fecha futura', async () => {
+      const date = new Date(2099, 11, 31);
+      mockedDb.query.dailyClosures.findFirst.mockResolvedValue(undefined);
+
+      await expect(generateClosure(date)).rejects.toThrow(ValidationError);
+      await expect(generateClosure(date)).rejects.toThrow(
+        'No se puede generar un cierre para una fecha futura.'
+      );
+      expect(mockedDb.query.dailyClosures.findFirst).not.toHaveBeenCalled();
+    });
+
+    test('rechaza generar un cierre si hay cajas abiertas con ventas', async () => {
+      const date = new Date(2026, 4, 10);
+      mockedDb.query.dailyClosures.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.cashRegisters.findMany.mockResolvedValue([
+        {
+          id: 1,
+          status: 'open',
+          sales: [
+            {
+              id: 1,
+              createdAt: new Date(2026, 4, 10, 12, 0),
+              status: 'active',
+            },
+          ],
+        },
+      ] as any);
+
+      await expect(generateClosure(date)).rejects.toThrow(ValidationError);
+      await expect(generateClosure(date)).rejects.toThrow(
+        'No se puede generar el cierre porque hay cajas abiertas con ventas de esta fecha.'
+      );
+      expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
     });
 
     test('calcula totales, resumen de productos e insumos críticos', async () => {
       const date = new Date(2026, 4, 10);
       mockedDb.query.dailyClosures.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.cashRegisters.findMany.mockResolvedValue([]);
 
       mockedDb.query.sales.findMany.mockResolvedValue([
         {

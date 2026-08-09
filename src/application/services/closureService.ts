@@ -1,9 +1,9 @@
-import { eq, and, gte, lt, lte, isNotNull, inArray } from 'drizzle-orm';
+import { eq, and, gte, lt, lte, isNotNull, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, recipes, sales, dailyClosures } from '@/db/schema';
+import { products, recipes, sales, cashRegisters, dailyClosures } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
-import { startOfDayUTC, endOfDayUTC } from '@/lib/date';
+import { startOfDayUTC, endOfDayUTC, nowUTC } from '@/lib/date';
 import { ValidationError } from '@/domain/errors';
 
 type RecipeWithSupply = typeof recipes.$inferSelect & {
@@ -14,6 +14,10 @@ export async function generateClosure(date: Date) {
   const start = startOfDayUTC(date);
   const end = endOfDayUTC(date);
 
+  if (start > nowUTC()) {
+    throw new ValidationError('No se puede generar un cierre para una fecha futura.');
+  }
+
   return executeInTransaction(async (tx) => {
     const existing = await tx.query.dailyClosures.findFirst({
       where: eq(dailyClosures.date, start),
@@ -21,6 +25,25 @@ export async function generateClosure(date: Date) {
 
     if (existing) {
       throw new ValidationError('Ya existe un cierre para la fecha seleccionada.');
+    }
+
+    const openRegistersWithSales = await tx.query.cashRegisters.findMany({
+      where: and(eq(cashRegisters.status, 'open'), isNull(cashRegisters.deletedAt)),
+      with: {
+        sales: {
+          where: and(
+            eq(sales.status, 'active'),
+            gte(sales.createdAt, start),
+            lt(sales.createdAt, end)
+          ),
+        },
+      },
+    });
+
+    if (openRegistersWithSales.some((register) => (register.sales ?? []).length > 0)) {
+      throw new ValidationError(
+        'No se puede generar el cierre porque hay cajas abiertas con ventas de esta fecha. Cerrá las cajas primero.'
+      );
     }
 
     const activeSales = (await tx.query.sales.findMany({

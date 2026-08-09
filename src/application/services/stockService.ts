@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { products, stockMovements } from '@/db/schema';
 import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
+import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 
 export async function listStockAlerts() {
@@ -46,6 +47,7 @@ export async function adjustStock(
       type: 'manual_adjustment',
       quantity,
       reason,
+      createdAt: nowUTC(),
     });
   });
 
