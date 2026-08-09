@@ -105,7 +105,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     expect(productData.isActive).toBe(false);
   });
 
-  test('crea una promo desde la UI con Súper Pancho y bebida', async ({
+  test('crea una promo desde la UI con insumos críticos', async ({
     page,
   }) => {
     await login(page);
@@ -121,12 +121,21 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await expect(nameInput).toHaveValue(promoName);
 
     await page.fill('#promo-price', '2500');
-    await page.fill('#promo-super-panchos', '2');
-    await page.check('#promo-includes-beverage');
 
-    await page.click('#promo-beverage');
-    await page.getByText('Coca de 1L (botella)').click();
-    await page.fill('#promo-beverage-quantity', '1');
+    await page.click('#promo-recipe-0');
+    await page.locator('[data-slot="select-item"]', { hasText: /Pan \(unidad\)/ }).first().click();
+    await page.fill('#promo-recipe-quantity-0', '1');
+
+    await page.click('#promo-add-recipe-item');
+    await page.click('#promo-recipe-1');
+    await page.locator('[data-slot="select-item"]', { hasText: /Salchichas \(unidad\)/ }).first().click();
+    await page.fill('#promo-recipe-quantity-1', '2');
+
+    await page.click('#promo-add-recipe-item');
+    await page.click('#promo-recipe-2');
+    await page.locator('[data-slot="select-item"]', { hasText: /Coca de 1L \(botella\)/ }).first().click();
+    await page.fill('#promo-recipe-quantity-2', '1');
+
     await page.getByRole('button', { name: 'Guardar promo' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 

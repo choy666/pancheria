@@ -15,12 +15,13 @@ import {
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
+import type { CriticalSupplyType } from '@/domain/types';
 
-interface Supply {
+interface CriticalSupply {
   id: number;
   name: string;
   type: string;
-  criticalSupplyType: string | null;
+  criticalSupplyType: CriticalSupplyType | null;
   unit: string;
 }
 
@@ -28,7 +29,7 @@ interface RecipeItem {
   supplyId: number;
   quantity: number;
   autoDiscount: boolean;
-  supply?: Supply;
+  supply?: CriticalSupply;
 }
 
 interface PromoProduct {
@@ -42,11 +43,12 @@ interface PromoProduct {
 interface PromoFormData {
   name: string;
   price: number;
-  superPanchos: number;
-  includesBeverage: boolean;
-  beverageProductId: number;
-  beverageQuantity: number;
   isActive: boolean;
+}
+
+interface PromoRecipeItem {
+  supplyId: number;
+  quantity: number;
 }
 
 interface PromoFormProps {
@@ -56,19 +58,36 @@ interface PromoFormProps {
 const emptyForm: PromoFormData = {
   name: '',
   price: 0,
-  superPanchos: 1,
-  includesBeverage: false,
-  beverageProductId: 0,
-  beverageQuantity: 1,
   isActive: true,
 };
 
+const emptyRecipeItem: PromoRecipeItem = {
+  supplyId: 0,
+  quantity: 1,
+};
+
+const criticalSupplyTypeLabels: Record<CriticalSupplyType, string> = {
+  bread: 'Pan',
+  sausage: 'Salchicha',
+  beverage: 'Bebida',
+};
+
+function formatSupplyLabel(supply: CriticalSupply) {
+  const typeLabel = supply.criticalSupplyType
+    ? criticalSupplyTypeLabels[supply.criticalSupplyType]
+    : 'Insumo crítico';
+  return `${supply.name} (${supply.unit}) — ${typeLabel}`;
+}
+
 export function PromoForm({ product }: PromoFormProps) {
   const router = useRouter();
-  const [panSupply, setPanSupply] = useState<Supply | null>(null);
-  const [sausageSupply, setSausageSupply] = useState<Supply | null>(null);
-  const [beverages, setBeverages] = useState<Supply[]>([]);
   const [form, setForm] = useState<PromoFormData>({ ...emptyForm });
+  const [recipeItems, setRecipeItems] = useState<PromoRecipeItem[]>([
+    { ...emptyRecipeItem },
+  ]);
+  const [criticalSupplies, setCriticalSupplies] = useState<CriticalSupply[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,39 +95,27 @@ export function PromoForm({ product }: PromoFormProps) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(PRODUCTOS_API, { credentials: 'include' });
-        if (!res.ok) throw new Error('Error al cargar productos');
+        const productsRes = await fetch(PRODUCTOS_API, {
+          credentials: 'include',
+        });
 
-        const all = (await res.json()) as Supply[];
-        const pan =
-          all.find(
-            (p) =>
-              p.type === 'critical_supply' && p.criticalSupplyType === 'bread'
-          ) ?? null;
-        const sausage =
-          all.find(
-            (p) =>
-              p.type === 'critical_supply' && p.criticalSupplyType === 'sausage'
-          ) ?? null;
-        const bevs = all.filter(
-          (p) =>
-            p.type === 'critical_supply' && p.criticalSupplyType === 'beverage'
-        );
+        if (!productsRes.ok) {
+          throw new Error('Error al cargar productos');
+        }
 
-        setPanSupply(pan);
-        setSausageSupply(sausage);
-        setBeverages(bevs);
+        const all = (await productsRes.json()) as CriticalSupply[];
+        const critical = all.filter((p) => p.type === 'critical_supply');
+        setCriticalSupplies(critical);
 
-        const base: PromoFormData = {
-          ...emptyForm,
-          beverageProductId: bevs[0]?.id ?? 0,
-        };
+        const base: PromoFormData = product
+          ? {
+              name: product.name,
+              price: product.price,
+              isActive: product.isActive,
+            }
+          : { ...emptyForm };
 
         if (product) {
-          base.name = product.name;
-          base.price = product.price;
-          base.isActive = product.isActive;
-
           const recipeRes = await fetch(
             `${RECETAS_API}?productId=${product.id}`,
             { credentials: 'include' }
@@ -116,29 +123,21 @@ export function PromoForm({ product }: PromoFormProps) {
 
           if (recipeRes.ok) {
             const recipe = (await recipeRes.json()) as RecipeItem[];
-            const panItem = recipe.find(
-              (r) => r.supply?.criticalSupplyType === 'bread'
-            );
-            const sausageItem = recipe.find(
-              (r) => r.supply?.criticalSupplyType === 'sausage'
-            );
-            const bevItem = recipe.find(
-              (r) => r.supply?.criticalSupplyType === 'beverage'
-            );
+            const mapped = recipe.map((r) => ({
+              supplyId: r.supplyId,
+              quantity: r.quantity,
+            }));
 
-            let superPanchos = 1;
-            if (panItem) {
-              superPanchos = panItem.quantity;
-            } else if (sausageItem) {
-              superPanchos = Math.max(1, Math.floor(sausageItem.quantity / 2));
-            }
-
-            base.superPanchos = superPanchos;
-            base.includesBeverage = !!bevItem;
-            base.beverageProductId =
-              bevItem?.supplyId ?? bevs[0]?.id ?? 0;
-            base.beverageQuantity = bevItem?.quantity ?? 1;
+            setRecipeItems(
+              mapped.length > 0 ? mapped : [{ ...emptyRecipeItem }]
+            );
+          } else if (recipeRes.status === 404) {
+            setRecipeItems([{ ...emptyRecipeItem }]);
+          } else {
+            throw new Error('Error al cargar la receta');
           }
+        } else {
+          setRecipeItems([{ ...emptyRecipeItem }]);
         }
 
         setForm(base);
@@ -152,25 +151,25 @@ export function PromoForm({ product }: PromoFormProps) {
     load();
   }, [product]);
 
-  function toggleBeverage(includes: boolean) {
-    setForm((prev) => ({
-      ...prev,
-      includesBeverage: includes,
-      beverageProductId:
-        prev.beverageProductId || beverages[0]?.id || 0,
-    }));
+  function addRecipeItem() {
+    setRecipeItems((prev) => [...prev, { ...emptyRecipeItem }]);
+  }
+
+  function removeRecipeItem(index: number) {
+    setRecipeItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateRecipeItem(index: number, updates: Partial<PromoRecipeItem>) {
+    setRecipeItems((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-
-    if (!panSupply || !sausageSupply) {
-      setError(
-        'No se encontraron Pan y Salchichas como insumos críticos. Crea esos productos primero.'
-      );
-      return;
-    }
 
     if (!form.name.trim()) {
       setError('El nombre de la promo es obligatorio.');
@@ -182,49 +181,47 @@ export function PromoForm({ product }: PromoFormProps) {
       return;
     }
 
-    if (form.superPanchos < 1) {
-      setError('La cantidad de Super Panchos debe ser al menos 1.');
+    if (criticalSupplies.length === 0) {
+      setError(
+        'No hay insumos críticos activos. Creá al menos uno primero.'
+      );
       return;
     }
 
-    if (form.includesBeverage) {
-      if (!form.beverageProductId) {
-        setError('Selecciona una bebida.');
-        return;
-      }
-      if (form.beverageQuantity < 1) {
-        setError('La cantidad de bebida debe ser al menos 1.');
-        return;
-      }
-      const selectedBev = beverages.find((b) => b.id === form.beverageProductId);
-      if (!selectedBev) {
-        setError('La bebida seleccionada no existe.');
-        return;
-      }
+    if (recipeItems.length === 0) {
+      setError('La promo debe tener al menos un insumo crítico.');
+      return;
+    }
+
+    if (recipeItems.some((item) => !item.supplyId)) {
+      setError('Todos los ítems deben tener un insumo seleccionado.');
+      return;
+    }
+
+    if (
+      recipeItems.some(
+        (item) => !Number.isInteger(item.quantity) || item.quantity < 1
+      )
+    ) {
+      setError('Las cantidades deben ser enteros mayores o iguales a 1.');
+      return;
+    }
+
+    const uniqueIds = new Set(recipeItems.map((item) => item.supplyId));
+    if (uniqueIds.size !== recipeItems.length) {
+      setError('No puede haber insumos críticos duplicados.');
+      return;
+    }
+
+    const invalidSupply = recipeItems.some(
+      (item) => !criticalSupplies.some((s) => s.id === item.supplyId)
+    );
+    if (invalidSupply) {
+      setError('Uno o más insumos seleccionados no están disponibles.');
+      return;
     }
 
     setIsSubmitting(true);
-
-    const recipeItems = [
-      {
-        supplyId: panSupply.id,
-        quantity: form.superPanchos,
-        autoDiscount: true,
-      },
-      {
-        supplyId: sausageSupply.id,
-        quantity: form.superPanchos * 2,
-        autoDiscount: true,
-      },
-    ];
-
-    if (form.includesBeverage) {
-      recipeItems.push({
-        supplyId: form.beverageProductId,
-        quantity: form.beverageQuantity,
-        autoDiscount: true,
-      });
-    }
 
     try {
       let productId = product?.id;
@@ -276,15 +273,17 @@ export function PromoForm({ product }: PromoFormProps) {
         credentials: 'include',
         body: JSON.stringify({
           compoundProductId: productId,
-          items: recipeItems,
+          items: recipeItems.map((item) => ({
+            supplyId: item.supplyId,
+            quantity: item.quantity,
+            autoDiscount: true,
+          })),
         }),
       });
 
       if (!recipeRes.ok) {
         const data = await recipeRes.json();
-        throw new Error(
-          data.error || 'Error al guardar la receta de la promo'
-        );
+        throw new Error(data.error || 'Error al guardar la receta de la promo');
       }
 
       router.push('/productos');
@@ -306,10 +305,6 @@ export function PromoForm({ product }: PromoFormProps) {
     );
   }
 
-  const selectedBeverage = beverages.find(
-    (b) => b.id === form.beverageProductId
-  );
-
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
       <ProductHelpCard variant="promo" />
@@ -325,9 +320,7 @@ export function PromoForm({ product }: PromoFormProps) {
         <Input
           id="promo-name"
           value={form.name}
-          onChange={(e) =>
-            setForm({ ...form, name: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
           placeholder="Ej: Promo 1"
           required
         />
@@ -336,117 +329,113 @@ export function PromoForm({ product }: PromoFormProps) {
         </p>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="promo-price">Precio</Label>
-          <Input
-            id="promo-price"
-            type="number"
-            step="0.01"
-            min={0}
-            value={form.price}
-            onChange={(e) =>
-              setForm({ ...form, price: Number(e.target.value) })
-            }
-            required
-          />
-          <p className="text-sm text-muted-foreground">
-            Precio fijo de la promo. No depende de los insumos.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="promo-super-panchos">
-            Cantidad de Super Panchos
-          </Label>
-          <Input
-            id="promo-super-panchos"
-            type="number"
-            min={1}
-            value={form.superPanchos}
-            onChange={(e) =>
-              setForm({ ...form, superPanchos: Number(e.target.value) })
-            }
-            required
-          />
-          <p className="text-sm text-muted-foreground">
-            1 Super Pancho equivale a 1 Pan y 2 Salchichas.
-          </p>
-        </div>
-      </div>
-
       <div className="space-y-2">
-        <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-card p-4">
-          <input
-            id="promo-includes-beverage"
-            type="checkbox"
-            checked={form.includesBeverage}
-            onChange={(e) => toggleBeverage(e.target.checked)}
-            className="h-5 w-5 accent-primary"
-          />
-          <Label htmlFor="promo-includes-beverage" className="mb-0">
-            Incluye bebida
-          </Label>
-        </div>
+        <Label htmlFor="promo-price">Precio</Label>
+        <Input
+          id="promo-price"
+          type="number"
+          step="0.01"
+          min={0}
+          value={form.price}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              price: Number(e.target.value) || 0,
+            })
+          }
+          required
+        />
         <p className="text-sm text-muted-foreground">
-          Si la promo lleva bebida, se descontará del stock de la bebida
-          seleccionada.
+          Precio fijo de la promo. No depende de los insumos.
         </p>
       </div>
 
-      {form.includesBeverage && (
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="promo-beverage">Bebida</Label>
-            <Select
-              value={
-                form.beverageProductId ? form.beverageProductId.toString() : ''
-              }
-              onValueChange={(value) =>
-                setForm({ ...form, beverageProductId: Number(value) })
-              }
-            >
-              <SelectTrigger id="promo-beverage">
-                <span className="flex-1 text-left">
-                  {selectedBeverage
-                    ? `${selectedBeverage.name} (${selectedBeverage.unit})`
-                    : 'Seleccionar bebida'}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                {beverages.map((b) => (
-                  <SelectItem key={b.id} value={b.id.toString()}>
-                    {b.name} ({b.unit})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground">
-              Solo aparecen bebidas del catálogo con stock crítico.
-            </p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Insumos críticos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-3">
+            {recipeItems.map((item, index) => {
+              const selectedSupply = criticalSupplies.find(
+                (s) => s.id === item.supplyId
+              );
+
+              return (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 gap-4 rounded-2xl border border-white/8 bg-card p-4 sm:grid-cols-2 lg:grid-cols-4"
+                >
+                  <div className="min-w-0 space-y-2 sm:col-span-2">
+                    <Label htmlFor={`promo-recipe-${index}`}>Insumo</Label>
+                    <Select
+                      value={item.supplyId ? item.supplyId.toString() : ''}
+                      onValueChange={(value) =>
+                        updateRecipeItem(index, {
+                          supplyId: Number(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger id={`promo-recipe-${index}`}>
+                        <span className="flex-1 text-left">
+                          {selectedSupply
+                            ? formatSupplyLabel(selectedSupply)
+                            : 'Seleccionar insumo'}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {criticalSupplies.map((s) => (
+                          <SelectItem key={s.id} value={s.id.toString()}>
+                            {formatSupplyLabel(s)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`promo-recipe-quantity-${index}`}>
+                      Cantidad
+                    </Label>
+                    <Input
+                      id={`promo-recipe-quantity-${index}`}
+                      type="number"
+                      min={1}
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateRecipeItem(index, {
+                          quantity: Number(e.target.value) || 0,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeRecipeItem(index)}
+                    >
+                      Quitar
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="promo-beverage-quantity">Cantidad de bebida</Label>
-            <Input
-              id="promo-beverage-quantity"
-              type="number"
-              min={1}
-              value={form.beverageQuantity}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  beverageQuantity: Number(e.target.value),
-                })
-              }
-              required
-            />
-            <p className="text-sm text-muted-foreground">
-              Botellas o unidades que incluye la promo.
-            </p>
-          </div>
-        </div>
-      )}
+          <Button
+            id="promo-add-recipe-item"
+            type="button"
+            variant="outline"
+            onClick={addRecipeItem}
+          >
+            Agregar insumo crítico
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -456,26 +445,26 @@ export function PromoForm({ product }: PromoFormProps) {
           <p className="text-sm text-muted-foreground">
             Al vender una unidad de esta promo se descontará:
           </p>
-          <ul className="mt-2 list-disc pl-5 text-base">
-            <li>
-              {form.superPanchos} {panSupply?.unit ?? 'pan'} de{' '}
-              {panSupply?.name ?? 'Pan'}
-            </li>
-            <li>
-              {form.superPanchos * 2}{' '}
-              {sausageSupply?.unit ?? 'unidad'} de{' '}
-              {sausageSupply?.name ?? 'Salchichas'}
-            </li>
-            {form.includesBeverage && (
-              <li>
-                {form.beverageQuantity}{' '}
-                {beverages.find((b) => b.id === form.beverageProductId)
-                  ?.unit ?? 'unidad'} de{' '}
-                {beverages.find((b) => b.id === form.beverageProductId)
-                  ?.name ?? 'la bebida seleccionada'}
-              </li>
-            )}
-          </ul>
+          {recipeItems.some((item) => item.supplyId) ? (
+            <ul className="mt-2 list-disc pl-5 text-base">
+              {recipeItems.map((item, index) => {
+                const supply = criticalSupplies.find(
+                  (s) => s.id === item.supplyId
+                );
+                if (!supply) return null;
+
+                return (
+                  <li key={index}>
+                    {item.quantity} {supply.unit} de {supply.name}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Seleccioná insumos para ver el resumen.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -496,10 +485,7 @@ export function PromoForm({ product }: PromoFormProps) {
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button
-          type="submit"
-          disabled={isSubmitting || loading}
-        >
+        <Button type="submit" disabled={isSubmitting || loading}>
           {isSubmitting
             ? 'Guardando...'
             : product

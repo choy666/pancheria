@@ -23,16 +23,13 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
         </CardHeader>
         <CardContent className="space-y-3 text-base text-muted-foreground">
           <p>
-            Cada Super Pancho equivale a 1 Pan y 2 Salchichas. Si ponés 2 Super
-            Panchos, se descontarán 2 Panes y 4 Salchichas.
+            Agregá los insumos críticos (Pan, Salchicha o Bebida) y la cantidad
+            que consume cada unidad de la promo.
           </p>
           <p>
-            La bebida es opcional. Si la activás, se descontará del stock de la
-            bebida seleccionada. Si no, solo se descuentan Pan y Salchichas.
-          </p>
-          <p>
-            El sistema calcula cuántas unidades de la promo podés vender según
-            el insumo con menor disponibilidad.
+            Solo se permiten insumos críticos en la receta. El sistema calcula
+            cuántas unidades de la promo podés vender según el insumo con menor
+            disponibilidad.
           </p>
         </CardContent>
       </Card>
