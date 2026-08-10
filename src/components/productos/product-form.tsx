@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -80,11 +81,13 @@ export function ProductForm({ product }: ProductFormProps) {
   function updateType(value: ProductType) {
     const nextCriticalSupplyType =
       value === 'critical_supply' ? form.criticalSupplyType : null;
+    const isStockless = value === 'service' || value === 'compound';
     setForm({
       ...form,
       type: value,
       criticalSupplyType: nextCriticalSupplyType,
-      stock: value === 'service' ? 0 : form.stock,
+      stock: isStockless ? 0 : form.stock,
+      minStock: isStockless ? 0 : form.minStock,
       unit: defaultUnit(value, nextCriticalSupplyType),
       price: value === 'manual_supply' ? 0 : form.price,
     });
@@ -111,11 +114,9 @@ export function ProductForm({ product }: ProductFormProps) {
       const method = product ? 'PUT' : 'POST';
 
       const body = JSON.stringify(form);
-      const response = await fetch(url, {
+      const response = await authenticatedFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body,
+        headers: { 'Content-Type': 'application/json' }, body,
       });
 
       if (!response.ok) {
@@ -138,8 +139,8 @@ export function ProductForm({ product }: ProductFormProps) {
 
       router.push('/productos');
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
     }
@@ -262,20 +263,20 @@ export function ProductForm({ product }: ProductFormProps) {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="stock">Stock inicial</Label>
+          <Label htmlFor="minStock">Stock mínimo</Label>
           <Input
-            id="stock"
+            id="minStock"
             type="number"
             min={0}
-            value={isService ? 0 : form.stock}
+            value={isService || form.type === 'compound' ? 0 : form.minStock}
             onChange={(e) =>
-              setForm({ ...form, stock: Number(e.target.value) })
+              setForm({ ...form, minStock: Number(e.target.value) })
             }
-            disabled={isService}
+            disabled={isService || form.type === 'compound'}
             required
           />
           <p className="text-sm text-muted-foreground">
-            Cantidad disponible. No aplica a servicios.
+            Umbral de alerta de stock bajo. No aplica a servicios ni promos.
           </p>
         </div>
       </div>

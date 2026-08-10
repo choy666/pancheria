@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useEffect, useState } from 'react';
 
 function formatDateTime(date: Date | string) {
@@ -49,22 +50,31 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
       try {
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `${STOCK_MOVIMIENTOS_API}?productId=${productId}`,
-          { credentials: 'include' }
+          {}
         );
         if (!response.ok) throw new Error('Error al cargar historial');
-        setMovements((await response.json()) as StockMovement[]);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        const data = (await response.json()) as StockMovement[];
+        if (!cancelled) setMovements(data);
+      } catch (error) {
+        if (!cancelled) {
+          setError(error instanceof Error ? error.message : 'Error desconocido');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [productId]);
 
   if (loading) {

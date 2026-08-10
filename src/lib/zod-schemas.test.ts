@@ -205,6 +205,7 @@ describe('stockAdjustmentSchema', () => {
 
     const result = stockAdjustmentSchema.parse(data);
     expect(result.quantity).toBe(-5);
+    expect(result.type).toBe('manual_adjustment');
   });
 
   test('acepta una cantidad negativa para decrementar stock', () => {
@@ -234,6 +235,29 @@ describe('stockAdjustmentSchema', () => {
       productId: 1,
       quantity: 5,
       reason: '',
+    };
+
+    expect(() => stockAdjustmentSchema.parse(data)).toThrow();
+  });
+
+  test('acepta un type restock', () => {
+    const data = {
+      productId: 1,
+      quantity: 10,
+      reason: 'Stock inicial',
+      type: 'restock',
+    };
+
+    const result = stockAdjustmentSchema.parse(data);
+    expect(result.type).toBe('restock');
+  });
+
+  test('rechaza un type inválido', () => {
+    const data = {
+      productId: 1,
+      quantity: 5,
+      reason: 'Ajuste de prueba',
+      type: 'invalid',
     };
 
     expect(() => stockAdjustmentSchema.parse(data)).toThrow();

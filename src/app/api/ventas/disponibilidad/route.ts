@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stockAdjustmentSchema } from '@/lib/zod-schemas';
-import * as stockService from '@/application/services/stockService';
+import { cartAvailabilitySchema } from '@/lib/zod-schemas';
+import * as saleService from '@/application/services/saleService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
   await requireAuth();
   const body = await request.json();
-  const data = stockAdjustmentSchema.parse(body);
-  const result = await stockService.adjustStock(
-    data.productId,
-    data.quantity,
-    data.reason,
-    data.type
+  const data = cartAvailabilitySchema.parse(body);
+  const result = await saleService.validateCartAvailability(
+    data.items,
+    data.productIds
   );
   return NextResponse.json(result);
 });

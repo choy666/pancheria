@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useEffect, useState } from 'react';
 import { subDays } from 'date-fns';
 import {
@@ -42,13 +43,11 @@ export function ClosureHistory() {
           end: end.toISOString(),
         });
 
-        const response = await fetch(`${CIERRE_HISTORIAL_API}?${params}`, {
-          credentials: 'include',
-        });
+        const response = await authenticatedFetch(`${CIERRE_HISTORIAL_API}?${params}`, {});
         if (!response.ok) throw new Error('Error al cargar cierres');
         setClosures((await response.json()) as Closure[]);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Error desconocido');
       } finally {
         setLoading(false);
       }

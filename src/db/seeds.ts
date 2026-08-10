@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { db } from './index';
 import { products, recipes, users } from './schema';
+import * as stockService from '@/application/services/stockService';
 
 async function seedAdmin() {
   const username = process.env.ADMIN_USERNAME;
@@ -185,8 +186,16 @@ async function seedCatalog() {
     return;
   }
 
-  const allProducts = [...baseProducts, ...services, ...promos].map((p) => ({
+  const seedSources = [...baseProducts, ...services, ...promos];
+  const initialStockByName = new Map<string, number>();
+  for (const p of seedSources) {
+    initialStockByName.set(p.name, p.stock);
+  }
+
+  const allProducts = seedSources.map((p) => ({
     ...p,
+    stock: 0,
+    minStock: p.minStock ?? 0,
     criticalSupplyType: p.criticalSupplyType ?? null,
     isActive: true,
   }));
@@ -226,6 +235,18 @@ async function seedCatalog() {
 
   if (recipeRows.length > 0) {
     await db.insert(recipes).values(recipeRows);
+  }
+
+  for (const seeded of seededProducts) {
+    const initialStock = initialStockByName.get(seeded.name) ?? 0;
+    if (initialStock > 0) {
+      await stockService.adjustStock(
+        seeded.id,
+        initialStock,
+        'Stock inicial',
+        'restock'
+      );
+    }
   }
 
   console.log('Catálogo de productos, servicios y promos creado.');

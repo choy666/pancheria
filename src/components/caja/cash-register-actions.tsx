@@ -1,19 +1,16 @@
 'use client';
 
+import type { MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import type { CashRegister } from '@/config/caja';
 
-interface CashRegister {
-  id: number;
-  deletedAt?: string | null;
-}
-
-interface CashRegisterActionsProps {
-  cashRegister: CashRegister;
+type CashRegisterActionsProps = {
+  cashRegister: Pick<CashRegister, 'id' | 'deletedAt'>;
   mode: 'history' | 'trash';
   onDelete?: (id: number) => Promise<void>;
   onRestore?: (id: number) => Promise<void>;
   onPermanentDelete?: (id: number) => Promise<void>;
-}
+};
 
 export function CashRegisterActions({
   cashRegister,
@@ -22,21 +19,21 @@ export function CashRegisterActions({
   onRestore,
   onPermanentDelete,
 }: CashRegisterActionsProps) {
-  async function handleDelete(event: React.MouseEvent<HTMLButtonElement>) {
+  async function handleDelete(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onDelete) return;
     if (!confirm(`¿Eliminar la caja #${cashRegister.id}? Se moverá a la papelera.`)) return;
     await onDelete(cashRegister.id);
   }
 
-  async function handleRestore(event: React.MouseEvent<HTMLButtonElement>) {
+  async function handleRestore(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onRestore) return;
     if (!confirm(`¿Restaurar la caja #${cashRegister.id}?`)) return;
     await onRestore(cashRegister.id);
   }
 
-  async function handlePermanentDelete(event: React.MouseEvent<HTMLButtonElement>) {
+  async function handlePermanentDelete(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onPermanentDelete) return;
     if (

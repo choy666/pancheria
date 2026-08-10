@@ -1,29 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   ensureCashRegisterClosed,
   ensureCashRegisterOpen,
+  login,
+  unique,
+  createProductViaApi,
+  restockProductViaApi,
 } from './helpers';
-
-const adminUsername = process.env.ADMIN_USERNAME || '';
-const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-function unique(prefix: string) {
-  return `${prefix} ${Date.now()}`;
-}
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
-}
-
-async function createProduct(page: Page, data: Record<string, unknown>) {
-  const response = await page.request.post('/api/productos', { data });
-  expect(response.status()).toBe(201);
-  return (await response.json()) as { id: number; name: string };
-}
 
 test.describe('Validaciones y casos límite', () => {
   test.beforeEach(async ({ page }) => {
@@ -46,16 +29,17 @@ test.describe('Validaciones y casos límite', () => {
   test('rechaza venta cuando no hay caja abierta', async ({ page }) => {
     await ensureCashRegisterClosed(page);
 
-    const bebida = await createProduct(page, {
+    const bebida = await createProductViaApi(page, {
       name: unique('Bebida sin caja'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
       price: 500,
       unit: 'unidad',
-      stock: 10,
+      
       minStock: 2,
       isActive: true,
     });
+    await restockProductViaApi(page, bebida.id, 10);
 
     const venta = await page.request.post('/api/ventas', {
       data: {
@@ -73,16 +57,17 @@ test.describe('Validaciones y casos límite', () => {
   test('rechaza venta por stock insuficiente', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 
-    const bebida = await createProduct(page, {
+    const bebida = await createProductViaApi(page, {
       name: unique('Bebida stock bajo'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
       price: 500,
       unit: 'unidad',
-      stock: 1,
+      
       minStock: 0,
       isActive: true,
     });
+    await restockProductViaApi(page, bebida.id, 1);
 
     const venta = await page.request.post('/api/ventas', {
       data: {
@@ -102,16 +87,17 @@ test.describe('Validaciones y casos límite', () => {
   test('idempotencia: reenviar la misma venta devuelve error', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 
-    const bebida = await createProduct(page, {
+    const bebida = await createProductViaApi(page, {
       name: unique('Bebida idempotencia'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
       price: 500,
       unit: 'unidad',
-      stock: 5,
+      
       minStock: 0,
       isActive: true,
     });
+    await restockProductViaApi(page, bebida.id, 5);
 
     const key = `idempotencia-${Date.now()}`;
 
@@ -173,16 +159,17 @@ test.describe('Validaciones y casos límite', () => {
   test('rechaza anulación de venta de caja eliminada', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 
-    const bebida = await createProduct(page, {
+    const bebida = await createProductViaApi(page, {
       name: unique('Bebida anulación caja eliminada'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
       price: 500,
       unit: 'unidad',
-      stock: 10,
+      
       minStock: 0,
       isActive: true,
     });
+    await restockProductViaApi(page, bebida.id, 10);
 
     const venta = await page.request.post('/api/ventas', {
       data: {

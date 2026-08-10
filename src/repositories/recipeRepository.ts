@@ -36,3 +36,7 @@ export async function replaceRecipe(
 export async function deleteByCompoundProductId(compoundProductId: number) {
   return db.delete(recipes).where(eq(recipes.compoundProductId, compoundProductId));
 }
+
+export async function deleteBySupplyId(supplyId: number) {
+  return db.delete(recipes).where(eq(recipes.supplyId, supplyId));
+}

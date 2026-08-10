@@ -5,6 +5,7 @@ export const STOCK_API = '/api/stock';
 export const STOCK_AJUSTAR_API = '/api/stock/ajustar';
 export const STOCK_MOVIMIENTOS_API = '/api/stock/movimientos';
 export const VENTAS_API = '/api/ventas';
+export const VENTAS_DISPONIBILIDAD_API = '/api/ventas/disponibilidad';
 export const CAJA_API = '/api/caja';
 export const CAJA_HISTORIAL_API = '/api/caja/historial';
 export const CAJA_ELIMINADAS_API = '/api/caja/eliminadas';

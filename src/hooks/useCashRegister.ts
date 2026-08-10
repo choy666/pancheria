@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { authenticatedFetch } from '@/lib/fetch';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CAJA_CLOSE_API,
@@ -24,6 +25,7 @@ export interface UseCashRegisterResult {
 
 export function useCashRegister(): UseCashRegisterResult {
   const router = useRouter();
+  const isMountedRef = useRef(true);
   const [cashRegister, setCashRegister] = useState<CashRegister | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,15 +33,15 @@ export function useCashRegister(): UseCashRegisterResult {
 
   const fetchCaja = useCallback(async () => {
     try {
-      const response = await fetch(CAJA_RESUMEN_API, {
-        credentials: 'include',
-      });
+      const response = await authenticatedFetch(CAJA_RESUMEN_API);
 
       if (!response.ok) {
         throw new Error('Error al cargar caja');
       }
 
       const data = (await response.json()) as CashRegister | { status: 'closed' };
+
+      if (!isMountedRef.current) return;
 
       if ('status' in data && data.status === 'closed') {
         setCashRegister(null);
@@ -48,17 +50,21 @@ export function useCashRegister(): UseCashRegisterResult {
       }
 
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      setError(error instanceof Error ? error.message : 'Error desconocido');
       setCashRegister(null);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setLastUpdated(new Date());
+      }
     }
-
-    setLastUpdated(new Date());
   }, []);
 
+
   useEffect(() => {
+    isMountedRef.current = true;
     queueMicrotask(() => void fetchCaja());
 
     const intervalDuration = getCajaRefreshInterval();
@@ -88,6 +94,7 @@ export function useCashRegister(): UseCashRegisterResult {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      isMountedRef.current = false;
       stopInterval();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -97,9 +104,8 @@ export function useCashRegister(): UseCashRegisterResult {
     setError(null);
 
     try {
-      const response = await fetch(CAJA_OPEN_API, {
+      const response = await authenticatedFetch(CAJA_OPEN_API, {
         method: 'POST',
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -109,8 +115,8 @@ export function useCashRegister(): UseCashRegisterResult {
 
       await fetchCaja();
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }, [fetchCaja, router]);
 
@@ -120,10 +126,9 @@ export function useCashRegister(): UseCashRegisterResult {
     setError(null);
 
     try {
-      const response = await fetch(CAJA_CLOSE_API, {
+      const response = await authenticatedFetch(CAJA_CLOSE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ id: cashRegister.id }),
       });
 
@@ -134,8 +139,8 @@ export function useCashRegister(): UseCashRegisterResult {
 
       await fetchCaja();
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }, [cashRegister, fetchCaja, router]);
 

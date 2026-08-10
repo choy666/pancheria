@@ -1,26 +1,11 @@
-import { test, expect, type Page } from '@playwright/test';
-import { ensureCashRegisterClosed, ensureCashRegisterOpen } from './helpers';
-
-const adminUsername = process.env.ADMIN_USERNAME || '';
-const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-function unique(prefix: string) {
-  return `${prefix} ${Date.now()}`;
-}
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
-}
-
-async function createProductViaApi(page: Page, data: Record<string, unknown>) {
-  const response = await page.request.post('/api/productos', { data });
-  expect(response.status()).toBe(201);
-  return (await response.json()) as { id: number; name: string };
-}
+import { test, expect } from '@playwright/test';
+import {
+  ensureCashRegisterClosed,
+  ensureCashRegisterOpen,
+  login,
+  unique,
+  createProductViaApi,
+} from './helpers';
 
 test.describe('Stock, ajustes y movimientos', () => {
   test.beforeEach(async ({ page }) => {
@@ -36,10 +21,20 @@ test.describe('Stock, ajustes y movimientos', () => {
       criticalSupplyType: 'beverage',
       price: 300,
       unit: 'unidad',
-      stock: 2,
+      stock: 0,
       minStock: 5,
       isActive: true,
     });
+
+    const stockInicial = await page.request.post('/api/stock/ajustar', {
+      data: {
+        productId: producto.id,
+        quantity: 2,
+        reason: 'Stock inicial',
+        type: 'restock',
+      },
+    });
+    expect(stockInicial.status()).toBe(200);
 
     await page.goto('/stock');
     const row = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
@@ -86,10 +81,20 @@ test.describe('Stock, ajustes y movimientos', () => {
       criticalSupplyType: 'beverage',
       price: 500,
       unit: 'unidad',
-      stock: 5,
+      stock: 0,
       minStock: 0,
       isActive: true,
     });
+
+    const stockInicial = await page.request.post('/api/stock/ajustar', {
+      data: {
+        productId: bebida.id,
+        quantity: 5,
+        reason: 'Stock inicial',
+        type: 'restock',
+      },
+    });
+    expect(stockInicial.status()).toBe(200);
 
     const venta = await page.request.post('/api/ventas', {
       data: {

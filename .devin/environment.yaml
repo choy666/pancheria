@@ -57,3 +57,7 @@ knowledge:
     contents: |
       npm run dev
       La aplicación se ejecutará en http://localhost:3000
+
+  - name: informes
+    contents: |
+      Consultar .devin/informes/lecciones-aprendidas.md para lecciones aprendidas y .devin/prompts/README.md para la guía de escritura de prompts antes de iniciar tareas de auditoría, refactorización, integridad de datos, configuración de entorno o creación de prompts.

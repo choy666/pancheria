@@ -1,16 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-import { ensureCashRegisterClosed, ensureCashRegisterOpen } from './helpers';
-
-const adminUsername = process.env.ADMIN_USERNAME || '';
-const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
-}
+import { test, expect } from '@playwright/test';
+import {
+  ensureCashRegisterClosed,
+  ensureCashRegisterOpen,
+  login,
+} from './helpers';
 
 test.describe('Historial de cajas con ventas', () => {
   test.beforeEach(async ({ page }) => {

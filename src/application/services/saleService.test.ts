@@ -1,20 +1,111 @@
-import { calculateAvailability, confirmSale, cancelSale } from './saleService';
+import {
+  calculateAvailability,
+  validateCartAvailability,
+  confirmSale,
+  cancelSale,
+} from './saleService';
 import * as productRepository from '@/repositories/productRepository';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
-import { products, sales, saleItems, stockMovements } from '@/db/schema';
+import {
+  products,
+  recipes,
+  sales,
+  saleItems,
+  stockMovements,
+  cashRegisters,
+} from '@/db/schema';
 import {
   ValidationError,
   NotFoundError,
   InsufficientStockError,
 } from '@/domain/errors';
+import { ProductRow } from '@/domain/types';
+
+type SaleRow = typeof sales.$inferSelect;
+type StockMovementInsert = typeof stockMovements.$inferInsert;
+type CashRegisterRow = typeof cashRegisters.$inferSelect;
+type RecipeRow = typeof recipes.$inferSelect;
+type RecipeWithSupply = RecipeRow & { supply: ProductRow | null };
+
+interface MockDb {
+  query: {
+    recipes: { findMany: jest.Mock };
+    sales: { findFirst: jest.Mock };
+    products: { findMany: jest.Mock };
+  };
+  insert: jest.Mock;
+  update: jest.Mock;
+  select: jest.Mock;
+}
 
 const capturedInserts: { table: unknown; data: unknown }[] = [];
 const capturedUpdates: { table: unknown; data: unknown }[] = [];
 
-function createMockDb() {
+function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
+  return {
+    id: 1,
+    name: 'Producto',
+    description: null,
+    type: 'critical_supply',
+    criticalSupplyType: null,
+    price: 0,
+    unit: 'unidad',
+    stock: 0,
+    minStock: 0,
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function createRecipeWithSupply(
+  overrides: Partial<RecipeRow> & { supply?: Partial<ProductRow> } = {}
+): RecipeWithSupply {
+  const { supply: supplyOverrides, ...rest } = overrides;
+  const supply = supplyOverrides
+    ? createProductRow(supplyOverrides)
+    : createProductRow();
+  return {
+    id: 1,
+    compoundProductId: 1,
+    supplyId: 2,
+    quantity: 1,
+    autoDiscount: true,
+    createdAt: new Date(),
+    supply,
+    ...rest,
+  };
+}
+
+function createOpenCashRegister(
+  overrides: Partial<CashRegisterRow> = {}
+): CashRegisterRow {
+  return {
+    id: 1,
+    openedAt: new Date(),
+    closedAt: null,
+    openedBy: 'admin',
+    closedBy: null,
+    status: 'open',
+    autoClosed: false,
+    total: 0,
+    cashTotal: 0,
+    transferTotal: 0,
+    totalSales: 0,
+    productsSummary: '{}',
+    criticalSuppliesSummary: '{}',
+    deletedAt: null,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+function createMockDb(): MockDb {
   const query = {
     recipes: { findMany: jest.fn() },
     sales: { findFirst: jest.fn() },
@@ -92,10 +183,12 @@ const mockedIdempotencyService = idempotencyService as jest.Mocked<
 const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
   typeof executeInTransaction
 >;
-const mockedDb = db as any;
+const mockedDb = db as unknown as MockDb;
 
-function setProducts(productsList: any[]) {
-  const normalized = productsList.map((p) => ({ isActive: true, ...p }));
+function setProducts(productsList: Partial<ProductRow>[]) {
+  const normalized = productsList.map((p) =>
+    createProductRow({ isActive: true, ...p })
+  );
   mockedProductRepository.findByIds.mockImplementation(async (ids: number[]) =>
     normalized.filter((p) => ids.includes(p.id))
   );
@@ -124,43 +217,47 @@ describe('calculateAvailability', () => {
   });
 
   test('devuelve stock para bebida crítica', async () => {
-    mockedProductRepository.findById.mockResolvedValue({
-      id: 1,
-      name: 'Gaseosa',
-      type: 'critical_supply',
-      criticalSupplyType: 'beverage',
-      stock: 50,
-    } as any);
+    mockedProductRepository.findById.mockResolvedValue(
+      createProductRow({
+        id: 1,
+        name: 'Gaseosa',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        stock: 50,
+      })
+    );
 
     const result = await calculateAvailability(1);
     expect(result).toBe(50);
   });
 
   test('calcula disponibilidad de producto compuesto', async () => {
-    mockedProductRepository.findById.mockResolvedValue({
-      id: 1,
-      name: 'Panchuque',
-      type: 'compound',
-    } as any);
+    mockedProductRepository.findById.mockResolvedValue(
+      createProductRow({
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+      })
+    );
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
-      {
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
         id: 1,
         compoundProductId: 1,
         supplyId: 2,
         quantity: 1,
         autoDiscount: true,
-        supply: { stock: 10 } as any,
-      },
-      {
+        supply: { stock: 10 },
+      }),
+      createRecipeWithSupply({
         id: 2,
         compoundProductId: 1,
         supplyId: 3,
         quantity: 2,
         autoDiscount: true,
-        supply: { stock: 9 } as any,
-      },
-    ] as any);
+        supply: { stock: 9 },
+      }),
+    ]);
 
     const result = await calculateAvailability(1);
     // Pan: 10/1 = 10; Salchicha: 9/2 = 4. Mínimo = 4.
@@ -168,36 +265,212 @@ describe('calculateAvailability', () => {
   });
 
   test('devuelve 0 si la receta no tiene items con auto descuento', async () => {
-    mockedProductRepository.findById.mockResolvedValue({
-      id: 1,
-      name: 'Panchuque',
-      type: 'compound',
-    } as any);
+    mockedProductRepository.findById.mockResolvedValue(
+      createProductRow({
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+      })
+    );
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
-      {
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
         id: 1,
         compoundProductId: 1,
         supplyId: 2,
         quantity: 1,
         autoDiscount: false,
-        supply: { stock: 10 } as any,
-      },
-    ] as any);
+        supply: { stock: 10 },
+      }),
+    ]);
 
     const result = await calculateAvailability(1);
     expect(result).toBe(0);
   });
 
   test('devuelve disponibilidad ilimitada para servicios', async () => {
-    mockedProductRepository.findById.mockResolvedValue({
-      id: 1,
-      name: 'Agregado de toppings',
-      type: 'service',
-    } as any);
+    mockedProductRepository.findById.mockResolvedValue(
+      createProductRow({
+        id: 1,
+        name: 'Agregado de toppings',
+        type: 'service',
+      })
+    );
 
     const result = await calculateAvailability(1);
     expect(result).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe('validateCartAvailability', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('calcula disponibilidad adicional con dos promos que comparten un insumo', async () => {
+    setProducts([
+      { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
+      { id: 2, name: 'Promo B', type: 'compound', price: 2000 },
+      { id: 3, name: 'Salchicha', type: 'critical_supply', criticalSupplyType: 'sausage', stock: 8, price: 100 },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+      createRecipeWithSupply({
+        id: 2,
+        compoundProductId: 2,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+    ]);
+
+    const result = await validateCartAvailability(
+      [{ productId: 1, quantity: 3 }],
+      [1, 2]
+    );
+
+    expect(result.consumedBySupply[3]).toBe(6);
+    expect(result.availabilityByProduct[1]).toBe(1);
+    expect(result.availabilityByProduct[2]).toBe(1);
+  });
+
+  test('detecta faltante cuando el consumo combinado supera el stock', async () => {
+    setProducts([
+      { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
+      { id: 2, name: 'Promo B', type: 'compound', price: 2000 },
+      { id: 3, name: 'Salchicha', type: 'critical_supply', criticalSupplyType: 'sausage', stock: 8, price: 100 },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+      createRecipeWithSupply({
+        id: 2,
+        compoundProductId: 2,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+    ]);
+
+    const result = await validateCartAvailability(
+      [{ productId: 1, quantity: 4 }, { productId: 2, quantity: 4 }],
+      [1, 2]
+    );
+
+    expect(result.consumedBySupply[3]).toBe(16);
+    expect(result.shortageByProduct[1]).toEqual({
+      available: 8,
+      required: 16,
+      supplyName: 'Salchicha',
+    });
+    expect(result.shortageByProduct[2]).toEqual({
+      available: 8,
+      required: 16,
+      supplyName: 'Salchicha',
+    });
+  });
+
+  test('combina consumo de promo y bebida', async () => {
+    setProducts([
+      { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
+      { id: 2, name: 'Pritty', type: 'critical_supply', criticalSupplyType: 'beverage', stock: 5, price: 800 },
+      { id: 3, name: 'Salchicha', type: 'critical_supply', criticalSupplyType: 'sausage', stock: 10, price: 100 },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 10 },
+      }),
+    ]);
+
+    const result = await validateCartAvailability(
+      [{ productId: 1, quantity: 2 }, { productId: 2, quantity: 3 }],
+      [1, 2]
+    );
+
+    expect(result.consumedBySupply[2]).toBe(3);
+    expect(result.consumedBySupply[3]).toBe(4);
+    expect(result.availabilityByProduct[1]).toBe(3);
+    expect(result.availabilityByProduct[2]).toBe(2);
+  });
+
+  test('libera stock al reducir la cantidad en el carrito', async () => {
+    setProducts([
+      { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
+      { id: 2, name: 'Promo B', type: 'compound', price: 2000 },
+      { id: 3, name: 'Salchicha', type: 'critical_supply', criticalSupplyType: 'sausage', stock: 8, price: 100 },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+      createRecipeWithSupply({
+        id: 2,
+        compoundProductId: 2,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+    ]);
+
+    const first = await validateCartAvailability(
+      [{ productId: 1, quantity: 4 }],
+      [1, 2]
+    );
+    expect(first.availabilityByProduct[2]).toBe(0);
+
+    const second = await validateCartAvailability(
+      [{ productId: 1, quantity: 2 }],
+      [1, 2]
+    );
+    expect(second.availabilityByProduct[1]).toBe(2);
+    expect(second.availabilityByProduct[2]).toBe(2);
+  });
+
+  test('los servicios no consumen stock ni limitan disponibilidad', async () => {
+    setProducts([
+      { id: 1, name: 'Agregado', type: 'service', price: 500 },
+      { id: 2, name: 'Salchicha', type: 'critical_supply', criticalSupplyType: 'sausage', stock: 8, price: 100 },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
+
+    const result = await validateCartAvailability(
+      [{ productId: 1, quantity: 100 }],
+      [1]
+    );
+
+    expect(result.consumedBySupply[2]).toBeUndefined();
+    expect(result.availabilityByProduct[1]).toBe(Number.MAX_SAFE_INTEGER);
   });
 });
 
@@ -205,7 +478,7 @@ describe('confirmSale', () => {
   beforeEach(() => {
     capturedInserts.length = 0;
     capturedUpdates.length = 0;
-    mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db as any));
+    mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db));
   });
 
   afterEach(() => {
@@ -232,14 +505,14 @@ describe('confirmSale', () => {
     mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
 
     mockedProductRepository.findByIds.mockResolvedValue([
-      {
+      createProductRow({
         id: 1,
         name: 'Gaseosa',
         type: 'critical_supply',
         criticalSupplyType: 'beverage',
         stock: 50,
         price: 1000,
-      } as any,
+      }),
     ]);
 
     await expect(
@@ -255,18 +528,9 @@ describe('confirmSale', () => {
 
   test('rechaza la venta de un producto no disponible (manual)', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -292,18 +556,9 @@ describe('confirmSale', () => {
 
   test('rechaza la venta de un insumo crítico que no es bebida', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -329,18 +584,9 @@ describe('confirmSale', () => {
 
   test('rechaza la venta de un producto inactivo', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -353,7 +599,7 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     await expect(
       confirmSale({
@@ -366,18 +612,9 @@ describe('confirmSale', () => {
 
   test('rechaza la venta cuando hay stock insuficiente de bebida', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -410,18 +647,9 @@ describe('confirmSale', () => {
 
   test('rechaza la venta cuando hay stock insuficiente de producto compuesto', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -433,16 +661,16 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
-      {
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
         id: 1,
         compoundProductId: 1,
         supplyId: 2,
         quantity: 2,
         autoDiscount: true,
-        supply: { stock: 5 } as any,
-      },
-    ] as any);
+        supply: { name: 'Salchicha', stock: 5 },
+      }),
+    ]);
 
     await expect(
       confirmSale({
@@ -458,24 +686,15 @@ describe('confirmSale', () => {
         idempotencyKey: 'insufficient-compound',
       })
     ).rejects.toThrow(
-      'Stock insuficiente para Panchuque. Disponible: 2, solicitado: 3.'
+      'Stock insuficiente para Panchuque (insumo: Salchicha). Disponible: 5, solicitado: 6.'
     );
   });
 
   test('permite la venta con stock justo', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -488,13 +707,13 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = (await confirmSale({
       items: [{ productId: 2, quantity: 5 }],
       paymentMethod: 'cash',
       idempotencyKey: 'exact-stock',
-    })) as any;
+    })) as SaleRow;
 
     expect(result.cashRegisterId).toBe(1);
     expect(result.total).toBe(4000);
@@ -505,24 +724,15 @@ describe('confirmSale', () => {
     expect(findCapturedInsert(stockMovements).length).toBe(1);
     expect(findCapturedUpdate(products).length).toBe(1);
 
-    const movement = findCapturedInsert(stockMovements)[0].data as any;
+    const movement = findCapturedInsert(stockMovements)[0].data as StockMovementInsert;
     expect(movement.quantity).toBe(-5);
   });
 
   test('vincula la venta a la caja abierta', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -535,31 +745,22 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
-    const result = (await confirmSale({
+    const result = await confirmSale({
       items: [{ productId: 1, quantity: 1 }],
       paymentMethod: 'cash',
       idempotencyKey: 'abc',
-    })) as { cashRegisterId: number | null };
+    }) as { cashRegisterId: number | null };
 
     expect(result.cashRegisterId).toBe(1);
   });
 
   test('confirma una venta con pago por transferencia', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -572,13 +773,13 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = (await confirmSale({
       items: [{ productId: 1, quantity: 2 }],
       paymentMethod: 'transfer',
       idempotencyKey: 'transfer-sale',
-    })) as any;
+    })) as SaleRow;
 
     expect(result.paymentMethod).toBe('transfer');
     expect(result.total).toBe(2000);
@@ -587,18 +788,9 @@ describe('confirmSale', () => {
 
   test('permite vender un servicio sin descontar stock', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -611,13 +803,13 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = (await confirmSale({
       items: [{ productId: 1, quantity: 3 }],
       paymentMethod: 'cash',
       idempotencyKey: 'service-sale',
-    })) as any;
+    })) as SaleRow;
 
     expect(result.total).toBe(1500);
     expect(findCapturedUpdate(products).length).toBe(0);
@@ -626,18 +818,9 @@ describe('confirmSale', () => {
 
   test('descuenta stock de múltiples insumos críticos en un combo', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
-    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
-      id: 1,
-      openedAt: new Date(),
-      openedBy: 'admin',
-      status: 'open',
-      total: 0,
-      cashTotal: 0,
-      transferTotal: 0,
-      totalSales: 0,
-      productsSummary: '{}',
-      criticalSuppliesSummary: '{}',
-    } as any);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
 
     setProducts([
       {
@@ -648,30 +831,30 @@ describe('confirmSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
-      {
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
         id: 1,
         compoundProductId: 1,
         supplyId: 2,
         quantity: 9,
         autoDiscount: true,
-        supply: { stock: 100 } as any,
-      },
-      {
+        supply: { stock: 100 },
+      }),
+      createRecipeWithSupply({
         id: 2,
         compoundProductId: 1,
         supplyId: 3,
         quantity: 18,
         autoDiscount: true,
-        supply: { stock: 100 } as any,
-      },
-    ] as any);
+        supply: { stock: 100 },
+      }),
+    ]);
 
     const result = (await confirmSale({
       items: [{ productId: 1, quantity: 1 }],
       paymentMethod: 'cash',
       idempotencyKey: 'combo-multiple',
-    })) as any;
+    })) as SaleRow;
 
     expect(result.total).toBe(11000);
 
@@ -682,8 +865,8 @@ describe('confirmSale', () => {
 
     const movements = findCapturedInsert(stockMovements);
     expect(movements.length).toBe(2);
-    expect((movements[0].data as any).quantity).toBe(-9);
-    expect((movements[1].data as any).quantity).toBe(-18);
+    expect((movements[0].data as StockMovementInsert).quantity).toBe(-9);
+    expect((movements[1].data as StockMovementInsert).quantity).toBe(-18);
   });
 });
 
@@ -691,7 +874,7 @@ describe('cancelSale', () => {
   beforeEach(() => {
     capturedInserts.length = 0;
     capturedUpdates.length = 0;
-    mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db as any));
+    mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db));
   });
 
   afterEach(() => {
@@ -699,7 +882,7 @@ describe('cancelSale', () => {
   });
 
   test('anula una venta y reintegra el stock', async () => {
-    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+    mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
       status: 'active',
       total: 1500,
@@ -721,18 +904,18 @@ describe('cancelSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
-      {
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
         id: 1,
         compoundProductId: 1,
         supplyId: 2,
         quantity: 2,
         autoDiscount: true,
-        supply: { name: 'Pan' } as any,
-      },
-    ] as any);
+        supply: { name: 'Pan' },
+      }),
+    ]);
 
-    const result = (await cancelSale(1, 'error de carga')) as any;
+    const result = (await cancelSale(1, 'error de carga')) as SaleRow;
 
     expect(result.status).toBe('cancelled');
     expect(result.cancellationReason).toBe('error de carga');
@@ -748,11 +931,11 @@ describe('cancelSale', () => {
 
     const movements = findCapturedInsert(stockMovements);
     expect(movements.length).toBe(1);
-    expect((movements[0].data as any).quantity).toBe(4);
+    expect((movements[0].data as StockMovementInsert).quantity).toBe(4);
   });
 
   test('lanza NotFoundError si la venta no existe', async () => {
-    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue(null);
+    mockedDb.query.sales.findFirst.mockResolvedValue(null);
 
     await expect(cancelSale(999, 'error')).rejects.toThrow(NotFoundError);
     await expect(cancelSale(999, 'error')).rejects.toThrow(
@@ -761,7 +944,7 @@ describe('cancelSale', () => {
   });
 
   test('rechaza anular una venta de una caja cerrada', async () => {
-    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+    mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
       status: 'active',
       items: [{ id: 1, productId: 1, quantity: 1 }],
@@ -779,7 +962,7 @@ describe('cancelSale', () => {
   });
 
   test('rechaza anular una venta de una caja eliminada', async () => {
-    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+    mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
       status: 'active',
       items: [{ id: 1, productId: 1, quantity: 1 }],
@@ -797,7 +980,7 @@ describe('cancelSale', () => {
   });
 
   test('es idempotente: no anula una venta ya anulada', async () => {
-    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+    mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
       status: 'cancelled',
       items: [{ id: 1, productId: 1, quantity: 1 }],
@@ -816,7 +999,7 @@ describe('cancelSale', () => {
   });
 
   test('anula una venta de servicio sin reintegrar stock', async () => {
-    (mockedDb.query.sales.findFirst as jest.Mock).mockResolvedValue({
+    mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
       status: 'active',
       total: 500,
@@ -838,9 +1021,9 @@ describe('cancelSale', () => {
       },
     ]);
 
-    (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
-    const result = (await cancelSale(1, 'error de carga')) as any;
+    const result = (await cancelSale(1, 'error de carga')) as SaleRow;
 
     expect(result.status).toBe('cancelled');
     expect(findCapturedUpdate(sales).length).toBe(1);

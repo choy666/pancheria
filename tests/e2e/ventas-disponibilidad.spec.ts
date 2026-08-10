@@ -1,26 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
-import { ensureCashRegisterClosed, ensureCashRegisterOpen } from './helpers';
-
-const adminUsername = process.env.ADMIN_USERNAME || '';
-const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-function unique(prefix: string) {
-  return `${prefix} ${Date.now()}`;
-}
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
-}
-
-async function createProductViaApi(page: Page, data: Record<string, unknown>) {
-  const response = await page.request.post('/api/productos', { data });
-  expect(response.status()).toBe(201);
-  return (await response.json()) as { id: number; name: string };
-}
+import { test, expect } from '@playwright/test';
+import {
+  ensureCashRegisterClosed,
+  ensureCashRegisterOpen,
+  login,
+  unique,
+  createProductViaApi,
+  restockProductViaApi,
+} from './helpers';
 
 test.describe('Disponibilidad en el terminal de ventas', () => {
   test.beforeEach(async ({ page }) => {
@@ -39,10 +25,11 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       criticalSupplyType: 'beverage',
       price: 300,
       unit: 'unidad',
-      stock: 2,
       minStock: 0,
       isActive: true,
     });
+
+    await restockProductViaApi(page, bebida.id, 2);
 
     await page.goto('/ventas');
 
@@ -143,10 +130,11 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       criticalSupplyType: 'bread',
       price: 0,
       unit: 'unidad',
-      stock: 10,
       minStock: 2,
       isActive: true,
     });
+
+    await restockProductViaApi(page, pan.id, 10);
 
     const salchicha = await createProductViaApi(page, {
       name: unique('Salchicha promo'),
@@ -154,10 +142,11 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       criticalSupplyType: 'sausage',
       price: 0,
       unit: 'unidad',
-      stock: 8,
       minStock: 2,
       isActive: true,
     });
+
+    await restockProductViaApi(page, salchicha.id, 8);
 
     const promo = await createProductViaApi(page, {
       name: unique('Promo Super'),

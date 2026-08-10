@@ -7,17 +7,9 @@ import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { safeJsonParse } from '@/lib/json';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegisterStatus } from '@/domain/types';
-
-function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export async function getOpenCashRegister() {
   const cashRegister = await cashRegisterRepository.findOpen();

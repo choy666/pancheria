@@ -4,6 +4,27 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { SalesTerminal } from './sales-terminal';
 import * as useCashRegisterModule from '@/hooks/useCashRegister';
+import {
+  PRODUCTOS_API,
+  VENTAS_DISPONIBILIDAD_API,
+} from '@/config/api';
+import { ProductType, CriticalSupplyType } from '@/domain/types';
+
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+  unit: string;
+  type: ProductType;
+  criticalSupplyType: CriticalSupplyType | null;
+  availability: number;
+};
+
+type Shortage = {
+  available: number;
+  required: number;
+  supplyName: string;
+};
 
 jest.mock('nanoid', () => ({
   nanoid: jest.fn(() => 'test-id'),
@@ -32,6 +53,25 @@ function createFetchResponse<T>(body: T, ok = true, status = 200) {
     status,
     json: async () => body,
   } as Response;
+}
+
+function mockFetch(
+  products: Product[],
+  availability: Record<number, number> = {},
+  shortage: Record<number, Shortage> = {}
+) {
+  global.fetch = jest.fn().mockImplementation((url: string) => {
+    if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
+      return createFetchResponse(products);
+    }
+    if (url === VENTAS_DISPONIBILIDAD_API) {
+      return createFetchResponse({
+        availabilityByProduct: availability,
+        shortageByProduct: shortage,
+      });
+    }
+    return createFetchResponse(null, false, 404);
+  });
 }
 
 function mockCashRegister(open: boolean) {
@@ -72,7 +112,7 @@ describe('SalesTerminal', () => {
   test('muestra solo productos activos de tipos vendibles', async () => {
     mockCashRegister(true);
 
-    const products = [
+    const products: Product[] = [
       {
         id: 1,
         name: 'Panchuque',
@@ -120,9 +160,7 @@ describe('SalesTerminal', () => {
       },
     ];
 
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue(createFetchResponse(products));
+    mockFetch(products, { 1: 5, 2: Number.MAX_SAFE_INTEGER, 3: 3 });
 
     render(<SalesTerminal />);
 
@@ -130,6 +168,16 @@ describe('SalesTerminal', () => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/productos?includeAvailability=true',
         expect.objectContaining({ credentials: 'include' })
+      );
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        VENTAS_DISPONIBILIDAD_API,
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+        })
       );
     });
 
@@ -145,7 +193,7 @@ describe('SalesTerminal', () => {
   test('permite agregar productos con disponibilidad solo si hay caja abierta', async () => {
     mockCashRegister(true);
 
-    const products = [
+    const products: Product[] = [
       {
         id: 1,
         name: 'Panchuque',
@@ -166,15 +214,20 @@ describe('SalesTerminal', () => {
       },
     ];
 
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue(createFetchResponse(products));
+    mockFetch(products, { 1: 1, 2: 0 });
 
     render(<SalesTerminal />);
 
     await waitFor(() =>
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        VENTAS_DISPONIBILIDAD_API,
+        expect.objectContaining({ method: 'POST', credentials: 'include' })
+      );
+    });
 
     const panchuqueCard = screen.getByText('Panchuque').closest('[data-slot="card"]');
     const prittyCard = screen.getByText('Pritty').closest('[data-slot="card"]');
@@ -197,7 +250,7 @@ describe('SalesTerminal', () => {
   test('no permite agregar productos si la caja está cerrada', async () => {
     mockCashRegister(false);
 
-    const products = [
+    const products: Product[] = [
       {
         id: 1,
         name: 'Panchuque',
@@ -209,9 +262,7 @@ describe('SalesTerminal', () => {
       },
     ];
 
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue(createFetchResponse(products));
+    mockFetch(products, { 1: 5 });
 
     render(<SalesTerminal />);
 
@@ -224,5 +275,94 @@ describe('SalesTerminal', () => {
 
     fireEvent.click(card!);
     expect(screen.queryByText('1 unidad')).not.toBeInTheDocument();
+  });
+
+  test('bloquea agregar un producto cuando otro consume el mismo insumo', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Promo A',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 2000,
+        unit: 'unidad',
+        availability: 4,
+      },
+      {
+        id: 2,
+        name: 'Promo B',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 2000,
+        unit: 'unidad',
+        availability: 4,
+      },
+    ];
+
+    global.fetch = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
+        return createFetchResponse(products);
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        const body = JSON.parse(
+          typeof init?.body === 'string' ? init.body : '{}'
+        ) as {
+          items: { productId: number; quantity: number }[];
+        };
+        const items = body.items;
+        const consumed = items.reduce(
+          (sum, item) => sum + item.quantity * 2,
+          0
+        );
+        const remaining = 8 - consumed;
+        const availability: Record<number, number> = {};
+        for (const product of products) {
+          availability[product.id] = Math.max(0, Math.floor(remaining / 2));
+        }
+        return createFetchResponse({
+          availabilityByProduct: availability,
+          shortageByProduct: {},
+        });
+      }
+      return createFetchResponse(null, false, 404);
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Promo A')).toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(screen.getAllByText(/4 más/)).toHaveLength(2)
+    );
+
+    const cardA = screen.getByText('Promo A').closest('[data-slot="card"]');
+    const cardB = screen.getByText('Promo B').closest('[data-slot="card"]');
+
+    fireEvent.click(cardA!);
+    await waitFor(() =>
+      expect(screen.getAllByText('Promo A')).toHaveLength(2)
+    );
+
+    fireEvent.click(cardA!);
+    fireEvent.click(cardA!);
+    fireEvent.click(cardA!);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        VENTAS_DISPONIBILIDAD_API,
+        expect.objectContaining({
+          body: JSON.stringify({
+            items: [{ productId: 1, quantity: 4 }],
+            productIds: [1, 2],
+          }),
+        })
+      )
+    );
+
+    fireEvent.click(cardB!);
+    expect(screen.getAllByText('Promo B')).toHaveLength(1);
   });
 });

@@ -20,9 +20,16 @@ export class ValidationError extends DomainError {
 }
 
 export class InsufficientStockError extends DomainError {
-  constructor(productName: string, available: number, requested: number) {
+  constructor(
+    productName: string,
+    available: number,
+    requested: number,
+    supplyName?: string
+  ) {
     super(
-      `Stock insuficiente para ${productName}. Disponible: ${available}, solicitado: ${requested}.`
+      `Stock insuficiente para ${productName}${
+        supplyName ? ` (insumo: ${supplyName})` : ''
+      }. Disponible: ${available}, solicitado: ${requested}.`
     );
     this.name = 'InsufficientStockError';
   }

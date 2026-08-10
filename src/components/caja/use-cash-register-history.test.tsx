@@ -16,7 +16,7 @@ describe('useCashRegisterHistory', () => {
     global.fetch = jest.fn().mockResolvedValue(response as Response);
   }
 
-  test('inicia en estado de carga', () => {
+  test('inicia en estado de carga', async () => {
     mockFetch({ ok: true, json: async () => [] });
 
     const { result } = renderHook(() => useCashRegisterHistory());
@@ -24,6 +24,8 @@ describe('useCashRegisterHistory', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.data).toBeNull();
     expect(result.current.error).toBeNull();
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 
   test('devuelve datos cuando la API responde correctamente', async () => {

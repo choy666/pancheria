@@ -22,8 +22,8 @@ export interface CashRegister {
   cashTotal: number;
   transferTotal: number;
   totalSales: number;
-  productsSummary: Record<string, number>;
-  criticalSuppliesSummary: Record<string, number>;
+  productsSummary?: Record<string, number>;
+  criticalSuppliesSummary?: Record<string, number>;
   createdAt: string;
   deletedAt?: string | null;
 }

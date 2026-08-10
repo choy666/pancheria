@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { authenticatedFetch } from '@/lib/fetch';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PRODUCTOS_API, VENTAS_API } from '@/config/api';
+import {
+  PRODUCTOS_API,
+  VENTAS_API,
+  VENTAS_DISPONIBILIDAD_API,
+} from '@/config/api';
 
 interface Product {
   id: number;
@@ -27,12 +32,17 @@ interface CartItem {
 
 export function SalesTerminal() {
   const router = useRouter();
+  const isMountedRef = useRef(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cartAvailability, setCartAvailability] = useState<Record<number, number>>({});
+  const [cartShortage, setCartShortage] = useState<
+    Record<number, { available: number; required: number; supplyName: string }>
+  >({});
 
   const {
     cashRegister,
@@ -45,9 +55,7 @@ export function SalesTerminal() {
 
   async function fetchProducts() {
     try {
-      const response = await fetch(`${PRODUCTOS_API}?includeAvailability=true`, {
-        credentials: 'include',
-      });
+      const response = await authenticatedFetch(`${PRODUCTOS_API}?includeAvailability=true`, {});
       if (!response.ok) throw new Error('Error al cargar productos');
 
       const allProducts = (await response.json()) as Product[];
@@ -58,32 +66,85 @@ export function SalesTerminal() {
           p.criticalSupplyType === 'beverage'
       );
 
+      if (!isMountedRef.current) return;
       setProducts(sellable);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 
   useEffect(() => {
+    isMountedRef.current = true;
     queueMicrotask(() => void fetchProducts());
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await authenticatedFetch(VENTAS_DISPONIBILIDAD_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            items: cart.map((item) => ({
+              productId: item.product.id,
+              quantity: item.quantity,
+            })),
+            productIds: products.map((p) => p.id),
+          }),
+        });
+
+        if (!response.ok) throw new Error('Error al calcular disponibilidad');
+
+        const data = (await response.json()) as {
+          availabilityByProduct: Record<number, number>;
+          shortageByProduct: Record<
+            number,
+            { available: number; required: number; supplyName: string }
+          >;
+        };
+
+        if (cancelled) return;
+        setCartAvailability(data.availabilityByProduct ?? {});
+        setCartShortage(data.shortageByProduct ?? {});
+      } catch {
+        // No saturar la UI con errores de disponibilidad; el confirm mostrará el problema real.
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [cart, products]);
 
   function addToCart(product: Product) {
     if (!cashRegister || cashRegister.status !== 'open') return;
 
+    const existing = cart.find((item) => item.product.id === product.id);
+    const currentQuantity = existing?.quantity ?? 0;
+    const additional =
+      cartAvailability[product.id] ??
+      Math.max((product.availability ?? 0) - currentQuantity, 0);
+    if (product.type !== 'service' && additional <= 0) return;
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        if (existing.quantity >= product.availability) return prev;
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+      const item = prev.find((i) => i.product.id === product.id);
+      if (item) {
+        return prev.map((i) =>
+          i.product.id === product.id
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
         );
       }
-      if (product.availability <= 0) return prev;
       return [...prev, { product, quantity: 1 }];
     });
   }
@@ -101,8 +162,12 @@ export function SalesTerminal() {
     setCart((prev) =>
       prev.map((item) => {
         if (item.product.id !== productId) return item;
-        const max = item.product.availability;
-        return { ...item, quantity: Math.min(quantity, max) };
+        const additional =
+          cartAvailability[productId] ?? item.product.availability;
+        const max = item.quantity + additional;
+        const nextQuantity =
+          quantity > item.quantity ? Math.min(quantity, max) : quantity;
+        return { ...item, quantity: nextQuantity };
       })
     );
   }
@@ -128,11 +193,9 @@ export function SalesTerminal() {
     setError(null);
 
     try {
-      const response = await fetch(VENTAS_API, {
+      const response = await authenticatedFetch(VENTAS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           items: cart.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
@@ -151,11 +214,11 @@ export function SalesTerminal() {
       router.refresh();
       await refresh();
       await fetchProducts();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
       if (
-        err instanceof Error &&
-        err.message.includes('No hay una caja abierta')
+        error instanceof Error &&
+        error.message.includes('No hay una caja abierta')
       ) {
         await refresh();
       }
@@ -197,35 +260,70 @@ export function SalesTerminal() {
             </div>
           )}
 
+          {Object.keys(cartShortage).length > 0 && (
+            <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
+              {Object.entries(cartShortage).map(([productId, shortage]) => {
+                const product =
+                  products.find((p) => p.id === Number(productId)) ??
+                  cart.find((i) => i.product.id === Number(productId))?.product;
+                return (
+                  <p key={productId}>
+                    Faltan insumos para {product?.name ?? 'producto'}:{' '}
+                    {shortage.supplyName} (disponible {shortage.available},
+                    requerido {shortage.required}).
+                  </p>
+                );
+              })}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <Card
-                key={product.id}
-                className={`transition-all ${
-                  (product.type !== 'service' && product.availability <= 0) ||
-                  cartDisabled
-                    ? 'opacity-50'
-                    : 'cursor-pointer touch-manipulation hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98]'
-                }`}
-                onClick={() => addToCart(product)}
-              >
-                <CardHeader className="p-5">
-                  <CardTitle className="text-lg font-semibold leading-tight">
-                    {product.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-5 pt-0">
-                  <p className="font-mono text-2xl font-bold text-primary">
-                    ${product.price.toFixed(2)}
-                  </p>
-                  <p className="mt-1 text-base text-muted-foreground">
-                    {product.type === 'service'
-                      ? 'Disponible: sin límite'
-                      : `Disponible: ${product.availability} ${product.unit}`}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+            {products.map((product) => {
+              const additional =
+                cartAvailability[product.id] ?? product.availability;
+              const maxAdditional =
+                product.type === 'service'
+                  ? Number.MAX_SAFE_INTEGER
+                  : additional;
+              const isOutOfStock =
+                product.type !== 'service' && maxAdditional <= 0;
+
+              return (
+                <Card
+                  key={product.id}
+                  className={`transition-all ${
+                    isOutOfStock || cartDisabled
+                      ? 'opacity-50'
+                      : 'cursor-pointer touch-manipulation hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98]'
+                  }`}
+                  onClick={() => addToCart(product)}
+                >
+                  <CardHeader className="p-5">
+                    <CardTitle className="text-lg font-semibold leading-tight">
+                      {product.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-0">
+                    <p className="font-mono text-2xl font-bold text-primary">
+                      ${product.price.toFixed(2)}
+                    </p>
+                    <p className="mt-1 text-base text-muted-foreground">
+                      {product.type === 'service'
+                        ? 'Disponible: sin límite'
+                        : `Disponible: ${product.availability} ${product.unit}`}
+                    </p>
+                    {product.type !== 'service' && (
+                      <p className="text-sm text-muted-foreground">
+                        En este pedido:{' '}
+                        {maxAdditional === Number.MAX_SAFE_INTEGER
+                          ? 'sin límite'
+                          : `${maxAdditional} más`}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
 
@@ -276,7 +374,12 @@ export function SalesTerminal() {
                           onClick={() =>
                             updateQuantity(item.product.id, item.quantity + 1)
                           }
-                          disabled={cartDisabled}
+                          disabled={
+                            cartDisabled ||
+                            (item.product.type !== 'service' &&
+                              (cartAvailability[item.product.id] ??
+                                item.product.availability) <= 0)
+                          }
                         >
                           +
                         </Button>
@@ -314,7 +417,12 @@ export function SalesTerminal() {
             <Button
               type="button"
               className="w-full"
-              disabled={cart.length === 0 || isSubmitting || cartDisabled}
+              disabled={
+                cart.length === 0 ||
+                isSubmitting ||
+                cartDisabled ||
+                Object.keys(cartShortage).length > 0
+              }
               onClick={confirmSale}
             >
               {isSubmitting ? 'Procesando...' : 'Confirmar venta'}

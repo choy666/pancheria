@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -16,10 +17,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
-import {
-  useCashRegisterHistory,
-  type CashRegister,
-} from '@/components/caja/use-cash-register-history';
+import { useCashRegisterHistory } from '@/components/caja/use-cash-register-history';
+import type { CashRegister } from '@/config/caja';
 
 interface CajaHistoryProps {
   detailRoute?: string;
@@ -58,10 +57,8 @@ export function CajaHistory({
       if (onDelete) {
         await onDelete(id);
       } else {
-        const response = await fetch(`${CAJA_API}/${id}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
+        const response = await authenticatedFetch(`${CAJA_API}/${id}`, {
+          method: 'DELETE', });
 
         if (!response.ok) {
           const data = (await response.json()) as { error?: string };
@@ -71,8 +68,8 @@ export function CajaHistory({
 
       refresh();
       setActionError(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 
@@ -81,10 +78,8 @@ export function CajaHistory({
       if (onRestore) {
         await onRestore(id);
       } else {
-        const response = await fetch(`${CAJA_API}/${id}/restaurar`, {
-          method: 'POST',
-          credentials: 'include',
-        });
+        const response = await authenticatedFetch(`${CAJA_API}/${id}/restaurar`, {
+          method: 'POST', });
 
         if (!response.ok) {
           const data = (await response.json()) as { error?: string };
@@ -94,8 +89,8 @@ export function CajaHistory({
 
       refresh();
       setActionError(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 
@@ -104,10 +99,8 @@ export function CajaHistory({
       if (onPermanentDelete) {
         await onPermanentDelete(id);
       } else {
-        const response = await fetch(`${CAJA_API}/${id}/permanente`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
+        const response = await authenticatedFetch(`${CAJA_API}/${id}/permanente`, {
+          method: 'DELETE', });
 
         if (!response.ok) {
           const data = (await response.json()) as { error?: string };
@@ -119,8 +112,8 @@ export function CajaHistory({
 
       refresh();
       setActionError(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 
@@ -129,12 +122,10 @@ export function CajaHistory({
       if (onEmptyTrash) {
         await onEmptyTrash(startDate, endDate);
       } else {
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `${CAJA_ELIMINADAS_API}?start=${startDate}&end=${endDate}`,
           {
-            method: 'DELETE',
-            credentials: 'include',
-          }
+            method: 'DELETE', }
         );
 
         if (!response.ok) {
@@ -145,8 +136,8 @@ export function CajaHistory({
 
       refresh();
       setActionError(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 
@@ -233,7 +224,7 @@ export function CajaHistory({
                   <TableCell>{formatDateTime(cashRegister.openedAt)}</TableCell>
                   <TableCell>{formatDateTime(cashRegister.closedAt)}</TableCell>
                   {deletedOnly && (
-                    <TableCell>{formatDateTime(cashRegister.deletedAt)}</TableCell>
+                    <TableCell>{formatDateTime(cashRegister.deletedAt ?? null)}</TableCell>
                   )}
                   <TableCell>
                     {cashRegister.status === 'open' ? (

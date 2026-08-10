@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
+import { safeJsonParse } from '@/lib/json';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -28,12 +29,14 @@ export default async function CashRegisterDetailPage({ params }: Props) {
   const duration =
     closedAt ? intervalToDuration({ start: openedAt, end: closedAt }) : null;
 
-  const productsSummary = cashRegister.productsSummary
-    ? (JSON.parse(cashRegister.productsSummary) as Record<string, number>)
-    : {};
-  const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary
-    ? (JSON.parse(cashRegister.criticalSuppliesSummary) as Record<string, number>)
-    : {};
+  const productsSummary = safeJsonParse<Record<string, number>>(
+    cashRegister.productsSummary,
+    {}
+  );
+  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
+    cashRegister.criticalSuppliesSummary,
+    {}
+  );
 
   return (
     <div className="space-y-5">

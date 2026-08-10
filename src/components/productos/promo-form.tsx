@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -95,9 +96,7 @@ export function PromoForm({ product }: PromoFormProps) {
   useEffect(() => {
     async function load() {
       try {
-        const productsRes = await fetch(PRODUCTOS_API, {
-          credentials: 'include',
-        });
+        const productsRes = await authenticatedFetch(PRODUCTOS_API, {});
 
         if (!productsRes.ok) {
           throw new Error('Error al cargar productos');
@@ -116,9 +115,9 @@ export function PromoForm({ product }: PromoFormProps) {
           : { ...emptyForm };
 
         if (product) {
-          const recipeRes = await fetch(
+          const recipeRes = await authenticatedFetch(
             `${RECETAS_API}?productId=${product.id}`,
-            { credentials: 'include' }
+            {}
           );
 
           if (recipeRes.ok) {
@@ -141,8 +140,8 @@ export function PromoForm({ product }: PromoFormProps) {
         }
 
         setForm(base);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Error desconocido');
       } finally {
         setLoading(false);
       }
@@ -227,11 +226,9 @@ export function PromoForm({ product }: PromoFormProps) {
       let productId = product?.id;
 
       if (!productId) {
-        const productRes = await fetch(PRODUCTOS_API, {
+        const productRes = await authenticatedFetch(PRODUCTOS_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             name: form.name.trim(),
             type: 'compound',
             price: form.price,
@@ -250,11 +247,9 @@ export function PromoForm({ product }: PromoFormProps) {
         const created = (await productRes.json()) as { id: number };
         productId = created.id;
       } else {
-        const productRes = await fetch(`${PRODUCTOS_API}/${productId}`, {
+        const productRes = await authenticatedFetch(`${PRODUCTOS_API}/${productId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             name: form.name.trim(),
             price: form.price,
             isActive: form.isActive,
@@ -267,17 +262,19 @@ export function PromoForm({ product }: PromoFormProps) {
         }
       }
 
-      const recipeRes = await fetch(RECETAS_API, {
+      const recipeRes = await authenticatedFetch(RECETAS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           compoundProductId: productId,
-          items: recipeItems.map((item) => ({
-            supplyId: item.supplyId,
-            quantity: item.quantity,
-            autoDiscount: true,
-          })),
+          items: recipeItems.map((item) => {
+            const supply = criticalSupplies.find((s) => s.id === item.supplyId);
+            return {
+              supplyId: item.supplyId,
+              quantity: item.quantity,
+              autoDiscount: true,
+              supplyType: supply?.type,
+            };
+          }),
         }),
       });
 
@@ -288,8 +285,8 @@ export function PromoForm({ product }: PromoFormProps) {
 
       router.push('/productos');
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
     }

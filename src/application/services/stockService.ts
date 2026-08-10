@@ -5,6 +5,7 @@ import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import type { StockMovementType } from '@/domain/types';
 
 export async function listStockAlerts() {
   const allProducts = await productRepository.findActive();
@@ -20,13 +21,19 @@ export async function listStockAlerts() {
 export async function adjustStock(
   productId: number,
   quantity: number,
-  reason: string
+  reason: string,
+  type: StockMovementType = 'manual_adjustment'
 ) {
   const product = await productRepository.findById(productId);
   if (!product) throw new NotFoundError('Producto', productId);
 
   if (!reason || reason.length < 3) {
     throw new ValidationError('El motivo del ajuste debe tener al menos 3 caracteres.');
+  }
+
+  const validTypes: StockMovementType[] = ['sale', 'cancellation', 'manual_adjustment', 'restock'];
+  if (!validTypes.includes(type)) {
+    throw new ValidationError('Tipo de movimiento de stock inválido.');
   }
 
   const newStock = product.stock + quantity;
@@ -44,7 +51,7 @@ export async function adjustStock(
 
     await tx.insert(stockMovements).values({
       productId,
-      type: 'manual_adjustment',
+      type,
       quantity,
       reason,
       createdAt: nowUTC(),

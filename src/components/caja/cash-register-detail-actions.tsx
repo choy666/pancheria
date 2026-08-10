@@ -1,19 +1,15 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CAJA_API } from '@/config/api';
+import type { CashRegister } from '@/config/caja';
 
-interface CashRegister {
-  id: number;
-  status: 'open' | 'closed';
-  deletedAt: string | null;
-}
-
-interface CashRegisterDetailActionsProps {
-  cashRegister: CashRegister;
+type CashRegisterDetailActionsProps = {
+  cashRegister: Pick<CashRegister, 'id' | 'status' | 'deletedAt'>;
   fromTrash?: boolean;
-}
+};
 
 export function CashRegisterDetailActions({
   cashRegister,
@@ -30,9 +26,8 @@ export function CashRegisterDetailActions({
       return;
 
     try {
-      const response = await fetch(`${CAJA_API}/${cashRegister.id}`, {
+      const response = await authenticatedFetch(`${CAJA_API}/${cashRegister.id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -42,8 +37,8 @@ export function CashRegisterDetailActions({
 
       router.push('/ventas/historial');
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 
@@ -51,11 +46,10 @@ export function CashRegisterDetailActions({
     if (!confirm(`¿Restaurar la caja #${cashRegister.id}?`)) return;
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${CAJA_API}/${cashRegister.id}/restaurar`,
         {
           method: 'POST',
-          credentials: 'include',
         }
       );
 
@@ -66,8 +60,8 @@ export function CashRegisterDetailActions({
 
       router.push('/ventas/historial');
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 
@@ -80,11 +74,10 @@ export function CashRegisterDetailActions({
       return;
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${CAJA_API}/${cashRegister.id}/permanente`,
         {
           method: 'DELETE',
-          credentials: 'include',
         }
       );
 
@@ -95,8 +88,8 @@ export function CashRegisterDetailActions({
 
       router.push('/ventas/historial/eliminadas');
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
 

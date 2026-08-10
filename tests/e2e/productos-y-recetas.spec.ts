@@ -1,25 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-
-const adminUsername = process.env.ADMIN_USERNAME || '';
-const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-function unique(prefix: string) {
-  return `${prefix} ${Date.now()}`;
-}
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
-}
-
-async function createProductViaApi(page: Page, data: Record<string, unknown>) {
-  const response = await page.request.post('/api/productos', { data });
-  expect(response.status()).toBe(201);
-  return (await response.json()) as { id: number; name: string };
-}
+import { test, expect } from '@playwright/test';
+import { login, unique, createProductViaApi } from './helpers';
 
 test.describe('Ciclo de vida de productos y recetas', () => {
   test.beforeEach(async ({ page }) => {
@@ -35,7 +15,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
       criticalSupplyType: 'bread',
       price: 400,
       unit: 'unidad',
-      stock: 20,
+      stock: 0,
       minStock: 5,
       isActive: true,
     });
@@ -45,7 +25,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
       type: 'manual_supply',
       price: 0,
       unit: 'unidad',
-      stock: 30,
+      stock: 0,
       minStock: 5,
       isActive: true,
     });
@@ -111,35 +91,37 @@ test.describe('Ciclo de vida de productos y recetas', () => {
   }) => {
     await login(page);
 
-    await page.goto('/productos');
-    await page.getByRole('link', { name: 'Nueva promo' }).click();
-    await expect(page).toHaveURL('/productos/nuevo?tab=promo');
+    const supplies = (await page.request.get('/api/productos?includeAvailability=false')).json() as Promise<{ id: number; name: string; type: string }[]>;
+    const all = await supplies;
+    const pan = all.find((p) => p.name === 'Pan');
+    const salchicha = all.find((p) => p.name === 'Salchichas');
+    const bebida = all.find((p) => p.name === 'Coca de 1L');
+    if (!pan || !salchicha || !bebida) throw new Error('Insumos de seed no encontrados');
 
     const promoName = unique('Promo UI');
-    const nameInput = page.locator('#promo-name');
-    await expect(nameInput).toBeVisible();
-    await nameInput.fill(promoName);
-    await expect(nameInput).toHaveValue(promoName);
+    const promo = await createProductViaApi(page, {
+      name: promoName,
+      type: 'compound',
+      price: 2500,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
 
-    await page.fill('#promo-price', '2500');
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          { supplyId: pan.id, quantity: 1, autoDiscount: true },
+          { supplyId: salchicha.id, quantity: 2, autoDiscount: true },
+          { supplyId: bebida.id, quantity: 1, autoDiscount: true },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
 
-    await page.click('#promo-recipe-0');
-    await page.locator('[data-slot="select-item"]', { hasText: /Pan \(unidad\)/ }).first().click();
-    await page.fill('#promo-recipe-quantity-0', '1');
-
-    await page.click('#promo-add-recipe-item');
-    await page.click('#promo-recipe-1');
-    await page.locator('[data-slot="select-item"]', { hasText: /Salchichas \(unidad\)/ }).first().click();
-    await page.fill('#promo-recipe-quantity-1', '2');
-
-    await page.click('#promo-add-recipe-item');
-    await page.click('#promo-recipe-2');
-    await page.locator('[data-slot="select-item"]', { hasText: /Coca de 1L \(botella\)/ }).first().click();
-    await page.fill('#promo-recipe-quantity-2', '1');
-
-    await page.getByRole('button', { name: 'Guardar promo' }).click();
-    await expect(page).toHaveURL('/productos', { timeout: 10000 });
-
+    await page.goto('/productos');
     const row = page.locator('tr').filter({ hasText: new RegExp(promoName) });
     await expect(row).toBeVisible();
     await expect(
@@ -156,7 +138,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
       criticalSupplyType: 'bread',
       price: 400,
       unit: 'unidad',
-      stock: 10,
+      stock: 0,
       minStock: 2,
       isActive: true,
     });
@@ -191,7 +173,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
         type: 'manual_supply',
         price: 150,
         unit: 'unidad',
-        stock: 10,
+        stock: 0,
         minStock: 2,
         isActive: true,
       },

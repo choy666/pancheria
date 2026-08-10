@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatTime } from '@/lib/date';
@@ -62,11 +63,9 @@ export function SalesHistory({ sales, allowCancel = true }: SalesHistoryProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${VENTAS_API}/${selectedSale.id}/anular`, {
+      const response = await authenticatedFetch(`${VENTAS_API}/${selectedSale.id}/anular`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ reason }),
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }),
       });
 
       if (!response.ok) {
@@ -78,8 +77,8 @@ export function SalesHistory({ sales, allowCancel = true }: SalesHistoryProps) {
       setReason('');
       setIsDialogOpen(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
     }

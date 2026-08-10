@@ -1,26 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-import { ensureCashRegisterClosed } from './helpers';
-
-const adminUsername = process.env.ADMIN_USERNAME || '';
-const adminPassword = process.env.ADMIN_PASSWORD || '';
-
-function unique(prefix: string) {
-  return `${prefix} ${Date.now()}`;
-}
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
-}
-
-async function createProduct(page: Page, data: Record<string, unknown>) {
-  const response = await page.request.post('/api/productos', { data });
-  expect(response.status()).toBe(201);
-  return (await response.json()) as { id: number; name: string };
-}
+import {
+  ensureCashRegisterClosed,
+  login,
+  unique,
+  createProductViaApi,
+} from './helpers';
 
 async function createRecipe(
   page: Page,
@@ -38,10 +22,11 @@ async function adjustStock(
   page: Page,
   productId: number,
   quantity: number,
-  reason: string
+  reason: string,
+  type = 'manual_adjustment'
 ) {
   const response = await page.request.post('/api/stock/ajustar', {
-    data: { productId, quantity, reason },
+    data: { productId, quantity, reason, type },
   });
   expect(response.status()).toBe(200);
   return response.json();
@@ -56,7 +41,7 @@ test.describe('Flujo completo de un día de operación', () => {
   test('operación típica: productos, receta, venta, cierre y CSV', async ({
     page,
   }) => {
-    const pan = await createProduct(page, {
+    const pan = await createProductViaApi(page, {
       name: unique('Pan de flujo'),
       type: 'critical_supply',
       criticalSupplyType: 'bread',
@@ -67,7 +52,7 @@ test.describe('Flujo completo de un día de operación', () => {
       isActive: true,
     });
 
-    const salchicha = await createProduct(page, {
+    const salchicha = await createProductViaApi(page, {
       name: unique('Salchicha de flujo'),
       type: 'critical_supply',
       criticalSupplyType: 'sausage',
@@ -78,7 +63,7 @@ test.describe('Flujo completo de un día de operación', () => {
       isActive: true,
     });
 
-    const bebida = await createProduct(page, {
+    const bebida = await createProductViaApi(page, {
       name: unique('Gaseosa de flujo'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
@@ -89,7 +74,7 @@ test.describe('Flujo completo de un día de operación', () => {
       isActive: true,
     });
 
-    const combo = await createProduct(page, {
+    const combo = await createProductViaApi(page, {
       name: unique('Combo de flujo'),
       type: 'compound',
       price: 1500,
@@ -104,9 +89,9 @@ test.describe('Flujo completo de un día de operación', () => {
       { supplyId: salchicha.id, quantity: 1, autoDiscount: true },
     ]);
 
-    await adjustStock(page, pan.id, 10, 'Stock inicial de pan para flujo');
-    await adjustStock(page, salchicha.id, 8, 'Stock inicial de salchicha para flujo');
-    await adjustStock(page, bebida.id, 5, 'Stock inicial de bebida para flujo');
+    await adjustStock(page, pan.id, 10, 'Stock inicial de pan para flujo', 'restock');
+    await adjustStock(page, salchicha.id, 8, 'Stock inicial de salchicha para flujo', 'restock');
+    await adjustStock(page, bebida.id, 5, 'Stock inicial de bebida para flujo', 'restock');
 
     await page.goto('/ventas');
     await expect(page.getByText('No hay una caja abierta.')).toBeVisible();

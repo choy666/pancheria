@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
-import { logError } from '@/lib/logger';
 import { parseId } from '@/lib/id';
-import { DomainError, NotFoundError, UnauthorizedError } from '@/domain/errors';
+import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
-  try {
+export const DELETE = withApiErrorHandling(
+  async (_request: NextRequest, { params }: RouteParams) => {
     await requireAuth();
     const { id } = await params;
     const cashRegisterId = parseId(id);
@@ -27,23 +23,5 @@ export async function DELETE(
       cashRegisterId
     );
     return NextResponse.json(result);
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
-
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 });
-    }
-
-    if (error instanceof DomainError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    logError('Error al eliminar caja permanentemente', error);
-    return NextResponse.json(
-      { error: 'Error al eliminar caja permanentemente' },
-      { status: 500 }
-    );
   }
-}
+);

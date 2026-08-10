@@ -9,12 +9,16 @@ import {
   restoreProduct,
 } from './productService';
 import * as productRepository from '@/repositories/productRepository';
+import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
+import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import { ValidationError, NotFoundError } from '@/domain/errors';
+import type { ProductRow } from '@/domain/types';
 
 jest.mock('@/repositories/productRepository');
+jest.mock('@/repositories/recipeRepository');
 jest.mock('@/application/services/saleService');
 jest.mock('@/db', () => ({
   db: {
@@ -22,7 +26,7 @@ jest.mock('@/db', () => ({
     where: jest.fn().mockResolvedValue(undefined),
     query: {
       recipes: {
-        findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
     },
   },
@@ -31,11 +35,14 @@ jest.mock('@/db', () => ({
 const mockedProductRepository = productRepository as jest.Mocked<
   typeof productRepository
 >;
+const mockedRecipeRepository = recipeRepository as jest.Mocked<
+  typeof recipeRepository
+>;
 const mockedSaleService = saleService as jest.Mocked<typeof saleService>;
 const mockedDb = db as unknown as {
   delete: jest.Mock;
   where: jest.Mock;
-  query: { recipes: { findFirst: jest.Mock } };
+  query: { recipes: { findMany: jest.Mock } };
 };
 
 describe('productService', () => {
@@ -48,7 +55,7 @@ describe('productService', () => {
       mockedProductRepository.findAll.mockResolvedValue([
         { id: 1, name: 'Pan' },
         { id: 2, name: 'Gaseosa' },
-      ] as any);
+      ] as ProductRow[]);
 
       const result = await listProducts();
 
@@ -60,7 +67,7 @@ describe('productService', () => {
       mockedProductRepository.findAll.mockResolvedValue([
         { id: 1, name: 'Pan', deletedAt: null },
         { id: 2, name: 'Pan viejo', deletedAt: new Date() },
-      ] as any);
+      ] as ProductRow[]);
 
       const result = await listProducts(true);
 
@@ -74,7 +81,7 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         name: 'Pan',
-      } as any);
+      } as ProductRow);
 
       const result = await getProductById(1);
 
@@ -96,7 +103,7 @@ describe('productService', () => {
     test('lista los productos activos', async () => {
       mockedProductRepository.findActive.mockResolvedValue([
         { id: 1, name: 'Pan', isActive: true },
-      ] as any);
+      ] as ProductRow[]);
 
       const result = await listActiveProducts();
 
@@ -112,7 +119,7 @@ describe('productService', () => {
         { id: 1, name: 'Panchuque', type: 'compound' },
         { id: 2, name: 'Pritty', type: 'critical_supply', criticalSupplyType: 'beverage' },
         { id: 3, name: 'Aderezo', type: 'service' },
-      ] as any);
+      ] as ProductRow[]);
 
       mockedSaleService.calculateAvailabilityForProductIds.mockResolvedValue({
         1: 4,
@@ -139,7 +146,7 @@ describe('productService', () => {
           type: 'critical_supply',
           price: 100,
           unit: 'unidad',
-        } as any)
+        } as ProductRow)
       ).rejects.toThrow(ValidationError);
     });
 
@@ -151,7 +158,7 @@ describe('productService', () => {
           criticalSupplyType: 'bread',
           price: 0,
           unit: 'unidad',
-        } as any)
+        } as unknown as ProductInsert)
       ).rejects.toThrow(ValidationError);
     });
 
@@ -162,22 +169,31 @@ describe('productService', () => {
           type: 'manual_supply',
           price: 150,
           unit: 'unidad',
-        } as any)
+        } as unknown as ProductInsert)
       ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
     });
 
-    test('crea un producto válido', async () => {
+    test('crea un producto con stock y minStock en 0', async () => {
       const data = {
         name: 'Ketchup',
         type: 'manual_supply',
         price: 0,
         unit: 'unidad',
-      } as any;
+        stock: 10,
+        minStock: 5,
+      } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as any);
+      mockedProductRepository.create.mockImplementation((created: ProductInsert) =>
+        Promise.resolve({ id: 1, ...created } as ProductRow)
+      );
 
       const result = await createProduct(data);
       expect(result!.id).toBe(1);
+      expect(result!.stock).toBe(0);
+      expect(result!.minStock).toBe(0);
+      expect(mockedProductRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stock: 0, minStock: 0 })
+      );
     });
 
     test('crea un insumo crítico con tipo válido', async () => {
@@ -187,28 +203,39 @@ describe('productService', () => {
         criticalSupplyType: 'bread',
         price: 100,
         unit: 'unidad',
-      } as any;
+        stock: 20,
+        minStock: 10,
+      } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as any);
+      mockedProductRepository.create.mockImplementation((created: ProductInsert) =>
+        Promise.resolve({ id: 1, ...created } as ProductRow)
+      );
 
       const result = await createProduct(data);
       expect(result!.id).toBe(1);
       expect(result!.criticalSupplyType).toBe('bread');
+      expect(result!.stock).toBe(0);
+      expect(result!.minStock).toBe(0);
     });
 
-    test('crea un producto compuesto', async () => {
+    test('crea un producto compuesto y fuerza stock y minStock a 0', async () => {
       const data = {
         name: 'Panchuque',
         type: 'compound',
         price: 1500,
         unit: 'unidad',
-      } as any;
+        stock: 10,
+        minStock: 5,
+      } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as any);
+      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
       const result = await createProduct(data);
       expect(result!.id).toBe(1);
       expect(result!.type).toBe('compound');
+      expect(mockedProductRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stock: 0, minStock: 0 })
+      );
     });
 
     test('crea un servicio sin tipo crítico', async () => {
@@ -217,58 +244,98 @@ describe('productService', () => {
         type: 'service',
         price: 500,
         unit: 'unidad',
-      } as any;
+        stock: 5,
+        minStock: 2,
+      } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as any);
+      mockedProductRepository.create.mockImplementation((created: ProductInsert) =>
+        Promise.resolve({ id: 1, ...created } as ProductRow)
+      );
 
       const result = await createProduct(data);
       expect(result!.id).toBe(1);
       expect(result!.type).toBe('service');
+      expect(result!.stock).toBe(0);
+      expect(result!.minStock).toBe(0);
     });
   });
 
   describe('updateProduct', () => {
-    test('rechaza cambio de tipo si el producto es usado en receta', async () => {
+    test('rechaza cambio de tipo si el producto es usado en una receta activa', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'critical_supply',
-      } as any);
+      } as ProductRow);
 
-      mockedDb.query.recipes.findFirst.mockResolvedValue({ id: 1 });
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        { compoundProduct: { deletedAt: null } },
+      ]);
 
       await expect(
         updateProduct(1, {
           type: 'manual_supply',
           price: 0,
-        } as any)
+        } as ProductRow)
       ).rejects.toThrow(ValidationError);
     });
 
-    test('actualiza un producto válido', async () => {
+    test('permite cambiar el tipo si el producto solo se usa en recetas de promos eliminadas', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'critical_supply',
+      } as ProductRow);
+
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        { compoundProduct: { deletedAt: new Date() } },
+      ]);
+
+      const data = { type: 'manual_supply', price: 0 } as unknown as ProductInsert;
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
+
+      const result = await updateProduct(1, data);
+
+      expect(result!.type).toBe('manual_supply');
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
+    });
+
+    test('actualiza un producto válido y descarta stock pero conserva minStock', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
-      } as any);
+      } as ProductRow);
 
-      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
-      const data = { name: 'Nuevo nombre', price: 0 } as any;
-      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
+      const data = {
+        name: 'Nuevo nombre',
+        price: 0,
+        stock: 50,
+        minStock: 10,
+      } as unknown as ProductInsert;
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
       const result = await updateProduct(1, data);
       expect(result!.name).toBe('Nuevo nombre');
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.not.objectContaining({ stock: expect.any(Number) })
+      );
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ minStock: 10 })
+      );
     });
 
     test('rechaza un insumo manual con precio', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
-      } as any);
+      } as ProductRow);
 
       await expect(
         updateProduct(1, {
           price: 150,
-        } as any)
+        } as unknown as ProductUpdate)
       ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
     });
 
@@ -276,12 +343,12 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'compound',
-      } as any);
+      } as ProductRow);
 
-      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
-      const data = { type: 'manual_supply', price: 0 } as any;
-      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
+      const data = { type: 'manual_supply', price: 0 } as unknown as ProductInsert;
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
       const result = await updateProduct(1, data);
 
@@ -295,13 +362,13 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
-      } as any);
+      } as ProductRow);
 
       await expect(
         updateProduct(1, {
           criticalSupplyType: 'bread',
           price: 0,
-        } as any)
+        } as unknown as ProductUpdate)
       ).rejects.toThrow(ValidationError);
     });
 
@@ -310,13 +377,13 @@ describe('productService', () => {
         id: 1,
         type: 'critical_supply',
         criticalSupplyType: 'bread',
-      } as any);
+      } as ProductRow);
 
       await expect(
         updateProduct(1, {
           criticalSupplyType: null,
           price: 100,
-        } as any)
+        } as unknown as ProductUpdate)
       ).rejects.toThrow(ValidationError);
     });
 
@@ -324,10 +391,10 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
-      } as any);
+      } as ProductRow);
 
-      const data = { name: 'Nuevo nombre', price: 0 } as any;
-      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
+      const data = { name: 'Nuevo nombre', price: 0 } as unknown as ProductInsert;
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
       const result = await updateProduct(1, data);
 
@@ -340,45 +407,168 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
-      } as any);
+      } as ProductRow);
 
-      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
       const data = {
         type: 'service',
         criticalSupplyType: null,
         price: 200,
-      } as any;
+      } as unknown as ProductInsert;
 
-      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as any);
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
       const result = await updateProduct(1, data);
 
       expect(result!.type).toBe('service');
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          type: 'service',
+          stock: 0,
+          minStock: 0,
+        })
+      );
+    });
+
+    test('fuerza stock y minStock a 0 al actualizar un producto compuesto', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'compound',
+      } as ProductRow);
+
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+
+      const data = {
+        name: 'Panchuque actualizado',
+        price: 2000,
+        stock: 15,
+        minStock: 5,
+      } as unknown as ProductInsert;
+
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
+
+      const result = await updateProduct(1, data);
+
+      expect(result!.name).toBe('Panchuque actualizado');
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ stock: 0, minStock: 0 })
+      );
+    });
+
+    test('fuerza stock y minStock a 0 al actualizar un servicio', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'service',
+      } as ProductRow);
+
+      const data = {
+        name: 'Servicio actualizado',
+        price: 300,
+        stock: 10,
+        minStock: 5,
+      } as unknown as ProductInsert;
+
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
+
+      const result = await updateProduct(1, data);
+
+      expect(result!.name).toBe('Servicio actualizado');
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ stock: 0, minStock: 0 })
+      );
+    });
+
+    test('permite editar minStock en un producto no compuesto', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'manual_supply',
+      } as ProductRow);
+
+      const data = { name: 'Nuevo nombre', price: 0, minStock: 12 } as unknown as ProductInsert;
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
+
+      await updateProduct(1, data);
+
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ minStock: 12 })
+      );
     });
   });
 
   describe('deleteProduct', () => {
-    test('elimina un producto existente', async () => {
-      mockedProductRepository.findById.mockResolvedValue({ id: 1 } as any);
-      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
-      mockedProductRepository.softDelete.mockResolvedValue({ id: 1 } as any);
+    test('marca como eliminado un producto sin recetas', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'critical_supply',
+      } as ProductRow);
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedProductRepository.softDelete.mockResolvedValue({
+        id: 1,
+        deletedAt: new Date(),
+      } as ProductRow);
 
       const result = await deleteProduct(1);
+
       expect(result!.id).toBe(1);
+      expect(mockedRecipeRepository.deleteByCompoundProductId).not.toHaveBeenCalled();
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
     });
 
-    test('rechaza eliminar un producto usado en una receta', async () => {
-      mockedProductRepository.findById.mockResolvedValue({ id: 1 } as any);
-      mockedDb.query.recipes.findFirst.mockResolvedValue({ id: 1 } as any);
+    test('elimina las recetas al marcar como eliminada una promo', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'compound',
+      } as ProductRow);
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedProductRepository.softDelete.mockResolvedValue({
+        id: 1,
+        deletedAt: new Date(),
+      } as ProductRow);
+
+      await deleteProduct(1);
+
+      expect(mockedRecipeRepository.deleteByCompoundProductId).toHaveBeenCalledWith(1);
+      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
+    });
+
+    test('rechaza eliminar un producto usado en una receta activa', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'critical_supply',
+      } as ProductRow);
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        { compoundProduct: { deletedAt: null } },
+      ]);
 
       await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
       await expect(deleteProduct(1)).rejects.toThrow(
         'No se puede eliminar el producto porque está usado en una receta.'
       );
       expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    test('limpia recetas huérfanas al eliminar un insumo de promos eliminadas', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'critical_supply',
+      } as ProductRow);
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        { compoundProduct: { deletedAt: new Date() } },
+      ]);
+      mockedProductRepository.softDelete.mockResolvedValue({
+        id: 1,
+        deletedAt: new Date(),
+      } as ProductRow);
+
+      await deleteProduct(1);
+
+      expect(mockedRecipeRepository.deleteBySupplyId).toHaveBeenCalledWith(1);
+      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
     });
 
     test('lanza NotFoundError si el producto no existe', async () => {
@@ -395,7 +585,7 @@ describe('productService', () => {
         id: 1,
         name: 'Pan',
         deletedAt: null,
-      } as any);
+      } as ProductRow);
 
       const result = await restoreProduct(1);
 

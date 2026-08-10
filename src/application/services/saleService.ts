@@ -19,6 +19,7 @@ import {
   parseMoney,
 } from '@/lib/money';
 import { nowUTC } from '@/lib/date';
+import { safeJsonParse } from '@/lib/json';
 import {
   InsufficientStockError,
   NotFoundError,
@@ -29,15 +30,6 @@ import type { PaymentMethod, ProductRow, SaleItemInput } from '@/domain/types';
 type RecipeWithSupply = typeof recipes.$inferSelect & {
   supply: ProductRow | null;
 };
-
-function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export async function calculateAvailability(productId: number): Promise<number> {
   const product = await productRepository.findById(productId);
@@ -138,34 +130,182 @@ export async function calculateAvailabilityForProductIds(
   return availabilityById;
 }
 
-function availabilityFromRecipes(
-  product: ProductRow,
-  recipesByProduct: Map<number, RecipeWithSupply[]>
-): number {
-  if (product.type === 'compound') {
-    const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
-      (r) => r.autoDiscount
-    );
-    if (criticalItems.length === 0) return 0;
-    return Math.min(
-      ...criticalItems.map((r) =>
-        Math.floor((r.supply?.stock ?? 0) / r.quantity)
-      )
-    );
+export async function validateCartAvailability(
+  items: SaleItemInput[],
+  productIds?: number[]
+): Promise<{
+  availabilityByProduct: Record<number, number>;
+  consumedBySupply: Record<number, number>;
+  shortageByProduct: Record<number, { available: number; required: number; supplyName: string }>;
+}> {
+  const itemProductIds = items.map((item) => item.productId);
+  const allProductIds = Array.from(
+    new Set([...itemProductIds, ...(productIds ?? [])])
+  );
+
+  const productsList = await productRepository.findByIds(allProductIds);
+  const productById = new Map(productsList.map((p) => [p.id, p]));
+
+  for (const item of items) {
+    if (!productById.has(item.productId)) {
+      throw new NotFoundError('Producto', item.productId);
+    }
   }
 
-  if (
-    product.type === 'critical_supply' &&
-    product.criticalSupplyType === 'beverage'
-  ) {
-    return product.stock;
+  const compoundProductIds = productsList
+    .filter((p) => p.type === 'compound')
+    .map((p) => p.id);
+
+  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+  const supplyStockById: Record<number, number> = {};
+  const supplyNameById: Record<number, string> = {};
+
+  if (compoundProductIds.length > 0) {
+    const allRecipes = (await db.query.recipes.findMany({
+      where: inArray(recipes.compoundProductId, compoundProductIds),
+      with: { supply: true },
+    })) as RecipeWithSupply[];
+
+    for (const recipeItem of allRecipes) {
+      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+        recipesByProduct.set(recipeItem.compoundProductId, []);
+      }
+      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+
+      if (recipeItem.autoDiscount) {
+        supplyStockById[recipeItem.supplyId] = recipeItem.supply?.stock ?? 0;
+        supplyNameById[recipeItem.supplyId] =
+          recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
+      }
+    }
   }
 
-  if (product.type === 'service') {
-    return Number.MAX_SAFE_INTEGER;
+  for (const product of productsList) {
+    if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      supplyStockById[product.id] = product.stock;
+      supplyNameById[product.id] = product.name;
+    }
   }
 
-  return 0;
+  const consumedBySupply: Record<number, number> = {};
+
+  for (const item of items) {
+    const product = productById.get(item.productId)!;
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+        consumedBySupply[recipeItem.supplyId] =
+          (consumedBySupply[recipeItem.supplyId] ?? 0) +
+          item.quantity * recipeItem.quantity;
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      consumedBySupply[product.id] =
+        (consumedBySupply[product.id] ?? 0) + item.quantity;
+    }
+  }
+
+  const availabilityByProduct: Record<number, number> = {};
+  const targetProductIds =
+    allProductIds.length > 0 ? allProductIds : itemProductIds;
+
+  for (const productId of targetProductIds) {
+    const product = productById.get(productId);
+    if (!product) {
+      availabilityByProduct[productId] = 0;
+      continue;
+    }
+
+    if (product.type === 'service') {
+      availabilityByProduct[productId] = Number.MAX_SAFE_INTEGER;
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      availabilityByProduct[productId] =
+        (supplyStockById[product.id] ?? 0) -
+        (consumedBySupply[product.id] ?? 0);
+    } else if (product.type === 'compound') {
+      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
+        (r) => r.autoDiscount
+      );
+      if (criticalItems.length === 0) {
+        availabilityByProduct[productId] = 0;
+      } else {
+        availabilityByProduct[productId] = Math.min(
+          ...criticalItems.map((r) => {
+            const stockRemaining =
+              (supplyStockById[r.supplyId] ?? 0) -
+              (consumedBySupply[r.supplyId] ?? 0);
+            return Math.floor(stockRemaining / r.quantity);
+          })
+        );
+      }
+    } else {
+      availabilityByProduct[productId] = 0;
+    }
+  }
+
+  const shortageByProduct: Record<
+    number,
+    { available: number; required: number; supplyName: string }
+  > = {};
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product || product.type === 'service') continue;
+
+    if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      const available = supplyStockById[product.id] ?? 0;
+      const required = consumedBySupply[product.id] ?? 0;
+      if (required > available) {
+        shortageByProduct[product.id] = {
+          available,
+          required,
+          supplyName: supplyNameById[product.id] ?? product.name,
+        };
+      }
+    } else if (product.type === 'compound') {
+      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
+        (r) => r.autoDiscount
+      );
+      let bottleneck: { available: number; required: number; supplyName: string } | null = null;
+      let minCapacity = Infinity;
+
+      for (const recipeItem of criticalItems) {
+        const available = supplyStockById[recipeItem.supplyId] ?? 0;
+        const required = consumedBySupply[recipeItem.supplyId] ?? 0;
+        const capacity = Math.floor(
+          (available - required) / recipeItem.quantity
+        );
+        if (capacity < minCapacity) {
+          minCapacity = capacity;
+          bottleneck = {
+            available,
+            required,
+            supplyName:
+              supplyNameById[recipeItem.supplyId] ??
+              `Insumo ${recipeItem.supplyId}`,
+          };
+        }
+      }
+
+      if (minCapacity < 0 && bottleneck) {
+        shortageByProduct[product.id] = bottleneck;
+      }
+    }
+  }
+
+  return { availabilityByProduct, consumedBySupply, shortageByProduct };
 }
 
 async function updateCashRegisterSummary(
@@ -323,11 +463,20 @@ export async function confirmSale(params: {
         `El producto ${product.name} no está disponible para la venta.`
       );
     }
+  }
 
-    const available = availabilityFromRecipes(product, recipesByProduct);
-    if (available < item.quantity) {
-      throw new InsufficientStockError(product.name, available, item.quantity);
-    }
+  const { shortageByProduct } = await validateCartAvailability(items);
+
+  if (Object.keys(shortageByProduct).length > 0) {
+    const productId = Number(Object.keys(shortageByProduct)[0]);
+    const product = productById.get(productId)!;
+    const shortage = shortageByProduct[productId];
+    throw new InsufficientStockError(
+      product.name,
+      shortage.available,
+      shortage.required,
+      shortage.supplyName !== product.name ? shortage.supplyName : undefined
+    );
   }
 
   return executeInTransaction(async (tx) => {

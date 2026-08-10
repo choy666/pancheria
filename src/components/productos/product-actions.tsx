@@ -1,30 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import {
+  deleteProduct,
+  type DeleteProductState,
+} from '@/app/(panel)/productos/actions';
+
+const initialState: DeleteProductState = null;
 
 interface ProductActionsProps {
   productId: number;
   productName: string;
-  deleteProduct: (formData: FormData) => Promise<void>;
 }
 
-export function ProductActions({
-  productId,
-  productName,
-  deleteProduct,
-}: ProductActionsProps) {
+export function ProductActions({ productId, productName }: ProductActionsProps) {
   const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [state, formAction, isPending] = useActionState(
+    deleteProduct,
+    initialState
+  );
+  const hasSubmittedRef = useRef(false);
 
-  async function handleDelete(formData: FormData) {
-    if (!confirm(`¿Eliminar ${productName}?`)) return;
-    setIsDeleting(true);
-    await deleteProduct(formData);
-    setIsDeleting(false);
-    router.refresh();
+  useEffect(() => {
+    if (hasSubmittedRef.current && !isPending && state === null) {
+      hasSubmittedRef.current = false;
+      router.refresh();
+    }
+  }, [isPending, state, router]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (!confirm(`¿Eliminar ${productName}?`)) {
+      event.preventDefault();
+      return;
+    }
+
+    hasSubmittedRef.current = true;
   }
 
   return (
@@ -34,17 +47,26 @@ export function ProductActions({
           Editar
         </Button>
       </Link>
-      <form action={handleDelete} className="inline">
+      <form action={formAction} className="inline" onSubmit={handleSubmit}>
         <input type="hidden" name="id" value={productId} />
         <Button
           type="submit"
           variant="ghost"
           size="sm"
-          disabled={isDeleting}
+          disabled={isPending}
           className="text-destructive hover:text-destructive"
         >
-          {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          {isPending ? 'Eliminando...' : 'Eliminar'}
         </Button>
+        {state?.error && (
+          <p
+            className="mt-1 max-w-xs text-right text-xs text-destructive"
+            role="alert"
+            aria-live="polite"
+          >
+            {state.error}
+          </p>
+        )}
       </form>
     </div>
   );

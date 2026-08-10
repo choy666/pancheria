@@ -56,13 +56,19 @@ export async function saveRecipe(
       throw new ValidationError(`Insumo con ID ${item.supplyId} no encontrado.`);
     }
 
-    if (item.autoDiscount && supply.type !== 'critical_supply') {
+    if (supply.type !== 'critical_supply') {
+      if (item.autoDiscount) {
+        throw new ValidationError(
+          `El insumo ${supply.name} no es crítico y no puede tener descuento automático.`
+        );
+      }
+
       throw new ValidationError(
-        `El insumo ${supply.name} no es crítico y no puede tener descuento automático.`
+        `El insumo ${supply.name} no es crítico y no puede usarse en recetas.`
       );
     }
 
-    if (item.autoDiscount && supply.deletedAt) {
+    if (supply.deletedAt) {
       throw new ValidationError(
         `El insumo ${supply.name} está eliminado y no puede usarse en recetas.`
       );

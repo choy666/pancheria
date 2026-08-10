@@ -24,7 +24,7 @@ describe('GET /api/caja/historial', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedRequireAuth.mockResolvedValue({ user: { name: 'admin' } } as any);
+    mockedRequireAuth.mockResolvedValue({ user: { name: 'admin' } } as Awaited<ReturnType<typeof requireAuth>>);
   });
 
   function buildRequest(search: string): NextRequest {
@@ -45,9 +45,9 @@ describe('GET /api/caja/historial', () => {
   });
 
   test('devuelve el historial de cajas con status 200', async () => {
-    const history = [{ id: 1, status: 'closed' }];
+    const history = [{ id: 1, status: 'closed' as const }];
     mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue(
-      history as any
+      history as unknown as Awaited<ReturnType<typeof cashRegisterService.listCashRegisterHistory>>
     );
 
     const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
@@ -63,7 +63,7 @@ describe('GET /api/caja/historial', () => {
   });
 
   test('propaga el filtro de estado al servicio', async () => {
-    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue([] as any);
+    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue([]);
 
     await GET(buildRequest('start=2025-01-01&end=2025-01-31&status=open'));
 
@@ -85,9 +85,7 @@ describe('GET /api/caja/historial', () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
-    expect(body.error).toBe(
-      'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo.'
-    );
+    expect(body.error).toBe('Error de conexión con la base de datos');
   });
 
   test('devuelve 500 ante cualquier error inesperado del servicio', async () => {
@@ -99,6 +97,6 @@ describe('GET /api/caja/historial', () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe('Error al listar cajas');
+    expect(body.error).toBe('Error interno del servidor');
   });
 });

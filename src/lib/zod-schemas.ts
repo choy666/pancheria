@@ -44,21 +44,29 @@ export const productSchema = productBaseSchema
     }
   );
 
-// Esquema parcial para actualizaciones: no incluye el .refine() cruzado
-// porque Zod v4 no permite .partial() sobre esquemas con refinamientos.
-// La validación cruzada sigue ejecutándose en productService.updateProduct.
-export const productUpdateSchema = productBaseSchema.partial().refine(
-  (data) => {
-    if (data.type === 'manual_supply' && data.price !== undefined) {
-      return data.price === 0;
+export const productUpdateSchema = productBaseSchema
+  .partial()
+  .refine(
+    (data) => !(data.type === 'critical_supply' && !data.criticalSupplyType),
+    {
+      message: 'Los insumos críticos deben tener un tipo de insumo crítico.',
+      path: ['criticalSupplyType'],
     }
-    return true;
-  },
-  {
-    message: 'Los insumos manuales no pueden tener precio.',
-    path: ['price'],
-  }
-);
+  )
+  .refine(
+    (data) => !(data.type !== 'critical_supply' && data.criticalSupplyType),
+    {
+      message: 'Solo los insumos críticos pueden tener un tipo de insumo crítico.',
+      path: ['criticalSupplyType'],
+    }
+  )
+  .refine(
+    (data) => !(data.type === 'manual_supply' && data.price !== 0),
+    {
+      message: 'Los insumos manuales no pueden tener precio.',
+      path: ['price'],
+    }
+  );
 
 export const recipeItemSchema = z
   .object({
@@ -67,16 +75,21 @@ export const recipeItemSchema = z
     autoDiscount: z.boolean(),
     supplyType: productTypeSchema.optional(),
   })
-  .refine(
-    (data) =>
-      !data.autoDiscount ||
-      !data.supplyType ||
-      data.supplyType === 'critical_supply',
-    {
-      message: 'Solo los insumos críticos pueden tener descuento automático.',
-      path: ['autoDiscount'],
+  .superRefine((data, ctx) => {
+    if (!data.supplyType || data.supplyType === 'critical_supply') {
+      return;
     }
-  );
+
+    const message = data.autoDiscount
+      ? 'Solo los insumos críticos pueden tener descuento automático.'
+      : 'La receta solo puede incluir insumos críticos.';
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message,
+      path: ['supplyType'],
+    });
+  });
 
 export const recipeSchema = z
   .object({
@@ -115,10 +128,23 @@ export const saleSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
+export const cartAvailabilitySchema = z.object({
+  items: z.array(saleItemSchema),
+  productIds: z.array(z.number().int().positive()).optional(),
+});
+
+export const stockMovementTypeSchema = z.enum([
+  'sale',
+  'cancellation',
+  'manual_adjustment',
+  'restock',
+]);
+
 export const stockAdjustmentSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int(),
   reason: z.string().min(3).max(500),
+  type: stockMovementTypeSchema.default('manual_adjustment'),
 });
 
 export const cancellationSchema = z.object({

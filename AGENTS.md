@@ -94,6 +94,84 @@ Copiar `.env.example` a `.env.local` y completar:
 3. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
 4. Hacer push a `main` para que Vercel haga el deploy automático.
 
+## Testing
+
+### Setup de tests
+
+`jest.setup.ts` registra automáticamente `afterEach(cleanup)` de `@testing-library/react` para desmontar componentes y hooks entre tests. Esto evita actualizaciones de estado tardías y warnings de `act(...)`.
+
+```ts
+import '@testing-library/jest-dom';
+import { cleanup } from '@testing-library/react';
+
+afterEach(cleanup);
+```
+
+### Hooks con carga asíncrona
+
+Todo hook que dispare `fetch` en `useEffect` debe:
+
+1. Declarar una bandera `cancelled` o usar un `useRef` para saber si aún está montado.
+2. No llamar `setState` si el componente ya se desmontó.
+3. Retornar una función de cleanup que active la bandera.
+
+Ejemplo con `useRef` (reutilizable en hooks expuestos fuera de un `useEffect`):
+
+```ts
+const isMountedRef = useRef(true);
+
+useEffect(() => {
+  isMountedRef.current = true;
+  queueMicrotask(() => void load());
+  return () => {
+    isMountedRef.current = false;
+  };
+}, []);
+
+async function load() {
+  try {
+    const data = await fetchData();
+    if (!isMountedRef.current) return;
+    setData(data);
+  } catch (error) {
+    if (!isMountedRef.current) return;
+    setError(...);
+  } finally {
+    if (isMountedRef.current) setLoading(false);
+  }
+}
+```
+
+Ejemplo con bandera local dentro del `useEffect`:
+
+```ts
+useEffect(() => {
+  let cancelled = false;
+
+  async function load() {
+    const data = await fetchData();
+    if (cancelled) return;
+    setData(data);
+  }
+
+  load();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+```
+
+### Tests de hooks
+
+- Si un hook inicia una carga asíncrona, el test debe esperar a que se estabilice con `waitFor`:
+  ```ts
+  const { result } = renderHook(() => useMyHook());
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  ```
+- No dejar tests sincrónicos que terminen antes de que el `useEffect` asíncrono complete.
+- Para eventos asíncronos, preferir `await act(async () => { ... })` o `userEvent` sobre `fireEvent` cuando sea posible.
+
 ## Troubleshooting
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
@@ -102,3 +180,12 @@ Copiar `.env.example` a `.env.local` y completar:
 - Preferir usar la misma URL de Neon que en Vercel (`POSTGRES_URL`) para que dev y prod se comporten igual.
 - Revisar `src/db/index.ts` para entender el orden de resolución: `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`.
 - Para migraciones, `drizzle.config.ts` usa `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.
+
+## Auditorías e informes
+
+El directorio `.devin/informes` contiene la guía de lecciones aprendidas de las auditorías realizadas en el proyecto.
+
+- Lecciones aprendidas: `.devin/informes/lecciones-aprendidas.md`
+- Guía para escribir prompts: `.devin/prompts/README.md`
+
+Antes de iniciar tareas de auditoría, refactorización, integridad de datos, configuración de entorno o escritura de prompts, consultar estos archivos para evitar regresiones documentadas.

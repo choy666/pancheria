@@ -1,29 +1,14 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useEffect, useState, useCallback } from 'react';
 import { subDays } from 'date-fns';
 import {
   CAJA_HISTORIAL_API,
   CAJA_ELIMINADAS_API,
 } from '@/config/api';
-import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
+import { DEFAULT_CAJA_HISTORY_DAYS, type CashRegister } from '@/config/caja';
 import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
-
-export interface CashRegister {
-  id: number;
-  openedAt: string;
-  closedAt: string | null;
-  openedBy: string;
-  closedBy: string | null;
-  status: 'open' | 'closed';
-  autoClosed: boolean;
-  total: number;
-  cashTotal: number;
-  transferTotal: number;
-  totalSales: number;
-  deletedAt: string | null;
-  createdAt: string;
-}
 
 interface LoadSuccess {
   data: CashRegister[];
@@ -51,7 +36,7 @@ export interface UseCashRegisterHistoryReturn {
   refresh: () => void;
 }
 
-function loadCashRegisterHistory(
+async function loadCashRegisterHistory(
   statusFilter: 'all' | 'closed',
   deletedOnly: boolean
 ): Promise<LoadResult> {
@@ -72,25 +57,25 @@ function loadCashRegisterHistory(
     params.set('status', statusFilter);
   }
 
-  return fetch(`${endpoint}?${params}`, {
-    credentials: 'include',
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar historial de cajas');
-      }
+  try {
+    const response = await authenticatedFetch(`${endpoint}?${params}`);
 
-      const data = (await response.json()) as CashRegister[];
-      return {
-        data,
-        startDate: startStr,
-        endDate: endStr,
-      };
-    })
-    .catch((err) => ({
-      error: err instanceof Error ? err.message : 'Error desconocido',
-    }));
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      throw new Error(data.error || 'Error al cargar historial de cajas');
+    }
+
+    const data = (await response.json()) as CashRegister[];
+    return {
+      data,
+      startDate: startStr,
+      endDate: endStr,
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Error desconocido',
+    };
+  }
 }
 
 export function useCashRegisterHistory({
@@ -103,11 +88,14 @@ export function useCashRegisterHistory({
   useEffect(() => {
     let cancelled = false;
 
-    void loadCashRegisterHistory(statusFilter, deletedOnly).then((res) => {
+    async function load() {
+      const res = await loadCashRegisterHistory(statusFilter, deletedOnly);
       if (!cancelled) {
         setResult(res);
       }
-    });
+    }
+
+    void load();
 
     return () => {
       cancelled = true;

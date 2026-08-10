@@ -314,6 +314,57 @@ describe('StockList', () => {
     await waitFor(() => expect(screen.getByText('Error desconocido')).toBeInTheDocument());
   });
 
+  test('pre-llena motivo y envía type restock para carga inicial', async () => {
+    const products = [
+      {
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+        criticalSupplyType: 'bread',
+        stock: 0,
+        minStock: 5,
+        unit: 'unidad',
+        isLow: false,
+      },
+    ];
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse({ productId: 1, newStock: 10 }))
+      .mockResolvedValueOnce(createFetchResponse(products));
+
+    render(<StockList />);
+
+    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
+
+    await waitFor(() => expect(screen.getByText('Ajustar stock: Pan')).toBeInTheDocument());
+
+    const quantityInput = screen.getByLabelText('Cantidad (positiva para sumar, negativa para restar)');
+
+    fireEvent.change(quantityInput, { target: { value: '10' } });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Motivo')).toHaveValue('Stock inicial')
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar ajuste' }));
+    });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    const adjustCall = (global.fetch as jest.Mock).mock.calls[1];
+    const body = JSON.parse(adjustCall[1].body);
+    expect(body).toMatchObject({
+      productId: 1,
+      quantity: 10,
+      reason: 'Stock inicial',
+      type: 'restock',
+    });
+  });
+
   test('cierra el diálogo de ajuste al hacer clic en el botón cerrar', async () => {
     const products = [
       {

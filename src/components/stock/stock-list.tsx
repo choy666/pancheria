@@ -1,5 +1,6 @@
 'use client';
 
+import { authenticatedFetch } from '@/lib/fetch';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,23 +46,35 @@ export function StockList() {
   );
   const [quantity, setQuantity] = useState(0);
   const [reason, setReason] = useState('');
+  const [adjustmentType, setAdjustmentType] = useState<
+    'manual_adjustment' | 'restock'
+  >('manual_adjustment');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
       try {
-        const response = await fetch(STOCK_API, { credentials: 'include' });
+        const response = await authenticatedFetch(STOCK_API, {});
         if (!response.ok) throw new Error('Error al cargar stock');
-        setProducts((await response.json()) as StockProduct[]);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        const data = (await response.json()) as StockProduct[];
+        if (!cancelled) setProducts(data);
+      } catch (error) {
+        if (!cancelled) {
+          setError(error instanceof Error ? error.message : 'Error desconocido');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleSubmit() {
@@ -71,14 +84,13 @@ export function StockList() {
     setError(null);
 
     try {
-      const response = await fetch(STOCK_AJUSTAR_API, {
+      const response = await authenticatedFetch(STOCK_AJUSTAR_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           productId: selectedProduct.id,
           quantity,
           reason,
+          type: adjustmentType,
         }),
       });
 
@@ -91,11 +103,12 @@ export function StockList() {
       setDialogMode(null);
       setQuantity(0);
       setReason('');
+      setAdjustmentType('manual_adjustment');
 
-      const reload = await fetch(STOCK_API, { credentials: 'include' });
+      const reload = await authenticatedFetch(STOCK_API, {});
       if (reload.ok) setProducts((await reload.json()) as StockProduct[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
     }
@@ -149,6 +162,7 @@ export function StockList() {
                         setDialogMode('adjust');
                         setQuantity(0);
                         setReason('');
+                        setAdjustmentType('manual_adjustment');
                         setError(null);
                       }}
                     >
@@ -191,7 +205,22 @@ export function StockList() {
                 id="adjust-quantity"
                 type="number"
                 value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setQuantity(next);
+
+                  if (!selectedProduct) return;
+
+                  if (selectedProduct.stock === 0 && next > 0 && !reason) {
+                    setReason('Stock inicial');
+                    setAdjustmentType('restock');
+                  } else if (
+                    selectedProduct.stock === 0 &&
+                    next <= 0
+                  ) {
+                    setAdjustmentType('manual_adjustment');
+                  }
+                }}
               />
             </div>
             <div className="space-y-2">

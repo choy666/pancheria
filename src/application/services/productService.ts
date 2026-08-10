@@ -2,8 +2,11 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import * as productRepository from '@/repositories/productRepository';
+import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
+import { ZodError } from 'zod';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
 
 export async function listProducts(includeDeleted = false) {
@@ -31,52 +34,43 @@ export async function listActiveProductsWithAvailability() {
 }
 
 export async function createProduct(data: ProductInsert) {
-  if (data.type === 'critical_supply' && !data.criticalSupplyType) {
-    throw new ValidationError(
-      'Los insumos críticos deben tener un tipo de insumo crítico.'
-    );
+  let product;
+
+  try {
+    product = productSchema.parse(data);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new ValidationError(error.issues.map((e) => e.message).join('. '));
+    }
+    throw error;
   }
 
-  if (data.type !== 'critical_supply' && data.criticalSupplyType) {
-    throw new ValidationError(
-      'Solo los insumos críticos pueden tener un tipo de insumo crítico.'
-    );
-  }
+  product.stock = 0;
+  product.minStock = 0;
 
-  if (data.type === 'manual_supply' && data.price !== 0) {
-    throw new ValidationError('Los insumos manuales no pueden tener precio.');
-  }
-
-  return productRepository.create(data);
+  return productRepository.create(product);
 }
 
 export async function updateProduct(id: number, data: ProductUpdate) {
   const existing = await getProductById(id);
-  const updateData = { ...data };
 
-  const effectiveType = updateData.type ?? existing.type;
-  const effectiveCriticalSupplyType =
-    updateData.criticalSupplyType !== undefined
-      ? updateData.criticalSupplyType
-      : existing.criticalSupplyType;
-
-  if (effectiveType === 'critical_supply' && !effectiveCriticalSupplyType) {
-    throw new ValidationError(
-      'Los insumos críticos deben tener un tipo de insumo crítico.'
-    );
-  }
-
-  if (effectiveType !== 'critical_supply' && effectiveCriticalSupplyType) {
-    throw new ValidationError(
-      'Solo los insumos críticos pueden tener un tipo de insumo crítico.'
-    );
-  }
-
-  if (effectiveType === 'manual_supply') {
-    if (updateData.price !== undefined && updateData.price !== 0) {
-      throw new ValidationError('Los insumos manuales no pueden tener precio.');
+  try {
+    productUpdateSchema.parse({ ...existing, ...data });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new ValidationError(error.issues.map((e) => e.message).join('. '));
     }
-    updateData.price = 0;
+    throw error;
+  }
+
+  const updateData = { ...data };
+  const effectiveType = updateData.type ?? existing.type;
+
+  delete updateData.stock;
+
+  if (effectiveType === 'compound' || effectiveType === 'service') {
+    updateData.stock = 0;
+    updateData.minStock = 0;
   }
 
   if (updateData.type && updateData.type !== existing.type) {
@@ -84,11 +78,16 @@ export async function updateProduct(id: number, data: ProductUpdate) {
       await db.delete(recipes).where(eq(recipes.compoundProductId, id));
     }
 
-    const usedAsSupply = await db.query.recipes.findFirst({
+    const usedAsSupply = await db.query.recipes.findMany({
       where: eq(recipes.supplyId, id),
+      with: { compoundProduct: true },
     });
 
-    if (usedAsSupply) {
+    const usedInActiveRecipe = usedAsSupply.some(
+      (recipe) => recipe.compoundProduct && !recipe.compoundProduct.deletedAt
+    );
+
+    if (usedInActiveRecipe) {
       throw new ValidationError(
         'No se puede cambiar el tipo porque el producto está usado en una receta.'
       );
@@ -99,16 +98,33 @@ export async function updateProduct(id: number, data: ProductUpdate) {
 }
 
 export async function deleteProduct(id: number) {
-  await getProductById(id);
+  const product = await getProductById(id);
 
-  const usedAsSupply = await db.query.recipes.findFirst({
+  if (product.type === 'compound') {
+    await recipeRepository.deleteByCompoundProductId(id);
+  }
+
+  const usedAsSupply = await db.query.recipes.findMany({
     where: eq(recipes.supplyId, id),
+    with: { compoundProduct: true },
   });
 
-  if (usedAsSupply) {
+  const usedInActiveRecipe = usedAsSupply.some(
+    (recipe) => recipe.compoundProduct && !recipe.compoundProduct.deletedAt
+  );
+
+  if (usedInActiveRecipe) {
     throw new ValidationError(
       'No se puede eliminar el producto porque está usado en una receta.'
     );
+  }
+
+  const usedInDeletedProduct = usedAsSupply.some(
+    (recipe) => recipe.compoundProduct && recipe.compoundProduct.deletedAt
+  );
+
+  if (usedInDeletedProduct) {
+    await recipeRepository.deleteBySupplyId(id);
   }
 
   return productRepository.softDelete(id);
@@ -117,3 +133,4 @@ export async function deleteProduct(id: number) {
 export async function restoreProduct(id: number) {
   return productRepository.restore(id);
 }
+

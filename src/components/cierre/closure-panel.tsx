@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { authenticatedFetch } from '@/lib/fetch';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CIERRE_API } from '@/config/api';
+import { safeJsonParse } from '@/lib/json';
 
 interface Closure {
   id: number;
@@ -27,33 +29,20 @@ export function ClosurePanel() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const response = await fetch(`${CIERRE_API}?date=${date}`, { credentials: 'include' });
-        if (response.ok) {
-          setClosure((await response.json()) as Closure | null);
-        } else {
-          setClosure(null);
-        }
-      } catch {
-        setClosure(null);
-      }
-    }
-
-    load();
-  }, [date]);
+  function handleDateChange(value: string) {
+    setDate(value);
+    setClosure(null);
+    setError(null);
+  }
 
   async function handleGenerate() {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetch(CIERRE_API, {
+      const response = await authenticatedFetch(CIERRE_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ date }),
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }),
       });
 
       if (!response.ok) {
@@ -63,19 +52,21 @@ export function ClosurePanel() {
 
       setClosure((await response.json()) as Closure);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const productsSummary = closure
-    ? (JSON.parse(closure.productsSummary) as Record<string, number>)
-    : {};
-  const criticalSuppliesSummary = closure
-    ? (JSON.parse(closure.criticalSuppliesSummary) as Record<string, number>)
-    : {};
+  const productsSummary = safeJsonParse<Record<string, number>>(
+    closure?.productsSummary,
+    {}
+  );
+  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
+    closure?.criticalSuppliesSummary,
+    {}
+  );
 
   function downloadCsv() {
     if (!closure) return;
@@ -124,7 +115,7 @@ export function ClosurePanel() {
             id="date"
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => handleDateChange(e.target.value)}
           />
         </div>
         <Button onClick={handleGenerate} disabled={isSubmitting} className="w-full sm:w-auto">

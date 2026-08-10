@@ -1,0 +1,61 @@
+# Lecciones aprendidas — Guía rápida para prompts y auditorías futuras
+
+> Resumen de lecciones extraídas de las auditorías del proyecto `pancheria`. Incluir este archivo en prompts futuros para evitar regresiones documentadas.
+
+## Uso recomendado
+
+- Incluir este archivo como referencia en prompts de **consolidación de calidad**, **configuración o conexión a base de datos**, **eliminación, soft delete o integridad de datos**, y cualquier otra tarea de auditoría.
+- Para crear prompts nuevos, seguir la [guía de escritura de prompts](file:///C%3A/developer/paginas/pancheria/.devin/prompts/README.md).
+- Índice del directorio de informes: [README.md](file:///C%3A/developer/paginas/pancheria/.devin/informes/README.md).
+- Reglas y comandos del proyecto: <file:///C%3A/developer/paginas/pancheria/AGENTS.md>.
+
+## 1. Configuración de entorno y base de datos
+
+- **No usar `DATABASE_URL` apuntando a `localhost` salvo que haya un PostgreSQL local corriendo.** En desarrollo se recomienda apuntar a la misma base de Neon usada en producción para garantizar comportamiento idéntico.
+- **Soportar la jerarquía de variables de Vercel Postgres.** El runtime debe probar `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`. Las migraciones deben probar `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.
+- **Nunca hardcodear credenciales, secretos ni URLs de API en el código.** Todos los valores sensibles deben venir de variables de entorno o configuraciones dinámicas.
+- **Ejecutar tests E2E solo en bases de datos de prueba.** `tests/e2e/global-setup.ts` trunca tablas de negocio y re-seedea. No usar en producción ni contra datos reales.
+
+## 2. Calidad de código y arquitectura
+
+- **Verificar el patrón de manejo de errores antes de recomendar `throw new Error()`.** En Next.js con `useActionState`, una server action debe devolver el estado con `error`, no lanzar un error controlado.
+- **Confirmar las limitaciones de librerías antes de documentarlas.** El código actual puede contradecir una suposición. Por ejemplo, Zod v4 sí soporta `productBaseSchema.partial().refine(...)`.
+- **No mezclar helpers de UI con utilidades generales.** `src/lib/utils.ts` contiene `cn` de shadcn/ui. Las utilidades de JSON deben vivir en `src/lib/json.ts`.
+- **Eliminar duplicaciones en helpers E2E.** Centralizar funciones como `unique`, `login` y `createProductViaApi` en `tests/e2e/helpers.ts`.
+- **No ocultar reglas de negocio en helpers de test.** Los productos nuevos nacen con `stock: 0` y la carga inicial se registra con un movimiento `type: 'restock'`. Separar `createProductViaApi` de `restockProductViaApi` para mantener la regla visible.
+
+## 3. Manejo de errores y validaciones
+
+- **Distinguir tipos de error en wrappers de API.** `NotFoundError` debe devolver `404`; no tratarlo como un `DomainError` genérico que devuelve `400`.
+- **Unificar el manejo de errores de conexión a base de datos.** Todas las rutas de API deben devolver `503` ante `ECONNREFUSED` o errores de conexión, usando un helper centralizado si es posible.
+
+## 4. Integridad de datos y soft delete
+
+- **Las validaciones de integridad con soft delete deben considerar el estado del registro padre.** No basta con verificar la existencia de una relación; hay que descartar padres eliminados. Ejemplo: una receta cuya promo fue eliminada no debe bloquear el soft delete de un insumo.
+- **Preferir soft delete sobre hard delete cuando existan tablas históricas.** `saleItems.productId` y `stockMovements.productId` referencian a `products.id`. Hard delete rompe la legibilidad del historial.
+- **Tener cuidado con `findFirst` cuando coexisten registros activos e inactivos.** Sin orden explícito puede devolver el registro inactivo y ocultar el activo, lo que lleva a decisiones incorrectas.
+- **Agregar tests de cobertura para el caso "registro inactivo".** Permite detectar regresiones futuras en la lógica de eliminación.
+
+## 5. Seguridad y entorno
+
+- **Incluir siempre una sección de seguridad y entorno** cuando se trabaje con `.env.local`, credenciales o bases de datos. Recordar que `.env.local` no debe commitearse y que las credenciales deben rotarse si se expusieron.
+- **Revisar imports obsoletos antes de incluirlos en un checklist.** Pueden haber sido resueltos en iteraciones anteriores; no ejecutar limpiezas sin verificar.
+
+## 6. Documentación del proyecto
+
+- **Mantener `AGENTS.md`, `README.md` y `.devin/environment.yaml` actualizados** cuando cambia la arquitectura, la conexión a base de datos o los comandos de verificación.
+
+## 7. Verificaciones estándar
+
+Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según el área:
+
+| Comando | Cuándo usarlo |
+| ------- | ------------- |
+| `npm run lint` | Siempre |
+| `npm run build` | Siempre |
+| `npm test` | Cambios en servicios, repositorios o dominio |
+| `npx playwright test` | Cambios en flujos críticos de UI/E2E |
+| `npx tsc --noEmit` | Cambios de tipos (también cubierto por `npm run build` / `npm run lint`) |
+| `npx drizzle-kit push` | Cambios en esquema de base de datos |
+
+> **Nota:** para tests E2E y migraciones de base de datos, usar solo entornos de prueba.

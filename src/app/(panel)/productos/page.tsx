@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ProductActions } from '@/components/productos/product-actions';
-import { deleteProduct } from './actions';
 import * as productService from '@/application/services/productService';
 import * as saleService from '@/application/services/saleService';
 import type { ProductType } from '@/domain/types';
@@ -124,11 +123,22 @@ export default async function ProductsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="hidden md:table-cell font-mono">
-                  {product.stock} {product.unit}
-                  {product.stock <= product.minStock && product.minStock > 0 && (
-                    <Badge variant="destructive" className="ml-2">
-                      Bajo
-                    </Badge>
+                  {product.type === 'compound' ? (
+                    <span
+                      className="text-muted-foreground"
+                      title="El stock de una promo se calcula a partir de sus insumos críticos"
+                    >
+                      {sellableById[product.id] ?? 0} {product.unit}
+                    </span>
+                  ) : (
+                    <>
+                      {product.stock} {product.unit}
+                      {product.stock <= product.minStock && product.minStock > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          Bajo
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell font-mono">
@@ -162,7 +172,6 @@ export default async function ProductsPage() {
                   <ProductActions
                     productId={product.id}
                     productName={product.name}
-                    deleteProduct={deleteProduct}
                   />
                 </TableCell>
               </TableRow>
