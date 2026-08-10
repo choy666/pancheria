@@ -79,10 +79,11 @@ test.describe('Ciclo de vida de productos y recetas', () => {
 
     const compoundRow = page.locator('tr').filter({ hasText: new RegExp(compound.name) });
     await expect(compoundRow).toBeVisible();
-    await expect(compoundRow.getByRole('link', { name: 'Receta' })).toBeVisible();
+    await expect(compoundRow.getByRole('button', { name: 'Editar' })).toBeVisible();
+    await expect(compoundRow.getByRole('link', { name: 'Receta' })).not.toBeVisible();
 
-    await page.goto(`/recetas/${compound.id}/editar`);
-    await expect(page.getByText('Guardar receta')).toBeVisible();
+    await page.goto(`/productos/${compound.id}/editar`);
+    await expect(page.getByRole('button', { name: 'Actualizar promo' })).toBeVisible();
 
     await page.goto('/productos');
     await expect(page.getByText('Productos y promos')).toBeVisible();

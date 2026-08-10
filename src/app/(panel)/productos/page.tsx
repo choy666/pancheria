@@ -162,7 +162,6 @@ export default async function ProductsPage() {
                   <ProductActions
                     productId={product.id}
                     productName={product.name}
-                    isCompound={product.type === 'compound'}
                     deleteProduct={deleteProduct}
                   />
                 </TableCell>

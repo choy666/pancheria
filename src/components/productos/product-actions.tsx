@@ -8,14 +8,12 @@ import { Button } from '@/components/ui/button';
 interface ProductActionsProps {
   productId: number;
   productName: string;
-  isCompound: boolean;
   deleteProduct: (formData: FormData) => Promise<void>;
 }
 
 export function ProductActions({
   productId,
   productName,
-  isCompound,
   deleteProduct,
 }: ProductActionsProps) {
   const router = useRouter();
@@ -36,13 +34,6 @@ export function ProductActions({
           Editar
         </Button>
       </Link>
-      {isCompound && (
-        <Link href={`/recetas/${productId}/editar`}>
-          <Button variant="outline" size="sm">
-            Receta avanzada
-          </Button>
-        </Link>
-      )}
       <form action={handleDelete} className="inline">
         <input type="hidden" name="id" value={productId} />
         <Button
