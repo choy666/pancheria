@@ -30,6 +30,35 @@ interface CartItem {
   quantity: number;
 }
 
+function isSellableProduct(product: Product): boolean {
+  return (
+    product.type === 'compound' ||
+    product.type === 'service' ||
+    (product.type === 'critical_supply' && product.criticalSupplyType === 'beverage')
+  );
+}
+
+function sellablePriority(product: Product): number {
+  if (product.type === 'compound') return 1;
+  if (
+    product.type === 'critical_supply' &&
+    product.criticalSupplyType === 'beverage'
+  ) {
+    return 2;
+  }
+  if (product.type === 'service') return 3;
+  return 4;
+}
+
+function sortSellableProducts(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const priorityA = sellablePriority(a);
+    const priorityB = sellablePriority(b);
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+  });
+}
+
 export function SalesTerminal() {
   const router = useRouter();
   const isMountedRef = useRef(true);
@@ -59,12 +88,7 @@ export function SalesTerminal() {
       if (!response.ok) throw new Error('Error al cargar productos');
 
       const allProducts = (await response.json()) as Product[];
-      const sellable = allProducts.filter(
-        (p) =>
-          p.type === 'compound' ||
-          p.type === 'service' ||
-          p.criticalSupplyType === 'beverage'
-      );
+      const sellable = sortSellableProducts(allProducts.filter(isSellableProduct));
 
       if (!isMountedRef.current) return;
       setProducts(sellable);
@@ -134,6 +158,7 @@ export function SalesTerminal() {
     const additional =
       cartAvailability[product.id] ??
       Math.max((product.availability ?? 0) - currentQuantity, 0);
+
     if (product.type !== 'service' && additional <= 0) return;
 
     setCart((prev) => {
@@ -296,7 +321,10 @@ export function SalesTerminal() {
                       ? 'opacity-50'
                       : 'cursor-pointer touch-manipulation hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98]'
                   }`}
-                  onClick={() => addToCart(product)}
+                  onClick={() => {
+                    if (isOutOfStock || cartDisabled) return;
+                    addToCart(product);
+                  }}
                 >
                   <CardHeader className="p-5">
                     <CardTitle className="text-lg font-semibold leading-tight">

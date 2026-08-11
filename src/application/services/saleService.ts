@@ -454,11 +454,13 @@ export async function confirmSale(params: {
       throw new ValidationError(`El producto ${product.name} no está activo.`);
     }
 
-    if (
-      product.type !== 'compound' &&
-      product.type !== 'service' &&
-      product.criticalSupplyType !== 'beverage'
-    ) {
+    const isSellable =
+      product.type === 'compound' ||
+      product.type === 'service' ||
+      (product.type === 'critical_supply' &&
+        product.criticalSupplyType === 'beverage');
+
+    if (!isSellable) {
       throw new ValidationError(
         `El producto ${product.name} no está disponible para la venta.`
       );
@@ -544,7 +546,10 @@ export async function confirmSale(params: {
             createdAt: nowUTC(),
           });
         }
-      } else if (product.criticalSupplyType === 'beverage') {
+      } else if (
+        product.type === 'critical_supply' &&
+        product.criticalSupplyType === 'beverage'
+      ) {
         await tx
           .update(products)
           .set({ stock: sql`${products.stock} - ${item.quantity}` })
@@ -683,7 +688,10 @@ export async function cancelSale(id: number, reason: string) {
             createdAt: nowUTC(),
           });
         }
-      } else if (product.criticalSupplyType === 'beverage') {
+      } else if (
+        product.type === 'critical_supply' &&
+        product.criticalSupplyType === 'beverage'
+      ) {
         await tx
           .update(products)
           .set({ stock: sql`${products.stock} + ${item.quantity}` })

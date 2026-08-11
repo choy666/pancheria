@@ -109,6 +109,61 @@ describe('SalesTerminal', () => {
     global.fetch = originalFetch;
   });
 
+  test('ordena los productos vendibles: compound, bebida y servicio', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 3,
+        name: 'Z servicio',
+        type: 'service',
+        criticalSupplyType: null,
+        price: 500,
+        unit: 'unidad',
+        availability: Number.MAX_SAFE_INTEGER,
+      },
+      {
+        id: 2,
+        name: 'A bebida',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 800,
+        unit: 'lata',
+        availability: 3,
+      },
+      {
+        id: 1,
+        name: 'Z promo',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, {
+      1: 5,
+      2: 3,
+      3: Number.MAX_SAFE_INTEGER,
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Z promo')).toBeInTheDocument()
+    );
+
+    const cards = document.querySelectorAll('[data-slot="card"]');
+    const productNames = Array.from(cards)
+      .map((card) =>
+        card.querySelector('[data-slot="card-title"]')?.textContent
+      )
+      .filter((name): name is string => !!name && name !== 'Pedido');
+
+    expect(productNames).toEqual(['Z promo', 'A bebida', 'Z servicio']);
+  });
+
   test('muestra solo productos activos de tipos vendibles', async () => {
     mockCashRegister(true);
 
@@ -275,6 +330,55 @@ describe('SalesTerminal', () => {
 
     fireEvent.click(card!);
     expect(screen.queryByText('1 unidad')).not.toBeInTheDocument();
+  });
+
+  test('un servicio se puede agregar aunque haya productos sin stock', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Bebida agotada',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 800,
+        unit: 'lata',
+        availability: 0,
+      },
+      {
+        id: 2,
+        name: 'Servicio libre',
+        type: 'service',
+        criticalSupplyType: null,
+        price: 500,
+        unit: 'unidad',
+        availability: Number.MAX_SAFE_INTEGER,
+      },
+    ];
+
+    mockFetch(products, { 1: 0, 2: Number.MAX_SAFE_INTEGER });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Bebida agotada')).toBeInTheDocument()
+    );
+
+    const bebidaCard = screen.getByText('Bebida agotada').closest('[data-slot="card"]');
+    const servicioCard = screen.getByText('Servicio libre').closest('[data-slot="card"]');
+
+    expect(bebidaCard).toHaveClass('opacity-50');
+    expect(servicioCard).not.toHaveClass('opacity-50');
+
+    fireEvent.click(bebidaCard!);
+    expect(screen.getAllByText('Bebida agotada')).toHaveLength(1);
+
+    fireEvent.click(servicioCard!);
+    fireEvent.click(servicioCard!);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Servicio libre')).toHaveLength(2);
+    });
   });
 
   test('bloquea agregar un producto cuando otro consume el mismo insumo', async () => {

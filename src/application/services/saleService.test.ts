@@ -868,6 +868,73 @@ describe('confirmSale', () => {
     expect((movements[0].data as StockMovementInsert).quantity).toBe(-9);
     expect((movements[1].data as StockMovementInsert).quantity).toBe(-18);
   });
+
+  test('descuenta stock de un combo y una bebida en la misma venta', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
+
+    setProducts([
+      {
+        id: 1,
+        name: 'Promo con bebida',
+        type: 'compound',
+        price: 2500,
+      },
+      {
+        id: 2,
+        name: 'Gaseosa',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        stock: 10,
+        price: 500,
+      },
+      {
+        id: 3,
+        name: 'Salchicha',
+        type: 'critical_supply',
+        criticalSupplyType: 'sausage',
+        stock: 8,
+        price: 100,
+      },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+    ]);
+
+    const result = (await confirmSale({
+      items: [
+        { productId: 1, quantity: 2 },
+        { productId: 2, quantity: 3 },
+      ],
+      paymentMethod: 'cash',
+      idempotencyKey: 'combo-beverage',
+    })) as SaleRow;
+
+    expect(result.total).toBe(6500);
+
+    const productUpdates = findCapturedUpdate(products);
+    expect(productUpdates.length).toBe(2);
+    expect(productUpdates[0].data).toMatchObject({ stock: expect.any(Object) });
+    expect(productUpdates[1].data).toMatchObject({ stock: expect.any(Object) });
+
+    const movements = findCapturedInsert(stockMovements);
+    expect(movements.length).toBe(2);
+
+    const quantities = movements
+      .map((m) => (m.data as StockMovementInsert).quantity)
+      .sort((a, b) => a - b);
+    expect(quantities).toEqual([-4, -3]);
+  });
 });
 
 describe('cancelSale', () => {
