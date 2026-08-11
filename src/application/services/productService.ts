@@ -109,21 +109,33 @@ export async function deleteProduct(id: number) {
     with: { compoundProduct: true },
   });
 
-  const usedInActiveRecipe = usedAsSupply.some(
-    (recipe) => recipe.compoundProduct && !recipe.compoundProduct.deletedAt
-  );
+  const activePromos = usedAsSupply
+    .filter(
+      (recipe) =>
+        recipe.compoundProduct &&
+        !recipe.compoundProduct.deletedAt &&
+        recipe.compoundProduct.isActive
+    )
+    .map((recipe) => recipe.compoundProduct.name);
 
-  if (usedInActiveRecipe) {
-    throw new ValidationError(
-      'No se puede eliminar el producto porque está usado en una receta.'
-    );
+  const uniqueActivePromos = [...new Set(activePromos)];
+
+  if (uniqueActivePromos.length > 0) {
+    const promoNames = uniqueActivePromos.map((name) => `'${name}'`).join(', ');
+    const message =
+      uniqueActivePromos.length === 1
+        ? `No se puede eliminar '${product.name}' porque forma parte de la promo activa ${promoNames}.`
+        : `No se puede eliminar '${product.name}' porque forma parte de las promos activas: ${promoNames}.`;
+    throw new ValidationError(message);
   }
 
-  const usedInDeletedProduct = usedAsSupply.some(
-    (recipe) => recipe.compoundProduct && recipe.compoundProduct.deletedAt
+  const hasOrphanedRecipes = usedAsSupply.some(
+    (recipe) =>
+      recipe.compoundProduct &&
+      (recipe.compoundProduct.deletedAt || !recipe.compoundProduct.isActive)
   );
 
-  if (usedInDeletedProduct) {
+  if (hasOrphanedRecipes) {
     await recipeRepository.deleteBySupplyId(id);
   }
 

@@ -504,6 +504,7 @@ describe('productService', () => {
     test('marca como eliminado un producto sin recetas', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
+        name: 'Pan',
         type: 'critical_supply',
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
@@ -522,6 +523,7 @@ describe('productService', () => {
     test('elimina las recetas al marcar como eliminada una promo', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
+        name: 'Panchuque',
         type: 'compound',
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
@@ -536,29 +538,128 @@ describe('productService', () => {
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
     });
 
-    test('rechaza eliminar un producto usado en una receta activa', async () => {
+    test('rechaza eliminar un insumo crítico usado en una promo activa', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
+        name: 'Pan',
         type: 'critical_supply',
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([
-        { compoundProduct: { deletedAt: null } },
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: null,
+            isActive: true,
+            name: 'Panchuque',
+          },
+        },
       ]);
 
       await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
       await expect(deleteProduct(1)).rejects.toThrow(
-        'No se puede eliminar el producto porque está usado en una receta.'
+        "No se puede eliminar 'Pan' porque forma parte de la promo activa 'Panchuque'."
       );
+      expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
       expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
     });
 
-    test('limpia recetas huérfanas al eliminar un insumo de promos eliminadas', async () => {
+    test('rechaza eliminar un insumo crítico usado en varias promos activas', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
+        name: 'Pan',
         type: 'critical_supply',
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([
-        { compoundProduct: { deletedAt: new Date() } },
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: null,
+            isActive: true,
+            name: 'Panchuque',
+          },
+        },
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: null,
+            isActive: true,
+            name: 'Panchuque doble',
+          },
+        },
+      ]);
+
+      await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
+      await expect(deleteProduct(1)).rejects.toThrow(
+        "No se puede eliminar 'Pan' porque forma parte de las promos activas: 'Panchuque', 'Panchuque doble'."
+      );
+      expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
+      expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    test('rechaza eliminar un insumo usado en promo activa, inactiva y eliminada', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+      } as ProductRow);
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: null,
+            isActive: true,
+            name: 'Panchuque activa',
+          },
+        },
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: null,
+            isActive: false,
+            name: 'Panchuque inactiva',
+          },
+        },
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: new Date(),
+            isActive: false,
+            name: 'Panchuque eliminada',
+          },
+        },
+      ]);
+
+      await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
+      await expect(deleteProduct(1)).rejects.toThrow(
+        "No se puede eliminar 'Pan' porque forma parte de la promo activa 'Panchuque activa'."
+      );
+      expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
+      expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    test('limpia recetas y permite eliminar un insumo usado en promos inactivas y eliminadas', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+      } as ProductRow);
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: null,
+            isActive: false,
+            name: 'Panchuque inactiva',
+          },
+        },
+        {
+          compoundProduct: {
+            type: 'compound',
+            deletedAt: new Date(),
+            isActive: false,
+            name: 'Panchuque eliminada',
+          },
+        },
       ]);
       mockedProductRepository.softDelete.mockResolvedValue({
         id: 1,

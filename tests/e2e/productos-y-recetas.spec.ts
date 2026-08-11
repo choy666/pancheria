@@ -183,4 +183,55 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     const body = (await response.json()) as { error?: string };
     expect(body.error).toContain('Los insumos manuales no pueden tener precio.');
   });
+
+  test('muestra un diálogo al intentar eliminar un insumo crítico usado en una promo activa', async ({
+    page,
+  }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan crítico E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 400,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo activa E2E'),
+      type: 'compound',
+      price: 1200,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [{ supplyId: pan.id, quantity: 1, autoDiscount: true }],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/productos');
+    const panRow = page.locator('tr').filter({ hasText: new RegExp(pan.name) });
+    await expect(panRow).toBeVisible();
+
+    page.on('dialog', (dialog) => dialog.accept());
+    await panRow.getByRole('button', { name: 'Eliminar' }).click();
+
+    const errorDialog = page.getByRole('dialog');
+    await expect(errorDialog).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByText(
+        `No se puede eliminar '${pan.name}' porque forma parte de la promo activa '${promo.name}'.`
+      )
+    ).toBeVisible();
+
+    await page.locator('[data-slot="dialog-close"]').first().click();
+    await expect(errorDialog).not.toBeVisible();
+  });
 });

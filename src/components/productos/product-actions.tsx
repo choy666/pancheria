@@ -1,9 +1,16 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   deleteProduct,
   type DeleteProductState,
@@ -23,6 +30,9 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
     initialState
   );
   const hasSubmittedRef = useRef(false);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const [dismissed, setDismissed] = useState<DeleteProductState>(null);
+  const isDialogOpen = !!state?.error && state !== dismissed;
 
   useEffect(() => {
     if (hasSubmittedRef.current && !isPending && state === null) {
@@ -50,6 +60,7 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
       <form action={formAction} className="inline" onSubmit={handleSubmit}>
         <input type="hidden" name="id" value={productId} />
         <Button
+          ref={deleteButtonRef}
           type="submit"
           variant="ghost"
           size="sm"
@@ -58,16 +69,34 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
         >
           {isPending ? 'Eliminando...' : 'Eliminar'}
         </Button>
-        {state?.error && (
-          <p
-            className="mt-1 max-w-xs text-right text-xs text-destructive"
+      </form>
+
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDismissed(state);
+          }
+        }}
+        onOpenChangeComplete={(open) => {
+          if (!open) {
+            deleteButtonRef.current?.focus();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>No se puede eliminar</DialogTitle>
+          </DialogHeader>
+          <DialogDescription
             role="alert"
             aria-live="polite"
+            className="pt-4 text-base text-destructive"
           >
-            {state.error}
-          </p>
-        )}
-      </form>
+            {state?.error}
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
