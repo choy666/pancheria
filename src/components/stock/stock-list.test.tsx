@@ -48,7 +48,7 @@ describe('StockList', () => {
     await waitFor(() => expect(screen.getByText('Error desconocido')).toBeInTheDocument());
   });
 
-  test('muestra la tabla con productos', async () => {
+  test('muestra la tabla con productos agrupados por tipo', async () => {
     const products = [
       {
         id: 1,
@@ -75,10 +75,12 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Insumo crítico')).toBeInTheDocument());
+    expect(screen.getAllByText('Pan').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('10 unidad').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Gaseosa')).toBeInTheDocument();
+    expect(screen.getAllByText('Gaseosa').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('2 lata').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Bajo')).toBeInTheDocument();
   });
 
   test('abre el diálogo de ajuste y guarda un ajuste positivo', async () => {
@@ -103,7 +105,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -148,7 +150,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -186,7 +188,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
 
@@ -215,7 +217,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -255,7 +257,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -295,7 +297,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -336,7 +338,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -383,7 +385,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }));
 
@@ -412,7 +414,7 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Pan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pan')[0]).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
 

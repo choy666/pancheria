@@ -16,6 +16,10 @@ import {
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
+import {
+  criticalTypeLabels,
+  productTypeLabels,
+} from '@/lib/product-style';
 import type { CriticalSupplyType } from '@/domain/types';
 
 interface CriticalSupply {
@@ -67,16 +71,10 @@ const emptyRecipeItem: PromoRecipeItem = {
   quantity: 1,
 };
 
-const criticalSupplyTypeLabels: Record<CriticalSupplyType, string> = {
-  bread: 'Pan',
-  sausage: 'Salchicha',
-  beverage: 'Bebida',
-};
-
 function formatSupplyLabel(supply: CriticalSupply) {
   const typeLabel = supply.criticalSupplyType
-    ? criticalSupplyTypeLabels[supply.criticalSupplyType]
-    : 'Insumo crítico';
+    ? criticalTypeLabels[supply.criticalSupplyType]
+    : productTypeLabels.critical_supply;
   return `${supply.name} (${supply.unit}) — ${typeLabel}`;
 }
 

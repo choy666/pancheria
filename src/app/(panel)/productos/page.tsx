@@ -13,63 +13,18 @@ import { Badge } from '@/components/ui/badge';
 import { ProductActions } from '@/components/productos/product-actions';
 import { cn } from '@/lib/utils';
 import { groupProductsByType } from '@/lib/product-grouping';
+import {
+  productTypeLabels,
+  criticalTypeLabels,
+  typePriority,
+  criticalSupplyTypePriority,
+  productTypeBadgeClasses,
+  productTypeTextClasses,
+  productTypeDotClasses,
+  productTypeGroupClasses,
+} from '@/lib/product-style';
 import * as productService from '@/application/services/productService';
 import * as saleService from '@/application/services/saleService';
-import type { CriticalSupplyType, ProductType } from '@/domain/types';
-
-const productTypeLabels: Record<string, string> = {
-  critical_supply: 'Insumo crítico',
-  compound: 'Promo',
-  manual_supply: 'Insumo manual',
-  service: 'Servicio / extra',
-};
-
-const criticalTypeLabels: Record<string, string> = {
-  bread: 'Pan',
-  sausage: 'Salchicha',
-  beverage: 'Bebida',
-};
-
-const typePriority: Record<ProductType, number> = {
-  compound: 1,
-  critical_supply: 2,
-  manual_supply: 3,
-  service: 4,
-};
-
-const criticalSupplyTypePriority: Record<CriticalSupplyType, number> = {
-  bread: 1,
-  sausage: 2,
-  beverage: 3,
-};
-
-const productTypeBadgeClasses: Record<ProductType, string> = {
-  compound: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  critical_supply: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-  manual_supply: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
-  service: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
-};
-
-const productTypeTextClasses: Record<ProductType, string> = {
-  compound: 'text-amber-400',
-  critical_supply: 'text-rose-400',
-  manual_supply: 'text-sky-400',
-  service: 'text-violet-400',
-};
-
-const productTypeDotClasses: Record<ProductType, string> = {
-  compound: 'bg-amber-500',
-  critical_supply: 'bg-rose-500',
-  manual_supply: 'bg-sky-500',
-  service: 'bg-violet-500',
-};
-
-const productTypeGroupClasses: Record<ProductType, string> = {
-  compound: 'bg-amber-500/10 text-amber-300',
-  critical_supply: 'bg-rose-500/10 text-rose-300',
-  manual_supply: 'bg-sky-500/10 text-sky-300',
-  service: 'bg-violet-500/10 text-violet-300',
-};
 
 export default async function ProductsPage() {
   const products = await productService.listProducts();

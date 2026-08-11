@@ -49,7 +49,8 @@ Enumerar las reglas que **no deben romperse**. Ejemplos del proyecto:
 
 - Los productos nuevos nacen con `stock: 0` y `minStock: 0`.
 - Las promos (`compound`) y servicios (`service`) siempre tienen `stock: 0` y `minStock: 0`.
-- Todo cambio de stock pasa por `stockService.adjustStock`.
+- Los ajustes manuales de stock y la carga inicial pasan por `stockService.adjustStock`.
+- Las ventas y anulaciones gestionan sus propios movimientos de stock de forma transaccional dentro de `saleService`.
 - No se hardcodean credenciales ni URLs de API.
 
 ### 5. Implementación detallada

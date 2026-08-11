@@ -44,7 +44,7 @@ Copiar `.env.example` a `.env.local` y completar:
   2. `devin.exe cloud drs build`
 
 ## Tecnologías
-- Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
+- Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
 
 ## Despliegue en Vercel
 

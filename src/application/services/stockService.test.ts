@@ -76,15 +76,17 @@ describe('stockService', () => {
     jest.clearAllMocks();
   });
 
-  test('listStockAlerts marca stock bajo', async () => {
+  test('listStockAlerts marca stock bajo solo cuando hay un mínimo configurado', async () => {
     mockedProductRepository.findActive.mockResolvedValue([
       createProductRow({ id: 1, name: 'Pan', stock: 2, minStock: 5 }),
       createProductRow({ id: 2, name: 'Salchicha', stock: 10, minStock: 5 }),
+      createProductRow({ id: 3, name: 'Mayonesa', stock: 0, minStock: 0 }),
     ]);
 
     const result = await listStockAlerts();
     expect(result[0].isLow).toBe(true);
     expect(result[1].isLow).toBe(false);
+    expect(result[2].isLow).toBe(false);
   });
 
   test('adjustStock rechaza stock negativo', async () => {
@@ -163,7 +165,7 @@ describe('stockService', () => {
     expect(result[0].quantity).toBe(5);
   });
 
-  test('listStockAlerts excluye productos de tipo service', async () => {
+  test('listStockAlerts incluye solo insumos críticos y manuales', async () => {
     mockedProductRepository.findActive.mockResolvedValue([
       createProductRow({
         id: 1,
@@ -175,6 +177,20 @@ describe('stockService', () => {
       }),
       createProductRow({
         id: 2,
+        name: 'Mayonesa',
+        type: 'manual_supply',
+        stock: 10,
+        minStock: 5,
+      }),
+      createProductRow({
+        id: 3,
+        name: 'Promo doble',
+        type: 'compound',
+        stock: 0,
+        minStock: 0,
+      }),
+      createProductRow({
+        id: 4,
         name: 'Vaso de gaseosa',
         type: 'service',
         stock: 0,
@@ -183,8 +199,9 @@ describe('stockService', () => {
     ]);
 
     const result = await listStockAlerts();
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0].name).toBe('Pan');
+    expect(result[1].name).toBe('Mayonesa');
   });
 
   test('adjustStock lanza NotFoundError cuando el producto no existe', async () => {

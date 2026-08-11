@@ -15,28 +15,13 @@ import {
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API } from '@/config/api';
+import { productTypeLabels, criticalTypeLabels } from '@/lib/product-style';
 import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
 
 type ProductFormData = z.infer<typeof productSchema>;
 type ProductType = ProductFormData['type'];
 type CriticalSupplyType = ProductFormData['criticalSupplyType'];
-
-const productTypeLabels: Record<ProductType, string> = {
-  critical_supply: 'Insumo crítico',
-  compound: 'Promo',
-  manual_supply: 'Insumo manual',
-  service: 'Servicio / extra',
-};
-
-const criticalSupplyTypeLabels: Record<
-  NonNullable<CriticalSupplyType>,
-  string
-> = {
-  bread: 'Pan',
-  sausage: 'Salchicha',
-  beverage: 'Bebida',
-};
 
 function defaultUnit(
   type: ProductType,
@@ -196,9 +181,15 @@ export function ProductForm({ product }: ProductFormProps) {
               </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="critical_supply">Insumo crítico</SelectItem>
-              <SelectItem value="manual_supply">Insumo manual</SelectItem>
-              <SelectItem value="service">Servicio / extra</SelectItem>
+              <SelectItem value="critical_supply">
+                {productTypeLabels.critical_supply}
+              </SelectItem>
+              <SelectItem value="manual_supply">
+                {productTypeLabels.manual_supply}
+              </SelectItem>
+              <SelectItem value="service">
+                {productTypeLabels.service}
+              </SelectItem>
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
@@ -218,14 +209,20 @@ export function ProductForm({ product }: ProductFormProps) {
             <SelectTrigger id="criticalSupplyType">
               <span className="flex-1 text-left">
                 {form.criticalSupplyType
-                  ? criticalSupplyTypeLabels[form.criticalSupplyType]
+                  ? criticalTypeLabels[form.criticalSupplyType]
                   : 'Seleccionar'}
               </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="bread">Pan</SelectItem>
-              <SelectItem value="sausage">Salchicha</SelectItem>
-              <SelectItem value="beverage">Bebida</SelectItem>
+              <SelectItem value="bread">
+                {criticalTypeLabels.bread}
+              </SelectItem>
+              <SelectItem value="sausage">
+                {criticalTypeLabels.sausage}
+              </SelectItem>
+              <SelectItem value="beverage">
+                {criticalTypeLabels.beverage}
+              </SelectItem>
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">

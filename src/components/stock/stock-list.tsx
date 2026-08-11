@@ -1,11 +1,24 @@
 'use client';
 
+import { Fragment, useEffect, useState } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
+import { groupProductsByType } from '@/lib/product-grouping';
+import {
+  productTypeLabels,
+  criticalTypeLabels,
+  typePriority,
+  criticalSupplyTypePriority,
+  productTypeBadgeClasses,
+  productTypeTextClasses,
+  productTypeDotClasses,
+  productTypeGroupClasses,
+} from '@/lib/product-style';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -23,12 +36,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StockHistory } from './stock-history';
+import type { CriticalSupplyType, ProductType } from '@/domain/types';
 
 interface StockProduct {
   id: number;
   name: string;
-  type: string;
-  criticalSupplyType: string | null;
+  type: ProductType;
+  criticalSupplyType: CriticalSupplyType | null;
   stock: number;
   minStock: number;
   unit: string;
@@ -51,6 +65,12 @@ export function StockList() {
   >('manual_adjustment');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const groupedProducts = groupProductsByType(
+    products,
+    typePriority,
+    criticalSupplyTypePriority
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +106,8 @@ export function StockList() {
     try {
       const response = await authenticatedFetch(STOCK_AJUSTAR_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           productId: selectedProduct.id,
           quantity,
           reason,
@@ -136,51 +157,102 @@ export function StockList() {
           <TableHeader>
             <TableRow>
               <TableHead>Producto</TableHead>
-              <TableHead className="hidden sm:table-cell">Stock</TableHead>
+              <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+              <TableHead className="hidden md:table-cell">Stock</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell className="font-medium">
-                  <span className="block">{product.name}</span>
-                  <span className="font-mono text-sm text-muted-foreground sm:hidden">
-                    {product.stock} {product.unit}
-                  </span>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell font-mono">
-                  {product.stock} {product.unit}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setDialogMode('adjust');
-                        setQuantity(0);
-                        setReason('');
-                        setAdjustmentType('manual_adjustment');
-                        setError(null);
-                      }}
-                    >
-                      Ajustar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setDialogMode('history');
-                      }}
-                    >
-                      Historial
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+            {groupedProducts.map((group) => (
+              <Fragment key={`group-${group.type}`}>
+                <TableRow className="border-t border-white/8 hover:bg-transparent">
+                  <TableHead
+                    scope="rowgroup"
+                    role="rowheader"
+                    colSpan={4}
+                    className={cn(
+                      'h-10 px-3 text-left text-xs font-semibold uppercase tracking-wider',
+                      productTypeGroupClasses[group.type]
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${productTypeDotClasses[group.type]}`}
+                        aria-hidden="true"
+                      />
+                      <span>{productTypeLabels[group.type]}</span>
+                    </div>
+                  </TableHead>
+                </TableRow>
+                {group.items.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${productTypeDotClasses[product.type]}`}
+                          aria-hidden="true"
+                        />
+                        <span className="block">{product.name}</span>
+                      </div>
+                      <span
+                        className={`text-sm sm:hidden ${productTypeTextClasses[product.type]}`}
+                      >
+                        {productTypeLabels[product.type]}
+                        {product.criticalSupplyType
+                          ? ` · ${criticalTypeLabels[product.criticalSupplyType]}`
+                          : ''}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge
+                        variant="outline"
+                        className={productTypeBadgeClasses[product.type]}
+                      >
+                        {productTypeLabels[product.type]}
+                        {product.criticalSupplyType
+                          ? ` - ${criticalTypeLabels[product.criticalSupplyType]}`
+                          : ''}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell font-mono">
+                      {product.stock} {product.unit}
+                      {product.isLow && (
+                        <Badge variant="destructive" className="ml-2">
+                          Bajo
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setDialogMode('adjust');
+                            setQuantity(0);
+                            setReason('');
+                            setAdjustmentType('manual_adjustment');
+                            setError(null);
+                          }}
+                        >
+                          Ajustar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setDialogMode('history');
+                          }}
+                        >
+                          Historial
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Fragment>
             ))}
           </TableBody>
         </Table>
@@ -214,10 +286,7 @@ export function StockList() {
                   if (selectedProduct.stock === 0 && next > 0 && !reason) {
                     setReason('Stock inicial');
                     setAdjustmentType('restock');
-                  } else if (
-                    selectedProduct.stock === 0 &&
-                    next <= 0
-                  ) {
+                  } else if (selectedProduct.stock === 0 && next <= 0) {
                     setAdjustmentType('manual_adjustment');
                   }
                 }}

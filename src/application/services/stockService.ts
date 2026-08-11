@@ -11,10 +11,14 @@ export async function listStockAlerts() {
   const allProducts = await productRepository.findActive();
 
   return allProducts
-    .filter((product) => product.type !== 'service')
+    .filter(
+      (product) =>
+        product.type === 'critical_supply' || product.type === 'manual_supply'
+    )
     .map((product) => ({
       ...product,
-      isLow: product.stock <= product.minStock,
+      isLow:
+        product.minStock > 0 && product.stock <= product.minStock,
     }));
 }
 
