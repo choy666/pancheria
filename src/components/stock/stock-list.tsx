@@ -223,10 +223,11 @@ export function StockList() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="w-full sm:w-auto"
                           onClick={() => {
                             setSelectedProduct(product);
                             setDialogMode('adjust');
@@ -241,6 +242,7 @@ export function StockList() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="w-full sm:w-auto"
                           onClick={() => {
                             setSelectedProduct(product);
                             setDialogMode('history');

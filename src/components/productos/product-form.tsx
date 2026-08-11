@@ -296,13 +296,14 @@ export function ProductForm({ product }: ProductFormProps) {
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={() => router.push('/productos')}
+          className="w-full sm:w-auto"
         >
           Cancelar
         </Button>

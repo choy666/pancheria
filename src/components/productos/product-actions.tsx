@@ -53,7 +53,7 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <Link href={`/productos/${productId}/editar`}>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" className="w-full sm:w-auto">
           Editar
         </Button>
       </Link>
@@ -65,7 +65,7 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
           variant="ghost"
           size="sm"
           disabled={isPending}
-          className="text-destructive hover:text-destructive"
+          className="w-full sm:w-auto text-destructive hover:text-destructive"
         >
           {isPending ? 'Eliminando...' : 'Eliminar'}
         </Button>

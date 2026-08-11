@@ -95,9 +95,10 @@ export function CashRegisterDetailActions({
 
   if (cashRegister.deletedAt) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
+          className="w-full sm:w-auto"
           data-testid={`restore-cash-register-${cashRegister.id}`}
           onClick={handleRestore}
         >
@@ -105,6 +106,7 @@ export function CashRegisterDetailActions({
         </Button>
         <Button
           variant="destructive"
+          className="w-full sm:w-auto"
           data-testid={`permanent-delete-cash-register-${cashRegister.id}`}
           onClick={handlePermanentDelete}
         >
@@ -112,6 +114,7 @@ export function CashRegisterDetailActions({
         </Button>
         <Button
           variant="outline"
+          className="w-full sm:w-auto"
           onClick={() =>
             router.push(
               fromTrash ? '/ventas/historial/eliminadas' : '/ventas/historial'
@@ -125,9 +128,10 @@ export function CashRegisterDetailActions({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Button
         variant="destructive"
+        className="w-full sm:w-auto"
         data-testid={`delete-cash-register-${cashRegister.id}`}
         onClick={handleDelete}
       >
@@ -135,6 +139,7 @@ export function CashRegisterDetailActions({
       </Button>
       <Button
         variant="outline"
+        className="w-full sm:w-auto"
         onClick={() =>
           router.push(
             fromTrash ? '/ventas/historial/eliminadas' : '/ventas/historial'

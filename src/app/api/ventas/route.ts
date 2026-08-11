@@ -30,7 +30,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     }
     const sales = await saleRepository.findByCashRegisterId(
       cashRegisterId,
-      'active',
+      undefined,
       pagination
     );
     return NextResponse.json(sales);

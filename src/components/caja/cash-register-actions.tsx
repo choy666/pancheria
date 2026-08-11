@@ -47,10 +47,11 @@ export function CashRegisterActions({
 
   if (mode === 'trash') {
     return (
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Button
           variant="outline"
           size="sm"
+          className="w-full sm:w-auto"
           data-testid={`restore-cash-register-${cashRegister.id}`}
           onClick={handleRestore}
         >
@@ -59,6 +60,7 @@ export function CashRegisterActions({
         <Button
           variant="destructive"
           size="sm"
+          className="w-full sm:w-auto"
           data-testid={`permanent-delete-cash-register-${cashRegister.id}`}
           onClick={handlePermanentDelete}
         >
@@ -69,10 +71,11 @@ export function CashRegisterActions({
   }
 
   return (
-    <div className="flex items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       <Button
         variant="destructive"
         size="sm"
+        className="w-full sm:w-auto"
         data-testid={`delete-cash-register-${cashRegister.id}`}
         onClick={handleDelete}
       >

@@ -58,7 +58,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
 
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-lg"
           className="md:hidden"
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={open}
@@ -69,7 +69,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
       </div>
 
       {open && (
-        <div className="border-t border-white/8 px-4 pb-4 md:hidden">
+        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 md:hidden">
           <nav className="flex flex-col gap-1 pt-2">
             {navItems.map((item) => (
               <Link

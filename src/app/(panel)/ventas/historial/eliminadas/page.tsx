@@ -7,8 +7,8 @@ export default function CajasEliminadasPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Cajas eliminadas</h1>
-        <Link href="/ventas/historial">
-          <Button variant="outline">Volver al historial</Button>
+        <Link href="/ventas/historial" className="w-full sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto">Volver al historial</Button>
         </Link>
       </div>
       <CajaHistory

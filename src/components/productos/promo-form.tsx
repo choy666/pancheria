@@ -411,6 +411,7 @@ export function PromoForm({ product }: PromoFormProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => removeRecipeItem(index)}
                     >
                       Quitar
@@ -426,6 +427,7 @@ export function PromoForm({ product }: PromoFormProps) {
             type="button"
             variant="outline"
             onClick={addRecipeItem}
+            className="w-full sm:w-auto"
           >
             Agregar insumo crítico
           </Button>
@@ -480,7 +482,7 @@ export function PromoForm({ product }: PromoFormProps) {
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" disabled={isSubmitting || loading}>
+        <Button type="submit" disabled={isSubmitting || loading} className="w-full sm:w-auto">
           {isSubmitting
             ? 'Guardando...'
             : product
@@ -491,6 +493,7 @@ export function PromoForm({ product }: PromoFormProps) {
           type="button"
           variant="outline"
           onClick={() => router.push('/productos')}
+          className="w-full sm:w-auto"
         >
           Cancelar
         </Button>

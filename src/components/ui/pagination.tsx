@@ -37,22 +37,24 @@ export function Pagination({
       <p className="text-sm text-muted-foreground">
         {start}-{end} de {total} resultados
       </p>
-      <div className="flex items-center gap-3">
-        <Select
-          value={String(limit)}
-          onValueChange={(value) => onLimitChange(Number(value))}
-        >
-          <SelectTrigger size="sm" className="w-20" aria-label="Resultados por página">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {pageSizeOptions.map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-20 shrink-0">
+          <Select
+            value={String(limit)}
+            onValueChange={(value) => onLimitChange(Number(value))}
+          >
+            <SelectTrigger size="sm" aria-label="Resultados por página">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizeOptions.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="flex items-center gap-1">
           <Button

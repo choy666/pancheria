@@ -201,6 +201,7 @@ export function SalesHistory({
                     <Button
                       variant="destructive"
                       size="sm"
+                      className="w-full sm:w-auto"
                       data-testid={`anular-sale-${sale.id}`}
                       onClick={() => openCancelDialog(sale)}
                     >

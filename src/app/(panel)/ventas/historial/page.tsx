@@ -9,8 +9,8 @@ export default function VentasHistorialPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Historial de cajas
         </h1>
-        <Link href="/ventas/historial/eliminadas">
-          <Button variant="outline">Cajas eliminadas</Button>
+        <Link href="/ventas/historial/eliminadas" className="w-full sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto">Cajas eliminadas</Button>
         </Link>
       </div>
       <CajaHistory
