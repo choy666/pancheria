@@ -61,15 +61,15 @@ export default function DashboardPage() {
 
         <Card className="hover:border-primary/30 transition-colors">
           <CardHeader>
-            <CardTitle className="text-lg">Cierre</CardTitle>
+            <CardTitle className="text-lg">Caja</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Generar el cierre diario de caja.
+              Abrir, cerrar y controlar la caja.
             </p>
             <Link href="/cierre" className="mt-5 inline-block">
               <Button variant="outline" className="w-full sm:w-auto">
-                Ir a cierre
+                Ir a caja
               </Button>
             </Link>
           </CardContent>

@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { SalesTerminal } from './sales-terminal';
 import * as useCashRegisterModule from '@/hooks/useCashRegister';
 import {
@@ -468,5 +468,163 @@ describe('SalesTerminal', () => {
 
     fireEvent.click(cardB!);
     expect(screen.getAllByText('Promo B')).toHaveLength(1);
+  });
+
+  test('deshabilita Confirmar venta mientras se calcula la disponibilidad y lo habilita cuando termina', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    let resolveAvailability: (response: Response) => void = () => undefined;
+    const availabilityPromise = new Promise<Response>((resolve) => {
+      resolveAvailability = resolve;
+    });
+
+    let availabilityCallCount = 0;
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
+        return Promise.resolve(createFetchResponse(products));
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        availabilityCallCount++;
+        if (availabilityCallCount === 1) {
+          return Promise.resolve(
+            createFetchResponse({
+              availabilityByProduct: { 1: 5 },
+              shortageByProduct: {},
+            })
+          );
+        }
+        return availabilityPromise;
+      }
+      return Promise.resolve(createFetchResponse(null, false, 404));
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+    await waitFor(() => expect(availabilityCallCount).toBe(1));
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]');
+    const button = screen.getByRole('button', {
+      name: /Confirmar venta|Calculando disponibilidad/,
+    });
+
+    expect(button).toBeDisabled();
+
+    fireEvent.click(card!);
+
+    await waitFor(() => {
+      const updatedButton = screen.getByRole('button', {
+        name: /Confirmar venta|Calculando disponibilidad/,
+      });
+      expect(updatedButton).toHaveTextContent('Calculando disponibilidad...');
+      expect(updatedButton).toBeDisabled();
+    });
+
+    await waitFor(() => expect(availabilityCallCount).toBe(2));
+
+    await act(async () => {
+      resolveAvailability(
+        createFetchResponse({
+          availabilityByProduct: { 1: 4 },
+          shortageByProduct: {},
+        })
+      );
+    });
+
+    await waitFor(() => {
+      const updatedButton = screen.getByRole('button', {
+        name: /Confirmar venta|Calculando disponibilidad/,
+      });
+      expect(updatedButton).toHaveTextContent('Confirmar venta');
+      expect(updatedButton).not.toBeDisabled();
+    });
+  });
+
+  test('mantiene Confirmar venta deshabilitado cuando la respuesta indica faltante', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    let availabilityCallCount = 0;
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
+        return Promise.resolve(createFetchResponse(products));
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        availabilityCallCount++;
+        if (availabilityCallCount === 1) {
+          return Promise.resolve(
+            createFetchResponse({
+              availabilityByProduct: { 1: 5 },
+              shortageByProduct: {},
+            })
+          );
+        }
+        return Promise.resolve(
+          createFetchResponse({
+            availabilityByProduct: {},
+            shortageByProduct: {
+              1: {
+                available: 0,
+                required: 2,
+                supplyName: 'Pan',
+              },
+            },
+          })
+        );
+      }
+      return Promise.resolve(createFetchResponse(null, false, 404));
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+    await waitFor(() => expect(availabilityCallCount).toBe(1));
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]');
+
+    fireEvent.click(card!);
+
+    await waitFor(() => expect(availabilityCallCount).toBe(2));
+
+    await waitFor(() => {
+      const updatedButton = screen.getByRole('button', {
+        name: /Confirmar venta|Calculando disponibilidad/,
+      });
+      expect(updatedButton).toHaveTextContent('Confirmar venta');
+      expect(updatedButton).toBeDisabled();
+    });
+
+    expect(
+      screen.getByText(/Faltan insumos para Panchuque/)
+    ).toBeInTheDocument();
   });
 });

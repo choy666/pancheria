@@ -203,7 +203,8 @@ export async function calculateCashRegisterSummary(
   const criticalSupplies = await dbOrTx.query.products.findMany({
     where: and(
       eq(products.type, 'critical_supply'),
-      eq(products.isActive, true)
+      eq(products.isActive, true),
+      isNull(products.deletedAt)
     ),
   });
 
@@ -246,7 +247,8 @@ export async function parseCashRegisterSummary(
     const activeCriticalSupplies = await db.query.products.findMany({
       where: and(
         eq(products.type, 'critical_supply'),
-        eq(products.isActive, true)
+        eq(products.isActive, true),
+        isNull(products.deletedAt)
       ),
     });
 

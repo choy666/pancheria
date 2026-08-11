@@ -186,6 +186,38 @@ describe('cashRegisterService', () => {
       });
     });
 
+    test('completa los insumos críticos activos faltantes en una caja sin ventas', async () => {
+      const openedAt = new Date(Date.now() - 60 * 60 * 1000);
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+        total: 0,
+        cashTotal: 0,
+        transferTotal: 0,
+        totalSales: 0,
+        productsSummary: '{}',
+        criticalSuppliesSummary: '{}',
+      } as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 2, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 3, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = (await getOpenCashRegisterSummary()) as any;
+
+      expect(result).not.toBeNull();
+      expect(result.criticalSuppliesSummary).toEqual({
+        Gaseosa: 0,
+        Pan: 0,
+        Salchicha: 0,
+      });
+    });
+
     test('devuelve null si no hay caja abierta', async () => {
       mockedCashRegisterRepository.findOpen.mockResolvedValue(undefined);
 
@@ -622,6 +654,30 @@ describe('cashRegisterService', () => {
       expect(JSON.parse(result.criticalSuppliesSummary)).toEqual({
         Pan: 1,
         Gaseosa: 2,
+        Salchicha: 0,
+      });
+    });
+
+    test('incluye todos los insumos críticos activos con cantidad cero cuando no hay ventas', async () => {
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 2, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 3, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = await calculateCashRegisterSummary(1);
+
+      expect(result.total).toBe(0);
+      expect(result.cashTotal).toBe(0);
+      expect(result.transferTotal).toBe(0);
+      expect(result.totalSales).toBe(0);
+      expect(JSON.parse(result.productsSummary)).toEqual({});
+      expect(JSON.parse(result.criticalSuppliesSummary)).toEqual({
+        Pan: 0,
+        Gaseosa: 0,
         Salchicha: 0,
       });
     });

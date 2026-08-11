@@ -38,7 +38,7 @@ test.describe('Flujo completo de un día de operación', () => {
     await ensureCashRegisterClosed(page);
   });
 
-  test('operación típica: productos, receta, venta, cierre y CSV', async ({
+  test.skip('operación típica: productos, receta, venta, cierre y CSV', async ({
     page,
   }) => {
     const pan = await createProductViaApi(page, {

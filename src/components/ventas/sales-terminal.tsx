@@ -72,6 +72,8 @@ export function SalesTerminal() {
   const [cartShortage, setCartShortage] = useState<
     Record<number, { available: number; required: number; supplyName: string }>
   >({});
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const availabilityRequestIdRef = useRef(0);
 
   const {
     cashRegister,
@@ -92,6 +94,7 @@ export function SalesTerminal() {
 
       if (!isMountedRef.current) return;
       setProducts(sellable);
+      setIsCheckingAvailability(sellable.length > 0);
     } catch (error) {
       if (!isMountedRef.current) return;
       setError(error instanceof Error ? error.message : 'Error desconocido');
@@ -111,9 +114,11 @@ export function SalesTerminal() {
   useEffect(() => {
     if (products.length === 0) return;
 
-    let cancelled = false;
+    const requestId = ++availabilityRequestIdRef.current;
 
     const timer = setTimeout(async () => {
+      if (requestId !== availabilityRequestIdRef.current) return;
+
       try {
         const response = await authenticatedFetch(VENTAS_DISPONIBILIDAD_API, {
           method: 'POST',
@@ -136,16 +141,23 @@ export function SalesTerminal() {
           >;
         };
 
-        if (cancelled) return;
+        if (requestId !== availabilityRequestIdRef.current) return;
+        if (!isMountedRef.current) return;
         setCartAvailability(data.availabilityByProduct ?? {});
         setCartShortage(data.shortageByProduct ?? {});
       } catch {
         // No saturar la UI con errores de disponibilidad; el confirm mostrará el problema real.
+      } finally {
+        if (
+          isMountedRef.current &&
+          requestId === availabilityRequestIdRef.current
+        ) {
+          setIsCheckingAvailability(false);
+        }
       }
     }, 300);
 
     return () => {
-      cancelled = true;
       clearTimeout(timer);
     };
   }, [cart, products]);
@@ -161,6 +173,7 @@ export function SalesTerminal() {
 
     if (product.type !== 'service' && additional <= 0) return;
 
+    setIsCheckingAvailability(true);
     setCart((prev) => {
       const item = prev.find((i) => i.product.id === product.id);
       if (item) {
@@ -175,6 +188,7 @@ export function SalesTerminal() {
   }
 
   function removeFromCart(productId: number) {
+    setIsCheckingAvailability(true);
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   }
 
@@ -184,6 +198,7 @@ export function SalesTerminal() {
       return;
     }
 
+    setIsCheckingAvailability(true);
     setCart((prev) =>
       prev.map((item) => {
         if (item.product.id !== productId) return item;
@@ -449,11 +464,16 @@ export function SalesTerminal() {
                 cart.length === 0 ||
                 isSubmitting ||
                 cartDisabled ||
-                Object.keys(cartShortage).length > 0
+                Object.keys(cartShortage).length > 0 ||
+                isCheckingAvailability
               }
               onClick={confirmSale}
             >
-              {isSubmitting ? 'Procesando...' : 'Confirmar venta'}
+              {isSubmitting
+                ? 'Procesando...'
+                : isCheckingAvailability
+                  ? 'Calculando disponibilidad...'
+                  : 'Confirmar venta'}
             </Button>
           </CardContent>
         </Card>

@@ -51,7 +51,7 @@ export default async function CashRegisterDetailPage({ params }: Props) {
             <Badge variant="secondary">Cerrada</Badge>
           )}
         </div>
-        <Link href="/cierre/historial" className="w-full sm:w-auto">
+        <Link href="/ventas/historial" className="w-full sm:w-auto">
           <Button variant="outline" className="w-full sm:w-auto">
             Volver al historial
           </Button>

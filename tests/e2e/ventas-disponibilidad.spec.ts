@@ -195,4 +195,76 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await ensureCashRegisterClosed(page);
   });
+
+  test('bloquea Confirmar venta mientras se calcula la disponibilidad', async ({
+    page,
+  }) => {
+    await ensureCashRegisterOpen(page);
+
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan promo'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    await restockProductViaApi(page, pan.id, 1);
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo Limitada'),
+      type: 'compound',
+      price: 1500,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [{ supplyId: pan.id, quantity: 1, autoDiscount: true }],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.route('/api/ventas/disponibilidad', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
+
+    await page.goto('/ventas');
+
+    const card = page
+      .locator('[data-slot="card"]')
+      .filter({ hasText: promo.name })
+      .first();
+
+    await expect(card.getByText('Disponible: 1 unidad')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await card.click();
+
+    const button = page.getByRole('button', {
+      name: /Confirmar venta|Calculando disponibilidad/,
+    });
+
+    await expect(button).toBeDisabled({ timeout: 5000 });
+    await expect(button).toHaveText('Calculando disponibilidad...', {
+      timeout: 5000,
+    });
+
+    await expect(button).toBeEnabled({ timeout: 10000 });
+
+    await button.click();
+    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await ensureCashRegisterClosed(page);
+  });
 });

@@ -11,7 +11,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
       { name: 'Ventas', url: '/ventas' },
       { name: 'Productos', url: '/productos' },
       { name: 'Stock', url: '/stock' },
-      { name: 'Cierre', url: '/cierre' },
+      { name: 'Caja', url: '/cierre' },
       { name: 'Panel', url: '/' },
     ];
 

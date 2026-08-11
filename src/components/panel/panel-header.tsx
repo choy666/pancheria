@@ -17,7 +17,7 @@ const navItems = [
   { href: '/ventas/historial', label: 'Historial' },
   { href: '/productos', label: 'Productos' },
   { href: '/stock', label: 'Stock' },
-  { href: '/cierre', label: 'Cierre' },
+  { href: '/cierre', label: 'Caja' },
 ];
 
 export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
