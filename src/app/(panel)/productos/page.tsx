@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,9 +11,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ProductActions } from '@/components/productos/product-actions';
+import { cn } from '@/lib/utils';
+import { groupProductsByType } from '@/lib/product-grouping';
 import * as productService from '@/application/services/productService';
 import * as saleService from '@/application/services/saleService';
-import type { ProductType } from '@/domain/types';
+import type { CriticalSupplyType, ProductType } from '@/domain/types';
 
 const productTypeLabels: Record<string, string> = {
   critical_supply: 'Insumo crítico',
@@ -32,6 +35,12 @@ const typePriority: Record<ProductType, number> = {
   critical_supply: 2,
   manual_supply: 3,
   service: 4,
+};
+
+const criticalSupplyTypePriority: Record<CriticalSupplyType, number> = {
+  bread: 1,
+  sausage: 2,
+  beverage: 3,
 };
 
 const productTypeBadgeClasses: Record<ProductType, string> = {
@@ -55,12 +64,20 @@ const productTypeDotClasses: Record<ProductType, string> = {
   service: 'bg-violet-500',
 };
 
+const productTypeGroupClasses: Record<ProductType, string> = {
+  compound: 'bg-amber-500/10 text-amber-300',
+  critical_supply: 'bg-rose-500/10 text-rose-300',
+  manual_supply: 'bg-sky-500/10 text-sky-300',
+  service: 'bg-violet-500/10 text-violet-300',
+};
+
 export default async function ProductsPage() {
-  const products = [...(await productService.listProducts())].sort((a, b) => {
-    const priorityDiff = typePriority[a.type] - typePriority[b.type];
-    if (priorityDiff !== 0) return priorityDiff;
-    return a.name.localeCompare(b.name);
-  });
+  const products = await productService.listProducts();
+  const groupedProducts = groupProductsByType(
+    products,
+    typePriority,
+    criticalSupplyTypePriority
+  );
   const sellableById = await saleService.calculateAvailabilityForProductIds(
     products.map((product) => product.id)
   );
@@ -94,87 +111,110 @@ export default async function ProductsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${productTypeDotClasses[product.type]}`}
-                      aria-hidden="true"
-                    />
-                    <span className="block">{product.name}</span>
-                  </div>
-                  <span className={`text-sm sm:hidden ${productTypeTextClasses[product.type]}`}>
-                    {productTypeLabels[product.type]}
-                    {product.criticalSupplyType
-                      ? ` · ${criticalTypeLabels[product.criticalSupplyType]}`
-                      : ''}
-                  </span>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <Badge
-                    variant="outline"
-                    className={productTypeBadgeClasses[product.type]}
+            {groupedProducts.map((group) => (
+              <Fragment key={`group-${group.type}`}>
+                <TableRow className="border-t border-white/8 hover:bg-transparent">
+                  <TableHead
+                    scope="rowgroup"
+                    role="rowheader"
+                    colSpan={6}
+                    className={cn(
+                      'h-10 px-3 text-left text-xs font-semibold uppercase tracking-wider',
+                      productTypeGroupClasses[group.type]
+                    )}
                   >
-                    {productTypeLabels[product.type]}
-                    {product.criticalSupplyType
-                      ? ` - ${criticalTypeLabels[product.criticalSupplyType]}`
-                      : ''}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden md:table-cell font-mono">
-                  {product.type === 'compound' ? (
-                    <span
-                      className="text-muted-foreground"
-                      title="El stock de una promo se calcula a partir de sus insumos críticos"
-                    >
-                      {sellableById[product.id] ?? 0} {product.unit}
-                    </span>
-                  ) : (
-                    <>
-                      {product.stock} {product.unit}
-                      {product.stock <= product.minStock && product.minStock > 0 && (
-                        <Badge variant="destructive" className="ml-2">
-                          Bajo
-                        </Badge>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${productTypeDotClasses[group.type]}`}
+                        aria-hidden="true"
+                      />
+                      <span>{productTypeLabels[group.type]}</span>
+                    </div>
+                  </TableHead>
+                </TableRow>
+                {group.items.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${productTypeDotClasses[product.type]}`}
+                          aria-hidden="true"
+                        />
+                        <span className="block">{product.name}</span>
+                      </div>
+                      <span className={`text-sm sm:hidden ${productTypeTextClasses[product.type]}`}>
+                        {productTypeLabels[product.type]}
+                        {product.criticalSupplyType
+                          ? ` · ${criticalTypeLabels[product.criticalSupplyType]}`
+                          : ''}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge
+                        variant="outline"
+                        className={productTypeBadgeClasses[product.type]}
+                      >
+                        {productTypeLabels[product.type]}
+                        {product.criticalSupplyType
+                          ? ` - ${criticalTypeLabels[product.criticalSupplyType]}`
+                          : ''}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell font-mono">
+                      {product.type === 'compound' ? (
+                        <span
+                          className="text-muted-foreground"
+                          title="El stock de una promo se calcula a partir de sus insumos críticos"
+                        >
+                          {sellableById[product.id] ?? 0} {product.unit}
+                        </span>
+                      ) : (
+                        <>
+                          {product.stock} {product.unit}
+                          {product.stock <= product.minStock && product.minStock > 0 && (
+                            <Badge variant="destructive" className="ml-2">
+                              Bajo
+                            </Badge>
+                          )}
+                        </>
                       )}
-                    </>
-                  )}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell font-mono">
-                  {product.type === 'manual_supply'
-                    ? '-'
-                    : `$${product.price.toFixed(2)}`}
-                </TableCell>
-                <TableCell>
-                  {(() => {
-                    const isSellable =
-                      product.isActive &&
-                      (sellableById[product.id] ?? 0) > 0;
-                    return isSellable ? (
-                      <Badge
-                        variant="outline"
-                        className="h-8 w-8 justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-0 font-mono text-sm font-bold text-emerald-400"
-                      >
-                        V
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="h-8 w-8 justify-center rounded-full border border-red-500/30 bg-red-500/10 p-0 font-mono text-sm font-bold text-red-400"
-                      >
-                        X
-                      </Badge>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell className="text-right">
-                  <ProductActions
-                    productId={product.id}
-                    productName={product.name}
-                  />
-                </TableCell>
-              </TableRow>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell font-mono">
+                      {product.type === 'manual_supply'
+                        ? '-'
+                        : `$${product.price.toFixed(2)}`}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const isSellable =
+                          product.isActive &&
+                          (sellableById[product.id] ?? 0) > 0;
+                        return isSellable ? (
+                          <Badge
+                            variant="outline"
+                            className="h-8 w-8 justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-0 font-mono text-sm font-bold text-emerald-400"
+                          >
+                            V
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="h-8 w-8 justify-center rounded-full border border-red-500/30 bg-red-500/10 p-0 font-mono text-sm font-bold text-red-400"
+                          >
+                            X
+                          </Badge>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ProductActions
+                        productId={product.id}
+                        productName={product.name}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Fragment>
             ))}
           </TableBody>
         </Table>

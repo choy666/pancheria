@@ -234,4 +234,18 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await page.locator('[data-slot="dialog-close"]').first().click();
     await expect(errorDialog).not.toBeVisible();
   });
+
+  test('agrupa productos por tipo con encabezados visibles', async ({ page }) => {
+    await page.goto('/productos');
+    await expect(page.getByText('Productos y promos')).toBeVisible();
+
+    const groupHeaders = page.getByRole('rowheader');
+    await expect(groupHeaders).toHaveCount(4);
+    await expect(groupHeaders).toHaveText([
+      'Promo',
+      'Insumo crítico',
+      'Insumo manual',
+      'Servicio / extra',
+    ]);
+  });
 });
