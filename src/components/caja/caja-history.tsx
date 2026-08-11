@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
+import { Pagination } from '@/components/ui/pagination';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
 import { useCashRegisterHistory } from '@/components/caja/use-cash-register-history';
 import type { CashRegister } from '@/config/caja';
@@ -45,10 +46,15 @@ export function CajaHistory({
   const [actionError, setActionError] = useState<string | null>(null);
   const {
     data: cashRegisters,
+    total,
+    page,
+    limit,
     startDate,
     endDate,
     error,
     isLoading,
+    setPage,
+    setLimit,
     refresh,
   } = useCashRegisterHistory({ statusFilter, deletedOnly });
 
@@ -58,7 +64,8 @@ export function CajaHistory({
         await onDelete(id);
       } else {
         const response = await authenticatedFetch(`${CAJA_API}/${id}`, {
-          method: 'DELETE', });
+          method: 'DELETE',
+        });
 
         if (!response.ok) {
           const data = (await response.json()) as { error?: string };
@@ -79,7 +86,8 @@ export function CajaHistory({
         await onRestore(id);
       } else {
         const response = await authenticatedFetch(`${CAJA_API}/${id}/restaurar`, {
-          method: 'POST', });
+          method: 'POST',
+        });
 
         if (!response.ok) {
           const data = (await response.json()) as { error?: string };
@@ -100,7 +108,8 @@ export function CajaHistory({
         await onPermanentDelete(id);
       } else {
         const response = await authenticatedFetch(`${CAJA_API}/${id}/permanente`, {
-          method: 'DELETE', });
+          method: 'DELETE',
+        });
 
         if (!response.ok) {
           const data = (await response.json()) as { error?: string };
@@ -125,7 +134,8 @@ export function CajaHistory({
         const response = await authenticatedFetch(
           `${CAJA_ELIMINADAS_API}?start=${startDate}&end=${endDate}`,
           {
-            method: 'DELETE', }
+            method: 'DELETE',
+          }
         );
 
         if (!response.ok) {
@@ -154,15 +164,9 @@ export function CajaHistory({
     return <p className="text-destructive">{error}</p>;
   }
 
-  if (!cashRegisters || !startDate || !endDate) {
-    return <p className="text-destructive">Error inesperado al cargar cajas</p>;
-  }
-
   return (
     <div className="space-y-5">
-      {actionError && (
-        <p className="text-destructive">{actionError}</p>
-      )}
+      {actionError && <p className="text-destructive">{actionError}</p>}
 
       {deletedOnly && (
         <div className="flex justify-end">
@@ -224,7 +228,9 @@ export function CajaHistory({
                   <TableCell>{formatDateTime(cashRegister.openedAt)}</TableCell>
                   <TableCell>{formatDateTime(cashRegister.closedAt)}</TableCell>
                   {deletedOnly && (
-                    <TableCell>{formatDateTime(cashRegister.deletedAt ?? null)}</TableCell>
+                    <TableCell>
+                      {formatDateTime(cashRegister.deletedAt ?? null)}
+                    </TableCell>
                   )}
                   <TableCell>
                     {cashRegister.status === 'open' ? (
@@ -268,6 +274,14 @@ export function CajaHistory({
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={setLimit}
+      />
     </div>
   );
 }

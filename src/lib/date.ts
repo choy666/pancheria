@@ -78,5 +78,14 @@ export function formatTime(date: Date | string): string {
 
 export function calculateDuration(start: Date | string, end: Date | string | null): Duration | null {
   const endDate = end ? new Date(end) : new Date();
-  return intervalToDuration({ start: new Date(start), end: endDate });
+  const duration = intervalToDuration({ start: new Date(start), end: endDate });
+  return {
+    years: 0,
+    months: 0,
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    ...duration,
+  };
 }

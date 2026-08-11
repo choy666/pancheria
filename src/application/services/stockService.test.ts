@@ -156,13 +156,16 @@ describe('stockService', () => {
       createProductRow({ id: 1, name: 'Pan' })
     );
 
-    mockedStockMovementRepository.findByProductId.mockResolvedValue([
-      createStockMovement({ id: 1, quantity: 5, type: 'manual_adjustment' }),
-    ]);
+    mockedStockMovementRepository.findByProductId.mockResolvedValue({
+      items: [createStockMovement({ id: 1, quantity: 5, type: 'manual_adjustment' })],
+      total: 1,
+      page: 1,
+      limit: 10,
+    });
 
-    const result = await getStockHistory(1);
-    expect(result.length).toBe(1);
-    expect(result[0].quantity).toBe(5);
+    const result = await getStockHistory(1, { page: 1, limit: 10 });
+    expect(result.items.length).toBe(1);
+    expect(result.items[0].quantity).toBe(5);
   });
 
   test('listStockAlerts incluye solo insumos críticos y manuales', async () => {
@@ -213,6 +216,6 @@ describe('stockService', () => {
   test('getStockHistory lanza NotFoundError cuando el producto no existe', async () => {
     mockedProductRepository.findById.mockResolvedValue(null);
 
-    await expect(getStockHistory(999)).rejects.toThrow(NotFoundError);
+    await expect(getStockHistory(999, { page: 1, limit: 10 })).rejects.toThrow(NotFoundError);
   });
 });

@@ -27,6 +27,11 @@ jest.mock('@/db', () => ({
         findMany: jest.fn(),
       },
     },
+    select: jest.fn().mockImplementation(() => ({
+      from: jest.fn().mockImplementation(() => ({
+        where: jest.fn().mockResolvedValue([{ count: 0 }]),
+      })),
+    })),
   },
 }));
 
@@ -334,8 +339,24 @@ describe('closureService', () => {
         new Date(2026, 4, 10)
       );
 
-      expect(result).toEqual(closures);
+      expect(result.items).toEqual(closures);
+      expect(result.total).toBe(0);
       expect(mockedDb.query.dailyClosures.findMany).toHaveBeenCalled();
+    });
+
+    test('puede paginar la lista de cierres', async () => {
+      const closures = [{ id: 1, date: new Date(2026, 4, 10) }];
+      mockedDb.query.dailyClosures.findMany.mockResolvedValue(closures as any);
+
+      const result = await listClosures(
+        new Date(2026, 4, 9),
+        new Date(2026, 4, 10),
+        { page: 2, limit: 5 }
+      );
+
+      expect(result.items).toEqual(closures);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(5);
     });
   });
 });

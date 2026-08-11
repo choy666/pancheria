@@ -16,20 +16,34 @@ const mockedUseCashRegisterHistory =
     typeof useCashRegisterHistoryModule.useCashRegisterHistory
   >;
 
+function createMockReturn(
+  overrides: Partial<useCashRegisterHistoryModule.UseCashRegisterHistoryReturn> = {}
+): useCashRegisterHistoryModule.UseCashRegisterHistoryReturn {
+  return {
+    data: [],
+    total: 0,
+    page: 1,
+    limit: 10,
+    startDate: '2025-01-01T00:00:00.000Z',
+    endDate: '2025-01-31T23:59:59.999Z',
+    error: null,
+    isLoading: false,
+    setPage: jest.fn(),
+    setLimit: jest.fn(),
+    refresh: jest.fn(),
+    ...overrides,
+  };
+}
+
 describe('CajaHistory', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
 
   test('muestra un mensaje de carga inicial', () => {
-    mockedUseCashRegisterHistory.mockReturnValue({
-      data: null,
-      startDate: null,
-      endDate: null,
-      error: null,
-      isLoading: true,
-      refresh: jest.fn(),
-    });
+    mockedUseCashRegisterHistory.mockReturnValue(
+      createMockReturn({ isLoading: true })
+    );
 
     render(<CajaHistory />);
 
@@ -37,62 +51,38 @@ describe('CajaHistory', () => {
   });
 
   test('muestra el error proveniente del hook', () => {
-    mockedUseCashRegisterHistory.mockReturnValue({
-      data: null,
-      startDate: null,
-      endDate: null,
-      error: 'Error al listar cajas',
-      isLoading: false,
-      refresh: jest.fn(),
-    });
+    mockedUseCashRegisterHistory.mockReturnValue(
+      createMockReturn({ error: 'Error al listar cajas' })
+    );
 
     render(<CajaHistory />);
 
     expect(screen.getByText('Error al listar cajas')).toBeInTheDocument();
   });
 
-  test('muestra un mensaje de error inesperado cuando faltan datos', () => {
-    mockedUseCashRegisterHistory.mockReturnValue({
-      data: null,
-      startDate: null,
-      endDate: null,
-      error: null,
-      isLoading: false,
-      refresh: jest.fn(),
-    });
-
-    render(<CajaHistory />);
-
-    expect(
-      screen.getByText('Error inesperado al cargar cajas')
-    ).toBeInTheDocument();
-  });
-
   test('renderiza la tabla cuando hay datos', () => {
-    mockedUseCashRegisterHistory.mockReturnValue({
-      data: [
-        {
-          id: 1,
-          openedAt: '2025-01-15T10:00:00.000Z',
-          closedAt: '2025-01-15T22:00:00.000Z',
-          openedBy: 'admin',
-          closedBy: 'admin',
-          status: 'closed',
-          autoClosed: false,
-          total: 1500,
-          cashTotal: 1000,
-          transferTotal: 500,
-          totalSales: 3,
-          deletedAt: null,
-          createdAt: '2025-01-15T10:00:00.000Z',
-        },
-      ],
-      startDate: '2025-01-01T00:00:00.000Z',
-      endDate: '2025-01-31T23:59:59.999Z',
-      error: null,
-      isLoading: false,
-      refresh: jest.fn(),
-    });
+    mockedUseCashRegisterHistory.mockReturnValue(
+      createMockReturn({
+        data: [
+          {
+            id: 1,
+            openedAt: '2025-01-15T10:00:00.000Z',
+            closedAt: '2025-01-15T22:00:00.000Z',
+            openedBy: 'admin',
+            closedBy: 'admin',
+            status: 'closed',
+            autoClosed: false,
+            total: 1500,
+            cashTotal: 1000,
+            transferTotal: 500,
+            totalSales: 3,
+            deletedAt: null,
+            createdAt: '2025-01-15T10:00:00.000Z',
+          },
+        ],
+        total: 1,
+      })
+    );
 
     render(<CajaHistory />);
 

@@ -7,12 +7,17 @@ import {
   isNull,
   isNotNull,
   inArray,
+  count,
 } from 'drizzle-orm';
 import { db } from '@/db';
 import { cashRegisters, sales } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
 import { executeInTransaction } from '@/application/transactionService';
-import type { CashRegisterStatus } from '@/domain/types';
+import type {
+  CashRegisterStatus,
+  PaginatedResult,
+  PaginationParams,
+} from '@/domain/types';
 
 export async function findOpen() {
   return db.query.cashRegisters.findFirst({
@@ -29,27 +34,15 @@ export async function findById(id: number, includeDeleted = false) {
       eq(cashRegisters.id, id),
       includeDeleted ? undefined : isNull(cashRegisters.deletedAt)
     ),
-    with: {
-      sales: {
-        limit: 50,
-        orderBy: (sales, { desc }) => [desc(sales.createdAt)],
-        with: {
-          items: {
-            with: {
-              product: true,
-            },
-          },
-        },
-      },
-    },
   });
 }
 
 export async function findInRange(
   start: Date,
   end: Date,
-  status?: CashRegisterStatus
-) {
+  status?: CashRegisterStatus,
+  pagination?: PaginationParams
+): Promise<PaginatedResult<typeof cashRegisters.$inferSelect>> {
   const conditions = [
     gte(cashRegisters.openedAt, start),
     lte(cashRegisters.openedAt, end),
@@ -60,25 +53,69 @@ export async function findInRange(
     conditions.push(eq(cashRegisters.status, status));
   }
 
-  return db.query.cashRegisters.findMany({
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(cashRegisters)
+    .where(and(...conditions));
+
+  const limit = pagination?.limit;
+  const offset = pagination ? (pagination.page - 1) * pagination.limit : undefined;
+
+  const items = await db.query.cashRegisters.findMany({
     where: and(...conditions),
     orderBy: [desc(cashRegisters.openedAt)],
+    limit,
+    offset,
   });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination?.page ?? 1,
+    limit: limit ?? total,
+  };
 }
 
-export async function findClosedInRange(start: Date, end: Date) {
-  return findInRange(start, end, 'closed');
+export async function findClosedInRange(
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+) {
+  return findInRange(start, end, 'closed', pagination);
 }
 
-export async function findDeletedInRange(start: Date, end: Date) {
-  return db.query.cashRegisters.findMany({
-    where: and(
-      isNotNull(cashRegisters.deletedAt),
-      gte(cashRegisters.deletedAt, start),
-      lte(cashRegisters.deletedAt, end)
-    ),
+export async function findDeletedInRange(
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+): Promise<PaginatedResult<typeof cashRegisters.$inferSelect>> {
+  const conditions = [
+    isNotNull(cashRegisters.deletedAt),
+    gte(cashRegisters.deletedAt, start),
+    lte(cashRegisters.deletedAt, end),
+  ];
+
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(cashRegisters)
+    .where(and(...conditions));
+
+  const limit = pagination?.limit;
+  const offset = pagination ? (pagination.page - 1) * pagination.limit : undefined;
+
+  const items = await db.query.cashRegisters.findMany({
+    where: and(...conditions),
     orderBy: [desc(cashRegisters.deletedAt)],
+    limit,
+    offset,
   });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination?.page ?? 1,
+    limit: limit ?? total,
+  };
 }
 
 export async function create(data: {

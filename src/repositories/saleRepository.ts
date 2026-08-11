@@ -1,8 +1,8 @@
-import { eq, and, gte, lt } from 'drizzle-orm';
+import { eq, and, gte, lt, count } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, saleItems } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
-import type { PaymentMethod, SaleStatus } from '@/domain/types';
+import type { PaginatedResult, PaginationParams, PaymentMethod, SaleStatus } from '@/domain/types';
 
 export async function findById(id: number) {
   return db.query.sales.findFirst({
@@ -20,40 +20,24 @@ export async function findById(id: number) {
 export async function findByDateRange(
   start: Date,
   end: Date,
-  status?: SaleStatus
-) {
+  status?: SaleStatus,
+  pagination?: PaginationParams
+): Promise<PaginatedResult<typeof sales.$inferSelect>> {
   const conditions = [gte(sales.createdAt, start), lt(sales.createdAt, end)];
 
   if (status) {
     conditions.push(eq(sales.status, status));
   }
 
-  return db.query.sales.findMany({
-    where: and(...conditions),
-    orderBy: (sales, { desc }) => [desc(sales.createdAt)],
-    with: {
-      items: {
-        with: {
-          product: true,
-        },
-      },
-    },
-  });
-}
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(sales)
+    .where(and(...conditions));
 
-export async function findByCashRegisterId(
-  cashRegisterId: number,
-  status?: SaleStatus,
-  limit?: number,
-  offset?: number
-) {
-  const conditions = [eq(sales.cashRegisterId, cashRegisterId)];
+  const limit = pagination?.limit;
+  const offset = pagination ? (pagination.page - 1) * pagination.limit : undefined;
 
-  if (status) {
-    conditions.push(eq(sales.status, status));
-  }
-
-  return db.query.sales.findMany({
+  const items = await db.query.sales.findMany({
     where: and(...conditions),
     orderBy: (sales, { desc }) => [desc(sales.createdAt)],
     limit,
@@ -66,6 +50,54 @@ export async function findByCashRegisterId(
       },
     },
   });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination?.page ?? 1,
+    limit: limit ?? total,
+  };
+}
+
+export async function findByCashRegisterId(
+  cashRegisterId: number,
+  status?: SaleStatus,
+  pagination?: PaginationParams
+): Promise<PaginatedResult<typeof sales.$inferSelect>> {
+  const conditions = [eq(sales.cashRegisterId, cashRegisterId)];
+
+  if (status) {
+    conditions.push(eq(sales.status, status));
+  }
+
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(sales)
+    .where(and(...conditions));
+
+  const limit = pagination?.limit;
+  const offset = pagination ? (pagination.page - 1) * pagination.limit : undefined;
+
+  const items = await db.query.sales.findMany({
+    where: and(...conditions),
+    orderBy: (sales, { desc }) => [desc(sales.createdAt)],
+    limit,
+    offset,
+    with: {
+      items: {
+        with: {
+          product: true,
+        },
+      },
+    },
+  });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination?.page ?? 1,
+    limit: limit ?? total,
+  };
 }
 
 export async function create(params: {

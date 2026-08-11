@@ -12,6 +12,7 @@ var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockDeleteWhere: jest.Mock;
 var mockDelete: jest.Mock;
+var mockSelect: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
@@ -24,6 +25,11 @@ jest.mock('@/db', () => {
   mockUpdate = jest.fn(() => ({ set: mockSet }));
   mockDeleteWhere = jest.fn();
   mockDelete = jest.fn(() => ({ where: mockDeleteWhere }));
+  mockSelect = jest.fn().mockImplementation(() => ({
+    from: jest.fn().mockImplementation(() => ({
+      where: jest.fn().mockResolvedValue([{ count: 0 }]),
+    })),
+  }));
 
   return {
     db: {
@@ -33,6 +39,7 @@ jest.mock('@/db', () => {
       insert: mockInsert,
       update: mockUpdate,
       delete: mockDelete,
+      select: mockSelect,
     },
   };
 });
@@ -86,7 +93,9 @@ describe('saleRepository', () => {
 
       const result = await saleRepository.findByDateRange(start, end);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(0);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -103,7 +112,7 @@ describe('saleRepository', () => {
 
       const result = await saleRepository.findByDateRange(start, end, 'cancelled');
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -120,7 +129,7 @@ describe('saleRepository', () => {
         new Date()
       );
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
     });
   });
 
@@ -131,7 +140,7 @@ describe('saleRepository', () => {
 
       const result = await saleRepository.findByCashRegisterId(1);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -146,7 +155,7 @@ describe('saleRepository', () => {
 
       const result = await saleRepository.findByCashRegisterId(1, 'active');
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -159,15 +168,20 @@ describe('saleRepository', () => {
       const expected = [{ id: 1, cashRegisterId: 1 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await saleRepository.findByCashRegisterId(1, undefined, 50, 10);
+      const result = await saleRepository.findByCashRegisterId(1, undefined, {
+        page: 2,
+        limit: 50,
+      });
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(50);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           orderBy: expect.anything(),
           limit: 50,
-          offset: 10,
+          offset: 50,
         })
       );
     });

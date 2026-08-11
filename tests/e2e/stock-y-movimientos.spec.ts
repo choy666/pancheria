@@ -111,10 +111,9 @@ test.describe('Stock, ajustes y movimientos', () => {
     );
     expect(movimientosVenta.status()).toBe(200);
     const movsVenta = (await movimientosVenta.json()) as {
-      type: string;
-      quantity: number;
-    }[];
-    const movVenta = movsVenta.find((m) => m.type === 'sale');
+      items: { type: string; quantity: number }[];
+    };
+    const movVenta = movsVenta.items.find((m) => m.type === 'sale');
     expect(movVenta).toBeTruthy();
     expect(movVenta?.quantity).toBe(-2);
 
@@ -128,10 +127,9 @@ test.describe('Stock, ajustes y movimientos', () => {
     );
     expect(movimientosAnulacion.status()).toBe(200);
     const movsAnulacion = (await movimientosAnulacion.json()) as {
-      type: string;
-      quantity: number;
-    }[];
-    const movAnulacion = movsAnulacion.find((m) => m.type === 'cancellation');
+      items: { type: string; quantity: number }[];
+    };
+    const movAnulacion = movsAnulacion.items.find((m) => m.type === 'cancellation');
     expect(movAnulacion).toBeTruthy();
     expect(movAnulacion?.quantity).toBe(2);
 

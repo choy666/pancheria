@@ -7,6 +7,7 @@ var mockFindMany: jest.Mock;
 var mockReturning: jest.Mock;
 var mockValues: jest.Mock;
 var mockInsert: jest.Mock;
+var mockSelect: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
@@ -14,6 +15,11 @@ jest.mock('@/db', () => {
   mockReturning = jest.fn();
   mockValues = jest.fn((data: unknown) => ({ returning: mockReturning }));
   mockInsert = jest.fn(() => ({ values: mockValues }));
+  mockSelect = jest.fn().mockImplementation(() => ({
+    from: jest.fn().mockImplementation(() => ({
+      where: jest.fn().mockResolvedValue([{ count: 0 }]),
+    })),
+  }));
 
   return {
     db: {
@@ -21,6 +27,7 @@ jest.mock('@/db', () => {
         dailyClosures: { findFirst: mockFindFirst, findMany: mockFindMany },
       },
       insert: mockInsert,
+      select: mockSelect,
     },
   };
 });
@@ -62,11 +69,38 @@ describe('dailyClosureRepository', () => {
 
       const result = await dailyClosureRepository.findByDateRange(start, end);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(0);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           orderBy: expect.anything(),
+        })
+      );
+    });
+
+    test('puede paginar los cierres diarios', async () => {
+      const start = new Date('2026-08-01T00:00:00.000Z');
+      const end = new Date('2026-08-07T23:59:59.000Z');
+      const expected = [{ id: 1 }];
+      mockFindMany.mockResolvedValue(expected);
+
+      const result = await dailyClosureRepository.findByDateRange(
+        start,
+        end,
+        { page: 2, limit: 5 }
+      );
+
+      expect(result.items).toEqual(expected);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(5);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          orderBy: expect.anything(),
+          limit: 5,
+          offset: 5,
         })
       );
     });
@@ -79,7 +113,8 @@ describe('dailyClosureRepository', () => {
         new Date()
       );
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 

@@ -14,6 +14,10 @@ function createFetchResponse<T>(body: T, ok = true, status = 200) {
   } as Response;
 }
 
+function createPaginatedResponse<T>(items: T[], total = items.length) {
+  return createFetchResponse({ items, total, page: 1, limit: 10 });
+}
+
 describe('StockHistory', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -33,7 +37,7 @@ describe('StockHistory', () => {
 
     render(<StockHistory productId={1} productName="Pan" />);
 
-    await waitFor(() => expect(screen.getByText('Error al cargar historial')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Error del servidor')).toBeInTheDocument());
   });
 
   test('muestra error desconocido cuando fetch rechaza con un valor no Error', async () => {
@@ -62,7 +66,7 @@ describe('StockHistory', () => {
       },
     ];
 
-    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(movements));
+    global.fetch = jest.fn().mockResolvedValue(createPaginatedResponse(movements, 2));
 
     render(<StockHistory productId={1} productName="Pan" />);
 

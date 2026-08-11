@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as stockService from '@/application/services/stockService';
 import { parseId } from '@/lib/id';
+import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
@@ -16,6 +17,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     );
   }
 
-  const history = await stockService.getStockHistory(productId);
+  const pagination = parsePaginationParams(searchParams);
+  const history = await stockService.getStockHistory(productId, pagination);
   return NextResponse.json(history);
 });

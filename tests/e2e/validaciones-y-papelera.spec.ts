@@ -233,7 +233,8 @@ test.describe('Historial, papelera y restauración de cajas', () => {
 
     const eliminadas = await page.request.get('/api/caja/eliminadas');
     expect(eliminadas.status()).toBe(200);
-    const listaEliminadas = (await eliminadas.json()) as { id: number }[];
+    const bodyEliminadas = (await eliminadas.json()) as { items: { id: number }[] };
+    const listaEliminadas = bodyEliminadas.items;
     expect(listaEliminadas.some((c) => c.id === caja.id)).toBe(true);
 
     const restaurar = await page.request.post(`/api/caja/${caja.id}/restaurar`);

@@ -1,5 +1,17 @@
 import { Money } from '@/lib/money';
 
+export type PaginationParams = {
+  page: number;
+  limit: number;
+};
+
+export type PaginatedResult<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 export type ProductType = 'critical_supply' | 'compound' | 'manual_supply' | 'service';
 
 export type CriticalSupplyType = 'bread' | 'sausage' | 'beverage';

@@ -46,31 +46,41 @@ describe('GET /api/caja/historial', () => {
 
   test('devuelve el historial de cajas con status 200', async () => {
     const history = [{ id: 1, status: 'closed' as const }];
-    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue(
-      history as unknown as Awaited<ReturnType<typeof cashRegisterService.listCashRegisterHistory>>
-    );
+    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue({
+      items: history,
+      total: 1,
+      page: 1,
+      limit: 10,
+    } as unknown as Awaited<ReturnType<typeof cashRegisterService.listCashRegisterHistory>>);
 
     const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
-    const body = (await response.json()) as unknown[];
+    const body = (await response.json()) as { items: unknown[] };
 
     expect(response.status).toBe(200);
-    expect(body).toEqual(history);
+    expect(body.items).toEqual(history);
     expect(mockedCashRegisterService.listCashRegisterHistory).toHaveBeenCalledWith(
       expect.any(Date),
       expect.any(Date),
-      undefined
+      undefined,
+      { page: 1, limit: 10 }
     );
   });
 
   test('propaga el filtro de estado al servicio', async () => {
-    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue([]);
+    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+    });
 
     await GET(buildRequest('start=2025-01-01&end=2025-01-31&status=open'));
 
     expect(mockedCashRegisterService.listCashRegisterHistory).toHaveBeenCalledWith(
       expect.any(Date),
       expect.any(Date),
-      'open'
+      'open',
+      { page: 1, limit: 10 }
     );
   });
 

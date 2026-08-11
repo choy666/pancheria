@@ -9,7 +9,7 @@ import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { safeJsonParse } from '@/lib/json';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
-import type { CashRegisterStatus } from '@/domain/types';
+import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
 
 export async function getOpenCashRegister() {
   const cashRegister = await cashRegisterRepository.findOpen();
@@ -323,9 +323,10 @@ export async function getCashRegisterById(id: number, includeDeleted = false) {
 export async function listCashRegisterHistory(
   start: Date,
   end: Date,
-  status?: CashRegisterStatus
+  status?: CashRegisterStatus,
+  pagination?: PaginationParams
 ) {
-  return cashRegisterRepository.findInRange(start, end, status);
+  return cashRegisterRepository.findInRange(start, end, status, pagination);
 }
 
 export async function deleteCashRegister(id: number) {
@@ -362,8 +363,12 @@ export async function permanentlyDeleteCashRegister(id: number) {
   return cashRegisterRepository.hardDelete(id);
 }
 
-export async function listDeletedCashRegisterHistory(start: Date, end: Date) {
-  return cashRegisterRepository.findDeletedInRange(start, end);
+export async function listDeletedCashRegisterHistory(
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+) {
+  return cashRegisterRepository.findDeletedInRange(start, end, pagination);
 }
 
 export async function emptyTrash(start: Date, end: Date) {

@@ -5,7 +5,7 @@ import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import type { StockMovementType } from '@/domain/types';
+import type { PaginationParams, StockMovementType } from '@/domain/types';
 
 export async function listStockAlerts() {
   const allProducts = await productRepository.findActive();
@@ -65,9 +65,12 @@ export async function adjustStock(
   return { productId, newStock };
 }
 
-export async function getStockHistory(productId: number, limit = 50) {
+export async function getStockHistory(
+  productId: number,
+  pagination: PaginationParams
+) {
   const product = await productRepository.findById(productId);
   if (!product) throw new NotFoundError('Producto', productId);
 
-  return stockMovementRepository.findByProductId(productId, limit);
+  return stockMovementRepository.findByProductId(productId, pagination);
 }

@@ -1,18 +1,8 @@
 'use client';
 
+import { useCallback } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useState } from 'react';
-
-function formatDateTime(date: Date | string) {
-  const d = new Date(date);
-  const day = d.getUTCDate().toString().padStart(2, '0');
-  const month = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-  const year = d.getUTCFullYear();
-  const hours = d.getUTCHours().toString().padStart(2, '0');
-  const minutes = d.getUTCMinutes().toString().padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
-}
-
+import { formatDateTime } from '@/lib/date';
 import {
   Table,
   TableBody,
@@ -22,7 +12,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 import { STOCK_MOVIMIENTOS_API } from '@/config/api';
+import { usePaginatedData } from '@/hooks/use-paginated-data';
+import type { PaginatedResult } from '@/domain/types';
 
 interface StockMovement {
   id: number;
@@ -45,39 +38,38 @@ const typeLabels: Record<string, string> = {
 };
 
 export function StockHistory({ productId, productName }: StockHistoryProps) {
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const response = await authenticatedFetch(
-          `${STOCK_MOVIMIENTOS_API}?productId=${productId}`,
-          {}
-        );
-        if (!response.ok) throw new Error('Error al cargar historial');
-        const data = (await response.json()) as StockMovement[];
-        if (!cancelled) setMovements(data);
-      } catch (error) {
-        if (!cancelled) {
-          setError(error instanceof Error ? error.message : 'Error desconocido');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const load = useCallback(
+    async (page: number, limit: number, signal: AbortSignal) => {
+      const params = new URLSearchParams({
+        productId: String(productId),
+        page: String(page),
+        limit: String(limit),
+      });
+      const response = await authenticatedFetch(
+        `${STOCK_MOVIMIENTOS_API}?${params}`,
+        { signal }
+      );
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al cargar historial');
       }
-    }
+      return (await response.json()) as PaginatedResult<StockMovement>;
+    },
+    [productId]
+  );
 
-    load();
+  const {
+    items,
+    total,
+    page,
+    limit,
+    isLoading,
+    error,
+    setPage,
+    setLimit,
+  } = usePaginatedData(load);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [productId]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full" />
@@ -91,7 +83,7 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
       <p className="text-base leading-relaxed text-muted-foreground">
         Historial de movimientos para <strong>{productName}</strong>
       </p>
-      <div className="rounded-2xl border border-white/8">
+      <div className="overflow-x-hidden rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>
@@ -102,12 +94,12 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movements.map((movement) => (
+            {items.map((movement) => (
               <TableRow key={movement.id}>
-                <TableCell>
-                  {formatDateTime(movement.createdAt)}
+                <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  {typeLabels[movement.type]}
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">{typeLabels[movement.type]}</TableCell>
                 <TableCell
                   className={`font-mono font-medium ${
                     movement.quantity > 0 ? 'text-emerald-400' : 'text-destructive'
@@ -116,12 +108,21 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
                   {movement.quantity > 0 ? '+' : ''}
                   {movement.quantity}
                 </TableCell>
-                <TableCell className="hidden md:table-cell max-w-[200px] truncate">{movement.reason || '-'}</TableCell>
+                <TableCell className="hidden md:table-cell max-w-[200px] truncate">
+                  {movement.reason || '-'}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={setLimit}
+      />
     </div>
   );
 }

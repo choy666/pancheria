@@ -1,10 +1,12 @@
-import { eq, and, gte, lt, lte, isNotNull, inArray, isNull } from 'drizzle-orm';
+import { eq, and, gte, lt, isNotNull, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, recipes, sales, cashRegisters, dailyClosures } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
+import * as dailyClosureRepository from '@/repositories/dailyClosureRepository';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { startOfDayUTC, endOfDayUTC, nowUTC } from '@/lib/date';
 import { ValidationError } from '@/domain/errors';
+import type { PaginationParams } from '@/domain/types';
 
 type RecipeWithSupply = typeof recipes.$inferSelect & {
   supply: typeof products.$inferSelect | null;
@@ -185,12 +187,14 @@ export async function getClosureByDate(date: Date) {
   });
 }
 
-export async function listClosures(start: Date, end: Date) {
-  return db.query.dailyClosures.findMany({
-    where: and(
-      gte(dailyClosures.date, startOfDayUTC(start)),
-      lte(dailyClosures.date, endOfDayUTC(end))
-    ),
-    orderBy: (dailyClosures, { desc }) => [desc(dailyClosures.date)],
-  });
+export async function listClosures(
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+) {
+  return dailyClosureRepository.findByDateRange(
+    startOfDayUTC(start),
+    endOfDayUTC(end),
+    pagination
+  );
 }

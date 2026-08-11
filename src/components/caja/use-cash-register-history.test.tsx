@@ -16,13 +16,20 @@ describe('useCashRegisterHistory', () => {
     global.fetch = jest.fn().mockResolvedValue(response as Response);
   }
 
+  function createPaginatedResponse<T>(items: T[], total = items.length) {
+    return {
+      ok: true,
+      json: async () => ({ items, total, page: 1, limit: 10 }),
+    } as Response;
+  }
+
   test('inicia en estado de carga', async () => {
-    mockFetch({ ok: true, json: async () => [] });
+    mockFetch(createPaginatedResponse([]));
 
     const { result } = renderHook(() => useCashRegisterHistory());
 
     expect(result.current.isLoading).toBe(true);
-    expect(result.current.data).toBeNull();
+    expect(result.current.data).toEqual([]);
     expect(result.current.error).toBeNull();
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -46,7 +53,7 @@ describe('useCashRegisterHistory', () => {
         createdAt: '2025-01-15T10:00:00.000Z',
       },
     ];
-    mockFetch({ ok: true, json: async () => payload });
+    mockFetch(createPaginatedResponse(payload, 1));
 
     const { result } = renderHook(() => useCashRegisterHistory());
 
@@ -54,6 +61,9 @@ describe('useCashRegisterHistory', () => {
 
     expect(result.current.error).toBeNull();
     expect(result.current.data).toEqual(payload);
+    expect(result.current.total).toBe(1);
+    expect(result.current.page).toBe(1);
+    expect(result.current.limit).toBe(10);
     expect(result.current.startDate).toBeDefined();
     expect(result.current.endDate).toBeDefined();
   });
@@ -63,13 +73,13 @@ describe('useCashRegisterHistory', () => {
       ok: false,
       status: 500,
       json: async () => ({ error: 'Error al listar cajas' }),
-    });
+    } as Response);
 
     const { result } = renderHook(() => useCashRegisterHistory());
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.data).toBeNull();
+    expect(result.current.data).toEqual([]);
     expect(result.current.error).toBe('Error al listar cajas');
   });
 
@@ -80,12 +90,12 @@ describe('useCashRegisterHistory', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.data).toBeNull();
+    expect(result.current.data).toEqual([]);
     expect(result.current.error).toBe('Network error');
   });
 
   test('refresca los datos al invocar refresh', async () => {
-    mockFetch({ ok: true, json: async () => [] });
+    mockFetch(createPaginatedResponse([]));
 
     const { result } = renderHook(() => useCashRegisterHistory());
 
@@ -102,7 +112,7 @@ describe('useCashRegisterHistory', () => {
   test('incluye el filtro de estado en la URL cuando no es "all"', async () => {
     global.fetch = jest
       .fn()
-      .mockResolvedValue({ ok: true, json: async () => [] } as Response);
+      .mockResolvedValue(createPaginatedResponse([]) as unknown as Response);
 
     renderHook(() => useCashRegisterHistory({ statusFilter: 'closed' }));
 
@@ -113,5 +123,28 @@ describe('useCashRegisterHistory', () => {
       'http://localhost'
     );
     expect(url.searchParams.get('status')).toBe('closed');
+  });
+
+  test('cambia de página al invocar setPage', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(createPaginatedResponse([]) as unknown as Response);
+
+    const { result } = renderHook(() => useCashRegisterHistory());
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.setPage(2);
+    });
+
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      const lastUrl = new URL(
+        calls[calls.length - 1][0] as string,
+        'http://localhost'
+      );
+      return expect(lastUrl.searchParams.get('page')).toBe('2');
+    });
   });
 });

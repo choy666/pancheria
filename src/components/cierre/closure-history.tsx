@@ -1,7 +1,7 @@
 'use client';
 
+import { useCallback } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useState } from 'react';
 import { subDays } from 'date-fns';
 import {
   Table,
@@ -12,8 +12,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 import { CIERRE_HISTORIAL_API } from '@/config/api';
 import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
+import { usePaginatedData } from '@/hooks/use-paginated-data';
+import type { PaginatedResult } from '@/domain/types';
 
 interface Closure {
   id: number;
@@ -27,36 +30,38 @@ interface Closure {
 }
 
 export function ClosureHistory() {
-  const [closures, setClosures] = useState<Closure[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async (page: number, limit: number, signal: AbortSignal) => {
+    const now = nowUTC();
+    const end = endOfDayUTC(now);
+    const start = startOfDayUTC(subDays(now, 30));
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const now = nowUTC();
-        const end = endOfDayUTC(now);
-        const start = startOfDayUTC(subDays(now, 30));
+    const params = new URLSearchParams({
+      start: start.toISOString(),
+      end: end.toISOString(),
+      page: String(page),
+      limit: String(limit),
+    });
 
-        const params = new URLSearchParams({
-          start: start.toISOString(),
-          end: end.toISOString(),
-        });
+    const response = await authenticatedFetch(`${CIERRE_HISTORIAL_API}?${params}`, {
+      signal,
+    });
 
-        const response = await authenticatedFetch(`${CIERRE_HISTORIAL_API}?${params}`, {});
-        if (!response.ok) throw new Error('Error al cargar cierres');
-        setClosures((await response.json()) as Closure[]);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
+    if (!response.ok) throw new Error('Error al cargar cierres');
+    return (await response.json()) as PaginatedResult<Closure>;
   }, []);
 
-  if (loading) {
+  const {
+    items: closures,
+    total,
+    page,
+    limit,
+    isLoading,
+    error,
+    setPage,
+    setLimit,
+  } = usePaginatedData(load);
+
+  if (isLoading) {
     return (
       <div className="space-y-5">
         <Skeleton className="h-64 w-full" />
@@ -93,6 +98,14 @@ export function ClosureHistory() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={setLimit}
+      />
     </div>
   );
 }

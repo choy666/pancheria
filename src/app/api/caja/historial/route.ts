@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { subDays } from 'date-fns';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { nowUTC, parseDateStringUTC } from '@/lib/date';
+import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
@@ -21,10 +22,12 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const status: CashRegisterStatus | undefined =
     statusParam === 'open' || statusParam === 'closed' ? statusParam : undefined;
 
+  const pagination = parsePaginationParams(searchParams);
   const cashRegisters = await cashRegisterService.listCashRegisterHistory(
     start,
     end,
-    status
+    status,
+    pagination
   );
   return NextResponse.json(cashRegisters);
 });

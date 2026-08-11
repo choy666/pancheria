@@ -166,8 +166,8 @@ test.describe('Flujo completo de un día de operación', () => {
       `/api/cierre/historial?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
     );
     expect(cierres.status()).toBe(200);
-    const list = (await cierres.json()) as { total: number }[];
-    expect(list.some((c) => c.total === 3800)).toBe(true);
+    const body = (await cierres.json()) as { items: { total: number }[] };
+    expect(body.items.some((c) => c.total === 3800)).toBe(true);
 
     await page.goto(`/ventas/historial/${caja.id}`);
     await expect(page.getByText(combo.name).first()).toBeVisible();

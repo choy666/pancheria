@@ -15,6 +15,7 @@ var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockDeleteWhere: jest.Mock;
 var mockDelete: jest.Mock;
+var mockSelect: jest.Mock;
 
 var mockExecuteInTransaction: jest.Mock;
 
@@ -29,6 +30,11 @@ jest.mock('@/db', () => {
   mockUpdate = jest.fn(() => ({ set: mockSet }));
   mockDeleteWhere = jest.fn();
   mockDelete = jest.fn(() => ({ where: mockDeleteWhere }));
+  mockSelect = jest.fn().mockImplementation(() => ({
+    from: jest.fn().mockImplementation(() => ({
+      where: jest.fn().mockResolvedValue([{ count: 0 }]),
+    })),
+  }));
 
   return {
     db: {
@@ -38,6 +44,7 @@ jest.mock('@/db', () => {
       insert: mockInsert,
       update: mockUpdate,
       delete: mockDelete,
+      select: mockSelect,
     },
   };
 });
@@ -116,13 +123,12 @@ describe('cashRegisterRepository', () => {
   });
 
   describe('findById', () => {
-    test('obtiene una caja por su id incluyendo relaciones', async () => {
+    test('obtiene una caja por su id', async () => {
       const expected = {
         id: 1,
         openedAt: new Date(),
         openedBy: 'admin',
         status: 'open',
-        sales: [],
       };
       mockFindFirst.mockResolvedValue(expected);
 
@@ -132,9 +138,6 @@ describe('cashRegisterRepository', () => {
       expect(mockFindFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
-          with: expect.objectContaining({
-            sales: expect.anything(),
-          }),
         })
       );
     });
@@ -157,7 +160,9 @@ describe('cashRegisterRepository', () => {
 
       const result = await cashRegisterRepository.findInRange(start, end);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(0);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -178,11 +183,35 @@ describe('cashRegisterRepository', () => {
         'closed'
       );
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           orderBy: expect.any(Array),
+        })
+      );
+    });
+
+    test('puede paginar las cajas', async () => {
+      const start = new Date('2026-08-01T00:00:00.000Z');
+      const end = new Date('2026-08-07T23:59:59.000Z');
+      const expected = [{ id: 1 }];
+      mockFindMany.mockResolvedValue(expected);
+
+      const result = await cashRegisterRepository.findInRange(start, end, undefined, {
+        page: 2,
+        limit: 5,
+      });
+
+      expect(result.items).toEqual(expected);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(5);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          orderBy: expect.any(Array),
+          limit: 5,
+          offset: 5,
         })
       );
     });
@@ -195,7 +224,8 @@ describe('cashRegisterRepository', () => {
         new Date()
       );
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 
@@ -208,7 +238,7 @@ describe('cashRegisterRepository', () => {
 
       const result = await cashRegisterRepository.findClosedInRange(start, end);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -227,11 +257,35 @@ describe('cashRegisterRepository', () => {
 
       const result = await cashRegisterRepository.findDeletedInRange(start, end);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           orderBy: expect.any(Array),
+        })
+      );
+    });
+
+    test('puede paginar las cajas eliminadas', async () => {
+      const start = new Date('2026-08-01T00:00:00.000Z');
+      const end = new Date('2026-08-07T23:59:59.000Z');
+      const expected = [{ id: 1, deletedAt: new Date() }];
+      mockFindMany.mockResolvedValue(expected);
+
+      const result = await cashRegisterRepository.findDeletedInRange(
+        start,
+        end,
+        { page: 1, limit: 10 }
+      );
+
+      expect(result.items).toEqual(expected);
+      expect(result.limit).toBe(10);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          orderBy: expect.any(Array),
+          limit: 10,
+          offset: 0,
         })
       );
     });

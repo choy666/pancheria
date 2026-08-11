@@ -317,7 +317,7 @@ export function StockList() {
           if (!open) setDialogMode(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md md:max-w-xl lg:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Historial de stock</DialogTitle>
           </DialogHeader>

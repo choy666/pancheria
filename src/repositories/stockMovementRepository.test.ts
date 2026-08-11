@@ -6,12 +6,18 @@ var mockFindMany: jest.Mock;
 var mockReturning: jest.Mock;
 var mockValues: jest.Mock;
 var mockInsert: jest.Mock;
+var mockSelect: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindMany = jest.fn();
   mockReturning = jest.fn();
   mockValues = jest.fn((data: unknown) => ({ returning: mockReturning }));
   mockInsert = jest.fn(() => ({ values: mockValues }));
+  mockSelect = jest.fn().mockImplementation(() => ({
+    from: jest.fn().mockImplementation(() => ({
+      where: jest.fn().mockResolvedValue([{ count: 0 }]),
+    })),
+  }));
 
   return {
     db: {
@@ -19,6 +25,7 @@ jest.mock('@/db', () => {
         stockMovements: { findMany: mockFindMany },
       },
       insert: mockInsert,
+      select: mockSelect,
     },
   };
 });
@@ -36,14 +43,18 @@ describe('stockMovementRepository', () => {
       ];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await stockMovementRepository.findByProductId(1);
+      const result = await stockMovementRepository.findByProductId(1, { page: 1, limit: 10 });
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.total).toBe(0);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           orderBy: expect.anything(),
-          limit: expect.any(Number),
+          limit: 10,
+          offset: 0,
         })
       );
     });
@@ -52,12 +63,14 @@ describe('stockMovementRepository', () => {
       const expected = [{ id: 1, productId: 1 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await stockMovementRepository.findByProductId(1, 5);
+      const result = await stockMovementRepository.findByProductId(1, { page: 1, limit: 5 });
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.limit).toBe(5);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           limit: 5,
+          offset: 0,
         })
       );
     });
@@ -65,9 +78,10 @@ describe('stockMovementRepository', () => {
     test('devuelve un array vacío si no hay movimientos', async () => {
       mockFindMany.mockResolvedValue([]);
 
-      const result = await stockMovementRepository.findByProductId(999);
+      const result = await stockMovementRepository.findByProductId(999, { page: 1, limit: 10 });
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 

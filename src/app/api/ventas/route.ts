@@ -9,6 +9,7 @@ import {
   endOfDayUTC,
 } from '@/lib/date';
 import { parseId } from '@/lib/id';
+import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
@@ -17,6 +18,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get('date');
   const cashRegisterIdParam = searchParams.get('cashRegisterId');
+  const pagination = parsePaginationParams(searchParams);
 
   if (cashRegisterIdParam) {
     const cashRegisterId = parseId(cashRegisterIdParam);
@@ -28,7 +30,8 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     }
     const sales = await saleRepository.findByCashRegisterId(
       cashRegisterId,
-      'active'
+      'active',
+      pagination
     );
     return NextResponse.json(sales);
   }
@@ -37,7 +40,12 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const start = startOfDayUTC(date);
   const end = endOfDayUTC(date);
 
-  const sales = await saleRepository.findByDateRange(start, end, 'active');
+  const sales = await saleRepository.findByDateRange(
+    start,
+    end,
+    'active',
+    pagination
+  );
   return NextResponse.json(sales);
 });
 

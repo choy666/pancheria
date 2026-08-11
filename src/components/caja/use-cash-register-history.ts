@@ -1,7 +1,7 @@
 'use client';
 
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { subDays } from 'date-fns';
 import {
   CAJA_HISTORIAL_API,
@@ -9,18 +9,8 @@ import {
 } from '@/config/api';
 import { DEFAULT_CAJA_HISTORY_DAYS, type CashRegister } from '@/config/caja';
 import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
-
-interface LoadSuccess {
-  data: CashRegister[];
-  startDate: string;
-  endDate: string;
-}
-
-interface LoadFailure {
-  error: string;
-}
-
-type LoadResult = LoadSuccess | LoadFailure;
+import { usePaginatedData } from '@/hooks/use-paginated-data';
+import type { PaginatedResult } from '@/domain/types';
 
 export interface UseCashRegisterHistoryOptions {
   statusFilter?: 'all' | 'closed';
@@ -28,113 +18,82 @@ export interface UseCashRegisterHistoryOptions {
 }
 
 export interface UseCashRegisterHistoryReturn {
-  data: CashRegister[] | null;
-  startDate: string | null;
-  endDate: string | null;
+  data: CashRegister[];
+  total: number;
+  page: number;
+  limit: number;
+  startDate: string;
+  endDate: string;
   error: string | null;
   isLoading: boolean;
+  setPage: (page: number) => void;
+  setLimit: (limit: number) => void;
   refresh: () => void;
-}
-
-async function loadCashRegisterHistory(
-  statusFilter: 'all' | 'closed',
-  deletedOnly: boolean
-): Promise<LoadResult> {
-  const now = nowUTC();
-  const end = endOfDayUTC(now);
-  const start = startOfDayUTC(subDays(now, DEFAULT_CAJA_HISTORY_DAYS));
-  const endStr = end.toISOString();
-  const startStr = start.toISOString();
-
-  const params = new URLSearchParams({
-    start: startStr,
-    end: endStr,
-  });
-
-  const endpoint = deletedOnly ? CAJA_ELIMINADAS_API : CAJA_HISTORIAL_API;
-
-  if (!deletedOnly && statusFilter !== 'all') {
-    params.set('status', statusFilter);
-  }
-
-  try {
-    const response = await authenticatedFetch(`${endpoint}?${params}`);
-
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      throw new Error(data.error || 'Error al cargar historial de cajas');
-    }
-
-    const data = (await response.json()) as CashRegister[];
-    return {
-      data,
-      startDate: startStr,
-      endDate: endStr,
-    };
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : 'Error desconocido',
-    };
-  }
 }
 
 export function useCashRegisterHistory({
   statusFilter = 'closed',
   deletedOnly = false,
 }: UseCashRegisterHistoryOptions = {}): UseCashRegisterHistoryReturn {
-  const [result, setResult] = useState<LoadResult | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [dateRange] = useState(() => {
+    const now = nowUTC();
+    const end = endOfDayUTC(now);
+    const start = startOfDayUTC(subDays(now, DEFAULT_CAJA_HISTORY_DAYS));
+    return { startDate: start.toISOString(), endDate: end.toISOString() };
+  });
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(
+    async (page: number, limit: number, signal: AbortSignal) => {
+      const params = new URLSearchParams({
+        start: dateRange.startDate,
+        end: dateRange.endDate,
+        page: String(page),
+        limit: String(limit),
+      });
 
-    async function load() {
-      const res = await loadCashRegisterHistory(statusFilter, deletedOnly);
-      if (!cancelled) {
-        setResult(res);
+      const endpoint = deletedOnly ? CAJA_ELIMINADAS_API : CAJA_HISTORIAL_API;
+
+      if (!deletedOnly && statusFilter !== 'all') {
+        params.set('status', statusFilter);
       }
-    }
 
-    void load();
+      const response = await authenticatedFetch(`${endpoint}?${params}`, {
+        signal,
+      });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [statusFilter, deletedOnly, refreshKey]);
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al cargar historial de cajas');
+      }
 
-  const refresh = useCallback(() => {
-    setResult(null);
-    setRefreshKey((prev) => prev + 1);
-  }, []);
+      return (await response.json()) as PaginatedResult<CashRegister>;
+    },
+    [dateRange, deletedOnly, statusFilter]
+  );
 
-  if (result === null) {
-    return {
-      data: null,
-      startDate: null,
-      endDate: null,
-      error: null,
-      isLoading: true,
-      refresh,
-    };
-  }
-
-  if ('error' in result) {
-    return {
-      data: null,
-      startDate: null,
-      endDate: null,
-      error: result.error,
-      isLoading: false,
-      refresh,
-    };
-  }
+  const {
+    items,
+    total,
+    page,
+    limit,
+    isLoading,
+    error,
+    setPage,
+    setLimit,
+    refresh,
+  } = usePaginatedData(load);
 
   return {
-    data: result.data,
-    startDate: result.startDate,
-    endDate: result.endDate,
-    error: null,
-    isLoading: false,
+    data: items,
+    total,
+    page,
+    limit,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+    error,
+    isLoading,
+    setPage,
+    setLimit,
     refresh,
   };
 }

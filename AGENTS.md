@@ -17,6 +17,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Lint                     | `npm run lint`                                    |
 | Tests unitarios          | `npm test`                                        |
 | Tests E2E                | `npx playwright test`                             |
+|| Verificación de tipos    | `npx tsc --noEmit`                                |
 
 > **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `stock_movements`, `cash_registers` y `daily_closures`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 | Generar migraciones      | `npx drizzle-kit generate`                        |

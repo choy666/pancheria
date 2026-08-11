@@ -367,14 +367,21 @@ describe('cashRegisterService', () => {
         { id: 2, status: 'open' },
       ];
 
-      mockedCashRegisterRepository.findInRange.mockResolvedValue(history as any);
+      mockedCashRegisterRepository.findInRange.mockResolvedValue({
+        items: history,
+        total: 2,
+        page: 1,
+        limit: 10,
+      } as any);
 
       const result = await listCashRegisterHistory(start, end);
 
-      expect(result).toEqual(history);
+      expect(result.items).toEqual(history);
+      expect(result.total).toBe(2);
       expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
         start,
         end,
+        undefined,
         undefined
       );
     });
@@ -384,15 +391,51 @@ describe('cashRegisterService', () => {
       const end = new Date('2025-01-31');
       const history = [{ id: 1, status: 'closed' }];
 
-      mockedCashRegisterRepository.findInRange.mockResolvedValue(history as any);
+      mockedCashRegisterRepository.findInRange.mockResolvedValue({
+        items: history,
+        total: 1,
+        page: 1,
+        limit: 10,
+      } as any);
 
       const result = await listCashRegisterHistory(start, end, 'closed');
 
-      expect(result).toEqual(history);
+      expect(result.items).toEqual(history);
       expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
         start,
         end,
-        'closed'
+        'closed',
+        undefined
+      );
+    });
+
+    test('puede paginar el historial', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+      const history = [{ id: 1, status: 'closed' }];
+      const pagination = { page: 2, limit: 5 };
+
+      mockedCashRegisterRepository.findInRange.mockResolvedValue({
+        items: history,
+        total: 10,
+        page: 2,
+        limit: 5,
+      } as any);
+
+      const result = await listCashRegisterHistory(
+        start,
+        end,
+        'closed',
+        pagination
+      );
+
+      expect(result.items).toEqual(history);
+      expect(result.total).toBe(10);
+      expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
+        start,
+        end,
+        'closed',
+        pagination
       );
     });
 
@@ -415,16 +458,44 @@ describe('cashRegisterService', () => {
       const end = new Date('2025-01-31');
       const history = [{ id: 1, deletedAt: new Date() }];
 
-      mockedCashRegisterRepository.findDeletedInRange.mockResolvedValue(
-        history as any
-      );
+      mockedCashRegisterRepository.findDeletedInRange.mockResolvedValue({
+        items: history,
+        total: 1,
+        page: 1,
+        limit: 10,
+      } as any);
 
       const result = await listDeletedCashRegisterHistory(start, end);
 
-      expect(result).toEqual(history);
+      expect(result.items).toEqual(history);
       expect(mockedCashRegisterRepository.findDeletedInRange).toHaveBeenCalledWith(
         start,
-        end
+        end,
+        undefined
+      );
+    });
+
+    test('puede paginar las cajas eliminadas', async () => {
+      const start = new Date('2025-01-01');
+      const end = new Date('2025-01-31');
+      const history = [{ id: 1, deletedAt: new Date() }];
+      const pagination = { page: 1, limit: 5 };
+
+      mockedCashRegisterRepository.findDeletedInRange.mockResolvedValue({
+        items: history,
+        total: 5,
+        page: 1,
+        limit: 5,
+      } as any);
+
+      const result = await listDeletedCashRegisterHistory(start, end, pagination);
+
+      expect(result.items).toEqual(history);
+      expect(result.total).toBe(5);
+      expect(mockedCashRegisterRepository.findDeletedInRange).toHaveBeenCalledWith(
+        start,
+        end,
+        pagination
       );
     });
   });
