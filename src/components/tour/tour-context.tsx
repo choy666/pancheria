@@ -16,6 +16,7 @@ import { HelpCircle, X } from 'lucide-react';
 
 const TOUR_STEP_KEY = 'pancheria-tour-step';
 const TOUR_SEEN_KEY = 'pancheria-tour-seen';
+const TOUR_ACTIVE_KEY = 'pancheria-tour-active';
 
 interface TourContextValue {
   startTour: () => void;
@@ -45,7 +46,7 @@ export function TourButton({ className }: TourButtonProps) {
       type="button"
       variant="outline"
       size="sm"
-      onClick={isActive ? stopTour : startTour}
+      onClick={() => (isActive ? stopTour() : startTour())}
       className={className}
     >
       {isActive ? (
@@ -86,15 +87,27 @@ function clearStep() {
   }
 }
 
+function getTourActive(): boolean {
+  if (!isLocalStorageAvailable()) return false;
+  return window.localStorage.getItem(TOUR_ACTIVE_KEY) === 'true';
+}
+
+function setTourActive() {
+  if (isLocalStorageAvailable()) {
+    window.localStorage.setItem(TOUR_ACTIVE_KEY, 'true');
+  }
+}
+
+function clearTourActive() {
+  if (isLocalStorageAvailable()) {
+    window.localStorage.removeItem(TOUR_ACTIVE_KEY);
+  }
+}
+
 function markTourSeen() {
   if (isLocalStorageAvailable()) {
     window.localStorage.setItem(TOUR_SEEN_KEY, 'true');
   }
-}
-
-function hasSeenTour(): boolean {
-  if (!isLocalStorageAvailable()) return false;
-  return window.localStorage.getItem(TOUR_SEEN_KEY) === 'true';
 }
 
 interface TourProviderProps {
@@ -110,17 +123,19 @@ export function TourProvider({ children }: TourProviderProps) {
 
   const stopTour = useCallback(() => {
     isNavigatingRef.current = false;
-    driverRef.current?.destroy();
-    driverRef.current = null;
     clearStep();
+    clearTourActive();
     markTourSeen();
     setIsActive(false);
+    driverRef.current?.destroy();
+    driverRef.current = null;
   }, []);
 
   const navigateAndContinue = useCallback(
     (url: string, nextStep: number) => {
       isNavigatingRef.current = true;
       saveStep(nextStep);
+      setTourActive();
       driverRef.current?.destroy();
       driverRef.current = null;
       router.push(url);
@@ -132,6 +147,7 @@ export function TourProvider({ children }: TourProviderProps) {
     (url: string, prevStep: number) => {
       isNavigatingRef.current = true;
       saveStep(prevStep);
+      setTourActive();
       driverRef.current?.destroy();
       driverRef.current = null;
       router.push(url);
@@ -280,6 +296,7 @@ export function TourProvider({ children }: TourProviderProps) {
       if (driverRef.current?.isActive()) return;
 
       isNavigatingRef.current = false;
+      setTourActive();
       const steps = buildSteps();
 
       const driverObj = driver({
@@ -305,9 +322,24 @@ export function TourProvider({ children }: TourProviderProps) {
         onDestroyed: () => {
           if (isNavigatingRef.current) return;
           clearStep();
+          clearTourActive();
           markTourSeen();
           setIsActive(false);
           driverRef.current = null;
+        },
+        onNextClick: (_element, step, { driver }) => {
+          if (step.popover?.onNextClick) return;
+          driver.moveNext();
+        },
+        onPrevClick: (_element, step, { driver }) => {
+          if (step.popover?.onPrevClick) return;
+          driver.movePrevious();
+        },
+        onCloseClick: (_element, _step, { driver }) => {
+          driver.destroy();
+        },
+        onDoneClick: (_element, _step, { driver }) => {
+          driver.destroy();
         },
       });
 
@@ -320,11 +352,9 @@ export function TourProvider({ children }: TourProviderProps) {
 
   useEffect(() => {
     const savedStep = getSavedStep();
-    if (savedStep !== null) {
+    if (getTourActive() && savedStep !== null) {
       clearStep();
       startTour(savedStep);
-    } else if (pathname === '/' && !hasSeenTour()) {
-      startTour(0);
     }
   }, [pathname, startTour]);
 

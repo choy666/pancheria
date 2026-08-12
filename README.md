@@ -54,7 +54,7 @@ Sistema web para la gestión de stock y ventas de una panchería.
 
 ## Guía interactiva
 
-La app incluye un recorrido interactivo con `driver.js` que se inicia automáticamente la primera vez que un usuario entra al panel. También puede reiniciarse en cualquier momento desde el botón **Guía** del header (también disponible en el menú móvil). El tour recorre Panel, Ventas, Productos, Stock, Cierre de caja e Historial de cierres.
+La app incluye un recorrido interactivo con `driver.js`. El tour se inicia manualmente desde el botón **Guía** del header (también disponible en el menú móvil). Una vez iniciado, continúa automáticamente al navegar entre las secciones (Panel, Ventas, Productos, Stock, Cierre de caja e Historial de cierres) y se puede cerrar en cualquier momento con la cruz, la tecla `Escape`, el botón **Finalizar** o volviendo a presionar **Guía**.
 
 ## Notas
 
