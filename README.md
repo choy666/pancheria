@@ -32,6 +32,8 @@ Sistema web para la gestión de stock y ventas de una panchería.
 
 - `npm run dev` — modo desarrollo
 - `npm run build` — compilar
+- `npm run start` — iniciar servidor de producción
+- `npm run analyze` — analizar bundle
 - `npm run lint` — lint
 - `npx tsc --noEmit` — verificación de tipos
 - `npm test` — tests unitarios

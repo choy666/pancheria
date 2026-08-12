@@ -14,6 +14,8 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Instalar dependencias    | `npm install`                                     |
 | Ejecutar en desarrollo   | `npm run dev`                                     |
 | Compilar                 | `npm run build`                                   |
+| Iniciar en producción    | `npm run start`                                   |
+| Analizar bundle          | `npm run analyze`                                 |
 | Lint                     | `npm run lint`                                    |
 | Tests unitarios          | `npm test`                                        |
 | Verificación de tipos    | `npx tsc --noEmit`                                |
