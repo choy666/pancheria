@@ -21,8 +21,13 @@ knowledge:
       - `src/app/api/` — endpoints de la API
       - `src/db/` — esquema, conexión y seeds de Drizzle
       - `src/repositories/` — capa de repositorios
-      - `src/application/services/` — servicios de aplicación
+      - `src/application/` — servicios de aplicación (casos de uso y coordinación)
+      - `src/application/services/` — casos de uso del dominio
       - `src/components/` — componentes React
+      - `src/config/` — constantes de configuración (APIs, caja, paginación)
+      - `src/domain/` — tipos y errores de dominio
+      - `src/hooks/` — hooks personalizados de React
+      - `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, etc.)
       - `drizzle/` — migraciones generadas por Drizzle Kit
 
   - name: install
@@ -33,8 +38,9 @@ knowledge:
 
   - name: test
     contents: |
+      Verificación de tipos: npx tsc --noEmit
       Tests unitarios: npm test
-      Tests end-to-end: npx playwright test
+      Tests end-to-end: npm run test:e2e (equivale a `npx playwright test`)
 
   - name: build
     contents: |
@@ -49,9 +55,10 @@ knowledge:
       1. Copiar `.env.example` a `.env.local` y completar las variables.
       2. `DATABASE_URL` se usa en runtime; si no está definida se resuelve desde `POSTGRES_URL` o `POSTGRES_PRISMA_URL`.
       3. `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) se usa para migraciones con `drizzle-kit`.
-      4. Generar/empujar migraciones: npx drizzle-kit push
-      5. Ejecutar seed de administrador: npx tsx src/db/seeds.ts
-      6. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      4. Generar migraciones: npx drizzle-kit generate
+      5. Empujar migraciones: npx drizzle-kit push
+      6. Ejecutar seed de administrador: npx tsx src/db/seeds.ts
+      7. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
 
   - name: start
     contents: |

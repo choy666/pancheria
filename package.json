@@ -20,6 +20,7 @@
     "date-fns": "^4.4.0",
     "dinero.js": "^2.0.2",
     "dotenv": "^16.4.7",
+    "driver.js": "^1.8.0",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.28.0",

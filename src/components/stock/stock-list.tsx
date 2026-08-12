@@ -152,7 +152,7 @@ export function StockList() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/8">
+      <div data-tour="stock-table" className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>

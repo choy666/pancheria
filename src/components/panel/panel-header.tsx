@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { TourButton } from '@/components/tour/tour-context';
 import { cn } from '@/lib/utils';
 import { Menu, X } from 'lucide-react';
 
@@ -33,7 +34,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
           Panchería
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav data-tour="main-nav" className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -48,6 +49,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
+          <TourButton />
           <span className="text-sm text-muted-foreground">{userName}</span>
           <form action={signOutAction}>
             <Button type="submit" variant="outline" size="sm">
@@ -86,6 +88,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
             ))}
           </nav>
           <div className="mt-4 flex flex-col gap-3 border-t border-white/8 pt-4">
+            <TourButton className="w-full" />
             {userName && (
               <span className="text-sm text-muted-foreground">{userName}</span>
             )}

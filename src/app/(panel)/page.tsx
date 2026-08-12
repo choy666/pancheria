@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <div>
+      <div data-tour="dashboard-header">
         <h1 className="text-2xl font-semibold tracking-tight">Panel de control</h1>
         <p className="text-base text-muted-foreground">
           Accesos directos a las secciones principales.
@@ -13,7 +13,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:border-primary/30 transition-colors">
+        <Card data-tour="dashboard-ventas" className="hover:border-primary/30 transition-colors">
           <CardHeader>
             <CardTitle className="text-lg">Ventas</CardTitle>
           </CardHeader>
@@ -27,7 +27,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:border-primary/30 transition-colors">
+        <Card data-tour="dashboard-productos" className="hover:border-primary/30 transition-colors">
           <CardHeader>
             <CardTitle className="text-lg">Productos</CardTitle>
           </CardHeader>
@@ -43,7 +43,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:border-primary/30 transition-colors">
+        <Card data-tour="dashboard-stock" className="hover:border-primary/30 transition-colors">
           <CardHeader>
             <CardTitle className="text-lg">Stock</CardTitle>
           </CardHeader>
@@ -59,7 +59,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:border-primary/30 transition-colors">
+        <Card data-tour="dashboard-caja" className="hover:border-primary/30 transition-colors">
           <CardHeader>
             <CardTitle className="text-lg">Caja</CardTitle>
           </CardHeader>

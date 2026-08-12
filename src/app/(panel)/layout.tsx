@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { PanelHeader } from '@/components/panel/panel-header';
+import { TourProvider } from '@/components/tour/tour-context';
 import { auth, signOut } from '@/auth';
 
 export default async function PanelLayout({
@@ -20,9 +21,11 @@ export default async function PanelLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <PanelHeader userName={session?.user?.name} signOutAction={signOutAction} />
-      <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
-    </div>
+    <TourProvider>
+      <div className="flex min-h-full flex-col">
+        <PanelHeader userName={session?.user?.name} signOutAction={signOutAction} />
+        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+      </div>
+    </TourProvider>
   );
 }

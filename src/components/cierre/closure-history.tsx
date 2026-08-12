@@ -72,7 +72,7 @@ export function ClosureHistory() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-white/8">
+      <div data-tour="closure-history-table" className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>

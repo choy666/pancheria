@@ -1,3 +1,4 @@
+@import "driver.js/dist/driver.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -136,4 +137,58 @@
       @apply min-h-0;
     }
   }
+}
+
+.pancheria-tour-popover {
+  --driver-popover-font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.pancheria-tour-popover .driver-popover-title {
+  color: var(--foreground);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.pancheria-tour-popover .driver-popover-description {
+  color: var(--muted-foreground);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.pancheria-tour-popover .driver-popover-footer {
+  gap: 0.5rem;
+}
+
+.pancheria-tour-popover .driver-popover-footer-btn {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.pancheria-tour-popover .driver-popover-prev-btn {
+  background-color: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.pancheria-tour-popover .driver-popover-close-btn {
+  color: var(--muted-foreground);
+}
+
+.pancheria-tour-popover .driver-popover-close-btn:hover,
+.pancheria-tour-popover .driver-popover-close-btn:focus {
+  color: var(--foreground);
+}
+
+.pancheria-tour-popover .driver-popover-progress-text {
+  color: var(--muted-foreground);
 }

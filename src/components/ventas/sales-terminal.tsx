@@ -284,13 +284,15 @@ export function SalesTerminal() {
 
   return (
     <div className="space-y-5">
-      <CajaStatus
-        cashRegister={cashRegister}
-        onOpen={open}
-        onClose={close}
-        loading={cashLoading}
-        error={cashError}
-      />
+      <div data-tour="caja-status">
+        <CajaStatus
+          cashRegister={cashRegister}
+          onOpen={open}
+          onClose={close}
+          loading={cashLoading}
+          error={cashError}
+        />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -317,7 +319,7 @@ export function SalesTerminal() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-tour="sales-products" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => {
               const additional =
                 cartAvailability[product.id] ?? product.availability;
@@ -370,7 +372,7 @@ export function SalesTerminal() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div data-tour="sales-cart" className="space-y-4">
           <Card className="lg:sticky lg:top-24">
             <CardHeader>
               <CardTitle className="text-lg">Pedido</CardTitle>

@@ -33,18 +33,28 @@ Sistema web para la gestión de stock y ventas de una panchería.
 - `npm run dev` — modo desarrollo
 - `npm run build` — compilar
 - `npm run lint` — lint
+- `npx tsc --noEmit` — verificación de tipos
 - `npm test` — tests unitarios
-- `npx playwright test` — tests end-to-end
+- `npm run test:e2e` (o `npx playwright test`) — tests end-to-end
+- `npx drizzle-kit generate` — generar migraciones
 - `npx drizzle-kit push` — empujar migraciones
 - `npx tsx src/db/seeds.ts` — ejecutar seed
 
 ## Estructura
 
 - `src/app/` — páginas y rutas API
-- `src/application/` — servicios de aplicación
+- `src/application/` — servicios de aplicación (casos de uso y coordinación)
 - `src/repositories/` — capa de repositorios
-- `src/db/` — esquema, conexión y seeds
+- `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
+- `src/config/` — constantes de configuración (APIs, caja, paginación)
+- `src/domain/` — tipos y errores de dominio
+- `src/hooks/` — hooks personalizados de React
+- `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, etc.)
+
+## Guía interactiva
+
+La app incluye un recorrido interactivo con `driver.js` que se inicia automáticamente la primera vez que un usuario entra al panel. También puede reiniciarse en cualquier momento desde el botón **Guía** del header (también disponible en el menú móvil). El tour recorre Panel, Ventas, Productos, Stock, Cierre de caja e Historial de cierres.
 
 ## Notas
 

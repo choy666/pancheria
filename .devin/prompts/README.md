@@ -79,7 +79,8 @@ Listar archivos relevantes usando `<ref_file .../>` o `<ref_snippet .../>`:
 | `npm run lint` | Siempre |
 | `npm run build` | Siempre |
 | `npm test` | Cambios en servicios, repositorios o dominio |
-| `npx playwright test` | Cambios en flujos críticos de UI/E2E |
+| `npm run test:e2e` (o `npx playwright test`) | Cambios en flujos críticos de UI/E2E |
+| `npx tsc --noEmit` | Cambios de tipos |
 | `npx drizzle-kit push` | Cambios en esquema de base de datos |
 
 ## Plantilla base
@@ -150,7 +151,7 @@ Documentación de referencia:
 | `npm run lint` | Detectar errores de estilo y tipado |
 | `npm run build` | Verificar build de producción |
 | `npm test` | Ejecutar tests unitarios |
-| `npx playwright test` | Ejecutar tests E2E en base de prueba |
+| `npm run test:e2e` (o `npx playwright test`) | Ejecutar tests E2E en base de prueba |
 ```
 
 ## Anti-patrones y lecciones aprendidas

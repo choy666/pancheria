@@ -16,13 +16,13 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Compilar                 | `npm run build`                                   |
 | Lint                     | `npm run lint`                                    |
 | Tests unitarios          | `npm test`                                        |
-| Tests E2E                | `npx playwright test`                             |
-|| Verificación de tipos    | `npx tsc --noEmit`                                |
-
-> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `stock_movements`, `cash_registers` y `daily_closures`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+| Verificación de tipos    | `npx tsc --noEmit`                                |
+| Tests E2E                | `npm run test:e2e`                                |
 | Generar migraciones      | `npx drizzle-kit generate`                        |
 | Empujar migraciones      | `npx drizzle-kit push`                            |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
+
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `stock_movements`, `cash_registers` y `daily_closures`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:
@@ -43,6 +43,18 @@ Copiar `.env.example` a `.env.local` y completar:
 - El flujo de DRS es:
   1. `devin.exe cloud drs blueprint-create --repo <owner/repo> --from-file .devin/environment.yaml`
   2. `devin.exe cloud drs build`
+
+## Estructura del proyecto
+
+- `src/app/` — páginas y rutas API
+- `src/application/` — servicios de aplicación (casos de uso y coordinación)
+- `src/repositories/` — capa de repositorios
+- `src/db/` — esquema, conexión y seeds de Drizzle
+- `src/components/` — componentes React
+- `src/config/` — constantes de configuración (APIs, caja, paginación)
+- `src/domain/` — tipos y errores de dominio
+- `src/hooks/` — hooks personalizados de React
+- `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, etc.)
 
 ## Tecnologías
 - Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.

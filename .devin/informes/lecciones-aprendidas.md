@@ -54,7 +54,7 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 | `npm run lint` | Siempre |
 | `npm run build` | Siempre |
 | `npm test` | Cambios en servicios, repositorios o dominio |
-| `npx playwright test` | Cambios en flujos críticos de UI/E2E |
+| `npm run test:e2e` (o `npx playwright test`) | Cambios en flujos críticos de UI/E2E |
 | `npx tsc --noEmit` | Cambios de tipos (también cubierto por `npm run build` / `npm run lint`) |
 | `npx drizzle-kit push` | Cambios en esquema de base de datos |
 

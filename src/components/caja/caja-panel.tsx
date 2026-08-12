@@ -63,7 +63,7 @@ export function CajaPanel() {
 
   if (loading) {
     return (
-      <div className="space-y-5">
+      <div data-tour="caja-panel" className="space-y-5">
         <Skeleton className="h-24 w-full" />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Skeleton className="h-48" />
@@ -114,7 +114,7 @@ export function CajaPanel() {
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
 
   return (
-    <div className="space-y-5">
+    <div data-tour="caja-panel" className="space-y-5">
       {error && (
         <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
