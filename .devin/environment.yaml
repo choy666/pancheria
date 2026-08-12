@@ -57,8 +57,18 @@ knowledge:
       3. `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) se usa para migraciones con `drizzle-kit`.
       4. Generar migraciones: npx drizzle-kit generate
       5. Empujar migraciones: npx drizzle-kit push
-      6. Ejecutar seed de administrador: npx tsx src/db/seeds.ts
+      6. Ejecutar seed (administrador y catálogo inicial): npx tsx src/db/seeds.ts
       7. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+
+  - name: deploy
+    contents: |
+      Despliegue en Vercel:
+      1. Configurar `DATABASE_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `NEXTAUTH_URL` en Vercel.
+      2. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
+      3. Redeployar con `vercel --prod` para que las variables formen parte del build.
+      4. Verificar en `vercel inspect <url>` que `Builds` contenga funciones serverless (`λ`); si aparece `Framework Preset: Other`, el proyecto no detectó Next.js.
+      5. Si la URL muestra el login de Vercel, deshabilitar `Settings → Deployment Protection → Vercel Authentication`.
+      6. `NEXTAUTH_URL` debe coincidir con el dominio de producción asignado.
 
   - name: start
     contents: |
