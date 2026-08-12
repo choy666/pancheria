@@ -10,7 +10,7 @@ Stack:
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- shadcn/ui v4
+- shadcn/ui
 - Drizzle ORM con PostgreSQL (Neon)
 - NextAuth v5
 - Patrón: repositorios + servicios de aplicación + dominio

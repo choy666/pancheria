@@ -98,7 +98,7 @@ Stack:
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- shadcn/ui v4
+- shadcn/ui
 - Drizzle ORM con PostgreSQL (Neon)
 - NextAuth v5
 - Patrón de arquitectura: repositorios + servicios de aplicación + dominio
@@ -191,7 +191,7 @@ Preferir `<ref_snippet .../>` cuando se quiere destacar una sección específica
 
 ## Nota sobre prompts anteriores
 
-Los prompts puntuales anteriores fueron eliminados. Esta guía es ahora el punto de partida para escribir prompts nuevos. Los ejemplos concretos pueden reconstruirse a partir del historial de commits si es necesario.
+Los prompts puntuales anteriores fueron condensados en guías reutilizables; los que aún se conservan (`multi-sucursal.md` y `tour-navbar.md`) reflejan propuestas o problemas específicos. Esta guía es ahora el punto de partida para escribir prompts nuevos. Los ejemplos concretos pueden reconstruirse a partir del historial de commits si es necesario.
 
 ## Véase también
 

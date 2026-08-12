@@ -1,5 +1,7 @@
 # Prompt: Arreglar el recorrido interactivo iniciado desde el navbar
 
+> **Resuelto.** Este prompt ya fue implementado en `src/components/tour/tour-context.tsx`. El recorrido ahora se reinicia desde cualquier página con `restartTour`, los pasos usan `skipMissingElement` y los callbacks globales invocan directamente `driver.moveNext()` / `driver.movePrevious()`.
+
 ## Contexto
 
 Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos y cierre de caja.
