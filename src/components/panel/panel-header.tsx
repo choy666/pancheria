@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TourButton } from '@/components/tour/tour-context';
 import { cn } from '@/lib/utils';
+import { routes } from '@/config/routes';
 import { Menu, X } from 'lucide-react';
 
 interface PanelHeaderProps {
@@ -13,12 +14,12 @@ interface PanelHeaderProps {
 }
 
 const navItems = [
-  { href: '/', label: 'Panel' },
-  { href: '/ventas', label: 'Ventas' },
-  { href: '/ventas/historial', label: 'Historial' },
-  { href: '/productos', label: 'Productos' },
-  { href: '/stock', label: 'Stock' },
-  { href: '/cierre', label: 'Caja' },
+  { href: routes.home, label: 'Panel' },
+  { href: routes.ventas, label: 'Ventas' },
+  { href: routes.ventasHistorial, label: 'Historial' },
+  { href: routes.productos, label: 'Productos' },
+  { href: routes.stock, label: 'Stock' },
+  { href: routes.cierre, label: 'Caja' },
 ];
 
 export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {

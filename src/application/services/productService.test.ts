@@ -173,7 +173,7 @@ describe('productService', () => {
       ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
     });
 
-    test('crea un producto con stock y minStock en 0', async () => {
+    test('crea un producto con stock 0 y conserva el minStock indicado', async () => {
       const data = {
         name: 'Ketchup',
         type: 'manual_supply',
@@ -190,9 +190,9 @@ describe('productService', () => {
       const result = await createProduct(data);
       expect(result!.id).toBe(1);
       expect(result!.stock).toBe(0);
-      expect(result!.minStock).toBe(0);
+      expect(result!.minStock).toBe(5);
       expect(mockedProductRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stock: 0, minStock: 0 })
+        expect.objectContaining({ stock: 0, minStock: 5 })
       );
     });
 
@@ -215,7 +215,7 @@ describe('productService', () => {
       expect(result!.id).toBe(1);
       expect(result!.criticalSupplyType).toBe('bread');
       expect(result!.stock).toBe(0);
-      expect(result!.minStock).toBe(0);
+      expect(result!.minStock).toBe(10);
     });
 
     test('crea un producto compuesto y fuerza stock y minStock a 0', async () => {

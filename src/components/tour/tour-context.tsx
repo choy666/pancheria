@@ -12,6 +12,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { driver } from 'driver.js';
 import type { DriveStep, Driver } from 'driver.js';
 import { Button } from '@/components/ui/button';
+import { routes } from '@/config/routes';
 import { HelpCircle, X } from 'lucide-react';
 
 const TOUR_STEP_KEY = 'pancheria-tour-step';
@@ -20,6 +21,7 @@ const TOUR_ACTIVE_KEY = 'pancheria-tour-active';
 
 interface TourContextValue {
   startTour: () => void;
+  restartTour: () => void;
   stopTour: () => void;
   isActive: boolean;
 }
@@ -39,14 +41,14 @@ interface TourButtonProps {
 }
 
 export function TourButton({ className }: TourButtonProps) {
-  const { startTour, stopTour, isActive } = useTour();
+  const { restartTour, stopTour, isActive } = useTour();
 
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
-      onClick={() => (isActive ? stopTour() : startTour())}
+      onClick={() => (isActive ? stopTour() : restartTour())}
       className={className}
     >
       {isActive ? (
@@ -178,6 +180,7 @@ export function TourProvider({ children }: TourProviderProps) {
       },
       {
         element: '[data-tour="dashboard-header"]',
+        skipMissingElement: true,
         popover: {
           title: 'Panel de control',
           description:
@@ -186,6 +189,7 @@ export function TourProvider({ children }: TourProviderProps) {
       },
       {
         element: '[data-tour="main-nav"]',
+        skipMissingElement: true,
         popover: {
           title: 'Menú superior',
           description:
@@ -194,25 +198,28 @@ export function TourProvider({ children }: TourProviderProps) {
       },
       {
         element: '[data-tour="dashboard-ventas"]',
+        skipMissingElement: true,
         popover: {
           title: 'Ventas',
           description:
             'La terminal de ventas permite registrar pedidos de forma rápida. Vamos a verla en detalle.',
-          onNextClick: nextOn('/ventas', 4),
+          onNextClick: nextOn(routes.ventas, 4),
         },
       },
       {
         element: '[data-tour="caja-status"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Estado de la caja',
           description:
             'Antes de vender tenés que abrir la caja. Acá ves si está abierta, quién la abrió y el tiempo transcurrido.',
-          onPrevClick: prevOn('/', 3),
+          onPrevClick: prevOn(routes.home, 3),
         },
       },
       {
         element: '[data-tour="sales-products"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Productos disponibles',
@@ -222,63 +229,69 @@ export function TourProvider({ children }: TourProviderProps) {
       },
       {
         element: '[data-tour="sales-cart"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Pedido actual',
           description:
             'Al tocar un producto se agrega al pedido. Elegís el medio de pago (efectivo o transferencia) y confirmás la venta.',
-          onNextClick: nextOn('/productos', 7),
+          onNextClick: nextOn(routes.productos, 7),
         },
       },
       {
         element: '[data-tour="products-table"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Productos y promos',
           description:
             'Acá se administran todos los productos. Se agrupan por tipo: insumo crítico, insumo manual, servicio y promo.',
-          onPrevClick: prevOn('/ventas', 6),
+          onPrevClick: prevOn(routes.ventas, 6),
         },
       },
       {
         element: '[data-tour="products-new-product"]',
+        skipMissingElement: true,
         popover: {
           title: 'Nuevos productos',
           description:
             'Podés crear productos individuales o promos que descontarán automáticamente el stock de sus insumos.',
-          onNextClick: nextOn('/stock', 9),
+          onNextClick: nextOn(routes.stock, 9),
         },
       },
       {
         element: '[data-tour="stock-table"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Stock',
           description:
             'Controlás el inventario de cada insumo. Podés ajustar cantidades y consultar el historial de movimientos. El sistema marca con “Bajo” cuando un insumo está por debajo del mínimo.',
-          onPrevClick: prevOn('/productos', 8),
-          onNextClick: nextOn('/cierre', 10),
+          onPrevClick: prevOn(routes.productos, 8),
+          onNextClick: nextOn(routes.cierre, 10),
         },
       },
       {
         element: '[data-tour="caja-panel"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Cierre de caja',
           description:
             'Acá cerrás la caja del día y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
-          onPrevClick: prevOn('/stock', 9),
-          onNextClick: nextOn('/cierre/historial', 11),
+          onPrevClick: prevOn(routes.stock, 9),
+          onNextClick: nextOn(routes.cierreHistorial, 11),
         },
       },
       {
         element: '[data-tour="closure-history-table"]',
+        skipMissingElement: true,
         waitForElement: 5000,
         popover: {
           title: 'Historial de cierres',
           description:
             'En esta tabla se guardan todos los cierres diarios, con el total desglosado por fecha, cantidad de ventas, efectivo y transferencia.',
-          onPrevClick: prevOn('/cierre', 10),
+          onPrevClick: prevOn(routes.cierre, 10),
         },
       },
       {
@@ -327,12 +340,10 @@ export function TourProvider({ children }: TourProviderProps) {
           setIsActive(false);
           driverRef.current = null;
         },
-        onNextClick: (_element, step, { driver }) => {
-          if (step.popover?.onNextClick) return;
+        onNextClick: (_element, _step, { driver }) => {
           driver.moveNext();
         },
-        onPrevClick: (_element, step, { driver }) => {
-          if (step.popover?.onPrevClick) return;
+        onPrevClick: (_element, _step, { driver }) => {
           driver.movePrevious();
         },
         onCloseClick: (_element, _step, { driver }) => {
@@ -350,6 +361,23 @@ export function TourProvider({ children }: TourProviderProps) {
     [buildSteps]
   );
 
+  const restartTour = useCallback(() => {
+    stopTour();
+    saveStep(0);
+    setTourActive();
+    setIsActive(true);
+    driverRef.current?.destroy();
+    driverRef.current = null;
+
+    if (pathname !== routes.home) {
+      isNavigatingRef.current = true;
+      router.push(routes.home);
+    } else {
+      isNavigatingRef.current = false;
+      startTour(0);
+    }
+  }, [pathname, router, startTour, stopTour]);
+
   useEffect(() => {
     const savedStep = getSavedStep();
     if (getTourActive() && savedStep !== null) {
@@ -359,7 +387,7 @@ export function TourProvider({ children }: TourProviderProps) {
   }, [pathname, startTour]);
 
   return (
-    <TourContext.Provider value={{ startTour, stopTour, isActive }}>
+    <TourContext.Provider value={{ startTour, restartTour, stopTour, isActive }}>
       {children}
     </TourContext.Provider>
   );

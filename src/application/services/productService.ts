@@ -46,7 +46,9 @@ export async function createProduct(data: ProductInsert) {
   }
 
   product.stock = 0;
-  product.minStock = 0;
+  if (product.type === 'compound' || product.type === 'service') {
+    product.minStock = 0;
+  }
 
   return productRepository.create(product);
 }

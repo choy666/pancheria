@@ -304,11 +304,21 @@ export function StockList() {
             </div>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={
+                isSubmitting ||
+                quantity === 0 ||
+                reason.trim().length < 3
+              }
               className="w-full"
             >
               {isSubmitting ? 'Guardando...' : 'Guardar ajuste'}
             </Button>
+            {(quantity === 0 || reason.trim().length < 3) && (
+              <p className="text-sm text-muted-foreground">
+                Indicá una cantidad distinta de cero y un motivo de al menos 3
+                caracteres.
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

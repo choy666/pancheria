@@ -97,6 +97,14 @@ describe('stockService', () => {
     await expect(adjustStock(1, -10, 'Ajuste')).rejects.toThrow(ValidationError);
   });
 
+  test('adjustStock rechaza cantidad cero', async () => {
+    mockedProductRepository.findById.mockResolvedValue(
+      createProductRow({ id: 1, name: 'Pan', stock: 5 })
+    );
+
+    await expect(adjustStock(1, 0, 'Ajuste sin cambios')).rejects.toThrow(ValidationError);
+  });
+
   test('adjustStock rechaza motivo corto', async () => {
     mockedProductRepository.findById.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })

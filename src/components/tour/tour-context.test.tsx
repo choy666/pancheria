@@ -83,7 +83,7 @@ describe('TourProvider y TourButton', () => {
     expect(driver).not.toHaveBeenCalled();
   });
 
-  test('el botón Guía inicia el tour desde el paso 0', () => {
+  test('el botón Guía inicia el tour desde el inicio sin navegar', () => {
     const mockDriver = createMockDriver();
 
     render(
@@ -100,6 +100,8 @@ describe('TourProvider y TourButton', () => {
 
     expect(driver).toHaveBeenCalledTimes(1);
     expect(mockDriver.drive).toHaveBeenCalledWith(0);
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('pancheria-tour-step')).toBe('0');
     expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
   });
 
@@ -297,7 +299,7 @@ describe('TourProvider y TourButton', () => {
     expect(mockDriver.destroy).toHaveBeenCalled();
   });
 
-  test('useTour expone startTour, stopTour e isActive', () => {
+  test('useTour expone startTour, restartTour, stopTour e isActive', () => {
     createMockDriver();
 
     const { result } = renderHook(() => useTour(), {
@@ -305,7 +307,29 @@ describe('TourProvider y TourButton', () => {
     });
 
     expect(typeof result.current.startTour).toBe('function');
+    expect(typeof result.current.restartTour).toBe('function');
     expect(typeof result.current.stopTour).toBe('function');
     expect(result.current.isActive).toBe(false);
   });
+
+  test('el botón Guía reinicia el tour desde /productos navegando al inicio', () => {
+    usePathnameMock.mockReturnValue('/productos');
+    createMockDriver();
+
+    render(
+      <TourProvider>
+        <TourButton />
+      </TourProvider>
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'Guía' }).click();
+    });
+
+    expect(window.localStorage.getItem('pancheria-tour-step')).toBe('0');
+    expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
+    expect(routerPush).toHaveBeenCalledWith('/');
+    expect(driver).not.toHaveBeenCalled();
+  });
+
 });

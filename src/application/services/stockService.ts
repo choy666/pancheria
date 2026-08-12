@@ -40,6 +40,10 @@ export async function adjustStock(
     throw new ValidationError('Tipo de movimiento de stock inválido.');
   }
 
+  if (quantity === 0) {
+    throw new ValidationError('La cantidad no puede ser cero.');
+  }
+
   const newStock = product.stock + quantity;
   if (newStock < 0) {
     throw new ValidationError(
