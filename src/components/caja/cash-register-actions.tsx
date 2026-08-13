@@ -7,6 +7,7 @@ import type { CashRegister } from '@/config/caja';
 type CashRegisterActionsProps = {
   cashRegister: Pick<CashRegister, 'id' | 'deletedAt'>;
   mode: 'history' | 'trash';
+  isAdmin?: boolean;
   onDelete?: (id: number) => Promise<void>;
   onRestore?: (id: number) => Promise<void>;
   onPermanentDelete?: (id: number) => Promise<void>;
@@ -15,10 +16,14 @@ type CashRegisterActionsProps = {
 export function CashRegisterActions({
   cashRegister,
   mode,
+  isAdmin = false,
   onDelete,
   onRestore,
   onPermanentDelete,
 }: CashRegisterActionsProps) {
+  if (!isAdmin) {
+    return null;
+  }
   async function handleDelete(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onDelete) return;

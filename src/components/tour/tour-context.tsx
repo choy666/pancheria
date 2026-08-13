@@ -5,8 +5,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { driver } from 'driver.js';
@@ -15,9 +17,24 @@ import { Button } from '@/components/ui/button';
 import { routes } from '@/config/routes';
 import { HelpCircle, X } from 'lucide-react';
 
-const TOUR_STEP_KEY = 'pancheria-tour-step';
-const TOUR_SEEN_KEY = 'pancheria-tour-seen';
-const TOUR_ACTIVE_KEY = 'pancheria-tour-active';
+interface TourStorage {
+  step: string;
+  seen: string;
+  active: string;
+}
+
+function buildTourKeys(
+  userId?: string | number,
+  branchId?: number
+): TourStorage {
+  const scope = userId || branchId ? `-${userId ?? 'anon'}-${branchId ?? 'none'}` : '';
+
+  return {
+    step: `pancheria-tour-step${scope}`,
+    seen: `pancheria-tour-seen${scope}`,
+    active: `pancheria-tour-active${scope}`,
+  };
+}
 
 interface TourContextValue {
   startTour: () => void;
@@ -69,92 +86,99 @@ function isLocalStorageAvailable() {
   }
 }
 
-function getSavedStep(): number | null {
+function getSavedStep(keys: TourStorage): number | null {
   if (!isLocalStorageAvailable()) return null;
-  const raw = window.localStorage.getItem(TOUR_STEP_KEY);
+  const raw = window.localStorage.getItem(keys.step);
   if (raw === null) return null;
   const step = Number(raw);
   return Number.isFinite(step) && step >= 0 ? step : null;
 }
 
-function saveStep(step: number) {
+function saveStep(keys: TourStorage, step: number) {
   if (isLocalStorageAvailable()) {
-    window.localStorage.setItem(TOUR_STEP_KEY, String(step));
+    window.localStorage.setItem(keys.step, String(step));
   }
 }
 
-function clearStep() {
+function clearStep(keys: TourStorage) {
   if (isLocalStorageAvailable()) {
-    window.localStorage.removeItem(TOUR_STEP_KEY);
+    window.localStorage.removeItem(keys.step);
   }
 }
 
-function getTourActive(): boolean {
+function getTourActive(keys: TourStorage): boolean {
   if (!isLocalStorageAvailable()) return false;
-  return window.localStorage.getItem(TOUR_ACTIVE_KEY) === 'true';
+  return window.localStorage.getItem(keys.active) === 'true';
 }
 
-function setTourActive() {
+function setTourActive(keys: TourStorage) {
   if (isLocalStorageAvailable()) {
-    window.localStorage.setItem(TOUR_ACTIVE_KEY, 'true');
+    window.localStorage.setItem(keys.active, 'true');
   }
 }
 
-function clearTourActive() {
+function clearTourActive(keys: TourStorage) {
   if (isLocalStorageAvailable()) {
-    window.localStorage.removeItem(TOUR_ACTIVE_KEY);
+    window.localStorage.removeItem(keys.active);
   }
 }
 
-function markTourSeen() {
+function markTourSeen(keys: TourStorage) {
   if (isLocalStorageAvailable()) {
-    window.localStorage.setItem(TOUR_SEEN_KEY, 'true');
+    window.localStorage.setItem(keys.seen, 'true');
   }
 }
 
 interface TourProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
+  userId?: string | number;
+  branchId?: number;
 }
 
-export function TourProvider({ children }: TourProviderProps) {
+export function TourProvider({
+  children,
+  userId,
+  branchId,
+}: TourProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const driverRef = useRef<Driver | null>(null);
   const isNavigatingRef = useRef(false);
   const [isActive, setIsActive] = useState(false);
+  const keys = useMemo(() => buildTourKeys(userId, branchId), [userId, branchId]);
 
   const stopTour = useCallback(() => {
     isNavigatingRef.current = false;
-    clearStep();
-    clearTourActive();
-    markTourSeen();
+    clearStep(keys);
+    clearTourActive(keys);
+    markTourSeen(keys);
     setIsActive(false);
     driverRef.current?.destroy();
     driverRef.current = null;
-  }, []);
+  }, [keys]);
 
   const navigateAndContinue = useCallback(
     (url: string, nextStep: number) => {
       isNavigatingRef.current = true;
-      saveStep(nextStep);
-      setTourActive();
+      saveStep(keys, nextStep);
+      setTourActive(keys);
       driverRef.current?.destroy();
       driverRef.current = null;
       router.push(url);
     },
-    [router]
+    [keys, router]
   );
 
   const goBackAndContinue = useCallback(
     (url: string, prevStep: number) => {
       isNavigatingRef.current = true;
-      saveStep(prevStep);
-      setTourActive();
+      saveStep(keys, prevStep);
+      setTourActive(keys);
       driverRef.current?.destroy();
       driverRef.current = null;
       router.push(url);
     },
-    [router]
+    [keys, router]
   );
 
   const buildSteps = useCallback((): DriveStep[] => {
@@ -309,7 +333,7 @@ export function TourProvider({ children }: TourProviderProps) {
       if (driverRef.current?.isActive()) return;
 
       isNavigatingRef.current = false;
-      setTourActive();
+      setTourActive(keys);
       const steps = buildSteps();
 
       const driverObj = driver({
@@ -334,9 +358,9 @@ export function TourProvider({ children }: TourProviderProps) {
         },
         onDestroyed: () => {
           if (isNavigatingRef.current) return;
-          clearStep();
-          clearTourActive();
-          markTourSeen();
+          clearStep(keys);
+          clearTourActive(keys);
+          markTourSeen(keys);
           setIsActive(false);
           driverRef.current = null;
         },
@@ -347,15 +371,15 @@ export function TourProvider({ children }: TourProviderProps) {
           driver.movePrevious();
         },
         onCloseClick: (_element, _step, { driver }) => {
-          clearStep();
-          clearTourActive();
-          markTourSeen();
+          clearStep(keys);
+          clearTourActive(keys);
+          markTourSeen(keys);
           driver.destroy();
         },
         onDoneClick: (_element, _step, { driver }) => {
-          clearStep();
-          clearTourActive();
-          markTourSeen();
+          clearStep(keys);
+          clearTourActive(keys);
+          markTourSeen(keys);
           driver.destroy();
         },
       });
@@ -364,13 +388,13 @@ export function TourProvider({ children }: TourProviderProps) {
       setIsActive(true);
       driverObj.drive(stepIndex ?? 0);
     },
-    [buildSteps]
+    [buildSteps, keys]
   );
 
   const restartTour = useCallback(() => {
     stopTour();
-    saveStep(0);
-    setTourActive();
+    saveStep(keys, 0);
+    setTourActive(keys);
     setIsActive(true);
     driverRef.current?.destroy();
     driverRef.current = null;
@@ -382,15 +406,15 @@ export function TourProvider({ children }: TourProviderProps) {
       isNavigatingRef.current = false;
       startTour(0);
     }
-  }, [pathname, router, startTour, stopTour]);
+  }, [keys, pathname, router, startTour, stopTour]);
 
   useEffect(() => {
-    const savedStep = getSavedStep();
-    if (getTourActive() && savedStep !== null) {
-      clearStep();
+    const savedStep = getSavedStep(keys);
+    if (getTourActive(keys) && savedStep !== null) {
+      clearStep(keys);
       startTour(savedStep);
     }
-  }, [pathname, startTour]);
+  }, [pathname, startTour, keys]);
 
   return (
     <TourContext.Provider value={{ startTour, restartTour, stopTour, isActive }}>

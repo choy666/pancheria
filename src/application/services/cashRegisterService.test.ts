@@ -61,8 +61,8 @@ function createMockCashRegister() {
     cashTotal: 1000,
     transferTotal: 0,
     totalSales: 1,
-    productsSummary: '{"Panchuque":1}',
-    criticalSuppliesSummary: '{"Pan":1}',
+    productsSummary: { Panchuque: 1 },
+    criticalSuppliesSummary: { Pan: 1 },
   };
 }
 
@@ -168,8 +168,8 @@ describe('cashRegisterService', () => {
         cashTotal: 2000,
         transferTotal: 0,
         totalSales: 1,
-        productsSummary: '{"Gaseosa":2}',
-        criticalSuppliesSummary: '{"Gaseosa":2}',
+        productsSummary: { Gaseosa: 2 },
+        criticalSuppliesSummary: { Gaseosa: 2 },
       } as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
@@ -206,8 +206,8 @@ describe('cashRegisterService', () => {
         cashTotal: 0,
         transferTotal: 0,
         totalSales: 0,
-        productsSummary: '{}',
-        criticalSuppliesSummary: '{}',
+        productsSummary: {},
+        criticalSuppliesSummary: {},
       } as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
@@ -753,11 +753,11 @@ describe('cashRegisterService', () => {
       expect(result.cashTotal).toBe(1500);
       expect(result.transferTotal).toBe(800);
       expect(result.totalSales).toBe(2);
-      expect(JSON.parse(result.productsSummary)).toEqual({
+      expect(result.productsSummary).toEqual({
         Panchuque: 1,
         Gaseosa: 2,
       });
-      expect(JSON.parse(result.criticalSuppliesSummary)).toEqual({
+      expect(result.criticalSuppliesSummary).toEqual({
         Pan: 1,
         Gaseosa: 2,
         Salchicha: 0,
@@ -780,8 +780,8 @@ describe('cashRegisterService', () => {
       expect(result.cashTotal).toBe(0);
       expect(result.transferTotal).toBe(0);
       expect(result.totalSales).toBe(0);
-      expect(JSON.parse(result.productsSummary)).toEqual({});
-      expect(JSON.parse(result.criticalSuppliesSummary)).toEqual({
+      expect(result.productsSummary).toEqual({});
+      expect(result.criticalSuppliesSummary).toEqual({
         Pan: 0,
         Gaseosa: 0,
         Salchicha: 0,

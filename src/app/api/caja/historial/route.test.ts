@@ -4,11 +4,12 @@
 import { NextRequest } from 'next/server';
 import { GET } from './route';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 
 jest.mock('@/application/services/cashRegisterService');
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
+  getCurrentBranchId: jest.fn(),
 }));
 jest.mock('@/lib/logger', () => ({
   logError: jest.fn(),
@@ -18,6 +19,8 @@ const mockedCashRegisterService = cashRegisterService as jest.Mocked<
   typeof cashRegisterService
 >;
 const mockedRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>;
+const mockedGetCurrentBranchId =
+  getCurrentBranchId as jest.MockedFunction<typeof getCurrentBranchId>;
 
 const BRANCH_ID = 1;
 
@@ -29,6 +32,7 @@ describe('GET /api/caja/historial', () => {
     mockedRequireAuth.mockResolvedValue({
       user: { name: 'admin', branchId: BRANCH_ID },
     } as Awaited<ReturnType<typeof requireAuth>>);
+    mockedGetCurrentBranchId.mockResolvedValue(BRANCH_ID);
   });
 
   function buildRequest(search: string): NextRequest {

@@ -199,7 +199,8 @@ Lista de prompts reutilizables y su estado:
 
 - [Actualizar documentación y generar informe de estado](file:///C%3A/developer/paginas/pancheria/.devin/prompts/actualizar-documentacion-y-reporte.md) — mantiene la documentación sincronizada con el código y genera un reporte de estado.
 - [Auditoría de alcance, funciones, herramientas y vigencia de la documentación](file:///C%3A/developer/paginas/pancheria/.devin/prompts/auditoria-documentacion.md) — auditoría profunda del proyecto sin modificar archivos.
-- [Realizar pruebas y brindar un reporte](file:///C%3A/developer/paginas/pancheria/.devin/prompts/pruebas-y-reporte.md) — flujo de verificación después de cambios importantes.
+- [Control de acceso por rol y selección de sucursal](file:///C%3A/developer/paginas/pancheria/.devin/prompts/control-de-acceso-y-sucursales.md) — **resuelto / referencia histórica**.
+- [Corroborar y corregir nombre de sucursal en navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/verificar-navbar-sucursal.md) — **resuelto / referencia histórica**.
 - [Soporte multi-sucursal](file:///C%3A/developer/paginas/pancheria/.devin/prompts/multi-sucursal.md) — **resuelto / contexto histórico**.
 - [Tour navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/tour-navbar.md) — **resuelto / referencia**.
 

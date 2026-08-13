@@ -215,16 +215,12 @@ describe('closureService', () => {
       expect(result.transferTotal).toBe(800);
       expect(result.totalSales).toBe(2);
 
-      const productsSummary = JSON.parse(result.productsSummary as string);
-      expect(productsSummary).toEqual({
+      expect(result.productsSummary).toEqual({
         Panchuque: 1,
         Gaseosa: 2,
       });
 
-      const criticalSuppliesSummary = JSON.parse(
-        result.criticalSuppliesSummary as string
-      );
-      expect(criticalSuppliesSummary).toEqual({
+      expect(result.criticalSuppliesSummary).toEqual({
         Pan: 1,
         Gaseosa: 2,
         Salchicha: 0,
@@ -295,8 +291,7 @@ describe('closureService', () => {
       expect(result.total).toBe(800);
       expect(result.totalSales).toBe(1);
 
-      const productsSummary = JSON.parse(result.productsSummary as string);
-      expect(productsSummary).toEqual({ Gaseosa: 1 });
+      expect(result.productsSummary).toEqual({ Gaseosa: 1 });
     });
   });
 

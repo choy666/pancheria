@@ -6,6 +6,8 @@ Este directorio contiene la guía de lecciones aprendidas de las auditorías rea
 
 ## Informes de estado del proyecto
 
+- [Plan de implementación — hallazgos de auditoría](file:///C%3A/developer/paginas/pancheria/.devin/informes/plan-implementacion-hallazgos.md) — plan detallado, fases, archivos y verificaciones para cubrir los hallazgos detectados.
+- [Auditoría general — alcance y carencias](file:///C%3A/developer/paginas/pancheria/.devin/informes/informe-auditoria-general.md) — estado funcional, arquitectura, seguridad, tests y recomendaciones priorizadas.
 - [Reporte de auditoría — 2026-08-12](file:///C%3A/developer/paginas/pancheria/.devin/informes/reporte-auditoria-2026-08-12.md) — alcance funcional, herramientas, estado de verificaciones y discrepancias documentales.
 - [Reporte de pruebas — 2026-08-12](file:///C%3A/developer/paginas/pancheria/.devin/informes/reporte-pruebas-2026-08-12.md) — resultados de lint, tipos, tests unitarios, E2E y pruebas manuales de multi-sucursal.
 - [Reporte de estado — 2026-08-13](file:///C%3A/developer/paginas/pancheria/.devin/informes/reporte-estado-2026-08-13.md) — actualización de documentación y verificación del estado actual.

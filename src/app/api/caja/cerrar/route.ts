@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const branchId = await getCurrentBranchId(session);
   const body = await request.json().catch(() => ({}));
   const id = parseId(body.id);
 

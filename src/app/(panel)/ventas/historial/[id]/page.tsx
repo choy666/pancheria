@@ -7,6 +7,7 @@ import { CashRegisterDetailActions } from '@/components/caja/cash-register-detai
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 import { auth } from '@/auth';
+import { getCurrentBranchId } from '@/lib/auth';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -18,7 +19,7 @@ export default async function CashRegisterSalesDetailPage({
   searchParams,
 }: Props) {
   const session = await auth();
-  const branchId = Number(session?.user?.branchId);
+  const branchId = await getCurrentBranchId(session);
 
   const { id } = await params;
   const { from } = await searchParams;
@@ -79,6 +80,7 @@ export default async function CashRegisterSalesDetailPage({
               : null,
           }}
           fromTrash={fromTrash}
+          isAdmin={session?.user?.role === 'admin'}
         />
       </div>
 

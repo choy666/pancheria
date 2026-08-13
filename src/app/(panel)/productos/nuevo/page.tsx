@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import { ProductFormTabs } from '@/components/productos/product-form-tabs';
 
 interface NewProductPageProps {
@@ -13,6 +15,12 @@ function tabFromSearchParam(
 export default async function NewProductPage({
   searchParams,
 }: NewProductPageProps) {
+  const session = await auth();
+
+  if (session?.user?.role !== 'admin') {
+    redirect('/');
+  }
+
   const params = await searchParams;
   const initialTab = tabFromSearchParam(params.tab);
 

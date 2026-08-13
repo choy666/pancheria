@@ -9,13 +9,19 @@ import type { CashRegister } from '@/config/caja';
 type CashRegisterDetailActionsProps = {
   cashRegister: Pick<CashRegister, 'id' | 'status' | 'deletedAt'>;
   fromTrash?: boolean;
+  isAdmin?: boolean;
 };
 
 export function CashRegisterDetailActions({
   cashRegister,
   fromTrash = false,
+  isAdmin = false,
 }: CashRegisterDetailActionsProps) {
   const router = useRouter();
+
+  if (!isAdmin) {
+    return null;
+  }
 
   async function handleDelete() {
     if (

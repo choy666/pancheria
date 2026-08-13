@@ -26,10 +26,17 @@ import {
 import * as productService from '@/application/services/productService';
 import * as saleService from '@/application/services/saleService';
 import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { getCurrentBranchId } from '@/lib/auth';
 
 export default async function ProductsPage() {
   const session = await auth();
-  const branchId = Number(session?.user?.branchId);
+
+  if (session?.user?.role !== 'admin') {
+    redirect('/');
+  }
+
+  const branchId = await getCurrentBranchId(session);
 
   const products = await productService.listProducts(branchId);
   const groupedProducts = groupProductsByType(

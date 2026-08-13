@@ -4,7 +4,7 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import { nowUTC, parseDateStringUTC } from '@/lib/date';
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth } from '@/lib/auth';
+import { requireAdmin, getCurrentBranchId } from '@/lib/auth';
 import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
 
 function getDateRange(request: NextRequest) {
@@ -21,8 +21,8 @@ function getDateRange(request: NextRequest) {
 }
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
   const { start, end } = getDateRange(request);
   const { searchParams } = new URL(request.url);
   const pagination = parsePaginationParams(searchParams);
@@ -37,8 +37,8 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
 });
 
 export const DELETE = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
   const { start, end } = getDateRange(request);
 
   const result = await cashRegisterService.emptyTrash(branchId, start, end);

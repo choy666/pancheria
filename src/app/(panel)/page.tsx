@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { auth } from '@/auth';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await auth();
+  const isAdmin = session?.user?.role === 'admin';
+
   return (
     <div className="space-y-6">
       <div data-tour="dashboard-header">
@@ -27,21 +31,23 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card data-tour="dashboard-productos" className="hover:border-primary/30 transition-colors">
-          <CardHeader>
-            <CardTitle className="text-lg">Productos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-base leading-relaxed text-muted-foreground">
-              Administrar productos y promos.
-            </p>
-            <Link href="/productos" className="mt-5 inline-block">
-              <Button variant="outline" className="w-full sm:w-auto">
-                Ir a productos
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        {isAdmin && (
+          <Card data-tour="dashboard-productos" className="hover:border-primary/30 transition-colors">
+            <CardHeader>
+              <CardTitle className="text-lg">Productos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-base leading-relaxed text-muted-foreground">
+                Administrar productos y promos.
+              </p>
+              <Link href="/productos" className="mt-5 inline-block">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  Ir a productos
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <Card data-tour="dashboard-stock" className="hover:border-primary/30 transition-colors">
           <CardHeader>

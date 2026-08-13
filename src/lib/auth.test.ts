@@ -1,4 +1,6 @@
 import { auth } from '@/auth';
+import { cookies } from 'next/headers';
+import * as branchService from '@/application/services/branchService';
 import { requireAuth, getCurrentBranchId, requireAdmin } from './auth';
 import { UnauthorizedError, ForbiddenError } from '@/domain/errors';
 
@@ -6,7 +8,25 @@ jest.mock('@/auth', () => ({
   auth: jest.fn(),
 }));
 
+jest.mock('next/headers', () => ({
+  cookies: jest.fn(),
+}));
+
+jest.mock('@/application/services/branchService', () => ({
+  getBranchById: jest.fn(),
+}));
+
 const mockedAuth = auth as unknown as jest.Mock;
+const mockedCookies = cookies as unknown as jest.Mock;
+const mockedBranchService = branchService as unknown as {
+  getBranchById: jest.Mock;
+};
+
+function mockCookie(value?: string) {
+  mockedCookies.mockResolvedValue({
+    get: jest.fn().mockReturnValue(value ? { value } : undefined),
+  });
+}
 
 describe('requireAuth', () => {
   afterEach(() => {
@@ -50,18 +70,100 @@ describe('getCurrentBranchId', () => {
 
   test('devuelve el branchId de la sesión', async () => {
     mockedAuth.mockResolvedValue({
-      user: { name: 'admin', id: '1', branchId: 5 },
+      user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any);
+    mockCookie(undefined);
 
     const result = await getCurrentBranchId();
 
     expect(result).toBe(5);
   });
 
+  test('admin con cookie activa devuelve la sucursal de la cookie', async () => {
+    const session = {
+      user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockCookie('9');
+    mockedBranchService.getBranchById.mockResolvedValue({
+      id: 9,
+      name: 'Sucursal activa',
+    });
+
+    const result = await getCurrentBranchId();
+
+    expect(result).toBe(9);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(9);
+  });
+
+  test('admin con cookie inválida devuelve el branchId de la sesión', async () => {
+    const session = {
+      user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockCookie('abc');
+
+    const result = await getCurrentBranchId();
+
+    expect(result).toBe(5);
+    expect(mockedBranchService.getBranchById).not.toHaveBeenCalled();
+  });
+
+  test('admin con cookie de sucursal inexistente usa la sucursal de la sesión', async () => {
+    const session = {
+      user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockCookie('99');
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    const result = await getCurrentBranchId();
+
+    expect(result).toBe(5);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(99);
+  });
+
+  test('operador ignora la cookie de sucursal activa', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockCookie('9');
+
+    const result = await getCurrentBranchId();
+
+    expect(result).toBe(3);
+    expect(mockedCookies).not.toHaveBeenCalled();
+  });
+
+  test('acepta un session pasado por parámetro sin llamar a auth', async () => {
+    const session = {
+      user: { name: 'admin', id: '1', branchId: 2, role: 'admin' },
+    } as any;
+    mockCookie('7');
+    mockedBranchService.getBranchById.mockResolvedValue({
+      id: 7,
+      name: 'Sucursal 7',
+    });
+
+    const result = await getCurrentBranchId(session);
+
+    expect(result).toBe(7);
+    expect(mockedAuth).not.toHaveBeenCalled();
+  });
+
   test('lanza UnauthorizedError cuando no hay sesión', async () => {
     mockedAuth.mockResolvedValue(null);
 
     await expect(getCurrentBranchId()).rejects.toThrow(UnauthorizedError);
+  });
+
+  test('lanza ForbiddenError cuando el usuario no tiene sucursal', async () => {
+    mockedAuth.mockResolvedValue({
+      user: { name: 'admin', id: '1', role: 'admin' },
+    } as any);
+
+    await expect(getCurrentBranchId()).rejects.toThrow(ForbiddenError);
   });
 });
 

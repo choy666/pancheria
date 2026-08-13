@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, requireAdmin, getCurrentBranchId } from '@/lib/auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -11,7 +11,7 @@ interface RouteParams {
 export const GET = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
     const session = await requireAuth();
-    const branchId = Number(session.user.branchId);
+    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -39,8 +39,8 @@ export const GET = withApiErrorHandling(
 
 export const DELETE = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    const session = await requireAuth();
-    const branchId = Number(session.user.branchId);
+    const session = await requireAdmin();
+    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {

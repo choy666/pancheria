@@ -26,6 +26,7 @@ interface CajaHistoryProps {
   statusFilter?: 'all' | 'closed';
   showAutoColumn?: boolean;
   deletedOnly?: boolean;
+  isAdmin?: boolean;
   onDelete?: (id: number) => Promise<void>;
   onRestore?: (id: number) => Promise<void>;
   onPermanentDelete?: (id: number) => Promise<void>;
@@ -37,6 +38,7 @@ export function CajaHistory({
   statusFilter = 'closed',
   showAutoColumn = true,
   deletedOnly = false,
+  isAdmin = false,
   onDelete,
   onRestore,
   onPermanentDelete,
@@ -168,7 +170,7 @@ export function CajaHistory({
     <div className="space-y-5">
       {actionError && <p className="text-destructive">{actionError}</p>}
 
-      {deletedOnly && (
+      {deletedOnly && isAdmin && (
         <div className="flex justify-end">
           <Button
             variant="destructive"
@@ -263,6 +265,7 @@ export function CajaHistory({
                     <CashRegisterActions
                       cashRegister={cashRegister}
                       mode={deletedOnly ? 'trash' : 'history'}
+                      isAdmin={isAdmin}
                       onDelete={handleDelete}
                       onRestore={handleRestore}
                       onPermanentDelete={handlePermanentDelete}

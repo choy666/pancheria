@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ProductForm } from '@/components/productos/product-form';
 import { PromoForm } from '@/components/productos/promo-form';
 import * as productService from '@/application/services/productService';
 import { auth } from '@/auth';
+import { getCurrentBranchId } from '@/lib/auth';
 
 interface PageParams {
   params: Promise<{ id: string }>;
@@ -10,7 +11,12 @@ interface PageParams {
 
 export default async function EditProductPage({ params }: PageParams) {
   const session = await auth();
-  const branchId = Number(session?.user?.branchId);
+
+  if (session?.user?.role !== 'admin') {
+    redirect('/');
+  }
+
+  const branchId = await getCurrentBranchId(session);
 
   const { id } = await params;
   const product = await productService.getProductById(branchId, Number(id));

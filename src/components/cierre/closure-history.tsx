@@ -25,8 +25,8 @@ interface Closure {
   cashTotal: number;
   transferTotal: number;
   totalSales: number;
-  productsSummary: string;
-  criticalSuppliesSummary: string;
+  productsSummary: Record<string, number>;
+  criticalSuppliesSummary: Record<string, number>;
 }
 
 export function ClosureHistory() {

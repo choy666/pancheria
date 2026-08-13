@@ -140,7 +140,7 @@ export async function calculateSummaryFromSales(
     cashTotal: moneyToNumber(cashTotal),
     transferTotal: moneyToNumber(transferTotal),
     totalSales: activeSales.length,
-    productsSummary: JSON.stringify(productsSummary),
-    criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
+    productsSummary,
+    criticalSuppliesSummary,
   };
 }

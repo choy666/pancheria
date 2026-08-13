@@ -11,6 +11,7 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -60,7 +61,7 @@ export const users = pgTable(
     role: userRoleEnum('role').default('operator').notNull(),
     branchId: integer('branch_id')
       .notNull()
-      .references(() => branches.id),
+      .references(() => branches.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -74,7 +75,7 @@ export const products = pgTable(
     id: serial('id').primaryKey(),
     branchId: integer('branch_id')
       .notNull()
-      .references(() => branches.id),
+      .references(() => branches.id, { onDelete: 'restrict' }),
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
     type: productTypeEnum('type').notNull(),
@@ -111,10 +112,10 @@ export const recipes = pgTable(
     id: serial('id').primaryKey(),
     compoundProductId: integer('compound_product_id')
       .notNull()
-      .references(() => products.id),
+      .references(() => products.id, { onDelete: 'cascade' }),
     supplyId: integer('supply_id')
       .notNull()
-      .references(() => products.id),
+      .references(() => products.id, { onDelete: 'cascade' }),
     quantity: integer('quantity').notNull(),
     autoDiscount: boolean('auto_discount').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -132,7 +133,7 @@ export const cashRegisters = pgTable(
     id: serial('id').primaryKey(),
     branchId: integer('branch_id')
       .notNull()
-      .references(() => branches.id),
+      .references(() => branches.id, { onDelete: 'restrict' }),
     openedAt: timestamp('opened_at').defaultNow().notNull(),
     closedAt: timestamp('closed_at'),
     openedBy: varchar('opened_by', { length: 255 }).notNull(),
@@ -143,10 +144,14 @@ export const cashRegisters = pgTable(
     cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     totalSales: integer('total_sales').default(0).notNull(),
-    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
-    productsSummary: text('products_summary').default('{}').notNull(),
-    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
-    criticalSuppliesSummary: text('critical_supplies_summary').default('{}').notNull(),
+    productsSummary: jsonb('products_summary')
+      .$type<Record<string, number>>()
+      .default({})
+      .notNull(),
+    criticalSuppliesSummary: jsonb('critical_supplies_summary')
+      .$type<Record<string, number>>()
+      .default({})
+      .notNull(),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -172,11 +177,11 @@ export const sales = pgTable(
     id: serial('id').primaryKey(),
     branchId: integer('branch_id')
       .notNull()
-      .references(() => branches.id),
+      .references(() => branches.id, { onDelete: 'restrict' }),
     total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     paymentMethod: paymentMethodEnum('payment_method').notNull(),
     status: saleStatusEnum('status').default('active').notNull(),
-    cashRegisterId: integer('cash_register_id').references(() => cashRegisters.id),
+    cashRegisterId: integer('cash_register_id').references(() => cashRegisters.id, { onDelete: 'set null' }),
     idempotencyKey: varchar('idempotency_key', { length: 255 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     cancelledAt: timestamp('cancelled_at'),
@@ -206,10 +211,10 @@ export const saleItems = pgTable(
     id: serial('id').primaryKey(),
     saleId: integer('sale_id')
       .notNull()
-      .references(() => sales.id),
+      .references(() => sales.id, { onDelete: 'cascade' }),
     productId: integer('product_id')
       .notNull()
-      .references(() => products.id),
+      .references(() => products.id, { onDelete: 'restrict' }),
     quantity: integer('quantity').notNull(),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).notNull(),
@@ -225,14 +230,14 @@ export const stockMovements = pgTable(
     id: serial('id').primaryKey(),
     branchId: integer('branch_id')
       .notNull()
-      .references(() => branches.id),
+      .references(() => branches.id, { onDelete: 'restrict' }),
     productId: integer('product_id')
       .notNull()
-      .references(() => products.id),
+      .references(() => products.id, { onDelete: 'restrict' }),
     type: stockMovementTypeEnum('type').notNull(),
     quantity: integer('quantity').notNull(),
     reason: text('reason'),
-    saleId: integer('sale_id').references(() => sales.id),
+    saleId: integer('sale_id').references(() => sales.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -255,16 +260,18 @@ export const dailyClosures = pgTable(
     id: serial('id').primaryKey(),
     branchId: integer('branch_id')
       .notNull()
-      .references(() => branches.id),
+      .references(() => branches.id, { onDelete: 'restrict' }),
     date: timestamp('date').notNull(),
     total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     totalSales: integer('total_sales').notNull(),
-    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
-    productsSummary: text('products_summary').notNull(),
-    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
-    criticalSuppliesSummary: text('critical_supplies_summary').notNull(),
+    productsSummary: jsonb('products_summary')
+      .$type<Record<string, number>>()
+      .notNull(),
+    criticalSuppliesSummary: jsonb('critical_supplies_summary')
+      .$type<Record<string, number>>()
+      .notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({

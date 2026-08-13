@@ -30,29 +30,6 @@ export async function findByCompoundProductId(
   });
 }
 
-export async function replaceRecipe(
-  branchId: number,
-  compoundProductId: number,
-  items: RecipeItemInsert[]
-) {
-  if (!(await assertProductInBranch(branchId, compoundProductId))) {
-    return [];
-  }
-
-  await db.delete(recipes).where(eq(recipes.compoundProductId, compoundProductId));
-
-  if (items.length === 0) return [];
-
-  const values = items.map((item) => ({
-    compoundProductId,
-    supplyId: item.supplyId,
-    quantity: item.quantity,
-    autoDiscount: item.autoDiscount,
-  }));
-
-  return db.insert(recipes).values(values).returning();
-}
-
 export async function deleteByCompoundProductId(
   branchId: number,
   compoundProductId: number

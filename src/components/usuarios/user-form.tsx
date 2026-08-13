@@ -11,30 +11,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createUser, type UserState } from '@/app/(panel)/usuarios/actions';
+import {
+  createUser,
+  updateUserAction,
+  type UserState,
+} from '@/app/(panel)/usuarios/actions';
 
 const initialState: UserState = null;
 
-interface UserFormProps {
-  branches: { id: number; name: string }[];
+interface User {
+  id: number;
+  username: string;
+  role: 'admin' | 'operator';
+  branchId: number;
 }
 
-export function UserForm({ branches }: UserFormProps) {
+interface UserFormProps {
+  branches: { id: number; name: string }[];
+  user?: User;
+  onCancel?: () => void;
+}
+
+export function UserForm({ branches, user, onCancel }: UserFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [role, setRole] = useState('operator');
-  const [branchId, setBranchId] = useState('');
-  const [state, formAction, isPending] = useActionState(
-    createUser,
-    initialState
-  );
+  const [branchId, setBranchId] = useState(user ? String(user.branchId) : '');
+  const isEditing = !!user;
+  const action = isEditing ? updateUserAction : createUser;
+  const [state, formAction, isPending] = useActionState(action, initialState);
 
   useEffect(() => {
     if (!isPending && state === null && formRef.current) {
-      formRef.current.reset();
-      setRole('operator');
-      setBranchId('');
+      const resetBranchId = isEditing ? String(user!.branchId) : '';
+      setTimeout(() => {
+        formRef.current?.reset();
+        setBranchId(resetBranchId);
+        onCancel?.();
+      }, 0);
     }
-  }, [state, isPending]);
+  }, [isPending, isEditing, onCancel, state, user]);
 
   return (
     <form
@@ -42,6 +56,7 @@ export function UserForm({ branches }: UserFormProps) {
       action={formAction}
       className="max-w-2xl space-y-4"
     >
+      {isEditing && <input type="hidden" name="id" value={user.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="username">Nombre de usuario</Label>
@@ -50,39 +65,32 @@ export function UserForm({ branches }: UserFormProps) {
             name="username"
             type="text"
             required
+            defaultValue={user?.username ?? ''}
             placeholder="Ej: juan.perez"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Contraseña</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            required
-            minLength={4}
-            placeholder="Mínimo 4 caracteres"
-          />
-        </div>
+        {!isEditing && (
+          <div className="space-y-2">
+            <Label htmlFor="password">Contraseña</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={4}
+              placeholder="Mínimo 4 caracteres"
+            />
+          </div>
+        )}
 
-        <div className="space-y-2">
-          <Label htmlFor="role">Rol</Label>
-          <Select value={role} onValueChange={(value) => setRole(value ?? '')}>
-            <SelectTrigger id="role">
-              <SelectValue placeholder="Seleccionar rol" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="operator">Operador</SelectItem>
-              <SelectItem value="admin">Administrador</SelectItem>
-            </SelectContent>
-          </Select>
-          <input type="hidden" name="role" value={role} />
-        </div>
-
-        <div className="space-y-2">
+        <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="branchId">Sucursal</Label>
-          <Select value={branchId} onValueChange={(value) => setBranchId(value ?? '')} required>
+          <Select
+            value={branchId}
+            onValueChange={(value) => setBranchId(value ?? '')}
+            required
+          >
             <SelectTrigger id="branchId">
               <SelectValue placeholder="Seleccionar sucursal" />
             </SelectTrigger>
@@ -104,9 +112,27 @@ export function UserForm({ branches }: UserFormProps) {
         </p>
       )}
 
-      <Button type="submit" disabled={isPending || !branchId}>
-        {isPending ? 'Creando...' : 'Crear usuario'}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={isPending || !branchId}>
+          {isPending
+            ? isEditing
+              ? 'Guardando...'
+              : 'Creando...'
+            : isEditing
+              ? 'Guardar cambios'
+              : 'Crear usuario'}
+        </Button>
+        {isEditing && onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isPending}
+          >
+            Cancelar
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

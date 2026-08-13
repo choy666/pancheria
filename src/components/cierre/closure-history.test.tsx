@@ -51,8 +51,8 @@ describe('ClosureHistory', () => {
         cashTotal: 1000,
         transferTotal: 500,
         totalSales: 5,
-        productsSummary: '{}',
-        criticalSuppliesSummary: '{}',
+        productsSummary: {},
+        criticalSuppliesSummary: {},
       },
     ];
 

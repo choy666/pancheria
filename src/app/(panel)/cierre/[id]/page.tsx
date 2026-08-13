@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
-import { safeJsonParse } from '@/lib/json';
 import { auth } from '@/auth';
+import { getCurrentBranchId } from '@/lib/auth';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,7 +15,7 @@ interface Props {
 
 export default async function CashRegisterDetailPage({ params }: Props) {
   const session = await auth();
-  const branchId = Number(session?.user?.branchId);
+  const branchId = await getCurrentBranchId(session);
 
   const { id } = await params;
   const cashRegister = await cashRegisterService.getCashRegisterById(
@@ -36,14 +36,10 @@ export default async function CashRegisterDetailPage({ params }: Props) {
   const duration =
     closedAt ? intervalToDuration({ start: openedAt, end: closedAt }) : null;
 
-  const productsSummary = safeJsonParse<Record<string, number>>(
-    cashRegister.productsSummary,
-    {}
-  );
-  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
-    cashRegister.criticalSuppliesSummary,
-    {}
-  );
+  const productsSummary: Record<string, number> =
+    cashRegister.productsSummary ?? {};
+  const criticalSuppliesSummary: Record<string, number> =
+    cashRegister.criticalSuppliesSummary ?? {};
 
   return (
     <div className="space-y-5">

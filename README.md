@@ -64,13 +64,16 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 
 - Cada usuario pertenece a una única sucursal (`users.branchId`).
 - La sucursal se determina automáticamente al iniciar sesión a partir del usuario.
-- Productos, recetas, stock, cajas, ventas, movimientos y cierres diarios se filtran por `branchId`.
-- Las páginas `/sucursales` y `/usuarios` permiten a los administradores crear nuevas sucursales y usuarios.
+- Los operadores (`operator`) siempre trabajan en su sucursal asignada.
+- Los administradores pueden cambiar la sucursal activa desde el selector del panel.
+- Productos, recetas, stock, cajas, ventas, movimientos y cierres diarios se filtran por la sucursal activa (`branchId`).
+- Las páginas `/sucursales` y `/usuarios` permiten a los administradores crear nuevas sucursales y usuarios operador.
 - El seed usa `DEFAULT_BRANCH_NAME` para crear la sucursal inicial y asignarle el administrador (`ADMIN_USERNAME`).
 
 ## Notas
 
-- El sistema crea un administrador inicial desde las variables de entorno; se pueden crear más usuarios con rol `admin` desde `/usuarios`.
+- El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).
+- Desde `/usuarios` el administrador puede crear usuarios con rol `operator` y gestionarlos (editar, resetear contraseña, eliminar). No se pueden crear más administradores desde la UI.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
 - Los insumos manuales son informativos en recetas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.

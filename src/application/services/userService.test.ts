@@ -115,6 +115,17 @@ describe('userService', () => {
       ).rejects.toThrow(ValidationError);
     });
 
+    test('rechaza crear un usuario administrador', async () => {
+      await expect(
+        createUser({
+          username: 'nuevo',
+          password: '1234',
+          role: 'admin',
+          branchId: 1,
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
     test('rechaza una sucursal inexistente', async () => {
       mockedBranchService.getBranchById.mockResolvedValue(undefined);
 

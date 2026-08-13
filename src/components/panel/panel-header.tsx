@@ -4,43 +4,59 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TourButton } from '@/components/tour/tour-context';
+import { BranchSelector } from './branch-selector';
 import { cn } from '@/lib/utils';
 import { routes } from '@/config/routes';
 import { Menu, X } from 'lucide-react';
+
+interface Branch {
+  id: number;
+  name: string;
+}
 
 interface PanelHeaderProps {
   userName?: string | null;
   branchName?: string | null;
   role?: string | null;
+  branches?: Branch[];
+  activeBranchId?: number;
+  setActiveBranchAction: (formData: FormData) => Promise<{ error: string } | null>;
   signOutAction: () => Promise<void>;
 }
 
-const baseNavItems = [
+const operatorNavItems = [
+  { href: routes.home, label: 'Panel' },
+  { href: routes.ventas, label: 'Ventas' },
+  { href: routes.ventasHistorial, label: 'Historial' },
+  { href: routes.stock, label: 'Stock' },
+  { href: routes.cierre, label: 'Caja' },
+];
+
+const adminNavItems = [
   { href: routes.home, label: 'Panel' },
   { href: routes.ventas, label: 'Ventas' },
   { href: routes.ventasHistorial, label: 'Historial' },
   { href: routes.productos, label: 'Productos' },
   { href: routes.stock, label: 'Stock' },
   { href: routes.cierre, label: 'Caja' },
+  { href: routes.sucursales, label: 'Sucursales' },
+  { href: routes.usuarios, label: 'Usuarios' },
 ];
 
 export function PanelHeader({
   userName,
   branchName,
   role,
+  branches,
+  activeBranchId,
+  setActiveBranchAction,
   signOutAction,
 }: PanelHeaderProps) {
   const [open, setOpen] = useState(false);
 
   const isAdmin = role === 'admin';
-
-  const navItems = isAdmin
-    ? [
-        ...baseNavItems,
-        { href: routes.sucursales, label: 'Sucursales' },
-        { href: routes.usuarios, label: 'Usuarios' },
-      ]
-    : baseNavItems;
+  const navItems = isAdmin ? adminNavItems : operatorNavItems;
+  const showBranchSelector = isAdmin && branches && branches.length > 1;
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/8 bg-background/95 backdrop-blur-sm">
@@ -67,9 +83,17 @@ export function PanelHeader({
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
+          {showBranchSelector && activeBranchId !== undefined && (
+            <BranchSelector
+              key={activeBranchId}
+              branches={branches}
+              activeBranchId={activeBranchId}
+              setActiveBranchAction={setActiveBranchAction}
+            />
+          )}
           <TourButton />
           {branchName && (
-            <span className="text-sm text-muted-foreground">{branchName}</span>
+            <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
           )}
           {userName && (
             <span className="text-sm text-muted-foreground">{userName}</span>
@@ -111,9 +135,17 @@ export function PanelHeader({
             ))}
           </nav>
           <div className="mt-4 flex flex-col gap-3 border-t border-white/8 pt-4">
+            {showBranchSelector && activeBranchId !== undefined && (
+              <BranchSelector
+                key={activeBranchId}
+                branches={branches}
+                activeBranchId={activeBranchId}
+                setActiveBranchAction={setActiveBranchAction}
+              />
+            )}
             <TourButton className="w-full" />
             {branchName && (
-              <span className="text-sm text-muted-foreground">{branchName}</span>
+              <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
             )}
             {userName && (
               <span className="text-sm text-muted-foreground">{userName}</span>

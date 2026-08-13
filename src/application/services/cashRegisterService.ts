@@ -7,7 +7,6 @@ import { calculateSummaryFromSales, type SaleWithItems } from '@/application/ser
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { safeJsonParse } from '@/lib/json';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
 
@@ -135,25 +134,20 @@ export async function calculateCashRegisterSummary(
   return calculateSummaryFromSales(branchId, activeSales, dbOrTx);
 }
 
-type CashRegisterSummaryInput = {
-  branchId: number;
-  productsSummary: string | null;
-  criticalSuppliesSummary: string | null;
-};
+type CashRegisterSummaryInput = Pick<
+  typeof cashRegisters.$inferSelect,
+  'productsSummary' | 'criticalSuppliesSummary'
+>;
 
 export async function parseCashRegisterSummary(
   branchId: number,
   cashRegister: CashRegisterSummaryInput,
   fillMissingCriticalSupplies = false
 ) {
-  const productsSummary = safeJsonParse<Record<string, number>>(
-    cashRegister.productsSummary,
-    {}
-  );
-  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
-    cashRegister.criticalSuppliesSummary,
-    {}
-  );
+  const productsSummary: Record<string, number> =
+    cashRegister.productsSummary ?? {};
+  const criticalSuppliesSummary: Record<string, number> =
+    cashRegister.criticalSuppliesSummary ?? {};
 
   if (fillMissingCriticalSupplies) {
     const activeCriticalSupplies = await db.query.products.findMany({

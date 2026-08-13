@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { addHours, format, intervalToDuration } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useClockInterval } from '@/hooks/use-clock-interval';
 import { AUTO_CLOSE_HOURS, CAJA_CLOCK_INTERVAL_MS } from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
@@ -26,40 +27,7 @@ export function CajaStatus({
   error,
 }: CajaStatusProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [now, setNow] = useState<Date | null>(() => new Date());
-
-  useEffect(() => {
-    const intervalDuration = CAJA_CLOCK_INTERVAL_MS;
-    let intervalId: NodeJS.Timeout | null = null;
-
-    function startInterval() {
-      intervalId = setInterval(() => setNow(new Date()), intervalDuration);
-    }
-
-    function stopInterval() {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-    }
-
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        stopInterval();
-      } else {
-        queueMicrotask(() => setNow(new Date()));
-        startInterval();
-      }
-    }
-
-    startInterval();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      stopInterval();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+  const now = useClockInterval(CAJA_CLOCK_INTERVAL_MS);
 
   async function handleOpen() {
     setIsSubmitting(true);
@@ -103,7 +71,7 @@ export function CajaStatus({
 
   const openedAt = new Date(cashRegister.openedAt);
   const autoCloseAt = addHours(openedAt, AUTO_CLOSE_HOURS);
-  const current = now ?? new Date();
+  const current = now;
 
   const elapsed = intervalToDuration({ start: openedAt, end: current });
   const remaining = intervalToDuration({ start: current, end: autoCloseAt });

@@ -3,7 +3,7 @@ import { cancellationSchema } from '@/lib/zod-schemas';
 import * as saleService from '@/application/services/saleService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -12,7 +12,7 @@ interface RouteParams {
 export const POST = withApiErrorHandling(
   async (request: NextRequest, { params }: RouteParams) => {
     const session = await requireAuth();
-    const branchId = Number(session.user.branchId);
+    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const saleId = parseId(id);
     if (!saleId) {

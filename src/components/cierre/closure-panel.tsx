@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CIERRE_API } from '@/config/api';
-import { safeJsonParse } from '@/lib/json';
 
 interface Closure {
   id: number;
@@ -18,8 +17,8 @@ interface Closure {
   cashTotal: number;
   transferTotal: number;
   totalSales: number;
-  productsSummary: string;
-  criticalSuppliesSummary: string;
+  productsSummary: Record<string, number>;
+  criticalSuppliesSummary: Record<string, number>;
 }
 
 export function ClosurePanel() {
@@ -59,14 +58,10 @@ export function ClosurePanel() {
     }
   }
 
-  const productsSummary = safeJsonParse<Record<string, number>>(
-    closure?.productsSummary,
-    {}
-  );
-  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
-    closure?.criticalSuppliesSummary,
-    {}
-  );
+  const productsSummary: Record<string, number> =
+    closure?.productsSummary ?? {};
+  const criticalSuppliesSummary: Record<string, number> =
+    closure?.criticalSuppliesSummary ?? {};
 
   function downloadCsv() {
     if (!closure) return;

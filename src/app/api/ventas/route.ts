@@ -11,11 +11,11 @@ import {
 import { parseId } from '@/lib/id';
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const branchId = await getCurrentBranchId(session);
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get('date');
   const cashRegisterIdParam = searchParams.get('cashRegisterId');
@@ -54,7 +54,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const branchId = await getCurrentBranchId(session);
   const body = await request.json();
   const data = saleSchema.parse(body);
   const sale = await saleService.confirmSale({ branchId, ...data });

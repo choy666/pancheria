@@ -1,7 +1,12 @@
 import { auth } from '@/auth';
+import { cookies } from 'next/headers';
+import * as branchService from '@/application/services/branchService';
 import { UnauthorizedError, ForbiddenError } from '@/domain/errors';
+import type { Session } from 'next-auth';
 
-export async function requireAuth() {
+export const ACTIVE_BRANCH_COOKIE = 'activeBranchId';
+
+export async function requireAuth(): Promise<Session> {
   const session = await auth();
 
   if (!session?.user) {
@@ -15,17 +20,38 @@ export async function requireAuth() {
   return session;
 }
 
-export async function getCurrentBranchId(): Promise<number> {
-  const session = await auth();
+export async function getCurrentBranchId(
+  session?: Session | null
+): Promise<number> {
+  const s = session ?? (await auth());
 
-  if (!session?.user?.branchId) {
+  if (!s?.user) {
     throw new UnauthorizedError('Se requiere iniciar sesión.');
   }
 
-  return Number(session.user.branchId);
+  if (!s.user.branchId) {
+    throw new ForbiddenError('El usuario no tiene una sucursal asignada.');
+  }
+
+  if (s.user.role === 'admin') {
+    const cookieStore = await cookies();
+    const activeBranchId = cookieStore.get(ACTIVE_BRANCH_COOKIE)?.value;
+
+    if (activeBranchId) {
+      const parsed = Number(activeBranchId);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        const branch = await branchService.getBranchById(parsed);
+        if (branch) {
+          return parsed;
+        }
+      }
+    }
+  }
+
+  return Number(s.user.branchId);
 }
 
-export async function requireAdmin() {
+export async function requireAdmin(): Promise<Session> {
   const session = await requireAuth();
 
   if (session.user.role !== 'admin') {

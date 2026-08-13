@@ -1,8 +1,15 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
+import { auth } from '@/auth';
 
-export default function CajasEliminadasPage() {
+export default async function CajasEliminadasPage() {
+  const session = await auth();
+
+  if (session?.user?.role !== 'admin') {
+    redirect('/ventas/historial');
+  }
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -15,6 +22,7 @@ export default function CajasEliminadasPage() {
         detailRoute="/ventas/historial"
         deletedOnly
         showAutoColumn={false}
+        isAdmin
       />
     </div>
   );

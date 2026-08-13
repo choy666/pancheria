@@ -54,8 +54,8 @@ export async function create(params: {
   cashTotal: number;
   transferTotal: number;
   totalSales: number;
-  productsSummary: string;
-  criticalSuppliesSummary: string;
+  productsSummary: Record<string, number>;
+  criticalSuppliesSummary: Record<string, number>;
 }) {
   const [result] = await db.insert(dailyClosures).values(params).returning();
   return result;

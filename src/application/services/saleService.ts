@@ -19,7 +19,6 @@ import {
   parseMoney,
 } from '@/lib/money';
 import { nowUTC } from '@/lib/date';
-import { safeJsonParse } from '@/lib/json';
 import {
   InsufficientStockError,
   NotFoundError,
@@ -286,16 +285,7 @@ export async function validateCartAvailability(
 
 async function updateCashRegisterSummary(
   tx: typeof db,
-  cashRegister: {
-    id: number;
-    branchId: number;
-    total: number;
-    cashTotal: number;
-    transferTotal: number;
-    totalSales: number;
-    productsSummary: string | null;
-    criticalSuppliesSummary: string | null;
-  } | null,
+  cashRegister: (typeof cashRegisters.$inferSelect) | null,
   saleItems: { productId: number; quantity: number }[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
@@ -303,7 +293,7 @@ async function updateCashRegisterSummary(
   saleTotal: number,
   operation: 'add' | 'subtract'
 ) {
-  if (!cashRegister || typeof cashRegister.productsSummary !== 'string') return;
+  if (!cashRegister) return;
 
   const sign = operation === 'add' ? 1 : -1;
   const saleMoney = parseMoney(sign * saleTotal);
@@ -325,14 +315,10 @@ async function updateCashRegisterSummary(
       : cashRegister.transferTotal;
   const totalSales = cashRegister.totalSales + sign;
 
-  const productsSummary = safeJsonParse<Record<string, number>>(
-    cashRegister.productsSummary,
-    {}
-  );
-  const criticalSuppliesSummary = safeJsonParse<Record<string, number>>(
-    cashRegister.criticalSuppliesSummary,
-    {}
-  );
+  const productsSummary: Record<string, number> =
+    cashRegister.productsSummary ?? {};
+  const criticalSuppliesSummary: Record<string, number> =
+    cashRegister.criticalSuppliesSummary ?? {};
 
   for (const item of saleItems) {
     const product = productById.get(item.productId);
@@ -370,8 +356,8 @@ async function updateCashRegisterSummary(
       cashTotal,
       transferTotal,
       totalSales,
-      productsSummary: JSON.stringify(productsSummary),
-      criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
+      productsSummary,
+      criticalSuppliesSummary,
     })
     .where(
       and(

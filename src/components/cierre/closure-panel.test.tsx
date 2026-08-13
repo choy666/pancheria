@@ -28,8 +28,8 @@ const mockClosure = {
   cashTotal: 1500,
   transferTotal: 0,
   totalSales: 1,
-  productsSummary: '{"Pancho":1}',
-  criticalSuppliesSummary: '{}',
+  productsSummary: { Pancho: 1 },
+  criticalSuppliesSummary: {},
 };
 
 function createResponse(body: unknown, ok = true): Response {

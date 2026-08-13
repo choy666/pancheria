@@ -3,11 +3,11 @@ import { recipeSchema } from '@/lib/zod-schemas';
 import * as recipeService from '@/application/services/recipeService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth } from '@/lib/auth';
+import { requireAdmin, getCurrentBranchId } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
   const { searchParams } = new URL(request.url);
   const productId = parseId(searchParams.get('productId'));
 
@@ -23,8 +23,8 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
 });
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAuth();
-  const branchId = Number(session.user.branchId);
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
   const body = await request.json();
   const data = recipeSchema.parse(body);
   const recipe = await recipeService.saveRecipe(

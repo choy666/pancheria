@@ -88,53 +88,6 @@ describe('recipeRepository', () => {
     });
   });
 
-  describe('replaceRecipe', () => {
-    test('reemplaza la receta de un producto compuesto', async () => {
-      const items = [
-        { supplyId: 1, quantity: 2, autoDiscount: true },
-        { supplyId: 2, quantity: 1, autoDiscount: false },
-      ];
-      const expected = [
-        { id: 1, compoundProductId: 10, supplyId: 1, quantity: 2, autoDiscount: true },
-        { id: 2, compoundProductId: 10, supplyId: 2, quantity: 1, autoDiscount: false },
-      ];
-      mockDeleteWhere.mockResolvedValue(undefined);
-      mockReturning.mockResolvedValue(expected);
-
-      const result = await recipeRepository.replaceRecipe(BRANCH_ID, 10, items);
-
-      expect(result).toEqual(expected);
-      expect(mockDelete).toHaveBeenCalled();
-      expect(mockDeleteWhere).toHaveBeenCalled();
-      expect(mockInsert).toHaveBeenCalled();
-      expect(mockValues).toHaveBeenCalledWith([
-        {
-          compoundProductId: 10,
-          supplyId: 1,
-          quantity: 2,
-          autoDiscount: true,
-        },
-        {
-          compoundProductId: 10,
-          supplyId: 2,
-          quantity: 1,
-          autoDiscount: false,
-        },
-      ]);
-    });
-
-    test('elimina la receta y no inserta si no hay items', async () => {
-      mockDeleteWhere.mockResolvedValue(undefined);
-
-      const result = await recipeRepository.replaceRecipe(BRANCH_ID, 10, []);
-
-      expect(result).toEqual([]);
-      expect(mockDelete).toHaveBeenCalled();
-      expect(mockDeleteWhere).toHaveBeenCalled();
-      expect(mockInsert).not.toHaveBeenCalled();
-    });
-  });
-
   describe('deleteByCompoundProductId', () => {
     test('elimina las recetas de un producto compuesto', async () => {
       mockDeleteWhere.mockResolvedValue(undefined);
