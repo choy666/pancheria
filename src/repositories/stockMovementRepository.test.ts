@@ -30,6 +30,8 @@ jest.mock('@/db', () => {
   };
 });
 
+const BRANCH_ID = 1;
+
 describe('stockMovementRepository', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -38,12 +40,12 @@ describe('stockMovementRepository', () => {
   describe('findByProductId', () => {
     test('devuelve los movimientos de stock de un producto ordenados por fecha', async () => {
       const expected = [
-        { id: 1, productId: 1, type: 'restock', quantity: 10 },
-        { id: 2, productId: 1, type: 'sale', quantity: -1 },
+        { id: 1, branchId: BRANCH_ID, productId: 1, type: 'restock', quantity: 10 },
+        { id: 2, branchId: BRANCH_ID, productId: 1, type: 'sale', quantity: -1 },
       ];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await stockMovementRepository.findByProductId(1, { page: 1, limit: 10 });
+      const result = await stockMovementRepository.findByProductId(BRANCH_ID, 1, { page: 1, limit: 10 });
 
       expect(result.items).toEqual(expected);
       expect(result.total).toBe(0);
@@ -60,10 +62,10 @@ describe('stockMovementRepository', () => {
     });
 
     test('respeta el límite indicado', async () => {
-      const expected = [{ id: 1, productId: 1 }];
+      const expected = [{ id: 1, branchId: BRANCH_ID, productId: 1 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await stockMovementRepository.findByProductId(1, { page: 1, limit: 5 });
+      const result = await stockMovementRepository.findByProductId(BRANCH_ID, 1, { page: 1, limit: 5 });
 
       expect(result.items).toEqual(expected);
       expect(result.limit).toBe(5);
@@ -78,7 +80,7 @@ describe('stockMovementRepository', () => {
     test('devuelve un array vacío si no hay movimientos', async () => {
       mockFindMany.mockResolvedValue([]);
 
-      const result = await stockMovementRepository.findByProductId(999, { page: 1, limit: 10 });
+      const result = await stockMovementRepository.findByProductId(BRANCH_ID, 999, { page: 1, limit: 10 });
 
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
@@ -89,6 +91,7 @@ describe('stockMovementRepository', () => {
     test('crea un movimiento de stock y devuelve el registro', async () => {
       const expected = {
         id: 1,
+        branchId: BRANCH_ID,
         productId: 1,
         type: 'restock',
         quantity: 10,
@@ -98,6 +101,7 @@ describe('stockMovementRepository', () => {
       mockReturning.mockResolvedValue([expected]);
 
       const result = await stockMovementRepository.create({
+        branchId: BRANCH_ID,
         productId: 1,
         type: 'restock',
         quantity: 10,
@@ -108,6 +112,7 @@ describe('stockMovementRepository', () => {
       expect(mockInsert).toHaveBeenCalled();
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
+          branchId: BRANCH_ID,
           productId: 1,
           type: 'restock',
           quantity: 10,
@@ -118,9 +123,10 @@ describe('stockMovementRepository', () => {
     });
 
     test('normaliza valores opcionales como nulos', async () => {
-      mockReturning.mockResolvedValue([{ id: 1 }]);
+      mockReturning.mockResolvedValue([{ id: 1, branchId: BRANCH_ID }]);
 
       await stockMovementRepository.create({
+        branchId: BRANCH_ID,
         productId: 1,
         type: 'sale',
         quantity: -1,
@@ -138,6 +144,7 @@ describe('stockMovementRepository', () => {
       mockReturning.mockResolvedValue([]);
 
       const result = await stockMovementRepository.create({
+        branchId: BRANCH_ID,
         productId: 1,
         type: 'manual_adjustment',
         quantity: 0,

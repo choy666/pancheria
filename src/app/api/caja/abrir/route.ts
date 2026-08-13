@@ -5,7 +5,11 @@ import { requireAuth } from '@/lib/auth';
 
 export const POST = withApiErrorHandling(async () => {
   const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const userName = session.user?.name ?? 'Usuario';
-  const cashRegister = await cashRegisterService.openCashRegister(userName);
+  const cashRegister = await cashRegisterService.openCashRegister({
+    branchId,
+    openedBy: userName,
+  });
   return NextResponse.json(cashRegister, { status: 201 });
 });

@@ -347,9 +347,15 @@ export function TourProvider({ children }: TourProviderProps) {
           driver.movePrevious();
         },
         onCloseClick: (_element, _step, { driver }) => {
+          clearStep();
+          clearTourActive();
+          markTourSeen();
           driver.destroy();
         },
         onDoneClick: (_element, _step, { driver }) => {
+          clearStep();
+          clearTourActive();
+          markTourSeen();
           driver.destroy();
         },
       });

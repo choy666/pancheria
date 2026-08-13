@@ -7,7 +7,8 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { searchParams } = new URL(request.url);
   const startParam = searchParams.get('start');
   const endParam = searchParams.get('end');
@@ -16,6 +17,11 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const start = startParam ? parseDateStringUTC(startParam) : subDays(end, 30);
   const pagination = parsePaginationParams(searchParams);
 
-  const closures = await closureService.listClosures(start, end, pagination);
+  const closures = await closureService.listClosures(
+    branchId,
+    start,
+    end,
+    pagination
+  );
   return NextResponse.json(closures);
 });

@@ -6,4 +6,6 @@ export const routes = {
   stock: '/stock',
   cierre: '/cierre',
   cierreHistorial: '/cierre/historial',
+  sucursales: '/sucursales',
+  usuarios: '/usuarios',
 } as const;

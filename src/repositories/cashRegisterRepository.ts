@@ -19,31 +19,43 @@ import type {
   PaginationParams,
 } from '@/domain/types';
 
-export async function findOpen() {
+export async function findOpen(branchId: number) {
   return db.query.cashRegisters.findFirst({
     where: and(
+      eq(cashRegisters.branchId, branchId),
       eq(cashRegisters.status, 'open'),
       isNull(cashRegisters.deletedAt)
     ),
   });
 }
 
-export async function findById(id: number, includeDeleted = false) {
+export async function findById(
+  branchId: number,
+  id: number,
+  includeDeleted = false
+) {
+  const conditions = [
+    eq(cashRegisters.id, id),
+    eq(cashRegisters.branchId, branchId),
+  ];
+  if (!includeDeleted) {
+    conditions.push(isNull(cashRegisters.deletedAt));
+  }
+
   return db.query.cashRegisters.findFirst({
-    where: and(
-      eq(cashRegisters.id, id),
-      includeDeleted ? undefined : isNull(cashRegisters.deletedAt)
-    ),
+    where: and(...conditions),
   });
 }
 
 export async function findInRange(
+  branchId: number,
   start: Date,
   end: Date,
   status?: CashRegisterStatus,
   pagination?: PaginationParams
 ): Promise<PaginatedResult<typeof cashRegisters.$inferSelect>> {
   const conditions = [
+    eq(cashRegisters.branchId, branchId),
     gte(cashRegisters.openedAt, start),
     lte(cashRegisters.openedAt, end),
     isNull(cashRegisters.deletedAt),
@@ -77,19 +89,22 @@ export async function findInRange(
 }
 
 export async function findClosedInRange(
+  branchId: number,
   start: Date,
   end: Date,
   pagination?: PaginationParams
 ) {
-  return findInRange(start, end, 'closed', pagination);
+  return findInRange(branchId, start, end, 'closed', pagination);
 }
 
 export async function findDeletedInRange(
+  branchId: number,
   start: Date,
   end: Date,
   pagination?: PaginationParams
 ): Promise<PaginatedResult<typeof cashRegisters.$inferSelect>> {
   const conditions = [
+    eq(cashRegisters.branchId, branchId),
     isNotNull(cashRegisters.deletedAt),
     gte(cashRegisters.deletedAt, start),
     lte(cashRegisters.deletedAt, end),
@@ -118,15 +133,17 @@ export async function findDeletedInRange(
   };
 }
 
-export async function create(data: {
+export async function create(params: {
+  branchId: number;
   openedAt: Date;
   openedBy: string;
 }) {
   const [result] = await db
     .insert(cashRegisters)
     .values({
-      openedAt: data.openedAt,
-      openedBy: data.openedBy,
+      branchId: params.branchId,
+      openedAt: params.openedAt,
+      openedBy: params.openedBy,
       status: 'open',
     })
     .returning();
@@ -134,41 +151,44 @@ export async function create(data: {
 }
 
 export async function update(
+  branchId: number,
   id: number,
   data: Partial<typeof cashRegisters.$inferInsert>
 ) {
   const [result] = await db
     .update(cashRegisters)
     .set(data)
-    .where(eq(cashRegisters.id, id))
+    .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
     .returning();
   return result ?? null;
 }
 
-export async function softDelete(id: number) {
+export async function softDelete(branchId: number, id: number) {
   const [result] = await db
     .update(cashRegisters)
     .set({ deletedAt: nowUTC() })
-    .where(eq(cashRegisters.id, id))
+    .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
     .returning();
   return result ?? null;
 }
 
-export async function restore(id: number) {
+export async function restore(branchId: number, id: number) {
   const [result] = await db
     .update(cashRegisters)
     .set({ deletedAt: null })
-    .where(eq(cashRegisters.id, id))
+    .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
     .returning();
   return result ?? null;
 }
 
-export async function hardDelete(id: number) {
+export async function hardDelete(branchId: number, id: number) {
   return executeInTransaction(async (tx) => {
     const [row] = await tx
       .select({ deletedAt: cashRegisters.deletedAt })
       .from(cashRegisters)
-      .where(eq(cashRegisters.id, id));
+      .where(
+        and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId))
+      );
 
     if (!row || row.deletedAt === null) {
       return { deleted: false };
@@ -179,19 +199,26 @@ export async function hardDelete(id: number) {
       .set({ cashRegisterId: null })
       .where(eq(sales.cashRegisterId, id));
 
-    await tx.delete(cashRegisters).where(eq(cashRegisters.id, id));
+    await tx
+      .delete(cashRegisters)
+      .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)));
 
     return { deleted: true };
   });
 }
 
-export async function hardDeleteAllDeletedInRange(start: Date, end: Date) {
+export async function hardDeleteAllDeletedInRange(
+  branchId: number,
+  start: Date,
+  end: Date
+) {
   return executeInTransaction(async (tx) => {
     const rows = await tx
       .select({ id: cashRegisters.id })
       .from(cashRegisters)
       .where(
         and(
+          eq(cashRegisters.branchId, branchId),
           isNotNull(cashRegisters.deletedAt),
           gte(cashRegisters.deletedAt, start),
           lte(cashRegisters.deletedAt, end)
@@ -209,7 +236,9 @@ export async function hardDeleteAllDeletedInRange(start: Date, end: Date) {
       .set({ cashRegisterId: null })
       .where(inArray(sales.cashRegisterId, ids));
 
-    await tx.delete(cashRegisters).where(inArray(cashRegisters.id, ids));
+    await tx
+      .delete(cashRegisters)
+      .where(inArray(cashRegisters.id, ids));
 
     return { deleted: ids.length };
   });

@@ -23,7 +23,12 @@ export default async function PanelLayout({
   return (
     <TourProvider>
       <div className="flex min-h-full flex-col">
-        <PanelHeader userName={session?.user?.name} signOutAction={signOutAction} />
+        <PanelHeader
+          userName={session?.user?.name}
+          branchName={session?.user?.branchName}
+          role={session?.user?.role}
+          signOutAction={signOutAction}
+        />
         <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </div>
     </TourProvider>

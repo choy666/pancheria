@@ -28,7 +28,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        return { id: user.id.toString(), name: user.username };
+        return {
+          id: user.id.toString(),
+          name: user.username,
+          role: user.role,
+          branchId: user.branchId,
+          branchName: user.branchName,
+        };
       },
     }),
   ],

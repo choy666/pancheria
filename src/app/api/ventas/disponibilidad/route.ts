@@ -5,10 +5,12 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const body = await request.json();
   const data = cartAvailabilitySchema.parse(body);
   const result = await saleService.validateCartAvailability(
+    branchId,
     data.items,
     data.productIds
   );

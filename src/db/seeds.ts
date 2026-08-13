@@ -1,10 +1,34 @@
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { db } from './index';
-import { products, recipes, users } from './schema';
+import { products, recipes, users, branches } from './schema';
 import * as stockService from '@/application/services/stockService';
 
-async function seedAdmin() {
+const DEFAULT_BRANCH_NAME = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
+const NEW_BRANCH_NAME = process.env.NEW_BRANCH_NAME;
+const NEW_BRANCH_USERNAME = process.env.NEW_BRANCH_USERNAME;
+const NEW_BRANCH_PASSWORD = process.env.NEW_BRANCH_PASSWORD;
+
+async function seedDefaultBranch(): Promise<number> {
+  const existing = await db.query.branches.findFirst({
+    where: eq(branches.name, DEFAULT_BRANCH_NAME),
+  });
+
+  if (existing) {
+    console.log('La sucursal por defecto ya existe.');
+    return existing.id;
+  }
+
+  const [branch] = await db
+    .insert(branches)
+    .values({ name: DEFAULT_BRANCH_NAME })
+    .returning({ id: branches.id });
+
+  console.log('Sucursal por defecto creada.');
+  return branch.id;
+}
+
+async function seedAdmin(defaultBranchId: number) {
   const username = process.env.ADMIN_USERNAME;
   const password = process.env.ADMIN_PASSWORD;
 
@@ -29,9 +53,48 @@ async function seedAdmin() {
   await db.insert(users).values({
     username,
     passwordHash,
+    role: 'admin',
+    branchId: defaultBranchId,
   });
 
   console.log('Usuario administrador creado.');
+}
+
+async function seedOptionalBranch() {
+  if (!NEW_BRANCH_NAME || !NEW_BRANCH_USERNAME || !NEW_BRANCH_PASSWORD) {
+    return;
+  }
+
+  const existingBranch = await db.query.branches.findFirst({
+    where: eq(branches.name, NEW_BRANCH_NAME),
+  });
+
+  if (existingBranch) {
+    console.log('La sucursal opcional ya existe.');
+    return;
+  }
+
+  const [branch] = await db
+    .insert(branches)
+    .values({ name: NEW_BRANCH_NAME })
+    .returning({ id: branches.id });
+
+  const existingUser = await db.query.users.findFirst({
+    where: eq(users.username, NEW_BRANCH_USERNAME),
+  });
+
+  if (!existingUser) {
+    const passwordHash = await bcrypt.hash(NEW_BRANCH_PASSWORD, 10);
+    await db.insert(users).values({
+      username: NEW_BRANCH_USERNAME,
+      passwordHash,
+      role: 'operator',
+      branchId: branch.id,
+    });
+    console.log('Usuario de la sucursal opcional creado.');
+  }
+
+  console.log('Sucursal opcional creada.');
 }
 
 type SeedProduct = {
@@ -174,15 +237,15 @@ const promoRecipes: SeedRecipeItem[] = [
   ]},
 ];
 
-async function seedCatalog() {
+async function seedCatalog(branchId: number) {
   const existingProducts = await db.query.products.findMany({
     columns: { id: true },
+    where: eq(products.branchId, branchId),
     limit: 1,
   });
 
   if (existingProducts.length > 0) {
-    console.log('Ya existen productos. Se omite el seed del catálogo.');
-    console.log('Si querés cargar el catálogo nuevo, reiniciá la base de datos y volvé a ejecutar el seed.');
+    console.log('Ya existen productos para esta sucursal. Se omite el seed del catálogo.');
     return;
   }
 
@@ -194,6 +257,7 @@ async function seedCatalog() {
 
   const allProducts = seedSources.map((p) => ({
     ...p,
+    branchId,
     stock: 0,
     minStock: p.minStock ?? 0,
     criticalSupplyType: p.criticalSupplyType ?? null,
@@ -241,6 +305,7 @@ async function seedCatalog() {
     const initialStock = initialStockByName.get(seeded.name) ?? 0;
     if (initialStock > 0) {
       await stockService.adjustStock(
+        branchId,
         seeded.id,
         initialStock,
         'Stock inicial',
@@ -254,8 +319,10 @@ async function seedCatalog() {
 
 async function main() {
   try {
-    await seedAdmin();
-    await seedCatalog();
+    const defaultBranchId = await seedDefaultBranch();
+    await seedAdmin(defaultBranchId);
+    await seedCatalog(defaultBranchId);
+    await seedOptionalBranch();
     process.exit(0);
   } catch (error) {
     console.error('Error al ejecutar el seed:', error);

@@ -3,24 +3,31 @@ import bcrypt from 'bcrypt';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { ValidationError } from '@/domain/errors';
+import {
+  InMemoryRateLimitStore,
+  type RateLimitStore,
+} from '@/lib/rate-limit-store';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
-type AttemptRecord = {
-  count: number;
-  lastAttempt: number;
-};
+let rateLimitStore: RateLimitStore = new InMemoryRateLimitStore();
 
-const attemptsByUsername = new Map<string, AttemptRecord>();
+export function setRateLimitStore(store: RateLimitStore): void {
+  rateLimitStore = store;
+}
+
+export function getRateLimitStore(): RateLimitStore {
+  return rateLimitStore;
+}
 
 function isRateLimited(username: string): boolean {
-  const record = attemptsByUsername.get(username);
+  const record = rateLimitStore.get(username);
   if (!record) return false;
 
   const now = Date.now();
   if (now - record.lastAttempt > RATE_LIMIT_WINDOW_MS) {
-    attemptsByUsername.delete(username);
+    rateLimitStore.delete(username);
     return false;
   }
 
@@ -29,25 +36,26 @@ function isRateLimited(username: string): boolean {
 
 function recordFailedAttempt(username: string) {
   const now = Date.now();
-  const record = attemptsByUsername.get(username);
+  const record = rateLimitStore.get(username);
 
   if (!record || now - record.lastAttempt > RATE_LIMIT_WINDOW_MS) {
-    attemptsByUsername.set(username, { count: 1, lastAttempt: now });
+    rateLimitStore.set(username, { count: 1, lastAttempt: now });
     return;
   }
 
   record.count += 1;
   record.lastAttempt = now;
+  rateLimitStore.set(username, record);
 }
 
 function clearFailedAttempts(username: string) {
-  attemptsByUsername.delete(username);
+  rateLimitStore.delete(username);
 }
 
 export async function verifyCredentials(
   username: string,
   password: string
-): Promise<{ id: number; username: string } | null> {
+): Promise<{ id: number; username: string; role: string; branchId: number; branchName: string } | null> {
   if (isRateLimited(username)) {
     throw new ValidationError(
       'Demasiados intentos fallidos. Probá más tarde.'
@@ -56,6 +64,9 @@ export async function verifyCredentials(
 
   const user = await db.query.users.findFirst({
     where: eq(users.username, username),
+    with: {
+      branch: true,
+    },
   });
 
   if (!user) {
@@ -72,5 +83,11 @@ export async function verifyCredentials(
 
   clearFailedAttempts(username);
 
-  return { id: user.id, username: user.username };
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    branchId: user.branchId,
+    branchName: user.branch?.name ?? '',
+  };
 }

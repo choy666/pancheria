@@ -42,6 +42,13 @@ export class UnauthorizedError extends DomainError {
   }
 }
 
+export class ForbiddenError extends DomainError {
+  constructor(message = 'No tenés permisos para realizar esta acción.') {
+    super(message);
+    this.name = 'ForbiddenError';
+  }
+}
+
 export class DatabaseConnectionError extends Error {
   constructor(
     message = 'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo y que DATABASE_URL esté configurada correctamente.'

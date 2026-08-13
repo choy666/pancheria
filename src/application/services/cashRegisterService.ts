@@ -1,9 +1,9 @@
-import { eq, and, inArray, isNull } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, recipes, sales, cashRegisters } from '@/db/schema';
+import { products, sales, cashRegisters } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
-import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
@@ -11,8 +11,8 @@ import { safeJsonParse } from '@/lib/json';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
 
-export async function getOpenCashRegister() {
-  const cashRegister = await cashRegisterRepository.findOpen();
+export async function getOpenCashRegister(branchId: number) {
+  const cashRegister = await cashRegisterRepository.findOpen(branchId);
 
   if (!cashRegister) return null;
 
@@ -27,6 +27,7 @@ export async function getOpenCashRegister() {
         .where(
           and(
             eq(cashRegisters.id, cashRegister.id),
+            eq(cashRegisters.branchId, branchId),
             eq(cashRegisters.status, 'open'),
             isNull(cashRegisters.deletedAt)
           )
@@ -38,7 +39,7 @@ export async function getOpenCashRegister() {
       const closeThreshold = addHours(locked.openedAt, AUTO_CLOSE_HOURS);
       if (closeThreshold > now) return null;
 
-      const summary = await calculateCashRegisterSummary(locked.id, tx);
+      const summary = await calculateCashRegisterSummary(branchId, locked.id, tx);
 
       await tx
         .update(cashRegisters)
@@ -49,7 +50,7 @@ export async function getOpenCashRegister() {
           autoClosed: true,
           ...summary,
         })
-        .where(eq(cashRegisters.id, locked.id));
+        .where(and(eq(cashRegisters.id, locked.id), eq(cashRegisters.branchId, branchId)));
 
       return null;
     });
@@ -67,14 +68,23 @@ function isUniqueViolationError(error: unknown): boolean {
   );
 }
 
-export async function openCashRegister(openedBy: string) {
+export async function openCashRegister(params: {
+  branchId: number;
+  openedBy: string;
+}) {
+  const { branchId, openedBy } = params;
+
   try {
     return await executeInTransaction(async (tx) => {
       const [existingOpen] = await tx
         .select()
         .from(cashRegisters)
         .where(
-          and(eq(cashRegisters.status, 'open'), isNull(cashRegisters.deletedAt))
+          and(
+            eq(cashRegisters.branchId, branchId),
+            eq(cashRegisters.status, 'open'),
+            isNull(cashRegisters.deletedAt)
+          )
         )
         .for('update');
 
@@ -85,6 +95,7 @@ export async function openCashRegister(openedBy: string) {
       const [result] = await tx
         .insert(cashRegisters)
         .values({
+          branchId,
           openedAt: nowUTC(),
           openedBy,
           status: 'open',
@@ -102,12 +113,14 @@ export async function openCashRegister(openedBy: string) {
 }
 
 export async function calculateCashRegisterSummary(
+  branchId: number,
   cashRegisterId: number,
   dbOrTx: typeof db = db
 ) {
-  const activeSales = await dbOrTx.query.sales.findMany({
+  const activeSales = (await dbOrTx.query.sales.findMany({
     where: and(
       eq(sales.status, 'active'),
+      eq(sales.branchId, branchId),
       eq(sales.cashRegisterId, cashRegisterId)
     ),
     with: {
@@ -117,120 +130,19 @@ export async function calculateCashRegisterSummary(
         },
       },
     },
-  });
+  })) as SaleWithItems[];
 
-  let cashTotal = parseMoney(0);
-  let transferTotal = parseMoney(0);
-  const productsSummary: Record<string, number> = {};
-  const criticalSuppliesSummary: Record<string, number> = {};
-
-  const compoundProductIds = new Set<number>();
-
-  for (const sale of activeSales) {
-    const saleTotal = parseMoney(sale.total);
-    if (sale.paymentMethod === 'cash') {
-      cashTotal = addMoney(cashTotal, saleTotal);
-    } else {
-      transferTotal = addMoney(transferTotal, saleTotal);
-    }
-
-    for (const item of sale.items ?? []) {
-      const product = item.product;
-      if (!product) continue;
-
-      productsSummary[product.name] =
-        (productsSummary[product.name] ?? 0) + item.quantity;
-
-      if (product.type === 'compound') {
-        compoundProductIds.add(product.id);
-      } else if (
-        product.type === 'critical_supply' &&
-        product.criticalSupplyType === 'beverage'
-      ) {
-        criticalSuppliesSummary[product.name] =
-          (criticalSuppliesSummary[product.name] ?? 0) + item.quantity;
-      }
-    }
-  }
-
-  const recipesByProduct = new Map<
-    number,
-    {
-      autoDiscount: boolean;
-      quantity: number;
-      supplyId: number;
-      supply: { name: string } | null;
-    }[]
-  >();
-
-  if (compoundProductIds.size > 0) {
-    const allRecipes = await dbOrTx.query.recipes.findMany({
-      where: inArray(
-        recipes.compoundProductId,
-        Array.from(compoundProductIds)
-      ),
-      with: { supply: true },
-    });
-
-    for (const recipeItem of allRecipes) {
-      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-        recipesByProduct.set(recipeItem.compoundProductId, []);
-      }
-      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-    }
-  }
-
-  for (const sale of activeSales) {
-    for (const item of sale.items ?? []) {
-      const product = item.product;
-      if (!product || product.type !== 'compound') continue;
-
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-
-      for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-
-        const consumed = recipeItem.quantity * item.quantity;
-        const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
-        criticalSuppliesSummary[supplyName] =
-          (criticalSuppliesSummary[supplyName] ?? 0) + consumed;
-      }
-    }
-  }
-
-  const total = addMoney(cashTotal, transferTotal);
-
-  const criticalSupplies = await dbOrTx.query.products.findMany({
-    where: and(
-      eq(products.type, 'critical_supply'),
-      eq(products.isActive, true),
-      isNull(products.deletedAt)
-    ),
-  });
-
-  for (const supply of criticalSupplies) {
-    const key = supply.name;
-    if (criticalSuppliesSummary[key] === undefined) {
-      criticalSuppliesSummary[key] = 0;
-    }
-  }
-
-  return {
-    total: moneyToNumber(total),
-    cashTotal: moneyToNumber(cashTotal),
-    transferTotal: moneyToNumber(transferTotal),
-    totalSales: activeSales.length,
-    productsSummary: JSON.stringify(productsSummary),
-    criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
-  };
+  return calculateSummaryFromSales(branchId, activeSales, dbOrTx);
 }
 
 type CashRegisterSummaryInput = {
+  branchId: number;
   productsSummary: string | null;
   criticalSuppliesSummary: string | null;
 };
 
 export async function parseCashRegisterSummary(
+  branchId: number,
   cashRegister: CashRegisterSummaryInput,
   fillMissingCriticalSupplies = false
 ) {
@@ -246,6 +158,7 @@ export async function parseCashRegisterSummary(
   if (fillMissingCriticalSupplies) {
     const activeCriticalSupplies = await db.query.products.findMany({
       where: and(
+        eq(products.branchId, branchId),
         eq(products.type, 'critical_supply'),
         eq(products.isActive, true),
         isNull(products.deletedAt)
@@ -262,12 +175,12 @@ export async function parseCashRegisterSummary(
   return { productsSummary, criticalSuppliesSummary };
 }
 
-export async function getOpenCashRegisterSummary() {
-  const cashRegister = await getOpenCashRegister();
+export async function getOpenCashRegisterSummary(branchId: number) {
+  const cashRegister = await getOpenCashRegister(branchId);
 
   if (!cashRegister) return null;
 
-  const summary = await parseCashRegisterSummary(cashRegister, true);
+  const summary = await parseCashRegisterSummary(branchId, cashRegister, true);
 
   return {
     ...cashRegister,
@@ -275,12 +188,22 @@ export async function getOpenCashRegisterSummary() {
   };
 }
 
-export async function closeCashRegister(id: number, closedBy: string) {
+export async function closeCashRegister(
+  branchId: number,
+  id: number,
+  closedBy: string
+) {
   return executeInTransaction(async (tx) => {
     const [cashRegister] = await tx
       .select()
       .from(cashRegisters)
-      .where(and(eq(cashRegisters.id, id), isNull(cashRegisters.deletedAt)))
+      .where(
+        and(
+          eq(cashRegisters.id, id),
+          eq(cashRegisters.branchId, branchId),
+          isNull(cashRegisters.deletedAt)
+        )
+      )
       .for('update');
 
     if (!cashRegister) {
@@ -291,7 +214,7 @@ export async function closeCashRegister(id: number, closedBy: string) {
       throw new ValidationError('La caja ya está cerrada.');
     }
 
-    const summary = await calculateCashRegisterSummary(id, tx);
+    const summary = await calculateCashRegisterSummary(branchId, id, tx);
 
     const [updated] = await tx
       .update(cashRegisters)
@@ -301,7 +224,7 @@ export async function closeCashRegister(id: number, closedBy: string) {
         closedBy,
         ...summary,
       })
-      .where(eq(cashRegisters.id, id))
+      .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
       .returning();
 
     if (!updated) {
@@ -312,25 +235,36 @@ export async function closeCashRegister(id: number, closedBy: string) {
   });
 }
 
-export async function getCurrentCashRegister() {
-  return getOpenCashRegister();
+export async function getCurrentCashRegister(branchId: number) {
+  return getOpenCashRegister(branchId);
 }
 
-export async function getCashRegisterById(id: number, includeDeleted = false) {
-  return cashRegisterRepository.findById(id, includeDeleted);
+export async function getCashRegisterById(
+  branchId: number,
+  id: number,
+  includeDeleted = false
+) {
+  return cashRegisterRepository.findById(branchId, id, includeDeleted);
 }
 
 export async function listCashRegisterHistory(
+  branchId: number,
   start: Date,
   end: Date,
   status?: CashRegisterStatus,
   pagination?: PaginationParams
 ) {
-  return cashRegisterRepository.findInRange(start, end, status, pagination);
+  return cashRegisterRepository.findInRange(
+    branchId,
+    start,
+    end,
+    status,
+    pagination
+  );
 }
 
-export async function deleteCashRegister(id: number) {
-  const cashRegister = await cashRegisterRepository.findById(id);
+export async function deleteCashRegister(branchId: number, id: number) {
+  const cashRegister = await cashRegisterRepository.findById(branchId, id);
 
   if (!cashRegister) {
     throw new NotFoundError('Caja', id);
@@ -340,41 +274,42 @@ export async function deleteCashRegister(id: number) {
     throw new ValidationError('No se puede eliminar una caja abierta.');
   }
 
-  return cashRegisterRepository.softDelete(id);
+  return cashRegisterRepository.softDelete(branchId, id);
 }
 
-export async function restoreCashRegister(id: number) {
-  const cashRegister = await cashRegisterRepository.findById(id, true);
+export async function restoreCashRegister(branchId: number, id: number) {
+  const cashRegister = await cashRegisterRepository.findById(branchId, id, true);
 
   if (!cashRegister || cashRegister.deletedAt === null) {
     throw new ValidationError('La caja no está eliminada.');
   }
 
-  return cashRegisterRepository.restore(id);
+  return cashRegisterRepository.restore(branchId, id);
 }
 
-export async function permanentlyDeleteCashRegister(id: number) {
-  const cashRegister = await cashRegisterRepository.findById(id, true);
+export async function permanentlyDeleteCashRegister(branchId: number, id: number) {
+  const cashRegister = await cashRegisterRepository.findById(branchId, id, true);
 
   if (!cashRegister || cashRegister.deletedAt === null) {
     throw new ValidationError('La caja no está en la papelera.');
   }
 
-  return cashRegisterRepository.hardDelete(id);
+  return cashRegisterRepository.hardDelete(branchId, id);
 }
 
 export async function listDeletedCashRegisterHistory(
+  branchId: number,
   start: Date,
   end: Date,
   pagination?: PaginationParams
 ) {
-  return cashRegisterRepository.findDeletedInRange(start, end, pagination);
+  return cashRegisterRepository.findDeletedInRange(branchId, start, end, pagination);
 }
 
-export async function emptyTrash(start: Date, end: Date) {
-  return cashRegisterRepository.hardDeleteAllDeletedInRange(start, end);
+export async function emptyTrash(branchId: number, start: Date, end: Date) {
+  return cashRegisterRepository.hardDeleteAllDeletedInRange(branchId, start, end);
 }
 
-export async function autoCloseIfNeeded() {
-  return getOpenCashRegister();
+export async function autoCloseIfNeeded(branchId: number) {
+  return getOpenCashRegister(branchId);
 }

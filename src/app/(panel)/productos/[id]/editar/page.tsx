@@ -2,14 +2,18 @@ import { notFound } from 'next/navigation';
 import { ProductForm } from '@/components/productos/product-form';
 import { PromoForm } from '@/components/productos/promo-form';
 import * as productService from '@/application/services/productService';
+import { auth } from '@/auth';
 
 interface PageParams {
   params: Promise<{ id: string }>;
 }
 
 export default async function EditProductPage({ params }: PageParams) {
+  const session = await auth();
+  const branchId = Number(session?.user?.branchId);
+
   const { id } = await params;
-  const product = await productService.getProductById(Number(id));
+  const product = await productService.getProductById(branchId, Number(id));
 
   if (!product) {
     notFound();

@@ -44,9 +44,12 @@ interface MockDb {
 const capturedInserts: { table: unknown; data: unknown }[] = [];
 const capturedUpdates: { table: unknown; data: unknown }[] = [];
 
+const BRANCH_ID = 1;
+
 function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
   return {
     id: 1,
+    branchId: BRANCH_ID,
     name: 'Producto',
     description: null,
     type: 'critical_supply',
@@ -87,6 +90,7 @@ function createOpenCashRegister(
 ): CashRegisterRow {
   return {
     id: 1,
+    branchId: BRANCH_ID,
     openedAt: new Date(),
     closedAt: null,
     openedBy: 'admin',
@@ -142,6 +146,7 @@ function createMockDb(): MockDb {
         for: jest.fn().mockResolvedValue([
           {
             id: 1,
+            branchId: BRANCH_ID,
             status: 'open',
             deletedAt: null,
             total: 0,
@@ -189,11 +194,11 @@ function setProducts(productsList: Partial<ProductRow>[]) {
   const normalized = productsList.map((p) =>
     createProductRow({ isActive: true, ...p })
   );
-  mockedProductRepository.findByIds.mockImplementation(async (ids: number[]) =>
+  mockedProductRepository.findByIds.mockImplementation(async (_branchId: number, ids: number[]) =>
     normalized.filter((p) => ids.includes(p.id))
   );
   mockedProductRepository.findById.mockImplementation(
-    async (id: number) => normalized.find((p) => p.id === id) ?? null
+    async (_branchId: number, id: number) => normalized.find((p) => p.id === id) ?? null
   );
 }
 
@@ -212,7 +217,7 @@ describe('calculateAvailability', () => {
 
   test('devuelve 0 si el producto no existe', async () => {
     mockedProductRepository.findById.mockResolvedValue(null);
-    const result = await calculateAvailability(999);
+    const result = await calculateAvailability(BRANCH_ID, 999);
     expect(result).toBe(0);
   });
 
@@ -227,7 +232,7 @@ describe('calculateAvailability', () => {
       })
     );
 
-    const result = await calculateAvailability(1);
+    const result = await calculateAvailability(BRANCH_ID, 1);
     expect(result).toBe(50);
   });
 
@@ -259,7 +264,7 @@ describe('calculateAvailability', () => {
       }),
     ]);
 
-    const result = await calculateAvailability(1);
+    const result = await calculateAvailability(BRANCH_ID, 1);
     // Pan: 10/1 = 10; Salchicha: 9/2 = 4. Mínimo = 4.
     expect(result).toBe(4);
   });
@@ -284,7 +289,7 @@ describe('calculateAvailability', () => {
       }),
     ]);
 
-    const result = await calculateAvailability(1);
+    const result = await calculateAvailability(BRANCH_ID, 1);
     expect(result).toBe(0);
   });
 
@@ -297,7 +302,7 @@ describe('calculateAvailability', () => {
       })
     );
 
-    const result = await calculateAvailability(1);
+    const result = await calculateAvailability(BRANCH_ID, 1);
     expect(result).toBe(Number.MAX_SAFE_INTEGER);
   });
 });
@@ -334,6 +339,7 @@ describe('validateCartAvailability', () => {
     ]);
 
     const result = await validateCartAvailability(
+      BRANCH_ID,
       [{ productId: 1, quantity: 3 }],
       [1, 2]
     );
@@ -370,6 +376,7 @@ describe('validateCartAvailability', () => {
     ]);
 
     const result = await validateCartAvailability(
+      BRANCH_ID,
       [{ productId: 1, quantity: 4 }, { productId: 2, quantity: 4 }],
       [1, 2]
     );
@@ -406,6 +413,7 @@ describe('validateCartAvailability', () => {
     ]);
 
     const result = await validateCartAvailability(
+      BRANCH_ID,
       [{ productId: 1, quantity: 2 }, { productId: 2, quantity: 3 }],
       [1, 2]
     );
@@ -443,12 +451,14 @@ describe('validateCartAvailability', () => {
     ]);
 
     const first = await validateCartAvailability(
+      BRANCH_ID,
       [{ productId: 1, quantity: 4 }],
       [1, 2]
     );
     expect(first.availabilityByProduct[2]).toBe(0);
 
     const second = await validateCartAvailability(
+      BRANCH_ID,
       [{ productId: 1, quantity: 2 }],
       [1, 2]
     );
@@ -465,6 +475,7 @@ describe('validateCartAvailability', () => {
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = await validateCartAvailability(
+      BRANCH_ID,
       [{ productId: 1, quantity: 100 }],
       [1]
     );
@@ -490,6 +501,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 1 }],
         paymentMethod: 'cash',
         idempotencyKey: 'repeated-key',
@@ -517,6 +529,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 1 }],
         paymentMethod: 'cash',
         idempotencyKey: 'abc',
@@ -545,6 +558,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 3, quantity: 1 }],
         paymentMethod: 'cash',
         idempotencyKey: 'manual-sale',
@@ -573,6 +587,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 4, quantity: 1 }],
         paymentMethod: 'cash',
         idempotencyKey: 'sausage-sale',
@@ -603,6 +618,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 5, quantity: 1 }],
         paymentMethod: 'cash',
         idempotencyKey: 'inactive-sale',
@@ -629,6 +645,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 2, quantity: 6 }],
         paymentMethod: 'cash',
         idempotencyKey: 'insufficient-beverage',
@@ -636,6 +653,7 @@ describe('confirmSale', () => {
     ).rejects.toThrow(InsufficientStockError);
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 2, quantity: 6 }],
         paymentMethod: 'cash',
         idempotencyKey: 'insufficient-beverage',
@@ -674,6 +692,7 @@ describe('confirmSale', () => {
 
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 3 }],
         paymentMethod: 'cash',
         idempotencyKey: 'insufficient-compound',
@@ -681,6 +700,7 @@ describe('confirmSale', () => {
     ).rejects.toThrow(InsufficientStockError);
     await expect(
       confirmSale({
+        branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 3 }],
         paymentMethod: 'cash',
         idempotencyKey: 'insufficient-compound',
@@ -710,6 +730,7 @@ describe('confirmSale', () => {
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = (await confirmSale({
+      branchId: BRANCH_ID,
       items: [{ productId: 2, quantity: 5 }],
       paymentMethod: 'cash',
       idempotencyKey: 'exact-stock',
@@ -748,6 +769,7 @@ describe('confirmSale', () => {
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = await confirmSale({
+      branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 1 }],
       paymentMethod: 'cash',
       idempotencyKey: 'abc',
@@ -776,6 +798,7 @@ describe('confirmSale', () => {
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = (await confirmSale({
+      branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 2 }],
       paymentMethod: 'transfer',
       idempotencyKey: 'transfer-sale',
@@ -806,6 +829,7 @@ describe('confirmSale', () => {
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
     const result = (await confirmSale({
+      branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 3 }],
       paymentMethod: 'cash',
       idempotencyKey: 'service-sale',
@@ -851,6 +875,7 @@ describe('confirmSale', () => {
     ]);
 
     const result = (await confirmSale({
+      branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 1 }],
       paymentMethod: 'cash',
       idempotencyKey: 'combo-multiple',
@@ -912,6 +937,7 @@ describe('confirmSale', () => {
     ]);
 
     const result = (await confirmSale({
+      branchId: BRANCH_ID,
       items: [
         { productId: 1, quantity: 2 },
         { productId: 2, quantity: 3 },
@@ -951,12 +977,14 @@ describe('cancelSale', () => {
   test('anula una venta y reintegra el stock', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
+      branchId: BRANCH_ID,
       status: 'active',
       total: 1500,
       paymentMethod: 'cash',
       items: [{ id: 1, productId: 1, quantity: 2 }],
       cashRegister: {
         id: 1,
+        branchId: BRANCH_ID,
         status: 'open',
         deletedAt: null,
       },
@@ -982,7 +1010,7 @@ describe('cancelSale', () => {
       }),
     ]);
 
-    const result = (await cancelSale(1, 'error de carga')) as SaleRow;
+    const result = (await cancelSale(BRANCH_ID, 1, 'error de carga')) as SaleRow;
 
     expect(result.status).toBe('cancelled');
     expect(result.cancellationReason).toBe('error de carga');
@@ -1004,8 +1032,8 @@ describe('cancelSale', () => {
   test('lanza NotFoundError si la venta no existe', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue(null);
 
-    await expect(cancelSale(999, 'error')).rejects.toThrow(NotFoundError);
-    await expect(cancelSale(999, 'error')).rejects.toThrow(
+    await expect(cancelSale(BRANCH_ID, 999, 'error')).rejects.toThrow(NotFoundError);
+    await expect(cancelSale(BRANCH_ID, 999, 'error')).rejects.toThrow(
       'Venta con ID 999 no encontrado.'
     );
   });
@@ -1013,52 +1041,58 @@ describe('cancelSale', () => {
   test('rechaza anular una venta de una caja cerrada', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
+      branchId: BRANCH_ID,
       status: 'active',
       items: [{ id: 1, productId: 1, quantity: 1 }],
       cashRegister: {
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: null,
       },
     });
 
-    await expect(cancelSale(1, 'error')).rejects.toThrow(
+    await expect(cancelSale(BRANCH_ID, 1, 'error')).rejects.toThrow(
       'No se puede anular una venta de una caja cerrada o eliminada.'
     );
-    await expect(cancelSale(1, 'error')).rejects.toThrow(ValidationError);
+    await expect(cancelSale(BRANCH_ID, 1, 'error')).rejects.toThrow(ValidationError);
   });
 
   test('rechaza anular una venta de una caja eliminada', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
+      branchId: BRANCH_ID,
       status: 'active',
       items: [{ id: 1, productId: 1, quantity: 1 }],
       cashRegister: {
         id: 1,
+        branchId: BRANCH_ID,
         status: 'open',
         deletedAt: new Date(),
       },
     });
 
-    await expect(cancelSale(1, 'error')).rejects.toThrow(
+    await expect(cancelSale(BRANCH_ID, 1, 'error')).rejects.toThrow(
       'No se puede anular una venta de una caja cerrada o eliminada.'
     );
-    await expect(cancelSale(1, 'error')).rejects.toThrow(ValidationError);
+    await expect(cancelSale(BRANCH_ID, 1, 'error')).rejects.toThrow(ValidationError);
   });
 
   test('es idempotente: no anula una venta ya anulada', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
+      branchId: BRANCH_ID,
       status: 'cancelled',
       items: [{ id: 1, productId: 1, quantity: 1 }],
       cashRegister: {
         id: 1,
+        branchId: BRANCH_ID,
         status: 'open',
         deletedAt: null,
       },
     });
 
-    const result = await cancelSale(1, 'ya anulada');
+    const result = await cancelSale(BRANCH_ID, 1, 'ya anulada');
 
     expect(result.status).toBe('cancelled');
     expect(mockedExecuteInTransaction).not.toHaveBeenCalled();
@@ -1068,12 +1102,14 @@ describe('cancelSale', () => {
   test('anula una venta de servicio sin reintegrar stock', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue({
       id: 1,
+      branchId: BRANCH_ID,
       status: 'active',
       total: 500,
       paymentMethod: 'cash',
       items: [{ id: 1, productId: 1, quantity: 1 }],
       cashRegister: {
         id: 1,
+        branchId: BRANCH_ID,
         status: 'open',
         deletedAt: null,
       },
@@ -1090,7 +1126,7 @@ describe('cancelSale', () => {
 
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
-    const result = (await cancelSale(1, 'error de carga')) as SaleRow;
+    const result = (await cancelSale(BRANCH_ID, 1, 'error de carga')) as SaleRow;
 
     expect(result.status).toBe('cancelled');
     expect(findCapturedUpdate(sales).length).toBe(1);

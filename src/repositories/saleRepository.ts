@@ -4,9 +4,9 @@ import { sales, saleItems } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
 import type { PaginatedResult, PaginationParams, PaymentMethod, SaleStatus } from '@/domain/types';
 
-export async function findById(id: number) {
+export async function findById(branchId: number, id: number) {
   return db.query.sales.findFirst({
-    where: eq(sales.id, id),
+    where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
     with: {
       items: {
         with: {
@@ -18,12 +18,17 @@ export async function findById(id: number) {
 }
 
 export async function findByDateRange(
+  branchId: number,
   start: Date,
   end: Date,
   status?: SaleStatus,
   pagination?: PaginationParams
 ): Promise<PaginatedResult<typeof sales.$inferSelect>> {
-  const conditions = [gte(sales.createdAt, start), lt(sales.createdAt, end)];
+  const conditions = [
+    eq(sales.branchId, branchId),
+    gte(sales.createdAt, start),
+    lt(sales.createdAt, end),
+  ];
 
   if (status) {
     conditions.push(eq(sales.status, status));
@@ -60,11 +65,15 @@ export async function findByDateRange(
 }
 
 export async function findByCashRegisterId(
+  branchId: number,
   cashRegisterId: number,
   status?: SaleStatus,
   pagination?: PaginationParams
 ): Promise<PaginatedResult<typeof sales.$inferSelect>> {
-  const conditions = [eq(sales.cashRegisterId, cashRegisterId)];
+  const conditions = [
+    eq(sales.branchId, branchId),
+    eq(sales.cashRegisterId, cashRegisterId),
+  ];
 
   if (status) {
     conditions.push(eq(sales.status, status));
@@ -101,6 +110,7 @@ export async function findByCashRegisterId(
 }
 
 export async function create(params: {
+  branchId: number;
   total: number;
   paymentMethod: PaymentMethod;
   cashRegisterId?: number | null;
@@ -112,11 +122,12 @@ export async function create(params: {
     subtotal: number;
   }[];
 }) {
-  const { total, paymentMethod, cashRegisterId, idempotencyKey, items } = params;
+  const { branchId, total, paymentMethod, cashRegisterId, idempotencyKey, items } = params;
 
   const [sale] = await db
     .insert(sales)
     .values({
+      branchId,
       total,
       paymentMethod,
       cashRegisterId,
@@ -139,7 +150,7 @@ export async function create(params: {
   return sale;
 }
 
-export async function cancel(id: number, reason: string) {
+export async function cancel(branchId: number, id: number, reason: string) {
   const [result] = await db
     .update(sales)
     .set({
@@ -147,7 +158,7 @@ export async function cancel(id: number, reason: string) {
       cancelledAt: nowUTC(),
       cancellationReason: reason,
     })
-    .where(eq(sales.id, id))
+    .where(and(eq(sales.id, id), eq(sales.branchId, branchId)))
     .returning();
   return result ?? null;
 }

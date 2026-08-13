@@ -44,6 +44,8 @@ jest.mock('@/db', () => {
   };
 });
 
+const BRANCH_ID = 1;
+
 describe('saleRepository', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -58,7 +60,7 @@ describe('saleRepository', () => {
       };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await saleRepository.findById(1);
+      const result = await saleRepository.findById(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalledWith(
@@ -78,7 +80,7 @@ describe('saleRepository', () => {
     test('devuelve undefined si la venta no existe', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
-      const result = await saleRepository.findById(999);
+      const result = await saleRepository.findById(BRANCH_ID, 999);
 
       expect(result).toBeUndefined();
     });
@@ -91,7 +93,7 @@ describe('saleRepository', () => {
       const expected = [{ id: 1, total: 1000 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await saleRepository.findByDateRange(start, end);
+      const result = await saleRepository.findByDateRange(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(expected);
       expect(result.page).toBe(1);
@@ -110,7 +112,7 @@ describe('saleRepository', () => {
       const expected = [{ id: 1, status: 'cancelled' }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await saleRepository.findByDateRange(start, end, 'cancelled');
+      const result = await saleRepository.findByDateRange(BRANCH_ID, start, end, 'cancelled');
 
       expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -125,6 +127,7 @@ describe('saleRepository', () => {
       mockFindMany.mockResolvedValue([]);
 
       const result = await saleRepository.findByDateRange(
+        BRANCH_ID,
         new Date(),
         new Date()
       );
@@ -138,7 +141,7 @@ describe('saleRepository', () => {
       const expected = [{ id: 1, cashRegisterId: 1 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await saleRepository.findByCashRegisterId(1);
+      const result = await saleRepository.findByCashRegisterId(BRANCH_ID, 1);
 
       expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -153,7 +156,7 @@ describe('saleRepository', () => {
       const expected = [{ id: 1, cashRegisterId: 1, status: 'active' }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await saleRepository.findByCashRegisterId(1, 'active');
+      const result = await saleRepository.findByCashRegisterId(BRANCH_ID, 1, 'active');
 
       expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -168,7 +171,7 @@ describe('saleRepository', () => {
       const expected = [{ id: 1, cashRegisterId: 1 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await saleRepository.findByCashRegisterId(1, undefined, {
+      const result = await saleRepository.findByCashRegisterId(BRANCH_ID, 1, undefined, {
         page: 2,
         limit: 50,
       });
@@ -191,6 +194,7 @@ describe('saleRepository', () => {
     test('crea una venta con sus items', async () => {
       const sale = {
         id: 1,
+        branchId: BRANCH_ID,
         total: 1000,
         paymentMethod: 'cash',
         cashRegisterId: 1,
@@ -202,6 +206,7 @@ describe('saleRepository', () => {
       mockReturning.mockResolvedValue([sale]);
 
       const result = await saleRepository.create({
+        branchId: BRANCH_ID,
         total: 1000,
         paymentMethod: 'cash',
         cashRegisterId: 1,
@@ -212,6 +217,7 @@ describe('saleRepository', () => {
       expect(result).toEqual(sale);
       expect(mockInsert).toHaveBeenCalledTimes(2);
       expect(mockValues).toHaveBeenNthCalledWith(1, {
+        branchId: BRANCH_ID,
         total: 1000,
         paymentMethod: 'cash',
         cashRegisterId: 1,
@@ -236,6 +242,7 @@ describe('saleRepository', () => {
 
       await expect(
         saleRepository.create({
+          branchId: BRANCH_ID,
           total: 1000,
           paymentMethod: 'cash',
           cashRegisterId: 1,
@@ -257,7 +264,7 @@ describe('saleRepository', () => {
       };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await saleRepository.cancel(1, 'Error en pedido');
+      const result = await saleRepository.cancel(BRANCH_ID, 1, 'Error en pedido');
 
       expect(result).toEqual(expected);
       expect(mockUpdate).toHaveBeenCalled();
@@ -273,7 +280,7 @@ describe('saleRepository', () => {
     test('devuelve null si la venta no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await saleRepository.cancel(999, 'Error');
+      const result = await saleRepository.cancel(BRANCH_ID, 999, 'Error');
 
       expect(result).toBeNull();
     });

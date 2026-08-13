@@ -10,7 +10,8 @@ interface RouteParams {
 
 export const GET = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -20,6 +21,7 @@ export const GET = withApiErrorHandling(
       );
     }
     const cashRegister = await cashRegisterService.getCashRegisterById(
+      branchId,
       cashRegisterId,
       true
     );
@@ -37,7 +39,8 @@ export const GET = withApiErrorHandling(
 
 export const DELETE = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -46,7 +49,7 @@ export const DELETE = withApiErrorHandling(
         { status: 400 }
       );
     }
-    await cashRegisterService.deleteCashRegister(cashRegisterId);
+    await cashRegisterService.deleteCashRegister(branchId, cashRegisterId);
     return NextResponse.json({ deleted: true });
   }
 );

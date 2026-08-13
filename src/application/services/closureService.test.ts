@@ -56,6 +56,8 @@ const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
   typeof executeInTransaction
 >;
 
+const BRANCH_ID = 1;
+
 function createMockTransaction() {
   const insertReturning = jest.fn().mockResolvedValue([]);
   const insertValues = jest
@@ -90,11 +92,12 @@ describe('closureService', () => {
       const date = new Date(2026, 4, 10);
       mockedDb.query.dailyClosures.findFirst.mockResolvedValue({
         id: 99,
+        branchId: BRANCH_ID,
         date,
       } as any);
 
-      await expect(generateClosure(date)).rejects.toThrow(ValidationError);
-      await expect(generateClosure(date)).rejects.toThrow(
+      await expect(generateClosure(BRANCH_ID, date)).rejects.toThrow(ValidationError);
+      await expect(generateClosure(BRANCH_ID, date)).rejects.toThrow(
         'Ya existe un cierre para la fecha seleccionada.'
       );
       expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
@@ -106,8 +109,8 @@ describe('closureService', () => {
       const date = new Date(2099, 11, 31);
       mockedDb.query.dailyClosures.findFirst.mockResolvedValue(undefined);
 
-      await expect(generateClosure(date)).rejects.toThrow(ValidationError);
-      await expect(generateClosure(date)).rejects.toThrow(
+      await expect(generateClosure(BRANCH_ID, date)).rejects.toThrow(ValidationError);
+      await expect(generateClosure(BRANCH_ID, date)).rejects.toThrow(
         'No se puede generar un cierre para una fecha futura.'
       );
       expect(mockedDb.query.dailyClosures.findFirst).not.toHaveBeenCalled();
@@ -119,6 +122,7 @@ describe('closureService', () => {
       mockedDb.query.cashRegisters.findMany.mockResolvedValue([
         {
           id: 1,
+          branchId: BRANCH_ID,
           status: 'open',
           sales: [
             {
@@ -130,8 +134,8 @@ describe('closureService', () => {
         },
       ] as any);
 
-      await expect(generateClosure(date)).rejects.toThrow(ValidationError);
-      await expect(generateClosure(date)).rejects.toThrow(
+      await expect(generateClosure(BRANCH_ID, date)).rejects.toThrow(ValidationError);
+      await expect(generateClosure(BRANCH_ID, date)).rejects.toThrow(
         'No se puede generar el cierre porque hay cajas abiertas con ventas de esta fecha.'
       );
       expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
@@ -145,6 +149,7 @@ describe('closureService', () => {
       mockedDb.query.sales.findMany.mockResolvedValue([
         {
           id: 1,
+          branchId: BRANCH_ID,
           total: 1500,
           paymentMethod: 'cash',
           status: 'active',
@@ -156,6 +161,7 @@ describe('closureService', () => {
               quantity: 1,
               product: {
                 id: 1,
+                branchId: BRANCH_ID,
                 name: 'Panchuque',
                 type: 'compound',
               },
@@ -164,6 +170,7 @@ describe('closureService', () => {
         },
         {
           id: 2,
+          branchId: BRANCH_ID,
           total: 800,
           paymentMethod: 'transfer',
           status: 'active',
@@ -175,6 +182,7 @@ describe('closureService', () => {
               quantity: 2,
               product: {
                 id: 3,
+                branchId: BRANCH_ID,
                 name: 'Gaseosa',
                 type: 'critical_supply',
                 criticalSupplyType: 'beverage',
@@ -196,16 +204,11 @@ describe('closureService', () => {
       ] as any);
 
       mockedDb.query.products.findMany.mockResolvedValue([
-        { id: 2, name: 'Pan', type: 'critical_supply', isActive: true },
-        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 4, branchId: BRANCH_ID, name: 'Salchicha', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const mockTx = createMockTransaction();
-      mockedExecuteInTransaction.mockImplementation(async (fn: any) => {
-        return await fn(mockTx as any);
-      });
-
-      const result = await generateClosure(date);
+      const result = await generateClosure(BRANCH_ID, date);
 
       expect(result.total).toBe(2300);
       expect(result.cashTotal).toBe(1500);
@@ -238,6 +241,7 @@ describe('closureService', () => {
       mockedDb.query.sales.findMany.mockResolvedValue([
         {
           id: 1,
+          branchId: BRANCH_ID,
           total: 1500,
           paymentMethod: 'cash',
           status: 'active',
@@ -249,6 +253,7 @@ describe('closureService', () => {
               quantity: 1,
               product: {
                 id: 1,
+                branchId: BRANCH_ID,
                 name: 'Panchuque',
                 type: 'compound',
               },
@@ -257,6 +262,7 @@ describe('closureService', () => {
         },
         {
           id: 2,
+          branchId: BRANCH_ID,
           total: 800,
           paymentMethod: 'transfer',
           status: 'active',
@@ -268,6 +274,7 @@ describe('closureService', () => {
               quantity: 1,
               product: {
                 id: 3,
+                branchId: BRANCH_ID,
                 name: 'Gaseosa',
                 type: 'critical_supply',
                 criticalSupplyType: 'beverage',
@@ -280,15 +287,10 @@ describe('closureService', () => {
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
       mockedDb.query.products.findMany.mockResolvedValue([
-        { id: 3, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 3, branchId: BRANCH_ID, name: 'Gaseosa', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const mockTx = createMockTransaction();
-      mockedExecuteInTransaction.mockImplementation(async (fn: any) => {
-        return await fn(mockTx as any);
-      });
-
-      const result = await generateClosure(date);
+      const result = await generateClosure(BRANCH_ID, date);
 
       expect(result.total).toBe(800);
       expect(result.totalSales).toBe(1);
@@ -303,6 +305,7 @@ describe('closureService', () => {
       const date = new Date(2026, 4, 10);
       const expectedClosure = {
         id: 1,
+        branchId: BRANCH_ID,
         date: new Date(2026, 4, 10, 0, 0, 0),
         total: 2300,
         totalSales: 2,
@@ -311,7 +314,7 @@ describe('closureService', () => {
         expectedClosure as any
       );
 
-      const result = await getClosureByDate(date);
+      const result = await getClosureByDate(BRANCH_ID, date);
 
       expect(result).toEqual(expectedClosure);
       expect(mockedDb.query.dailyClosures.findFirst).toHaveBeenCalled();
@@ -320,7 +323,7 @@ describe('closureService', () => {
     test('devuelve undefined si no hay cierre para la fecha', async () => {
       mockedDb.query.dailyClosures.findFirst.mockResolvedValue(undefined);
 
-      const result = await getClosureByDate(new Date(2026, 4, 10));
+      const result = await getClosureByDate(BRANCH_ID, new Date(2026, 4, 10));
 
       expect(result).toBeUndefined();
     });
@@ -329,12 +332,13 @@ describe('closureService', () => {
   describe('listClosures', () => {
     test('devuelve la lista de cierres en un rango de fechas', async () => {
       const closures = [
-        { id: 1, date: new Date(2026, 4, 10) },
-        { id: 2, date: new Date(2026, 4, 9) },
+        { id: 1, branchId: BRANCH_ID, date: new Date(2026, 4, 10) },
+        { id: 2, branchId: BRANCH_ID, date: new Date(2026, 4, 9) },
       ];
       mockedDb.query.dailyClosures.findMany.mockResolvedValue(closures as any);
 
       const result = await listClosures(
+        BRANCH_ID,
         new Date(2026, 4, 9),
         new Date(2026, 4, 10)
       );
@@ -345,10 +349,11 @@ describe('closureService', () => {
     });
 
     test('puede paginar la lista de cierres', async () => {
-      const closures = [{ id: 1, date: new Date(2026, 4, 10) }];
+      const closures = [{ id: 1, branchId: BRANCH_ID, date: new Date(2026, 4, 10) }];
       mockedDb.query.dailyClosures.findMany.mockResolvedValue(closures as any);
 
       const result = await listClosures(
+        BRANCH_ID,
         new Date(2026, 4, 9),
         new Date(2026, 4, 10),
         { page: 2, limit: 5 }

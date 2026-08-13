@@ -22,6 +22,7 @@ function makeProduct(
 ): ProductRow {
   return {
     id,
+    branchId: 1,
     name,
     type,
     criticalSupplyType:

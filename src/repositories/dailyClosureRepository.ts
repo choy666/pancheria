@@ -3,18 +3,23 @@ import { db } from '@/db';
 import { dailyClosures } from '@/db/schema';
 import type { PaginatedResult, PaginationParams } from '@/domain/types';
 
-export async function findByDate(date: Date) {
+export async function findByDate(branchId: number, date: Date) {
   return db.query.dailyClosures.findFirst({
-    where: eq(dailyClosures.date, date),
+    where: and(
+      eq(dailyClosures.branchId, branchId),
+      eq(dailyClosures.date, date)
+    ),
   });
 }
 
 export async function findByDateRange(
+  branchId: number,
   start: Date,
   end: Date,
   pagination?: PaginationParams
 ): Promise<PaginatedResult<typeof dailyClosures.$inferSelect>> {
   const conditions = and(
+    eq(dailyClosures.branchId, branchId),
     gte(dailyClosures.date, start),
     lte(dailyClosures.date, end)
   );
@@ -43,6 +48,7 @@ export async function findByDateRange(
 }
 
 export async function create(params: {
+  branchId: number;
   date: Date;
   total: number;
   cashTotal: number;

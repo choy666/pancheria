@@ -9,13 +9,15 @@ export default async function globalSetup() {
 
   await db.execute(sql`
     TRUNCATE TABLE
-      products,
-      recipes,
-      sales,
       sale_items,
       stock_movements,
+      sales,
+      recipes,
+      products,
       cash_registers,
-      daily_closures
+      daily_closures,
+      users,
+      branches
     RESTART IDENTITY CASCADE;
   `);
 

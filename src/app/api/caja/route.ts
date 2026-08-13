@@ -4,7 +4,8 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async () => {
-  await requireAuth();
-  const cashRegister = await cashRegisterService.getOpenCashRegister();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
+  const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
   return NextResponse.json(cashRegister ?? { status: 'closed' });
 });

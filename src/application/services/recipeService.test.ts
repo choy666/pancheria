@@ -36,9 +36,12 @@ const mockedRecipeRepository = recipeRepository as jest.Mocked<
 >;
 const mockedDb = db as unknown as { transaction: jest.MockedFunction<DbTransaction> };
 
+const BRANCH_ID = 1;
+
 function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
   return {
     id: 1,
+    branchId: BRANCH_ID,
     name: 'Producto',
     description: null,
     type: 'critical_supply',
@@ -79,7 +82,9 @@ function createRecipeWithSupply(
 
 function createMockTransaction(): MockTx {
   const insertReturning = jest.fn().mockResolvedValue([]);
-  const insertValues = jest.fn().mockReturnValue({ returning: insertReturning });
+  const insertValues = jest
+    .fn()
+    .mockReturnValue({ returning: insertReturning });
   const insert = jest.fn().mockReturnValue({ values: insertValues });
   const deleteWhere = jest.fn().mockResolvedValue([]);
   const deleteFn = jest.fn().mockReturnValue({ where: deleteWhere });
@@ -131,11 +136,12 @@ describe('recipeService', () => {
         expectedRecipe
       );
 
-      const result = await getRecipeByProductId(1);
+      const result = await getRecipeByProductId(BRANCH_ID, 1);
 
       expect(result).toBe(expectedRecipe);
-      expect(mockedProductRepository.findById).toHaveBeenCalledWith(1);
+      expect(mockedProductRepository.findById).toHaveBeenCalledWith(BRANCH_ID, 1);
       expect(mockedRecipeRepository.findByCompoundProductId).toHaveBeenCalledWith(
+        BRANCH_ID,
         1
       );
     });
@@ -150,8 +156,8 @@ describe('recipeService', () => {
         })
       );
 
-      await expect(getRecipeByProductId(1)).rejects.toThrow(NotFoundError);
-      await expect(getRecipeByProductId(1)).rejects.toThrow(
+      await expect(getRecipeByProductId(BRANCH_ID, 1)).rejects.toThrow(NotFoundError);
+      await expect(getRecipeByProductId(BRANCH_ID, 1)).rejects.toThrow(
         'Producto compuesto con ID 1 no encontrado.'
       );
     });
@@ -159,7 +165,7 @@ describe('recipeService', () => {
     test('lanza NotFoundError si el producto no existe', async () => {
       mockedProductRepository.findById.mockResolvedValue(null);
 
-      await expect(getRecipeByProductId(999)).rejects.toThrow(NotFoundError);
+      await expect(getRecipeByProductId(BRANCH_ID, 999)).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -191,7 +197,7 @@ describe('recipeService', () => {
       const items: RecipeItemInsert[] = [
         { supplyId: 2, quantity: 1, autoDiscount: true },
       ];
-      const result = await saveRecipe(1, items);
+      const result = await saveRecipe(BRANCH_ID, 1, items);
 
       expect(result).toEqual(returning);
       expect(mockTx.deleteWhere).toHaveBeenCalled();
@@ -213,8 +219,8 @@ describe('recipeService', () => {
         { supplyId: 2, quantity: 1, autoDiscount: false },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'La receta debe incluir al menos un insumo crítico con descuento automático.'
       );
       expect(mockedProductRepository.findByIds).not.toHaveBeenCalled();
@@ -234,8 +240,8 @@ describe('recipeService', () => {
         { supplyId: 2, quantity: 2, autoDiscount: false },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'No puede haber insumos duplicados en la receta.'
       );
       expect(mockedProductRepository.findByIds).not.toHaveBeenCalled();
@@ -254,8 +260,8 @@ describe('recipeService', () => {
         { supplyId: 1, quantity: 1, autoDiscount: true },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'Una receta no puede incluir al propio producto compuesto como insumo.'
       );
     });
@@ -281,8 +287,8 @@ describe('recipeService', () => {
         { supplyId: 2, quantity: 1, autoDiscount: true },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'El insumo Salsa no es crítico y no puede tener descuento automático.'
       );
     });
@@ -309,8 +315,8 @@ describe('recipeService', () => {
         { supplyId: 2, quantity: 1, autoDiscount: true },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'El insumo Pan viejo está eliminado y no puede usarse en recetas.'
       );
     });
@@ -333,8 +339,8 @@ describe('recipeService', () => {
         { supplyId: 99, quantity: 1, autoDiscount: false },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'Uno o más insumos de la receta no existen.'
       );
     });
@@ -353,8 +359,8 @@ describe('recipeService', () => {
         { supplyId: 2, quantity: 1, autoDiscount: true },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'El producto debe ser de tipo compuesto.'
       );
     });
@@ -382,8 +388,8 @@ describe('recipeService', () => {
         { supplyId: 3, quantity: 1, autoDiscount: false },
       ];
 
-      await expect(saveRecipe(1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(1, items)).rejects.toThrow(
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
         'El insumo Ketchup no es crítico y no puede usarse en recetas.'
       );
     });
@@ -414,7 +420,7 @@ describe('recipeService', () => {
         { supplyId: 3, quantity: 2, autoDiscount: true },
       ];
 
-      const result = await saveRecipe(1, items);
+      const result = await saveRecipe(BRANCH_ID, 1, items);
       expect(result).toEqual([]);
       expect(mockTx.insertValues).toHaveBeenCalledWith([
         { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true },

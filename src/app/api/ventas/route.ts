@@ -14,7 +14,8 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get('date');
   const cashRegisterIdParam = searchParams.get('cashRegisterId');
@@ -29,6 +30,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
       );
     }
     const sales = await saleRepository.findByCashRegisterId(
+      branchId,
       cashRegisterId,
       undefined,
       pagination
@@ -41,6 +43,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const end = endOfDayUTC(date);
 
   const sales = await saleRepository.findByDateRange(
+    branchId,
     start,
     end,
     'active',
@@ -50,9 +53,10 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
 });
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const body = await request.json();
   const data = saleSchema.parse(body);
-  const sale = await saleService.confirmSale(data);
+  const sale = await saleService.confirmSale({ branchId, ...data });
   return NextResponse.json(sale, { status: 201 });
 });

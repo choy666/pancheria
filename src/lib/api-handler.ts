@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
   DomainError,
+  ForbiddenError,
   InsufficientStockError,
   NotFoundError,
   UnauthorizedError,
@@ -18,6 +19,10 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         return NextResponse.json({ error: error.message }, { status: 401 });
+      }
+
+      if (error instanceof ForbiddenError) {
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
 
       if (error instanceof ZodError) {

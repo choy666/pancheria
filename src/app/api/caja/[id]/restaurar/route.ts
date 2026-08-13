@@ -10,7 +10,8 @@ interface RouteParams {
 
 export const POST = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -20,6 +21,7 @@ export const POST = withApiErrorHandling(
       );
     }
     const cashRegister = await cashRegisterService.restoreCashRegister(
+      branchId,
       cashRegisterId
     );
     return NextResponse.json(cashRegister);

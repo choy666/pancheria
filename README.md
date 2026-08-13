@@ -58,9 +58,19 @@ Sistema web para la gestión de stock y ventas de una panchería.
 
 La app incluye un recorrido interactivo con `driver.js`. El tour se inicia manualmente desde el botón **Guía** del header (también disponible en el menú móvil). Una vez iniciado, continúa automáticamente al navegar entre las secciones (Panel, Ventas, Productos, Stock, Cierre de caja e Historial de cierres) y se puede cerrar en cualquier momento con la cruz, la tecla `Escape`, el botón **Finalizar** o volviendo a presionar **Guía**.
 
+## Multi-sucursal
+
+El sistema soporta múltiples sucursales con aislamiento de datos:
+
+- Cada usuario pertenece a una única sucursal (`users.branchId`).
+- La sucursal se determina automáticamente al iniciar sesión a partir del usuario.
+- Productos, recetas, stock, cajas, ventas, movimientos y cierres diarios se filtran por `branchId`.
+- Las páginas `/sucursales` y `/usuarios` permiten a los administradores crear nuevas sucursales y usuarios.
+- El seed usa `DEFAULT_BRANCH_NAME` para crear la sucursal inicial y asignarle el administrador (`ADMIN_USERNAME`).
+
 ## Notas
 
-- El sistema tiene una única cuenta de administrador.
+- El sistema crea un administrador inicial desde las variables de entorno; se pueden crear más usuarios con rol `admin` desde `/usuarios`.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
 - Los insumos manuales son informativos en recetas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.

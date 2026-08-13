@@ -38,6 +38,8 @@ jest.mock('@/db', () => {
   };
 });
 
+const BRANCH_ID = 1;
+
 describe('productRepository', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -48,7 +50,7 @@ describe('productRepository', () => {
       const expected = [{ id: 1, name: 'Pan' }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await productRepository.findAll();
+      const result = await productRepository.findAll(BRANCH_ID);
 
       expect(result).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -63,7 +65,7 @@ describe('productRepository', () => {
       const expected = [{ id: 1, name: 'Pan' }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await productRepository.findAll(true);
+      const result = await productRepository.findAll(BRANCH_ID, true);
 
       expect(result).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -76,7 +78,7 @@ describe('productRepository', () => {
     test('devuelve un array vacío cuando no hay productos', async () => {
       mockFindMany.mockResolvedValue([]);
 
-      const result = await productRepository.findAll();
+      const result = await productRepository.findAll(BRANCH_ID);
 
       expect(result).toEqual([]);
     });
@@ -87,7 +89,7 @@ describe('productRepository', () => {
       const expected = { id: 1, name: 'Pan' };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await productRepository.findById(1);
+      const result = await productRepository.findById(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalledWith(
@@ -98,7 +100,7 @@ describe('productRepository', () => {
     test('devuelve null si el producto no existe', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
-      const result = await productRepository.findById(999);
+      const result = await productRepository.findById(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });
@@ -107,7 +109,7 @@ describe('productRepository', () => {
       const expected = { id: 1, name: 'Pan', deletedAt: new Date() };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await productRepository.findById(1, true);
+      const result = await productRepository.findById(BRANCH_ID, 1, true);
 
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalled();
@@ -119,7 +121,7 @@ describe('productRepository', () => {
       const expected = [{ id: 1, name: 'Pan' }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await productRepository.findByIds([1, 2]);
+      const result = await productRepository.findByIds(BRANCH_ID, [1, 2]);
 
       expect(result).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -128,7 +130,7 @@ describe('productRepository', () => {
     });
 
     test('devuelve un array vacío y no consulta si el array está vacío', async () => {
-      const result = await productRepository.findByIds([]);
+      const result = await productRepository.findByIds(BRANCH_ID, []);
 
       expect(result).toEqual([]);
       expect(mockFindMany).not.toHaveBeenCalled();
@@ -140,7 +142,7 @@ describe('productRepository', () => {
       const expected = [{ id: 1, name: 'Pan', isActive: true, deletedAt: null }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await productRepository.findActive();
+      const result = await productRepository.findActive(BRANCH_ID);
 
       expect(result).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -164,6 +166,7 @@ describe('productRepository', () => {
         stock: 100,
         minStock: 10,
         isActive: true,
+        branchId: BRANCH_ID,
       };
       const expected = { id: 1, ...data };
       mockReturning.mockResolvedValue([expected]);
@@ -189,6 +192,7 @@ describe('productRepository', () => {
         stock: 0,
         minStock: 0,
         isActive: true,
+        branchId: BRANCH_ID,
       };
       mockReturning.mockResolvedValue([{ id: 1, ...data }]);
 
@@ -210,6 +214,7 @@ describe('productRepository', () => {
         type: 'critical_supply',
         price: 500,
         unit: 'unidad',
+        branchId: BRANCH_ID,
       } as any);
 
       expect(result).toBeUndefined();
@@ -221,7 +226,7 @@ describe('productRepository', () => {
       const expected = { id: 1, name: 'Pancho' };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await productRepository.update(1, { name: 'Pancho' });
+      const result = await productRepository.update(BRANCH_ID, 1, { name: 'Pancho' });
 
       expect(result).toEqual(expected);
       expect(mockUpdate).toHaveBeenCalled();
@@ -236,7 +241,7 @@ describe('productRepository', () => {
     test('devuelve null si el producto no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await productRepository.update(999, { name: 'Pancho' });
+      const result = await productRepository.update(BRANCH_ID, 999, { name: 'Pancho' });
 
       expect(result).toBeNull();
     });
@@ -247,7 +252,7 @@ describe('productRepository', () => {
       const expected = { id: 1, isActive: false, deletedAt: new Date() };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await productRepository.softDelete(1);
+      const result = await productRepository.softDelete(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockSet).toHaveBeenCalledWith(
@@ -262,7 +267,7 @@ describe('productRepository', () => {
     test('devuelve null si el producto no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await productRepository.softDelete(999);
+      const result = await productRepository.softDelete(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });
@@ -273,7 +278,7 @@ describe('productRepository', () => {
       const expected = { id: 1, isActive: true, deletedAt: null };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await productRepository.restore(1);
+      const result = await productRepository.restore(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockSet).toHaveBeenCalledWith(
@@ -288,7 +293,7 @@ describe('productRepository', () => {
     test('devuelve null si el producto no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await productRepository.restore(999);
+      const result = await productRepository.restore(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });

@@ -58,6 +58,8 @@ const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
   typeof executeInTransaction
 >;
 
+const BRANCH_ID = 1;
+
 describe('cashRegisterRepository', () => {
   // Mocks para la transacción usada en `hardDelete` y `hardDeleteAllDeletedInRange`.
   let txSelectWhere: jest.Mock;
@@ -105,7 +107,7 @@ describe('cashRegisterRepository', () => {
       };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await cashRegisterRepository.findOpen();
+      const result = await cashRegisterRepository.findOpen(BRANCH_ID);
 
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalledWith(
@@ -116,7 +118,7 @@ describe('cashRegisterRepository', () => {
     test('devuelve undefined si no hay caja abierta', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
-      const result = await cashRegisterRepository.findOpen();
+      const result = await cashRegisterRepository.findOpen(BRANCH_ID);
 
       expect(result).toBeUndefined();
     });
@@ -132,7 +134,7 @@ describe('cashRegisterRepository', () => {
       };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await cashRegisterRepository.findById(1);
+      const result = await cashRegisterRepository.findById(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalledWith(
@@ -145,7 +147,7 @@ describe('cashRegisterRepository', () => {
     test('devuelve undefined cuando la caja no existe', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
-      const result = await cashRegisterRepository.findById(999);
+      const result = await cashRegisterRepository.findById(BRANCH_ID, 999);
 
       expect(result).toBeUndefined();
     });
@@ -158,7 +160,7 @@ describe('cashRegisterRepository', () => {
       const expected = [{ id: 1 }, { id: 2 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await cashRegisterRepository.findInRange(start, end);
+      const result = await cashRegisterRepository.findInRange(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(expected);
       expect(result.page).toBe(1);
@@ -178,6 +180,7 @@ describe('cashRegisterRepository', () => {
       mockFindMany.mockResolvedValue(expected);
 
       const result = await cashRegisterRepository.findInRange(
+        BRANCH_ID,
         start,
         end,
         'closed'
@@ -198,7 +201,7 @@ describe('cashRegisterRepository', () => {
       const expected = [{ id: 1 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await cashRegisterRepository.findInRange(start, end, undefined, {
+      const result = await cashRegisterRepository.findInRange(BRANCH_ID, start, end, undefined, {
         page: 2,
         limit: 5,
       });
@@ -220,6 +223,7 @@ describe('cashRegisterRepository', () => {
       mockFindMany.mockResolvedValue([]);
 
       const result = await cashRegisterRepository.findInRange(
+        BRANCH_ID,
         new Date(),
         new Date()
       );
@@ -236,7 +240,7 @@ describe('cashRegisterRepository', () => {
       const expected = [{ id: 1, status: 'closed' }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await cashRegisterRepository.findClosedInRange(start, end);
+      const result = await cashRegisterRepository.findClosedInRange(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -255,7 +259,7 @@ describe('cashRegisterRepository', () => {
       const expected = [{ id: 1, deletedAt: new Date() }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await cashRegisterRepository.findDeletedInRange(start, end);
+      const result = await cashRegisterRepository.findDeletedInRange(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -273,6 +277,7 @@ describe('cashRegisterRepository', () => {
       mockFindMany.mockResolvedValue(expected);
 
       const result = await cashRegisterRepository.findDeletedInRange(
+        BRANCH_ID,
         start,
         end,
         { page: 1, limit: 10 }
@@ -296,6 +301,7 @@ describe('cashRegisterRepository', () => {
       const openedAt = new Date('2026-08-01T08:00:00.000Z');
       const expected = {
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
@@ -303,6 +309,7 @@ describe('cashRegisterRepository', () => {
       mockReturning.mockResolvedValue([expected]);
 
       const result = await cashRegisterRepository.create({
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
       });
@@ -315,6 +322,7 @@ describe('cashRegisterRepository', () => {
       mockReturning.mockResolvedValue([]);
 
       const result = await cashRegisterRepository.create({
+        branchId: BRANCH_ID,
         openedAt: new Date(),
         openedBy: 'admin',
       });
@@ -328,7 +336,7 @@ describe('cashRegisterRepository', () => {
       const expected = { id: 1, openedBy: 'otro' };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await cashRegisterRepository.update(1, { openedBy: 'otro' });
+      const result = await cashRegisterRepository.update(BRANCH_ID, 1, { openedBy: 'otro' });
 
       expect(result).toEqual(expected);
       expect(mockUpdate).toHaveBeenCalled();
@@ -337,7 +345,7 @@ describe('cashRegisterRepository', () => {
     test('devuelve null si la caja no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await cashRegisterRepository.update(999, {
+      const result = await cashRegisterRepository.update(BRANCH_ID, 999, {
         openedBy: 'otro',
       });
 
@@ -350,7 +358,7 @@ describe('cashRegisterRepository', () => {
       const expected = { id: 1, deletedAt: new Date() };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await cashRegisterRepository.softDelete(1);
+      const result = await cashRegisterRepository.softDelete(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockUpdate).toHaveBeenCalled();
@@ -359,7 +367,7 @@ describe('cashRegisterRepository', () => {
     test('devuelve null si la caja no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await cashRegisterRepository.softDelete(999);
+      const result = await cashRegisterRepository.softDelete(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });
@@ -370,7 +378,7 @@ describe('cashRegisterRepository', () => {
       const expected = { id: 1, deletedAt: null };
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await cashRegisterRepository.restore(1);
+      const result = await cashRegisterRepository.restore(BRANCH_ID, 1);
 
       expect(result).toEqual(expected);
       expect(mockUpdate).toHaveBeenCalled();
@@ -379,7 +387,7 @@ describe('cashRegisterRepository', () => {
     test('devuelve null si la caja no existe', async () => {
       mockReturning.mockResolvedValue([]);
 
-      const result = await cashRegisterRepository.restore(999);
+      const result = await cashRegisterRepository.restore(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });
@@ -391,7 +399,7 @@ describe('cashRegisterRepository', () => {
       txUpdateWhere.mockResolvedValue(undefined);
       txDeleteWhere.mockResolvedValue(undefined);
 
-      const result = await cashRegisterRepository.hardDelete(1);
+      const result = await cashRegisterRepository.hardDelete(BRANCH_ID, 1);
 
       expect(result).toEqual({ deleted: true });
       expect(txSelect).toHaveBeenCalled();
@@ -402,7 +410,7 @@ describe('cashRegisterRepository', () => {
     test('no elimina si la caja no está marcada como eliminada', async () => {
       txSelectWhere.mockResolvedValue([{ deletedAt: null }]);
 
-      const result = await cashRegisterRepository.hardDelete(1);
+      const result = await cashRegisterRepository.hardDelete(BRANCH_ID, 1);
 
       expect(result).toEqual({ deleted: false });
       expect(txSelect).toHaveBeenCalled();
@@ -413,7 +421,7 @@ describe('cashRegisterRepository', () => {
     test('no elimina si la caja no existe', async () => {
       txSelectWhere.mockResolvedValue([]);
 
-      const result = await cashRegisterRepository.hardDelete(999);
+      const result = await cashRegisterRepository.hardDelete(BRANCH_ID, 999);
 
       expect(result).toEqual({ deleted: false });
       expect(txSelect).toHaveBeenCalled();
@@ -430,6 +438,7 @@ describe('cashRegisterRepository', () => {
       txDeleteWhere.mockResolvedValue(undefined);
 
       const result = await cashRegisterRepository.hardDeleteAllDeletedInRange(
+        BRANCH_ID,
         start,
         end
       );
@@ -445,6 +454,7 @@ describe('cashRegisterRepository', () => {
       txSelectWhere.mockResolvedValue([]);
 
       const result = await cashRegisterRepository.hardDeleteAllDeletedInRange(
+        BRANCH_ID,
         start,
         end
       );

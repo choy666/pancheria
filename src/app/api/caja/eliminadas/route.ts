@@ -21,12 +21,14 @@ function getDateRange(request: NextRequest) {
 }
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { start, end } = getDateRange(request);
   const { searchParams } = new URL(request.url);
   const pagination = parsePaginationParams(searchParams);
 
   const cashRegisters = await cashRegisterService.listDeletedCashRegisterHistory(
+    branchId,
     start,
     end,
     pagination
@@ -35,9 +37,10 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
 });
 
 export const DELETE = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { start, end } = getDateRange(request);
 
-  const result = await cashRegisterService.emptyTrash(start, end);
+  const result = await cashRegisterService.emptyTrash(branchId, start, end);
   return NextResponse.json(result);
 });

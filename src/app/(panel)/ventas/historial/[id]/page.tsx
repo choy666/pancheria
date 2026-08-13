@@ -6,6 +6,7 @@ import { SalesHistory } from '@/components/ventas/sales-history';
 import { CashRegisterDetailActions } from '@/components/caja/cash-register-detail-actions';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
+import { auth } from '@/auth';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -16,9 +17,13 @@ export default async function CashRegisterSalesDetailPage({
   params,
   searchParams,
 }: Props) {
+  const session = await auth();
+  const branchId = Number(session?.user?.branchId);
+
   const { id } = await params;
   const { from } = await searchParams;
   const cashRegister = await cashRegisterService.getCashRegisterById(
+    branchId,
     Number(id),
     true
   );
@@ -31,6 +36,7 @@ export default async function CashRegisterSalesDetailPage({
   const fromTrash = from === 'trash';
 
   const summary = await cashRegisterService.parseCashRegisterSummary(
+    branchId,
     cashRegister,
     isOpen
   );

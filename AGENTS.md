@@ -33,8 +33,12 @@ Copiar `.env.example` a `.env.local` y completar:
 - `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`.
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
-- `ADMIN_USERNAME` — usuario administrador único.
+- `ADMIN_USERNAME` — usuario administrador inicial.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
+- `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (usado por el seed).
+- `NEW_BRANCH_NAME` (opcional) — nombre de una segunda sucursal a crear vía seed.
+- `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
+- `NEW_BRANCH_PASSWORD` (opcional) — contraseña en texto plano del usuario de la segunda sucursal; el seed la hashea con bcrypt.
 - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms).
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
@@ -204,3 +208,8 @@ El directorio `.devin/informes` contiene la guía de lecciones aprendidas de las
 - Guía para escribir prompts: `.devin/prompts/README.md`
 
 Antes de iniciar tareas de auditoría, refactorización, integridad de datos, configuración de entorno o escritura de prompts, consultar estos archivos para evitar regresiones documentadas.
+
+## Consideraciones técnicas futuras
+
+- `authService.ts` abstrae el almacenamiento de intentos fallidos mediante `RateLimitStore` (`src/lib/rate-limit-store.ts`). La implementación por defecto es en memoria. En producción con múltiples instancias, reemplazar por una implementación basada en Redis o base de datos.
+- Los resúmenes de caja y cierre (`productsSummary`, `criticalSuppliesSummary`) se almacenan como `text` con JSON string. Considerar migrar las columnas a `jsonb` para aprovechar la validación nativa de PostgreSQL.

@@ -7,14 +7,21 @@ import { Badge } from '@/components/ui/badge';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 import { safeJsonParse } from '@/lib/json';
+import { auth } from '@/auth';
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
 export default async function CashRegisterDetailPage({ params }: Props) {
+  const session = await auth();
+  const branchId = Number(session?.user?.branchId);
+
   const { id } = await params;
-  const cashRegister = await cashRegisterService.getCashRegisterById(Number(id));
+  const cashRegister = await cashRegisterService.getCashRegisterById(
+    branchId,
+    Number(id)
+  );
 
   if (!cashRegister) {
     notFound();

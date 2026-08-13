@@ -1,18 +1,14 @@
-import { eq, and, gte, lt, isNotNull, inArray, isNull } from 'drizzle-orm';
+import { eq, and, gte, lt, isNotNull, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, recipes, sales, cashRegisters, dailyClosures } from '@/db/schema';
+import { products, sales, cashRegisters, dailyClosures } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as dailyClosureRepository from '@/repositories/dailyClosureRepository';
-import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
 import { startOfDayUTC, endOfDayUTC, nowUTC } from '@/lib/date';
 import { ValidationError } from '@/domain/errors';
 import type { PaginationParams } from '@/domain/types';
 
-type RecipeWithSupply = typeof recipes.$inferSelect & {
-  supply: typeof products.$inferSelect | null;
-};
-
-export async function generateClosure(date: Date) {
+export async function generateClosure(branchId: number, date: Date) {
   const start = startOfDayUTC(date);
   const end = endOfDayUTC(date);
 
@@ -22,7 +18,10 @@ export async function generateClosure(date: Date) {
 
   return executeInTransaction(async (tx) => {
     const existing = await tx.query.dailyClosures.findFirst({
-      where: eq(dailyClosures.date, start),
+      where: and(
+        eq(dailyClosures.branchId, branchId),
+        eq(dailyClosures.date, start)
+      ),
     });
 
     if (existing) {
@@ -30,7 +29,11 @@ export async function generateClosure(date: Date) {
     }
 
     const openRegistersWithSales = await tx.query.cashRegisters.findMany({
-      where: and(eq(cashRegisters.status, 'open'), isNull(cashRegisters.deletedAt)),
+      where: and(
+        eq(cashRegisters.branchId, branchId),
+        eq(cashRegisters.status, 'open'),
+        isNull(cashRegisters.deletedAt)
+      ),
       with: {
         sales: {
           where: and(
@@ -50,6 +53,7 @@ export async function generateClosure(date: Date) {
 
     const salesInRange = (await tx.query.sales.findMany({
       where: and(
+        eq(sales.branchId, branchId),
         eq(sales.status, 'active'),
         isNotNull(sales.cashRegisterId),
         gte(sales.createdAt, start),
@@ -75,100 +79,16 @@ export async function generateClosure(date: Date) {
 
     const activeSales = salesInRange.filter(
       (sale) => sale.cashRegister?.deletedAt === null
-    );
+    ) as SaleWithItems[];
 
-    let cashTotal = parseMoney(0);
-    let transferTotal = parseMoney(0);
-    const productsSummary: Record<string, number> = {};
-    const criticalSuppliesSummary: Record<string, number> = {};
-
-    const compoundProductIds = new Set<number>();
-    for (const sale of activeSales) {
-      for (const item of sale.items ?? []) {
-        if (item.product?.type === 'compound') {
-          compoundProductIds.add(item.product.id);
-        }
-      }
-    }
-
-    const recipesByProduct = new Map<number, RecipeWithSupply[]>();
-    if (compoundProductIds.size > 0) {
-      const allRecipes = (await tx.query.recipes.findMany({
-        where: inArray(recipes.compoundProductId, Array.from(compoundProductIds)),
-        with: { supply: true },
-      })) as RecipeWithSupply[];
-
-      for (const recipeItem of allRecipes) {
-        if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-          recipesByProduct.set(recipeItem.compoundProductId, []);
-        }
-        recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-      }
-    }
-
-    for (const sale of activeSales) {
-      const saleTotal = parseMoney(sale.total);
-      if (sale.paymentMethod === 'cash') {
-        cashTotal = addMoney(cashTotal, saleTotal);
-      } else {
-        transferTotal = addMoney(transferTotal, saleTotal);
-      }
-
-      for (const item of sale.items ?? []) {
-        const product = item.product;
-        if (!product) continue;
-
-        const key = product.name;
-        productsSummary[key] = (productsSummary[key] ?? 0) + item.quantity;
-
-        if (product.type === 'compound') {
-          const recipeList = recipesByProduct.get(product.id) ?? [];
-
-          for (const recipeItem of recipeList) {
-            if (!recipeItem.autoDiscount) continue;
-
-            const consumed = recipeItem.quantity * item.quantity;
-            const supplyName =
-              recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
-            criticalSuppliesSummary[supplyName] =
-              (criticalSuppliesSummary[supplyName] ?? 0) + consumed;
-          }
-        } else if (
-          product.type === 'critical_supply' &&
-          product.criticalSupplyType === 'beverage'
-        ) {
-          criticalSuppliesSummary[key] =
-            (criticalSuppliesSummary[key] ?? 0) + item.quantity;
-        }
-      }
-    }
-
-    const total = addMoney(cashTotal, transferTotal);
-
-    const criticalSupplies = await tx.query.products.findMany({
-      where: and(
-        eq(products.type, 'critical_supply'),
-        eq(products.isActive, true)
-      ),
-    });
-
-    for (const supply of criticalSupplies) {
-      const key = supply.name;
-      if (criticalSuppliesSummary[key] === undefined) {
-        criticalSuppliesSummary[key] = 0;
-      }
-    }
+    const summary = await calculateSummaryFromSales(branchId, activeSales, tx);
 
     const [result] = await tx
       .insert(dailyClosures)
       .values({
+        branchId,
         date: start,
-        total: moneyToNumber(total),
-        cashTotal: moneyToNumber(cashTotal),
-        transferTotal: moneyToNumber(transferTotal),
-        totalSales: activeSales.length,
-        productsSummary: JSON.stringify(productsSummary),
-        criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
+        ...summary,
       })
       .returning();
 
@@ -180,19 +100,24 @@ export async function generateClosure(date: Date) {
   });
 }
 
-export async function getClosureByDate(date: Date) {
+export async function getClosureByDate(branchId: number, date: Date) {
   const start = startOfDayUTC(date);
   return db.query.dailyClosures.findFirst({
-    where: eq(dailyClosures.date, start),
+    where: and(
+      eq(dailyClosures.branchId, branchId),
+      eq(dailyClosures.date, start)
+    ),
   });
 }
 
 export async function listClosures(
+  branchId: number,
   start: Date,
   end: Date,
   pagination?: PaginationParams
 ) {
   return dailyClosureRepository.findByDateRange(
+    branchId,
     startOfDayUTC(start),
     endOfDayUTC(end),
     pagination

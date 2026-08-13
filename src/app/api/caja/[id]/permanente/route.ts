@@ -10,7 +10,8 @@ interface RouteParams {
 
 export const DELETE = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -20,6 +21,7 @@ export const DELETE = withApiErrorHandling(
       );
     }
     const result = await cashRegisterService.permanentlyDeleteCashRegister(
+      branchId,
       cashRegisterId
     );
     return NextResponse.json(result);

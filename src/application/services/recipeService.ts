@@ -6,22 +6,27 @@ import * as productRepository from '@/repositories/productRepository';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import type { RecipeItemInsert } from '@/repositories/recipeRepository';
 
-export async function getRecipeByProductId(productId: number) {
-  const product = await productRepository.findById(productId);
+export async function getRecipeByProductId(branchId: number, productId: number) {
+  const product = await productRepository.findById(branchId, productId);
   if (!product || product.type !== 'compound') {
     throw new NotFoundError('Producto compuesto', productId);
   }
 
-  return recipeRepository.findByCompoundProductId(productId);
+  return recipeRepository.findByCompoundProductId(branchId, productId);
 }
 
 export async function saveRecipe(
+  branchId: number,
   compoundProductId: number,
   items: RecipeItemInsert[]
 ) {
-  const product = await productRepository.findById(compoundProductId);
+  const product = await productRepository.findById(branchId, compoundProductId);
   if (!product || product.type !== 'compound') {
     throw new ValidationError('El producto debe ser de tipo compuesto.');
+  }
+
+  if (product.branchId !== branchId) {
+    throw new ValidationError('El producto compuesto no pertenece a la sucursal.');
   }
 
   const hasCritical = items.some((item) => item.autoDiscount);
@@ -44,7 +49,7 @@ export async function saveRecipe(
   }
 
   const supplyIds = items.map((item) => item.supplyId);
-  const supplies = await productRepository.findByIds(supplyIds);
+  const supplies = await productRepository.findByIds(branchId, supplyIds);
 
   if (supplies.length !== supplyIds.length) {
     throw new ValidationError('Uno o más insumos de la receta no existen.');
@@ -54,6 +59,12 @@ export async function saveRecipe(
     const supply = supplies.find((s) => s.id === item.supplyId);
     if (!supply) {
       throw new ValidationError(`Insumo con ID ${item.supplyId} no encontrado.`);
+    }
+
+    if (supply.branchId !== branchId) {
+      throw new ValidationError(
+        `El insumo ${supply.name} no pertenece a la sucursal.`
+      );
     }
 
     if (supply.type !== 'critical_supply') {

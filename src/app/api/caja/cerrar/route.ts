@@ -6,11 +6,12 @@ import { requireAuth } from '@/lib/auth';
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const body = await request.json().catch(() => ({}));
   const id = parseId(body.id);
 
   if (!id) {
-    const currentCashRegister = await cashRegisterService.getOpenCashRegister();
+    const currentCashRegister = await cashRegisterService.getOpenCashRegister(branchId);
 
     if (!currentCashRegister) {
       return NextResponse.json(
@@ -21,6 +22,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
 
     const userName = session.user?.name ?? 'Usuario';
     const cashRegister = await cashRegisterService.closeCashRegister(
+      branchId,
       currentCashRegister.id,
       userName
     );
@@ -29,6 +31,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
 
   const userName = session.user?.name ?? 'Usuario';
   const cashRegister = await cashRegisterService.closeCashRegister(
+    branchId,
     id,
     userName
   );

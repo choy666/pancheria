@@ -6,9 +6,10 @@ import { requireAuth } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export const GET = withApiErrorHandling(async () => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
 
-  const live = await cashRegisterService.getOpenCashRegisterSummary();
+  const live = await cashRegisterService.getOpenCashRegisterSummary(branchId);
 
   if (!live) {
     return NextResponse.json({ status: 'closed' });

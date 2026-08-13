@@ -43,17 +43,38 @@ export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
   'closed',
 ]);
 
-export const users = pgTable('users', {
+export const userRoleEnum = pgEnum('user_role', ['admin', 'operator']);
+
+export const branches = pgTable('branches', {
   id: serial('id').primaryKey(),
-  username: varchar('username', { length: 255 }).notNull().unique(),
-  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull().unique(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+export const users = pgTable(
+  'users',
+  {
+    id: serial('id').primaryKey(),
+    username: varchar('username', { length: 255 }).notNull().unique(),
+    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    role: userRoleEnum('role').default('operator').notNull(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    branchIdIdx: index('users_branch_id_idx').on(table.branchId),
+  })
+);
 
 export const products = pgTable(
   'products',
   {
     id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id),
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
     type: productTypeEnum('type').notNull(),
@@ -68,15 +89,19 @@ export const products = pgTable(
     deletedAt: timestamp('deleted_at'),
   },
   (table) => ({
-    typeIdx: index('products_type_idx').on(table.type),
-    activeDeletedIdx: index('products_active_deleted_idx').on(
+    branchIdIdx: index('products_branch_id_idx').on(table.branchId),
+    branchActiveDeletedIdx: index('products_branch_active_deleted_idx').on(
+      table.branchId,
       table.isActive,
       table.deletedAt
     ),
-    typeIsActiveIdx: index('products_type_is_active_idx').on(
+    branchTypeIsActiveIdx: index('products_branch_type_is_active_idx').on(
+      table.branchId,
       table.type,
-      table.isActive
+      table.isActive,
+      table.deletedAt
     ),
+    nameIdx: index('products_name_idx').on(table.name),
   })
 );
 
@@ -105,6 +130,9 @@ export const cashRegisters = pgTable(
   'cash_registers',
   {
     id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id),
     openedAt: timestamp('opened_at').defaultNow().notNull(),
     closedAt: timestamp('closed_at'),
     openedBy: varchar('opened_by', { length: 255 }).notNull(),
@@ -115,21 +143,25 @@ export const cashRegisters = pgTable(
     cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     totalSales: integer('total_sales').default(0).notNull(),
+    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
     productsSummary: text('products_summary').default('{}').notNull(),
+    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
     criticalSuppliesSummary: text('critical_supplies_summary').default('{}').notNull(),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
+    branchIdIdx: index('cash_registers_branch_id_idx').on(table.branchId),
     statusIdx: index('cash_registers_status_idx').on(table.status),
     openedAtIdx: index('cash_registers_opened_at_idx').on(table.openedAt),
     deletedAtIdx: index('cash_registers_deleted_at_idx').on(table.deletedAt),
-    statusDeletedAtIdx: index('cash_registers_status_deleted_at_idx').on(
+    branchStatusDeletedAtIdx: index('cash_registers_branch_status_deleted_at_idx').on(
+      table.branchId,
       table.status,
       table.deletedAt
     ),
     openStatusIdx: uniqueIndex('cash_registers_open_status_idx')
-      .on(table.status)
+      .on(table.branchId, table.status)
       .where(sql`${table.status} = 'open' AND ${table.deletedAt} IS NULL`),
   })
 );
@@ -138,20 +170,32 @@ export const sales = pgTable(
   'sales',
   {
     id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id),
     total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     paymentMethod: paymentMethodEnum('payment_method').notNull(),
     status: saleStatusEnum('status').default('active').notNull(),
     cashRegisterId: integer('cash_register_id').references(() => cashRegisters.id),
-    idempotencyKey: varchar('idempotency_key', { length: 255 }).unique(),
+    idempotencyKey: varchar('idempotency_key', { length: 255 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     cancelledAt: timestamp('cancelled_at'),
     cancellationReason: text('cancellation_reason'),
   },
   (table) => ({
+    branchIdIdx: index('sales_branch_id_idx').on(table.branchId),
     createdAtIdx: index('sales_created_at_idx').on(table.createdAt),
+    branchCreatedAtIdx: index('sales_branch_created_at_idx').on(
+      table.branchId,
+      table.createdAt
+    ),
     cashRegisterCreatedAtIdx: index('sales_cash_register_created_at_idx').on(
       table.cashRegisterId,
       table.createdAt
+    ),
+    idempotencyUniqueIdx: uniqueIndex('sales_idempotency_branch_unique_idx').on(
+      table.branchId,
+      table.idempotencyKey
     ),
   })
 );
@@ -179,6 +223,9 @@ export const stockMovements = pgTable(
   'stock_movements',
   {
     id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id),
     productId: integer('product_id')
       .notNull()
       .references(() => products.id),
@@ -189,26 +236,70 @@ export const stockMovements = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
+    branchIdIdx: index('stock_movements_branch_id_idx').on(table.branchId),
     productCreatedAtIdx: index('stock_movements_product_created_at_idx').on(
+      table.productId,
+      table.createdAt
+    ),
+    branchProductCreatedAtIdx: index('stock_movements_branch_product_created_at_idx').on(
+      table.branchId,
       table.productId,
       table.createdAt
     ),
   })
 );
 
-export const dailyClosures = pgTable('daily_closures', {
-  id: serial('id').primaryKey(),
-  date: timestamp('date').notNull().unique(),
-  total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
-  cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
-  transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
-  totalSales: integer('total_sales').notNull(),
-  productsSummary: text('products_summary').notNull(),
-  criticalSuppliesSummary: text('critical_supplies_summary').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export const dailyClosures = pgTable(
+  'daily_closures',
+  {
+    id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id),
+    date: timestamp('date').notNull(),
+    total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    totalSales: integer('total_sales').notNull(),
+    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
+    productsSummary: text('products_summary').notNull(),
+    // Nota: considerar migrar a jsonb para validación nativa de PostgreSQL.
+    criticalSuppliesSummary: text('critical_supplies_summary').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    branchDateUniqueIdx: uniqueIndex('daily_closures_branch_date_unique_idx').on(
+      table.branchId,
+      table.date
+    ),
+    branchDateIdx: index('daily_closures_branch_date_idx').on(
+      table.branchId,
+      table.date
+    ),
+  })
+);
 
-export const productsRelations = relations(products, ({ many }) => ({
+export const branchesRelations = relations(branches, ({ many }) => ({
+  users: many(users),
+  products: many(products),
+  cashRegisters: many(cashRegisters),
+  sales: many(sales),
+  stockMovements: many(stockMovements),
+  dailyClosures: many(dailyClosures),
+}));
+
+export const usersRelations = relations(users, ({ one }) => ({
+  branch: one(branches, {
+    fields: [users.branchId],
+    references: [branches.id],
+  }),
+}));
+
+export const productsRelations = relations(products, ({ one, many }) => ({
+  branch: one(branches, {
+    fields: [products.branchId],
+    references: [branches.id],
+  }),
   recipes: many(recipes, { relationName: 'compoundProduct' }),
   supplyRecipes: many(recipes, { relationName: 'supply' }),
   saleItems: many(saleItems),
@@ -228,11 +319,19 @@ export const recipesRelations = relations(recipes, ({ one }) => ({
   }),
 }));
 
-export const cashRegistersRelations = relations(cashRegisters, ({ many }) => ({
+export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) => ({
+  branch: one(branches, {
+    fields: [cashRegisters.branchId],
+    references: [branches.id],
+  }),
   sales: many(sales),
 }));
 
 export const salesRelations = relations(sales, ({ one, many }) => ({
+  branch: one(branches, {
+    fields: [sales.branchId],
+    references: [branches.id],
+  }),
   cashRegister: one(cashRegisters, {
     fields: [sales.cashRegisterId],
     references: [cashRegisters.id],
@@ -253,6 +352,10 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
 }));
 
 export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
+  branch: one(branches, {
+    fields: [stockMovements.branchId],
+    references: [branches.id],
+  }),
   product: one(products, {
     fields: [stockMovements.productId],
     references: [products.id],
@@ -260,5 +363,12 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   sale: one(sales, {
     fields: [stockMovements.saleId],
     references: [sales.id],
+  }),
+}));
+
+export const dailyClosuresRelations = relations(dailyClosures, ({ one }) => ({
+  branch: one(branches, {
+    fields: [dailyClosures.branchId],
+    references: [branches.id],
   }),
 }));

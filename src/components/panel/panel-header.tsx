@@ -10,10 +10,12 @@ import { Menu, X } from 'lucide-react';
 
 interface PanelHeaderProps {
   userName?: string | null;
+  branchName?: string | null;
+  role?: string | null;
   signOutAction: () => Promise<void>;
 }
 
-const navItems = [
+const baseNavItems = [
   { href: routes.home, label: 'Panel' },
   { href: routes.ventas, label: 'Ventas' },
   { href: routes.ventasHistorial, label: 'Historial' },
@@ -22,8 +24,23 @@ const navItems = [
   { href: routes.cierre, label: 'Caja' },
 ];
 
-export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
+export function PanelHeader({
+  userName,
+  branchName,
+  role,
+  signOutAction,
+}: PanelHeaderProps) {
   const [open, setOpen] = useState(false);
+
+  const isAdmin = role === 'admin';
+
+  const navItems = isAdmin
+    ? [
+        ...baseNavItems,
+        { href: routes.sucursales, label: 'Sucursales' },
+        { href: routes.usuarios, label: 'Usuarios' },
+      ]
+    : baseNavItems;
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/8 bg-background/95 backdrop-blur-sm">
@@ -35,7 +52,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
           Panchería
         </Link>
 
-        <nav data-tour="main-nav" className="hidden items-center gap-1 md:flex">
+        <nav data-tour="main-nav" className="hidden items-center gap-1 lg:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -49,9 +66,14 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-4 md:flex">
+        <div className="hidden items-center gap-4 lg:flex">
           <TourButton />
-          <span className="text-sm text-muted-foreground">{userName}</span>
+          {branchName && (
+            <span className="text-sm text-muted-foreground">{branchName}</span>
+          )}
+          {userName && (
+            <span className="text-sm text-muted-foreground">{userName}</span>
+          )}
           <form action={signOutAction}>
             <Button type="submit" variant="outline" size="sm">
               Cerrar sesión
@@ -62,7 +84,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
         <Button
           variant="ghost"
           size="icon-lg"
-          className="md:hidden"
+          className="lg:hidden"
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
@@ -72,7 +94,7 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
       </div>
 
       {open && (
-        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 md:hidden">
+        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 lg:hidden">
           <nav className="flex flex-col gap-1 pt-2">
             {navItems.map((item) => (
               <Link
@@ -90,6 +112,9 @@ export function PanelHeader({ userName, signOutAction }: PanelHeaderProps) {
           </nav>
           <div className="mt-4 flex flex-col gap-3 border-t border-white/8 pt-4">
             <TourButton className="w-full" />
+            {branchName && (
+              <span className="text-sm text-muted-foreground">{branchName}</span>
+            )}
             {userName && (
               <span className="text-sm text-muted-foreground">{userName}</span>
             )}

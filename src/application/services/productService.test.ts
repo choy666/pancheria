@@ -45,6 +45,8 @@ const mockedDb = db as unknown as {
   query: { recipes: { findMany: jest.Mock } };
 };
 
+const BRANCH_ID = 1;
+
 describe('productService', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -57,10 +59,10 @@ describe('productService', () => {
         { id: 2, name: 'Gaseosa' },
       ] as ProductRow[]);
 
-      const result = await listProducts();
+      const result = await listProducts(BRANCH_ID);
 
       expect(result).toHaveLength(2);
-      expect(mockedProductRepository.findAll).toHaveBeenCalledWith(false);
+      expect(mockedProductRepository.findAll).toHaveBeenCalledWith(BRANCH_ID, false);
     });
 
     test('puede incluir productos eliminados', async () => {
@@ -69,10 +71,10 @@ describe('productService', () => {
         { id: 2, name: 'Pan viejo', deletedAt: new Date() },
       ] as ProductRow[]);
 
-      const result = await listProducts(true);
+      const result = await listProducts(BRANCH_ID, true);
 
       expect(result).toHaveLength(2);
-      expect(mockedProductRepository.findAll).toHaveBeenCalledWith(true);
+      expect(mockedProductRepository.findAll).toHaveBeenCalledWith(BRANCH_ID, true);
     });
   });
 
@@ -83,17 +85,17 @@ describe('productService', () => {
         name: 'Pan',
       } as ProductRow);
 
-      const result = await getProductById(1);
+      const result = await getProductById(BRANCH_ID, 1);
 
       expect(result!.id).toBe(1);
-      expect(mockedProductRepository.findById).toHaveBeenCalledWith(1, false);
+      expect(mockedProductRepository.findById).toHaveBeenCalledWith(BRANCH_ID, 1, false);
     });
 
     test('lanza NotFoundError si el producto no existe', async () => {
       mockedProductRepository.findById.mockResolvedValue(null);
 
-      await expect(getProductById(999)).rejects.toThrow(NotFoundError);
-      await expect(getProductById(999)).rejects.toThrow(
+      await expect(getProductById(BRANCH_ID, 999)).rejects.toThrow(NotFoundError);
+      await expect(getProductById(BRANCH_ID, 999)).rejects.toThrow(
         'Producto con ID 999 no encontrado.'
       );
     });
@@ -105,11 +107,11 @@ describe('productService', () => {
         { id: 1, name: 'Pan', isActive: true },
       ] as ProductRow[]);
 
-      const result = await listActiveProducts();
+      const result = await listActiveProducts(BRANCH_ID);
 
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('Pan');
-      expect(mockedProductRepository.findActive).toHaveBeenCalled();
+      expect(mockedProductRepository.findActive).toHaveBeenCalledWith(BRANCH_ID);
     });
   });
 
@@ -127,21 +129,21 @@ describe('productService', () => {
         3: Number.MAX_SAFE_INTEGER,
       });
 
-      const result = await listActiveProductsWithAvailability();
+      const result = await listActiveProductsWithAvailability(BRANCH_ID);
 
       expect(result).toHaveLength(3);
       expect(result[0].availability).toBe(4);
       expect(result[1].availability).toBe(12);
       expect(result[2].availability).toBe(Number.MAX_SAFE_INTEGER);
-      expect(mockedProductRepository.findActive).toHaveBeenCalled();
-      expect(mockedSaleService.calculateAvailabilityForProductIds).toHaveBeenCalledWith([1, 2, 3]);
+      expect(mockedProductRepository.findActive).toHaveBeenCalledWith(BRANCH_ID);
+      expect(mockedSaleService.calculateAvailabilityForProductIds).toHaveBeenCalledWith(BRANCH_ID, [1, 2, 3]);
     });
   });
 
   describe('createProduct', () => {
     test('rechaza insumo crítico sin tipo crítico', async () => {
       await expect(
-        createProduct({
+        createProduct(BRANCH_ID, {
           name: 'Pan',
           type: 'critical_supply',
           price: 100,
@@ -152,7 +154,7 @@ describe('productService', () => {
 
     test('rechaza tipo no crítico con tipo crítico', async () => {
       await expect(
-        createProduct({
+        createProduct(BRANCH_ID, {
           name: 'Producto',
           type: 'manual_supply',
           criticalSupplyType: 'bread',
@@ -164,7 +166,7 @@ describe('productService', () => {
 
     test('rechaza insumo manual con precio', async () => {
       await expect(
-        createProduct({
+        createProduct(BRANCH_ID, {
           name: 'Aderezo',
           type: 'manual_supply',
           price: 150,
@@ -183,16 +185,16 @@ describe('productService', () => {
         minStock: 5,
       } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockImplementation((created: ProductInsert) =>
+      mockedProductRepository.create.mockImplementation((created: ProductInsert & { branchId: number }) =>
         Promise.resolve({ id: 1, ...created } as ProductRow)
       );
 
-      const result = await createProduct(data);
+      const result = await createProduct(BRANCH_ID, data);
       expect(result!.id).toBe(1);
       expect(result!.stock).toBe(0);
       expect(result!.minStock).toBe(5);
       expect(mockedProductRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stock: 0, minStock: 5 })
+        expect.objectContaining({ stock: 0, minStock: 5, branchId: BRANCH_ID })
       );
     });
 
@@ -207,11 +209,11 @@ describe('productService', () => {
         minStock: 10,
       } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockImplementation((created: ProductInsert) =>
+      mockedProductRepository.create.mockImplementation((created: ProductInsert & { branchId: number }) =>
         Promise.resolve({ id: 1, ...created } as ProductRow)
       );
 
-      const result = await createProduct(data);
+      const result = await createProduct(BRANCH_ID, data);
       expect(result!.id).toBe(1);
       expect(result!.criticalSupplyType).toBe('bread');
       expect(result!.stock).toBe(0);
@@ -228,13 +230,13 @@ describe('productService', () => {
         minStock: 5,
       } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data } as ProductRow);
+      mockedProductRepository.create.mockResolvedValue({ id: 1, ...data, branchId: BRANCH_ID } as ProductRow);
 
-      const result = await createProduct(data);
+      const result = await createProduct(BRANCH_ID, data);
       expect(result!.id).toBe(1);
       expect(result!.type).toBe('compound');
       expect(mockedProductRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stock: 0, minStock: 0 })
+        expect.objectContaining({ stock: 0, minStock: 0, branchId: BRANCH_ID })
       );
     });
 
@@ -248,11 +250,11 @@ describe('productService', () => {
         minStock: 2,
       } as unknown as ProductInsert;
 
-      mockedProductRepository.create.mockImplementation((created: ProductInsert) =>
+      mockedProductRepository.create.mockImplementation((created: ProductInsert & { branchId: number }) =>
         Promise.resolve({ id: 1, ...created } as ProductRow)
       );
 
-      const result = await createProduct(data);
+      const result = await createProduct(BRANCH_ID, data);
       expect(result!.id).toBe(1);
       expect(result!.type).toBe('service');
       expect(result!.stock).toBe(0);
@@ -265,6 +267,7 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       mockedDb.query.recipes.findMany.mockResolvedValue([
@@ -272,7 +275,7 @@ describe('productService', () => {
       ]);
 
       await expect(
-        updateProduct(1, {
+        updateProduct(BRANCH_ID, 1, {
           type: 'manual_supply',
           price: 0,
         } as ProductRow)
@@ -283,6 +286,7 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       mockedDb.query.recipes.findMany.mockResolvedValue([
@@ -292,16 +296,17 @@ describe('productService', () => {
       const data = { type: 'manual_supply', price: 0 } as unknown as ProductInsert;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.type).toBe('manual_supply');
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data);
     });
 
     test('actualiza un producto válido y descarta stock pero conserva minStock', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
@@ -314,13 +319,15 @@ describe('productService', () => {
       } as unknown as ProductInsert;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
       expect(result!.name).toBe('Nuevo nombre');
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
         1,
         expect.not.objectContaining({ stock: expect.any(Number) })
       );
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
         1,
         expect.objectContaining({ minStock: 10 })
       );
@@ -330,10 +337,11 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       await expect(
-        updateProduct(1, {
+        updateProduct(BRANCH_ID, 1, {
           price: 150,
         } as unknown as ProductUpdate)
       ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
@@ -343,6 +351,7 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'compound',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
@@ -350,22 +359,23 @@ describe('productService', () => {
       const data = { type: 'manual_supply', price: 0 } as unknown as ProductInsert;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.type).toBe('manual_supply');
       expect(mockedDb.delete).toHaveBeenCalledWith(recipes);
       expect(mockedDb.where).toHaveBeenCalled();
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data);
     });
 
     test('rechaza criticalSupplyType sin type en un producto no crítico', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       await expect(
-        updateProduct(1, {
+        updateProduct(BRANCH_ID, 1, {
           criticalSupplyType: 'bread',
           price: 0,
         } as unknown as ProductUpdate)
@@ -377,10 +387,11 @@ describe('productService', () => {
         id: 1,
         type: 'critical_supply',
         criticalSupplyType: 'bread',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       await expect(
-        updateProduct(1, {
+        updateProduct(BRANCH_ID, 1, {
           criticalSupplyType: null,
           price: 100,
         } as unknown as ProductUpdate)
@@ -391,22 +402,24 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       const data = { name: 'Nuevo nombre', price: 0 } as unknown as ProductInsert;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.name).toBe('Nuevo nombre');
       expect(mockedDb.delete).not.toHaveBeenCalled();
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(1, data);
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data);
     });
 
     test('permite cambiar un producto a tipo service', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
@@ -419,10 +432,11 @@ describe('productService', () => {
 
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.type).toBe('service');
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
         1,
         expect.objectContaining({
           type: 'service',
@@ -436,6 +450,7 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'compound',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
@@ -449,10 +464,11 @@ describe('productService', () => {
 
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.name).toBe('Panchuque actualizado');
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
         1,
         expect.objectContaining({ stock: 0, minStock: 0 })
       );
@@ -462,6 +478,7 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'service',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       const data = {
@@ -473,10 +490,11 @@ describe('productService', () => {
 
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      const result = await updateProduct(1, data);
+      const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.name).toBe('Servicio actualizado');
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
         1,
         expect.objectContaining({ stock: 0, minStock: 0 })
       );
@@ -486,14 +504,16 @@ describe('productService', () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         type: 'manual_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
 
       const data = { name: 'Nuevo nombre', price: 0, minStock: 12 } as unknown as ProductInsert;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
 
-      await updateProduct(1, data);
+      await updateProduct(BRANCH_ID, 1, data);
 
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
         1,
         expect.objectContaining({ minStock: 12 })
       );
@@ -506,6 +526,7 @@ describe('productService', () => {
         id: 1,
         name: 'Pan',
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
       mockedProductRepository.softDelete.mockResolvedValue({
@@ -513,11 +534,11 @@ describe('productService', () => {
         deletedAt: new Date(),
       } as ProductRow);
 
-      const result = await deleteProduct(1);
+      const result = await deleteProduct(BRANCH_ID, 1);
 
       expect(result!.id).toBe(1);
       expect(mockedRecipeRepository.deleteByCompoundProductId).not.toHaveBeenCalled();
-      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
+      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
     test('elimina las recetas al marcar como eliminada una promo', async () => {
@@ -525,6 +546,7 @@ describe('productService', () => {
         id: 1,
         name: 'Panchuque',
         type: 'compound',
+        branchId: BRANCH_ID,
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([]);
       mockedProductRepository.softDelete.mockResolvedValue({
@@ -532,10 +554,10 @@ describe('productService', () => {
         deletedAt: new Date(),
       } as ProductRow);
 
-      await deleteProduct(1);
+      await deleteProduct(BRANCH_ID, 1);
 
-      expect(mockedRecipeRepository.deleteByCompoundProductId).toHaveBeenCalledWith(1);
-      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
+      expect(mockedRecipeRepository.deleteByCompoundProductId).toHaveBeenCalledWith(BRANCH_ID, 1);
+      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
     test('rechaza eliminar un insumo crítico usado en una promo activa', async () => {
@@ -543,6 +565,7 @@ describe('productService', () => {
         id: 1,
         name: 'Pan',
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([
         {
@@ -555,8 +578,8 @@ describe('productService', () => {
         },
       ]);
 
-      await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
-      await expect(deleteProduct(1)).rejects.toThrow(
+      await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(ValidationError);
+      await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(
         "No se puede eliminar 'Pan' porque forma parte de la promo activa 'Panchuque'."
       );
       expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
@@ -568,6 +591,7 @@ describe('productService', () => {
         id: 1,
         name: 'Pan',
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([
         {
@@ -588,8 +612,8 @@ describe('productService', () => {
         },
       ]);
 
-      await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
-      await expect(deleteProduct(1)).rejects.toThrow(
+      await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(ValidationError);
+      await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(
         "No se puede eliminar 'Pan' porque forma parte de las promos activas: 'Panchuque', 'Panchuque doble'."
       );
       expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
@@ -601,6 +625,7 @@ describe('productService', () => {
         id: 1,
         name: 'Pan',
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([
         {
@@ -623,40 +648,31 @@ describe('productService', () => {
           compoundProduct: {
             type: 'compound',
             deletedAt: new Date(),
-            isActive: false,
+            isActive: true,
             name: 'Panchuque eliminada',
           },
         },
       ]);
 
-      await expect(deleteProduct(1)).rejects.toThrow(ValidationError);
-      await expect(deleteProduct(1)).rejects.toThrow(
+      await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(ValidationError);
+      await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(
         "No se puede eliminar 'Pan' porque forma parte de la promo activa 'Panchuque activa'."
       );
-      expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
-      expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
     });
 
-    test('limpia recetas y permite eliminar un insumo usado en promos inactivas y eliminadas', async () => {
+    test('elimina recetas huérfanas al eliminar un insumo', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         name: 'Pan',
         type: 'critical_supply',
+        branchId: BRANCH_ID,
       } as ProductRow);
       mockedDb.query.recipes.findMany.mockResolvedValue([
         {
           compoundProduct: {
             type: 'compound',
-            deletedAt: null,
-            isActive: false,
-            name: 'Panchuque inactiva',
-          },
-        },
-        {
-          compoundProduct: {
-            type: 'compound',
             deletedAt: new Date(),
-            isActive: false,
+            isActive: true,
             name: 'Panchuque eliminada',
           },
         },
@@ -666,33 +682,24 @@ describe('productService', () => {
         deletedAt: new Date(),
       } as ProductRow);
 
-      await deleteProduct(1);
+      await deleteProduct(BRANCH_ID, 1);
 
-      expect(mockedRecipeRepository.deleteBySupplyId).toHaveBeenCalledWith(1);
-      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(1);
-    });
-
-    test('lanza NotFoundError si el producto no existe', async () => {
-      mockedProductRepository.findById.mockResolvedValue(null);
-
-      await expect(deleteProduct(999)).rejects.toThrow(NotFoundError);
-      expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
+      expect(mockedRecipeRepository.deleteBySupplyId).toHaveBeenCalledWith(BRANCH_ID, 1);
+      expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
   });
 
   describe('restoreProduct', () => {
-    test('restaura un producto eliminado', async () => {
+    test('restaura un producto', async () => {
       mockedProductRepository.restore.mockResolvedValue({
         id: 1,
         name: 'Pan',
-        deletedAt: null,
       } as ProductRow);
 
-      const result = await restoreProduct(1);
+      const result = await restoreProduct(BRANCH_ID, 1);
 
       expect(result!.id).toBe(1);
-      expect(result!.deletedAt).toBeNull();
-      expect(mockedProductRepository.restore).toHaveBeenCalledWith(1);
+      expect(mockedProductRepository.restore).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
   });
 });

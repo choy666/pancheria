@@ -9,31 +9,38 @@ import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
 import { ZodError } from 'zod';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
 
-export async function listProducts(includeDeleted = false) {
-  return productRepository.findAll(includeDeleted);
+export async function listProducts(branchId: number, includeDeleted = false) {
+  return productRepository.findAll(branchId, includeDeleted);
 }
 
-export async function getProductById(id: number, includeDeleted = false) {
-  const product = await productRepository.findById(id, includeDeleted);
+export async function getProductById(
+  branchId: number,
+  id: number,
+  includeDeleted = false
+) {
+  const product = await productRepository.findById(branchId, id, includeDeleted);
   if (!product) throw new NotFoundError('Producto', id);
   return product;
 }
 
-export async function listActiveProducts() {
-  return productRepository.findActive();
+export async function listActiveProducts(branchId: number) {
+  return productRepository.findActive(branchId);
 }
 
-export async function listActiveProductsWithAvailability() {
-  const active = await listActiveProducts();
+export async function listActiveProductsWithAvailability(branchId: number) {
+  const active = await listActiveProducts(branchId);
   const ids = active.map((product) => product.id);
-  const availability = await saleService.calculateAvailabilityForProductIds(ids);
+  const availability = await saleService.calculateAvailabilityForProductIds(
+    branchId,
+    ids
+  );
   return active.map((product) => ({
     ...product,
     availability: availability[product.id] ?? 0,
   }));
 }
 
-export async function createProduct(data: ProductInsert) {
+export async function createProduct(branchId: number, data: ProductInsert) {
   let product;
 
   try {
@@ -50,11 +57,15 @@ export async function createProduct(data: ProductInsert) {
     product.minStock = 0;
   }
 
-  return productRepository.create(product);
+  return productRepository.create({ ...product, branchId });
 }
 
-export async function updateProduct(id: number, data: ProductUpdate) {
-  const existing = await getProductById(id);
+export async function updateProduct(
+  branchId: number,
+  id: number,
+  data: ProductUpdate
+) {
+  const existing = await getProductById(branchId, id);
 
   try {
     productUpdateSchema.parse({ ...existing, ...data });
@@ -77,7 +88,9 @@ export async function updateProduct(id: number, data: ProductUpdate) {
 
   if (updateData.type && updateData.type !== existing.type) {
     if (existing.type === 'compound') {
-      await db.delete(recipes).where(eq(recipes.compoundProductId, id));
+      await db
+        .delete(recipes)
+        .where(eq(recipes.compoundProductId, id));
     }
 
     const usedAsSupply = await db.query.recipes.findMany({
@@ -96,14 +109,14 @@ export async function updateProduct(id: number, data: ProductUpdate) {
     }
   }
 
-  return productRepository.update(id, updateData);
+  return productRepository.update(branchId, id, updateData);
 }
 
-export async function deleteProduct(id: number) {
-  const product = await getProductById(id);
+export async function deleteProduct(branchId: number, id: number) {
+  const product = await getProductById(branchId, id);
 
   if (product.type === 'compound') {
-    await recipeRepository.deleteByCompoundProductId(id);
+    await recipeRepository.deleteByCompoundProductId(branchId, id);
   }
 
   const usedAsSupply = await db.query.recipes.findMany({
@@ -138,13 +151,12 @@ export async function deleteProduct(id: number) {
   );
 
   if (hasOrphanedRecipes) {
-    await recipeRepository.deleteBySupplyId(id);
+    await recipeRepository.deleteBySupplyId(branchId, id);
   }
 
-  return productRepository.softDelete(id);
+  return productRepository.softDelete(branchId, id);
 }
 
-export async function restoreProduct(id: number) {
-  return productRepository.restore(id);
+export async function restoreProduct(branchId: number, id: number) {
+  return productRepository.restore(branchId, id);
 }
-

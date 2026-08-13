@@ -1,6 +1,7 @@
-import { verifyCredentials } from './authService';
+import { verifyCredentials, setRateLimitStore } from './authService';
 import { db } from '@/db';
 import bcrypt from 'bcrypt';
+import { InMemoryRateLimitStore } from '@/lib/rate-limit-store';
 import { ValidationError } from '@/domain/errors';
 
 jest.mock('@/db', () => ({
@@ -33,12 +34,19 @@ function attemptFailedLogins(username: string, count: number) {
       id: 1,
       username,
       passwordHash: 'hash123',
+      role: 'operator',
+      branchId: 1,
+      branch: { name: 'Sucursal por defecto' },
     } as any);
     mockedBcrypt.compare.mockResolvedValueOnce(false);
   }
 }
 
 describe('authService', () => {
+  beforeEach(() => {
+    setRateLimitStore(new InMemoryRateLimitStore());
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -48,12 +56,21 @@ describe('authService', () => {
       id: 1,
       username: 'admin',
       passwordHash: 'hash123',
+      role: 'admin',
+      branchId: 1,
+      branch: { name: 'Sucursal por defecto' },
     } as any);
     mockedBcrypt.compare.mockResolvedValue(true);
 
     const result = await verifyCredentials('admin', 'secreto');
 
-    expect(result).toEqual({ id: 1, username: 'admin' });
+    expect(result).toEqual({
+      id: 1,
+      username: 'admin',
+      role: 'admin',
+      branchId: 1,
+      branchName: 'Sucursal por defecto',
+    });
     expect(mockedDb.query.users.findFirst).toHaveBeenCalled();
     expect(mockedBcrypt.compare).toHaveBeenCalledWith('secreto', 'hash123');
   });
@@ -72,6 +89,9 @@ describe('authService', () => {
       id: 1,
       username: 'admin',
       passwordHash: 'hash123',
+      role: 'admin',
+      branchId: 1,
+      branch: { name: 'Sucursal por defecto' },
     } as any);
     mockedBcrypt.compare.mockResolvedValue(false);
 
@@ -110,17 +130,29 @@ describe('authService', () => {
       id: 1,
       username,
       passwordHash: 'hash123',
+      role: 'operator',
+      branchId: 1,
+      branch: { name: 'Sucursal por defecto' },
     } as any);
     mockedBcrypt.compare.mockResolvedValueOnce(true);
 
     const result = await verifyCredentials(username, 'secreto');
 
-    expect(result).toEqual({ id: 1, username });
+    expect(result).toEqual({
+      id: 1,
+      username,
+      role: 'operator',
+      branchId: 1,
+      branchName: 'Sucursal por defecto',
+    });
 
     mockedDb.query.users.findFirst.mockResolvedValueOnce({
       id: 1,
       username,
       passwordHash: 'hash123',
+      role: 'operator',
+      branchId: 1,
+      branch: { name: 'Sucursal por defecto' },
     } as any);
     mockedBcrypt.compare.mockResolvedValueOnce(false);
 

@@ -6,7 +6,8 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { searchParams } = new URL(request.url);
   const productId = parseId(searchParams.get('productId'));
 
@@ -18,6 +19,10 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   }
 
   const pagination = parsePaginationParams(searchParams);
-  const history = await stockService.getStockHistory(productId, pagination);
+  const history = await stockService.getStockHistory(
+    branchId,
+    productId,
+    pagination
+  );
   return NextResponse.json(history);
 });

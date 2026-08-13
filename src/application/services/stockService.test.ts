@@ -39,9 +39,12 @@ const mockedStockMovementRepository = stockMovementRepository as jest.Mocked<
 
 const mockedDb = db as unknown as { transaction: jest.MockedFunction<DbTransaction> };
 
+const BRANCH_ID = 1;
+
 function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
   return {
     id: 1,
+    branchId: BRANCH_ID,
     name: 'Producto',
     description: null,
     type: 'critical_supply',
@@ -61,6 +64,7 @@ function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
 function createStockMovement(overrides: Partial<StockMovement> = {}): StockMovement {
   return {
     id: 1,
+    branchId: BRANCH_ID,
     productId: 1,
     type: 'manual_adjustment',
     quantity: 0,
@@ -83,7 +87,7 @@ describe('stockService', () => {
       createProductRow({ id: 3, name: 'Mayonesa', stock: 0, minStock: 0 }),
     ]);
 
-    const result = await listStockAlerts();
+    const result = await listStockAlerts(BRANCH_ID);
     expect(result[0].isLow).toBe(true);
     expect(result[1].isLow).toBe(false);
     expect(result[2].isLow).toBe(false);
@@ -94,7 +98,7 @@ describe('stockService', () => {
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
-    await expect(adjustStock(1, -10, 'Ajuste')).rejects.toThrow(ValidationError);
+    await expect(adjustStock(BRANCH_ID, 1, -10, 'Ajuste')).rejects.toThrow(ValidationError);
   });
 
   test('adjustStock rechaza cantidad cero', async () => {
@@ -102,7 +106,7 @@ describe('stockService', () => {
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
-    await expect(adjustStock(1, 0, 'Ajuste sin cambios')).rejects.toThrow(ValidationError);
+    await expect(adjustStock(BRANCH_ID, 1, 0, 'Ajuste sin cambios')).rejects.toThrow(ValidationError);
   });
 
   test('adjustStock rechaza motivo corto', async () => {
@@ -110,7 +114,7 @@ describe('stockService', () => {
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
-    await expect(adjustStock(1, 5, 'ok')).rejects.toThrow(ValidationError);
+    await expect(adjustStock(BRANCH_ID, 1, 5, 'ok')).rejects.toThrow(ValidationError);
   });
 
   test('adjustStock ajusta correctamente', async () => {
@@ -118,7 +122,7 @@ describe('stockService', () => {
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
-    const result = await adjustStock(1, 5, 'Ajuste de prueba');
+    const result = await adjustStock(BRANCH_ID, 1, 5, 'Ajuste de prueba');
     expect(result.newStock).toBe(10);
   });
 
@@ -139,7 +143,7 @@ describe('stockService', () => {
       callback(tx as unknown as typeof db)
     );
 
-    const result = await adjustStock(1, 10, 'Stock inicial', 'restock');
+    const result = await adjustStock(BRANCH_ID, 1, 10, 'Stock inicial', 'restock');
     expect(result.newStock).toBe(10);
     expect(tx.values).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'restock' })
@@ -155,7 +159,7 @@ describe('stockService', () => {
     const invalidType = 'invalid' as unknown as StockMovementType;
 
     await expect(
-      adjustStock(1, 5, 'Ajuste de prueba', invalidType)
+      adjustStock(BRANCH_ID, 1, 5, 'Ajuste de prueba', invalidType)
     ).rejects.toThrow(ValidationError);
   });
 
@@ -171,7 +175,7 @@ describe('stockService', () => {
       limit: 10,
     });
 
-    const result = await getStockHistory(1, { page: 1, limit: 10 });
+    const result = await getStockHistory(BRANCH_ID, 1, { page: 1, limit: 10 });
     expect(result.items.length).toBe(1);
     expect(result.items[0].quantity).toBe(5);
   });
@@ -209,7 +213,7 @@ describe('stockService', () => {
       }),
     ]);
 
-    const result = await listStockAlerts();
+    const result = await listStockAlerts(BRANCH_ID);
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe('Pan');
     expect(result[1].name).toBe('Mayonesa');
@@ -218,12 +222,12 @@ describe('stockService', () => {
   test('adjustStock lanza NotFoundError cuando el producto no existe', async () => {
     mockedProductRepository.findById.mockResolvedValue(null);
 
-    await expect(adjustStock(999, 5, 'Ajuste de prueba')).rejects.toThrow(NotFoundError);
+    await expect(adjustStock(BRANCH_ID, 999, 5, 'Ajuste de prueba')).rejects.toThrow(NotFoundError);
   });
 
   test('getStockHistory lanza NotFoundError cuando el producto no existe', async () => {
     mockedProductRepository.findById.mockResolvedValue(null);
 
-    await expect(getStockHistory(999, { page: 1, limit: 10 })).rejects.toThrow(NotFoundError);
+    await expect(getStockHistory(BRANCH_ID, 999, { page: 1, limit: 10 })).rejects.toThrow(NotFoundError);
   });
 });

@@ -50,9 +50,12 @@ let mockUpdate: jest.Mock;
 let mockSelectResult: unknown[];
 let mockInsertResult: unknown[];
 
+const BRANCH_ID = 1;
+
 function createMockCashRegister() {
   return {
     id: 1,
+    branchId: BRANCH_ID,
     status: 'closed',
     total: 1000,
     cashTotal: 1000,
@@ -105,13 +108,14 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
         autoClosed: false,
       } as any);
 
-      const result = await getOpenCashRegister();
+      const result = await getOpenCashRegister(BRANCH_ID);
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe(1);
@@ -121,6 +125,7 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(Date.now() - 13 * 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
@@ -130,6 +135,7 @@ describe('cashRegisterService', () => {
       mockSelectResult = [
         {
           id: 1,
+          branchId: BRANCH_ID,
           openedAt,
           openedBy: 'admin',
           status: 'open',
@@ -141,7 +147,7 @@ describe('cashRegisterService', () => {
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await getOpenCashRegister();
+      const result = await getOpenCashRegister(BRANCH_ID);
 
       expect(result).toBeNull();
       expect(mockedExecuteInTransaction).toHaveBeenCalled();
@@ -153,6 +159,7 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
@@ -166,11 +173,11 @@ describe('cashRegisterService', () => {
       } as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
-        { id: 2, name: 'Gaseosa', type: 'critical_supply', isActive: true },
-        { id: 3, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 3, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const result = (await getOpenCashRegisterSummary()) as any;
+      const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
 
       expect(result).not.toBeNull();
       expect(result.id).toBe(1);
@@ -190,6 +197,7 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
@@ -203,12 +211,12 @@ describe('cashRegisterService', () => {
       } as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
-        { id: 2, name: 'Gaseosa', type: 'critical_supply', isActive: true },
-        { id: 3, name: 'Pan', type: 'critical_supply', isActive: true },
-        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 3, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 4, branchId: BRANCH_ID, name: 'Salchicha', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const result = (await getOpenCashRegisterSummary()) as any;
+      const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
 
       expect(result).not.toBeNull();
       expect(result.criticalSuppliesSummary).toEqual({
@@ -221,7 +229,7 @@ describe('cashRegisterService', () => {
     test('devuelve null si no hay caja abierta', async () => {
       mockedCashRegisterRepository.findOpen.mockResolvedValue(undefined);
 
-      const result = await getOpenCashRegisterSummary();
+      const result = await getOpenCashRegisterSummary(BRANCH_ID);
 
       expect(result).toBeNull();
     });
@@ -233,13 +241,14 @@ describe('cashRegisterService', () => {
       mockInsertResult = [
         {
           id: 1,
+          branchId: BRANCH_ID,
           openedAt: new Date(),
           openedBy: 'admin',
           status: 'open',
         },
       ];
 
-      const result = await openCashRegister('admin');
+      const result = await openCashRegister({ branchId: BRANCH_ID, openedBy: 'admin' });
 
       expect(result?.openedBy).toBe('admin');
       expect(result?.status).toBe('open');
@@ -249,19 +258,20 @@ describe('cashRegisterService', () => {
       mockSelectResult = [
         {
           id: 1,
+          branchId: BRANCH_ID,
           openedAt: new Date(),
           openedBy: 'admin',
           status: 'open',
         },
       ];
 
-      await expect(openCashRegister('admin')).rejects.toThrow(ValidationError);
+      await expect(openCashRegister({ branchId: BRANCH_ID, openedBy: 'admin' })).rejects.toThrow(ValidationError);
     });
 
     test('rechaza apertura si el índice único detecta una caja concurrente', async () => {
       mockedExecuteInTransaction.mockRejectedValueOnce({ code: '23505' });
 
-      await expect(openCashRegister('admin')).rejects.toThrow(ValidationError);
+      await expect(openCashRegister({ branchId: BRANCH_ID, openedBy: 'admin' })).rejects.toThrow(ValidationError);
     });
   });
 
@@ -272,6 +282,7 @@ describe('cashRegisterService', () => {
       mockSelectResult = [
         {
           id: 1,
+          branchId: BRANCH_ID,
           openedAt: new Date(),
           openedBy: 'admin',
           status: 'open',
@@ -282,13 +293,14 @@ describe('cashRegisterService', () => {
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
         {
           id: 1,
+          branchId: BRANCH_ID,
           total: 1000,
           paymentMethod: 'cash',
           status: 'active',
           items: [
             {
               quantity: 1,
-              product: { id: 1, name: 'Panchuque', type: 'compound' },
+              product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
             },
           ],
         },
@@ -306,10 +318,10 @@ describe('cashRegisterService', () => {
       ] as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
-        { id: 2, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const result = await closeCashRegister(1, 'admin');
+      const result = await closeCashRegister(BRANCH_ID, 1, 'admin');
 
       expect(result?.status).toBe('closed');
       expect(result?.totalSales).toBe(1);
@@ -319,25 +331,26 @@ describe('cashRegisterService', () => {
       mockSelectResult = [
         {
           id: 1,
+          branchId: BRANCH_ID,
           status: 'closed',
           deletedAt: null,
         },
       ];
 
-      await expect(closeCashRegister(1, 'admin')).rejects.toThrow(
+      await expect(closeCashRegister(BRANCH_ID, 1, 'admin')).rejects.toThrow(
         'La caja ya está cerrada.'
       );
-      await expect(closeCashRegister(1, 'admin')).rejects.toThrow(ValidationError);
+      await expect(closeCashRegister(BRANCH_ID, 1, 'admin')).rejects.toThrow(ValidationError);
       expect(mockedDb.query.sales.findMany).not.toHaveBeenCalled();
     });
 
     test('lanza NotFoundError si la caja no existe', async () => {
       mockSelectResult = [];
 
-      await expect(closeCashRegister(999, 'admin')).rejects.toThrow(
+      await expect(closeCashRegister(BRANCH_ID, 999, 'admin')).rejects.toThrow(
         NotFoundError
       );
-      await expect(closeCashRegister(999, 'admin')).rejects.toThrow(
+      await expect(closeCashRegister(BRANCH_ID, 999, 'admin')).rejects.toThrow(
         'Caja con ID 999 no encontrado.'
       );
     });
@@ -347,14 +360,15 @@ describe('cashRegisterService', () => {
     test('obtiene una caja por su ID', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: null,
       } as any);
 
-      const result = await getCashRegisterById(1);
+      const result = await getCashRegisterById(BRANCH_ID, 1);
 
       expect(result?.id).toBe(1);
-      expect(mockedCashRegisterRepository.findById).toHaveBeenCalledWith(1, false);
+      expect(mockedCashRegisterRepository.findById).toHaveBeenCalledWith(BRANCH_ID, 1, false);
     });
   });
 
@@ -363,8 +377,8 @@ describe('cashRegisterService', () => {
       const start = new Date('2025-01-01');
       const end = new Date('2025-01-31');
       const history = [
-        { id: 1, status: 'closed' },
-        { id: 2, status: 'open' },
+        { id: 1, branchId: BRANCH_ID, status: 'closed' },
+        { id: 2, branchId: BRANCH_ID, status: 'open' },
       ];
 
       mockedCashRegisterRepository.findInRange.mockResolvedValue({
@@ -374,11 +388,12 @@ describe('cashRegisterService', () => {
         limit: 10,
       } as any);
 
-      const result = await listCashRegisterHistory(start, end);
+      const result = await listCashRegisterHistory(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(history);
       expect(result.total).toBe(2);
       expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
         start,
         end,
         undefined,
@@ -389,7 +404,7 @@ describe('cashRegisterService', () => {
     test('puede filtrar historial por estado', async () => {
       const start = new Date('2025-01-01');
       const end = new Date('2025-01-31');
-      const history = [{ id: 1, status: 'closed' }];
+      const history = [{ id: 1, branchId: BRANCH_ID, status: 'closed' }];
 
       mockedCashRegisterRepository.findInRange.mockResolvedValue({
         items: history,
@@ -398,10 +413,12 @@ describe('cashRegisterService', () => {
         limit: 10,
       } as any);
 
-      const result = await listCashRegisterHistory(start, end, 'closed');
+      const result = await listCashRegisterHistory(BRANCH_ID, start, end, 'closed');
 
       expect(result.items).toEqual(history);
+      expect(result.total).toBe(1);
       expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
         start,
         end,
         'closed',
@@ -412,7 +429,7 @@ describe('cashRegisterService', () => {
     test('puede paginar el historial', async () => {
       const start = new Date('2025-01-01');
       const end = new Date('2025-01-31');
-      const history = [{ id: 1, status: 'closed' }];
+      const history = [{ id: 1, branchId: BRANCH_ID, status: 'closed' }];
       const pagination = { page: 2, limit: 5 };
 
       mockedCashRegisterRepository.findInRange.mockResolvedValue({
@@ -423,6 +440,7 @@ describe('cashRegisterService', () => {
       } as any);
 
       const result = await listCashRegisterHistory(
+        BRANCH_ID,
         start,
         end,
         'closed',
@@ -432,6 +450,7 @@ describe('cashRegisterService', () => {
       expect(result.items).toEqual(history);
       expect(result.total).toBe(10);
       expect(mockedCashRegisterRepository.findInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
         start,
         end,
         'closed',
@@ -448,7 +467,7 @@ describe('cashRegisterService', () => {
 
       mockedCashRegisterRepository.findInRange.mockRejectedValue(dbError);
 
-      await expect(listCashRegisterHistory(start, end)).rejects.toThrow(dbError);
+      await expect(listCashRegisterHistory(BRANCH_ID, start, end)).rejects.toThrow(dbError);
     });
   });
 
@@ -456,7 +475,7 @@ describe('cashRegisterService', () => {
     test('lista cajas eliminadas en un rango', async () => {
       const start = new Date('2025-01-01');
       const end = new Date('2025-01-31');
-      const history = [{ id: 1, deletedAt: new Date() }];
+      const history = [{ id: 1, branchId: BRANCH_ID, deletedAt: new Date() }];
 
       mockedCashRegisterRepository.findDeletedInRange.mockResolvedValue({
         items: history,
@@ -465,10 +484,11 @@ describe('cashRegisterService', () => {
         limit: 10,
       } as any);
 
-      const result = await listDeletedCashRegisterHistory(start, end);
+      const result = await listDeletedCashRegisterHistory(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(history);
       expect(mockedCashRegisterRepository.findDeletedInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
         start,
         end,
         undefined
@@ -478,7 +498,7 @@ describe('cashRegisterService', () => {
     test('puede paginar las cajas eliminadas', async () => {
       const start = new Date('2025-01-01');
       const end = new Date('2025-01-31');
-      const history = [{ id: 1, deletedAt: new Date() }];
+      const history = [{ id: 1, branchId: BRANCH_ID, deletedAt: new Date() }];
       const pagination = { page: 1, limit: 5 };
 
       mockedCashRegisterRepository.findDeletedInRange.mockResolvedValue({
@@ -488,11 +508,12 @@ describe('cashRegisterService', () => {
         limit: 5,
       } as any);
 
-      const result = await listDeletedCashRegisterHistory(start, end, pagination);
+      const result = await listDeletedCashRegisterHistory(BRANCH_ID, start, end, pagination);
 
       expect(result.items).toEqual(history);
       expect(result.total).toBe(5);
       expect(mockedCashRegisterRepository.findDeletedInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
         start,
         end,
         pagination
@@ -509,12 +530,12 @@ describe('cashRegisterService', () => {
         deleted: 2,
       } as any);
 
-      const result = await emptyTrash(start, end);
+      const result = await emptyTrash(BRANCH_ID, start, end);
 
       expect(result).toEqual({ deleted: 2 });
       expect(
         mockedCashRegisterRepository.hardDeleteAllDeletedInRange
-      ).toHaveBeenCalledWith(start, end);
+      ).toHaveBeenCalledWith(BRANCH_ID, start, end);
     });
   });
 
@@ -522,36 +543,39 @@ describe('cashRegisterService', () => {
     test('realiza soft delete de una caja cerrada', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: null,
       } as any);
       mockedCashRegisterRepository.softDelete.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: new Date(),
       } as any);
 
-      const result = await deleteCashRegister(1);
+      const result = await deleteCashRegister(BRANCH_ID, 1);
 
       expect(result?.id).toBe(1);
-      expect(mockedCashRegisterRepository.softDelete).toHaveBeenCalledWith(1);
+      expect(mockedCashRegisterRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
     test('rechaza eliminar una caja abierta', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'open',
         deletedAt: null,
       } as any);
 
-      await expect(deleteCashRegister(1)).rejects.toThrow(ValidationError);
+      await expect(deleteCashRegister(BRANCH_ID, 1)).rejects.toThrow(ValidationError);
       expect(mockedCashRegisterRepository.softDelete).not.toHaveBeenCalled();
     });
 
     test('lanza NotFoundError si la caja no existe', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue(undefined);
 
-      await expect(deleteCashRegister(1)).rejects.toThrow(NotFoundError);
+      await expect(deleteCashRegister(BRANCH_ID, 1)).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -559,29 +583,32 @@ describe('cashRegisterService', () => {
     test('restaura una caja eliminada', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: new Date(),
       } as any);
       mockedCashRegisterRepository.restore.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: null,
       } as any);
 
-      const result = await restoreCashRegister(1);
+      const result = await restoreCashRegister(BRANCH_ID, 1);
 
       expect(result?.deletedAt).toBeNull();
-      expect(mockedCashRegisterRepository.restore).toHaveBeenCalledWith(1);
+      expect(mockedCashRegisterRepository.restore).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
     test('rechaza restaurar una caja no eliminada', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: null,
       } as any);
 
-      await expect(restoreCashRegister(1)).rejects.toThrow(ValidationError);
+      await expect(restoreCashRegister(BRANCH_ID, 1)).rejects.toThrow(ValidationError);
     });
   });
 
@@ -589,6 +616,7 @@ describe('cashRegisterService', () => {
     test('elimina definitivamente una caja en la papelera', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: new Date(),
       } as any);
@@ -596,20 +624,21 @@ describe('cashRegisterService', () => {
         deleted: true,
       } as any);
 
-      const result = await permanentlyDeleteCashRegister(1);
+      const result = await permanentlyDeleteCashRegister(BRANCH_ID, 1);
 
       expect(result).toEqual({ deleted: true });
-      expect(mockedCashRegisterRepository.hardDelete).toHaveBeenCalledWith(1);
+      expect(mockedCashRegisterRepository.hardDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
     test('rechaza eliminar definitivamente una caja no eliminada', async () => {
       mockedCashRegisterRepository.findById.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         status: 'closed',
         deletedAt: null,
       } as any);
 
-      await expect(permanentlyDeleteCashRegister(1)).rejects.toThrow(
+      await expect(permanentlyDeleteCashRegister(BRANCH_ID, 1)).rejects.toThrow(
         ValidationError
       );
     });
@@ -620,12 +649,13 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
       } as any);
 
-      const result = await autoCloseIfNeeded();
+      const result = await autoCloseIfNeeded(BRANCH_ID);
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe(1);
@@ -635,6 +665,7 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(Date.now() - 13 * 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
+        branchId: BRANCH_ID,
         openedAt,
         openedBy: 'admin',
         status: 'open',
@@ -643,6 +674,7 @@ describe('cashRegisterService', () => {
       mockSelectResult = [
         {
           id: 1,
+          branchId: BRANCH_ID,
           openedAt,
           openedBy: 'admin',
           status: 'open',
@@ -654,7 +686,7 @@ describe('cashRegisterService', () => {
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await autoCloseIfNeeded();
+      const result = await autoCloseIfNeeded(BRANCH_ID);
 
       expect(result).toBeNull();
       expect(mockedExecuteInTransaction).toHaveBeenCalled();
@@ -666,18 +698,20 @@ describe('cashRegisterService', () => {
       (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
         {
           id: 1,
+          branchId: BRANCH_ID,
           total: 1500,
           paymentMethod: 'cash',
           status: 'active',
           items: [
             {
               quantity: 1,
-              product: { id: 1, name: 'Panchuque', type: 'compound' },
+              product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
             },
           ],
         },
         {
           id: 2,
+          branchId: BRANCH_ID,
           total: 800,
           paymentMethod: 'transfer',
           status: 'active',
@@ -686,6 +720,7 @@ describe('cashRegisterService', () => {
               quantity: 2,
               product: {
                 id: 2,
+                branchId: BRANCH_ID,
                 name: 'Gaseosa',
                 type: 'critical_supply',
                 criticalSupplyType: 'beverage',
@@ -707,12 +742,12 @@ describe('cashRegisterService', () => {
       ] as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
-        { id: 2, name: 'Pan', type: 'critical_supply', isActive: true },
-        { id: 3, name: 'Gaseosa', type: 'critical_supply', isActive: true },
-        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 3, branchId: BRANCH_ID, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 4, branchId: BRANCH_ID, name: 'Salchicha', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const result = await calculateCashRegisterSummary(1);
+      const result = await calculateCashRegisterSummary(BRANCH_ID, 1);
 
       expect(result.total).toBe(2300);
       expect(result.cashTotal).toBe(1500);
@@ -734,12 +769,12 @@ describe('cashRegisterService', () => {
       (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
-        { id: 2, name: 'Pan', type: 'critical_supply', isActive: true },
-        { id: 3, name: 'Gaseosa', type: 'critical_supply', isActive: true },
-        { id: 4, name: 'Salchicha', type: 'critical_supply', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+        { id: 3, branchId: BRANCH_ID, name: 'Gaseosa', type: 'critical_supply', isActive: true },
+        { id: 4, branchId: BRANCH_ID, name: 'Salchicha', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const result = await calculateCashRegisterSummary(1);
+      const result = await calculateCashRegisterSummary(BRANCH_ID, 1);
 
       expect(result.total).toBe(0);
       expect(result.cashTotal).toBe(0);

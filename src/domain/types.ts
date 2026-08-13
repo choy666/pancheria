@@ -28,8 +28,15 @@ export type StockMovementType =
   | 'manual_adjustment'
   | 'restock';
 
+export type Branch = {
+  id: number;
+  name: string;
+  createdAt: Date;
+};
+
 export type ProductRow = {
   id: number;
+  branchId: number;
   name: string;
   description: string | null;
   type: ProductType;
@@ -46,6 +53,7 @@ export type ProductRow = {
 
 export type Product = {
   id: number;
+  branchId: number;
   name: string;
   description: string | null;
   type: ProductType;
@@ -86,6 +94,7 @@ export type SaleItem = {
 
 export type Sale = {
   id: number;
+  branchId: number;
   total: Money;
   paymentMethod: PaymentMethod;
   status: SaleStatus;
@@ -100,6 +109,7 @@ export type Sale = {
 
 export type CashRegister = {
   id: number;
+  branchId: number;
   openedAt: Date;
   closedAt: Date | null;
   openedBy: string;
@@ -119,6 +129,7 @@ export type CashRegister = {
 
 export type StockMovement = {
   id: number;
+  branchId: number;
   productId: number;
   type: StockMovementType;
   quantity: number;
@@ -129,6 +140,7 @@ export type StockMovement = {
 
 export type DailyClosure = {
   id: number;
+  branchId: number;
   date: Date;
   total: Money;
   cashTotal: Money;

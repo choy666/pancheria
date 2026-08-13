@@ -32,6 +32,8 @@ jest.mock('@/db', () => {
   };
 });
 
+const BRANCH_ID = 1;
+
 describe('dailyClosureRepository', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -40,10 +42,10 @@ describe('dailyClosureRepository', () => {
   describe('findByDate', () => {
     test('devuelve el cierre diario de una fecha', async () => {
       const date = new Date('2026-08-01T00:00:00.000Z');
-      const expected = { id: 1, date };
+      const expected = { id: 1, branchId: BRANCH_ID, date };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await dailyClosureRepository.findByDate(date);
+      const result = await dailyClosureRepository.findByDate(BRANCH_ID, date);
 
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalledWith(
@@ -54,7 +56,7 @@ describe('dailyClosureRepository', () => {
     test('devuelve undefined si no hay cierre para la fecha', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
-      const result = await dailyClosureRepository.findByDate(new Date());
+      const result = await dailyClosureRepository.findByDate(BRANCH_ID, new Date());
 
       expect(result).toBeUndefined();
     });
@@ -67,7 +69,7 @@ describe('dailyClosureRepository', () => {
       const expected = [{ id: 1 }, { id: 2 }];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await dailyClosureRepository.findByDateRange(start, end);
+      const result = await dailyClosureRepository.findByDateRange(BRANCH_ID, start, end);
 
       expect(result.items).toEqual(expected);
       expect(result.page).toBe(1);
@@ -87,6 +89,7 @@ describe('dailyClosureRepository', () => {
       mockFindMany.mockResolvedValue(expected);
 
       const result = await dailyClosureRepository.findByDateRange(
+        BRANCH_ID,
         start,
         end,
         { page: 2, limit: 5 }
@@ -109,6 +112,7 @@ describe('dailyClosureRepository', () => {
       mockFindMany.mockResolvedValue([]);
 
       const result = await dailyClosureRepository.findByDateRange(
+        BRANCH_ID,
         new Date(),
         new Date()
       );
@@ -121,6 +125,7 @@ describe('dailyClosureRepository', () => {
   describe('create', () => {
     test('crea un cierre diario y devuelve el registro', async () => {
       const data = {
+        branchId: BRANCH_ID,
         date: new Date('2026-08-01T00:00:00.000Z'),
         total: 10000,
         cashTotal: 7000,
@@ -143,6 +148,7 @@ describe('dailyClosureRepository', () => {
       mockReturning.mockResolvedValue([]);
 
       const result = await dailyClosureRepository.create({
+        branchId: BRANCH_ID,
         date: new Date(),
         total: 0,
         cashTotal: 0,

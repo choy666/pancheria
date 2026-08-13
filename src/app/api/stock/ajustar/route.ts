@@ -5,10 +5,12 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const body = await request.json();
   const data = stockAdjustmentSchema.parse(body);
   const result = await stockService.adjustStock(
+    branchId,
     data.productId,
     data.quantity,
     data.reason,

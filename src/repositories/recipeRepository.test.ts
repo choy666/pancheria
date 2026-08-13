@@ -3,6 +3,7 @@ import * as recipeRepository from './recipeRepository';
 /* eslint-disable no-var */
 
 var mockFindMany: jest.Mock;
+var mockProductFindFirst: jest.Mock;
 var mockReturning: jest.Mock;
 var mockValues: jest.Mock;
 var mockInsert: jest.Mock;
@@ -11,6 +12,7 @@ var mockDelete: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindMany = jest.fn();
+  mockProductFindFirst = jest.fn();
   mockReturning = jest.fn();
   mockValues = jest.fn((data: unknown) => ({ returning: mockReturning }));
   mockInsert = jest.fn(() => ({ values: mockValues }));
@@ -23,6 +25,9 @@ jest.mock('@/db', () => {
         recipes: {
           findMany: mockFindMany,
         },
+        products: {
+          findFirst: mockProductFindFirst,
+        },
       },
       insert: mockInsert,
       delete: mockDelete,
@@ -30,7 +35,13 @@ jest.mock('@/db', () => {
   };
 });
 
+const BRANCH_ID = 1;
+
 describe('recipeRepository', () => {
+  beforeEach(() => {
+    mockProductFindFirst.mockResolvedValue({ id: 1 });
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -42,7 +53,7 @@ describe('recipeRepository', () => {
       ];
       mockFindMany.mockResolvedValue(expected);
 
-      const result = await recipeRepository.findByCompoundProductId(10);
+      const result = await recipeRepository.findByCompoundProductId(BRANCH_ID, 10);
 
       expect(result).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
@@ -56,9 +67,24 @@ describe('recipeRepository', () => {
     test('devuelve un array vacío cuando el producto no tiene receta', async () => {
       mockFindMany.mockResolvedValue([]);
 
-      const result = await recipeRepository.findByCompoundProductId(99);
+      const result = await recipeRepository.findByCompoundProductId(BRANCH_ID, 99);
 
       expect(result).toEqual([]);
+    });
+
+    test('devuelve un array vacío cuando el producto compuesto no pertenece a la sucursal', async () => {
+      mockProductFindFirst.mockResolvedValue(null);
+
+      const result = await recipeRepository.findByCompoundProductId(BRANCH_ID, 10);
+
+      expect(result).toEqual([]);
+      expect(mockProductFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          columns: expect.objectContaining({ id: true }),
+        })
+      );
+      expect(mockFindMany).not.toHaveBeenCalled();
     });
   });
 
@@ -75,7 +101,7 @@ describe('recipeRepository', () => {
       mockDeleteWhere.mockResolvedValue(undefined);
       mockReturning.mockResolvedValue(expected);
 
-      const result = await recipeRepository.replaceRecipe(10, items);
+      const result = await recipeRepository.replaceRecipe(BRANCH_ID, 10, items);
 
       expect(result).toEqual(expected);
       expect(mockDelete).toHaveBeenCalled();
@@ -100,7 +126,7 @@ describe('recipeRepository', () => {
     test('elimina la receta y no inserta si no hay items', async () => {
       mockDeleteWhere.mockResolvedValue(undefined);
 
-      const result = await recipeRepository.replaceRecipe(10, []);
+      const result = await recipeRepository.replaceRecipe(BRANCH_ID, 10, []);
 
       expect(result).toEqual([]);
       expect(mockDelete).toHaveBeenCalled();
@@ -113,7 +139,7 @@ describe('recipeRepository', () => {
     test('elimina las recetas de un producto compuesto', async () => {
       mockDeleteWhere.mockResolvedValue(undefined);
 
-      await recipeRepository.deleteByCompoundProductId(10);
+      await recipeRepository.deleteByCompoundProductId(BRANCH_ID, 10);
 
       expect(mockDelete).toHaveBeenCalled();
       expect(mockDeleteWhere).toHaveBeenCalled();

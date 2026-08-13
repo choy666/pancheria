@@ -191,7 +191,17 @@ Preferir `<ref_snippet .../>` cuando se quiere destacar una sección específica
 
 ## Nota sobre prompts anteriores
 
-Los prompts puntuales anteriores fueron condensados en guías reutilizables; los que aún se conservan (`multi-sucursal.md` y `tour-navbar.md`) reflejan propuestas o problemas específicos. Esta guía es ahora el punto de partida para escribir prompts nuevos. Los ejemplos concretos pueden reconstruirse a partir del historial de commits si es necesario.
+Los prompts puntuales anteriores fueron condensados en guías reutilizables. `tour-navbar.md` se conserva como referencia resuelta. `multi-sucursal.md` también se conserva como contexto histórico, pero su implementación ya está completa: el sistema soporta múltiples sucursales con aislamiento de datos. Esta guía es ahora el punto de partida para escribir prompts nuevos. Los ejemplos concretos pueden reconstruirse a partir del historial de commits si es necesario.
+
+## Prompts guardados
+
+Lista de prompts reutilizables y su estado:
+
+- [Actualizar documentación y generar informe de estado](file:///C%3A/developer/paginas/pancheria/.devin/prompts/actualizar-documentacion-y-reporte.md) — mantiene la documentación sincronizada con el código y genera un reporte de estado.
+- [Auditoría de alcance, funciones, herramientas y vigencia de la documentación](file:///C%3A/developer/paginas/pancheria/.devin/prompts/auditoria-documentacion.md) — auditoría profunda del proyecto sin modificar archivos.
+- [Realizar pruebas y brindar un reporte](file:///C%3A/developer/paginas/pancheria/.devin/prompts/pruebas-y-reporte.md) — flujo de verificación después de cambios importantes.
+- [Soporte multi-sucursal](file:///C%3A/developer/paginas/pancheria/.devin/prompts/multi-sucursal.md) — **resuelto / contexto histórico**.
+- [Tour navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/tour-navbar.md) — **resuelto / referencia**.
 
 ## Véase también
 

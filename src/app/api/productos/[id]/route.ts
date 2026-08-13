@@ -11,7 +11,8 @@ interface RouteParams {
 
 export const GET = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const productId = parseId(id);
     if (!productId) {
@@ -20,14 +21,15 @@ export const GET = withApiErrorHandling(
         { status: 400 }
       );
     }
-    const product = await productService.getProductById(productId);
+    const product = await productService.getProductById(branchId, productId);
     return NextResponse.json(product);
   }
 );
 
 export const PUT = withApiErrorHandling(
   async (request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const productId = parseId(id);
     if (!productId) {
@@ -38,14 +40,15 @@ export const PUT = withApiErrorHandling(
     }
     const body = await request.json();
     const data = productUpdateSchema.parse(body);
-    const product = await productService.updateProduct(productId, data);
+    const product = await productService.updateProduct(branchId, productId, data);
     return NextResponse.json(product);
   }
 );
 
 export const DELETE = withApiErrorHandling(
   async (_request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const productId = parseId(id);
     if (!productId) {
@@ -54,7 +57,7 @@ export const DELETE = withApiErrorHandling(
         { status: 400 }
       );
     }
-    await productService.deleteProduct(productId);
+    await productService.deleteProduct(branchId, productId);
     return NextResponse.json({ success: true });
   }
 );

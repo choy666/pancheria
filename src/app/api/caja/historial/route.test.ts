@@ -19,12 +19,16 @@ const mockedCashRegisterService = cashRegisterService as jest.Mocked<
 >;
 const mockedRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>;
 
+const BRANCH_ID = 1;
+
 describe('GET /api/caja/historial', () => {
   const baseUrl = 'http://localhost:3000/api/caja/historial';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedRequireAuth.mockResolvedValue({ user: { name: 'admin' } } as Awaited<ReturnType<typeof requireAuth>>);
+    mockedRequireAuth.mockResolvedValue({
+      user: { name: 'admin', branchId: BRANCH_ID },
+    } as Awaited<ReturnType<typeof requireAuth>>);
   });
 
   function buildRequest(search: string): NextRequest {
@@ -45,7 +49,7 @@ describe('GET /api/caja/historial', () => {
   });
 
   test('devuelve el historial de cajas con status 200', async () => {
-    const history = [{ id: 1, status: 'closed' as const }];
+    const history = [{ id: 1, branchId: BRANCH_ID, status: 'closed' as const }];
     mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue({
       items: history,
       total: 1,
@@ -59,6 +63,7 @@ describe('GET /api/caja/historial', () => {
     expect(response.status).toBe(200);
     expect(body.items).toEqual(history);
     expect(mockedCashRegisterService.listCashRegisterHistory).toHaveBeenCalledWith(
+      BRANCH_ID,
       expect.any(Date),
       expect.any(Date),
       undefined,
@@ -77,6 +82,7 @@ describe('GET /api/caja/historial', () => {
     await GET(buildRequest('start=2025-01-01&end=2025-01-31&status=open'));
 
     expect(mockedCashRegisterService.listCashRegisterHistory).toHaveBeenCalledWith(
+      BRANCH_ID,
       expect.any(Date),
       expect.any(Date),
       'open',

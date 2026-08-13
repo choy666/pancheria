@@ -1,4 +1,4 @@
-import { eq, sql, inArray } from 'drizzle-orm';
+import { eq, sql, inArray, and } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   cashRegisters,
@@ -26,29 +26,26 @@ import {
   ValidationError,
 } from '@/domain/errors';
 import type { PaymentMethod, ProductRow, SaleItemInput } from '@/domain/types';
+import {
+  calculateCompoundAvailability,
+  groupRecipesByProduct,
+  type RecipeWithSupply,
+} from '@/application/services/summaryService';
 
-type RecipeWithSupply = typeof recipes.$inferSelect & {
-  supply: ProductRow | null;
-};
-
-export async function calculateAvailability(productId: number): Promise<number> {
-  const product = await productRepository.findById(productId);
+export async function calculateAvailability(
+  branchId: number,
+  productId: number
+): Promise<number> {
+  const product = await productRepository.findById(branchId, productId);
   if (!product) return 0;
 
   if (product.type === 'compound') {
-    const recipe = await db.query.recipes.findMany({
+    const recipe = (await db.query.recipes.findMany({
       where: eq(recipes.compoundProductId, productId),
       with: { supply: true },
-    });
+    })) as RecipeWithSupply[];
 
-    const criticalItems = recipe.filter((r) => r.autoDiscount);
-    if (criticalItems.length === 0) return 0;
-
-    return Math.min(
-      ...criticalItems.map((r) =>
-        Math.floor((r.supply?.stock ?? 0) / r.quantity)
-      )
-    );
+    return calculateCompoundAvailability(recipe);
   }
 
   if (
@@ -66,11 +63,12 @@ export async function calculateAvailability(productId: number): Promise<number> 
 }
 
 export async function calculateAvailabilityForProductIds(
+  branchId: number,
   productIds: number[]
 ): Promise<Record<number, number>> {
   if (productIds.length === 0) return {};
 
-  const productsList = await productRepository.findByIds(productIds);
+  const productsList = await productRepository.findByIds(branchId, productIds);
   const productById = new Map(productsList.map((p) => [p.id, p]));
 
   const compoundProductIds = productsList
@@ -85,12 +83,9 @@ export async function calculateAvailabilityForProductIds(
       with: { supply: true },
     })) as RecipeWithSupply[];
 
-    for (const recipeItem of allRecipes) {
-      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-        recipesByProduct.set(recipeItem.compoundProductId, []);
-      }
-      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-    }
+    groupRecipesByProduct(allRecipes).forEach((value, key) => {
+      recipesByProduct.set(key, value);
+    });
   }
 
   const availabilityById: Record<number, number> = {};
@@ -103,18 +98,9 @@ export async function calculateAvailabilityForProductIds(
     }
 
     if (product.type === 'compound') {
-      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
-        (r) => r.autoDiscount
+      availabilityById[product.id] = calculateCompoundAvailability(
+        recipesByProduct.get(product.id) ?? []
       );
-      if (criticalItems.length === 0) {
-        availabilityById[product.id] = 0;
-      } else {
-        availabilityById[product.id] = Math.min(
-          ...criticalItems.map((r) =>
-            Math.floor((r.supply?.stock ?? 0) / r.quantity)
-          )
-        );
-      }
     } else if (
       product.type === 'critical_supply' &&
       product.criticalSupplyType === 'beverage'
@@ -131,6 +117,7 @@ export async function calculateAvailabilityForProductIds(
 }
 
 export async function validateCartAvailability(
+  branchId: number,
   items: SaleItemInput[],
   productIds?: number[]
 ): Promise<{
@@ -143,7 +130,7 @@ export async function validateCartAvailability(
     new Set([...itemProductIds, ...(productIds ?? [])])
   );
 
-  const productsList = await productRepository.findByIds(allProductIds);
+  const productsList = await productRepository.findByIds(branchId, allProductIds);
   const productById = new Map(productsList.map((p) => [p.id, p]));
 
   for (const item of items) {
@@ -167,17 +154,16 @@ export async function validateCartAvailability(
     })) as RecipeWithSupply[];
 
     for (const recipeItem of allRecipes) {
-      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-        recipesByProduct.set(recipeItem.compoundProductId, []);
-      }
-      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-
       if (recipeItem.autoDiscount) {
         supplyStockById[recipeItem.supplyId] = recipeItem.supply?.stock ?? 0;
         supplyNameById[recipeItem.supplyId] =
           recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
       }
     }
+
+    groupRecipesByProduct(allRecipes).forEach((value, key) => {
+      recipesByProduct.set(key, value);
+    });
   }
 
   for (const product of productsList) {
@@ -232,21 +218,11 @@ export async function validateCartAvailability(
         (supplyStockById[product.id] ?? 0) -
         (consumedBySupply[product.id] ?? 0);
     } else if (product.type === 'compound') {
-      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
-        (r) => r.autoDiscount
+      availabilityByProduct[productId] = calculateCompoundAvailability(
+        recipesByProduct.get(product.id) ?? [],
+        supplyStockById,
+        consumedBySupply
       );
-      if (criticalItems.length === 0) {
-        availabilityByProduct[productId] = 0;
-      } else {
-        availabilityByProduct[productId] = Math.min(
-          ...criticalItems.map((r) => {
-            const stockRemaining =
-              (supplyStockById[r.supplyId] ?? 0) -
-              (consumedBySupply[r.supplyId] ?? 0);
-            return Math.floor(stockRemaining / r.quantity);
-          })
-        );
-      }
     } else {
       availabilityByProduct[productId] = 0;
     }
@@ -312,6 +288,7 @@ async function updateCashRegisterSummary(
   tx: typeof db,
   cashRegister: {
     id: number;
+    branchId: number;
     total: number;
     cashTotal: number;
     transferTotal: number;
@@ -396,21 +373,29 @@ async function updateCashRegisterSummary(
       productsSummary: JSON.stringify(productsSummary),
       criticalSuppliesSummary: JSON.stringify(criticalSuppliesSummary),
     })
-    .where(eq(cashRegisters.id, cashRegister.id));
+    .where(
+      and(
+        eq(cashRegisters.id, cashRegister.id),
+        eq(cashRegisters.branchId, cashRegister.branchId)
+      )
+    );
 }
 
 export async function confirmSale(params: {
+  branchId: number;
   items: SaleItemInput[];
   paymentMethod: PaymentMethod;
   idempotencyKey: string;
 }) {
-  const { items, paymentMethod, idempotencyKey } = params;
+  const { branchId, items, paymentMethod, idempotencyKey } = params;
 
-  if (await isIdempotencyKeyUsed(idempotencyKey)) {
+  const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
+
+  if (await isIdempotencyKeyUsed(branchId, branchIdempotencyKey)) {
     throw new ValidationError('La venta ya fue procesada.');
   }
 
-  const cashRegister = await cashRegisterService.getOpenCashRegister();
+  const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
 
   if (!cashRegister) {
     throw new ValidationError(
@@ -418,8 +403,12 @@ export async function confirmSale(params: {
     );
   }
 
+  if (cashRegister.branchId !== branchId) {
+    throw new ValidationError('La caja abierta no pertenece a la sucursal.');
+  }
+
   const productIds = items.map((item) => item.productId);
-  const productsList = await productRepository.findByIds(productIds);
+  const productsList = await productRepository.findByIds(branchId, productIds);
 
   if (productsList.length !== productIds.length) {
     throw new NotFoundError('Producto');
@@ -427,28 +416,15 @@ export async function confirmSale(params: {
 
   const productById = new Map(productsList.map((p) => [p.id, p]));
 
-  const compoundProductIds = productsList
-    .filter((p) => p.type === 'compound')
-    .map((p) => p.id);
-
-  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
-  if (compoundProductIds.length > 0) {
-    const allRecipes = (await db.query.recipes.findMany({
-      where: inArray(recipes.compoundProductId, compoundProductIds),
-      with: { supply: true },
-    })) as RecipeWithSupply[];
-
-    for (const recipeItem of allRecipes) {
-      if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-        recipesByProduct.set(recipeItem.compoundProductId, []);
-      }
-      recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-    }
-  }
-
   for (const item of items) {
     const product = productById.get(item.productId);
     if (!product) throw new NotFoundError('Producto', item.productId);
+
+    if (product.branchId !== branchId) {
+      throw new ValidationError(
+        `El producto ${product.name} no pertenece a la sucursal.`
+      );
+    }
 
     if (!product.isActive) {
       throw new ValidationError(`El producto ${product.name} no está activo.`);
@@ -467,7 +443,21 @@ export async function confirmSale(params: {
     }
   }
 
-  const { shortageByProduct } = await validateCartAvailability(items);
+  const compoundProductIds = productsList
+    .filter((p) => p.type === 'compound')
+    .map((p) => p.id);
+
+  let recipesByProduct = new Map<number, RecipeWithSupply[]>();
+  if (compoundProductIds.length > 0) {
+    const allRecipes = (await db.query.recipes.findMany({
+      where: inArray(recipes.compoundProductId, compoundProductIds),
+      with: { supply: true },
+    })) as RecipeWithSupply[];
+
+    recipesByProduct = groupRecipesByProduct(allRecipes);
+  }
+
+  const { shortageByProduct } = await validateCartAvailability(branchId, items);
 
   if (Object.keys(shortageByProduct).length > 0) {
     const productId = Number(Object.keys(shortageByProduct)[0]);
@@ -507,10 +497,11 @@ export async function confirmSale(params: {
     const [sale] = await tx
       .insert(sales)
       .values({
+        branchId,
         total: moneyToNumber(saleTotal),
         paymentMethod,
         cashRegisterId: cashRegister.id,
-        idempotencyKey,
+        idempotencyKey: branchIdempotencyKey,
         createdAt: nowUTC(),
       })
       .returning();
@@ -539,6 +530,7 @@ export async function confirmSale(params: {
             .where(eq(products.id, recipeItem.supplyId));
 
           await tx.insert(stockMovements).values({
+            branchId,
             productId: recipeItem.supplyId,
             type: 'sale',
             quantity: -consumed,
@@ -556,6 +548,7 @@ export async function confirmSale(params: {
           .where(eq(products.id, product.id));
 
         await tx.insert(stockMovements).values({
+          branchId,
           productId: product.id,
           type: 'sale',
           quantity: -item.quantity,
@@ -570,7 +563,12 @@ export async function confirmSale(params: {
     const [lockedCashRegister] = await tx
       .select()
       .from(cashRegisters)
-      .where(eq(cashRegisters.id, cashRegister.id))
+      .where(
+        and(
+          eq(cashRegisters.id, cashRegister.id),
+          eq(cashRegisters.branchId, branchId)
+        )
+      )
       .for('update');
 
     if (!lockedCashRegister) {
@@ -598,15 +596,20 @@ export async function confirmSale(params: {
   });
 }
 
-export async function cancelSale(id: number, reason: string) {
+export async function cancelSale(
+  branchId: number,
+  id: number,
+  reason: string
+) {
   const sale = (await db.query.sales.findFirst({
-    where: eq(sales.id, id),
+    where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
     with: {
       items: true,
       cashRegister: true,
     },
   })) as {
     id: number;
+    branchId: number;
     total: number;
     paymentMethod: PaymentMethod;
     status: 'active' | 'cancelled';
@@ -614,6 +617,7 @@ export async function cancelSale(id: number, reason: string) {
     items: { productId: number; quantity: number }[];
     cashRegister: {
       id: number;
+      branchId: number;
       total: number;
       cashTotal: number;
       transferTotal: number;
@@ -631,7 +635,8 @@ export async function cancelSale(id: number, reason: string) {
   if (
     !sale.cashRegister ||
     sale.cashRegister.status !== 'open' ||
-    sale.cashRegister.deletedAt
+    sale.cashRegister.deletedAt ||
+    sale.cashRegister.branchId !== branchId
   ) {
     throw new ValidationError(
       'No se puede anular una venta de una caja cerrada o eliminada.'
@@ -641,26 +646,21 @@ export async function cancelSale(id: number, reason: string) {
   return executeInTransaction(async (tx) => {
     const productIds = (sale.items ?? []).map((item) => item.productId);
     const productsList =
-      productIds.length > 0 ? await productRepository.findByIds(productIds) : [];
+      productIds.length > 0 ? await productRepository.findByIds(branchId, productIds) : [];
     const productById = new Map(productsList.map((p) => [p.id, p]));
 
     const compoundProductIds = productsList
       .filter((p) => p.type === 'compound')
       .map((p) => p.id);
 
-    const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+    let recipesByProduct = new Map<number, RecipeWithSupply[]>();
     if (compoundProductIds.length > 0) {
       const allRecipes = (await tx.query.recipes.findMany({
         where: inArray(recipes.compoundProductId, compoundProductIds),
         with: { supply: true },
       })) as RecipeWithSupply[];
 
-      for (const recipeItem of allRecipes) {
-        if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-          recipesByProduct.set(recipeItem.compoundProductId, []);
-        }
-        recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-      }
+      recipesByProduct = groupRecipesByProduct(allRecipes);
     }
 
     for (const item of sale.items ?? []) {
@@ -681,6 +681,7 @@ export async function cancelSale(id: number, reason: string) {
             .where(eq(products.id, recipeItem.supplyId));
 
           await tx.insert(stockMovements).values({
+            branchId,
             productId: recipeItem.supplyId,
             type: 'cancellation',
             quantity: reintegrated,
@@ -698,6 +699,7 @@ export async function cancelSale(id: number, reason: string) {
           .where(eq(products.id, product.id));
 
         await tx.insert(stockMovements).values({
+          branchId,
           productId: product.id,
           type: 'cancellation',
           quantity: item.quantity,
@@ -716,13 +718,18 @@ export async function cancelSale(id: number, reason: string) {
         cancelledAt: nowUTC(),
         cancellationReason: reason,
       })
-      .where(eq(sales.id, id))
+      .where(and(eq(sales.id, id), eq(sales.branchId, branchId)))
       .returning();
 
     const [lockedCashRegister] = await tx
       .select()
       .from(cashRegisters)
-      .where(eq(cashRegisters.id, sale.cashRegister!.id))
+      .where(
+        and(
+          eq(cashRegisters.id, sale.cashRegister!.id),
+          eq(cashRegisters.branchId, branchId)
+        )
+      )
       .for('update');
 
     if (!lockedCashRegister) {

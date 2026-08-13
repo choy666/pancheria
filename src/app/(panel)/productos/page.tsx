@@ -25,15 +25,20 @@ import {
 } from '@/lib/product-style';
 import * as productService from '@/application/services/productService';
 import * as saleService from '@/application/services/saleService';
+import { auth } from '@/auth';
 
 export default async function ProductsPage() {
-  const products = await productService.listProducts();
+  const session = await auth();
+  const branchId = Number(session?.user?.branchId);
+
+  const products = await productService.listProducts(branchId);
   const groupedProducts = groupProductsByType(
     products,
     typePriority,
     criticalSupplyTypePriority
   );
   const sellableById = await saleService.calculateAvailabilityForProductIds(
+    branchId,
     products.map((product) => product.id)
   );
 

@@ -11,7 +11,8 @@ interface RouteParams {
 
 export const POST = withApiErrorHandling(
   async (request: NextRequest, { params }: RouteParams) => {
-    await requireAuth();
+    const session = await requireAuth();
+    const branchId = Number(session.user.branchId);
     const { id } = await params;
     const saleId = parseId(id);
     if (!saleId) {
@@ -22,7 +23,7 @@ export const POST = withApiErrorHandling(
     }
     const body = await request.json();
     const { reason } = cancellationSchema.parse(body);
-    const sale = await saleService.cancelSale(saleId, reason);
+    const sale = await saleService.cancelSale(branchId, saleId, reason);
     return NextResponse.json(sale);
   }
 );

@@ -58,12 +58,14 @@ knowledge:
       4. Generar migraciones: npx drizzle-kit generate
       5. Empujar migraciones: npx drizzle-kit push
       6. Ejecutar seed (administrador y catálogo inicial): npx tsx src/db/seeds.ts
-      7. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      7. Variables de entorno usadas por el seed: `DEFAULT_BRANCH_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`; opcionalmente `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD` para crear una segunda sucursal y usuario.
+      8. `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` controla el intervalo de refresco del panel de caja (por defecto 5000 ms).
+      9. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
 
   - name: deploy
     contents: |
       Despliegue en Vercel:
-      1. Configurar `DATABASE_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `NEXTAUTH_URL` en Vercel.
+      1. Configurar `DATABASE_URL` (o `POSTGRES_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME` y `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` en Vercel.
       2. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
       3. Redeployar con `vercel --prod` para que las variables formen parte del build.
       4. Verificar en `vercel inspect <url>` que `Builds` contenga funciones serverless (`λ`); si aparece `Framework Preset: Other`, el proyecto no detectó Next.js.

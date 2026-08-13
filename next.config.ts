@@ -3,6 +3,9 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
   compress: true,
+  typescript: {
+    tsconfigPath: './tsconfig.build.json',
+  },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },

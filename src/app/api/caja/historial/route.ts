@@ -9,7 +9,8 @@ import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
 import type { CashRegisterStatus } from '@/domain/types';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { searchParams } = new URL(request.url);
   const startParam = searchParams.get('start');
   const endParam = searchParams.get('end');
@@ -24,6 +25,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
 
   const pagination = parsePaginationParams(searchParams);
   const cashRegisters = await cashRegisterService.listCashRegisterHistory(
+    branchId,
     start,
     end,
     status,

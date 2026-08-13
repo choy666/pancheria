@@ -5,7 +5,8 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { requireAuth } from '@/lib/auth';
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  await requireAuth();
+  const session = await requireAuth();
+  const branchId = Number(session.user.branchId);
   const { searchParams } = new URL(request.url);
   const productId = parseId(searchParams.get('productId'));
 
@@ -16,6 +17,6 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     );
   }
 
-  const availability = await saleService.calculateAvailability(productId);
+  const availability = await saleService.calculateAvailability(branchId, productId);
   return NextResponse.json({ productId, availability });
 });

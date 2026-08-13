@@ -7,8 +7,8 @@ import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import type { PaginationParams, StockMovementType } from '@/domain/types';
 
-export async function listStockAlerts() {
-  const allProducts = await productRepository.findActive();
+export async function listStockAlerts(branchId: number) {
+  const allProducts = await productRepository.findActive(branchId);
 
   return allProducts
     .filter(
@@ -23,13 +23,18 @@ export async function listStockAlerts() {
 }
 
 export async function adjustStock(
+  branchId: number,
   productId: number,
   quantity: number,
   reason: string,
   type: StockMovementType = 'manual_adjustment'
 ) {
-  const product = await productRepository.findById(productId);
+  const product = await productRepository.findById(branchId, productId);
   if (!product) throw new NotFoundError('Producto', productId);
+
+  if (product.branchId !== branchId) {
+    throw new NotFoundError('Producto', productId);
+  }
 
   if (!reason || reason.length < 3) {
     throw new ValidationError('El motivo del ajuste debe tener al menos 3 caracteres.');
@@ -58,6 +63,7 @@ export async function adjustStock(
       .where(eq(products.id, productId));
 
     await tx.insert(stockMovements).values({
+      branchId,
       productId,
       type,
       quantity,
@@ -70,11 +76,12 @@ export async function adjustStock(
 }
 
 export async function getStockHistory(
+  branchId: number,
   productId: number,
   pagination: PaginationParams
 ) {
-  const product = await productRepository.findById(productId);
+  const product = await productRepository.findById(branchId, productId);
   if (!product) throw new NotFoundError('Producto', productId);
 
-  return stockMovementRepository.findByProductId(productId, pagination);
+  return stockMovementRepository.findByProductId(branchId, productId, pagination);
 }

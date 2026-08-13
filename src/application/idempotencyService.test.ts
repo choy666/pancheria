@@ -19,6 +19,8 @@ const mockedDb = db as unknown as {
   };
 };
 
+const BRANCH_ID = 1;
+
 describe('idempotencyService', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -30,7 +32,7 @@ describe('idempotencyService', () => {
       idempotencyKey: 'key-123',
     } as any);
 
-    const result = await isIdempotencyKeyUsed('key-123');
+    const result = await isIdempotencyKeyUsed(BRANCH_ID, 'key-123');
 
     expect(result).toBe(true);
     expect(mockedDb.query.sales.findFirst).toHaveBeenCalled();
@@ -39,7 +41,7 @@ describe('idempotencyService', () => {
   test('devuelve false si la clave de idempotencia no fue usada', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue(undefined);
 
-    const result = await isIdempotencyKeyUsed('key-nueva');
+    const result = await isIdempotencyKeyUsed(BRANCH_ID, 'key-nueva');
 
     expect(result).toBe(false);
     expect(mockedDb.query.sales.findFirst).toHaveBeenCalled();
