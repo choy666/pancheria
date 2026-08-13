@@ -225,6 +225,7 @@ export function StockList() {
                     <TableCell className="text-right">
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button
+                          data-tour="stock-adjust"
                           variant="ghost"
                           size="sm"
                           className="w-full sm:w-auto"

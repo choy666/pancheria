@@ -1,9 +1,8 @@
-import { eq, sql, inArray, and } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   cashRegisters,
   products,
-  recipes,
   sales,
   saleItems,
   stockMovements,
@@ -27,6 +26,7 @@ import {
 import type { PaymentMethod, ProductRow, SaleItemInput } from '@/domain/types';
 import {
   calculateCompoundAvailability,
+  findRecipesForProducts,
   groupRecipesByProduct,
   type RecipeWithSupply,
 } from '@/application/services/summaryService';
@@ -39,10 +39,7 @@ export async function calculateAvailability(
   if (!product) return 0;
 
   if (product.type === 'compound') {
-    const recipe = (await db.query.recipes.findMany({
-      where: eq(recipes.compoundProductId, productId),
-      with: { supply: true },
-    })) as RecipeWithSupply[];
+    const recipe = await findRecipesForProducts(branchId, [productId]);
 
     return calculateCompoundAvailability(recipe);
   }
@@ -77,10 +74,10 @@ export async function calculateAvailabilityForProductIds(
   const recipesByProduct = new Map<number, RecipeWithSupply[]>();
 
   if (compoundProductIds.length > 0) {
-    const allRecipes = (await db.query.recipes.findMany({
-      where: inArray(recipes.compoundProductId, compoundProductIds),
-      with: { supply: true },
-    })) as RecipeWithSupply[];
+    const allRecipes = await findRecipesForProducts(
+      branchId,
+      compoundProductIds
+    );
 
     groupRecipesByProduct(allRecipes).forEach((value, key) => {
       recipesByProduct.set(key, value);
@@ -147,10 +144,10 @@ export async function validateCartAvailability(
   const supplyNameById: Record<number, string> = {};
 
   if (compoundProductIds.length > 0) {
-    const allRecipes = (await db.query.recipes.findMany({
-      where: inArray(recipes.compoundProductId, compoundProductIds),
-      with: { supply: true },
-    })) as RecipeWithSupply[];
+    const allRecipes = await findRecipesForProducts(
+      branchId,
+      compoundProductIds
+    );
 
     for (const recipeItem of allRecipes) {
       if (recipeItem.autoDiscount) {
@@ -435,10 +432,10 @@ export async function confirmSale(params: {
 
   let recipesByProduct = new Map<number, RecipeWithSupply[]>();
   if (compoundProductIds.length > 0) {
-    const allRecipes = (await db.query.recipes.findMany({
-      where: inArray(recipes.compoundProductId, compoundProductIds),
-      with: { supply: true },
-    })) as RecipeWithSupply[];
+    const allRecipes = await findRecipesForProducts(
+      branchId,
+      compoundProductIds
+    );
 
     recipesByProduct = groupRecipesByProduct(allRecipes);
   }
@@ -641,10 +638,11 @@ export async function cancelSale(
 
     let recipesByProduct = new Map<number, RecipeWithSupply[]>();
     if (compoundProductIds.length > 0) {
-      const allRecipes = (await tx.query.recipes.findMany({
-        where: inArray(recipes.compoundProductId, compoundProductIds),
-        with: { supply: true },
-      })) as RecipeWithSupply[];
+      const allRecipes = await findRecipesForProducts(
+        branchId,
+        compoundProductIds,
+        tx
+      );
 
       recipesByProduct = groupRecipesByProduct(allRecipes);
     }

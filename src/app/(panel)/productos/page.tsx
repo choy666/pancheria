@@ -52,7 +52,7 @@ export default async function ProductsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Productos y promos</h1>
+        <h1 data-tour="products-header" className="text-2xl font-semibold tracking-tight">Productos y promos</h1>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <Link data-tour="products-new-product" href="/productos/nuevo?tab=product" className="w-full sm:w-auto">
             <Button variant="outline" className="w-full sm:w-auto">

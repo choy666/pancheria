@@ -21,12 +21,18 @@ import { CashRegisterActions } from '@/components/caja/cash-register-actions';
 import { useCashRegisterHistory } from '@/components/caja/use-cash-register-history';
 import type { CashRegister } from '@/config/caja';
 
+interface Branch {
+  id: number;
+  name: string;
+}
+
 interface CajaHistoryProps {
   detailRoute?: string;
   statusFilter?: 'all' | 'closed';
   showAutoColumn?: boolean;
   deletedOnly?: boolean;
   isAdmin?: boolean;
+  branches?: Branch[];
   onDelete?: (id: number) => Promise<void>;
   onRestore?: (id: number) => Promise<void>;
   onPermanentDelete?: (id: number) => Promise<void>;
@@ -39,6 +45,7 @@ export function CajaHistory({
   showAutoColumn = true,
   deletedOnly = false,
   isAdmin = false,
+  branches,
   onDelete,
   onRestore,
   onPermanentDelete,
@@ -166,6 +173,8 @@ export function CajaHistory({
     return <p className="text-destructive">{error}</p>;
   }
 
+  const branchNameById = new Map(branches?.map((b) => [b.id, b.name]));
+
   return (
     <div className="space-y-5">
       {actionError && <p className="text-destructive">{actionError}</p>}
@@ -206,6 +215,11 @@ export function CajaHistory({
               <TableHead className="hidden lg:table-cell">Transferencia</TableHead>
               {showAutoColumn && (
                 <TableHead className="hidden sm:table-cell">Auto</TableHead>
+              )}
+              <TableHead className="hidden sm:table-cell">Abierta por</TableHead>
+              <TableHead className="hidden sm:table-cell">Cerrada por</TableHead>
+              {isAdmin && (
+                <TableHead className="hidden md:table-cell">Sucursal</TableHead>
               )}
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -256,6 +270,18 @@ export function CajaHistory({
                   {showAutoColumn && (
                     <TableCell className="hidden sm:table-cell">
                       {cashRegister.autoClosed ? 'Sí' : 'No'}
+                    </TableCell>
+                  )}
+                  <TableCell className="hidden sm:table-cell">
+                    {cashRegister.openedBy}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {cashRegister.closedBy ?? '-'}
+                  </TableCell>
+                  {isAdmin && (
+                    <TableCell className="hidden md:table-cell">
+                      {branchNameById.get(cashRegister.branchId) ??
+                        `Sucursal ${cashRegister.branchId}`}
                     </TableCell>
                   )}
                   <TableCell

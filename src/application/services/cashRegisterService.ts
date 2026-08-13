@@ -13,7 +13,7 @@ import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
 export async function getOpenCashRegister(branchId: number) {
   const cashRegister = await cashRegisterRepository.findOpen(branchId);
 
-  if (!cashRegister) return null;
+  if (!cashRegister || cashRegister.branchId !== branchId) return null;
 
   const now = nowUTC();
   const autoCloseAt = addHours(cashRegister.openedAt, AUTO_CLOSE_HOURS);
@@ -72,6 +72,14 @@ export async function openCashRegister(params: {
   openedBy: string;
 }) {
   const { branchId, openedBy } = params;
+
+  if (!branchId || branchId <= 0) {
+    throw new ValidationError('La sucursal es obligatoria para abrir la caja.');
+  }
+
+  if (!openedBy || openedBy.trim() === '') {
+    throw new ValidationError('El usuario que abre la caja es obligatorio.');
+  }
 
   try {
     return await executeInTransaction(async (tx) => {
@@ -187,6 +195,14 @@ export async function closeCashRegister(
   id: number,
   closedBy: string
 ) {
+  if (!branchId || branchId <= 0) {
+    throw new ValidationError('La sucursal es obligatoria para cerrar la caja.');
+  }
+
+  if (!closedBy || closedBy.trim() === '') {
+    throw new ValidationError('El usuario que cierra la caja es obligatorio.');
+  }
+
   return executeInTransaction(async (tx) => {
     const [cashRegister] = await tx
       .select()

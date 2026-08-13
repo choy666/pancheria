@@ -84,6 +84,7 @@ export async function updateUser(
   data: {
     username?: string;
     branchId?: number;
+    password?: string;
   }
 ) {
   const user = await db.query.users.findFirst({
@@ -131,6 +132,14 @@ export async function updateUser(
     updates.branchId = data.branchId;
   }
 
+  if (data.password !== undefined && data.password.length > 0) {
+    if (data.password.length < 4) {
+      throw new ValidationError('La contraseña debe tener al menos 4 caracteres.');
+    }
+
+    updates.passwordHash = await bcrypt.hash(data.password, 10);
+  }
+
   if (Object.keys(updates).length === 0) {
     return user;
   }
@@ -143,34 +152,6 @@ export async function updateUser(
 
   if (!updated) {
     throw new Error('No se pudo actualizar el usuario.');
-  }
-
-  return updated;
-}
-
-export async function resetUserPassword(id: number, password: string) {
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, id),
-  });
-
-  if (!user) {
-    throw new NotFoundError('Usuario', id);
-  }
-
-  if (password.length < 4) {
-    throw new ValidationError('La contraseña debe tener al menos 4 caracteres.');
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-
-  const [updated] = await db
-    .update(users)
-    .set({ passwordHash })
-    .where(eq(users.id, id))
-    .returning();
-
-  if (!updated) {
-    throw new Error('No se pudo actualizar la contraseña.');
   }
 
   return updated;

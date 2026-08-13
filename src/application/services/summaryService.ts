@@ -4,6 +4,21 @@ import { products, recipes } from '@/db/schema';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import type { ProductRow } from '@/domain/types';
 
+export async function findRecipesForProducts(
+  branchId: number,
+  compoundProductIds: number[],
+  dbOrTx: typeof db = db
+): Promise<RecipeWithSupply[]> {
+  if (compoundProductIds.length === 0) return [];
+
+  const allRecipes = (await dbOrTx.query.recipes.findMany({
+    where: inArray(recipes.compoundProductId, compoundProductIds),
+    with: { supply: true },
+  })) as RecipeWithSupply[];
+
+  return allRecipes.filter((recipe) => recipe.supply?.branchId === branchId);
+}
+
 export type RecipeWithSupply = typeof recipes.$inferSelect & {
   supply: ProductRow | null;
 };
@@ -70,12 +85,13 @@ export async function calculateSummaryFromSales(
 
   const recipesByProduct = new Map<number, RecipeWithSupply[]>();
   if (compoundProductIds.size > 0) {
-    const allRecipes = (await dbOrTx.query.recipes.findMany({
-      where: inArray(recipes.compoundProductId, Array.from(compoundProductIds)),
-      with: { supply: true },
-    })) as RecipeWithSupply[];
+    const filteredRecipes = await findRecipesForProducts(
+      branchId,
+      Array.from(compoundProductIds),
+      dbOrTx
+    );
 
-    groupRecipesByProduct(allRecipes).forEach((value, key) => {
+    groupRecipesByProduct(filteredRecipes).forEach((value, key) => {
       recipesByProduct.set(key, value);
     });
   }

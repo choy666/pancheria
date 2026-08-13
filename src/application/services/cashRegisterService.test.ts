@@ -152,6 +152,21 @@ describe('cashRegisterService', () => {
       expect(result).toBeNull();
       expect(mockedExecuteInTransaction).toHaveBeenCalled();
     });
+
+    test('no devuelve una caja de otra sucursal', async () => {
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        branchId: 999,
+        openedAt: new Date(),
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+      } as any);
+
+      const result = await getOpenCashRegister(BRANCH_ID);
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('getOpenCashRegisterSummary', () => {
@@ -273,6 +288,29 @@ describe('cashRegisterService', () => {
 
       await expect(openCashRegister({ branchId: BRANCH_ID, openedBy: 'admin' })).rejects.toThrow(ValidationError);
     });
+
+    test('rechaza apertura sin sucursal o usuario válido', async () => {
+      await expect(openCashRegister({ branchId: 0, openedBy: 'admin' })).rejects.toThrow(ValidationError);
+      await expect(openCashRegister({ branchId: BRANCH_ID, openedBy: '' })).rejects.toThrow(ValidationError);
+    });
+
+    test('asigna branchId y openedBy al abrir caja', async () => {
+      mockSelectResult = [];
+      mockInsertResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'operador',
+          status: 'open',
+        },
+      ];
+
+      const result = await openCashRegister({ branchId: BRANCH_ID, openedBy: 'operador' });
+
+      expect(result?.branchId).toBe(BRANCH_ID);
+      expect(result?.openedBy).toBe('operador');
+    });
   });
 
   describe('closeCashRegister', () => {
@@ -313,7 +351,7 @@ describe('cashRegisterService', () => {
           supplyId: 2,
           quantity: 1,
           autoDiscount: true,
-          supply: { id: 2, name: 'Pan' },
+          supply: { id: 2, branchId: BRANCH_ID, name: 'Pan' },
         },
       ] as any);
 
@@ -353,6 +391,37 @@ describe('cashRegisterService', () => {
       await expect(closeCashRegister(BRANCH_ID, 999, 'admin')).rejects.toThrow(
         'Caja con ID 999 no encontrado.'
       );
+    });
+
+    test('rechaza cierre con sucursal o usuario inválido', async () => {
+      await expect(closeCashRegister(0, 1, 'admin')).rejects.toThrow(ValidationError);
+      await expect(closeCashRegister(BRANCH_ID, 1, '')).rejects.toThrow(ValidationError);
+    });
+
+    test('asigna branchId y closedBy al cerrar caja', async () => {
+      mockUpdate.mockResolvedValue([
+        { ...createMockCashRegister(), closedBy: 'operador' },
+      ]);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await closeCashRegister(BRANCH_ID, 1, 'operador');
+
+      expect(result?.branchId).toBe(BRANCH_ID);
+      expect(result?.closedBy).toBe('operador');
     });
   });
 
@@ -573,7 +642,7 @@ describe('cashRegisterService', () => {
     });
 
     test('lanza NotFoundError si la caja no existe', async () => {
-      mockedCashRegisterRepository.findById.mockResolvedValue(undefined);
+      mockedCashRegisterRepository.findById.mockResolvedValue(null);
 
       await expect(deleteCashRegister(BRANCH_ID, 1)).rejects.toThrow(NotFoundError);
     });
@@ -737,7 +806,7 @@ describe('cashRegisterService', () => {
           supplyId: 2,
           quantity: 1,
           autoDiscount: true,
-          supply: { id: 2, name: 'Pan' },
+          supply: { id: 2, branchId: BRANCH_ID, name: 'Pan' },
         },
       ] as any);
 

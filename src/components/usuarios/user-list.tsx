@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -34,19 +34,22 @@ interface UserListProps {
 
 export function UserList({ users, branches }: UserListProps) {
   const [editingUser, setEditingUser] = useState<User | undefined>();
+  const handleCancelEdit = useCallback(() => setEditingUser(undefined), []);
 
   const branchNameById = new Map(
     branches.map((branch) => [branch.id, branch.name])
   );
 
   return (
-    <div className="space-y-5">
-      <UserForm
-        key={editingUser?.id ?? 'create'}
-        branches={branches}
-        user={editingUser}
-        onCancel={() => setEditingUser(undefined)}
-      />
+    <div data-tour="users-table" className="space-y-5">
+      <div data-tour="user-form">
+        <UserForm
+          key={editingUser?.id ?? 'create'}
+          branches={branches}
+          user={editingUser}
+          onCancel={handleCancelEdit}
+        />
+      </div>
 
       <div className="rounded-2xl border border-white/8">
         <Table>

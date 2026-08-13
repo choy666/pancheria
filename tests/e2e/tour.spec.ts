@@ -1,5 +1,39 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, ensureCashRegisterOpen } from './helpers';
+import { loginAsAdmin, loginAsOperator, ensureCashRegisterOpen } from './helpers';
+
+async function findTourStorageKey(page: Page, suffix: string): Promise<string | null> {
+  return page.evaluate((s) => {
+    const prefix = `pancheria-tour-${s}`;
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith(prefix)) {
+        return key;
+      }
+    }
+    return null;
+  }, suffix);
+}
+
+async function getTourStorageSuffix(page: Page): Promise<string> {
+  const seenKey = await findTourStorageKey(page, 'seen');
+  if (!seenKey) {
+    throw new Error('No se encontró la clave pancheria-tour-seen en localStorage');
+  }
+  return seenKey.replace('pancheria-tour-seen', '');
+}
+
+async function getTourStorageValue(page: Page, suffix: string): Promise<string | null> {
+  const key = await findTourStorageKey(page, suffix);
+  if (!key) return null;
+  return page.evaluate((k) => window.localStorage.getItem(k), key);
+}
+
+async function setTourStorageValue(page: Page, suffix: string, value: string) {
+  const suffixTour = await getTourStorageSuffix(page);
+  await page.evaluate(
+    ({ k, v }) => window.localStorage.setItem(k, v),
+    { k: `pancheria-tour-${suffix}${suffixTour}`, v: value }
+  );
+}
 
 async function waitForTourStep(page: Page, title: string) {
   await expect(page.locator('.driver-popover-title')).toBeVisible();
@@ -16,7 +50,7 @@ async function clickTourPrev(page: Page) {
 
 test.describe('Guía interactiva', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
   });
 
   test('se inicia manualmente, se cierra con la cruz y el botón Finalizar funciona', async ({
@@ -38,16 +72,13 @@ test.describe('Guía interactiva', () => {
     await page.locator('.driver-popover-close-btn').click();
     await expect(page.locator('.driver-popover')).toHaveCount(0);
 
-    const seen = await page.evaluate(() =>
-      window.localStorage.getItem('pancheria-tour-seen')
-    );
+    const seen = await getTourStorageValue(page, 'seen');
     expect(seen).toBe('true');
 
     // Simula la reanudación en el paso final para probar el botón Finalizar.
-    await page.evaluate(() => {
-      window.localStorage.setItem('pancheria-tour-active', 'true');
-      window.localStorage.setItem('pancheria-tour-step', '12');
-    });
+    // El paso final del flujo admin es el índice 15.
+    await setTourStorageValue(page, 'active', 'true');
+    await setTourStorageValue(page, 'step', '15');
 
     await page.goto('/cierre/historial');
     await expect(page.locator('.driver-popover-title')).toBeVisible();
@@ -78,7 +109,9 @@ test.describe('Guía interactiva', () => {
 
     // Avanzar hasta el paso "Ventas".
     await clickTourNext(page); // 0 -> 1
+    await waitForTourStep(page, 'Panel de control');
     await clickTourNext(page); // 1 -> 2
+    await waitForTourStep(page, 'Menú superior');
     await clickTourNext(page); // 2 -> 3
     await waitForTourStep(page, 'Ventas');
 
@@ -123,6 +156,17 @@ test.describe('Guía interactiva', () => {
     await waitForTourStep(page, 'Historial de cierres');
 
     await clickTourNext(page); // 11 -> 12
+    await page.waitForURL('/sucursales');
+    await waitForTourStep(page, 'Sucursales');
+
+    await clickTourNext(page); // 12 -> 13
+    await page.waitForURL('/usuarios');
+    await waitForTourStep(page, 'Usuarios');
+
+    await clickTourNext(page); // 13 -> 14
+    await waitForTourStep(page, 'Selector de sucursal');
+
+    await clickTourNext(page); // 14 -> 15
     await waitForTourStep(page, 'Fin del recorrido');
 
     const doneButton = page.locator(
@@ -133,9 +177,83 @@ test.describe('Guía interactiva', () => {
 
     await expect(page.locator('.driver-popover')).toHaveCount(0);
 
-    const tourActive = await page.evaluate(() =>
-      window.localStorage.getItem('pancheria-tour-active')
+    const tourActive = await getTourStorageValue(page, 'active');
+    expect(tourActive).toBeNull();
+  });
+});
+
+test.describe('Tour como operador', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsOperator(page);
+  });
+
+  test('recorre las secciones permitidas y omite las de administrador', async ({
+    page,
+  }) => {
+    await ensureCashRegisterOpen(page);
+
+    await page.goto('/');
+
+    // No se inicia automáticamente.
+    await expect(page.locator('.driver-popover')).toHaveCount(0);
+
+    // Inicia con el botón Guía.
+    await page.getByRole('button', { name: 'Guía' }).click();
+    await waitForTourStep(page, 'Bienvenido a Panchería');
+
+    // El paso del panel describe solo las secciones permitidas.
+    await clickTourNext(page); // 0 -> 1
+    await waitForTourStep(page, 'Panel de control');
+    await expect(page.locator('.driver-popover-description')).toContainText(
+      'Ventas, Stock y Caja'
     );
+    await expect(page.locator('.driver-popover-description')).toContainText(
+      'No tenés acceso a Productos, Sucursales ni Usuarios'
+    );
+
+    // Avanzar hasta Ventas.
+    await clickTourNext(page); // 1 -> 2
+    await waitForTourStep(page, 'Menú superior');
+    await clickTourNext(page); // 2 -> 3
+    await waitForTourStep(page, 'Ventas');
+
+    // Navega a /ventas.
+    await clickTourNext(page); // 3 -> 4
+    await page.waitForURL('/ventas');
+    await waitForTourStep(page, 'Estado de la caja');
+
+    await clickTourNext(page); // 4 -> 5
+    await waitForTourStep(page, 'Productos disponibles');
+
+    await clickTourNext(page); // 5 -> 6
+    await waitForTourStep(page, 'Pedido actual');
+
+    // El recorrido del operador va de Ventas directamente a Stock.
+    await clickTourNext(page); // 6 -> 7
+    await page.waitForURL('/stock');
+    await waitForTourStep(page, 'Stock');
+
+    await clickTourNext(page); // 7 -> 8
+    await page.waitForURL('/cierre');
+    await waitForTourStep(page, 'Cierre de caja');
+
+    await clickTourNext(page); // 8 -> 9
+    await page.waitForURL('/cierre/historial');
+    await waitForTourStep(page, 'Historial de cierres');
+
+    // El recorrido finaliza sin pasar por Productos, Sucursales ni Usuarios.
+    await clickTourNext(page); // 9 -> 10
+    await waitForTourStep(page, 'Fin del recorrido');
+
+    const doneButton = page.locator(
+      '.driver-popover-next-btn.driver-popover-done-btn'
+    );
+    await expect(doneButton).toHaveText('Finalizar');
+    await doneButton.click();
+
+    await expect(page.locator('.driver-popover')).toHaveCount(0);
+
+    const tourActive = await getTourStorageValue(page, 'active');
     expect(tourActive).toBeNull();
   });
 });

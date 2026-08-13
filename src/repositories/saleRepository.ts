@@ -5,7 +5,7 @@ import { nowUTC } from '@/lib/date';
 import type { PaginatedResult, PaginationParams, PaymentMethod, SaleStatus } from '@/domain/types';
 
 export async function findById(branchId: number, id: number) {
-  return db.query.sales.findFirst({
+  const result = await db.query.sales.findFirst({
     where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
     with: {
       items: {
@@ -15,6 +15,7 @@ export async function findById(branchId: number, id: number) {
       },
     },
   });
+  return result ?? null;
 }
 
 export async function findByDateRange(

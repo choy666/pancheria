@@ -86,6 +86,65 @@ test.describe('Rol administrador', () => {
     // El admin no debe ver el span redundante porque el selector ya muestra el nombre.
     await expect(page.getByTestId('active-branch-name')).toHaveCount(0);
   });
+
+  test('en /usuarios no puede editar ni eliminar al administrador inicial', async ({ page }) => {
+    const adminUsername = process.env.ADMIN_USERNAME ?? 'admin';
+    await page.goto('/usuarios');
+
+    await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
+
+    const adminRow = page.locator('tr').filter({ hasText: adminUsername });
+    await expect(adminRow).toBeVisible();
+    await expect(adminRow.getByRole('button', { name: 'Editar' })).toHaveCount(0);
+    await expect(adminRow.getByRole('button', { name: 'Eliminar' })).toHaveCount(0);
+  });
+
+  test('en /usuarios puede crear, editar y eliminar un usuario operador', async ({ page }) => {
+    const defaultBranchName = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
+    const secondBranch = await getTestSecondBranch();
+    const operatorUsername = unique('operador-e2e');
+    const editedUsername = unique('operador-editado');
+
+    await page.goto('/usuarios');
+    await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
+
+    // Crear un operador en la sucursal por defecto.
+    await page.fill('input[name="username"]', operatorUsername);
+    await page.fill('input[name="password"]', '1234');
+    await page.click('#branchId');
+    await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
+    await page
+      .locator('[data-slot="select-item"]', { hasText: defaultBranchName })
+      .click();
+    await page.click('button[type="submit"]');
+
+    await expect(page.getByText(operatorUsername).first()).toBeVisible({ timeout: 10000 });
+
+    const operatorRow = page.locator('tr').filter({ hasText: operatorUsername });
+
+    // Editar el operador: cambiar nombre, sucursal y contraseña.
+    await operatorRow.getByRole('button', { name: 'Editar' }).click();
+    await page.fill('input[name="username"]', editedUsername);
+    await page.fill('input[name="password"]', 'nueva1234');
+    await page.click('#branchId');
+    await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
+    await page
+      .locator('[data-slot="select-item"]', { hasText: secondBranch.branchName })
+      .click();
+    await page.click('button[type="submit"]');
+
+    await expect(page.getByText(editedUsername).first()).toBeVisible({ timeout: 10000 });
+    const editedRow = page.locator('tr').filter({ hasText: editedUsername });
+    await expect(editedRow).toContainText(secondBranch.branchName);
+
+    // Eliminar el operador.
+    await editedRow.getByRole('button', { name: 'Eliminar' }).click();
+    await expect(page.getByRole('dialog', { name: 'Confirmar eliminación' })).toBeVisible();
+    await page.getByRole('button', { name: 'Eliminar' }).last().click();
+    await expect(editedRow).toHaveCount(0, { timeout: 10000 });
+  });
 });
 
 test.describe('Rol operador', () => {

@@ -15,7 +15,7 @@ export default async function SucursalesPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold tracking-tight">Sucursales</h1>
+      <h1 data-tour="branches-header" className="text-2xl font-semibold tracking-tight">Sucursales</h1>
 
       <BranchList branches={branches} />
     </div>

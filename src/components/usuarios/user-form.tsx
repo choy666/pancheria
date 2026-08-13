@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Eye, EyeOff } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,13 +35,20 @@ interface UserFormProps {
 
 export function UserForm({ branches, user, onCancel }: UserFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const wasPendingRef = useRef(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [branchId, setBranchId] = useState(user ? String(user.branchId) : '');
   const isEditing = !!user;
   const action = isEditing ? updateUserAction : createUser;
   const [state, formAction, isPending] = useActionState(action, initialState);
 
   useEffect(() => {
-    if (!isPending && state === null && formRef.current) {
+    if (
+      wasPendingRef.current &&
+      !isPending &&
+      state === null &&
+      formRef.current
+    ) {
       const resetBranchId = isEditing ? String(user!.branchId) : '';
       setTimeout(() => {
         formRef.current?.reset();
@@ -48,12 +56,14 @@ export function UserForm({ branches, user, onCancel }: UserFormProps) {
         onCancel?.();
       }, 0);
     }
+    wasPendingRef.current = isPending;
   }, [isPending, isEditing, onCancel, state, user]);
 
   return (
     <form
       ref={formRef}
       action={formAction}
+      autoComplete="off"
       className="max-w-2xl space-y-4"
     >
       {isEditing && <input type="hidden" name="id" value={user.id} />}
@@ -64,25 +74,47 @@ export function UserForm({ branches, user, onCancel }: UserFormProps) {
             id="username"
             name="username"
             type="text"
+            autoComplete="off"
             required
             defaultValue={user?.username ?? ''}
             placeholder="Ej: juan.perez"
           />
         </div>
 
-        {!isEditing && (
-          <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+        <div className="space-y-2">
+          <Label htmlFor="password">Contraseña</Label>
+          <div className="relative">
             <Input
               id="password"
               name="password"
-              type="password"
-              required
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required={!isEditing}
               minLength={4}
-              placeholder="Mínimo 4 caracteres"
+              placeholder={
+                isEditing
+                  ? 'Dejar en blanco para mantener la actual'
+                  : 'Mínimo 4 caracteres'
+              }
+              className="pr-10"
             />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </Button>
           </div>
-        )}
+          <p className="text-xs text-muted-foreground">
+            La contraseña debe tener al menos 4 caracteres. En edición, dejala en
+            blanco para conservar la actual.
+          </p>
+        </div>
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="branchId">Sucursal</Label>

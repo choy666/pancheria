@@ -77,12 +77,12 @@ describe('saleRepository', () => {
       );
     });
 
-    test('devuelve undefined si la venta no existe', async () => {
+    test('devuelve null si la venta no existe', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
       const result = await saleRepository.findById(BRANCH_ID, 999);
 
-      expect(result).toBeUndefined();
+      expect(result).toBeNull();
     });
   });
 

@@ -35,6 +35,7 @@ export default async function PanelLayout({
     <TourProvider
       userId={session?.user?.id}
       branchId={currentBranchId}
+      role={session?.user?.role === 'admin' ? 'admin' : 'operator'}
     >
       <div className="flex min-h-full flex-col">
         <PanelHeader

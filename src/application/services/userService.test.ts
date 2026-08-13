@@ -1,8 +1,13 @@
-import { listUsers, createUser } from './userService';
+import {
+  listUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+} from './userService';
 import { db } from '@/db';
 import * as branchService from '@/application/services/branchService';
 import bcrypt from 'bcrypt';
-import { ValidationError } from '@/domain/errors';
+import { ValidationError, NotFoundError } from '@/domain/errors';
 
 jest.mock('@/db', () => ({
   db: {
@@ -13,6 +18,8 @@ jest.mock('@/db', () => ({
       },
     },
     insert: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
@@ -27,16 +34,54 @@ const mockedDb = db as unknown as {
     };
   };
   insert: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
 };
 
 const mockedBranchService = branchService as jest.Mocked<typeof branchService>;
 const mockedBcrypt = bcrypt as unknown as { hash: jest.Mock };
 const mockReturning = jest.fn();
 
+function createMockUpdateChain() {
+  const where = jest.fn().mockReturnValue({ returning: mockReturning });
+  const set = jest.fn().mockReturnValue({ where });
+  return { set, where };
+}
+
+const mockUpdateChain = createMockUpdateChain();
+const mockDeleteWhere = jest.fn().mockResolvedValue(undefined);
+
+function mockAdminUser() {
+  return {
+    id: 1,
+    username: 'admin',
+    role: 'admin',
+    branchId: 1,
+    passwordHash: 'hash',
+    createdAt: new Date(),
+  };
+}
+
+function mockOperatorUser() {
+  return {
+    id: 2,
+    username: 'operator',
+    role: 'operator',
+    branchId: 1,
+    passwordHash: 'hash',
+    createdAt: new Date(),
+  };
+}
+
 describe('userService', () => {
   beforeEach(() => {
+    mockedDb.query.users.findFirst.mockReset();
     mockedDb.insert.mockReturnValue({
       values: jest.fn().mockReturnValue({ returning: mockReturning }),
+    });
+    mockedDb.update.mockReturnValue(mockUpdateChain);
+    mockedDb.delete.mockReturnValue({
+      where: mockDeleteWhere,
     });
     mockedBcrypt.hash.mockResolvedValue('hashed');
   });
@@ -72,7 +117,7 @@ describe('userService', () => {
   });
 
   describe('createUser', () => {
-    test('crea un usuario correctamente', async () => {
+    test('crea un usuario operador correctamente', async () => {
       mockedBranchService.getBranchById.mockResolvedValue({
         id: 1,
         name: 'Sucursal A',
@@ -157,6 +202,142 @@ describe('userService', () => {
           branchId: 1,
         })
       ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('updateUser', () => {
+    test('edita un usuario operador correctamente', async () => {
+      mockedDb.query.users.findFirst
+        .mockResolvedValueOnce(mockOperatorUser() as any)
+        .mockResolvedValueOnce(undefined);
+      mockReturning.mockResolvedValue([
+        { id: 2, username: 'nuevo-nombre', role: 'operator', branchId: 1 },
+      ]);
+
+      const result = await updateUser(2, { username: 'nuevo-nombre' });
+
+      expect(result.username).toBe('nuevo-nombre');
+      expect(mockUpdateChain.set).toHaveBeenCalledWith(
+        expect.objectContaining({ username: 'nuevo-nombre' })
+      );
+    });
+
+    test('edita un usuario operador con contraseña correctamente', async () => {
+      mockedDb.query.users.findFirst
+        .mockResolvedValueOnce(mockOperatorUser() as any)
+        .mockResolvedValueOnce(undefined);
+      mockReturning.mockResolvedValue([
+        {
+          id: 2,
+          username: 'operator',
+          role: 'operator',
+          branchId: 1,
+        },
+      ]);
+
+      const result = await updateUser(2, { password: 'nueva-contraseña' });
+
+      expect(result.id).toBe(2);
+      expect(mockedBcrypt.hash).toHaveBeenCalledWith('nueva-contraseña', 10);
+      expect(mockUpdateChain.set).toHaveBeenCalledWith(
+        expect.objectContaining({ passwordHash: 'hashed' })
+      );
+    });
+
+    test('no actualiza la contraseña si se envía vacía', async () => {
+      mockedDb.query.users.findFirst
+        .mockResolvedValueOnce(mockOperatorUser() as any)
+        .mockResolvedValueOnce(undefined);
+      mockReturning.mockResolvedValue([
+        { id: 2, username: 'operator', role: 'operator', branchId: 1 },
+      ]);
+
+      const result = await updateUser(2, {
+        username: 'operator',
+        password: '',
+      });
+
+      expect(result.username).toBe('operator');
+      expect(mockedBcrypt.hash).not.toHaveBeenCalled();
+      expect(mockUpdateChain.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ passwordHash: expect.anything() })
+      );
+    });
+
+    test('rechaza editar un usuario administrador', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(mockAdminUser() as any);
+
+      await expect(updateUser(1, { username: 'otro' })).rejects.toThrow(
+        ValidationError
+      );
+    });
+
+    test('rechaza un nombre de usuario vacío', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(mockOperatorUser() as any);
+
+      await expect(updateUser(2, { username: '   ' })).rejects.toThrow(
+        ValidationError
+      );
+    });
+
+    test('rechaza un nombre de usuario duplicado', async () => {
+      mockedDb.query.users.findFirst
+        .mockResolvedValueOnce(mockOperatorUser() as any)
+        .mockResolvedValueOnce({
+          id: 3,
+          username: 'existente',
+        } as any);
+
+      await expect(
+        updateUser(2, { username: 'existente' })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza una sucursal inexistente', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(mockOperatorUser() as any);
+      mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+      await expect(updateUser(2, { branchId: 99 })).rejects.toThrow(
+        ValidationError
+      );
+    });
+
+    test('rechaza una contraseña demasiado corta', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(mockOperatorUser() as any);
+
+      await expect(updateUser(2, { password: '123' })).rejects.toThrow(
+        ValidationError
+      );
+    });
+
+    test('lanza NotFoundError si el usuario no existe', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(undefined);
+
+      await expect(updateUser(999, { username: 'otro' })).rejects.toThrow(
+        NotFoundError
+      );
+    });
+  });
+
+  describe('deleteUser', () => {
+    test('elimina un usuario operador correctamente', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(mockOperatorUser() as any);
+
+      await expect(deleteUser(2)).resolves.toBeUndefined();
+      expect(mockDeleteWhere).toHaveBeenCalled();
+    });
+
+    test('rechaza eliminar un usuario administrador', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(mockAdminUser() as any);
+
+      await expect(deleteUser(1)).rejects.toThrow(ValidationError);
+      expect(mockDeleteWhere).not.toHaveBeenCalled();
+    });
+
+    test('lanza NotFoundError si el usuario no existe', async () => {
+      mockedDb.query.users.findFirst.mockResolvedValueOnce(undefined);
+
+      await expect(deleteUser(999)).rejects.toThrow(NotFoundError);
     });
   });
 });

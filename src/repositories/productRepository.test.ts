@@ -114,6 +114,14 @@ describe('productRepository', () => {
       expect(result).toEqual(expected);
       expect(mockFindFirst).toHaveBeenCalled();
     });
+
+    test('devuelve null cuando el producto pertenece a otra sucursal', async () => {
+      mockFindFirst.mockResolvedValue(undefined);
+
+      const result = await productRepository.findById(BRANCH_ID, 999);
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('findByIds', () => {

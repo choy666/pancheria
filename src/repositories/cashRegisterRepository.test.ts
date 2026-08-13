@@ -144,12 +144,20 @@ describe('cashRegisterRepository', () => {
       );
     });
 
-    test('devuelve undefined cuando la caja no existe', async () => {
+    test('devuelve null cuando la caja no existe', async () => {
       mockFindFirst.mockResolvedValue(undefined);
 
       const result = await cashRegisterRepository.findById(BRANCH_ID, 999);
 
-      expect(result).toBeUndefined();
+      expect(result).toBeNull();
+    });
+
+    test('devuelve null cuando la caja pertenece a otra sucursal', async () => {
+      mockFindFirst.mockResolvedValue(undefined);
+
+      const result = await cashRegisterRepository.findById(BRANCH_ID, 1);
+
+      expect(result).toBeNull();
     });
   });
 

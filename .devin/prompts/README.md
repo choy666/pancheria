@@ -203,6 +203,7 @@ Lista de prompts reutilizables y su estado:
 - [Corroborar y corregir nombre de sucursal en navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/verificar-navbar-sucursal.md) — **resuelto / referencia histórica**.
 - [Soporte multi-sucursal](file:///C%3A/developer/paginas/pancheria/.devin/prompts/multi-sucursal.md) — **resuelto / contexto histórico**.
 - [Tour navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/tour-navbar.md) — **resuelto / referencia**.
+- [Tour interactivo por rol](file:///C%3A/developer/paginas/pancheria/.devin/prompts/tour-por-rol.md) — **resuelto / referencia**: recorrido de `driver.js` adaptado a los permisos de `admin` y `operator`.
 - [Roles y permisos](file:///C%3A/developer/paginas/pancheria/.devin/prompts/roles-y-permisos.md) — **resuelto / referencia** para auditorías de roles y documentación.
 
 ## Véase también

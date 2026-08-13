@@ -12,6 +12,7 @@ export const CAJA_CLOSE_API = '/api/caja/cerrar';
 
 export interface CashRegister {
   id: number;
+  branchId: number;
   openedAt: string;
   closedAt: string | null;
   openedBy: string;

@@ -2,8 +2,6 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -11,17 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  deleteUserAction,
-  resetUserPasswordAction,
-  type UserState,
-} from '@/app/(panel)/usuarios/actions';
+import { deleteUserAction, type UserState } from '@/app/(panel)/usuarios/actions';
 
 const initialState: UserState = null;
 
 interface User {
   id: number;
   username: string;
+  role: 'admin' | 'operator';
 }
 
 interface UserActionsProps {
@@ -31,20 +26,13 @@ interface UserActionsProps {
 
 export function UserActions({ user, onEdit }: UserActionsProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isResetOpen, setIsResetOpen] = useState(false);
-  const [resetPassword, setResetPassword] = useState('');
 
   const [deleteState, deleteAction, isDeletePending] = useActionState(
     deleteUserAction,
     initialState
   );
-  const [resetState, resetAction, isResetPending] = useActionState(
-    resetUserPasswordAction,
-    initialState
-  );
 
   const deleteFormRef = useRef<HTMLFormElement>(null);
-  const resetFormRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!isDeletePending && deleteState === null && deleteFormRef.current) {
@@ -52,25 +40,14 @@ export function UserActions({ user, onEdit }: UserActionsProps) {
     }
   }, [isDeletePending, deleteState]);
 
-  useEffect(() => {
-    if (!isResetPending && resetState === null && resetFormRef.current) {
-      setIsResetOpen(false);
-      setResetPassword('');
-    }
-  }, [isResetPending, resetState]);
+  if (user.role === 'admin') {
+    return null;
+  }
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <Button variant="ghost" size="sm" onClick={onEdit}>
         Editar
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIsResetOpen(true)}
-      >
-        Cambiar contraseña
       </Button>
 
       <Button
@@ -82,54 +59,6 @@ export function UserActions({ user, onEdit }: UserActionsProps) {
         Eliminar
       </Button>
 
-      <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cambiar contraseña</DialogTitle>
-          </DialogHeader>
-          <form ref={resetFormRef} action={resetAction} className="space-y-4">
-            <input type="hidden" name="id" value={user.id} />
-            <div className="space-y-2">
-              <Label htmlFor={`reset-password-${user.id}`}>
-                Nueva contraseña para <strong>{user.username}</strong>
-              </Label>
-              <Input
-                id={`reset-password-${user.id}`}
-                name="password"
-                type="password"
-                required
-                minLength={4}
-                value={resetPassword}
-                onChange={(e) => setResetPassword(e.target.value)}
-                placeholder="Mínimo 4 caracteres"
-              />
-            </div>
-
-            {resetState?.error && (
-              <p className="text-sm text-destructive" role="alert">
-                {resetState.error}
-              </p>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsResetOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isResetPending}
-              >
-                {isResetPending ? 'Guardando...' : 'Guardar contraseña'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent>
           <DialogHeader>
@@ -138,43 +67,43 @@ export function UserActions({ user, onEdit }: UserActionsProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2 text-sm text-muted-foreground">
-              <p>
-                ¿Eliminar al usuario <strong>{user.username}</strong>? Esta
-                acción no se puede deshacer.
-              </p>
+            <p>
+              ¿Eliminar al usuario <strong>{user.username}</strong>? Esta
+              acción no se puede deshacer.
+            </p>
 
-              <form
-                ref={deleteFormRef}
-                action={deleteAction}
-                className="space-y-4"
-              >
-                <input type="hidden" name="id" value={user.id} />
+            <form
+              ref={deleteFormRef}
+              action={deleteAction}
+              className="space-y-4"
+            >
+              <input type="hidden" name="id" value={user.id} />
 
-                {deleteState?.error && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {deleteState.error}
-                  </p>
-                )}
+              {deleteState?.error && (
+                <p className="text-sm text-destructive" role="alert">
+                  {deleteState.error}
+                </p>
+              )}
 
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDeleteOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="destructive"
-                    disabled={isDeletePending}
-                  >
-                    {isDeletePending ? 'Eliminando...' : 'Eliminar'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </div>
-          </DialogContent>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDeleteOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  disabled={isDeletePending}
+                >
+                  {isDeletePending ? 'Eliminando...' : 'Eliminar'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

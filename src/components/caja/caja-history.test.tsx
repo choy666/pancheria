@@ -66,6 +66,7 @@ describe('CajaHistory', () => {
         data: [
           {
             id: 1,
+            branchId: 1,
             openedAt: '2025-01-15T10:00:00.000Z',
             closedAt: '2025-01-15T22:00:00.000Z',
             openedBy: 'admin',

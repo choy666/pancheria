@@ -17,7 +17,7 @@ export default async function UsuariosPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold tracking-tight">Usuarios</h1>
+      <h1 data-tour="users-header" className="text-2xl font-semibold tracking-tight">Usuarios</h1>
 
       <UserList users={users} branches={branches} />
     </div>

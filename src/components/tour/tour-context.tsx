@@ -133,12 +133,14 @@ interface TourProviderProps {
   children: ReactNode;
   userId?: string | number;
   branchId?: number;
+  role?: 'admin' | 'operator';
 }
 
 export function TourProvider({
   children,
   userId,
   branchId,
+  role,
 }: TourProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -181,152 +183,216 @@ export function TourProvider({
     [keys, router]
   );
 
-  const buildSteps = useCallback((): DriveStep[] => {
-    const nextOn =
-      (url: string, nextStep: number) =>
-      () => {
-        navigateAndContinue(url, nextStep);
-      };
+  const buildSteps = useCallback(
+    (currentRole: 'admin' | 'operator'): DriveStep[] => {
+      const isAdmin = currentRole === 'admin';
 
-    const prevOn =
-      (url: string, prevStep: number) =>
-      () => {
-        goBackAndContinue(url, prevStep);
-      };
+      const nextOn =
+        (url: string, nextStep: number) =>
+        () => {
+          navigateAndContinue(url, nextStep);
+        };
 
-    return [
-      {
-        popover: {
-          title: 'Bienvenido a Panchería',
-          description:
-            'En este recorrido vas a conocer las funciones principales: ventas, productos, stock y caja.',
+      const prevOn =
+        (url: string, prevStep: number) =>
+        () => {
+          goBackAndContinue(url, prevStep);
+        };
+
+      const steps: DriveStep[] = [
+        {
+          popover: {
+            title: 'Bienvenido a Panchería',
+            description: isAdmin
+              ? 'Como administrador podés gestionar sucursales, usuarios y productos. Vamos a recorrer las secciones principales del sistema.'
+              : 'Como operador tu rol está limitado a las operaciones de tu sucursal asignada: ventas, stock y caja.',
+          },
         },
-      },
-      {
-        element: '[data-tour="dashboard-header"]',
-        skipMissingElement: true,
-        popover: {
-          title: 'Panel de control',
-          description:
-            'Este es el panel principal. Desde acá accedés rápidamente a las secciones más usadas.',
+        {
+          element: '[data-tour="dashboard-header"]',
+          skipMissingElement: true,
+          popover: {
+            title: 'Panel de control',
+            description: isAdmin
+              ? 'Este es el panel principal. Desde acá accedés rápidamente a Ventas, Productos, Stock y Caja.'
+              : 'Este es el panel principal. Desde acá accedés a Ventas, Stock y Caja. No tenés acceso a Productos, Sucursales ni Usuarios.',
+          },
         },
-      },
-      {
-        element: '[data-tour="main-nav"]',
-        skipMissingElement: true,
-        popover: {
-          title: 'Menú superior',
-          description:
-            'Estos son los accesos directos a cada sección. Podés usarlos para moverte en cualquier momento.',
+        {
+          element: '[data-tour="main-nav"]',
+          skipMissingElement: true,
+          popover: {
+            title: 'Menú superior',
+            description: isAdmin
+              ? 'Estos son los accesos directos a cada sección. Además de Panel, Ventas, Historial, Productos, Stock y Caja, también podés ir a Sucursales y Usuarios.'
+              : 'Estos son los accesos directos. Vos ves solo Panel, Ventas, Historial, Stock y Caja, porque tu rol es operador.',
+          },
         },
-      },
-      {
-        element: '[data-tour="dashboard-ventas"]',
-        skipMissingElement: true,
-        popover: {
-          title: 'Ventas',
-          description:
-            'La terminal de ventas permite registrar pedidos de forma rápida. Vamos a verla en detalle.',
-          onNextClick: nextOn(routes.ventas, 4),
+        {
+          element: '[data-tour="dashboard-ventas"]',
+          skipMissingElement: true,
+          popover: {
+            title: 'Ventas',
+            description:
+              'La terminal de ventas permite registrar pedidos de forma rápida. Vamos a verla en detalle.',
+            onNextClick: nextOn(routes.ventas, 4),
+          },
         },
-      },
-      {
-        element: '[data-tour="caja-status"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Estado de la caja',
-          description:
-            'Antes de vender tenés que abrir la caja. Acá ves si está abierta, quién la abrió y el tiempo transcurrido.',
-          onPrevClick: prevOn(routes.home, 3),
+        {
+          element: '[data-tour="caja-status"]',
+          skipMissingElement: true,
+          waitForElement: 5000,
+          popover: {
+            title: 'Estado de la caja',
+            description:
+              'Antes de vender tenés que abrir la caja. Acá ves si está abierta, quién la abrió y el tiempo transcurrido.',
+            onPrevClick: prevOn(routes.home, 3),
+          },
         },
-      },
-      {
-        element: '[data-tour="sales-products"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Productos disponibles',
-          description:
-            'Aparecen los productos, promos y servicios que se pueden vender. El sistema calcula cuántas unidades podés vender según el stock de insumos.',
+        {
+          element: '[data-tour="sales-products"]',
+          skipMissingElement: true,
+          waitForElement: 5000,
+          popover: {
+            title: 'Productos disponibles',
+            description:
+              'Aparecen los productos, promos y servicios que se pueden vender. El sistema calcula cuántas unidades podés vender según el stock de insumos.',
+          },
         },
-      },
-      {
-        element: '[data-tour="sales-cart"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Pedido actual',
-          description:
-            'Al tocar un producto se agrega al pedido. Elegís el medio de pago (efectivo o transferencia) y confirmás la venta.',
-          onNextClick: nextOn(routes.productos, 7),
+        {
+          element: '[data-tour="sales-cart"]',
+          skipMissingElement: true,
+          waitForElement: 5000,
+          popover: {
+            title: 'Pedido actual',
+            description:
+              'Al tocar un producto se agrega al pedido. Elegís el medio de pago (efectivo o transferencia) y confirmás la venta.',
+            onNextClick: isAdmin
+              ? nextOn(routes.productos, 7)
+              : nextOn(routes.stock, 7),
+          },
         },
-      },
-      {
-        element: '[data-tour="products-table"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Productos y promos',
-          description:
-            'Acá se administran todos los productos. Se agrupan por tipo: insumo crítico, insumo manual, servicio y promo.',
-          onPrevClick: prevOn(routes.ventas, 6),
+      ];
+
+      if (isAdmin) {
+        steps.push(
+          {
+            element: '[data-tour="products-table"]',
+            skipMissingElement: true,
+            waitForElement: 5000,
+            popover: {
+              title: 'Productos y promos',
+              description:
+                'Acá se administran todos los productos. Se agrupan por tipo: insumo crítico, insumo manual, servicio y promo.',
+              onPrevClick: prevOn(routes.ventas, 6),
+            },
+          },
+          {
+            element: '[data-tour="products-new-product"]',
+            skipMissingElement: true,
+            popover: {
+              title: 'Nuevos productos',
+              description:
+                'Podés crear productos individuales o promos que descontarán automáticamente el stock de sus insumos.',
+              onNextClick: nextOn(routes.stock, 9),
+            },
+          }
+        );
+      }
+
+      steps.push(
+        {
+          element: '[data-tour="stock-table"]',
+          skipMissingElement: true,
+          waitForElement: 5000,
+          popover: {
+            title: 'Stock',
+            description:
+              'Controlás el inventario de cada insumo. Podés ajustar cantidades y consultar el historial de movimientos. El sistema marca con “Bajo” cuando un insumo está por debajo del mínimo.',
+            onPrevClick: isAdmin
+              ? prevOn(routes.productos, 8)
+              : prevOn(routes.ventas, 6),
+            onNextClick: nextOn(routes.cierre, isAdmin ? 10 : 8),
+          },
         },
-      },
-      {
-        element: '[data-tour="products-new-product"]',
-        skipMissingElement: true,
-        popover: {
-          title: 'Nuevos productos',
-          description:
-            'Podés crear productos individuales o promos que descontarán automáticamente el stock de sus insumos.',
-          onNextClick: nextOn(routes.stock, 9),
+        {
+          element: '[data-tour="caja-panel"]',
+          skipMissingElement: true,
+          waitForElement: 5000,
+          popover: {
+            title: 'Cierre de caja',
+            description:
+              'Acá cerrás la caja del día y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
+            onPrevClick: prevOn(routes.stock, isAdmin ? 9 : 7),
+            onNextClick: nextOn(routes.cierreHistorial, isAdmin ? 11 : 9),
+          },
         },
-      },
-      {
-        element: '[data-tour="stock-table"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Stock',
-          description:
-            'Controlás el inventario de cada insumo. Podés ajustar cantidades y consultar el historial de movimientos. El sistema marca con “Bajo” cuando un insumo está por debajo del mínimo.',
-          onPrevClick: prevOn(routes.productos, 8),
-          onNextClick: nextOn(routes.cierre, 10),
-        },
-      },
-      {
-        element: '[data-tour="caja-panel"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Cierre de caja',
-          description:
-            'Acá cerrás la caja del día y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
-          onPrevClick: prevOn(routes.stock, 9),
-          onNextClick: nextOn(routes.cierreHistorial, 11),
-        },
-      },
-      {
-        element: '[data-tour="closure-history-table"]',
-        skipMissingElement: true,
-        waitForElement: 5000,
-        popover: {
-          title: 'Historial de cierres',
-          description:
-            'En esta tabla se guardan todos los cierres diarios, con el total desglosado por fecha, cantidad de ventas, efectivo y transferencia.',
-          onPrevClick: prevOn(routes.cierre, 10),
-        },
-      },
-      {
+        {
+          element: '[data-tour="closure-history-table"]',
+          skipMissingElement: true,
+          waitForElement: 5000,
+          popover: {
+            title: 'Historial de cierres',
+            description:
+              'En esta tabla se guardan todos los cierres diarios, con el total desglosado por fecha, cantidad de ventas, efectivo y transferencia.',
+            onPrevClick: prevOn(routes.cierre, isAdmin ? 10 : 8),
+            onNextClick: isAdmin
+              ? nextOn(routes.sucursales, 12)
+              : undefined,
+          },
+        }
+      );
+
+      if (isAdmin) {
+        steps.push(
+          {
+            element: '[data-tour="branches-header"]',
+            skipMissingElement: true,
+            waitForElement: 5000,
+            popover: {
+              title: 'Sucursales',
+              description:
+                'Acá administrás las sucursales del sistema. Podés crear nuevas y editar las existentes.',
+              onPrevClick: prevOn(routes.cierreHistorial, 11),
+              onNextClick: nextOn(routes.usuarios, 13),
+            },
+          },
+          {
+            element: '[data-tour="users-header"]',
+            skipMissingElement: true,
+            waitForElement: 5000,
+            popover: {
+              title: 'Usuarios',
+              description:
+                'Acá creás, editás y eliminás usuarios operador. Les asignás una sucursal y una contraseña.',
+              onPrevClick: prevOn(routes.sucursales, 12),
+            },
+          },
+          {
+            element: '[data-tour="branch-selector"]',
+            skipMissingElement: true,
+            waitForElement: 5000,
+            popover: {
+              title: 'Selector de sucursal',
+              description:
+                'Como administrador, podés cambiar la sucursal activa para operar en cualquiera de las sucursales.',
+            },
+          }
+        );
+      }
+
+      steps.push({
         popover: {
           title: 'Fin del recorrido',
           description:
             'Eso es todo. Ya conocés las funciones principales de Panchería. Podés repetir esta guía cuando quieras desde el botón “Guía”.',
         },
-      },
-    ];
-  }, [navigateAndContinue, goBackAndContinue]);
+      });
+
+      return steps;
+    },
+    [navigateAndContinue, goBackAndContinue]
+  );
 
   const startTour = useCallback(
     (stepIndex?: number) => {
@@ -334,7 +400,7 @@ export function TourProvider({
 
       isNavigatingRef.current = false;
       setTourActive(keys);
-      const steps = buildSteps();
+      const steps = buildSteps(role ?? 'operator');
 
       const driverObj = driver({
         showProgress: true,
@@ -388,7 +454,7 @@ export function TourProvider({
       setIsActive(true);
       driverObj.drive(stepIndex ?? 0);
     },
-    [buildSteps, keys]
+    [buildSteps, keys, role]
   );
 
   const restartTour = useCallback(() => {

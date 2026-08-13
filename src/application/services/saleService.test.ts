@@ -293,6 +293,30 @@ describe('calculateAvailability', () => {
     expect(result).toBe(0);
   });
 
+  test('ignora recetas cuyo insumo pertenece a otra sucursal', async () => {
+    mockedProductRepository.findById.mockResolvedValue(
+      createProductRow({
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+      })
+    );
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 2,
+        quantity: 1,
+        autoDiscount: true,
+        supply: { branchId: 999, stock: 10 },
+      }),
+    ]);
+
+    const result = await calculateAvailability(BRANCH_ID, 1);
+    expect(result).toBe(0);
+  });
+
   test('devuelve disponibilidad ilimitada para servicios', async () => {
     mockedProductRepository.findById.mockResolvedValue(
       createProductRow({
@@ -624,6 +648,34 @@ describe('confirmSale', () => {
         idempotencyKey: 'inactive-sale',
       })
     ).rejects.toThrow('El producto Promo off no está activo.');
+  });
+
+  test('rechaza la venta de un producto de otra sucursal', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
+
+    setProducts([
+      {
+        id: 99,
+        name: 'Producto externo',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        branchId: 999,
+        stock: 50,
+        price: 1000,
+      },
+    ]);
+
+    await expect(
+      confirmSale({
+        branchId: BRANCH_ID,
+        items: [{ productId: 99, quantity: 1 }],
+        paymentMethod: 'cash',
+        idempotencyKey: 'external-product',
+      })
+    ).rejects.toThrow(ValidationError);
   });
 
   test('rechaza la venta cuando hay stock insuficiente de bebida', async () => {

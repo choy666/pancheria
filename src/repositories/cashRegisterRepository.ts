@@ -42,9 +42,10 @@ export async function findById(
     conditions.push(isNull(cashRegisters.deletedAt));
   }
 
-  return db.query.cashRegisters.findFirst({
+  const result = await db.query.cashRegisters.findFirst({
     where: and(...conditions),
   });
+  return result ?? null;
 }
 
 export async function findInRange(

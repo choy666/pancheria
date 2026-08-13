@@ -2,10 +2,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
 import { auth } from '@/auth';
+import * as branchService from '@/application/services/branchService';
 
 export default async function VentasHistorialPage() {
   const session = await auth();
   const isAdmin = session?.user?.role === 'admin';
+  const branches = isAdmin ? await branchService.listBranches() : undefined;
 
   return (
     <div className="space-y-5">
@@ -17,12 +19,15 @@ export default async function VentasHistorialPage() {
           <Button variant="outline" className="w-full sm:w-auto">Cajas eliminadas</Button>
         </Link>
       </div>
-      <CajaHistory
-        detailRoute="/ventas/historial"
-        statusFilter="all"
-        showAutoColumn={false}
-        isAdmin={isAdmin}
-      />
+      <div data-tour="cash-history-table">
+        <CajaHistory
+          detailRoute="/ventas/historial"
+          statusFilter="all"
+          showAutoColumn={false}
+          isAdmin={isAdmin}
+          branches={branches}
+        />
+      </div>
     </div>
   );
 }

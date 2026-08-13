@@ -29,14 +29,16 @@ export function BranchList({ branches }: BranchListProps) {
   const [editingBranch, setEditingBranch] = useState<Branch | undefined>();
 
   return (
-    <div className="space-y-5">
-      <BranchForm
-        key={editingBranch?.id ?? 'create'}
-        branch={editingBranch}
-        onCancel={() => setEditingBranch(undefined)}
-        createBranchAction={createBranch}
-        updateBranchAction={updateBranchAction}
-      />
+    <div data-tour="branches-table" className="space-y-5">
+      <div data-tour="branch-form">
+        <BranchForm
+          key={editingBranch?.id ?? 'create'}
+          branch={editingBranch}
+          onCancel={() => setEditingBranch(undefined)}
+          createBranchAction={createBranch}
+          updateBranchAction={updateBranchAction}
+        />
+      </div>
 
       <div className="rounded-2xl border border-white/8">
         <Table>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Select,
   SelectContent,
@@ -26,7 +25,6 @@ export function BranchSelector({
   activeBranchId,
   setActiveBranchAction,
 }: BranchSelectorProps) {
-  const router = useRouter();
   const [selected, setSelected] = useState(String(activeBranchId));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +46,19 @@ export function BranchSelector({
       if (result?.error) {
         setError(result.error);
         setSelected(String(activeBranchId));
+        setIsLoading(false);
       } else {
-        router.refresh();
+        window.location.reload();
       }
     } catch {
       setError('No se pudo cambiar la sucursal activa.');
       setSelected(String(activeBranchId));
-    } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div data-tour="branch-selector" className="flex flex-col gap-1">
       <Select
         value={selected}
         onValueChange={handleChange}

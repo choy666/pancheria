@@ -75,7 +75,7 @@ describe('TourProvider y TourButton', () => {
 
   test('no inicia el tour automáticamente al montar', () => {
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <div data-testid="child" />
       </TourProvider>
     );
@@ -87,7 +87,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -109,7 +109,7 @@ describe('TourProvider y TourButton', () => {
     createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -133,7 +133,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -160,7 +160,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -190,7 +190,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -207,7 +207,7 @@ describe('TourProvider y TourButton', () => {
     createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -219,7 +219,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -245,7 +245,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -271,7 +271,7 @@ describe('TourProvider y TourButton', () => {
     const mockDriver = createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -303,7 +303,7 @@ describe('TourProvider y TourButton', () => {
     createMockDriver();
 
     const { result } = renderHook(() => useTour(), {
-      wrapper: ({ children }) => <TourProvider>{children}</TourProvider>,
+      wrapper: ({ children }) => <TourProvider role="admin">{children}</TourProvider>,
     });
 
     expect(typeof result.current.startTour).toBe('function');
@@ -317,7 +317,7 @@ describe('TourProvider y TourButton', () => {
     createMockDriver();
 
     render(
-      <TourProvider>
+      <TourProvider role="admin">
         <TourButton />
       </TourProvider>
     );
@@ -330,6 +330,109 @@ describe('TourProvider y TourButton', () => {
     expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
     expect(routerPush).toHaveBeenCalledWith('/');
     expect(driver).not.toHaveBeenCalled();
+  });
+
+  test('el flujo admin incluye productos, sucursales y usuarios', () => {
+    const mockDriver = createMockDriver();
+
+    render(
+      <TourProvider role="admin">
+        <TourButton />
+      </TourProvider>
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'Guía' }).click();
+    });
+
+    const steps = lastConfigSteps();
+    const titles = steps
+      .map((s) => s.popover?.title)
+      .filter((t): t is string => typeof t === 'string');
+
+    expect(titles).toContain('Productos y promos');
+    expect(titles).toContain('Sucursales');
+    expect(titles).toContain('Usuarios');
+
+    const navUrls: string[] = [];
+    steps.forEach((step) => {
+      const onNext = step.popover?.onNextClick;
+      if (onNext) {
+        routerPush.mockClear();
+        act(() => {
+          onNext(undefined, step, createHookOpts(mockDriver));
+        });
+        if (routerPush.mock.calls.length > 0) {
+          navUrls.push(String(routerPush.mock.calls[0][0]));
+        }
+      }
+    });
+
+    expect(navUrls).toContain('/productos');
+    expect(navUrls).toContain('/sucursales');
+    expect(navUrls).toContain('/usuarios');
+  });
+
+  test('el flujo operator no incluye productos, sucursales ni usuarios', () => {
+    const mockDriver = createMockDriver();
+
+    render(
+      <TourProvider role="operator">
+        <TourButton />
+      </TourProvider>
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'Guía' }).click();
+    });
+
+    const steps = lastConfigSteps();
+    const titles = steps
+      .map((s) => s.popover?.title)
+      .filter((t): t is string => typeof t === 'string');
+
+    expect(titles).not.toContain('Productos y promos');
+    expect(titles).not.toContain('Sucursales');
+    expect(titles).not.toContain('Usuarios');
+
+    const navUrls: string[] = [];
+    steps.forEach((step) => {
+      const onNext = step.popover?.onNextClick;
+      if (onNext) {
+        routerPush.mockClear();
+        act(() => {
+          onNext(undefined, step, createHookOpts(mockDriver));
+        });
+        if (routerPush.mock.calls.length > 0) {
+          navUrls.push(String(routerPush.mock.calls[0][0]));
+        }
+      }
+    });
+
+    expect(navUrls).not.toContain('/productos');
+    expect(navUrls).not.toContain('/sucursales');
+    expect(navUrls).not.toContain('/usuarios');
+  });
+
+  test('restartTour con role="operator" desde / inicia el recorrido correcto', () => {
+    usePathnameMock.mockReturnValue('/');
+    const mockDriver = createMockDriver();
+
+    render(
+      <TourProvider role="operator">
+        <TourButton />
+      </TourProvider>
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'Guía' }).click();
+    });
+
+    expect(driver).toHaveBeenCalledTimes(1);
+    expect(mockDriver.drive).toHaveBeenCalledWith(0);
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('pancheria-tour-step')).toBe('0');
+    expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
   });
 
 });

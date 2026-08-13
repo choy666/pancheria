@@ -1,8 +1,16 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CajaPanel } from '@/components/caja/caja-panel';
+import { auth } from '@/auth';
+import { getCurrentBranchId } from '@/lib/auth';
+import * as branchService from '@/application/services/branchService';
 
-export default function ClosurePage() {
+export default async function ClosurePage() {
+  const session = await auth();
+  const branchId = await getCurrentBranchId(session);
+  const branch = await branchService.getBranchById(branchId);
+  const branchName = branch?.name ?? session?.user?.branchName;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -16,7 +24,7 @@ export default function ClosurePage() {
 
       <section className="space-y-5">
         <h2 className="text-xl font-semibold tracking-tight">Caja actual</h2>
-        <CajaPanel />
+        <CajaPanel branchName={branchName} />
       </section>
     </div>
   );

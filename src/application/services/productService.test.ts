@@ -702,4 +702,27 @@ describe('productService', () => {
       expect(mockedProductRepository.restore).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
   });
+
+  describe('aislamiento por sucursal', () => {
+    test('no expone un producto de otra sucursal', async () => {
+      mockedProductRepository.findById.mockResolvedValue(null);
+
+      await expect(getProductById(BRANCH_ID, 999)).rejects.toThrow(NotFoundError);
+      expect(mockedProductRepository.findById).toHaveBeenCalledWith(BRANCH_ID, 999, false);
+    });
+
+    test('rechaza editar un producto de otra sucursal', async () => {
+      mockedProductRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        updateProduct(BRANCH_ID, 999, { name: 'Otro nombre' })
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    test('rechaza eliminar un producto de otra sucursal', async () => {
+      mockedProductRepository.findById.mockResolvedValue(null);
+
+      await expect(deleteProduct(BRANCH_ID, 999)).rejects.toThrow(NotFoundError);
+    });
+  });
 });

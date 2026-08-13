@@ -79,6 +79,7 @@ function mockCashRegister(open: boolean) {
     cashRegister: open
       ? {
           id: 1,
+          branchId: 1,
           openedAt: new Date().toISOString(),
           closedAt: null,
           openedBy: 'admin',

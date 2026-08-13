@@ -199,7 +199,7 @@ describe('closureService', () => {
           supplyId: 2,
           quantity: 1,
           autoDiscount: true,
-          supply: { id: 2, name: 'Pan' },
+          supply: { id: 2, branchId: BRANCH_ID, name: 'Pan' },
         },
       ] as any);
 

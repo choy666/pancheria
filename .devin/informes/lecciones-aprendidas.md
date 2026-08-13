@@ -59,3 +59,10 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 | `npx drizzle-kit push` | Cambios en esquema de base de datos |
 
 > **Nota:** para tests E2E y migraciones de base de datos, usar solo entornos de prueba.
+
+## 8. Tours interactivos y permisos de usuario
+
+- **El tour interactivo debe adaptarse al rol del usuario.** Un recorrido único puede intentar navegar a rutas inaccesibles para un rol y generar redirecciones inesperadas. Construir los pasos dinámicamente según `admin` u `operator` evita esas interrupciones.
+- **Usar `data-tour` en las secciones exclusivas de cada rol.** Las páginas administrativas (`/productos`, `/sucursales`, `/usuarios`) y el selector de sucursal deben tener sus propios atributos `data-tour` para que el tour las pueda resaltar.
+- **Nunca hardcodear rutas de navegación del tour.** Las URLs deben obtenerse de `src/config/routes.ts` para mantener consistencia con el resto de la aplicación.
+- **Usar `skipMissingElement: true` en pasos que resaltan elementos asíncronos.** El panel, las tablas y los selectores pueden no estar renderizados inmediatamente; `skipMissingElement` permite que el tour continúe sin romperse.
