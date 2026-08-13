@@ -70,10 +70,19 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 - Las páginas `/sucursales` y `/usuarios` permiten a los administradores crear nuevas sucursales y usuarios operador.
 - El seed usa `DEFAULT_BRANCH_NAME` para crear la sucursal inicial y asignarle el administrador (`ADMIN_USERNAME`).
 
+## Roles y permisos
+
+El sistema distingue dos roles: `admin` y `operator`.
+
+- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial`, `Productos`, `Stock`, `Caja`, `Sucursales` y `Usuarios`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
+
+- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Solo puede acceder a `Panel`, `Ventas`, `Historial`, `Stock` y `Caja`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja` puede abrir, cerrar y consultar historial, así como generar cierres diarios de su sucursal. El nombre de su sucursal asignada se muestra en la navbar.
+
+La página `/usuarios` lista siempre **todos** los usuarios del sistema para el administrador, mostrando la sucursal asignada de cada uno. No es posible crear más administradores desde la interfaz.
+
 ## Notas
 
 - El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).
-- Desde `/usuarios` el administrador puede crear usuarios con rol `operator` y gestionarlos (editar, resetear contraseña, eliminar). No se pueden crear más administradores desde la UI.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
 - Los insumos manuales son informativos en recetas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.

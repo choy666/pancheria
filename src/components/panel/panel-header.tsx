@@ -92,7 +92,7 @@ export function PanelHeader({
             />
           )}
           <TourButton />
-          {branchName && (
+          {branchName && !showBranchSelector && (
             <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
           )}
           {userName && (
@@ -144,7 +144,7 @@ export function PanelHeader({
               />
             )}
             <TourButton className="w-full" />
-            {branchName && (
+            {branchName && !showBranchSelector && (
               <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
             )}
             {userName && (

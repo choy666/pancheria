@@ -71,9 +71,13 @@ export function UserList({ users, branches }: UserListProps) {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {user.branch?.name ??
-                    branchNameById.get(user.branchId) ??
-                    '—'}
+                  {user.role === 'admin' ? (
+                    <Badge variant="outline">Todas las sucursales</Badge>
+                  ) : (
+                    (user.branch?.name ??
+                      branchNameById.get(user.branchId) ??
+                      '—')
+                  )}
                 </TableCell>
                 <TableCell className="text-right font-mono">
                   {user.id}

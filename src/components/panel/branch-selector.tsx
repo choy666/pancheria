@@ -30,6 +30,7 @@ export function BranchSelector({
   const [selected, setSelected] = useState(String(activeBranchId));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeBranch = branches.find((branch) => branch.id === activeBranchId);
 
   async function handleChange(value: string | null) {
     if (!value) return;
@@ -69,7 +70,9 @@ export function BranchSelector({
           className="w-[180px] text-sm"
           aria-label="Sucursal activa"
         >
-          <SelectValue placeholder="Sucursal" />
+          <SelectValue placeholder="Sucursal">
+          {activeBranch?.name ?? 'Sucursal'}
+        </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {branches.map((branch) => (

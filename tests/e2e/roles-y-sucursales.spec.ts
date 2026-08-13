@@ -43,6 +43,26 @@ test.describe('Rol administrador', () => {
     }
   });
 
+  test('en /usuarios lista todos los usuarios del sistema', async ({ page }) => {
+    const secondBranch = await getTestSecondBranch();
+    await page.goto('/usuarios');
+
+    await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
+
+    const table = page.getByRole('table');
+    await expect(table).toBeVisible({ timeout: 10000 });
+
+    const adminUsername = process.env.ADMIN_USERNAME ?? 'admin';
+    await expect(page.getByText(adminUsername).first()).toBeVisible();
+    await expect(page.getByText(secondBranch.username).first()).toBeVisible();
+
+    const adminRow = page.locator('tr').filter({ hasText: adminUsername });
+    await expect(adminRow).toContainText('Todas las sucursales');
+
+    const operatorRow = page.locator('tr').filter({ hasText: secondBranch.username });
+    await expect(operatorRow).toContainText(secondBranch.branchName);
+  });
+
   test('puede cambiar de sucursal con el BranchSelector', async ({ page }) => {
     const defaultBranchName = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
     const secondBranch = await getTestSecondBranch();
@@ -51,7 +71,7 @@ test.describe('Rol administrador', () => {
 
     const selector = page.locator('[aria-label="Sucursal activa"]');
     await expect(selector).toBeVisible();
-    await expect(selector).toHaveText(defaultBranchName);
+    await expect(selector).toContainText(defaultBranchName);
 
     await selector.click();
     const option = page.locator('[data-testid="branch-option"]', {
@@ -60,12 +80,11 @@ test.describe('Rol administrador', () => {
     await expect(option).toBeVisible({ timeout: 5000 });
     await option.click();
 
-    // Verificamos que el selector y el nombre de la sucursal activa se actualicen.
-    await expect(selector).toHaveText(secondBranch.branchName, { timeout: 15000 });
-    await expect(page.getByTestId('active-branch-name').first()).toHaveText(
-      secondBranch.branchName,
-      { timeout: 15000 }
-    );
+    // Verificamos que el selector muestre el nombre de la sucursal activa.
+    await expect(selector).toContainText(secondBranch.branchName, { timeout: 15000 });
+
+    // El admin no debe ver el span redundante porque el selector ya muestra el nombre.
+    await expect(page.getByTestId('active-branch-name')).toHaveCount(0);
   });
 });
 
@@ -120,6 +139,45 @@ test.describe('Rol operador', () => {
 
   test('no ve el selector de sucursal', async ({ page }) => {
     await expect(page.locator('[aria-label="Sucursal activa"]')).toHaveCount(0);
+  });
+
+  test('ve el nombre de su sucursal asignada en la navbar', async ({ page }) => {
+    const defaultBranchName = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
+    await page.goto('/');
+    await expect(page.getByTestId('active-branch-name').first()).toHaveText(
+      defaultBranchName,
+      { timeout: 10000 }
+    );
+  });
+
+  test('no puede crear productos ni recetas desde las APIs', async ({ page }) => {
+    const productRes = await page.request.post('/api/productos', {
+      data: {
+        name: unique('Producto operator'),
+        type: 'manual_supply',
+        price: 0,
+        unit: 'unidad',
+        stock: 0,
+        minStock: 0,
+        isActive: true,
+      },
+    });
+    expect(productRes.status()).toBe(403);
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: 1,
+        items: [{ supplyId: 2, quantity: 1, autoDiscount: true }],
+      },
+    });
+    expect(recipeRes.status()).toBe(403);
+  });
+
+  test('puede listar productos de su sucursal desde la API', async ({ page }) => {
+    const res = await page.request.get('/api/productos?includeAvailability=true');
+    expect(res.status()).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
   });
 });
 
