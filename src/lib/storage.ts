@@ -97,7 +97,7 @@ export class LocalStorageProvider implements StorageProvider {
 export class VercelBlobStorageProvider implements StorageProvider {
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
     if (!token) {
       throw new Error(
         'Falta BLOB_READ_WRITE_TOKEN para usar el proveedor de Vercel Blob.'
