@@ -255,7 +255,6 @@ async function uploadToProvider(
     const blob = await client.put(instructions.key, file, {
       access: 'public',
       token: instructions.token,
-      multipart: true,
     });
     return blob.url;
   }
