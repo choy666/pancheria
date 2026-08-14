@@ -75,8 +75,9 @@ export function useCast(): UseCastResult {
       return;
     }
 
-    const existing = document.querySelector(
-      `script[src="${getCastSenderSdkUrl()}"]`
+    const sdkUrl = getCastSenderSdkUrl();
+    const existing = Array.from(document.scripts).find(
+      (script) => script.src === sdkUrl
     );
     if (existing) {
       return;
