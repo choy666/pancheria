@@ -150,3 +150,15 @@ export const stockAdjustmentSchema = z.object({
 export const cancellationSchema = z.object({
   reason: z.string().min(3).max(500),
 });
+
+export const videoBaseSchema = z.object({
+  title: z.string().min(1).max(255),
+  description: z.string().max(1000).optional().nullable(),
+  fileUrl: z.string().min(1).url(),
+  mimeType: z.string().min(1).max(100),
+  size: z.number().int().nonnegative().optional().nullable(),
+  isActive: z.coerce.boolean().default(true),
+});
+
+export const videoSchema = videoBaseSchema;
+export const videoUpdateSchema = videoBaseSchema.partial();

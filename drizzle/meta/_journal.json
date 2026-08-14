@@ -43,6 +43,13 @@
       "when": 1786627128446,
       "tag": "0005_ondelete_and_jsonb",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786683018628,
+      "tag": "0006_mighty_manta",
+      "breakpoints": true
     }
   ]
 }

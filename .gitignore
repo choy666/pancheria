@@ -42,6 +42,9 @@ yarn-error.log*
 # playwright mcp artifacts
 .playwright-mcp
 
+# videos temporales en desarrollo
+/tmp
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

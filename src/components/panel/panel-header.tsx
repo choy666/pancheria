@@ -41,6 +41,7 @@ const adminNavItems = [
   { href: routes.cierre, label: 'Caja' },
   { href: routes.sucursales, label: 'Sucursales' },
   { href: routes.usuarios, label: 'Usuarios' },
+  { href: routes.videos, label: 'Videos' },
 ];
 
 export function PanelHeader({

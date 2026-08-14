@@ -150,3 +150,19 @@ export type DailyClosure = {
   criticalSuppliesSummary: Record<string, number>;
   createdAt: Date;
 };
+
+export type VideoRow = {
+  id: number;
+  branchId: number;
+  title: string;
+  description: string | null;
+  fileUrl: string;
+  mimeType: string;
+  size: number | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+};
+
+export type Video = VideoRow;

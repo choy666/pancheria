@@ -12,7 +12,7 @@ const config: Config = {
     '^.+\\.(ts|tsx|js|mjs)$': 'ts-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(dinero\\.js)/)',
+    'node_modules/(?!(dinero\\.js|nanoid)/)',
   ],
 };
 

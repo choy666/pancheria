@@ -15,6 +15,7 @@ export default async function globalSetup() {
       sales,
       recipes,
       products,
+      videos,
       cash_registers,
       daily_closures,
       users,

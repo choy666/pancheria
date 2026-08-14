@@ -286,6 +286,33 @@ export const dailyClosures = pgTable(
   })
 );
 
+export const videos = pgTable(
+  'videos',
+  {
+    id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
+    title: varchar('title', { length: 255 }).notNull(),
+    description: text('description'),
+    fileUrl: text('file_url').notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    size: integer('size'),
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (table) => ({
+    branchIdIdx: index('videos_branch_id_idx').on(table.branchId),
+    branchActiveDeletedIdx: index('videos_branch_active_deleted_idx').on(
+      table.branchId,
+      table.isActive,
+      table.deletedAt
+    ),
+  })
+);
+
 export const branchesRelations = relations(branches, ({ many }) => ({
   users: many(users),
   products: many(products),
@@ -293,6 +320,7 @@ export const branchesRelations = relations(branches, ({ many }) => ({
   sales: many(sales),
   stockMovements: many(stockMovements),
   dailyClosures: many(dailyClosures),
+  videos: many(videos),
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -376,6 +404,13 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
 export const dailyClosuresRelations = relations(dailyClosures, ({ one }) => ({
   branch: one(branches, {
     fields: [dailyClosures.branchId],
+    references: [branches.id],
+  }),
+}));
+
+export const videosRelations = relations(videos, ({ one }) => ({
+  branch: one(branches, {
+    fields: [videos.branchId],
     references: [branches.id],
   }),
 }));

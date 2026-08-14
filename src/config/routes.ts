@@ -8,4 +8,7 @@ export const routes = {
   cierreHistorial: '/cierre/historial',
   sucursales: '/sucursales',
   usuarios: '/usuarios',
+  videos: '/videos',
+  videosNuevo: '/videos/nuevo',
+  videoDetalle: '/videos/[id]',
 } as const;
