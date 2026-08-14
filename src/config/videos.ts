@@ -50,7 +50,7 @@ export function getCastSenderSdkUrl(): string {
 }
 
 export function getStorageProvider(): StorageProviderName {
-  const env = process.env.STORAGE_PROVIDER;
+  const env = process.env.STORAGE_PROVIDER?.trim();
   if (!env) return 'local';
 
   const allowed: StorageProviderName[] = [
