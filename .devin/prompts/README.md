@@ -121,7 +121,9 @@ Lista de prompts reutilizables y activos:
 - [Actualizar documentación y generar informe de estado](actualizar-documentacion-y-reporte.md) — guía reutilizable.
 - [Auditoría general](auditoria-documentacion.md) — guía reutilizable.
 - [Corroborar y mejorar diseño responsive](diseno-responsive.md) — guía reutilizable.
+- [Tour guía responsive e inicio desde cualquier página](tour-guia-responsive.md) — guía reutilizable.
 - [Página de administración para videos con reproducción y soporte Cast](videos-y-cast.md) — guía reutilizable.
+- [Catálogo público y pedidos por WhatsApp](catalogo-whatsapp.md) — guía reutilizable.
 
 > Los prompts resueltos (`caja-trazabilidad-sucursal-y-operador.md`, `control-de-acceso-y-sucursales.md`, `multi-sucursal.md`, `roles-y-permisos.md`, `tour-navbar.md`, `tour-por-rol.md` y `verificar-navbar-sucursal.md`) fueron eliminados porque su implementación ya finalizó y su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en este índice.
 

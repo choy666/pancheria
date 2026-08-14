@@ -14,6 +14,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { driver } from 'driver.js';
 import type { DriveStep, Driver } from 'driver.js';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { routes } from '@/config/routes';
 import { HelpCircle, X } from 'lucide-react';
 
@@ -55,9 +56,10 @@ export function useTour() {
 
 interface TourButtonProps {
   className?: string;
+  onBeforeToggle?: () => void;
 }
 
-export function TourButton({ className }: TourButtonProps) {
+export function TourButton({ className, onBeforeToggle }: TourButtonProps) {
   const { restartTour, stopTour, isActive } = useTour();
 
   return (
@@ -65,8 +67,15 @@ export function TourButton({ className }: TourButtonProps) {
       type="button"
       variant="outline"
       size="sm"
-      onClick={() => (isActive ? stopTour() : restartTour())}
-      className={className}
+      onClick={() => {
+        onBeforeToggle?.();
+        if (isActive) {
+          stopTour();
+        } else {
+          restartTour();
+        }
+      }}
+      className={cn('min-h-11 min-w-11', className)}
     >
       {isActive ? (
         <X className="mr-1.5 h-4 w-4" />
@@ -183,6 +192,24 @@ export function TourProvider({
     [keys, router]
   );
 
+  function visibleElement(selector: string): () => Element {
+    return (() => {
+      if (typeof document === 'undefined') {
+        return undefined as unknown as Element;
+      }
+
+      const el = document.querySelector(selector);
+      if (!el) {
+        return undefined as unknown as Element;
+      }
+
+      const rect = el.getBoundingClientRect();
+      return (rect.width > 0 && rect.height > 0
+        ? el
+        : undefined) as unknown as Element;
+    }) as () => Element;
+  }
+
   const buildSteps = useCallback(
     (currentRole: 'admin' | 'operator'): DriveStep[] => {
       const isAdmin = currentRole === 'admin';
@@ -219,7 +246,7 @@ export function TourProvider({
           },
         },
         {
-          element: '[data-tour="main-nav"]',
+          element: visibleElement('[data-tour="main-nav"]'),
           skipMissingElement: true,
           popover: {
             title: 'Menú superior',
@@ -229,13 +256,22 @@ export function TourProvider({
           },
         },
         {
+          element: visibleElement('[data-tour="mobile-menu-button"]'),
+          skipMissingElement: true,
+          popover: {
+            title: 'Menú',
+            description:
+              'En dispositivos móviles, el menú se abre desde este botón. Desde ahí accedés a las mismas secciones.',
+          },
+        },
+        {
           element: '[data-tour="dashboard-ventas"]',
           skipMissingElement: true,
           popover: {
             title: 'Ventas',
             description:
               'La terminal de ventas permite registrar pedidos de forma rápida. Vamos a verla en detalle.',
-            onNextClick: nextOn(routes.ventas, 4),
+            onNextClick: nextOn(routes.ventas, 5),
           },
         },
         {
@@ -246,7 +282,7 @@ export function TourProvider({
             title: 'Estado de la caja',
             description:
               'Antes de vender tenés que abrir la caja. Acá ves si está abierta, quién la abrió y el tiempo transcurrido.',
-            onPrevClick: prevOn(routes.home, 3),
+            onPrevClick: prevOn(routes.home, 4),
           },
         },
         {
@@ -268,8 +304,8 @@ export function TourProvider({
             description:
               'Al tocar un producto se agrega al pedido. Elegís el medio de pago (efectivo o transferencia) y confirmás la venta.',
             onNextClick: isAdmin
-              ? nextOn(routes.productos, 7)
-              : nextOn(routes.stock, 7),
+              ? nextOn(routes.productos, 8)
+              : nextOn(routes.stock, 8),
           },
         },
       ];
@@ -284,7 +320,7 @@ export function TourProvider({
               title: 'Productos y promos',
               description:
                 'Acá se administran todos los productos. Se agrupan por tipo: insumo crítico, insumo manual, servicio y promo.',
-              onPrevClick: prevOn(routes.ventas, 6),
+              onPrevClick: prevOn(routes.ventas, 7),
             },
           },
           {
@@ -294,7 +330,7 @@ export function TourProvider({
               title: 'Nuevos productos',
               description:
                 'Podés crear productos individuales o promos que descontarán automáticamente el stock de sus insumos.',
-              onNextClick: nextOn(routes.stock, 9),
+              onNextClick: nextOn(routes.stock, 10),
             },
           }
         );
@@ -310,9 +346,9 @@ export function TourProvider({
             description:
               'Controlás el inventario de cada insumo. Podés ajustar cantidades y consultar el historial de movimientos. El sistema marca con “Bajo” cuando un insumo está por debajo del mínimo.',
             onPrevClick: isAdmin
-              ? prevOn(routes.productos, 8)
-              : prevOn(routes.ventas, 6),
-            onNextClick: nextOn(routes.cierre, isAdmin ? 10 : 8),
+              ? prevOn(routes.productos, 9)
+              : prevOn(routes.ventas, 7),
+            onNextClick: nextOn(routes.cierre, isAdmin ? 11 : 9),
           },
         },
         {
@@ -323,8 +359,8 @@ export function TourProvider({
             title: 'Cierre de caja',
             description:
               'Acá cerrás la caja del día y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
-            onPrevClick: prevOn(routes.stock, isAdmin ? 9 : 7),
-            onNextClick: nextOn(routes.cierreHistorial, isAdmin ? 11 : 9),
+            onPrevClick: prevOn(routes.stock, isAdmin ? 10 : 8),
+            onNextClick: nextOn(routes.cierreHistorial, isAdmin ? 12 : 10),
           },
         },
         {
@@ -335,9 +371,9 @@ export function TourProvider({
             title: 'Historial de cierres',
             description:
               'En esta tabla se guardan todos los cierres diarios, con el total desglosado por fecha, cantidad de ventas, efectivo y transferencia.',
-            onPrevClick: prevOn(routes.cierre, isAdmin ? 10 : 8),
+            onPrevClick: prevOn(routes.cierre, isAdmin ? 11 : 9),
             onNextClick: isAdmin
-              ? nextOn(routes.sucursales, 12)
+              ? nextOn(routes.sucursales, 13)
               : undefined,
           },
         }
@@ -353,8 +389,8 @@ export function TourProvider({
               title: 'Sucursales',
               description:
                 'Acá administrás las sucursales del sistema. Podés crear nuevas y editar las existentes.',
-              onPrevClick: prevOn(routes.cierreHistorial, 11),
-              onNextClick: nextOn(routes.usuarios, 13),
+              onPrevClick: prevOn(routes.cierreHistorial, 12),
+              onNextClick: nextOn(routes.usuarios, 14),
             },
           },
           {
@@ -365,7 +401,7 @@ export function TourProvider({
               title: 'Usuarios',
               description:
                 'Acá creás, editás y eliminás usuarios operador. Les asignás una sucursal y una contraseña.',
-              onPrevClick: prevOn(routes.sucursales, 12),
+              onPrevClick: prevOn(routes.sucursales, 13),
             },
           },
           {
@@ -411,6 +447,8 @@ export function TourProvider({
         allowClose: true,
         allowKeyboardControl: true,
         popoverClass: 'pancheria-tour-popover',
+        popoverOffset: 8,
+        stagePadding: 4,
         nextBtnText: 'Siguiente',
         prevBtnText: 'Anterior',
         doneBtnText: 'Finalizar',

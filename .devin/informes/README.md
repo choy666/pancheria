@@ -4,6 +4,7 @@ Este directorio contiene los informes y lecciones aprendidas del proyecto `panch
 
 - [Lecciones aprendidas](lecciones-aprendidas.md) — resumen transversal para prompts y auditorías futuras.
 - [Reporte de estado — 2026-08-13](reporte-estado-2026-08-13.md) — estado actual del proyecto, verificaciones y documentación.
+- [Reporte de estado — 2026-08-14](reporte-estado-2026-08-14.md) — tour-guía responsive, estabilidad y verificaciones.
 
 ## Cómo usar este directorio
 

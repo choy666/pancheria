@@ -68,6 +68,23 @@ test.describe('Responsividad en móvil', () => {
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
   });
 
+  test('el botón Guía es visible y clickeable dentro del menú hamburguesa', async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto('/');
+
+    const menuButton = page.getByRole('button', { name: /abrir menú|cerrar menú/i });
+    await expect(menuButton).toBeVisible();
+    await menuButton.click();
+
+    const mobileMenu = page.locator('[data-tour="mobile-nav"]');
+    const guideButton = mobileMenu.getByRole('button', { name: 'Guía' });
+    await expect(guideButton).toBeVisible();
+    await guideButton.click();
+
+    await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.driver-popover')).toBeVisible();
+  });
+
   test('el menú hamburguesa es accesible desde las rutas protegidas principales', async ({ page }) => {
     await ensureLoggedIn(page);
 

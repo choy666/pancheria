@@ -294,7 +294,7 @@ describe('TourProvider y TourButton', () => {
     });
 
     expect(routerPush).toHaveBeenCalledWith('/ventas');
-    expect(window.localStorage.getItem('pancheria-tour-step')).toBe('4');
+    expect(window.localStorage.getItem('pancheria-tour-step')).toBe('5');
     expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
     expect(mockDriver.destroy).toHaveBeenCalled();
   });
@@ -433,6 +433,55 @@ describe('TourProvider y TourButton', () => {
     expect(routerPush).not.toHaveBeenCalled();
     expect(window.localStorage.getItem('pancheria-tour-step')).toBe('0');
     expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
+  });
+
+  test('TourButton llama onBeforeToggle antes de iniciar y detener el tour', () => {
+    const onBeforeToggle = jest.fn();
+    createMockDriver();
+
+    render(
+      <TourProvider role="admin">
+        <TourButton onBeforeToggle={onBeforeToggle} />
+      </TourProvider>
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'Guía' }).click();
+    });
+
+    expect(onBeforeToggle).toHaveBeenCalledTimes(1);
+
+    onBeforeToggle.mockClear();
+
+    act(() => {
+      screen.getByRole('button', { name: 'Cerrar guía' }).click();
+    });
+
+    expect(onBeforeToggle).toHaveBeenCalledTimes(1);
+  });
+
+  test('startTour no crea un driver duplicado si el tour ya está activo', () => {
+    const mockDriver = createMockDriver();
+
+    const { result } = renderHook(() => useTour(), {
+      wrapper: ({ children }) => (
+        <TourProvider role="admin">{children}</TourProvider>
+      ),
+    });
+
+    act(() => {
+      result.current.startTour();
+    });
+
+    expect(driver).toHaveBeenCalledTimes(1);
+
+    mockDriver.isActive.mockReturnValue(true);
+
+    act(() => {
+      result.current.startTour();
+    });
+
+    expect(driver).toHaveBeenCalledTimes(1);
   });
 
 });

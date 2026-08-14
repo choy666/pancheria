@@ -111,6 +111,7 @@ export function PanelHeader({
           variant="ghost"
           size="icon-lg"
           className="lg:hidden"
+          data-tour="mobile-menu-button"
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
@@ -120,7 +121,10 @@ export function PanelHeader({
       </div>
 
       {open && (
-        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 lg:hidden">
+        <div
+          data-tour="mobile-nav"
+          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 lg:hidden"
+        >
           <nav className="flex flex-col gap-1 pt-2">
             {navItems.map((item) => (
               <Link
@@ -145,7 +149,10 @@ export function PanelHeader({
                 setActiveBranchAction={setActiveBranchAction}
               />
             )}
-            <TourButton className="w-full" />
+            <TourButton
+              className="w-full"
+              onBeforeToggle={() => setOpen(false)}
+            />
             {branchName && !showBranchSelector && (
               <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
             )}

@@ -76,9 +76,9 @@ test.describe('Guía interactiva', () => {
     expect(seen).toBe('true');
 
     // Simula la reanudación en el paso final para probar el botón Finalizar.
-    // El paso final del flujo admin es el índice 15.
+    // El paso final del flujo admin es el índice 16.
     await setTourStorageValue(page, 'active', 'true');
-    await setTourStorageValue(page, 'step', '15');
+    await setTourStorageValue(page, 'step', '16');
 
     await page.goto('/cierre/historial');
     await expect(page.locator('.driver-popover-title')).toBeVisible();
@@ -255,5 +255,68 @@ test.describe('Tour como operador', () => {
 
     const tourActive = await getTourStorageValue(page, 'active');
     expect(tourActive).toBeNull();
+  });
+});
+
+test.describe('Guía interactiva en móvil', () => {
+  test.use({ viewport: { width: 375, height: 667 } });
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page);
+    await ensureCashRegisterOpen(page);
+  });
+
+  test('inicia el tour desde el menú hamburguesa, cierra el menú y el popover es visible', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    const menuButton = page.getByRole('button', {
+      name: /abrir menú|cerrar menú/i,
+    });
+    await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+    await menuButton.click();
+    await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+
+    const mobileNav = page.locator('[data-tour="mobile-nav"]');
+    const guideButton = mobileNav.getByRole('button', { name: 'Guía' });
+    await expect(guideButton).toBeVisible();
+    await guideButton.click();
+
+    await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+    await waitForTourStep(page, 'Bienvenido a Panchería');
+
+    const popover = page.locator('.driver-popover');
+    await expect(popover).toBeVisible();
+
+    const box = await popover.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(667);
+
+    await clickTourNext(page);
+    await expect(page.locator('.driver-popover-title')).toBeVisible();
+  });
+
+  test('reinicia el tour desde cualquier página en móvil y cierra el menú', async ({
+    page,
+  }) => {
+    await page.goto('/productos');
+
+    const menuButton = page.getByRole('button', {
+      name: /abrir menú|cerrar menú/i,
+    });
+    await menuButton.click();
+
+    const mobileNav = page.locator('[data-tour="mobile-nav"]');
+    const guideButton = mobileNav.getByRole('button', { name: 'Guía' });
+    await guideButton.click();
+
+    await page.waitForURL('/');
+    await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+    await waitForTourStep(page, 'Bienvenido a Panchería');
   });
 });
