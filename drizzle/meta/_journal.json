@@ -50,6 +50,13 @@
       "when": 1786683018628,
       "tag": "0006_mighty_manta",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786747241254,
+      "tag": "0007_boring_scorpion",
+      "breakpoints": true
     }
   ]
 }

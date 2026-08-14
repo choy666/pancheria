@@ -5,6 +5,7 @@ import {
   varchar,
   text,
   integer,
+  bigint,
   boolean,
   timestamp,
   numeric,
@@ -407,6 +408,12 @@ export const dailyClosuresRelations = relations(dailyClosures, ({ one }) => ({
     references: [branches.id],
   }),
 }));
+
+export const loginAttempts = pgTable('login_attempts', {
+  username: varchar('username', { length: 255 }).primaryKey(),
+  count: integer('count').notNull(),
+  lastAttempt: bigint('last_attempt', { mode: 'number' }).notNull(),
+});
 
 export const videosRelations = relations(videos, ({ one }) => ({
   branch: one(branches, {

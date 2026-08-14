@@ -21,6 +21,7 @@ const protectedRoutes = [
   '/cierre/historial',
   '/usuarios',
   '/sucursales',
+  '/videos',
 ];
 
 const viewports = [
@@ -88,7 +89,7 @@ test.describe('Responsividad en móvil', () => {
   test('el menú hamburguesa es accesible desde las rutas protegidas principales', async ({ page }) => {
     await ensureLoggedIn(page);
 
-    const routesToCheck = ['/', '/ventas', '/productos', '/stock', '/cierre'];
+    const routesToCheck = ['/', '/ventas', '/productos', '/stock', '/cierre', '/sucursales', '/usuarios', '/videos'];
 
     for (const route of routesToCheck) {
       await page.goto(route);

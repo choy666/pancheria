@@ -86,4 +86,51 @@ test.describe('Videos', () => {
     await page.goto('/videos');
     await expect(page).toHaveURL('/');
   });
+
+  test('el endpoint de streaming responde 200 y soporta Range', async ({ page }) => {
+    await page.goto('/videos/nuevo');
+    const filePath = createTempVideoFile();
+
+    try {
+      await page.getByLabel('Título').fill('Video de streaming E2E');
+      await page.getByLabel('Archivo de video').setInputFiles(filePath);
+
+      await page.getByRole('button', { name: 'Subir archivo' }).click();
+      await expect(page.getByText('Archivo listo')).toBeVisible({ timeout: 15000 });
+
+      await page.getByRole('button', { name: 'Guardar video' }).click();
+      await expect(page).toHaveURL('/videos', { timeout: 15000 });
+      await expect(page.getByText('Video de streaming E2E')).toBeVisible();
+
+      await page.getByRole('link', { name: 'Video de streaming E2E' }).click();
+      await expect(page).toHaveURL(/\/videos\/\d+/);
+
+      const videoSrc = await page.locator('video').getAttribute('src');
+      expect(videoSrc).not.toBeNull();
+
+      const full = await page.request.get(videoSrc!);
+      expect(full.status()).toBe(200);
+      expect(full.headers()['accept-ranges']).toBe('bytes');
+      expect(full.headers()['content-type']).toBe('video/mp4');
+
+      const range = await page.request.get(videoSrc!, {
+        headers: { Range: 'bytes=0-15' },
+      });
+      expect(range.status()).toBe(206);
+      expect(range.headers()['content-range']).toMatch(/^bytes 0-15\/\d+$/);
+      expect(Number(range.headers()['content-length'])).toBe(16);
+
+      const suffix = await page.request.get(videoSrc!, {
+        headers: { Range: 'bytes=-16' },
+      });
+      expect(suffix.status()).toBe(206);
+      expect(Number(suffix.headers()['content-length'])).toBeLessThanOrEqual(16);
+    } finally {
+      try {
+        unlinkSync(filePath);
+      } catch {
+        // Ignorar error de limpieza.
+      }
+    }
+  });
 });

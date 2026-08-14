@@ -1,9 +1,100 @@
 import { createReadStream, statSync } from 'fs';
 import path from 'path';
-import { Readable } from 'stream';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorageProvider } from '@/config/videos';
-import { getStorageProvider as getProviderInstance, getLocalStorageDir, guessMimeType } from '@/lib/storage';
+import {
+  getStorageProvider as getProviderInstance,
+  getLocalStorageDir,
+  guessMimeType,
+} from '@/lib/storage';
+
+function fileToWebStream(
+  filePath: string,
+  start?: number,
+  end?: number
+): ReadableStream<Uint8Array> {
+  const nodeStream = createReadStream(
+    filePath,
+    start !== undefined && end !== undefined ? { start, end } : {}
+  );
+  let closed = false;
+
+  return new ReadableStream({
+    start(controller) {
+      nodeStream.on('data', (chunk: unknown) => {
+        if (closed) return;
+
+        if (!Buffer.isBuffer(chunk)) return;
+
+        controller.enqueue(new Uint8Array(chunk));
+
+        if (controller.desiredSize === null || controller.desiredSize <= 0) {
+          nodeStream.pause();
+        }
+      });
+
+      nodeStream.on('end', () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          // El controlador puede ya estar cerrado si el cliente canceló.
+        }
+      });
+
+      nodeStream.on('error', (error: Error) => {
+        if (closed) return;
+        closed = true;
+        nodeStream.destroy();
+        controller.error(error);
+      });
+    },
+
+    pull() {
+      if (!closed) {
+        nodeStream.resume();
+      }
+    },
+
+    cancel() {
+      if (closed) return;
+      closed = true;
+      nodeStream.destroy();
+    },
+  });
+}
+
+function parseRange(
+  range: string,
+  fileSize: number
+): { start: number; end: number } | null {
+  const match = range.match(/^bytes=(\d*)-(\d*)$/);
+  if (!match) return null;
+
+  const [, startStr, endStr] = match;
+
+  if (startStr === '' && endStr === '') {
+    return null;
+  }
+
+  if (startStr === '') {
+    const suffix = Number.parseInt(endStr, 10);
+    if (Number.isNaN(suffix) || suffix <= 0) return null;
+    const start = Math.max(0, fileSize - suffix);
+    return { start, end: fileSize - 1 };
+  }
+
+  const start = Number.parseInt(startStr, 10);
+  if (Number.isNaN(start)) return null;
+
+  if (start >= fileSize) return null;
+
+  const end = endStr === '' ? fileSize - 1 : Number.parseInt(endStr, 10);
+  if (Number.isNaN(end) || start > end) return null;
+
+  return { start, end: Math.min(end, fileSize - 1) };
+}
 
 export async function GET(
   request: NextRequest,
@@ -29,10 +120,9 @@ export async function GET(
     const range = request.headers.get('range');
 
     if (!range) {
-      const nodeStream = createReadStream(filePath);
-      const webStream = Readable.toWeb(nodeStream);
+      const webStream = fileToWebStream(filePath);
 
-      return new NextResponse(webStream as unknown as ReadableStream, {
+      return new NextResponse(webStream, {
         status: 200,
         headers: {
           'Content-Type': mimeType,
@@ -42,37 +132,24 @@ export async function GET(
       });
     }
 
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = Number.parseInt(parts[0], 10);
-    const end = parts[1]
-      ? Number.parseInt(parts[1], 10)
-      : fileSize - 1;
+    const parsed = parseRange(range, fileSize);
 
-    if (
-      Number.isNaN(start) ||
-      Number.isNaN(end) ||
-      start > end ||
-      start >= fileSize
-    ) {
+    if (!parsed) {
       return new NextResponse(null, {
         status: 416,
         headers: { 'Content-Range': `bytes */${fileSize}` },
       });
     }
 
-    const clampedEnd = Math.min(end, fileSize - 1);
-    const chunkSize = clampedEnd - start + 1;
-    const nodeStream = createReadStream(filePath, {
-      start,
-      end: clampedEnd,
-    });
-    const webStream = Readable.toWeb(nodeStream);
+    const { start, end } = parsed;
+    const chunkSize = end - start + 1;
+    const webStream = fileToWebStream(filePath, start, end);
 
-    return new NextResponse(webStream as unknown as ReadableStream, {
+    return new NextResponse(webStream, {
       status: 206,
       headers: {
         'Content-Type': mimeType,
-        'Content-Range': `bytes ${start}-${clampedEnd}/${fileSize}`,
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': String(chunkSize),
       },
