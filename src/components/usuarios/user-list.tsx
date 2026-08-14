@@ -12,6 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { UserForm } from '@/components/usuarios/user-form';
 import { UserActions } from '@/components/usuarios/user-actions';
+import { type UserState } from '@/app/(panel)/usuarios/actions';
 
 interface Branch {
   id: number;
@@ -30,9 +31,19 @@ interface User {
 interface UserListProps {
   users: User[];
   branches: Branch[];
+  createUser: (prevState: UserState, formData: FormData) => Promise<UserState>;
+  updateUserAction: (
+    prevState: UserState,
+    formData: FormData
+  ) => Promise<UserState>;
 }
 
-export function UserList({ users, branches }: UserListProps) {
+export function UserList({
+  users,
+  branches,
+  createUser,
+  updateUserAction,
+}: UserListProps) {
   const [editingUser, setEditingUser] = useState<User | undefined>();
   const handleCancelEdit = useCallback(() => setEditingUser(undefined), []);
 
@@ -48,6 +59,8 @@ export function UserList({ users, branches }: UserListProps) {
           branches={branches}
           user={editingUser}
           onCancel={handleCancelEdit}
+          createUser={createUser}
+          updateUserAction={updateUserAction}
         />
       </div>
 

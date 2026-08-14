@@ -83,7 +83,7 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
       <p className="text-base leading-relaxed text-muted-foreground">
         Historial de movimientos para <strong>{productName}</strong>
       </p>
-      <div className="overflow-x-hidden rounded-2xl border border-white/8">
+      <div className="overflow-x-auto rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>

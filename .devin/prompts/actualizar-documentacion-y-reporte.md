@@ -29,8 +29,7 @@ Documentación existente a mantener vigente:
 
 Informes previos que sirven de línea base (revisar los más recientes en `.devin/informes/`):
 
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-auditoria-2026-08-12.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-pruebas-2026-08-12.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado-2026-08-13.md" />
 
 ## Objetivo
 
@@ -57,7 +56,7 @@ Leer la documentación listada en "Contexto" y extraer las afirmaciones que debe
 - Estructura de carpetas y capas (`AGENTS.md`, `README.md`, `.devin/environment.yaml`).
 - Tecnologías y versiones (`AGENTS.md`, `README.md`, `package.json`).
 - Flujos de negocio documentados (multi-sucursal, tour, recetas, stock, caja, cierre, usuarios, sucursales).
-- Estado de prompts históricos: verificar si están resueltos, obsoletos o vigentes (por ejemplo `multi-sucursal.md`).
+- Estado de prompts: verificar si están resueltos, obsoletos o vigentes, y eliminarlos si ya no aportan valor.
 - Lecciones aprendidas aplicables y pendientes.
 
 ### 2. Inspección del código y del entorno
@@ -124,8 +123,8 @@ Aplicar actualizaciones puntuales a los documentos, priorizando los siguientes a
   - Agregar enlaces a prompts nuevos o marcar prompts obsoletos como resueltos/archivados.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/README.md" />
   - Actualizar el índice de informes si se genera un nuevo reporte.
-- Archivos de prompts obsoletos (por ejemplo `multi-sucursal.md`):
-  - Agregar una advertencia inicial clara que indique que el prompt está resuelto o archivado.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />
+  - Actualizar el índice: eliminar prompts resueltos o marcarlos como resueltos según corresponda.
 
 Para cada cambio documental, registrar:
 

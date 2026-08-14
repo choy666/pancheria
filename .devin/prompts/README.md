@@ -1,6 +1,6 @@
 # Guía para escribir prompts — Proyecto Panchería
 
-> Esta guía reemplaza la acumulación de prompts puntuales. Antes de crear un prompt nuevo, consultar los informes y lecciones aprendidas para evitar regresiones documentadas.
+> Antes de crear un prompt nuevo, consultar los informes y `lecciones-aprendidas.md` para evitar regresiones documentadas.
 
 ## Propósito
 
@@ -15,73 +15,21 @@ El directorio `.devin/prompts` debe contener **guías y ejemplos reutilizables**
 ## Antes de escribir un prompt
 
 1. Revisar si ya existe un informe relacionado en `.devin/informes/README.md`.
-2. Leer `.devin/informes/lecciones-aprendidas.md` para no repetir errores documentados.
-3. Leer <file:///C%3A/developer/paginas/pancheria/AGENTS.md> para respetar comandos, variables de entorno y convenciones.
-4. Leer el código que será afectado usando `<ref_file .../>` o `<ref_snippet .../>`.
-5. Revisar si `.devin/informes/lecciones-aprendidas.md` ya cubre el tema; si no, crear un prompt nuevo siguiendo esta guía.
+2. Leer `.devin/informes/lecciones-aprendidas.md`.
+3. Leer `AGENTS.md` para comandos, variables de entorno y convenciones.
+4. Leer el código afectado usando `<ref_file .../>` o `<ref_snippet .../>`.
+5. Si `lecciones-aprendidas.md` cubre el tema, no crear un prompt nuevo; referenciarlo.
 
 ## Estructura recomendada
 
-### 1. Título claro
-
-```markdown
-# Prompt: {acción concreta} en {área del sistema}
-```
-
-Ejemplo: `# Prompt: Sistema de Caja con Apertura, Cierre Automático e Historial`.
-
-### 2. Contexto
-
-- Proyecto y dominio.
-- Stack y arquitectura.
-- Estado actual relevante del sistema.
-- Documentación de referencia (informes, AGENTS.md, README.md).
-
-### 3. Problema u objetivo
-
-- Si es una auditoría: listar hipótesis y síntomas.
-- Si es una feature: describir el comportamiento esperado.
-- Si es un refactor: explicar por qué es necesario.
-
-### 4. Reglas de negocio
-
-Enumerar las reglas que **no deben romperse**. Ejemplos del proyecto:
-
-- Los productos nuevos nacen con `stock: 0` y `minStock: 0`.
-- Las promos (`compound`) y servicios (`service`) siempre tienen `stock: 0` y `minStock: 0`.
-- Los ajustes manuales de stock y la carga inicial pasan por `stockService.adjustStock`.
-- Las ventas y anulaciones gestionan sus propios movimientos de stock de forma transaccional dentro de `saleService`.
-- No se hardcodean credenciales ni URLs de API.
-
-### 5. Implementación detallada
-
-Dividir en secciones por capa (frontend, backend, base de datos, tests). Evitar indicar pasos genéricos como "arreglar todo". Preferir referencias a archivos concretos.
-
-### 6. Archivos y áreas a tocar
-
-Listar archivos relevantes usando `<ref_file .../>` o `<ref_snippet .../>`:
-
-```markdown
-- <ref_file file="C:/developer/paginas/pancheria/src/application/services/productService.ts" />
-- <ref_snippet file="C:/developer/paginas/pancheria/src/lib/zod-schemas.ts" lines="24-45" />
-```
-
-### 7. Consideraciones de seguridad y entorno
-
-- `.env.local` no se commitea.
-- Tests E2E truncan la base; usarlos solo en entornos de prueba.
-- No hardcodear credenciales, secretos ni URLs de API.
-
-### 8. Verificaciones
-
-| Comando | Cuándo usarlo |
-| ------- | ------------- |
-| `npm run lint` | Siempre |
-| `npm run build` | Siempre |
-| `npm test` | Cambios en servicios, repositorios o dominio |
-| `npm run test:e2e` (o `npx playwright test`) | Cambios en flujos críticos de UI/E2E |
-| `npx tsc --noEmit` | Cambios de tipos |
-| `npx drizzle-kit push` | Cambios en esquema de base de datos |
+1. Título claro: `# Prompt: {acción} en {área}`.
+2. Contexto (proyecto, stack, documentación de referencia).
+3. Estado actual relevante.
+4. Objetivo.
+5. Reglas de negocio.
+6. Implementación detallada por capa (backend, frontend, tests).
+7. Consideraciones de seguridad y entorno.
+8. Verificaciones.
 
 ## Plantilla base
 
@@ -90,32 +38,22 @@ Listar archivos relevantes usando `<ref_file .../>` o `<ref_snippet .../>`:
 
 ## Contexto
 
-Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos y cierre de caja.
+Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja y cierre de caja.
 
-Stack:
-
-- Next.js 16 (App Router)
-- React 19
-- TypeScript
-- Tailwind CSS v4
-- shadcn/ui
-- Drizzle ORM con PostgreSQL (Neon)
-- NextAuth v5
-- Patrón de arquitectura: repositorios + servicios de aplicación + dominio
+Stack: Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM con PostgreSQL (Neon), NextAuth v5.
 
 Documentación de referencia:
-
-- <file:///C%3A/developer/paginas/pancheria/AGENTS.md>
-- <file:///C%3A/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md>
+- `AGENTS.md`
+- `.devin/informes/lecciones-aprendidas.md`
 - {informe específico si aplica}
 
 ## Estado actual relevante
 
-{2-3 oraciones sobre el estado previo al cambio.}
+{2-3 oraciones}
 
 ## Objetivo
 
-{Qué debe lograrse.}
+{Qué debe lograrse}
 
 ## Reglas de negocio
 
@@ -125,18 +63,15 @@ Documentación de referencia:
 ## Implementación detallada
 
 ### Backend
-
 - <ref_file file="C:/developer/paginas/pancheria/src/application/services/{servicio}.ts" />
   - {cambio concreto}
 
 ### Frontend
-
 - <ref_file file="C:/developer/paginas/pancheria/src/components/{componente}.tsx" />
   - {cambio concreto}
 
 ### Tests
-
-- {tests unitarios y/o E2E a agregar o actualizar}
+- {tests}
 
 ## Consideraciones de seguridad y entorno
 
@@ -148,66 +83,49 @@ Documentación de referencia:
 
 | Comando | Propósito |
 | ------- | --------- |
-| `npm run lint` | Detectar errores de estilo y tipado |
-| `npm run build` | Verificar build de producción |
-| `npm test` | Ejecutar tests unitarios |
-| `npm run test:e2e` (o `npx playwright test`) | Ejecutar tests E2E en base de prueba |
+| `npm run lint` | Estilo y calidad |
+| `npm run build` | Build de producción |
+| `npm test` | Tests unitarios |
+| `npm run test:e2e` | Tests E2E en base de prueba |
 ```
 
 ## Anti-patrones y lecciones aprendidas
 
 Consultar `.devin/informes/lecciones-aprendidas.md` para el detalle completo. Los puntos críticos son:
 
-- **Verificar el patrón de manejo de errores antes de recomendar `throw new Error()`**. En Next.js con `useActionState`, la server action debe devolver el estado con `error`.
-- **Confirmar limitaciones de librerías antes de documentarlas**. Ejemplo: Zod v4 sí soporta `productBaseSchema.partial().refine(...)`.
-- **Distinguir tipos de error en wrappers de API**. `NotFoundError` debe devolver `404`, no `400`.
-- **No mezclar helpers de UI con utilidades generales**. `src/lib/utils.ts` contiene `cn`; utilidades de JSON van en `src/lib/json.ts`.
-- **No ocultar reglas de negocio en helpers de test**. Los productos nuevos nacen con `stock: 0`; la carga inicial se registra con `type: 'restock'`.
-- **Validar integridad con soft delete considerando el padre**. Una receta huérfana de una promo eliminada no debe bloquear operaciones.
-- **Tener cuidado con `findFirst` cuando coexisten activos e inactivos**.
-- **Revisar imports obsoletos antes de incluirlos en un checklist**.
-- **Incluir siempre una sección de seguridad y entorno** cuando se trabaje con `.env.local`, credenciales o bases de datos.
+- Server actions con `useActionState` deben devolver el estado con `error`, no lanzar `throw` para errores controlados.
+- `NotFoundError` debe devolver `404`; `DomainError` genérico `400`.
+- No mezclar helpers de UI con utilidades generales (`src/lib/utils.ts` vs `src/lib/json.ts`).
+- No ocultar reglas de negocio en helpers de test.
+- Validar integridad con soft delete considerando el estado del padre.
+- Tener cuidado con `findFirst` cuando coexisten activos e inactivos.
+- Incluir siempre una sección de seguridad y entorno cuando se trabaje con `.env.local`, credenciales o bases de datos.
 
 ## Cuándo crear un nuevo prompt
 
 Crear un prompt nuevo solo cuando:
-
 1. El tema no está cubierto por la guía ni por un informe existente.
 2. La tarea es lo suficientemente compleja como para requerir contexto estructurado.
-3. Se detecta un patrón que se va a repetir y conviene documentar.
+3. Se detecta un patrón repetible.
 
-Si la tarea es puntual o simple, es preferible hacer la pregunta directamente en la conversación e incluir como contexto `AGENTS.md` y `lecciones-aprendidas.md`.
+Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y `lecciones-aprendidas.md`.
 
 ## Cómo referenciar archivos
 
-Para que Devin lea el contexto exacto, usar las etiquetas `<ref_file .../>` y `<ref_snippet .../>`:
-
-```markdown
-<ref_file file="C:/developer/paginas/pancheria/src/domain/errors.ts" />
-<ref_snippet file="C:/developer/paginas/pancheria/src/application/services/productService.ts" lines="99-108" />
-```
-
-Preferir `<ref_snippet .../>` cuando se quiere destacar una sección específica. Preferir `<ref_file .../>` cuando se quiere que Devin lea el archivo completo.
-
-## Nota sobre prompts anteriores
-
-Los prompts puntuales anteriores fueron condensados en guías reutilizables. `tour-navbar.md` se conserva como referencia resuelta. `multi-sucursal.md` también se conserva como contexto histórico, pero su implementación ya está completa: el sistema soporta múltiples sucursales con aislamiento de datos. Esta guía es ahora el punto de partida para escribir prompts nuevos. Los ejemplos concretos pueden reconstruirse a partir del historial de commits si es necesario.
+Usar `<ref_file file="..."/>` para archivos completos y `<ref_snippet file="..." lines="x-y"/>` para secciones específicas.
 
 ## Prompts guardados
 
-Lista de prompts reutilizables y su estado:
+Lista de prompts reutilizables y activos:
 
-- [Actualizar documentación y generar informe de estado](file:///C%3A/developer/paginas/pancheria/.devin/prompts/actualizar-documentacion-y-reporte.md) — mantiene la documentación sincronizada con el código y genera un reporte de estado.
-- [Auditoría de alcance, funciones, herramientas y vigencia de la documentación](file:///C%3A/developer/paginas/pancheria/.devin/prompts/auditoria-documentacion.md) — auditoría profunda del proyecto sin modificar archivos.
-- [Control de acceso por rol y selección de sucursal](file:///C%3A/developer/paginas/pancheria/.devin/prompts/control-de-acceso-y-sucursales.md) — **resuelto / referencia histórica**.
-- [Corroborar y corregir nombre de sucursal en navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/verificar-navbar-sucursal.md) — **resuelto / referencia histórica**.
-- [Soporte multi-sucursal](file:///C%3A/developer/paginas/pancheria/.devin/prompts/multi-sucursal.md) — **resuelto / contexto histórico**.
-- [Tour navbar](file:///C%3A/developer/paginas/pancheria/.devin/prompts/tour-navbar.md) — **resuelto / referencia**.
-- [Tour interactivo por rol](file:///C%3A/developer/paginas/pancheria/.devin/prompts/tour-por-rol.md) — **resuelto / referencia**: recorrido de `driver.js` adaptado a los permisos de `admin` y `operator`.
-- [Roles y permisos](file:///C%3A/developer/paginas/pancheria/.devin/prompts/roles-y-permisos.md) — **resuelto / referencia** para auditorías de roles y documentación.
+- [Actualizar documentación y generar informe de estado](actualizar-documentacion-y-reporte.md) — guía reutilizable.
+- [Auditoría general](auditoria-documentacion.md) — guía reutilizable.
+- [Corroborar y mejorar diseño responsive](diseno-responsive.md) — guía reutilizable.
+
+> Los prompts resueltos (`caja-trazabilidad-sucursal-y-operador.md`, `control-de-acceso-y-sucursales.md`, `multi-sucursal.md`, `roles-y-permisos.md`, `tour-navbar.md`, `tour-por-rol.md` y `verificar-navbar-sucursal.md`) fueron eliminados porque su implementación ya finalizó y su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en este índice.
 
 ## Véase también
 
-- [Índice de informes de auditoría](file:///C%3A/developer/paginas/pancheria/.devin/informes/README.md)
-- [Lecciones aprendidas](file:///C%3A/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md)
-- [AGENTS.md](file:///C%3A/developer/paginas/pancheria/AGENTS.md)
+- [Índice de informes](../informes/README.md)
+- [Lecciones aprendidas](../informes/lecciones-aprendidas.md)
+- [AGENTS.md](../../AGENTS.md)

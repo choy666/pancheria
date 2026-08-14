@@ -65,7 +65,7 @@ export function BranchSelector({
         disabled={isLoading || branches.length === 0}
       >
         <SelectTrigger
-          className="w-[180px] text-sm"
+          className="w-full max-w-[180px] text-sm"
           aria-label="Sucursal activa"
         >
           <SelectValue placeholder="Sucursal">

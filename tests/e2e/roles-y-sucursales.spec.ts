@@ -118,7 +118,9 @@ test.describe('Rol administrador', () => {
     await page
       .locator('[data-slot="select-item"]', { hasText: defaultBranchName })
       .click();
-    await page.click('button[type="submit"]');
+    await page
+      .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
+      .click();
 
     await expect(page.getByText(operatorUsername).first()).toBeVisible({ timeout: 10000 });
 
@@ -133,7 +135,9 @@ test.describe('Rol administrador', () => {
     await page
       .locator('[data-slot="select-item"]', { hasText: secondBranch.branchName })
       .click();
-    await page.click('button[type="submit"]');
+    await page
+      .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
+      .click();
 
     await expect(page.getByText(editedUsername).first()).toBeVisible({ timeout: 10000 });
     const editedRow = page.locator('tr').filter({ hasText: editedUsername });

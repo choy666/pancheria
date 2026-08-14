@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,11 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  createUser,
-  updateUserAction,
-  type UserState,
-} from '@/app/(panel)/usuarios/actions';
+import { type UserState } from '@/app/(panel)/usuarios/actions';
 
 const initialState: UserState = null;
 
@@ -31,9 +28,21 @@ interface UserFormProps {
   branches: { id: number; name: string }[];
   user?: User;
   onCancel?: () => void;
+  createUser: (prevState: UserState, formData: FormData) => Promise<UserState>;
+  updateUserAction: (
+    prevState: UserState,
+    formData: FormData
+  ) => Promise<UserState>;
 }
 
-export function UserForm({ branches, user, onCancel }: UserFormProps) {
+export function UserForm({
+  branches,
+  user,
+  onCancel,
+  createUser,
+  updateUserAction,
+}: UserFormProps) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const wasPendingRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -54,10 +63,11 @@ export function UserForm({ branches, user, onCancel }: UserFormProps) {
         formRef.current?.reset();
         setBranchId(resetBranchId);
         onCancel?.();
+        router.refresh();
       }, 0);
     }
     wasPendingRef.current = isPending;
-  }, [isPending, isEditing, onCancel, state, user]);
+  }, [isPending, isEditing, onCancel, state, user, router]);
 
   return (
     <form

@@ -4,6 +4,7 @@ import {
   ensureCashRegisterOpen,
   ensureCashRegisterClosed,
   getCashRegister,
+  createProductViaApi,
 } from './helpers';
 
 test.use({ viewport: { width: 375, height: 667 } });
@@ -12,11 +13,21 @@ const protectedRoutes = [
   '/',
   '/ventas',
   '/ventas/historial',
+  '/ventas/historial/eliminadas',
   '/productos',
   '/productos/nuevo',
   '/stock',
   '/cierre',
   '/cierre/historial',
+  '/usuarios',
+  '/sucursales',
+];
+
+const viewports = [
+  { width: 375, height: 667, name: 'móvil pequeño' },
+  { width: 430, height: 932, name: 'móvil grande' },
+  { width: 768, height: 1024, name: 'tablet' },
+  { width: 1920, height: 1080, name: 'desktop' },
 ];
 
 test.describe('Responsividad en móvil', () => {
@@ -57,15 +68,34 @@ test.describe('Responsividad en móvil', () => {
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('no hay scroll horizontal en las rutas protegidas principales', async ({ page }) => {
+  test('el menú hamburguesa es accesible desde las rutas protegidas principales', async ({ page }) => {
     await ensureLoggedIn(page);
 
-    const viewports = [
-      { width: 375, height: 667, name: 'móvil pequeño' },
-      { width: 430, height: 932, name: 'móvil grande' },
-      { width: 768, height: 1024, name: 'tablet' },
-      { width: 1920, height: 1080, name: 'desktop' },
-    ];
+    const routesToCheck = ['/', '/ventas', '/productos', '/stock', '/cierre'];
+
+    for (const route of routesToCheck) {
+      await page.goto(route);
+      await expect(page).toHaveURL(route);
+
+      const menuButton = page.getByRole('button', { name: /abrir menú|cerrar menú/i });
+      await expect(menuButton, `menú hamburguesa visible en ${route}`).toBeVisible();
+
+      await menuButton.click();
+      const mobileNav = page.locator('header > div + div nav');
+      await expect(
+        mobileNav.getByRole('link').first(),
+        `menú hamburguesa desplegado en ${route}`
+      ).toBeVisible();
+
+      // Cerrar el menú para continuar con la siguiente ruta.
+      await menuButton.click();
+      await expect(mobileNav.getByRole('link').first()).not.toBeVisible();
+    }
+  });
+
+  test('no hay scroll horizontal en las rutas protegidas principales', async ({ page }, testInfo) => {
+    testInfo.setTimeout(60000);
+    await ensureLoggedIn(page);
 
     for (const viewport of viewports) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -118,18 +148,20 @@ test.describe('Responsividad en móvil', () => {
     );
     expect(noHScrollForm, 'scroll horizontal en /productos/nuevo').toBe(true);
 
-    const editLink = page.locator('table tbody a[href*="/productos/"]').first();
-    await page.goto('/productos');
-    await expect(editLink).toBeVisible();
-    const href = await editLink.getAttribute('href');
-    if (href) {
-      await page.goto(href);
-      await expect(page.getByRole('button', { name: /Guardar|Actualizar/ })).toBeVisible();
-      const noHScrollEdit = await page.evaluate(
-        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
-      );
-      expect(noHScrollEdit, `scroll horizontal en ${href}`).toBe(true);
-    }
+    const product = await createProductViaApi(page, {
+      name: 'Producto responsive test',
+      type: 'service',
+      price: 100,
+      unit: 'unidad',
+    });
+
+    await page.goto(`/productos/${product.id}/editar`);
+    await expect(page.getByRole('button', { name: /Guardar|Actualizar/ })).toBeVisible();
+
+    const noHScrollEdit = await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
+    );
+    expect(noHScrollEdit, 'scroll horizontal en edición de producto').toBe(true);
   });
 
   test('rutas de detalle y papelera se adaptan a 375px', async ({ page }) => {
@@ -166,5 +198,58 @@ test.describe('Responsividad en móvil', () => {
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
     );
     expect(noHScrollTrash, 'scroll horizontal en /ventas/historial/eliminadas').toBe(true);
+  });
+
+  test('diálogo de confirmación se adapta a 375px sin scroll horizontal', async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto('/sucursales');
+
+    // Abrir el diálogo de eliminación de la sucursal de test (segunda sucursal).
+    const deleteButton = page.getByRole('button', { name: 'Eliminar' }).last();
+    await expect(deleteButton).toBeVisible();
+    await deleteButton.click();
+
+    await expect(page.getByRole('heading', { name: 'Confirmar eliminación' })).toBeVisible();
+
+    const noHScrollDialog = await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
+    );
+    expect(noHScrollDialog, 'scroll horizontal con diálogo abierto en /sucursales').toBe(true);
+
+    // Cancelar para no eliminar datos.
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByRole('heading', { name: 'Confirmar eliminación' })).not.toBeVisible();
+  });
+
+  test('elementos interactivos principales tienen áreas táctiles mínimas en móvil', async ({ page }) => {
+    await ensureLoggedIn(page);
+
+    const routesToCheck = ['/', '/productos', '/stock', '/ventas', '/cierre'];
+
+    for (const route of routesToCheck) {
+      await page.goto(route);
+      await expect(page).toHaveURL(route);
+
+      const smallTargets = await page.evaluate(() => {
+        const selectors = 'button, a, input, select, textarea, [role="button"]';
+        const elements = Array.from(document.querySelectorAll(selectors));
+        return elements
+          .filter((el) => {
+            const rect = el.getBoundingClientRect();
+            const isVisible = rect.width > 0 && rect.height > 0;
+            const isSmall = rect.width < 44 || rect.height < 44;
+            return isVisible && isSmall;
+          })
+          .map((el) => {
+            const text = el.textContent?.trim().slice(0, 20) || '';
+            return `<${el.tagName.toLowerCase()}>${text}`;
+          });
+      });
+
+      expect(
+        smallTargets,
+        `elementos táctiles menores a 44x44px en ${route}: ${smallTargets.join(', ')}`
+      ).toEqual([]);
+    }
   });
 });

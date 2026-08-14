@@ -23,7 +23,7 @@ Documentación de referencia:
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/control-de-acceso-y-sucursales.md" />
+
 
 ## Objetivo
 

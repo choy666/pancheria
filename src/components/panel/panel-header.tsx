@@ -63,7 +63,8 @@ export function PanelHeader({
       <div className="flex min-h-16 items-center justify-between px-4 py-3">
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight"
+          className="inline-flex h-11 items-center rounded-lg px-2 text-lg font-semibold tracking-tight"
+          aria-label="Inicio"
         >
           Panchería
         </Link>

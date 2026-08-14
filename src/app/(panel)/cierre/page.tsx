@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CajaPanel } from '@/components/caja/caja-panel';
+import { ClosurePanel } from '@/components/cierre/closure-panel';
 import { auth } from '@/auth';
 import { getCurrentBranchId } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
@@ -26,6 +27,8 @@ export default async function ClosurePage() {
         <h2 className="text-xl font-semibold tracking-tight">Caja actual</h2>
         <CajaPanel branchName={branchName} />
       </section>
+
+      <ClosurePanel />
     </div>
   );
 }
