@@ -10,6 +10,20 @@ import {
 import { isDatabaseConnectionError } from '@/lib/db-errors';
 import { logError } from '@/lib/logger';
 
+function isClientAbortError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const code = (error as { code?: string }).code;
+    return (
+      code === 'ECONNRESET' ||
+      code === 'ECONNABORTED' ||
+      error.name === 'AbortError' ||
+      error.message === 'aborted' ||
+      error.message === 'The destination stream closed early.'
+    );
+  }
+  return false;
+}
+
 export function withApiErrorHandling<TArgs extends unknown[]>(
   handler: (...args: TArgs) => Promise<Response>
 ) {
@@ -50,6 +64,10 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: 'Error de conexión con la base de datos' },
           { status: 503 }
         );
+      }
+
+      if (isClientAbortError(error)) {
+        return new Response(null, { status: 499 });
       }
 
       logError('Error inesperado en API', error);

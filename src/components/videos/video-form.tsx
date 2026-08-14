@@ -143,24 +143,14 @@ export function VideoForm({
     }
   }, [file, prepareUploadAction]);
 
-  const handleSubmit = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (!fileUrl) {
       event.preventDefault();
-      if (!fileUrl) {
-        setUploadError('Primero debés subir un archivo de video.');
-        return;
-      }
-
+      setUploadError('Primero debés subir un archivo de video.');
+    } else {
       hasSubmittedRef.current = true;
-      const formData = new FormData(event.currentTarget);
-      formData.append('fileUrl', fileUrl);
-      formData.append('mimeType', mimeType);
-      formData.append('size', String(size));
-      formData.append('isActive', 'true');
-      formAction(formData);
-    },
-    [fileUrl, mimeType, size, formAction]
-  );
+    }
+  }
 
   const maxSizeMb = getVideoMaxSizeMb();
   const allowedTypes = getVideoAllowedMimeTypes();
@@ -168,9 +158,14 @@ export function VideoForm({
   return (
     <form
       ref={formRef}
+      action={formAction}
       onSubmit={handleSubmit}
       className="max-w-md space-y-4"
     >
+      <input type="hidden" name="fileUrl" value={fileUrl} />
+      <input type="hidden" name="mimeType" value={mimeType} />
+      <input type="hidden" name="size" value={size} />
+      <input type="hidden" name="isActive" value="true" />
       <div className="space-y-2">
         <Label htmlFor="title">Título</Label>
         <Input

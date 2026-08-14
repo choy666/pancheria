@@ -1,6 +1,9 @@
+import { createReadStream, statSync } from 'fs';
+import path from 'path';
+import { Readable } from 'stream';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorageProvider } from '@/config/videos';
-import { getStorageProvider as getProviderInstance } from '@/lib/storage';
+import { getStorageProvider as getProviderInstance, getLocalStorageDir, guessMimeType } from '@/lib/storage';
 
 export async function GET(
   request: NextRequest,
@@ -13,63 +16,71 @@ export async function GET(
 
   if (providerName !== 'local') {
     const provider = getProviderInstance(providerName);
-    const publicUrl = provider.getPublicUrl(key);
-    return NextResponse.redirect(publicUrl);
+    return NextResponse.redirect(provider.getPublicUrl(key));
   }
 
-  const provider = getProviderInstance('local');
-  if (!provider.readFile) {
-    return NextResponse.json(
-      { error: 'El proveedor local no soporta lectura de archivos.' },
-      { status: 500 }
-    );
-  }
-  const file = await provider.readFile(key);
+  const filePath = path.join(getLocalStorageDir(), key);
 
-  if (!file) {
+  try {
+    const stats = statSync(filePath);
+    const fileSize = stats.size;
+    const mimeType = guessMimeType(key);
+
+    const range = request.headers.get('range');
+
+    if (!range) {
+      const nodeStream = createReadStream(filePath);
+      const webStream = Readable.toWeb(nodeStream);
+
+      return new NextResponse(webStream as unknown as ReadableStream, {
+        status: 200,
+        headers: {
+          'Content-Type': mimeType,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(fileSize),
+        },
+      });
+    }
+
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = Number.parseInt(parts[0], 10);
+    const end = parts[1]
+      ? Number.parseInt(parts[1], 10)
+      : fileSize - 1;
+
+    if (
+      Number.isNaN(start) ||
+      Number.isNaN(end) ||
+      start > end ||
+      start >= fileSize
+    ) {
+      return new NextResponse(null, {
+        status: 416,
+        headers: { 'Content-Range': `bytes */${fileSize}` },
+      });
+    }
+
+    const clampedEnd = Math.min(end, fileSize - 1);
+    const chunkSize = clampedEnd - start + 1;
+    const nodeStream = createReadStream(filePath, {
+      start,
+      end: clampedEnd,
+    });
+    const webStream = Readable.toWeb(nodeStream);
+
+    return new NextResponse(webStream as unknown as ReadableStream, {
+      status: 206,
+      headers: {
+        'Content-Type': mimeType,
+        'Content-Range': `bytes ${start}-${clampedEnd}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': String(chunkSize),
+      },
+    });
+  } catch {
     return NextResponse.json(
       { error: 'Video no encontrado.' },
       { status: 404 }
     );
   }
-
-  const range = request.headers.get('range');
-  const { buffer, mimeType } = file;
-
-  if (!range) {
-    return new NextResponse(new Uint8Array(buffer), {
-      status: 200,
-      headers: {
-        'Content-Type': mimeType,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': String(buffer.length),
-      },
-    });
-  }
-
-  const parts = range.replace(/bytes=/, '').split('-');
-  const start = Number.parseInt(parts[0], 10);
-  const end = parts[1]
-    ? Number.parseInt(parts[1], 10)
-    : buffer.length - 1;
-
-  if (Number.isNaN(start) || Number.isNaN(end) || start > end || start >= buffer.length) {
-    return new NextResponse(null, {
-      status: 416,
-      headers: { 'Content-Range': `bytes */${buffer.length}` },
-    });
-  }
-
-  const chunk = buffer.subarray(start, end + 1);
-  const contentLength = chunk.length;
-
-  return new NextResponse(new Uint8Array(chunk), {
-    status: 206,
-    headers: {
-      'Content-Type': mimeType,
-      'Content-Range': `bytes ${start}-${end}/${buffer.length}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': String(contentLength),
-    },
-  });
 }

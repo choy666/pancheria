@@ -10,7 +10,7 @@ const mimeTypesByExtension: Record<string, string> = {
   '.ogv': 'video/ogg',
 };
 
-function guessMimeType(filename: string): string {
+export function guessMimeType(filename: string): string {
   const extension = path.extname(filename).toLowerCase();
   return mimeTypesByExtension[extension] ?? 'video/mp4';
 }
@@ -37,7 +37,7 @@ export interface StorageProvider {
   readFile?(key: string): Promise<{ buffer: Buffer; mimeType: string } | null>;
 }
 
-function getLocalStorageDir(): string {
+export function getLocalStorageDir(): string {
   return process.env.LOCAL_STORAGE_PATH ?? path.join(process.cwd(), 'tmp', 'videos');
 }
 
