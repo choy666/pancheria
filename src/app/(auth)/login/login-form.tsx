@@ -15,8 +15,18 @@ import { login, type LoginFormState } from './actions';
 
 const initialState: LoginFormState = null;
 
-export function LoginForm() {
+interface LoginFormProps {
+  errorQuery?: string;
+}
+
+const NO_BRANCH_MESSAGE =
+  'El usuario no tiene una sucursal asignada. Contactá al administrador.';
+
+export function LoginForm({ errorQuery }: LoginFormProps = {}) {
   const [state, formAction, isPending] = useActionState(login, initialState);
+  const queryError =
+    errorQuery === 'no_branch' ? NO_BRANCH_MESSAGE : undefined;
+  const displayedError = state?.error ?? queryError;
 
   return (
     <div className='flex min-h-full items-center justify-center p-4'>
@@ -29,13 +39,13 @@ export function LoginForm() {
         </CardHeader>
         <CardContent>
           <form action={formAction} className='space-y-5'>
-            {state?.error && (
+            {displayedError && (
               <p
                 className='rounded-lg bg-destructive/15 p-3 text-base text-destructive'
                 role='alert'
                 aria-live='polite'
               >
-                {state.error}
+                {displayedError}
               </p>
             )}
             <div className='space-y-2'>

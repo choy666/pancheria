@@ -3,7 +3,7 @@ import { ProductForm } from '@/components/productos/product-form';
 import { PromoForm } from '@/components/productos/promo-form';
 import * as productService from '@/application/services/productService';
 import { auth } from '@/auth';
-import { getCurrentBranchId } from '@/lib/auth';
+import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 
 interface PageParams {
   params: Promise<{ id: string }>;
@@ -16,7 +16,7 @@ export default async function EditProductPage({ params }: PageParams) {
     redirect('/');
   }
 
-  const branchId = await getCurrentBranchId(session);
+  const branchId = await getCurrentBranchIdOrRedirect(session);
 
   const { id } = await params;
   const product = await productService.getProductById(branchId, Number(id));

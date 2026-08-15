@@ -6,7 +6,7 @@ import { CashRegisterSummary } from '@/components/caja/cash-register-summary';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as branchService from '@/application/services/branchService';
 import { auth } from '@/auth';
-import { getCurrentBranchId } from '@/lib/auth';
+import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -14,7 +14,7 @@ interface Props {
 
 export default async function CashRegisterDetailPage({ params }: Props) {
   const session = await auth();
-  const branchId = await getCurrentBranchId(session);
+  const branchId = await getCurrentBranchIdOrRedirect(session);
 
   const { id } = await params;
   const cashRegister = await cashRegisterService.getCashRegisterById(

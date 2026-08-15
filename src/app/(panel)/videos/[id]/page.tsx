@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { routes } from '@/config/routes';
 import * as videoService from '@/application/services/videoService';
-import { getCurrentBranchId } from '@/lib/auth';
+import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { VideoPlayer } from '@/components/videos/video-player';
 import { CastButton } from '@/components/videos/cast-button';
@@ -20,7 +20,7 @@ export default async function VideoDetailPage({
   }
 
   const { id } = await params;
-  const branchId = await getCurrentBranchId(session);
+  const branchId = await getCurrentBranchIdOrRedirect(session);
   const video = await videoService.getVideoById(branchId, Number(id));
 
   if (!video) {

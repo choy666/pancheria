@@ -44,6 +44,17 @@ async function seedAdmin(defaultBranchId: number) {
   });
 
   if (existing) {
+    if (!existing.branchId) {
+      await db
+        .update(users)
+        .set({ branchId: defaultBranchId })
+        .where(eq(users.id, existing.id));
+      console.log(
+        'El usuario administrador existía sin sucursal; se le asignó la sucursal por defecto.'
+      );
+      return;
+    }
+
     console.log('El usuario administrador ya existe.');
     return;
   }

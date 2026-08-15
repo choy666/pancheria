@@ -3,12 +3,12 @@ import { Button } from '@/components/ui/button';
 import { CajaPanel } from '@/components/caja/caja-panel';
 import { ClosurePanel } from '@/components/cierre/closure-panel';
 import { auth } from '@/auth';
-import { getCurrentBranchId } from '@/lib/auth';
+import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
 
 export default async function ClosurePage() {
   const session = await auth();
-  const branchId = await getCurrentBranchId(session);
+  const branchId = await getCurrentBranchIdOrRedirect(session);
   const branch = await branchService.getBranchById(branchId);
   const branchName = branch?.name ?? session?.user?.branchName;
 

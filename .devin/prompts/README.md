@@ -125,6 +125,7 @@ Usar como punto de entrada para cualquier tarea futura:
 ### Prompts activos
 
 - [Auditoría y actualización de documentación](auditoria-y-documentacion.md) — guía reutilizable.
+- [Errores de deploy en Vercel: `ForbiddenError` sin sucursal y React #441](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y error de renderizado de Server Components por usuario sin sucursal asignada.
 
 ### Prompts resueltos y archivados
 

@@ -1,5 +1,10 @@
 ﻿import { LoginForm } from './login-form';
 
-export default function LoginPage() {
-  return <LoginForm />;
+interface LoginPageProps {
+  searchParams: Promise<{ error?: string }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams;
+  return <LoginForm errorQuery={error} />;
 }

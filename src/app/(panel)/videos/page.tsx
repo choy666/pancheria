@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { routes } from '@/config/routes';
 import * as videoService from '@/application/services/videoService';
-import { getCurrentBranchId } from '@/lib/auth';
+import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { VideoList } from '@/components/videos/video-list';
 import {
@@ -19,7 +19,7 @@ export default async function VideosPage() {
     redirect(routes.home);
   }
 
-  const branchId = await getCurrentBranchId(session);
+  const branchId = await getCurrentBranchIdOrRedirect(session);
   const videos = await videoService.listVideos(branchId);
 
   return (
