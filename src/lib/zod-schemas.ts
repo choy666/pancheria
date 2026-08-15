@@ -138,6 +138,8 @@ export const stockMovementTypeSchema = z.enum([
   'cancellation',
   'manual_adjustment',
   'restock',
+  'order',
+  'order_cancellation',
 ]);
 
 export const stockAdjustmentSchema = z.object({
@@ -149,6 +151,37 @@ export const stockAdjustmentSchema = z.object({
 
 export const cancellationSchema = z.object({
   reason: z.string().min(3).max(500),
+});
+
+export const orderSchema = z
+  .object({
+    items: z.array(saleItemSchema).min(1),
+    customerName: z.string().min(1).max(255),
+    deliveryType: z.enum(['delivery', 'pickup']),
+    address: z.string().max(500).optional().nullable(),
+    notes: z.string().max(1000).optional().nullable(),
+    idempotencyKey: z.string().min(1).max(255),
+  })
+  .refine(
+    (data) =>
+      data.deliveryType !== 'delivery' ||
+      (data.address !== undefined &&
+        data.address !== null &&
+        data.address.trim().length > 0),
+    {
+      message: 'La dirección es obligatoria para envío a domicilio.',
+      path: ['address'],
+    }
+  );
+
+export const orderConfirmSchema = z.object({
+  paymentMethod: z.enum(['cash', 'transfer']),
+  idempotencyKey: z.string().min(1),
+});
+
+export const orderCancellationSchema = z.object({
+  reason: z.string().min(3).max(500),
+  token: z.string().optional(),
 });
 
 export const videoBaseSchema = z.object({

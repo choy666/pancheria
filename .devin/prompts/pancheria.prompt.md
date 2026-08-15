@@ -40,7 +40,9 @@ Documentación de referencia obligatoria:
 
 ## Tareas pendientes identificadas
 
-- **Catálogo público y pedidos por WhatsApp (`/pedido`)** — ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/catalogo-whatsapp.md" />. Es el único feature grande pendiente.
+- **Catálogo público y pedidos por WhatsApp (`/pedido`)** — resuelto. Ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/catalogo-whatsapp.md" /> para contexto histórico.
+- **Sincronizar stock de pedidos públicos con reserva transaccional** — resuelto. Ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/pedido-stock-centralizado.md" /> para contexto histórico.
+- Considerar expiración automática de pedidos `pending` (fase 8 del prompt archivado).
 - Migrar `RateLimitStore` a base de datos compartida si se escala horizontalmente.
 - Monitorear logs del endpoint `/api/videos/[id]/stream` en producción.
 - Confirmar variables de producción (`NEXTAUTH_URL`, `DATABASE_URL`) en Vercel.
@@ -50,5 +52,5 @@ Documentación de referencia obligatoria:
 1. Leer `AGENTS.md` y `.devin/informes/lecciones-aprendidas.md`.
 2. Confirmar el estado actual del código con búsquedas antes de asumir que algo existe.
 3. Si la tarea es una auditoría o actualización de documentación, seguir <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />.
-4. Si la tarea es el catálogo WhatsApp, seguir <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/catalogo-whatsapp.md" />.
+4. Los prompts de catálogo y pedidos con reserva transaccional están resueltos y archivados. Antes de retomarlos, verificar su contexto en `archivados/`.
 5. Antes de terminar, ejecutar las verificaciones de la tabla y documentar discrepancias en un informe `.devin/informes/reporte-estado-YYYY-MM-DD.md` cuando corresponda.

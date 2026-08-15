@@ -33,11 +33,21 @@ export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'transfer']);
 
 export const saleStatusEnum = pgEnum('sale_status', ['active', 'cancelled']);
 
+export const orderStatusEnum = pgEnum('order_status', [
+  'pending',
+  'converted',
+  'cancelled',
+]);
+
+export const deliveryTypeEnum = pgEnum('delivery_type', ['delivery', 'pickup']);
+
 export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
   'sale',
   'cancellation',
   'manual_adjustment',
   'restock',
+  'order',
+  'order_cancellation',
 ]);
 
 export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
@@ -225,6 +235,69 @@ export const saleItems = pgTable(
   })
 );
 
+export const orders = pgTable(
+  'orders',
+  {
+    id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
+    orderNumber: varchar('order_number', { length: 255 }).notNull(),
+    total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    status: orderStatusEnum('status').default('pending').notNull(),
+    customerName: varchar('customer_name', { length: 255 }).notNull(),
+    deliveryType: deliveryTypeEnum('delivery_type').notNull(),
+    address: text('address'),
+    notes: text('notes'),
+    cancellationToken: varchar('cancellation_token', { length: 255 }).notNull(),
+    convertedSaleId: integer('converted_sale_id').references(() => sales.id, {
+      onDelete: 'set null',
+    }),
+    idempotencyKey: varchar('idempotency_key', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    cancelledAt: timestamp('cancelled_at'),
+    cancellationReason: text('cancellation_reason'),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (table) => ({
+    branchIdIdx: index('orders_branch_id_idx').on(table.branchId),
+    statusIdx: index('orders_status_idx').on(table.status),
+    createdAtIdx: index('orders_created_at_idx').on(table.createdAt),
+    branchStatusDeletedAtIdx: index('orders_branch_status_deleted_at_idx').on(
+      table.branchId,
+      table.status,
+      table.deletedAt
+    ),
+    orderNumberUniqueIdx: uniqueIndex('orders_order_number_unique_idx').on(
+      table.branchId,
+      table.orderNumber
+    ),
+    idempotencyUniqueIdx: uniqueIndex('orders_idempotency_branch_unique_idx').on(
+      table.branchId,
+      table.idempotencyKey
+    ),
+  })
+);
+
+export const orderItems = pgTable(
+  'order_items',
+  {
+    id: serial('id').primaryKey(),
+    orderId: integer('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    productId: integer('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    quantity: integer('quantity').notNull(),
+    unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    orderIdx: index('order_items_order_idx').on(table.orderId),
+  })
+);
+
 export const stockMovements = pgTable(
   'stock_movements',
   {
@@ -239,10 +312,12 @@ export const stockMovements = pgTable(
     quantity: integer('quantity').notNull(),
     reason: text('reason'),
     saleId: integer('sale_id').references(() => sales.id, { onDelete: 'set null' }),
+    orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
     branchIdIdx: index('stock_movements_branch_id_idx').on(table.branchId),
+    orderIdIdx: index('stock_movements_order_id_idx').on(table.orderId),
     productCreatedAtIdx: index('stock_movements_product_created_at_idx').on(
       table.productId,
       table.createdAt
@@ -319,6 +394,7 @@ export const branchesRelations = relations(branches, ({ many }) => ({
   products: many(products),
   cashRegisters: many(cashRegisters),
   sales: many(sales),
+  orders: many(orders),
   stockMovements: many(stockMovements),
   dailyClosures: many(dailyClosures),
   videos: many(videos),
@@ -339,6 +415,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   recipes: many(recipes, { relationName: 'compoundProduct' }),
   supplyRecipes: many(recipes, { relationName: 'supply' }),
   saleItems: many(saleItems),
+  orderItems: many(orderItems),
   stockMovements: many(stockMovements),
 }));
 
@@ -387,6 +464,30 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   }),
 }));
 
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  branch: one(branches, {
+    fields: [orders.branchId],
+    references: [branches.id],
+  }),
+  convertedSale: one(sales, {
+    fields: [orders.convertedSaleId],
+    references: [sales.id],
+  }),
+  items: many(orderItems),
+  stockMovements: many(stockMovements),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+  product: one(products, {
+    fields: [orderItems.productId],
+    references: [products.id],
+  }),
+}));
+
 export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   branch: one(branches, {
     fields: [stockMovements.branchId],
@@ -399,6 +500,10 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   sale: one(sales, {
     fields: [stockMovements.saleId],
     references: [sales.id],
+  }),
+  order: one(orders, {
+    fields: [stockMovements.orderId],
+    references: [orders.id],
   }),
 }));
 

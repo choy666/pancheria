@@ -40,7 +40,14 @@ export async function adjustStock(
     throw new ValidationError('El motivo del ajuste debe tener al menos 3 caracteres.');
   }
 
-  const validTypes: StockMovementType[] = ['sale', 'cancellation', 'manual_adjustment', 'restock'];
+  const validTypes: StockMovementType[] = [
+    'sale',
+    'cancellation',
+    'manual_adjustment',
+    'restock',
+    'order',
+    'order_cancellation',
+  ];
   if (!validTypes.includes(type)) {
     throw new ValidationError('Tipo de movimiento de stock inválido.');
   }

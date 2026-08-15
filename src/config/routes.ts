@@ -11,4 +11,7 @@ export const routes = {
   videos: '/videos',
   videosNuevo: '/videos/nuevo',
   videoDetalle: '/videos/[id]',
+  pedido: '/pedido',
+  pedidos: '/pedidos',
+  pedidoDetalle: (id: number | string) => `/pedidos/${id}`,
 } as const;

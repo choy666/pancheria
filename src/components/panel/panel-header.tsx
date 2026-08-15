@@ -30,6 +30,8 @@ const operatorNavItems = [
   { href: routes.ventasHistorial, label: 'Historial' },
   { href: routes.stock, label: 'Stock' },
   { href: routes.cierre, label: 'Caja' },
+  { href: routes.pedidos, label: 'Pedidos' },
+  { href: routes.pedido, label: 'Catálogo' },
 ];
 
 const adminNavItems = [
@@ -39,9 +41,11 @@ const adminNavItems = [
   { href: routes.productos, label: 'Productos' },
   { href: routes.stock, label: 'Stock' },
   { href: routes.cierre, label: 'Caja' },
+  { href: routes.pedidos, label: 'Pedidos' },
   { href: routes.sucursales, label: 'Sucursales' },
   { href: routes.usuarios, label: 'Usuarios' },
   { href: routes.videos, label: 'Videos' },
+  { href: routes.pedido, label: 'Catálogo' },
 ];
 
 export function PanelHeader({

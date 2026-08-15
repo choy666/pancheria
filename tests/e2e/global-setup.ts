@@ -11,8 +11,10 @@ export default async function globalSetup() {
   await db.execute(sql`
     TRUNCATE TABLE
       sale_items,
+      order_items,
       stock_movements,
       sales,
+      orders,
       recipes,
       products,
       videos,

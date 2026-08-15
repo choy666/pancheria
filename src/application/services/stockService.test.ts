@@ -70,6 +70,7 @@ function createStockMovement(overrides: Partial<StockMovement> = {}): StockMovem
     quantity: 0,
     reason: null,
     saleId: null,
+    orderId: null,
     createdAt: new Date(),
     ...overrides,
   };

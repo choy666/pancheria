@@ -9,19 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { Skeleton } from '@/components/ui/skeleton';
+import { isPublicSellableProduct } from '@/lib/catalog';
 import {
   PRODUCTOS_API,
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
+import type { ProductRow } from '@/domain/types';
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  unit: string;
-  type: string;
-  criticalSupplyType: string | null;
+interface Product extends ProductRow {
   availability: number;
 }
 
@@ -30,13 +26,6 @@ interface CartItem {
   quantity: number;
 }
 
-function isSellableProduct(product: Product): boolean {
-  return (
-    product.type === 'compound' ||
-    product.type === 'service' ||
-    (product.type === 'critical_supply' && product.criticalSupplyType === 'beverage')
-  );
-}
 
 function sellablePriority(product: Product): number {
   if (product.type === 'compound') return 1;
@@ -90,7 +79,7 @@ export function SalesTerminal() {
       if (!response.ok) throw new Error('Error al cargar productos');
 
       const allProducts = (await response.json()) as Product[];
-      const sellable = sortSellableProducts(allProducts.filter(isSellableProduct));
+      const sellable = sortSellableProducts(allProducts.filter(isPublicSellableProduct));
 
       if (!isMountedRef.current) return;
       setProducts(sellable);

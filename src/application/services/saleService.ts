@@ -1,4 +1,4 @@
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, inArray, gte } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   cashRegisters,
@@ -23,7 +23,12 @@ import {
   NotFoundError,
   ValidationError,
 } from '@/domain/errors';
-import type { PaymentMethod, ProductRow, SaleItemInput } from '@/domain/types';
+import type {
+  PaymentMethod,
+  ProductRow,
+  SaleItemInput,
+  StockMovementType,
+} from '@/domain/types';
 import {
   calculateCompoundAvailability,
   findRecipesForProducts,
@@ -280,7 +285,7 @@ export async function validateCartAvailability(
   return { availabilityByProduct, consumedBySupply, shortageByProduct };
 }
 
-async function updateCashRegisterSummary(
+export async function updateCashRegisterSummary(
   tx: typeof db,
   cashRegister: (typeof cashRegisters.$inferSelect) | null,
   saleItems: { productId: number; quantity: number }[],
@@ -364,6 +369,209 @@ async function updateCashRegisterSummary(
     );
 }
 
+export async function deductStockForItems(
+  tx: typeof db,
+  branchId: number,
+  items: { productId: number; quantity: number }[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  source: { saleId?: number; orderId?: number },
+  movementType: StockMovementType
+) {
+  const productIdsToLock = new Set<number>();
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product) continue;
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+        productIdsToLock.add(recipeItem.supplyId);
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      productIdsToLock.add(product.id);
+    }
+  }
+
+  const idsToLock = Array.from(productIdsToLock);
+  if (idsToLock.length > 0) {
+    await tx
+      .select()
+      .from(products)
+      .where(inArray(products.id, idsToLock))
+      .for('update');
+  }
+
+  for (const item of items) {
+    const product = productById.get(item.productId)!;
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+
+        const consumed = recipeItem.quantity * item.quantity;
+
+        const [updated] = await tx
+          .update(products)
+          .set({ stock: sql`${products.stock} - ${consumed}` })
+          .where(
+            and(
+              eq(products.id, recipeItem.supplyId),
+              gte(products.stock, consumed)
+            )
+          )
+          .returning({ id: products.id });
+
+        if (!updated) {
+          throw new InsufficientStockError(
+            product.name,
+            product.stock,
+            consumed,
+            recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`
+          );
+        }
+
+        await tx.insert(stockMovements).values({
+          branchId,
+          productId: recipeItem.supplyId,
+          type: movementType,
+          quantity: -consumed,
+          saleId: source.saleId ?? null,
+          orderId: source.orderId ?? null,
+          createdAt: nowUTC(),
+        });
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      const [updated] = await tx
+        .update(products)
+        .set({ stock: sql`${products.stock} - ${item.quantity}` })
+        .where(
+          and(eq(products.id, product.id), gte(products.stock, item.quantity))
+        )
+        .returning({ id: products.id });
+
+      if (!updated) {
+        throw new InsufficientStockError(
+          product.name,
+          product.stock,
+          item.quantity
+        );
+      }
+
+      await tx.insert(stockMovements).values({
+        branchId,
+        productId: product.id,
+        type: movementType,
+        quantity: -item.quantity,
+        saleId: source.saleId ?? null,
+        orderId: source.orderId ?? null,
+        createdAt: nowUTC(),
+      });
+    } else if (product.type === 'service') {
+      // Los servicios no generan movimientos de stock.
+    }
+  }
+}
+
+export async function reintegrateStockForItems(
+  tx: typeof db,
+  branchId: number,
+  items: { productId: number; quantity: number }[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  source: { saleId?: number; orderId?: number },
+  movementType: StockMovementType
+) {
+  const productIdsToLock = new Set<number>();
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product) continue;
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+        productIdsToLock.add(recipeItem.supplyId);
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      productIdsToLock.add(product.id);
+    }
+  }
+
+  const idsToLock = Array.from(productIdsToLock);
+  if (idsToLock.length > 0) {
+    await tx
+      .select()
+      .from(products)
+      .where(inArray(products.id, idsToLock))
+      .for('update');
+  }
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product) continue;
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+
+      for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+
+        const reintegrated = recipeItem.quantity * item.quantity;
+
+        await tx
+          .update(products)
+          .set({ stock: sql`${products.stock} + ${reintegrated}` })
+          .where(eq(products.id, recipeItem.supplyId));
+
+        await tx.insert(stockMovements).values({
+          branchId,
+          productId: recipeItem.supplyId,
+          type: movementType,
+          quantity: reintegrated,
+          saleId: source.saleId ?? null,
+          orderId: source.orderId ?? null,
+          createdAt: nowUTC(),
+        });
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      await tx
+        .update(products)
+        .set({ stock: sql`${products.stock} + ${item.quantity}` })
+        .where(eq(products.id, product.id));
+
+      await tx.insert(stockMovements).values({
+        branchId,
+        productId: product.id,
+        type: movementType,
+        quantity: item.quantity,
+        saleId: source.saleId ?? null,
+        orderId: source.orderId ?? null,
+        createdAt: nowUTC(),
+      });
+    } else if (product.type === 'service') {
+      // Los servicios no reintegran stock al anularse.
+    }
+  }
+}
+
 export async function confirmSale(params: {
   branchId: number;
   items: SaleItemInput[];
@@ -374,7 +582,7 @@ export async function confirmSale(params: {
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
 
-  if (await isIdempotencyKeyUsed(branchId, branchIdempotencyKey)) {
+  if (await isIdempotencyKeyUsed('sale', branchId, branchIdempotencyKey)) {
     throw new ValidationError('La venta ya fue procesada.');
   }
 
@@ -496,52 +704,15 @@ export async function confirmSale(params: {
       }))
     );
 
-    for (const item of saleItemValues) {
-      const product = productById.get(item.productId)!;
-
-      if (product.type === 'compound') {
-        const recipeList = recipesByProduct.get(product.id) ?? [];
-
-        for (const recipeItem of recipeList) {
-          if (!recipeItem.autoDiscount) continue;
-
-          const consumed = recipeItem.quantity * item.quantity;
-
-          await tx
-            .update(products)
-            .set({ stock: sql`${products.stock} - ${consumed}` })
-            .where(eq(products.id, recipeItem.supplyId));
-
-          await tx.insert(stockMovements).values({
-            branchId,
-            productId: recipeItem.supplyId,
-            type: 'sale',
-            quantity: -consumed,
-            saleId: sale.id,
-            createdAt: nowUTC(),
-          });
-        }
-      } else if (
-        product.type === 'critical_supply' &&
-        product.criticalSupplyType === 'beverage'
-      ) {
-        await tx
-          .update(products)
-          .set({ stock: sql`${products.stock} - ${item.quantity}` })
-          .where(eq(products.id, product.id));
-
-        await tx.insert(stockMovements).values({
-          branchId,
-          productId: product.id,
-          type: 'sale',
-          quantity: -item.quantity,
-          saleId: sale.id,
-          createdAt: nowUTC(),
-        });
-      } else if (product.type === 'service') {
-        // Los servicios no generan movimientos de stock.
-      }
-    }
+    await deductStockForItems(
+      tx,
+      branchId,
+      saleItemValues,
+      productById,
+      recipesByProduct,
+      { saleId: sale.id },
+      'sale'
+    );
 
     const [lockedCashRegister] = await tx
       .select()
@@ -647,53 +818,15 @@ export async function cancelSale(
       recipesByProduct = groupRecipesByProduct(allRecipes);
     }
 
-    for (const item of sale.items ?? []) {
-      const product = productById.get(item.productId);
-      if (!product) continue;
-
-      if (product.type === 'compound') {
-        const recipeList = recipesByProduct.get(product.id) ?? [];
-
-        for (const recipeItem of recipeList) {
-          if (!recipeItem.autoDiscount) continue;
-
-          const reintegrated = recipeItem.quantity * item.quantity;
-
-          await tx
-            .update(products)
-            .set({ stock: sql`${products.stock} + ${reintegrated}` })
-            .where(eq(products.id, recipeItem.supplyId));
-
-          await tx.insert(stockMovements).values({
-            branchId,
-            productId: recipeItem.supplyId,
-            type: 'cancellation',
-            quantity: reintegrated,
-            saleId: sale.id,
-            createdAt: nowUTC(),
-          });
-        }
-      } else if (
-        product.type === 'critical_supply' &&
-        product.criticalSupplyType === 'beverage'
-      ) {
-        await tx
-          .update(products)
-          .set({ stock: sql`${products.stock} + ${item.quantity}` })
-          .where(eq(products.id, product.id));
-
-        await tx.insert(stockMovements).values({
-          branchId,
-          productId: product.id,
-          type: 'cancellation',
-          quantity: item.quantity,
-          saleId: sale.id,
-          createdAt: nowUTC(),
-        });
-      } else if (product.type === 'service') {
-        // Los servicios no reintegran stock al anularse.
-      }
-    }
+    await reintegrateStockForItems(
+      tx,
+      branchId,
+      sale.items ?? [],
+      productById,
+      recipesByProduct,
+      { saleId: sale.id },
+      'cancellation'
+    );
 
     const [updated] = await tx
       .update(sales)

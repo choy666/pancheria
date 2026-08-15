@@ -124,13 +124,14 @@ Usar como punto de entrada para cualquier tarea futura:
 
 ### Prompts activos
 
-- [Catálogo público y pedidos por WhatsApp](catalogo-whatsapp.md) — feature pendiente.
 - [Auditoría y actualización de documentación](auditoria-y-documentacion.md) — guía reutilizable.
 
 ### Prompts resueltos y archivados
 
 Los prompts cuya implementación ya finalizó se archivan en `archivados/`:
 
+- `catalogo-whatsapp.md`
+- `pedido-stock-centralizado.md`
 - `tour-guia-responsive.md`
 - `diseno-responsive.md`
 - `videos-y-cast.md`

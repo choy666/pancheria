@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { routes } from '@/config/routes';
 import { auth } from '@/auth';
 
 export default async function DashboardPage() {
@@ -76,6 +77,22 @@ export default async function DashboardPage() {
             <Link href="/cierre" className="mt-5 inline-block">
               <Button variant="outline" className="w-full sm:w-auto">
                 Ir a caja
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card data-tour="dashboard-pedidos" className="hover:border-primary/30 transition-colors">
+          <CardHeader>
+            <CardTitle className="text-lg">Pedidos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-base leading-relaxed text-muted-foreground">
+              Ver y confirmar pedidos del catálogo público.
+            </p>
+            <Link href={routes.pedidos} className="mt-5 inline-block">
+              <Button variant="outline" className="w-full sm:w-auto">
+                Ir a pedidos
               </Button>
             </Link>
           </CardContent>

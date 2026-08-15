@@ -85,6 +85,25 @@ El sistema distingue dos roles: `admin` y `operator`.
 
 La página `/usuarios` lista siempre **todos** los usuarios del sistema para el administrador, mostrando la sucursal asignada de cada uno. No es posible crear más administradores desde la interfaz.
 
+## Catálogo público y pedidos
+
+El sistema expone una ruta pública `/pedido` donde los clientes pueden:
+
+- Ver el catálogo de productos vendibles de una sucursal.
+- Armar un carrito con validación de disponibilidad en tiempo real.
+- Enviar el pedido por WhatsApp a un número configurable.
+- El pedido reserva stock transaccionalmente para evitar sobreventa.
+
+Los administradores y operadores gestionan los pedidos desde `/pedidos`:
+
+- Listar pedidos `pending` de la sucursal.
+- Ver detalle de un pedido.
+- Confirmar el pedido como venta (requiere caja abierta).
+- Cancelar el pedido y reintegrar el stock.
+
+Las variables de entorno relacionadas están en `.env.example`:
+`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
+
 ## Notas
 
 - El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).

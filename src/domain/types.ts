@@ -20,13 +20,19 @@ export type PaymentMethod = 'cash' | 'transfer';
 
 export type SaleStatus = 'active' | 'cancelled';
 
+export type OrderStatus = 'pending' | 'converted' | 'cancelled';
+
+export type DeliveryType = 'delivery' | 'pickup';
+
 export type CashRegisterStatus = 'open' | 'closed';
 
 export type StockMovementType =
   | 'sale'
   | 'cancellation'
   | 'manual_adjustment'
-  | 'restock';
+  | 'restock'
+  | 'order'
+  | 'order_cancellation';
 
 export type Branch = {
   id: number;
@@ -107,6 +113,40 @@ export type Sale = {
   items?: SaleItem[];
 };
 
+export type Order = {
+  id: number;
+  branchId: number;
+  orderNumber: string;
+  total: number;
+  status: OrderStatus;
+  customerName: string;
+  deliveryType: DeliveryType;
+  address: string | null;
+  notes: string | null;
+  cancellationToken: string;
+  convertedSaleId: number | null;
+  idempotencyKey: string | null;
+  createdAt: Date;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
+  deletedAt: Date | null;
+  items?: OrderItem[];
+};
+
+export type OrderItem = {
+  id: number;
+  orderId: number;
+  productId: number;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  product?: ProductRow;
+};
+
+export type OrderWithItems = Order & {
+  items: OrderItem[];
+};
+
 export type CashRegister = {
   id: number;
   branchId: number;
@@ -135,6 +175,7 @@ export type StockMovement = {
   quantity: number;
   reason: string | null;
   saleId: number | null;
+  orderId: number | null;
   createdAt: Date;
 };
 
