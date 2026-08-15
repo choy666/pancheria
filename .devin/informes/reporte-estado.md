@@ -134,7 +134,7 @@ El proyecto se encuentra en **estado estable y funcional**.
 | ----------------- | ----------- |
 | `npm run test:e2e` | Ejecutar en base de datos de prueba para validar flujos críticos de UI, incluyendo pedidos. |
 | `npx tsx src/db/seeds.ts` | No ejecutado. Es idempotente pero modifica datos. Ejecutar solo con confirmación. |
-| `drizzle/0008_faulty_black_tarantula.sql` | Migración generada pero no commiteada. Asegurar que se aplica con `npx drizzle-kit push` en la base de destino. |
+| `drizzle/0008_faulty_black_tarantula.sql` | Migración commiteada y aplicada en la base de datos de destino el 2026-08-15 mediante `npx drizzle-kit push`. |
 | Rate limiting de pedidos en producción | El rate limit por IP en `POST /api/public/pedido` vive en memoria. En múltiples instancias se recomienda una solución compartida. |
 | Expiración automática de pedidos `pending` | Fase 8 del prompt archivado. No implementada. Considerar si el negocio lo requiere. |
 | Variables de producción | Confirmar que `NEXTAUTH_URL` coincide con el dominio de Vercel, que `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado y que `DATABASE_URL` apunta a la base de producción. |
@@ -144,9 +144,9 @@ El proyecto se encuentra en **estado estable y funcional**.
 
 ## 8. Recomendaciones
 
-1. **Commitear los cambios de código** del flujo de pedidos (migración, esquema, servicios, componentes, tests) en commits coherentes.
+1. ~~Commitear los cambios de código del flujo de pedidos.~~ Realizado: los cambios están consolidados en el commit `433962d`.
 2. **Ejecutar `npm run test:e2e`** en una base de datos de prueba para validar el flujo completo de catálogo y pedidos.
-3. **Empujar la migración `0008`** con `npx drizzle-kit push` en la base de datos de destino antes del deploy.
+3. ~~Empujar la migración `0008` con `npx drizzle-kit push` en la base de datos de destino.~~ Realizado el 2026-08-15.
 4. **Revisar rate limiting** de pedidos públicos antes de escalar horizontalmente.
 5. **Mantener `pancheria.prompt.md`** como punto de entrada para futuras tareas; actualizarlo cuando se resuelva una nueva feature.
 6. **Considerar la expiración automática** de pedidos `pending` si el negocio necesita liberar stock sin intervención manual.
@@ -155,4 +155,4 @@ El proyecto se encuentra en **estado estable y funcional**.
 
 ## 9. Conclusión
 
-El proyecto `pancheria` cumple con los objetivos del catálogo público y de los pedidos con reserva transaccional. Pasa las verificaciones automatizadas y está en condiciones de pasar a producción siempre que se apliquen las recomendaciones de migración, rate limiting, variables de entorno y tests E2E.
+El proyecto `pancheria` cumple con los objetivos del catálogo público y de los pedidos con reserva transaccional. Pasa las verificaciones automatizadas, el código y la migración correspondiente están consolidados y aplicados, y está en condiciones de pasar a producción siempre que se apliquen las recomendaciones restantes de rate limiting, variables de entorno y tests E2E.
