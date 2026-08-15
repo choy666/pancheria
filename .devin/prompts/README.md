@@ -116,16 +116,28 @@ Usar `<ref_file file="..."/>` para archivos completos y `<ref_snippet file="..."
 
 ## Prompts guardados
 
-Lista de prompts reutilizables y activos:
+### Prompt maestro
 
-- [Actualizar documentación y generar informe de estado](actualizar-documentacion-y-reporte.md) — guía reutilizable.
-- [Auditoría general](auditoria-documentacion.md) — guía reutilizable.
-- [Corroborar y mejorar diseño responsive](diseno-responsive.md) — guía reutilizable.
-- [Tour guía responsive e inicio desde cualquier página](tour-guia-responsive.md) — guía reutilizable.
-- [Página de administración para videos con reproducción y soporte Cast](videos-y-cast.md) — guía reutilizable.
-- [Catálogo público y pedidos por WhatsApp](catalogo-whatsapp.md) — guía reutilizable.
+Usar como punto de entrada para cualquier tarea futura:
 
-> Los prompts resueltos (`caja-trazabilidad-sucursal-y-operador.md`, `control-de-acceso-y-sucursales.md`, `multi-sucursal.md`, `roles-y-permisos.md`, `tour-navbar.md`, `tour-por-rol.md` y `verificar-navbar-sucursal.md`) fueron eliminados porque su implementación ya finalizó y su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en este índice.
+- [Prompt maestro — Proyecto Panchería](pancheria.prompt.md)
+
+### Prompts activos
+
+- [Catálogo público y pedidos por WhatsApp](catalogo-whatsapp.md) — feature pendiente.
+- [Auditoría y actualización de documentación](auditoria-y-documentacion.md) — guía reutilizable.
+
+### Prompts resueltos y archivados
+
+Los prompts cuya implementación ya finalizó se archivan en `archivados/`:
+
+- `tour-guia-responsive.md`
+- `diseno-responsive.md`
+- `videos-y-cast.md`
+- `actualizar-documentacion-y-reporte.md`
+- `auditoria-documentacion.md`
+
+Su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en `pancheria.prompt.md`.
 
 ## Véase también
 

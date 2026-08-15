@@ -212,4 +212,4 @@ Antes de iniciar tareas de auditoría, refactorización, integridad de datos, co
 ## Consideraciones técnicas futuras
 
 - `authService.ts` abstrae el almacenamiento de intentos fallidos mediante `RateLimitStore` (`src/lib/rate-limit-store.ts`). La implementación por defecto es `InMemoryRateLimitStore`. Para producción con múltiples instancias, usar `DbRateLimitStore` configurando `RATE_LIMIT_STORE_PROVIDER=db` (requiere la tabla `login_attempts`, generada con `npx drizzle-kit generate` y aplicada con `npx drizzle-kit push`).
-- Los resúmenes de caja y cierre (`productsSummary`, `criticalSuppliesSummary`) se almacenan como `text` con JSON string. Considerar migrar las columnas a `jsonb` para aprovechar la validación nativa de PostgreSQL.
+- Los resúmenes de caja y cierre (`productsSummary`, `criticalSuppliesSummary`) ya se migraron a `jsonb` en `src/db/schema.ts` para aprovechar la validación nativa de PostgreSQL.
