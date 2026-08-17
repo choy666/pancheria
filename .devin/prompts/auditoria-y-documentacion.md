@@ -1,69 +1,69 @@
-# Prompt: Auditoría y actualización de documentación
+# Prompt: Auditoría y sincronización de documentación
 
 ## Contexto
 
-Proyecto: `panchería` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario y multi-sucursal.
+Proyecto: `panchería` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos y gestión de videos con reproducción y Cast.
 
 Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon), NextAuth v5, Jest, Playwright.
 
-Documentación de referencia:
+Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/README.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.env.example" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />
-- <ref_file file="C:/developer/paginas/pancheria/.env.example" />
 
 ## Objetivo
 
-Auditar la documentación y el código para detectar discrepancias, deuda técnica, riesgos de seguridad/escalabilidad y actualizar `AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, `.devin/informes/` y `.devin/prompts/` para que reflejen el estado real del proyecto.
+Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, prompts e informes) coincide con el código implementado. Generar un informe con recomendaciones, consejos y, cuando corresponda, aplicar correcciones documentales respaldadas por evidencia.
+
+## Áreas de auditoría
+
+1. **Alcance funcional**: rutas del App Router, endpoints de API, server actions, tablas de Drizzle, flujos críticos (ventas, pedidos, caja, cierre, videos, multi-sucursal).
+2. **Variables de entorno**: toda variable leída por el código (`process.env.*`) debe estar en `.env.example` y documentada, con su valor por defecto real y su propósito.
+3. **Arquitectura y convenciones**: separación de responsabilidades, hooks asíncronos con flag de montaje, manejo de errores (`NotFoundError` → 404, `DomainError` → 400, conexión a base de datos → 503), soft delete, transacciones.
+4. **Seguridad**: ausencia de credenciales/URLs hardcodeadas, protección por rol, aislamiento por `branchId`, validación de entradas.
+5. **Tests y verificaciones**: ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`. `npm run test:e2e`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push` o `npx drizzle-kit generate` solo con confirmación explícita.
+6. **Blueprints y prompts**: `.devin/environment.yaml` y los prompts deben reflejar el estado real del proyecto.
 
 ## Reglas
 
-1. No modificar archivos de negocio salvo para verificaciones. Cualquier cambio en documentación debe estar respaldado por evidencia.
-2. No hardcodear credenciales, URLs ni secretos.
-3. No exponer `.env.local` en documentos.
-4. No ejecutar `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate` ni `npm run test:e2e` sin confirmación explícita.
-5. Clasificar hallazgos en crítico, mayor o menor, con referencias `<ref_file .../>` o `<ref_snippet .../>`.
-6. Todo el informe en español.
+1. No modificar archivos de negocio salvo para corregir documentación. Cualquier cambio documental debe estar respaldado por evidencia del código (`<ref_file .../>`, `<ref_snippet .../>`).
+2. No hardcodear credenciales, URLs de APIs ni secretos.
+3. No exponer `.env.local` ni valores sensibles en prompts, documentos o reportes.
+4. No ejecutar `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate`, `npm run test:e2e` ni `npx playwright test` sin confirmación explícita del usuario.
+5. Todo el informe en español.
+6. Clasificar hallazgos en **crítico**, **mayor**, **menor** o **informativo**, con referencias concretas.
 
-## Áreas a auditar
+## Metodología
 
-1. **Alcance funcional**: rutas del App Router, APIs, server actions (autenticación, productos, ventas, stock, caja, cierre, sucursales, usuarios, videos, catálogo).
-2. **Arquitectura y calidad**: separación de responsabilidades, duplicaciones, imports obsoletos, manejo de errores, uso de `useActionState`.
-3. **Seguridad**: protección por rol, aislamiento por `branchId`, validación de entradas, manejo de cookies, ausencia de hardcodeos.
-4. **Integridad de datos**: soft delete, relaciones, transacciones, `findFirst`/`findMany` con registros inactivos.
-5. **Tests**: unitarios, E2E, cobertura.
-6. **Documentación**: vigencia de `AGENTS.md`, `README.md`, prompts e informes.
+1. Leer la documentación de referencia y los informes vigentes.
+2. Cruzar con el código fuente: `src/db/schema.ts`, `src/config/*`, `src/lib/*`, `src/app/**/route.ts`, `src/app/(panel)/**/actions.ts`, `src/application/services/*`, `src/repositories/*`, `src/hooks/*`.
+3. Verificar que toda variable de entorno consumida por el código aparezca en `.env.example` y en la documentación.
+4. Verificar que los valores por defecto documentados coincidan con los del código.
+5. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test` y `npm run build`.
+6. Documentar discrepancias, corregirlas cuando sean documentales y emitir un informe.
+7. Actualizar `.devin/informes/reporte-estado-YYYY-MM-DD.md` con los resultados.
 
-## Archivos de referencia
+## Entregables
 
-- <ref_file file="C:/developer/paginas/pancheria/package.json" />
-- <ref_file file="C:/developer/paginas/pancheria/src/app" />
-- <ref_file file="C:/developer/paginas/pancheria/src/app/api" />
-- <ref_file file="C:/developer/paginas/pancheria/src/application/services" />
-- <ref_file file="C:/developer/paginas/pancheria/src/components" />
-- <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" />
-- <ref_file file="C:/developer/paginas/pancheria/src/lib/auth.ts" />
-- <ref_file file="C:/developer/paginas/pancheria/tests" />
+1. Prompt mejorado y actualizado (este archivo).
+2. Correcciones documentales en `AGENTS.md`, `README.md`, `.env.example` y/o `.devin/environment.yaml` si aplica.
+3. Informe en `.devin/informes/reporte-estado-YYYY-MM-DD.md` que incluya:
+   - Resumen ejecutivo.
+   - Alcance funcional verificado (tabla).
+   - Hallazgos clasificados.
+   - Acciones correctivas aplicadas.
+   - Recomendaciones y consejos.
+   - Comandos ejecutados y resultados.
 
-## Verificaciones
+## Verificaciones antes de declarar terminada la tarea
 
-| Comando | Propósito |
-| ------- | --------- |
-| `npm run lint` | Estilo y calidad |
-| `npx tsc --noEmit` | Verificación de tipos |
-| `npm test` | Tests unitarios |
-| `npm run build` | Build de producción |
-| `npx drizzle-kit check` | Consistencia del esquema |
-| `npm run test:e2e` | Tests E2E en base de prueba (con confirmación) |
-
-## Entregable
-
-Generar o actualizar:
-1. Resumen ejecutivo con estado general.
-2. Tabla de alcance funcional por dominio.
-3. Hallazgos críticos, mayores y menores con referencias.
-4. Recomendaciones priorizadas.
-5. Cambios aplicados a documentos.
-6. Informe en `.devin/informes/reporte-estado-YYYY-MM-DD.md`.
+| Paso | Comando | Propósito |
+| ---- | ------- | --------- |
+| 1 | `npm run lint` | Estilo y calidad |
+| 2 | `npx tsc --noEmit` | Verificación de tipos |
+| 3 | `npm test` | Tests unitarios |
+| 4 | `npm run build` | Build de producción |
