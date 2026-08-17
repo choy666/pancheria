@@ -264,8 +264,8 @@ Evitar el doble fetch de catálogo al montar `PedidoClient`.
 Evitar que documentos desactualizados o con líneas fijas confundan a futuros agentes.
 
 ### Archivos a modificar
-- `.devin/prompts/auditoria-pedidos-sucursal-cliente.md`
-  - Mover a `.devin/prompts/archivados/auditoria-pedidos-sucursal-cliente.md`.
+- `.devin/prompts/archivados/auditoria-pedidos-sucursal-cliente.md` (ya archivado).
+- `.devin/prompts/auditoria-pedidos-sucursal-cliente.md` → mover a `archivados/` si aún existe.
 - `.devin/prompts/README.md`
   - Mover la entrada del prompt a **Prompts resueltos y archivados**.
 - `.devin/prompts/recomendaciones-pedidos-sucursal-stock.md`

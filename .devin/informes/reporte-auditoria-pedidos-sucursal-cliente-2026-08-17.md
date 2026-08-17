@@ -2,14 +2,14 @@
 
 **Fecha:** 2026-08-17  
 **Proyecto:** `pancheria`  
-**Prompt base:** <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-pedidos-sucursal-cliente.md" /> y <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />  
+**Prompt base:** <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/auditoria-pedidos-sucursal-cliente.md" /> y <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />  
 **Auditor:** Devin
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se auditó el flujo de pedidos públicos (`/pedido`), el panel de pedidos (`/pedidos`) y la documentación asociada. La mayoría de los entregables del prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-pedidos-sucursal-cliente.md" /> ya están implementados: el cambio de sucursal invalida el carrito, `useCart` descarta productos de otra sucursal, `ProductCard` no presenta problemas de hidratación y los tests unitarios/E2E cubren el escenario.
+Se auditó el flujo de pedidos públicos (`/pedido`), el panel de pedidos (`/pedidos`) y la documentación asociada. La mayoría de los entregables del prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/auditoria-pedidos-sucursal-cliente.md" /> ya están implementados: el cambio de sucursal invalida el carrito, `useCart` descarta productos de otra sucursal, `ProductCard` no presenta problemas de hidratación y los tests unitarios/E2E cubren el escenario.
 
 Las verificaciones automatizadas pasan:
 
@@ -29,7 +29,7 @@ Se detectaron **inconsistencias documentación/código**, un **riesgo de negocio
 
 ### Documentación auditada
 
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-pedidos-sucursal-cliente.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/auditoria-pedidos-sucursal-cliente.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
