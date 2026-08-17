@@ -6,6 +6,7 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente,
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
 - [Archivo de informes históricos](archivados/) — reportes anteriores.
+- [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 
 ## Cómo usar este directorio
 

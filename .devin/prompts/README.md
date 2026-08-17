@@ -142,8 +142,6 @@ Los prompts cuya implementación finalizó se archivan en `archivados/` como con
 - `tour-guia-responsive.md`
 - `diseno-responsive.md`
 - `videos-y-cast.md`
-- `actualizar-documentacion-y-reporte.md`
-- `auditoria-documentacion.md`
 - `auditoria-pedidos-sucursal-cliente.md`
 - `pedidos-publicos-sin-autenticacion.md`
 - `pedidos-publicos-sucursal-y-stock.md`
@@ -152,6 +150,7 @@ Su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en `pa
 
 ## Véase también
 
+- [Índice general de `.devin`](../README.md)
 - [Índice de informes](../informes/README.md)
 - [Lecciones aprendidas](../informes/lecciones-aprendidas.md)
 - [Guía de funcionamiento](../informes/guia-funcionamiento-pancheria.md)
