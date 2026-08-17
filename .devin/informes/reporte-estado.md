@@ -116,6 +116,29 @@ Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.d
 
 ---
 
+## 9. Hallazgos resueltos — Plan de cobertura 2026-08-17
+
+Se ejecutó el plan basado en <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-cobertura-pedidos-2026-08-17.md" />.
+
+### Resueltos
+
+| Fase | Hallazgo | Decisión |
+| ---- | -------- | -------- |
+| 1 | `convertOrderToSale` podía usar el precio actual del producto en lugar del histórico. | `buildSaleItemValues` acepta `unitPrice` y `subtotal` opcionales; `convertOrderToSale` los usa desde `order.items`. Tests unitarios agregados. |
+| 2 | `?branchId=1.5` en `/pedido` se aceptaba como `1` al usar `Number()`. | Se creó `parseBranchId` en `branch-resolver.ts`; se usa en `/pedido` y en `setActiveBranchAction`. Se agregó test E2E. |
+| 3 | El listado de pedidos del panel no explicitaba la sucursal y dependía de la cookie/sesión. | `PedidosList` envía `branchId` en la URL; `GET /api/pedidos` valida el query param según rol. |
+| 4 | Rate limit de pedidos públicos en memoria, no compartido entre instancias serverless. | Opción A: documentado en `AGENTS.md`, `.env.example` y comentario en `route.ts`. |
+| 5 | Duplicación entre `cancelOrder` y `cancelSale` para reintegro de stock y caja. | Se extrajeron `buildReintegrationContext` y `reintegrateStockAndUpdateCashRegister` en `saleService.ts`; reutilizadas en ambos servicios. |
+| 6 | Documentación afirmaba eliminar todo `setState` en `useEffect`, pero el código lo usa para carga asíncrona y persistencia. | Opción B: se actualizaron `lecciones-aprendidas.md` y `recomendaciones-pedidos-sucursal-stock.md` para permitir `setState` en efectos con flag de montaje o persistencia derivada. |
+| 7 | `PedidoClient` hacía un fetch inicial duplicado del catálogo. | Se eliminó el `useEffect` de carga inicial; se mantiene el refresco periódico. |
+| 8 | Prompt de auditoría y referencias con líneas fijas quedaban obsoletas. | Se archivó `auditoria-pedidos-sucursal-cliente.md` en `archivados/`; se actualizaron `README.md`, `recomendaciones-pedidos-sucursal-stock.md` y `lecciones-aprendidas.md`. |
+| 9 | Seguridad de `.env.local`. | Ver notas de seguridad en AGENTS.md y recomendaciones para rotar credenciales si se expusieron. |
+
+### Pendientes
+
+- Ejecutar `npm run test:e2e` en base de datos de prueba para validar Fases 2, 3 y 7.
+- Decidir si se implementa un store compartido para el rate limit de pedidos públicos (Fase 4 Opción B).
+
 ## 8. Conclusión
 
 El proyecto `pancheria` mantiene su **estado estable y funcional**. La documentación principal ahora refleja correctamente el alcance de videos, reproducción, Cast, almacenamiento configurable, rate limiting de login y las tablas afectadas por los tests E2E. Las verificaciones `lint`, `tsc` y `build` pasan, por lo que los cambios documentales no introdujeron regresiones en el código. Quedan pendientes las recomendaciones habituales de tests E2E, monitoreo de streams y configuración de variables de producción.

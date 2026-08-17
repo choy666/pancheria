@@ -1,6 +1,10 @@
 import { PedidosList } from '@/components/pedidos/pedidos-list';
+import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 
-export default function PedidosPage() {
+export default async function PedidosPage() {
+  const session = await requireAuth();
+  const branchId = await getCurrentBranchId(session);
+
   return (
     <div className="space-y-5">
       <div>
@@ -10,7 +14,7 @@ export default function PedidosPage() {
         </p>
       </div>
 
-      <PedidosList status="pending" />
+      <PedidosList status="pending" branchId={branchId} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { requireAdmin, ACTIVE_BRANCH_COOKIE } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
+import { parseBranchId } from '@/lib/branch-resolver';
 
 export async function setActiveBranchAction(formData: FormData) {
   await requireAdmin();
@@ -13,9 +14,9 @@ export async function setActiveBranchAction(formData: FormData) {
     return { error: 'Se requiere una sucursal.' };
   }
 
-  const parsed = Number(branchId);
+  const parsed = parseBranchId(branchId);
 
-  if (Number.isNaN(parsed) || parsed <= 0) {
+  if (parsed === null) {
     return { error: 'Sucursal inválida.' };
   }
 

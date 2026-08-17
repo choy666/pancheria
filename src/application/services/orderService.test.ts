@@ -626,6 +626,56 @@ describe('orderService', () => {
   });
 
   describe('convertOrderToSale', () => {
+    test('convierte pedido a venta conservando el precio histórico', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1200,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ total: 2000 }),
+        items: [
+          createOrderItemRow({
+            productId: 1,
+            quantity: 2,
+            unitPrice: 1000,
+            subtotal: 2000,
+          }),
+        ],
+      });
+
+      const result = await convertOrderToSale({
+        branchId: BRANCH_ID,
+        orderId: 1,
+        paymentMethod: 'cash',
+        idempotencyKey: 'key-historical',
+      });
+
+      expect(result.total).toBe(2000);
+
+      expect(findCapturedInsert(sales)).toHaveLength(1);
+      expect(findCapturedInsert(saleItems)).toHaveLength(1);
+
+      const sale = findCapturedInsert(sales)[0]?.data as typeof sales.$inferInsert;
+      expect(sale.total).toBe(2000);
+
+      const saleItemsData = findCapturedInsert(saleItems)[0]?.data as (typeof saleItems.$inferInsert)[];
+      expect(saleItemsData).toHaveLength(1);
+      expect(saleItemsData[0]).toMatchObject({
+        productId: 1,
+        quantity: 2,
+        unitPrice: 1000,
+        subtotal: 2000,
+      });
+    });
+
     test('crea una venta sin descontar stock nuevamente', async () => {
       setProducts([
         {
@@ -768,6 +818,35 @@ describe('orderService', () => {
           idempotencyKey: 'key-not-sellable',
         })
       ).rejects.toThrow('El producto Ketchup no está disponible para la venta.');
+    });
+
+    test('rechaza la conversión si el producto es de otra sucursal', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Producto externo',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1000,
+          branchId: 999,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+
+      await expect(
+        convertOrderToSale({
+          branchId: BRANCH_ID,
+          orderId: 1,
+          paymentMethod: 'cash',
+          idempotencyKey: 'key-external-convert',
+        })
+      ).rejects.toThrow(ValidationError);
     });
 
     test('rechaza la conversión si el producto está inactivo', async () => {

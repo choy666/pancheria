@@ -43,7 +43,8 @@ export async function findById(
 export async function findByIds(
   branchId: number,
   ids: number[],
-  includeDeleted = false
+  includeDeleted = false,
+  dbOrTx: typeof db = db
 ): Promise<ProductRow[]> {
   if (ids.length === 0) return [];
 
@@ -55,7 +56,7 @@ export async function findByIds(
     conditions.push(isNull(products.deletedAt));
   }
 
-  return db.query.products.findMany({
+  return dbOrTx.query.products.findMany({
     where: and(...conditions),
   });
 }

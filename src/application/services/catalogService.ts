@@ -89,8 +89,7 @@ export async function listPublicCatalogWithAvailability(
 
 export async function validatePublicCart(
   branchId: number,
-  items: SaleItemInput[],
-  productIds?: number[]
+  items: SaleItemInput[]
 ): Promise<{
   availabilityByProduct: Record<number, number>;
   shortageByProduct: Record<
@@ -100,7 +99,7 @@ export async function validatePublicCart(
   breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
 }> {
   await getBranch(branchId);
-  const result = await saleService.validateCartAvailability(branchId, items, productIds);
+  const result = await saleService.validateCartAvailability(branchId, items);
   return {
     availabilityByProduct: result.availabilityByProduct,
     shortageByProduct: result.shortageByProduct,

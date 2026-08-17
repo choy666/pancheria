@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import type { CriticalSupplyType, ProductType } from '@/domain/types';
 
@@ -102,6 +102,16 @@ export function useCart({
   const [items, setItems] = useState<CartItem[]>(
     () => getInitialItems(branchId, products, getAvailability)
   );
+  const previousBranchIdRef = useRef(branchId);
+
+  // Si cambia la sucursal en tiempo de ejecución, reinicializamos el carrito
+  // desde el storage o lo descartamos si no coincide con la sucursal actual.
+  useEffect(() => {
+    if (previousBranchIdRef.current === branchId) return;
+    previousBranchIdRef.current = branchId;
+    setItems(getInitialItems(branchId, products, getAvailability));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchId]);
 
   useEffect(() => {
     const storage = getStorage();
@@ -118,7 +128,8 @@ export function useCart({
     };
 
     storage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  }, [items, branchId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const addItem = useCallback(
     (product: CartProduct) => {

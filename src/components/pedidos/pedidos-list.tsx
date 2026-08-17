@@ -56,10 +56,16 @@ const deliveryLabels: Record<DeliveryType, string> = {
   pickup: 'Retiro',
 };
 
-export function PedidosList({ status = 'pending' }: { status?: OrderStatus }) {
+interface PedidosListProps {
+  status?: OrderStatus;
+  branchId: number;
+}
+
+export function PedidosList({ status = 'pending', branchId }: PedidosListProps) {
   const load = useCallback(
     async (page: number, limit: number, signal: AbortSignal) => {
       const params = new URLSearchParams({
+        branchId: String(branchId),
         status,
         page: String(page),
         limit: String(limit),
@@ -81,7 +87,7 @@ export function PedidosList({ status = 'pending' }: { status?: OrderStatus }) {
         limit: number;
       };
     },
-    [status]
+    [status, branchId]
   );
 
   const {

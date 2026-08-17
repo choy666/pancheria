@@ -19,6 +19,10 @@ const RATE_LIMIT_MAX_REQUESTS = Number(
   process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS ?? 10
 );
 
+// El rate limit se aplica en memoria por instancia de función serverless.
+// En múltiples instancias el límite no se comparte; para rate limiting global
+// se requiere una base de datos compartida o KV.
+
 interface RateLimitEntry {
   count: number;
   resetAt: number;

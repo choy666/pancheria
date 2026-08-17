@@ -2,6 +2,24 @@ import * as branchService from '@/application/services/branchService';
 import type { Branch } from '@/domain/types';
 import { ValidationError } from '@/domain/errors';
 
+export function parseBranchId(value: unknown): number | null {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return null;
+  }
+
+  const asString = String(value).trim();
+  if (!/^\d+$/.test(asString)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(asString, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
 export async function listPublicBranches(): Promise<Branch[]> {
   const branches = await branchService.listBranches();
   return branches.map((b) => ({

@@ -4,14 +4,19 @@
 import { NextRequest } from 'next/server';
 import { GET } from './route';
 import * as orderService from '@/application/services/orderService';
+import * as branchService from '@/application/services/branchService';
 import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 import {
   UnauthorizedError,
   NotFoundError,
   ValidationError,
+  ForbiddenError,
 } from '@/domain/errors';
 
 jest.mock('@/application/services/orderService');
+jest.mock('@/application/services/branchService', () => ({
+  getBranchById: jest.fn(),
+}));
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
   getCurrentBranchId: jest.fn(),
@@ -21,6 +26,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const mockedOrderService = orderService as jest.Mocked<typeof orderService>;
+const mockedBranchService = branchService as jest.Mocked<typeof branchService>;
 const mockedRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>;
 const mockedGetCurrentBranchId =
   getCurrentBranchId as jest.MockedFunction<typeof getCurrentBranchId>;
@@ -37,6 +43,11 @@ describe('GET /api/pedidos', () => {
     } as Awaited<ReturnType<typeof requireAuth>>;
     mockedRequireAuth.mockResolvedValue(session);
     mockedGetCurrentBranchId.mockResolvedValue(BRANCH_ID);
+    mockedBranchService.getBranchById.mockResolvedValue({
+      id: BRANCH_ID,
+      name: 'Sucursal Test',
+      createdAt: new Date(),
+    });
   });
 
   function buildRequest(path = ''): NextRequest {
@@ -117,6 +128,60 @@ describe('GET /api/pedidos', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Filtro inválido.');
+  });
+
+  test('sin branchId se usa la sucursal actual', async () => {
+    mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
+
+    const response = await GET(buildRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
+      BRANCH_ID,
+      expect.objectContaining({ status: 'pending' })
+    );
+  });
+
+  test('admin puede listar pedidos de otra sucursal enviando branchId', async () => {
+    session = {
+      user: { name: 'admin', role: 'admin', branchId: BRANCH_ID },
+    } as Awaited<ReturnType<typeof requireAuth>>;
+    mockedRequireAuth.mockResolvedValue(session);
+    mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
+
+    const response = await GET(buildRequest('branchId=2'));
+
+    expect(response.status).toBe(200);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(2);
+    expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
+      2,
+      expect.objectContaining({ status: 'pending' })
+    );
+  });
+
+  test('operator no puede listar pedidos de otra sucursal', async () => {
+    mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
+
+    const response = await GET(buildRequest('branchId=2'));
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('No tenés permiso para ver pedidos de otra sucursal.');
+    expect(mockedOrderService.getOrders).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 404 si la sucursal indicada no existe', async () => {
+    session = {
+      user: { name: 'admin', role: 'admin', branchId: BRANCH_ID },
+    } as Awaited<ReturnType<typeof requireAuth>>;
+    mockedRequireAuth.mockResolvedValue(session);
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    const response = await GET(buildRequest('branchId=2'));
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('Sucursal con ID 2 no encontrado.');
   });
 
   test('devuelve 503 ante un error de conexión a la base de datos', async () => {

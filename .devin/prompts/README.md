@@ -126,6 +126,7 @@ Usar como punto de entrada para cualquier tarea futura:
 
 - [Auditoría y actualización de documentación](auditoria-y-documentacion.md) — guía reutilizable.
 - [Sucursal y stock explícitos en pedidos públicos](pedidos-publicos-sucursal-y-stock.md) — selector de sucursal, stock por sucursal, desglose de disponibilidad y seed multi-sucursal.
+- [Recomendaciones y buenas prácticas — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y guía para evitar regresiones en el flujo de pedidos.
 - [Errores de deploy en Vercel: `ForbiddenError` sin sucursal y React #441](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y error de renderizado de Server Components por usuario sin sucursal asignada.
 
 ### Prompts resueltos y archivados
@@ -139,6 +140,7 @@ Los prompts cuya implementación ya finalizó se archivan en `archivados/`:
 - `videos-y-cast.md`
 - `actualizar-documentacion-y-reporte.md`
 - `auditoria-documentacion.md`
+- `auditoria-pedidos-sucursal-cliente.md`
 - `pedidos-publicos-sin-autenticacion.md`
 
 Su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en `pancheria.prompt.md`.

@@ -45,7 +45,18 @@
 
 - **Mantener `AGENTS.md`, `README.md` y `.devin/environment.yaml` actualizados** cuando cambia la arquitectura, la conexión a base de datos o los comandos de verificación.
 
-## 7. Verificaciones estándar
+## 7. Pedidos públicos y panel de pedidos
+
+- **El cambio de sucursal en `/pedido` debe invalidar el carrito.** El `useCart` lee `localStorage` al inicializar y descarta productos cuya `branchId` no coincida, pero la invalidación inmediata al cambiar de sucursal depende de que `PedidoClient` se remonte con una `key` basada en `branchId` y que `handleBranchChange` llame `clearCart` antes de `router.push`. Sin esto, el carrito puede persistir con productos de la sucursal anterior.
+- **Usar `data-testid` en componentes de catálogo y carrito para tests E2E.** `ProductCard` y `CartSummary` exponen `data-testid` basados en `product.id` (por ejemplo, `product-card-{id}`, `add-product-{id}` y `cart-item-{id}`) para que los tests de Playwright sean robustos y no dependan de la estructura interna de tarjetas.
+- **No eliminar `productIds` del endpoint de disponibilidad del terminal de ventas.** El terminal `/ventas` necesita precalcular la disponibilidad de todos los productos del catálogo para mostrar mensajes como "En este pedido: X más". El cálculo del catálogo público (`/pedido`) solo requiere los items del carrito, por lo que puede omitir `productIds`.
+- **Extraer lógica común entre `createOrder`, `confirmSale` y `convertOrderToSale`.** Los tres flujos comparten la validación de productos vendibles (`validateProductsForOperation`) y el cálculo de ítems de venta (`buildSaleItemValues`). La inserción de venta y actualización de caja (`insertSaleAndUpdateCashRegister`) puede compartirse entre `confirmSale` y `convertOrderToSale`, evitando duplicar `deductStockForItems` o el resumen de caja.
+- **`setState` dentro de `useEffect` está permitido en casos justificados.** Se acepta para carga asíncrona con flag de montaje (`isMountedRef` o `cancelled`) y para persistencia derivada (`localStorage`), siempre que el efecto tenga una función de cleanup que evite actualizaciones luego del desmontaje. No usar este patrón para sincronizar props con estado cuando exista una alternativa: calcular el valor directamente en render, levantar el estado al padre o usar `key` para forzar remonte.
+- **`useCart` debe invalidar el carrito si `branchId` cambia en tiempo de ejecución**, no solo al montar. Usar una referencia a la sucursal previa y reinicializar el estado desde `localStorage` (descartando lo guardado si no coincide).
+- **`PedidoClient` usa `activeBranch` como única fuente de verdad de la sucursal** y fuerza el remonte con `key={branchId}`; el selector de sucursal expone `data-testid="branch-select-trigger"` para tests E2E estables.
+- **Está permitido `setState` dentro de `useEffect` para carga asíncrona con flag de montaje** (`isMountedRef`) y para persistencia derivada (`localStorage`), siempre que el efecto tenga un cleanup que evite actualizaciones luego del desmontaje.
+
+## 8. Verificaciones estándar
 
 Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según el área:
 
@@ -60,7 +71,7 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 
 > **Nota:** para tests E2E y migraciones de base de datos, usar solo entornos de prueba.
 
-## 8. Tours interactivos y permisos de usuario
+## 9. Tours interactivos y permisos de usuario
 
 - **El tour interactivo debe adaptarse al rol del usuario.** Un recorrido único puede intentar navegar a rutas inaccesibles para un rol y generar redirecciones inesperadas. Construir los pasos dinámicamente según `admin` u `operator` evita esas interrupciones.
 - **Usar `data-tour` en las secciones exclusivas de cada rol.** Las páginas administrativas (`/productos`, `/sucursales`, `/usuarios`) y el selector de sucursal deben tener sus propios atributos `data-tour` para que el tour las pueda resaltar.

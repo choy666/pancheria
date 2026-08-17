@@ -57,6 +57,40 @@ export interface ProductAvailability {
   breakdown: RecipeBreakdownItem[];
 }
 
+export async function buildProductContext(
+  branchId: number,
+  productIds: number[],
+  options?: { includeDeleted?: boolean }
+): Promise<{
+  productsList: ProductRow[];
+  productById: Map<number, ProductRow>;
+  recipesByProduct: Map<number, RecipeWithSupply[]>;
+}> {
+  const productsList = await productRepository.findByIds(
+    branchId,
+    productIds,
+    options?.includeDeleted
+  );
+
+  if (productsList.length !== productIds.length) {
+    throw new NotFoundError('Producto');
+  }
+
+  const productById = new Map(productsList.map((p) => [p.id, p]));
+
+  const compoundProductIds = productsList
+    .filter((p) => p.type === 'compound')
+    .map((p) => p.id);
+
+  let recipesByProduct = new Map<number, RecipeWithSupply[]>();
+  if (compoundProductIds.length > 0) {
+    const allRecipes = await findRecipesForProducts(branchId, compoundProductIds);
+    recipesByProduct = groupRecipesByProduct(allRecipes);
+  }
+
+  return { productsList, productById, recipesByProduct };
+}
+
 interface AvailabilityContext {
   productsList: ProductRow[];
   productById: Map<number, ProductRow>;
@@ -204,6 +238,43 @@ export async function calculateAvailabilityForProductIds(
   }
 
   return resultById;
+}
+
+export function validateProductsForOperation(
+  items: { productId: number }[],
+  productById: Map<number, ProductRow>,
+  branchId: number,
+  operation: 'pedido' | 'venta'
+) {
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product) {
+      throw new NotFoundError('Producto', item.productId);
+    }
+
+    if (product.branchId !== branchId) {
+      throw new ValidationError(
+        `El producto ${product.name} no pertenece a la sucursal.`
+      );
+    }
+
+    if (!product.isActive) {
+      throw new ValidationError(`El producto ${product.name} no está activo.`);
+    }
+
+    const isSellable =
+      product.type === 'compound' ||
+      product.type === 'service' ||
+      (product.type === 'critical_supply' &&
+        product.criticalSupplyType === 'beverage');
+
+    if (!isSellable) {
+      const operationLabel = operation === 'pedido' ? 'el pedido' : 'la venta';
+      throw new ValidationError(
+        `El producto ${product.name} no está disponible para ${operationLabel}.`
+      );
+    }
+  }
 }
 
 export async function validateCartAvailability(
@@ -558,6 +629,109 @@ export async function deductStockForItems(
   }
 }
 
+export async function buildReintegrationContext(
+  tx: typeof db,
+  branchId: number,
+  items: { productId: number }[],
+  includeDeleted = false
+): Promise<{
+  productById: Map<number, ProductRow>;
+  recipesByProduct: Map<number, RecipeWithSupply[]>;
+}> {
+  const productIds = items.map((item) => item.productId);
+  const productsList =
+    productIds.length > 0
+      ? await productRepository.findByIds(
+          branchId,
+          productIds,
+          includeDeleted,
+          tx
+        )
+      : [];
+
+  const productById = new Map(productsList.map((p) => [p.id, p]));
+
+  const compoundProductIds = productsList
+    .filter((p) => p.type === 'compound')
+    .map((p) => p.id);
+
+  let recipesByProduct = new Map<number, RecipeWithSupply[]>();
+  if (compoundProductIds.length > 0) {
+    const allRecipes = await findRecipesForProducts(
+      branchId,
+      compoundProductIds,
+      tx
+    );
+    recipesByProduct = groupRecipesByProduct(allRecipes);
+  }
+
+  return { productById, recipesByProduct };
+}
+
+export async function reintegrateStockAndUpdateCashRegister(
+  tx: typeof db,
+  branchId: number,
+  cashRegister: { id: number; branchId: number } | null,
+  items: { productId: number; quantity: number }[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  source: { saleId?: number; orderId?: number },
+  movementType: StockMovementType,
+  paymentMethod?: PaymentMethod,
+  total?: number,
+  operation: 'add' | 'subtract' = 'subtract'
+) {
+  await reintegrateStockForItems(
+    tx,
+    branchId,
+    items,
+    productById,
+    recipesByProduct,
+    source,
+    movementType
+  );
+
+  if (!cashRegister) return;
+
+  if (paymentMethod === undefined || total === undefined) {
+    throw new ValidationError(
+      'Se requiere el método de pago y el total para actualizar la caja.'
+    );
+  }
+
+  const [lockedCashRegister] = await tx
+    .select()
+    .from(cashRegisters)
+    .where(
+      and(
+        eq(cashRegisters.id, cashRegister.id),
+        eq(cashRegisters.branchId, cashRegister.branchId)
+      )
+    )
+    .for('update');
+
+  if (!lockedCashRegister) {
+    throw new ValidationError('La caja asociada a la venta ya no existe.');
+  }
+
+  if (lockedCashRegister.status !== 'open' || lockedCashRegister.deletedAt) {
+    throw new ValidationError(
+      'La caja fue cerrada o eliminada mientras se anulaba la venta.'
+    );
+  }
+
+  await updateCashRegisterSummary(
+    tx,
+    lockedCashRegister,
+    items,
+    productById,
+    recipesByProduct,
+    paymentMethod,
+    total,
+    operation
+  );
+}
+
 export async function reintegrateStockForItems(
   tx: typeof db,
   branchId: number,
@@ -647,6 +821,134 @@ export async function reintegrateStockForItems(
   }
 }
 
+export function buildSaleItemValues(
+  productById: Map<number, ProductRow>,
+  items: {
+    productId: number;
+    quantity: number;
+    unitPrice?: number;
+    subtotal?: number;
+  }[]
+): {
+  saleItemValues: {
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+  }[];
+  total: number;
+} {
+  let total = parseMoney(0);
+  const saleItemValues = [] as {
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+  }[];
+
+  for (const item of items) {
+    const product = productById.get(item.productId)!;
+    const unitPrice = parseMoney(item.unitPrice ?? product.price);
+    const subtotal =
+      item.subtotal !== undefined
+        ? parseMoney(item.subtotal)
+        : multiplyMoney(unitPrice, item.quantity);
+    total = addMoney(total, subtotal);
+
+    saleItemValues.push({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: moneyToNumber(unitPrice),
+      subtotal: moneyToNumber(subtotal),
+    });
+  }
+
+  return { saleItemValues, total: moneyToNumber(total) };
+}
+
+export async function insertSaleAndUpdateCashRegister(
+  tx: typeof db,
+  branchId: number,
+  cashRegister: (typeof cashRegisters.$inferSelect) | null,
+  idempotencyKey: string,
+  paymentMethod: PaymentMethod,
+  total: number,
+  saleItemValues: {
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+  }[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  options?: { skipStockDeduct?: boolean }
+) {
+  const [sale] = await tx
+    .insert(sales)
+    .values({
+      branchId,
+      total,
+      paymentMethod,
+      cashRegisterId: cashRegister?.id ?? null,
+      idempotencyKey,
+      createdAt: nowUTC(),
+    })
+    .returning();
+
+  await tx.insert(saleItems).values(
+    saleItemValues.map((item) => ({
+      ...item,
+      saleId: sale.id,
+    }))
+  );
+
+  if (!options?.skipStockDeduct) {
+    await deductStockForItems(
+      tx,
+      branchId,
+      saleItemValues,
+      productById,
+      recipesByProduct,
+      { saleId: sale.id },
+      'sale'
+    );
+  }
+
+  const [lockedCashRegister] = await tx
+    .select()
+    .from(cashRegisters)
+    .where(
+      and(
+        eq(cashRegisters.id, cashRegister?.id ?? -1),
+        eq(cashRegisters.branchId, branchId)
+      )
+    )
+    .for('update');
+
+  if (!lockedCashRegister) {
+    throw new ValidationError('La caja abierta ya no existe.');
+  }
+
+  if (lockedCashRegister.status !== 'open') {
+    throw new ValidationError(
+      'La caja fue cerrada mientras se procesaba la venta. Abrí una nueva caja para continuar.'
+    );
+  }
+
+  await updateCashRegisterSummary(
+    tx,
+    lockedCashRegister,
+    saleItemValues,
+    productById,
+    recipesByProduct,
+    paymentMethod,
+    total,
+    'add'
+  );
+
+  return sale;
+}
+
 export async function confirmSale(params: {
   branchId: number;
   items: SaleItemInput[];
@@ -674,54 +976,12 @@ export async function confirmSale(params: {
   }
 
   const productIds = items.map((item) => item.productId);
-  const productsList = await productRepository.findByIds(branchId, productIds);
+  const { productById, recipesByProduct } = await buildProductContext(
+    branchId,
+    productIds
+  );
 
-  if (productsList.length !== productIds.length) {
-    throw new NotFoundError('Producto');
-  }
-
-  const productById = new Map(productsList.map((p) => [p.id, p]));
-
-  for (const item of items) {
-    const product = productById.get(item.productId);
-    if (!product) throw new NotFoundError('Producto', item.productId);
-
-    if (product.branchId !== branchId) {
-      throw new ValidationError(
-        `El producto ${product.name} no pertenece a la sucursal.`
-      );
-    }
-
-    if (!product.isActive) {
-      throw new ValidationError(`El producto ${product.name} no está activo.`);
-    }
-
-    const isSellable =
-      product.type === 'compound' ||
-      product.type === 'service' ||
-      (product.type === 'critical_supply' &&
-        product.criticalSupplyType === 'beverage');
-
-    if (!isSellable) {
-      throw new ValidationError(
-        `El producto ${product.name} no está disponible para la venta.`
-      );
-    }
-  }
-
-  const compoundProductIds = productsList
-    .filter((p) => p.type === 'compound')
-    .map((p) => p.id);
-
-  let recipesByProduct = new Map<number, RecipeWithSupply[]>();
-  if (compoundProductIds.length > 0) {
-    const allRecipes = await findRecipesForProducts(
-      branchId,
-      compoundProductIds
-    );
-
-    recipesByProduct = groupRecipesByProduct(allRecipes);
-  }
+  validateProductsForOperation(items, productById, branchId, 'venta');
 
   const { shortageByProduct } = await validateCartAvailability(branchId, items);
 
@@ -737,91 +997,23 @@ export async function confirmSale(params: {
     );
   }
 
+  const { saleItemValues, total: saleTotal } = buildSaleItemValues(
+    productById,
+    items
+  );
+
   return executeInTransaction(async (tx) => {
-    let saleTotal = parseMoney(0);
-    const saleItemValues: {
-      productId: number;
-      quantity: number;
-      unitPrice: number;
-      subtotal: number;
-    }[] = [];
-
-    for (const item of items) {
-      const product = productById.get(item.productId)!;
-      const unitPrice = parseMoney(product.price);
-      const subtotal = multiplyMoney(unitPrice, item.quantity);
-      saleTotal = addMoney(saleTotal, subtotal);
-
-      saleItemValues.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: product.price,
-        subtotal: moneyToNumber(subtotal),
-      });
-    }
-
-    const [sale] = await tx
-      .insert(sales)
-      .values({
-        branchId,
-        total: moneyToNumber(saleTotal),
-        paymentMethod,
-        cashRegisterId: cashRegister.id,
-        idempotencyKey: branchIdempotencyKey,
-        createdAt: nowUTC(),
-      })
-      .returning();
-
-    await tx.insert(saleItems).values(
-      saleItemValues.map((item) => ({
-        ...item,
-        saleId: sale.id,
-      }))
-    );
-
-    await deductStockForItems(
+    return insertSaleAndUpdateCashRegister(
       tx,
       branchId,
-      saleItemValues,
-      productById,
-      recipesByProduct,
-      { saleId: sale.id },
-      'sale'
-    );
-
-    const [lockedCashRegister] = await tx
-      .select()
-      .from(cashRegisters)
-      .where(
-        and(
-          eq(cashRegisters.id, cashRegister.id),
-          eq(cashRegisters.branchId, branchId)
-        )
-      )
-      .for('update');
-
-    if (!lockedCashRegister) {
-      throw new ValidationError('La caja abierta ya no existe.');
-    }
-
-    if (lockedCashRegister.status !== 'open') {
-      throw new ValidationError(
-        'La caja fue cerrada mientras se procesaba la venta. Abrí una nueva caja para continuar.'
-      );
-    }
-
-    await updateCashRegisterSummary(
-      tx,
-      lockedCashRegister,
-      saleItemValues,
-      productById,
-      recipesByProduct,
+      cashRegister,
+      branchIdempotencyKey,
       paymentMethod,
-      moneyToNumber(saleTotal),
-      'add'
+      saleTotal,
+      saleItemValues,
+      productById,
+      recipesByProduct
     );
-
-    return sale;
   });
 }
 
@@ -873,34 +1065,25 @@ export async function cancelSale(
   }
 
   return executeInTransaction(async (tx) => {
-    const productIds = (sale.items ?? []).map((item) => item.productId);
-    const productsList =
-      productIds.length > 0 ? await productRepository.findByIds(branchId, productIds) : [];
-    const productById = new Map(productsList.map((p) => [p.id, p]));
-
-    const compoundProductIds = productsList
-      .filter((p) => p.type === 'compound')
-      .map((p) => p.id);
-
-    let recipesByProduct = new Map<number, RecipeWithSupply[]>();
-    if (compoundProductIds.length > 0) {
-      const allRecipes = await findRecipesForProducts(
-        branchId,
-        compoundProductIds,
-        tx
-      );
-
-      recipesByProduct = groupRecipesByProduct(allRecipes);
-    }
-
-    await reintegrateStockForItems(
+    const { productById, recipesByProduct } = await buildReintegrationContext(
       tx,
       branchId,
+      sale.items ?? [],
+      false
+    );
+
+    await reintegrateStockAndUpdateCashRegister(
+      tx,
+      branchId,
+      sale.cashRegister,
       sale.items ?? [],
       productById,
       recipesByProduct,
       { saleId: sale.id },
-      'cancellation'
+      'cancellation',
+      sale.paymentMethod,
+      sale.total,
+      'subtract'
     );
 
     const [updated] = await tx
@@ -912,38 +1095,6 @@ export async function cancelSale(
       })
       .where(and(eq(sales.id, id), eq(sales.branchId, branchId)))
       .returning();
-
-    const [lockedCashRegister] = await tx
-      .select()
-      .from(cashRegisters)
-      .where(
-        and(
-          eq(cashRegisters.id, sale.cashRegister!.id),
-          eq(cashRegisters.branchId, branchId)
-        )
-      )
-      .for('update');
-
-    if (!lockedCashRegister) {
-      throw new ValidationError('La caja asociada a la venta ya no existe.');
-    }
-
-    if (lockedCashRegister.status !== 'open' || lockedCashRegister.deletedAt) {
-      throw new ValidationError(
-        'La caja fue cerrada o eliminada mientras se anulaba la venta.'
-      );
-    }
-
-    await updateCashRegisterSummary(
-      tx,
-      lockedCashRegister,
-      sale.items ?? [],
-      productById,
-      recipesByProduct,
-      sale.paymentMethod,
-      sale.total,
-      'subtract'
-    );
 
     return updated;
   });

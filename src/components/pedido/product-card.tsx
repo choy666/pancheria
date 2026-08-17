@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,11 +24,6 @@ export function ProductCard({
   onAdd,
   disabled = false,
 }: ProductCardProps) {
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
   const isOutOfStock = product.type !== 'service' && product.availability <= 0;
   const typeLabel = product.criticalSupplyType
     ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
@@ -37,7 +31,7 @@ export function ProductCard({
 
   const buttonLabel = isOutOfStock
     ? 'Agotado'
-    : mounted && inCart
+    : inCart
       ? 'Agregar otro'
       : 'Agregar';
 
@@ -48,6 +42,7 @@ export function ProductCard({
 
   return (
     <Card
+      data-testid={`product-card-${product.id}`}
       className={`transition-all ${
         isOutOfStock || disabled
           ? 'opacity-60'
@@ -100,6 +95,7 @@ export function ProductCard({
 
         <Button
           type="button"
+          data-testid={`add-product-${product.id}`}
           className="w-full"
           disabled={isOutOfStock || disabled}
           onClick={onAdd}

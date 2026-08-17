@@ -82,8 +82,6 @@ export function PedidoClient({
   const [products, setProducts] = useState<PublicCatalogProduct[]>(
     initialProducts
   );
-  const [branch, setBranch] = useState<Branch>(activeBranch);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shortageByProduct, setShortageByProduct] = useState<
     Record<number, ShortageInfo>
@@ -140,39 +138,10 @@ export function PedidoClient({
 
   const { items, total, addItem, removeItem, updateQuantity, clearCart } =
     useCart({
-      branchId: branch.id,
+      branchId: activeBranch.id,
       products,
       getAvailability,
     });
-
-  // Carga inicial con disponibilidad actualizada en caso de que el SSR tenga datos de caché.
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(
-          `${PUBLIC_CATALOGO_API}?branchId=${branch.id}&includeAvailability=true`
-        );
-        if (!response.ok) throw new Error('Error al cargar el catálogo');
-
-        const data = (await response.json()) as {
-          branch: Branch;
-          products: PublicCatalogProduct[];
-        };
-        if (!isMountedRef.current) return;
-        setProducts(data.products);
-        setBranch(data.branch);
-      } catch (err) {
-        if (!isMountedRef.current) return;
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        if (isMountedRef.current) setLoading(false);
-      }
-    }
-
-    void load();
-  }, [branch.id]);
 
   // Refresco periódico de disponibilidad.
   useEffect(() => {
@@ -181,7 +150,7 @@ export function PedidoClient({
     const interval = setInterval(async () => {
       try {
         const response = await fetch(
-          `${PUBLIC_CATALOGO_API}?branchId=${branch.id}&includeAvailability=true`
+          `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true`
         );
         if (!response.ok) throw new Error('Error al refrescar el catálogo');
 
@@ -191,14 +160,13 @@ export function PedidoClient({
         };
         if (!isMountedRef.current) return;
         setProducts(data.products);
-        setBranch(data.branch);
       } catch {
         // No saturar la UI con errores de fondo.
       }
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [branch.id]);
+  }, [activeBranch.id]);
 
   // Validación de disponibilidad del carrito.
   useEffect(() => {
@@ -215,7 +183,7 @@ export function PedidoClient({
 
       try {
         const response = await fetch(
-          `${PUBLIC_DISPONIBILIDAD_API}?branchId=${branch.id}`,
+          `${PUBLIC_DISPONIBILIDAD_API}?branchId=${activeBranch.id}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -224,7 +192,6 @@ export function PedidoClient({
                 productId: item.id,
                 quantity: item.quantity,
               })),
-              productIds: products.map((p) => p.id),
             }),
           }
         );
@@ -252,7 +219,7 @@ export function PedidoClient({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [items, products, branch.id]);
+  }, [items, products, activeBranch.id]);
 
   const groupedProducts = groupPublicProductsByType(products);
 
@@ -261,9 +228,10 @@ export function PedidoClient({
   function handleBranchChange(branchId: string | null) {
     if (!branchId) return;
     const selected = branches.find((b) => b.id === Number(branchId));
-    if (!selected || selected.id === branch.id) return;
+    if (!selected || selected.id === activeBranch.id) return;
 
     localStorage.setItem(BRANCH_STORAGE_KEY, String(selected.id));
+    clearCart();
     router.push(`/pedido?branchId=${selected.id}`);
   }
 
@@ -288,7 +256,7 @@ export function PedidoClient({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${branch.id}`, {
+      const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${activeBranch.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -337,7 +305,7 @@ export function PedidoClient({
 
     try {
       const response = await fetch(
-        `${PUBLIC_PEDIDO_CANCELAR_API(createdOrder.id)}?branchId=${branch.id}`,
+        `${PUBLIC_PEDIDO_CANCELAR_API(createdOrder.id)}?branchId=${activeBranch.id}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -375,10 +343,6 @@ export function PedidoClient({
     );
   }
 
-  if (loading && products.length === 0) {
-    return <div className="text-center text-muted-foreground">Cargando...</div>;
-  }
-
   return (
     <div className="space-y-5">
       {error && (
@@ -406,7 +370,7 @@ export function PedidoClient({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Catálogo de {branch.name}
+              Catálogo de {activeBranch.name}
             </h1>
             <p className="text-base text-muted-foreground">
               Elegí los productos y armá tu pedido.
@@ -419,10 +383,10 @@ export function PedidoClient({
                 Sucursal
               </Label>
               <Select
-                value={String(branch.id)}
+                value={String(activeBranch.id)}
                 onValueChange={handleBranchChange}
               >
-                <SelectTrigger id="branchSelect" className="w-full sm:w-[240px]">
+                <SelectTrigger id="branchSelect" data-testid="branch-select-trigger" className="w-full sm:w-[240px]">
                   <SelectValue placeholder="Seleccionar sucursal" />
                 </SelectTrigger>
                 <SelectContent>
@@ -435,7 +399,7 @@ export function PedidoClient({
               </Select>
             </div>
           ) : (
-            <p className="text-base text-muted-foreground">{branch.name}</p>
+            <p className="text-base text-muted-foreground">{activeBranch.name}</p>
           )}
         </div>
       </div>
@@ -467,7 +431,7 @@ export function PedidoClient({
 
         <div className="space-y-4">
           <CartSummary
-            branchName={branch.name}
+            branchName={activeBranch.name}
             items={items}
             total={total}
             onUpdateQuantity={updateQuantity}
@@ -518,7 +482,7 @@ export function PedidoClient({
                 <SelectContent>
                   <SelectItem value="delivery">Envío a domicilio</SelectItem>
                   <SelectItem value="pickup">
-                    Retiro en sucursal: {branch.name}
+                    Retiro en sucursal: {activeBranch.name}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -605,7 +569,7 @@ export function PedidoClient({
                 <p>
                   Sucursal:{' '}
                   <span className="text-foreground">
-                    {createdOrder.branchName ?? branch.name}
+                    {createdOrder.branchName ?? activeBranch.name}
                   </span>
                 </p>
                 <p>

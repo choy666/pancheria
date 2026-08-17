@@ -4,6 +4,7 @@ import {
   validateCartAvailability,
   confirmSale,
   cancelSale,
+  buildSaleItemValues,
 } from './saleService';
 import * as productRepository from '@/repositories/productRepository';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -397,15 +398,12 @@ describe('validateCartAvailability', () => {
       }),
     ]);
 
-    const result = await validateCartAvailability(
-      BRANCH_ID,
-      [{ productId: 1, quantity: 3 }],
-      [1, 2]
-    );
+    const result = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 3 },
+    ]);
 
     expect(result.consumedBySupply[3]).toBe(6);
     expect(result.availabilityByProduct[1]).toBe(1);
-    expect(result.availabilityByProduct[2]).toBe(1);
   });
 
   test('detecta faltante cuando el consumo combinado supera el stock', async () => {
@@ -434,11 +432,10 @@ describe('validateCartAvailability', () => {
       }),
     ]);
 
-    const result = await validateCartAvailability(
-      BRANCH_ID,
-      [{ productId: 1, quantity: 4 }, { productId: 2, quantity: 4 }],
-      [1, 2]
-    );
+    const result = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 4 },
+      { productId: 2, quantity: 4 },
+    ]);
 
     expect(result.consumedBySupply[3]).toBe(16);
     expect(result.shortageByProduct[1]).toEqual({
@@ -471,11 +468,10 @@ describe('validateCartAvailability', () => {
       }),
     ]);
 
-    const result = await validateCartAvailability(
-      BRANCH_ID,
-      [{ productId: 1, quantity: 2 }, { productId: 2, quantity: 3 }],
-      [1, 2]
-    );
+    const result = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 2 },
+      { productId: 2, quantity: 3 },
+    ]);
 
     expect(result.consumedBySupply[2]).toBe(3);
     expect(result.consumedBySupply[3]).toBe(4);
@@ -509,20 +505,15 @@ describe('validateCartAvailability', () => {
       }),
     ]);
 
-    const first = await validateCartAvailability(
-      BRANCH_ID,
-      [{ productId: 1, quantity: 4 }],
-      [1, 2]
-    );
-    expect(first.availabilityByProduct[2]).toBe(0);
+    const first = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 4 },
+    ]);
+    expect(first.availabilityByProduct[1]).toBe(0);
 
-    const second = await validateCartAvailability(
-      BRANCH_ID,
-      [{ productId: 1, quantity: 2 }],
-      [1, 2]
-    );
+    const second = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 2 },
+    ]);
     expect(second.availabilityByProduct[1]).toBe(2);
-    expect(second.availabilityByProduct[2]).toBe(2);
   });
 
   test('los servicios no consumen stock ni limitan disponibilidad', async () => {
@@ -533,14 +524,74 @@ describe('validateCartAvailability', () => {
 
     mockedDb.query.recipes.findMany.mockResolvedValue([]);
 
-    const result = await validateCartAvailability(
-      BRANCH_ID,
-      [{ productId: 1, quantity: 100 }],
-      [1]
-    );
+    const result = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 100 },
+    ]);
 
     expect(result.consumedBySupply[2]).toBeUndefined();
     expect(result.availabilityByProduct[1]).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe('buildSaleItemValues', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('calcula precio y subtotal desde el producto si no se indican valores históricos', () => {
+    setProducts([
+      {
+        id: 1,
+        name: 'Gaseosa',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 1000,
+      },
+    ]);
+
+    const productById = new Map([[1, createProductRow({ id: 1, name: 'Gaseosa', price: 1000 })]]);
+    const result = buildSaleItemValues(productById, [
+      { productId: 1, quantity: 2 },
+    ]);
+
+    expect(result.total).toBe(2000);
+    expect(result.saleItemValues).toHaveLength(1);
+    expect(result.saleItemValues[0]).toMatchObject({
+      productId: 1,
+      quantity: 2,
+      unitPrice: 1000,
+      subtotal: 2000,
+    });
+  });
+
+  test('respeta unitPrice y subtotal opcionales cuando se proveen', () => {
+    const productById = new Map([[1, createProductRow({ id: 1, name: 'Gaseosa', price: 1200 })]]);
+    const result = buildSaleItemValues(productById, [
+      { productId: 1, quantity: 2, unitPrice: 1000, subtotal: 2000 },
+    ]);
+
+    expect(result.total).toBe(2000);
+    expect(result.saleItemValues[0]).toMatchObject({
+      productId: 1,
+      quantity: 2,
+      unitPrice: 1000,
+      subtotal: 2000,
+    });
+  });
+
+  test('usa unitPrice histórico y recalcula subtotal si solo se provee unitPrice', () => {
+    const productById = new Map([[1, createProductRow({ id: 1, name: 'Gaseosa', price: 1200 })]]);
+    const result = buildSaleItemValues(productById, [
+      { productId: 1, quantity: 3, unitPrice: 1000 },
+    ]);
+
+    expect(result.total).toBe(3000);
+    expect(result.saleItemValues[0]).toMatchObject({
+      productId: 1,
+      quantity: 3,
+      unitPrice: 1000,
+      subtotal: 3000,
+    });
   });
 });
 

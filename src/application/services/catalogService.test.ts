@@ -172,17 +172,15 @@ describe('catalogService', () => {
       });
 
       const items = [{ productId: 1, quantity: 2 }];
-      const productIds = [1, 2];
 
-      const result = await validatePublicCart(BRANCH_ID, items, productIds);
+      const result = await validatePublicCart(BRANCH_ID, items);
 
       expect(result.availabilityByProduct).toEqual({ 1: 5 });
       expect(result.shortageByProduct).toEqual({});
       expect(result.breakdownByProduct).toEqual({});
       expect(mockedSaleService.validateCartAvailability).toHaveBeenCalledWith(
         BRANCH_ID,
-        items,
-        productIds
+        items
       );
     });
 

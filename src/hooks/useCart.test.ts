@@ -151,4 +151,27 @@ describe('useCart', () => {
 
     expect(result.current.items[0].id).toBe(1);
   });
+
+  test('limpia el carrito al cambiar de sucursal en tiempo de ejecución', async () => {
+    const stored = {
+      version: 'pancheria-cart-v1',
+      branchId: 1,
+      items: [{ ...products[0], quantity: 3 }],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+    const { result, rerender } = renderHook(
+      ({ branchId }) => useCart({ branchId, products, getAvailability }),
+      {
+        initialProps: { branchId: 1, products, getAvailability },
+      }
+    );
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    rerender({ branchId: 2, products, getAvailability });
+
+    await waitFor(() => expect(result.current.items).toEqual([]));
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
 });

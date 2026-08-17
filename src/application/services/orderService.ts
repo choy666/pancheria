@@ -1,26 +1,13 @@
 import { eq, and, isNull, count } from 'drizzle-orm';
 import { randomBytes, randomUUID } from 'crypto';
 import { db } from '@/db';
-import {
-  orders,
-  orderItems,
-  sales,
-  saleItems,
-  cashRegisters,
-} from '@/db/schema';
+import { orders, orderItems, sales } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
-import * as productRepository from '@/repositories/productRepository';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
-import {
-  addMoney,
-  multiplyMoney,
-  moneyToNumber,
-  parseMoney,
-} from '@/lib/money';
+
 import { nowUTC } from '@/lib/date';
-import { isPublicSellableProduct } from '@/lib/catalog';
 import {
   InsufficientStockError,
   NotFoundError,
@@ -34,15 +21,14 @@ import type {
 } from '@/domain/types';
 import {
   validateCartAvailability,
-  updateCashRegisterSummary,
+  validateProductsForOperation,
+  buildSaleItemValues,
+  insertSaleAndUpdateCashRegister,
   deductStockForItems,
-  reintegrateStockForItems,
+  buildReintegrationContext,
+  reintegrateStockAndUpdateCashRegister,
+  buildProductContext,
 } from '@/application/services/saleService';
-import {
-  findRecipesForProducts,
-  groupRecipesByProduct,
-  type RecipeWithSupply,
-} from '@/application/services/summaryService';
 
 export interface CreateOrderInput {
   branchId: number;
@@ -88,36 +74,6 @@ async function getOrderByIdempotencyKey(
   return order ?? null;
 }
 
-async function buildProductContext(
-  branchId: number,
-  productIds: number[],
-  options?: { includeDeleted?: boolean }
-) {
-  const productsList = await productRepository.findByIds(
-    branchId,
-    productIds,
-    options?.includeDeleted
-  );
-
-  if (productsList.length !== productIds.length) {
-    throw new NotFoundError('Producto');
-  }
-
-  const productById = new Map(productsList.map((p) => [p.id, p]));
-
-  const compoundProductIds = productsList
-    .filter((p) => p.type === 'compound')
-    .map((p) => p.id);
-
-  let recipesByProduct = new Map<number, RecipeWithSupply[]>();
-  if (compoundProductIds.length > 0) {
-    const allRecipes = await findRecipesForProducts(branchId, compoundProductIds);
-    recipesByProduct = groupRecipesByProduct(allRecipes);
-  }
-
-  return { productById, recipesByProduct, productsList };
-}
-
 export async function createOrder(
   input: CreateOrderInput
 ): Promise<OrderWithItems> {
@@ -141,27 +97,7 @@ export async function createOrder(
     productIds
   );
 
-  for (const item of items) {
-    const product = productById.get(item.productId)!;
-
-    if (product.branchId !== branchId) {
-      throw new ValidationError(
-        `El producto ${product.name} no pertenece a la sucursal.`
-      );
-    }
-
-    if (!product.isActive) {
-      throw new ValidationError(
-        `El producto ${product.name} no está activo.`
-      );
-    }
-
-    if (!isPublicSellableProduct(product)) {
-      throw new ValidationError(
-        `El producto ${product.name} no está disponible para el pedido.`
-      );
-    }
-  }
+  validateProductsForOperation(items, productById, branchId, 'pedido');
 
   const { shortageByProduct } = await validateCartAvailability(branchId, items);
 
@@ -177,29 +113,10 @@ export async function createOrder(
     );
   }
 
+  const { saleItemValues: orderItemValues, total: orderTotal } =
+    buildSaleItemValues(productById, items);
+
   return executeInTransaction(async (tx) => {
-    let orderTotal = parseMoney(0);
-    const orderItemValues: {
-      productId: number;
-      quantity: number;
-      unitPrice: number;
-      subtotal: number;
-    }[] = [];
-
-    for (const item of items) {
-      const product = productById.get(item.productId)!;
-      const unitPrice = parseMoney(product.price);
-      const subtotal = multiplyMoney(unitPrice, item.quantity);
-      orderTotal = addMoney(orderTotal, subtotal);
-
-      orderItemValues.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: product.price,
-        subtotal: moneyToNumber(subtotal),
-      });
-    }
-
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
 
@@ -208,7 +125,7 @@ export async function createOrder(
       .values({
         branchId,
         orderNumber,
-        total: moneyToNumber(orderTotal),
+        total: orderTotal,
         status: 'pending',
         customerName: customerName.trim(),
         deliveryType,
@@ -277,17 +194,18 @@ export async function cancelOrder(
     throw new ValidationError('El token de cancelación no es válido.');
   }
 
-  const productIds = order.items.map((item) => item.productId);
-  const { productById, recipesByProduct } = await buildProductContext(
-    branchId,
-    productIds,
-    { includeDeleted: true }
-  );
-
   return executeInTransaction(async (tx) => {
-    await reintegrateStockForItems(
+    const { productById, recipesByProduct } = await buildReintegrationContext(
       tx,
       branchId,
+      order.items,
+      true
+    );
+
+    await reintegrateStockAndUpdateCashRegister(
+      tx,
+      branchId,
+      null,
       order.items,
       productById,
       recipesByProduct,
@@ -363,79 +281,30 @@ export async function convertOrderToSale(
     productIds
   );
 
-  for (const item of order.items) {
-    const product = productById.get(item.productId)!;
+  validateProductsForOperation(order.items, productById, branchId, 'venta');
 
-    if (!product.isActive) {
-      throw new ValidationError(
-        `El producto ${product.name} no está activo.`
-      );
-    }
-
-    if (!isPublicSellableProduct(product)) {
-      throw new ValidationError(
-        `El producto ${product.name} no está disponible para la venta.`
-      );
-    }
-  }
-
-  return executeInTransaction(async (tx) => {
-    const saleItemValues = order.items.map((item) => ({
+  const { saleItemValues, total: saleTotal } = buildSaleItemValues(
+    productById,
+    order.items.map((item) => ({
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
-    }));
+    }))
+  );
 
-    const [sale] = await tx
-      .insert(sales)
-      .values({
-        branchId,
-        total: order.total,
-        paymentMethod,
-        cashRegisterId: cashRegister.id,
-        idempotencyKey: branchIdempotencyKey,
-        createdAt: nowUTC(),
-      })
-      .returning();
-
-    await tx.insert(saleItems).values(
-      saleItemValues.map((item) => ({
-        ...item,
-        saleId: sale.id,
-      }))
-    );
-
-    const [lockedCashRegister] = await tx
-      .select()
-      .from(cashRegisters)
-      .where(
-        and(
-          eq(cashRegisters.id, cashRegister.id),
-          eq(cashRegisters.branchId, branchId)
-        )
-      )
-      .for('update');
-
-    if (!lockedCashRegister) {
-      throw new ValidationError('La caja abierta ya no existe.');
-    }
-
-    if (lockedCashRegister.status !== 'open') {
-      throw new ValidationError(
-        'La caja fue cerrada mientras se confirmaba el pedido.'
-      );
-    }
-
-    await updateCashRegisterSummary(
+  return executeInTransaction(async (tx) => {
+    const sale = await insertSaleAndUpdateCashRegister(
       tx,
-      lockedCashRegister,
+      branchId,
+      cashRegister,
+      branchIdempotencyKey,
+      paymentMethod,
+      saleTotal,
       saleItemValues,
       productById,
       recipesByProduct,
-      paymentMethod,
-      order.total,
-      'add'
+      { skipStockDeduct: true }
     );
 
     await tx
