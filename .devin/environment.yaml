@@ -17,20 +17,23 @@ knowledge:
   - name: estructura
     contents: |
       Proyecto Next.js 16 con App Router, shadcn/ui, Drizzle ORM y PostgreSQL (Neon).
-      - `src/app/` — rutas y páginas del panel/administración
-      - `src/app/api/` — endpoints de la API
+      - `src/app/(panel)/` — páginas del panel (administración y operador)
+      - `src/app/(public)/` — rutas públicas (catálogo de pedidos `/pedido`)
+      - `src/app/(auth)/` — autenticación (`/login`)
+      - `src/app/api/` — endpoints de la API (pública y del panel)
       - `src/db/` — esquema, conexión y seeds de Drizzle
       - `src/repositories/` — capa de repositorios
       - `src/application/` — servicios de aplicación (casos de uso y coordinación)
       - `src/application/services/` — casos de uso del dominio
       - `src/components/` — componentes React
-      - `src/config/` — constantes de configuración (APIs, caja, paginación, videos)
+      - `src/config/` — constantes de configuración (rutas, APIs, caja, paginación, videos)
       - `src/domain/` — tipos y errores de dominio
       - `src/hooks/` — hooks personalizados de React
-      - `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, `storage`, etc.)
+      - `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, `storage`, `branch-resolver`, etc.)
       - `src/app/(panel)/videos/` — páginas de gestión de videos
       - `src/app/api/videos/` — endpoints de subida y streaming de videos
       - `drizzle/` — migraciones generadas por Drizzle Kit
+      - `.devin/informes/` — lecciones, reporte de estado vigente y guía de funcionamiento
 
   - name: install
     contents: npm install
@@ -105,4 +108,9 @@ knowledge:
 
   - name: informes
     contents: |
-      Consultar .devin/informes/lecciones-aprendidas.md para lecciones aprendidas y .devin/prompts/README.md para la guía de escritura de prompts antes de iniciar tareas de auditoría, refactorización, integridad de datos, configuración de entorno o creación de prompts.
+      Directorio `.devin/informes/`:
+      - `lecciones-aprendidas.md` — resumen transversal de lecciones para prompts y auditorías.
+      - `reporte-estado.md` — informe de estado vigente (único; no duplicar con archivos `reporte-estado-YYYY-MM-DD.md` salvo que se archiven).
+      - `guia-funcionamiento-pancheria.md` — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
+      - `archivados/` — reportes históricos.
+      Antes de iniciar auditorías, refactorización, integridad de datos, configuración de entorno o creación de prompts, consultar estos archivos y `.devin/prompts/README.md`.

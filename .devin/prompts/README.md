@@ -1,6 +1,6 @@
 # Guía para escribir prompts — Proyecto Panchería
 
-> Antes de crear un prompt nuevo, consultar los informes y `lecciones-aprendidas.md` para evitar regresiones documentadas.
+> Antes de crear un prompt nuevo, consultar los informes, `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md` y `pancheria.prompt.md` para evitar regresiones documentadas.
 
 ## Propósito
 
@@ -17,8 +17,9 @@ El directorio `.devin/prompts` debe contener **guías y ejemplos reutilizables**
 1. Revisar si ya existe un informe relacionado en `.devin/informes/README.md`.
 2. Leer `.devin/informes/lecciones-aprendidas.md`.
 3. Leer `AGENTS.md` para comandos, variables de entorno y convenciones.
-4. Leer el código afectado usando `<ref_file .../>` o `<ref_snippet .../>`.
-5. Si `lecciones-aprendidas.md` cubre el tema, no crear un prompt nuevo; referenciarlo.
+4. Si la tarea es operativa o de negocio, leer `.devin/informes/guia-funcionamiento-pancheria.md`.
+5. Leer el código afectado usando `<ref_file .../>` o `<ref_snippet .../>`.
+6. Si `lecciones-aprendidas.md` cubre el tema, no crear un prompt nuevo; referenciarlo.
 
 ## Estructura recomendada
 
@@ -45,6 +46,7 @@ Stack: Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM
 Documentación de referencia:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md`
+- `.devin/informes/guia-funcionamiento-pancheria.md` (si aplica)
 - {informe específico si aplica}
 
 ## Estado actual relevante
@@ -94,12 +96,13 @@ Documentación de referencia:
 Consultar `.devin/informes/lecciones-aprendidas.md` para el detalle completo. Los puntos críticos son:
 
 - Server actions con `useActionState` deben devolver el estado con `error`, no lanzar `throw` para errores controlados.
-- `NotFoundError` debe devolver `404`; `DomainError` genérico `400`.
+- `NotFoundError` debe devolver `404`; `DomainError` genérico `400`; `ForbiddenError` `403` en APIs y redirección en Server Components.
 - No mezclar helpers de UI con utilidades generales (`src/lib/utils.ts` vs `src/lib/json.ts`).
 - No ocultar reglas de negocio en helpers de test.
 - Validar integridad con soft delete considerando el estado del padre.
 - Tener cuidado con `findFirst` cuando coexisten activos e inactivos.
 - Incluir siempre una sección de seguridad y entorno cuando se trabaje con `.env.local`, credenciales o bases de datos.
+- `setState` en `useEffect` solo está permitido para carga asíncrona con flag de montaje o persistencia derivada.
 
 ## Cuándo crear un nuevo prompt
 
@@ -112,7 +115,9 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ## Cómo referenciar archivos
 
-Usar `<ref_file file="..."/>` para archivos completos y `<ref_snippet file="..." lines="x-y"/>` para secciones específicas.
+- Usar `<ref_file file="..."/>` para archivos completos.
+- Usar `<ref_snippet file="..." lines="x-y"/>` solo cuando el rango sea estable; de lo contrario, preferir `<ref_file .../>` o nombres de función/exportación.
+- Los prompts archivados contienen referencias históricas que pueden estar desfasadas; consultar el código antes de usarlos.
 
 ## Prompts guardados
 
@@ -124,14 +129,13 @@ Usar como punto de entrada para cualquier tarea futura:
 
 ### Prompts activos
 
-- [Auditoría y actualización de documentación](auditoria-y-documentacion.md) — guía reutilizable.
-- [Sucursal y stock explícitos en pedidos públicos](pedidos-publicos-sucursal-y-stock.md) — selector de sucursal, stock por sucursal, desglose de disponibilidad y seed multi-sucursal.
-- [Recomendaciones y buenas prácticas — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y guía para evitar regresiones en el flujo de pedidos.
-- [Errores de deploy en Vercel: `ForbiddenError` sin sucursal y React #441](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y error de renderizado de Server Components por usuario sin sucursal asignada.
+- [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
+- [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
+- [Errores de deploy en Vercel](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y React #441 por usuarios sin sucursal asignada.
 
 ### Prompts resueltos y archivados
 
-Los prompts cuya implementación ya finalizó se archivan en `archivados/`:
+Los prompts cuya implementación finalizó se archivan en `archivados/` como contexto histórico:
 
 - `catalogo-whatsapp.md`
 - `pedido-stock-centralizado.md`
@@ -142,6 +146,7 @@ Los prompts cuya implementación ya finalizó se archivan en `archivados/`:
 - `auditoria-documentacion.md`
 - `auditoria-pedidos-sucursal-cliente.md`
 - `pedidos-publicos-sin-autenticacion.md`
+- `pedidos-publicos-sucursal-y-stock.md`
 
 Su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en `pancheria.prompt.md`.
 
@@ -149,4 +154,5 @@ Su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en `pa
 
 - [Índice de informes](../informes/README.md)
 - [Lecciones aprendidas](../informes/lecciones-aprendidas.md)
+- [Guía de funcionamiento](../informes/guia-funcionamiento-pancheria.md)
 - [AGENTS.md](../../AGENTS.md)

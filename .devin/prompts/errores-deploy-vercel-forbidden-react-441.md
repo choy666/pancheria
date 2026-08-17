@@ -19,11 +19,14 @@ En producción (Vercel) se repiten dos síntomas vinculados:
 1. **Respuestas 500 en múltiples GET** con el mensaje `ForbiddenError: El usuario no tiene una sucursal asignada.`
 2. **React error #441** en el cliente: *An error occurred in the Server Components render* (en producción se muestra como código minificado).
 
-El problema se origina en <ref_file file="C:/developer/paginas/pancheria/src/lib/auth.ts" />. Las funciones `requireAuth()` y `getCurrentBranchId()` arrojan `ForbiddenError` cuando `session.user.branchId` es nulo. En rutas API eso está bien: <ref_file file="C:/developer/paginas/pancheria/src/lib/api-handler.ts" /> ya captura `ForbiddenError` y devuelve `403`. Sin embargo, los **Server Components** del panel (<ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/layout.tsx" />, <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/productos/page.tsx" />, etc.) invocan `getCurrentBranchId(session)` sin un `try/catch` ni una redirección. El error no controlado hace que Next.js responda `500` y React en producción lo resuma como `#441`.
+El problema se origina en <ref_file file="C:/developer/paginas/pancheria/src/lib/auth.ts" />. Las funciones `requireAuth()` y `getCurrentBranchId()` arrojan `ForbiddenError` cuando `session.user.branchId` es nulo. En rutas API eso está bien: <ref_file file="C:/developer/paginas/pancheria/src/lib/api-handler.ts" /> ya captura `ForbiddenError` y devuelve `403`.
 
-<ref_snippet file="C:/developer/paginas/pancheria/src/lib/auth.ts" lines="9-21" />
-<ref_snippet file="C:/developer/paginas/pancheria/src/lib/auth.ts" lines="23-52" />
-<ref_snippet file="C:/developer/paginas/pancheria/src/app/(panel)/layout.tsx" lines="15-23" />
+El panel ya tiene una primera línea de defensa: <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/layout.tsx" /> envuelve `getCurrentBranchId(session)` en un `try/catch` y, si el error es "El usuario no tiene una sucursal asignada.", renderiza <ref_file file="C:/developer/paginas/pancheria/src/components/panel/branch-required-fallback.tsx" />. También existe `getCurrentBranchIdOrRedirect` en <ref_file file="C:/developer/paginas/pancheria/src/lib/auth.ts" />.
+
+Sin embargo, otros Server Components del grupo `(panel)` todavía pueden invocar `getCurrentBranchId(session)` directamente sin `try/catch` ni redirección, propagando `500` y `React #441`. Este prompt sigue activo hasta que toda la navegación del panel use `getCurrentBranchIdOrRedirect` o una redirección controlada.
+
+<ref_file file="C:/developer/paginas/pancheria/src/lib/auth.ts" />
+<ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/layout.tsx" />
 
 ## Objetivo
 

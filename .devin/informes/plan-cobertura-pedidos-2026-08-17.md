@@ -60,7 +60,7 @@ Evitar que un cambio de precio posterior genere una venta con `total` distinto a
 ### Verificaciones
 - `npx tsc --noEmit`
 - `npm run lint`
-- `npm test -- --testPathPatterns="orderService|saleService"`
+- `npm test -- --testPathPatterns="orderService|saleService"``
 - `npm run build` (antes de mergear).
 
 ---
@@ -195,7 +195,7 @@ Eliminar la duplicación entre `cancelOrder` y `cancelSale`.
 ### Verificaciones
 - `npx tsc --noEmit`
 - `npm run lint`
-- `npm test -- --testPathPatterns="orderService|saleService"
+- `npm test -- --testPathPatterns="orderService|saleService"`
 
 ---
 

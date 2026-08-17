@@ -12,21 +12,24 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/.env.example" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" />
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />
 
 ## Objetivo
 
-Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, prompts e informes) coincide con el código implementado. Generar un informe con recomendaciones, consejos y, cuando corresponda, aplicar correcciones documentales respaldadas por evidencia.
+Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, prompts e informes) coincide con el código implementado. Generar o actualizar el informe vigente con recomendaciones y, cuando corresponda, aplicar correcciones documentales respaldadas por evidencia.
 
 ## Áreas de auditoría
 
 1. **Alcance funcional**: rutas del App Router, endpoints de API, server actions, tablas de Drizzle, flujos críticos (ventas, pedidos, caja, cierre, videos, multi-sucursal).
 2. **Variables de entorno**: toda variable leída por el código (`process.env.*`) debe estar en `.env.example` y documentada, con su valor por defecto real y su propósito.
-3. **Arquitectura y convenciones**: separación de responsabilidades, hooks asíncronos con flag de montaje, manejo de errores (`NotFoundError` → 404, `DomainError` → 400, conexión a base de datos → 503), soft delete, transacciones.
+3. **Arquitectura y convenciones**: separación de responsabilidades, hooks asíncronos con flag de montaje, manejo de errores (`NotFoundError` → 404, `DomainError` → 400, `ForbiddenError` → 403 en API, redirección en Server Components), soft delete, transacciones.
 4. **Seguridad**: ausencia de credenciales/URLs hardcodeadas, protección por rol, aislamiento por `branchId`, validación de entradas.
 5. **Tests y verificaciones**: ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`. `npm run test:e2e`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push` o `npx drizzle-kit generate` solo con confirmación explícita.
-6. **Blueprints y prompts**: `.devin/environment.yaml` y los prompts deben reflejar el estado real del proyecto.
+6. **Blueprints y prompts**: `.devin/environment.yaml` y los prompts deben reflejar el estado real del proyecto; no duplicar reportes ni prompts; archivar o eliminar los obsoletos con confirmación del usuario.
 
 ## Reglas
 
@@ -36,6 +39,7 @@ Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.
 4. No ejecutar `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate`, `npm run test:e2e` ni `npx playwright test` sin confirmación explícita del usuario.
 5. Todo el informe en español.
 6. Clasificar hallazgos en **crítico**, **mayor**, **menor** o **informativo**, con referencias concretas.
+7. Preferir `<ref_file .../>` o nombres de función sobre `<ref_snippet ... lines="..."/>`, salvo que el rango de líneas sea estable y esté verificado.
 
 ## Metodología
 
@@ -45,13 +49,13 @@ Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.
 4. Verificar que los valores por defecto documentados coincidan con los del código.
 5. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test` y `npm run build`.
 6. Documentar discrepancias, corregirlas cuando sean documentales y emitir un informe.
-7. Actualizar `.devin/informes/reporte-estado-YYYY-MM-DD.md` con los resultados.
+7. Actualizar `.devin/informes/reporte-estado.md` con los resultados; no crear nuevos `reporte-estado-YYYY-MM-DD.md` salvo que se requiera histórico, en cuyo caso archivar el anterior.
 
 ## Entregables
 
 1. Prompt mejorado y actualizado (este archivo).
 2. Correcciones documentales en `AGENTS.md`, `README.md`, `.env.example` y/o `.devin/environment.yaml` si aplica.
-3. Informe en `.devin/informes/reporte-estado-YYYY-MM-DD.md` que incluya:
+3. Informe en `.devin/informes/reporte-estado.md` que incluya:
    - Resumen ejecutivo.
    - Alcance funcional verificado (tabla).
    - Hallazgos clasificados.
@@ -67,3 +71,4 @@ Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.
 | 2 | `npx tsc --noEmit` | Verificación de tipos |
 | 3 | `npm test` | Tests unitarios |
 | 4 | `npm run build` | Build de producción |
+| 5 | `npx drizzle-kit check` | Consistencia del esquema (con base de prueba, opcional) |

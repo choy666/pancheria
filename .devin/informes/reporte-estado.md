@@ -1,14 +1,13 @@
-# Reporte de estado — Actualización de documentación y sincronización funcional
+# Reporte de estado — Auditoría y limpieza de `.devin`
 
-**Fecha:** 2026-08-16  
-**Proyecto:** `pancheria`  
-**Prompt base:** <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />
+**Fecha:** 2026-08-17  
+**Proyecto:** `pancheria`
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.devin/environment.yaml` y `.devin/prompts/pancheria.prompt.md` con el estado real del proyecto. Se detectaron y corrigieron omisiones relacionadas con la funcionalidad de **videos, reproducción y Cast**, las **variables de entorno de almacenamiento**, las **tablas truncadas por los tests E2E** y el **estado de la tabla `login_attempts`**. No se modificó código de negocio. Las verificaciones automatizadas (`lint`, `tsc`, `build`) pasan sin errores.
+Se consolidaron los informes de estado y se realizó una limpieza del directorio `.devin` para que sea más eficaz como ayuda para futuros prompts. Se corrigieron referencias rotas, se actualizaron índices, se eliminaron reportes duplicados en la raíz de `informes/` y se reescribió `reporte-estado.md` como único informe vigente. No se modificó código de negocio. Las verificaciones automatizadas (`lint`, `tsc`, `test`, `build`) pasan sin errores.
 
 ---
 
@@ -16,13 +15,13 @@ Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.d
 
 | Paso | Comando | Resultado |
 | ---- | ------- | --------- |
-| 1 | `npm run lint` | Pasa (eslint exit 0) |
-| 2 | `npx tsc --noEmit` | Pasa (sin errores de tipos) |
-| 3 | `npm run build` | Build de producción exitoso (39 páginas) |
-| — | `npm test` | No ejecutado en esta tarea documental |
-| — | `npm run test:e2e` | No ejecutado (trunca tablas; requiere confirmación) |
+| 1 | `npm run lint` | Pasa |
+| 2 | `npx tsc --noEmit` | Pasa |
+| 3 | `npm test` | 61 suites, 682 tests pasan |
+| 4 | `npm run build` | Build de producción exitoso (39 páginas) |
 | — | `npx tsx src/db/seeds.ts` | No ejecutado (modifica datos) |
 | — | `npx drizzle-kit check` | No ejecutado (sin cambios de esquema) |
+| — | `npm run test:e2e` | No ejecutado (trunca tablas; requiere confirmación) |
 
 ---
 
@@ -30,7 +29,7 @@ Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.d
 
 | Dominio | Estado | Archivos de referencia |
 | ------- | ------ | ---------------------- |
-| Autenticación | Login con credenciales, sesión JWT, roles `admin`/`operator`, rate limiting, protección de rutas. | <ref_file file="C:/developer/paginas/pancheria/src/auth.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/application/services/authService.ts" /> |
+| Autenticación | Login con credenciales, sesión JWT, roles `admin`/`operator`, rate limiting, protección de rutas. | <ref_file file="C:/developer/paginas/pancheria/src/auth.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/application/services/authService.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit-store.ts" /> |
 | Multi-sucursal | Tabla `branches`, `branchId` en usuarios, productos, cajas, ventas, pedidos, movimientos de stock y cierres; aislamiento de datos. | <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/sucursales/page.tsx" />, <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/usuarios/page.tsx" /> |
 | Productos | CRUD con soft delete, tipos (`critical_supply`, `compound`, `manual_supply`, `service`), recetas. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/productService.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/repositories/productRepository.ts" /> |
 | Recetas | Asociación de promos con insumos críticos, auto-descuento, validaciones. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/recipeService.ts" /> |
@@ -45,50 +44,35 @@ Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.d
 
 ---
 
-## 4. Cambios aplicados
+## 4. Hallazgos documentales recientes
 
-### 4.1 `AGENTS.md`
-
-- Se agregó la sección **Videos, reproducción y Cast** con rutas, endpoints, proveedores de almacenamiento y tabla `videos`. <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
-- Se completó la lista de **variables de entorno**: `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, credenciales de Vercel Blob, S3, R2 y `LOCAL_STORAGE_PATH`. <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
-- Se corrigió la advertencia de tests E2E: `global-setup.ts` también trunca `videos`, `users` y `branches`. <ref_snippet file="C:/developer/paginas/pancheria/tests/e2e/global-setup.ts" lines="11-25" />
-- Se aclaró que la tabla `login_attempts` ya existe en `src/db/schema.ts` y fue creada con la migración `0007_boring_scorpion.sql`; no es una tarea futura pendiente. <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="517-521" />
-
-### 4.2 `README.md`
-
-- Se agregó la sección **Videos, reproducción y Cast** con descripción de funcionalidad, endpoints y variables de entorno. <ref_file file="C:/developer/paginas/pancheria/README.md" />
-- Se actualizó la estructura del proyecto para incluir `videos` en `src/config/` y `storage` en `src/lib/`. <ref_file file="C:/developer/paginas/pancheria/README.md" />
-
-### 4.3 `.devin/environment.yaml`
-
-- Se agregó el knowledge `videos` con rutas, endpoints, tabla, proveedores de almacenamiento y variables. <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
-- Se actualizó `estructura` para incluir `src/app/(panel)/videos/` y `src/app/api/videos/`. <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
-- Se corrigió `e2e` con la lista completa de tablas truncadas. <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
-- Se actualizó `database` con `videos`, `login_attempts`, `RATE_LIMIT_STORE_PROVIDER` y variables de almacenamiento. <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
-- Se actualizó `deploy` con las variables de videos y almacenamiento. <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
-
-### 4.4 `.devin/prompts/pancheria.prompt.md`
-
-- Se actualizó el contexto para incluir la gestión de videos con reproducción y Cast. <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" />
-- Se explicitó en la regla de oro que las credenciales de `STORAGE_PROVIDER` y URLs de Cast deben provenir de variables de entorno. <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" />
-
-### 4.5 Archivo histórico
-
-- El informe anterior (`2026-08-15`) se archivó en `.devin/informes/archivados/reporte-estado-2026-08-15.md`. <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/reporte-estado-2026-08-15.md" />
+| Gravedad | Discrepancia | Documentos afectados | Estado |
+| -------- | ------------ | -------------------- | ------ |
+| Menor | `NEXT_PUBLIC_APP_URL` se consume en `src/lib/storage.ts` para construir URLs locales de videos, pero no estaba documentado en `.env.example`, `AGENTS.md`, `README.md` ni `.devin/environment.yaml`. | <ref_file file="C:/developer/paginas/pancheria/.env.example" />, <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />, <ref_file file="C:/developer/paginas/pancheria/README.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" /> | Resuelto. |
+| Menor | `RATE_LIMIT_STORE_PROVIDER` se documentaba con default `memory`, pero `src/lib/rate-limit-store.ts` elige `DbRateLimitStore` por defecto en producción cuando hay base de datos. | <ref_file file="C:/developer/paginas/pancheria/.env.example" />, <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" /> | Resuelto. |
+| Informativo | `README` y `AGENTS.md` ya describen correctamente `src/config/` incluyendo videos; `AGENTS.md` describe correctamente `login_attempts` y la migración `0007_boring_scorpion.sql`. | — | Confirmado. |
 
 ---
 
-## 5. Discrepancias documentales detectadas y resueltas
+## 5. Limpieza de `.devin` realizada
 
-| Gravedad | Documento | Discrepancia | Estado |
-| -------- | --------- | ------------ | ------ |
-| Media | `AGENTS.md` | No documentaba la funcionalidad de videos, reproducción y Cast. | Resuelto: se agregó sección dedicada. |
-| Media | `AGENTS.md` | Lista de variables de entorno incompleta: faltaban `RATE_LIMIT_STORE_PROVIDER`, variables de videos y almacenamiento. | Resuelto: se completó la lista. |
-| Media | `AGENTS.md` | Lista de tablas truncadas por E2E incompleta. | Resuelto: se agregaron `videos`, `users` y `branches`. |
-| Baja | `AGENTS.md` | `login_attempts` se presentaba como tabla futura a generar. | Resuelto: se aclaró que ya existe en el esquema y en la migración `0007`. |
-| Media | `README.md` | No documentaba videos, reproducción ni variables de almacenamiento. | Resuelto: se agregó sección y variables. |
-| Media | `.devin/environment.yaml` | No mencionaba videos, storage, `login_attempts`, `RATE_LIMIT_STORE_PROVIDER` ni tablas truncadas completas. | Resuelto: se agregó knowledge `videos` y se actualizaron `estructura`, `e2e`, `database` y `deploy`. |
-| Baja | `.devin/prompts/pancheria.prompt.md` | El contexto no incluía videos ni almacenamiento. | Resuelto: se actualizó el contexto y la regla de oro sobre credenciales. |
+### 5.1 Prompts
+
+- Se actualizó `.devin/prompts/pancheria.prompt.md` para que referencie `guia-funcionamiento-pancheria.md`, aclare el manejo de `ForbiddenError` en Server Components y actualice las reglas de `setState` en `useEffect`.
+- Se actualizó `.devin/prompts/README.md` para corregir el índice de prompts activos, eliminar el enlace roto a `pedidos-publicos-sucursal-y-stock.md` en la raíz (ya está en `archivados/`) y advertir que los prompts archivados pueden tener referencias a líneas desfasadas.
+- Se mantiene `auditoria-y-documentacion.md` como prompt reutilizable de auditoría.
+
+### 5.2 Informes
+
+- Se consolidó la información de `reporte-estado-2026-08-16.md` y `reporte-estado-2026-08-17.md` en un único `reporte-estado.md` vigente.
+- Se eliminaron los reportes fechados duplicados de la raíz de `.devin/informes/`.
+- Se actualizó `.devin/informes/README.md` para apuntar a `reporte-estado.md`, `guia-funcionamiento-pancheria.md` y el archivo de informes históricos.
+- Se actualizó `.devin/informes/lecciones-aprendidas.md` eliminando el punto duplicado sobre `setState` en `useEffect` y consolidando la guía de pedidos.
+
+### 5.3 Referencias
+
+- Se corrigieron las referencias en `pancheria.prompt.md` y `prompts/README.md` para que apunten a archivos vigentes.
+- Se aconseja no usar `<ref_snippet ... lines="..."/>` en prompts activos a menos que el rango sea estable; preferir `<ref_file .../>` o nombres de función/exportación.
 
 ---
 
@@ -100,7 +84,7 @@ Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.d
 | `npx tsx src/db/seeds.ts` | No ejecutado. Es idempotente pero modifica datos. Ejecutar solo con confirmación. |
 | `npx drizzle-kit check` | Ejecutar tras cambios de esquema futuros para validar consistencia. |
 | Rate limiting de pedidos en producción | El rate limit por IP en `POST /api/public/pedido` vive en memoria. En múltiples instancias se recomienda una solución compartida. |
-| Expiración automática de pedidos `pending` | Fase 8 del prompt archivado. No implementada. Considerar si el negocio lo requiere. |
+| Expiración automática de pedidos `pending` | No implementada. Considerar si el negocio lo requiere. |
 | Variables de producción | Confirmar que `NEXTAUTH_URL` coincide con el dominio de Vercel, que `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, que `DATABASE_URL` apunta a la base de producción y que las variables de videos/almacenamiento están correctas. |
 | Monitoreo de streams | Verificar logs de Vercel para `/api/videos/[id]/stream` tras el deploy. |
 
@@ -113,32 +97,11 @@ Se realizó una auditoría documental para alinear `AGENTS.md`, `README.md`, `.d
 3. **Revisar rate limiting** de pedidos públicos antes de escalar horizontalmente.
 4. **Considerar la expiración automática** de pedidos `pending` si el negocio necesita liberar stock sin intervención manual.
 5. **Verificar el proveedor de almacenamiento de videos en producción** (`STORAGE_PROVIDER`, credenciales y `NEXT_PUBLIC_*` de Cast) antes del deploy.
+6. **No duplicar informes de estado**: generar un único `reporte-estado.md` vigente y archivar los anteriores.
+7. **Revisar los prompts archivados** antes de usarlos; sus referencias a líneas pueden estar desfasadas.
 
 ---
 
-## 9. Hallazgos resueltos — Plan de cobertura 2026-08-17
-
-Se ejecutó el plan basado en <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-cobertura-pedidos-2026-08-17.md" />.
-
-### Resueltos
-
-| Fase | Hallazgo | Decisión |
-| ---- | -------- | -------- |
-| 1 | `convertOrderToSale` podía usar el precio actual del producto en lugar del histórico. | `buildSaleItemValues` acepta `unitPrice` y `subtotal` opcionales; `convertOrderToSale` los usa desde `order.items`. Tests unitarios agregados. |
-| 2 | `?branchId=1.5` en `/pedido` se aceptaba como `1` al usar `Number()`. | Se creó `parseBranchId` en `branch-resolver.ts`; se usa en `/pedido` y en `setActiveBranchAction`. Se agregó test E2E. |
-| 3 | El listado de pedidos del panel no explicitaba la sucursal y dependía de la cookie/sesión. | `PedidosList` envía `branchId` en la URL; `GET /api/pedidos` valida el query param según rol. |
-| 4 | Rate limit de pedidos públicos en memoria, no compartido entre instancias serverless. | Opción A: documentado en `AGENTS.md`, `.env.example` y comentario en `route.ts`. |
-| 5 | Duplicación entre `cancelOrder` y `cancelSale` para reintegro de stock y caja. | Se extrajeron `buildReintegrationContext` y `reintegrateStockAndUpdateCashRegister` en `saleService.ts`; reutilizadas en ambos servicios. |
-| 6 | Documentación afirmaba eliminar todo `setState` en `useEffect`, pero el código lo usa para carga asíncrona y persistencia. | Opción B: se actualizaron `lecciones-aprendidas.md` y `recomendaciones-pedidos-sucursal-stock.md` para permitir `setState` en efectos con flag de montaje o persistencia derivada. |
-| 7 | `PedidoClient` hacía un fetch inicial duplicado del catálogo. | Se eliminó el `useEffect` de carga inicial; se mantiene el refresco periódico. |
-| 8 | Prompt de auditoría y referencias con líneas fijas quedaban obsoletas. | Se archivó `auditoria-pedidos-sucursal-cliente.md` en `archivados/`; se actualizaron `README.md`, `recomendaciones-pedidos-sucursal-stock.md` y `lecciones-aprendidas.md`. |
-| 9 | Seguridad de `.env.local`. | Ver notas de seguridad en AGENTS.md y recomendaciones para rotar credenciales si se expusieron. |
-
-### Pendientes
-
-- Ejecutar `npm run test:e2e` en base de datos de prueba para validar Fases 2, 3 y 7.
-- Decidir si se implementa un store compartido para el rate limit de pedidos públicos (Fase 4 Opción B).
-
 ## 8. Conclusión
 
-El proyecto `pancheria` mantiene su **estado estable y funcional**. La documentación principal ahora refleja correctamente el alcance de videos, reproducción, Cast, almacenamiento configurable, rate limiting de login y las tablas afectadas por los tests E2E. Las verificaciones `lint`, `tsc` y `build` pasan, por lo que los cambios documentales no introdujeron regresiones en el código. Quedan pendientes las recomendaciones habituales de tests E2E, monitoreo de streams y configuración de variables de producción.
+La documentación del proyecto y el directorio `.devin` están ahora más cohesionados. El informe de estado es único, los índices apuntan a archivos vigentes y se eliminaron duplicados. Las verificaciones automatizadas pasan, por lo que los cambios no introdujeron regresiones. Quedan pendientes las recomendaciones habituales de tests E2E, monitoreo de streams y configuración de variables de producción.
