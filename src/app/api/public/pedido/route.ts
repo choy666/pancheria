@@ -106,6 +106,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     notes: order.notes ?? undefined,
     total: order.total,
     orderNumber: order.orderNumber,
+    branchName: order.branch?.name,
   };
 
   const { greeting, closing } = getWhatsAppMessageParts();
@@ -125,6 +126,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         address: order.address,
         notes: order.notes,
         cancellationToken: order.cancellationToken,
+        branchName: order.branch?.name,
         items: publicItems,
         createdAt: order.createdAt,
       },

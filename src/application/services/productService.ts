@@ -36,7 +36,7 @@ export async function listActiveProductsWithAvailability(branchId: number) {
   );
   return active.map((product) => ({
     ...product,
-    availability: availability[product.id] ?? 0,
+    availability: availability[product.id]?.availability ?? 0,
   }));
 }
 

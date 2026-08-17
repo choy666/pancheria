@@ -18,9 +18,9 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const query = querySchema.parse(Object.fromEntries(searchParams));
   const branchId = query.branchId ?? (await getDefaultBranchId());
 
-  const products = query.includeAvailability
+  const result = query.includeAvailability
     ? await catalogService.listPublicCatalogWithAvailability(branchId)
     : await catalogService.listPublicCatalog(branchId);
 
-  return NextResponse.json(products);
+  return NextResponse.json(result);
 });

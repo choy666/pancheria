@@ -4,6 +4,7 @@ import {
   convertOrderToSale,
   getOrderById,
   getPendingOrders,
+  getOrders,
 } from './orderService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -185,26 +186,41 @@ function createMockDb(): MockDb {
     })),
   }));
 
-  const select = jest.fn().mockImplementation(() => ({
-    from: jest.fn().mockImplementation(() => ({
-      where: jest.fn().mockImplementation(() => ({
-        for: jest.fn().mockResolvedValue([
-          {
-            id: 1,
-            branchId: BRANCH_ID,
-            status: 'open',
-            deletedAt: null,
-            total: 0,
-            cashTotal: 0,
-            transferTotal: 0,
-            totalSales: 0,
-            productsSummary: {},
-            criticalSuppliesSummary: {},
-          },
-        ]),
-      })),
-    })),
-  }));
+  const select = jest.fn().mockImplementation((columns: unknown) => {
+    const forValue = [
+      {
+        id: 1,
+        branchId: BRANCH_ID,
+        status: 'open',
+        deletedAt: null,
+        total: 0,
+        cashTotal: 0,
+        transferTotal: 0,
+        totalSales: 0,
+        productsSummary: {},
+        criticalSuppliesSummary: {},
+      },
+    ];
+    const thenValue =
+      columns && typeof columns === 'object' && 'count' in columns
+        ? [{ count: 1 }]
+        : [];
+
+    const builder: {
+      from: jest.Mock;
+      where: jest.Mock;
+      for: jest.Mock;
+      then: (onFulfilled?: (value: unknown) => unknown) => Promise<unknown>;
+    } = {
+      from: jest.fn(() => builder),
+      where: jest.fn(() => builder),
+      for: jest.fn().mockResolvedValue(forValue),
+      then: (onFulfilled?: (value: unknown) => unknown) =>
+        Promise.resolve(thenValue).then(onFulfilled),
+    };
+
+    return builder;
+  });
 
   return { query, insert, update, select };
 }
@@ -483,6 +499,20 @@ describe('orderService', () => {
       ).rejects.toThrow(ValidationError);
     });
 
+    test('rechaza el pedido si el producto no existe', async () => {
+      setProducts([]);
+
+      await expect(
+        createOrder({
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'Juan',
+          deliveryType: 'pickup',
+          idempotencyKey: 'key-missing-product',
+        })
+      ).rejects.toThrow(NotFoundError);
+    });
+
     test('rechaza el pedido si la sucursal no existe', async () => {
       mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
@@ -574,6 +604,14 @@ describe('orderService', () => {
       ).rejects.toThrow('El pedido no puede cancelarse porque ya fue confirmado.');
     });
 
+    test('lanza NotFoundError si el pedido no existe', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue(undefined);
+
+      await expect(
+        cancelOrder(BRANCH_ID, 999, 'Motivo')
+      ).rejects.toThrow(NotFoundError);
+    });
+
     test('es idempotente cuando el pedido ya fue cancelado', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({ status: 'cancelled' }),
@@ -638,6 +676,27 @@ describe('orderService', () => {
       expect(orderUpdate.status).toBe('converted');
     });
 
+    test('es idempotente cuando la venta ya fue procesada', async () => {
+      const existingSale = {
+        id: 100,
+        branchId: BRANCH_ID,
+        total: 2000,
+        paymentMethod: 'cash',
+      };
+      mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(true);
+      mockedDb.query.sales.findFirst.mockResolvedValue(existingSale);
+
+      const result = await convertOrderToSale({
+        branchId: BRANCH_ID,
+        orderId: 1,
+        paymentMethod: 'cash',
+        idempotencyKey: 'key-convert',
+      });
+
+      expect(result).toEqual(existingSale);
+      expect(findCapturedInsert(sales)).toHaveLength(0);
+    });
+
     test('rechaza la conversión si no hay caja abierta', async () => {
       mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
       mockedDb.query.orders.findFirst.mockResolvedValue({
@@ -671,6 +730,46 @@ describe('orderService', () => {
       ).rejects.toThrow('El pedido no está pendiente de confirmación.');
     });
 
+    test('rechaza la conversión si el pedido no existe', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue(undefined);
+
+      await expect(
+        convertOrderToSale({
+          branchId: BRANCH_ID,
+          orderId: 999,
+          paymentMethod: 'cash',
+          idempotencyKey: 'key-not-found',
+        })
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    test('rechaza la conversión si el producto no es vendible', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Ketchup',
+          type: 'manual_supply',
+          stock: 5,
+          price: 500,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+
+      await expect(
+        convertOrderToSale({
+          branchId: BRANCH_ID,
+          orderId: 1,
+          paymentMethod: 'cash',
+          idempotencyKey: 'key-not-sellable',
+        })
+      ).rejects.toThrow('El producto Ketchup no está disponible para la venta.');
+    });
+
     test('rechaza la conversión si el producto está inactivo', async () => {
       setProducts([
         {
@@ -701,7 +800,7 @@ describe('orderService', () => {
     });
   });
 
-  describe('getOrderById y getPendingOrders', () => {
+  describe('getOrderById, getPendingOrders y getOrders', () => {
     test('getOrderById retorna el pedido con sus ítems', async () => {
       const expected = {
         ...createOrderRow(),
@@ -735,6 +834,20 @@ describe('orderService', () => {
       const result = await getPendingOrders(BRANCH_ID);
 
       expect(result).toHaveLength(2);
+    });
+
+    test('getOrders retorna pedidos paginados y filtrados por estado', async () => {
+      mockedDb.query.orders.findMany.mockResolvedValue([createOrderRow()]);
+
+      const result = await getOrders(BRANCH_ID, {
+        status: 'pending',
+        page: 1,
+        limit: 10,
+      });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
     });
   });
 });

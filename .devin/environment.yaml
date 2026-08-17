@@ -24,10 +24,12 @@ knowledge:
       - `src/application/` — servicios de aplicación (casos de uso y coordinación)
       - `src/application/services/` — casos de uso del dominio
       - `src/components/` — componentes React
-      - `src/config/` — constantes de configuración (APIs, caja, paginación)
+      - `src/config/` — constantes de configuración (APIs, caja, paginación, videos)
       - `src/domain/` — tipos y errores de dominio
       - `src/hooks/` — hooks personalizados de React
-      - `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, etc.)
+      - `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, `storage`, etc.)
+      - `src/app/(panel)/videos/` — páginas de gestión de videos
+      - `src/app/api/videos/` — endpoints de subida y streaming de videos
       - `drizzle/` — migraciones generadas por Drizzle Kit
 
   - name: install
@@ -48,7 +50,7 @@ knowledge:
 
   - name: e2e
     contents: |
-      `npx playwright test` ejecuta `tests/e2e/global-setup.ts`, que trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers` y `daily_closures`, y re-seedea la base. No usar en producción.
+      `npx playwright test` ejecuta `tests/e2e/global-setup.ts`, que trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `videos`, `users` y `branches`, y re-seedea la base. No usar en producción.
 
   - name: database
     contents: |
@@ -60,9 +62,12 @@ knowledge:
       6. Ejecutar seed (administrador y catálogo inicial): npx tsx src/db/seeds.ts
       7. Variables de entorno usadas por el seed: `DEFAULT_BRANCH_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`; opcionalmente `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD` para crear una segunda sucursal y usuario.
       8. El esquema incluye las tablas `orders` e `order_items` para pedidos públicos con reserva de stock.
-      9. `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` controla el intervalo de refresco del panel de caja (por defecto 5000 ms).
-      10. `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` configuran el catálogo y pedidos.
-      11. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      9. El esquema incluye la tabla `videos` para contenido audiovisual y `login_attempts` para rate limiting de login en base de datos.
+      10. `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` controla el intervalo de refresco del panel de caja (por defecto 5000 ms).
+      11. `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` configuran el catálogo y pedidos.
+      12. `RATE_LIMIT_STORE_PROVIDER` (opcional) controla dónde se almacenan los intentos fallidos de login: `memory` (por defecto) o `db`.
+      13. Variables de videos y almacenamiento: `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
+      14. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
 
   - name: pedidos
     contents: |
@@ -72,10 +77,20 @@ knowledge:
       - El stock se reserva al crear el pedido y se reintegra al cancelar.
       - Variables de entorno: `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
 
+  - name: videos
+    contents: |
+      Videos, reproducción y Cast:
+      - Rutas del panel: `/videos`, `/videos/nuevo`, `/videos/[id]`.
+      - Endpoints: `POST /api/videos/upload`, `GET /api/videos/[id]/stream`.
+      - Tabla `videos` en `src/db/schema.ts` con metadatos, URL pública, tipo MIME, tamaño y soft delete.
+      - `src/lib/storage.ts` soporta proveedores `local`, `vercel-blob`, `s3` y `r2`.
+      - `src/config/videos.ts` define tamaño máximo, tipos MIME, Cast receiver/sender y selector de proveedor.
+      - Variables de entorno: `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`.
+
   - name: deploy
     contents: |
       Despliegue en Vercel:
-      1. Configurar `DATABASE_URL` (o `POSTGRES_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME`, `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` en Vercel.
+      1. Configurar `DATABASE_URL` (o `POSTGRES_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME`, `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER` y las credenciales del proveedor de videos elegido (`BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`) en Vercel.
       2. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
       3. Redeployar con `vercel --prod` para que las variables formen parte del build.
       4. Verificar en `vercel inspect <url>` que `Builds` contenga funciones serverless (`λ`); si aparece `Framework Preset: Other`, el proyecto no detectó Next.js.

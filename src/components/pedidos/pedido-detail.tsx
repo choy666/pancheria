@@ -45,6 +45,7 @@ interface OrderDetail {
   status: OrderStatus;
   convertedSaleId: number | null;
   createdAt: string;
+  branch: { name: string } | null;
   items: OrderDetailItem[];
 }
 
@@ -228,9 +229,18 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
                 <p className="text-base font-medium">{order.customerName}</p>
               </div>
               <div>
+                <p className="text-sm text-muted-foreground">Sucursal</p>
+                <p className="text-base font-medium">
+                  {order.branch?.name ?? '—'}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm text-muted-foreground">Entrega</p>
                 <p className="text-base font-medium">
                   {deliveryLabels[order.deliveryType]}
+                  {order.deliveryType === 'pickup' && order.branch
+                    ? ` (${order.branch.name})`
+                    : ''}
                 </p>
               </div>
               {order.address && (

@@ -80,6 +80,7 @@ async function getOrderByIdempotencyKey(
       isNull(orders.deletedAt)
     ),
     with: {
+      branch: true,
       items: { with: { product: true } },
     },
   })) as OrderWithItems | undefined;
@@ -243,7 +244,7 @@ export async function createOrder(
       product: productById.get(item.productId)!,
     }));
 
-    return { ...order, items: resultItems } as OrderWithItems;
+    return { ...order, branch, items: resultItems } as OrderWithItems;
   });
 }
 
@@ -255,7 +256,7 @@ export async function cancelOrder(
 ): Promise<OrderWithItems> {
   const order = (await db.query.orders.findFirst({
     where: and(eq(orders.id, id), eq(orders.branchId, branchId), isNull(orders.deletedAt)),
-    with: { items: true },
+    with: { branch: true, items: true },
   })) as (OrderWithItems & { items: { productId: number; quantity: number }[] }) | undefined;
 
   if (!order) {
@@ -304,7 +305,7 @@ export async function cancelOrder(
       .where(and(eq(orders.id, id), eq(orders.branchId, branchId)))
       .returning();
 
-    return { ...updated, items: order.items } as OrderWithItems;
+    return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
   });
 }
 
@@ -460,6 +461,7 @@ export async function getOrderById(
       isNull(orders.deletedAt)
     ),
     with: {
+      branch: true,
       items: { with: { product: true } },
     },
   })) as OrderWithItems | undefined;
@@ -475,7 +477,7 @@ export async function getPendingOrders(
       isNull(orders.deletedAt)
     ),
     orderBy: (orders, { desc }) => [desc(orders.createdAt)],
-    with: { items: { with: { product: true } } },
+    with: { branch: true, items: { with: { product: true } } },
   })) as OrderWithItems[];
 }
 
@@ -510,7 +512,7 @@ export async function getOrders(
     orderBy: (orders, { desc }) => [desc(orders.createdAt)],
     limit,
     offset,
-    with: { items: { with: { product: true } } },
+    with: { branch: true, items: { with: { product: true } } },
   })) as OrderWithItems[];
 
   return {

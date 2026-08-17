@@ -60,6 +60,7 @@ function createMockOrder() {
     address: null,
     notes: null,
     cancellationToken: 'token',
+    branch: { id: BRANCH_ID, name: 'Sucursal Test', createdAt: new Date() },
     items: [
       {
         productId: 1,
@@ -103,12 +104,13 @@ describe('POST /api/public/pedido', () => {
       buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
     );
     const body = (await response.json()) as {
-      order: typeof order;
+      order: typeof order & { branchName?: string };
       whatsappUrl: string;
     };
 
     expect(response.status).toBe(201);
     expect(body.order.orderNumber).toBe(order.orderNumber);
+    expect(body.order.branchName).toBe('Sucursal Test');
     expect(body.whatsappUrl).toContain('https://wa.me/5493415555555');
     expect(mockedOrderService.createOrder).toHaveBeenCalledWith({
       branchId: BRANCH_ID,

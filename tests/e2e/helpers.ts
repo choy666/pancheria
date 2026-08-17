@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../../src/db';
 import { branches, users } from '../../src/db/schema';
+import { copyCatalogToBranch } from '../../src/db/catalog-copy';
 
 const adminUsername = process.env.ADMIN_USERNAME || '';
 const adminPassword = process.env.ADMIN_PASSWORD || '';
@@ -164,6 +165,14 @@ export async function setupSecondBranchForE2E(): Promise<{
     throw new Error('No se pudo crear u obtener la sucursal de prueba.');
   }
 
+  const defaultBranch = await db.query.branches.findFirst({
+    orderBy: (branches, { asc }) => [asc(branches.id)],
+  });
+
+  if (defaultBranch && defaultBranch.id !== branch.id) {
+    await copyCatalogToBranch(defaultBranch.id, branch.id);
+  }
+
   const operatorCreds = await ensureOperatorUser(username, password, branch.id);
 
   // Se exponen como variables de entorno del proceso para que los tests las lean.
@@ -210,12 +219,36 @@ export async function getTestSecondBranch(): Promise<{
   return secondBranchSetupPromise;
 }
 
-export async function login(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', adminUsername);
-  await page.fill('input[name="password"]', adminPassword);
-  await page.click('button[type="submit"]');
-  await expect(page).toHaveURL('/', { timeout: 15000 });
+export async function login(page: Page, maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await page.goto('/login', { waitUntil: 'domcontentloaded' });
+
+    const currentUrl = page.url();
+    const alreadyLoggedIn =
+      currentUrl.endsWith('/') && !currentUrl.endsWith('/login');
+
+    if (alreadyLoggedIn) {
+      return;
+    }
+
+    try {
+      await page
+        .locator('input[name="username"]')
+        .waitFor({ state: 'visible', timeout: 8000 });
+      await page.fill('input[name="username"]', adminUsername);
+      await page.fill('input[name="password"]', adminPassword);
+      await page.click('button[type="submit"]');
+      await expect(page).toHaveURL('/', { timeout: 15000 });
+      return;
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw new Error(
+          `No se pudo iniciar sesión después de ${maxAttempts} intentos: ${error}`
+        );
+      }
+      await page.waitForTimeout(500);
+    }
+  }
 }
 
 export async function ensureLoggedIn(page: Page) {

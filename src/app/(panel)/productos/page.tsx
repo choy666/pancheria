@@ -133,7 +133,7 @@ export default async function ProductsPage() {
                           className="text-muted-foreground"
                           title="El stock de una promo se calcula a partir de sus insumos críticos"
                         >
-                          {sellableById[product.id] ?? 0} {product.unit}
+                          {sellableById[product.id]?.availability ?? 0} {product.unit}
                         </span>
                       ) : (
                         <>
@@ -155,7 +155,7 @@ export default async function ProductsPage() {
                       {(() => {
                         const isSellable =
                           product.isActive &&
-                          (sellableById[product.id] ?? 0) > 0;
+                          (sellableById[product.id]?.availability ?? 0) > 0;
                         return isSellable ? (
                           <Badge
                             variant="outline"

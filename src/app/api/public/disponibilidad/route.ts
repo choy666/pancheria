@@ -23,5 +23,9 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     data.productIds
   );
 
-  return NextResponse.json(result);
+  return NextResponse.json({
+    availabilityByProduct: result.availabilityByProduct,
+    shortageByProduct: result.shortageByProduct,
+    breakdownByProduct: result.breakdownByProduct,
+  });
 });

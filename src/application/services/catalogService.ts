@@ -2,7 +2,8 @@ import * as catalogRepository from '@/repositories/catalogRepository';
 import * as branchService from '@/application/services/branchService';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError } from '@/domain/errors';
-import type { ProductRow, SaleItemInput } from '@/domain/types';
+import type { Branch, ProductRow, SaleItemInput } from '@/domain/types';
+import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
 export type PublicCatalogProduct = Pick<
   ProductRow,
@@ -15,11 +16,18 @@ export type PublicCatalogProduct = Pick<
   | 'unit'
 > & {
   availability: number;
+  breakdown: RecipeBreakdownItem[];
+};
+
+export type PublicCatalogResponse = {
+  branch: Branch;
+  products: PublicCatalogProduct[];
 };
 
 function toPublicCatalogProduct(
   product: ProductRow,
-  availability: number
+  availability: number,
+  breakdown: RecipeBreakdownItem[]
 ): PublicCatalogProduct {
   return {
     id: product.id,
@@ -30,36 +38,53 @@ function toPublicCatalogProduct(
     price: product.price,
     unit: product.unit,
     availability,
+    breakdown,
   };
 }
 
-async function validateBranchExists(branchId: number) {
+async function getBranch(branchId: number): Promise<Branch> {
   const branch = await branchService.getBranchById(branchId);
   if (!branch) {
     throw new NotFoundError('Sucursal', branchId);
   }
+  return branch;
 }
 
-export async function listPublicCatalog(branchId: number): Promise<PublicCatalogProduct[]> {
-  await validateBranchExists(branchId);
+export async function listPublicCatalog(branchId: number): Promise<PublicCatalogResponse> {
+  const branch = await getBranch(branchId);
   const products = await catalogRepository.findPublicProducts(branchId);
-  return products.map((product) => toPublicCatalogProduct(product, 0));
+  return {
+    branch,
+    products: products.map((product) => toPublicCatalogProduct(product, 0, [])),
+  };
 }
 
 export async function listPublicCatalogWithAvailability(
   branchId: number
-): Promise<PublicCatalogProduct[]> {
-  await validateBranchExists(branchId);
+): Promise<PublicCatalogResponse> {
+  const branch = await getBranch(branchId);
   const products = await catalogRepository.findPublicProducts(branchId);
   const productIds = products.map((product) => product.id);
 
-  const availability = productIds.length > 0
-    ? await saleService.calculateAvailabilityForProductIds(branchId, productIds)
-    : {};
+  const availabilityById: Record<number, saleService.ProductAvailability> =
+    productIds.length > 0
+      ? await saleService.calculateAvailabilityForProductIds(branchId, productIds)
+      : {};
 
-  return products.map((product) =>
-    toPublicCatalogProduct(product, availability[product.id] ?? 0)
-  );
+  return {
+    branch,
+    products: products.map((product) => {
+      const entry = availabilityById[product.id] ?? {
+        availability: 0,
+        breakdown: [],
+      };
+      return toPublicCatalogProduct(
+        product,
+        entry.availability,
+        entry.breakdown
+      );
+    }),
+  };
 }
 
 export async function validatePublicCart(
@@ -72,11 +97,13 @@ export async function validatePublicCart(
     number,
     { available: number; required: number; supplyName: string }
   >;
+  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
 }> {
-  await validateBranchExists(branchId);
+  await getBranch(branchId);
   const result = await saleService.validateCartAvailability(branchId, items, productIds);
   return {
     availabilityByProduct: result.availabilityByProduct,
     shortageByProduct: result.shortageByProduct,
+    breakdownByProduct: result.breakdownByProduct,
   };
 }

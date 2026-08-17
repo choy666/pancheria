@@ -30,6 +30,7 @@ interface OrderListItem {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  branch: { name: string } | null;
   items: {
     quantity: number;
     product?: {
@@ -116,6 +117,7 @@ export function PedidosList({ status = 'pending' }: { status?: OrderStatus }) {
             <TableRow>
               <TableHead>Pedido</TableHead>
               <TableHead>Cliente</TableHead>
+              <TableHead>Sucursal</TableHead>
               <TableHead>Entrega</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Estado</TableHead>
@@ -130,6 +132,7 @@ export function PedidosList({ status = 'pending' }: { status?: OrderStatus }) {
                   #{order.orderNumber}
                 </TableCell>
                 <TableCell>{order.customerName}</TableCell>
+                <TableCell>{order.branch?.name ?? '—'}</TableCell>
                 <TableCell>{deliveryLabels[order.deliveryType]}</TableCell>
                 <TableCell className="font-mono">
                   ${order.total.toFixed(2)}
@@ -155,7 +158,7 @@ export function PedidosList({ status = 'pending' }: { status?: OrderStatus }) {
             {orders.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="text-center text-muted-foreground"
                 >
                   No hay pedidos para mostrar.

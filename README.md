@@ -49,10 +49,10 @@ Sistema web para la gestión de stock y ventas de una panchería.
 - `src/repositories/` — capa de repositorios
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
-- `src/config/` — constantes de configuración (APIs, caja, paginación)
+- `src/config/` — constantes de configuración (APIs, caja, paginación, videos)
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
-- `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, etc.)
+- `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, `storage`, etc.)
 
 ## Guía interactiva
 
@@ -103,6 +103,20 @@ Los administradores y operadores gestionan los pedidos desde `/pedidos`:
 
 Las variables de entorno relacionadas están en `.env.example`:
 `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
+
+## Videos, reproducción y Cast
+
+El panel incluye una sección `/videos` para gestionar contenido audiovisual:
+
+- Subir videos desde `/videos/nuevo`.
+- Listar y reproducir videos desde `/videos` y `/videos/[id]`.
+- Transmitir a dispositivos Chromecast mediante Google Cast SDK.
+- Endpoints: `POST /api/videos/upload` y `GET /api/videos/[id]/stream`.
+
+El almacenamiento es configurable a través de `STORAGE_PROVIDER`: `local` (desarrollo), `vercel-blob`, `s3` o `r2`. Cada proveedor requiere sus propias credenciales en `.env.local` (ver `.env.example`).
+
+Variables de entorno relacionadas:
+`NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
 
 ## Notas
 

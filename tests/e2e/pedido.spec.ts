@@ -21,7 +21,7 @@ test.describe('Pedido público por WhatsApp', () => {
     await expect(page.getByText(product.name)).toBeVisible();
 
     await page.getByRole('button', { name: 'Agregar' }).first().click();
-    await expect(page.getByText('Tu pedido')).toBeVisible();
+    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
     await expect(page.getByText(product.name)).toBeVisible();
 
     await page.getByRole('button', { name: 'Pedir por WhatsApp' }).click();

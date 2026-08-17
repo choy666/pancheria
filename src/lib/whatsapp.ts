@@ -16,6 +16,7 @@ export interface PublicOrder {
   notes?: string;
   total: number;
   orderNumber?: string;
+  branchName?: string;
 }
 
 export function buildWhatsAppMessage(order: PublicOrder): string {
@@ -36,6 +37,10 @@ export function buildWhatsAppMessage(order: PublicOrder): string {
   }
 
   parts.push(...lines, `Total: $${total.toFixed(2)}`, `Cliente: ${order.customerName}`, `Entrega: ${deliveryLabel}`);
+
+  if (order.branchName) {
+    parts.push(`Sucursal: ${order.branchName}`);
+  }
 
   if (order.deliveryType === 'delivery' && order.address) {
     parts.push(`Dirección: ${order.address}`);

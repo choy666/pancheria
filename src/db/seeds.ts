@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
+import { pathToFileURL } from 'url';
 import { db } from './index';
 import { products, recipes, users, branches } from './schema';
+import { copyCatalogToBranch } from './catalog-copy';
 import * as stockService from '@/application/services/stockService';
 
 const DEFAULT_BRANCH_NAME = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
@@ -71,7 +73,7 @@ async function seedAdmin(defaultBranchId: number) {
   console.log('Usuario administrador creado.');
 }
 
-async function seedOptionalBranch() {
+async function seedOptionalBranch(defaultBranchId: number) {
   if (!NEW_BRANCH_NAME || !NEW_BRANCH_USERNAME || !NEW_BRANCH_PASSWORD) {
     return;
   }
@@ -104,6 +106,8 @@ async function seedOptionalBranch() {
     });
     console.log('Usuario de la sucursal opcional creado.');
   }
+
+  await copyCatalogToBranch(defaultBranchId, branch.id);
 
   console.log('Sucursal opcional creada.');
 }
@@ -333,7 +337,7 @@ async function main() {
     const defaultBranchId = await seedDefaultBranch();
     await seedAdmin(defaultBranchId);
     await seedCatalog(defaultBranchId);
-    await seedOptionalBranch();
+    await seedOptionalBranch(defaultBranchId);
     process.exit(0);
   } catch (error) {
     console.error('Error al ejecutar el seed:', error);
@@ -341,4 +345,10 @@ async function main() {
   }
 }
 
-main();
+const isMain =
+  process.argv.length > 1 &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isMain) {
+  main();
+}

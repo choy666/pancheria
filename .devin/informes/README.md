@@ -15,4 +15,4 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente 
 
 ## Nota histórica
 
-Los informes individuales `reporte-auditoria-2026-08-12.md`, `reporte-pruebas-2026-08-12.md`, `informe-auditoria-general.md`, `plan-implementacion-hallazgos.md` y `reporte-estado-2026-08-13.md` fueron archivados o eliminados porque su contenido ya se refleja en `reporte-estado.md` y `lecciones-aprendidas.md`.
+Los informes individuales `reporte-auditoria-2026-08-12.md`, `reporte-pruebas-2026-08-12.md`, `informe-auditoria-general.md`, `plan-implementacion-hallazgos.md`, `reporte-estado-2026-08-13.md` y `reporte-estado-2026-08-15.md` fueron archivados o eliminados porque su contenido ya se refleja en `reporte-estado.md` y `lecciones-aprendidas.md`.

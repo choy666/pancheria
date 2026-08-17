@@ -3,6 +3,7 @@ import {
   getBranchById,
   createBranch,
   updateBranch,
+  getBranchDeletionSummary,
   deleteBranch,
 } from './branchService';
 import { db } from '@/db';
@@ -19,6 +20,7 @@ jest.mock('@/db', () => ({
     insert: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    select: jest.fn(),
     transaction: jest.fn(),
   },
 }));
@@ -33,6 +35,7 @@ const mockedDb = db as unknown as {
   insert: jest.Mock;
   update: jest.Mock;
   delete: jest.Mock;
+  select: jest.Mock;
   transaction: jest.Mock;
 };
 
@@ -49,6 +52,11 @@ describe('branchService', () => {
         where: jest.fn().mockReturnValue({
           returning: mockUpdateReturning,
         }),
+      }),
+    });
+    mockedDb.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue([]),
       }),
     });
 
@@ -186,6 +194,38 @@ describe('branchService', () => {
         NotFoundError
       );
       await expect(updateBranch(999, 'Sucursal Inexistente')).rejects.toThrow(
+        'Sucursal con ID 999 no encontrado.'
+      );
+    });
+  });
+
+  describe('getBranchDeletionSummary', () => {
+    test('devuelve el resumen de dependencias de una sucursal', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+      });
+
+      const result = await getBranchDeletionSummary(1);
+
+      expect(result.branch).toEqual({ id: 1, name: 'Sucursal A' });
+      expect(result.counts).toMatchObject({
+        products: 0,
+        sales: 0,
+        cashRegisters: 0,
+        dailyClosures: 0,
+        stockMovements: 0,
+        users: 0,
+        recipes: 0,
+        total: 0,
+      });
+    });
+
+    test('lanza NotFoundError para una sucursal inexistente', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      await expect(getBranchDeletionSummary(999)).rejects.toThrow(NotFoundError);
+      await expect(getBranchDeletionSummary(999)).rejects.toThrow(
         'Sucursal con ID 999 no encontrado.'
       );
     });

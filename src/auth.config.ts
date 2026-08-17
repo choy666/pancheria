@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from 'next-auth';
+import { getAuthRedirect } from '@/lib/route-guard';
 
 export const authConfig = {
   providers: [],
@@ -12,15 +13,13 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isLoginPage = nextUrl.pathname === '/login';
+      const redirect = getAuthRedirect(
+        isLoggedIn,
+        nextUrl.pathname,
+        nextUrl.origin
+      );
 
-      // Permitir el acceso a la pagina de login y a las rutas publicas.
-      if (isLoginPage) {
-        return true;
-      }
-
-      // Proteger el resto del panel: requerir sesion activa.
-      return isLoggedIn;
+      return redirect ?? true;
     },
     jwt({ token, user }) {
       if (user) {

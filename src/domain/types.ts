@@ -145,6 +145,7 @@ export type OrderItem = {
 
 export type OrderWithItems = Order & {
   items: OrderItem[];
+  branch?: Branch;
 };
 
 export type CashRegister = {

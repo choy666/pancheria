@@ -2,7 +2,7 @@
 
 ## Contexto
 
-Proyecto: `panchería` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario y multi-sucursal.
+Proyecto: `panchería` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos y gestión de videos con reproducción y Cast.
 
 Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon), NextAuth v5, Jest, Playwright.
 
@@ -17,7 +17,7 @@ Documentación de referencia obligatoria:
 ## Reglas de oro
 
 1. Idioma español en todo: explicaciones, comentarios y documentación.
-2. Nunca hardcodear credenciales, URLs de API, secretos ni parámetros sensibles. Todo viene de variables de entorno o configuraciones dinámicas.
+2. Nunca hardcodear credenciales, URLs de API, secretos ni parámetros sensibles. Todo viene de variables de entorno o configuraciones dinámicas, incluyendo credenciales de `STORAGE_PROVIDER` (Vercel Blob, S3, R2) y URLs de Cast.
 3. Antes de tocar código, leer `AGENTS.md` y `.devin/informes/lecciones-aprendidas.md`.
 4. Server actions con `useActionState` devuelven `{ error: string } | null` para errores controlados; no lanzar `throw`.
 5. `NotFoundError` → 404; `DomainError` genérico → 400.
@@ -41,7 +41,9 @@ Documentación de referencia obligatoria:
 ## Tareas pendientes identificadas
 
 - **Catálogo público y pedidos por WhatsApp (`/pedido`)** — resuelto. Ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/catalogo-whatsapp.md" /> para contexto histórico.
+- **Pedidos públicos sin autenticación (`/pedido`)** — resuelto. Ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/pedidos-publicos-sin-autenticacion.md" /> para el ajuste del proxy y autenticación.
 - **Sincronizar stock de pedidos públicos con reserva transaccional** — resuelto. Ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/pedido-stock-centralizado.md" /> para contexto histórico.
+- **Sucursal y stock explícitos en pedidos públicos (`/pedido`)** — resuelto. Ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pedidos-publicos-sucursal-y-stock.md" /> para el plan de implementación.
 - Considerar expiración automática de pedidos `pending` (fase 8 del prompt archivado).
 - Migrar `RateLimitStore` a base de datos compartida si se escala horizontalmente.
 - Monitorear logs del endpoint `/api/videos/[id]/stream` en producción.

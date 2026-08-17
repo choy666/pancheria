@@ -124,9 +124,9 @@ describe('productService', () => {
       ] as ProductRow[]);
 
       mockedSaleService.calculateAvailabilityForProductIds.mockResolvedValue({
-        1: 4,
-        2: 12,
-        3: Number.MAX_SAFE_INTEGER,
+        1: { availability: 4, breakdown: [] },
+        2: { availability: 12, breakdown: [] },
+        3: { availability: Number.MAX_SAFE_INTEGER, breakdown: [] },
       });
 
       const result = await listActiveProductsWithAvailability(BRANCH_ID);

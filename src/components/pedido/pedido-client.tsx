@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { groupPublicProductsByType } from '@/lib/catalog';
 import {
@@ -38,10 +39,13 @@ import { ProductCard } from './product-card';
 import { CartSummary } from './cart-summary';
 import { useCart } from '@/hooks/useCart';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
+import type { RecipeBreakdownItem } from '@/application/services/saleService';
+import type { Branch } from '@/domain/types';
 
 interface PedidoClientProps {
+  branches: Branch[];
+  activeBranch: Branch;
   initialProducts: PublicCatalogProduct[];
-  branchId: number;
 }
 
 interface ShortageInfo {
@@ -60,20 +64,32 @@ interface CreatedOrder {
   address: string | null;
   notes: string | null;
   cancellationToken: string;
+  branchName: string | null;
   items: PublicOrderItem[];
   createdAt: string;
   whatsappUrl: string;
 }
 
-export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
+const BRANCH_STORAGE_KEY = 'pancheria-branch-id';
+
+export function PedidoClient({
+  branches,
+  activeBranch,
+  initialProducts,
+}: PedidoClientProps) {
+  const router = useRouter();
   const isMountedRef = useRef(true);
   const [products, setProducts] = useState<PublicCatalogProduct[]>(
     initialProducts
   );
+  const [branch, setBranch] = useState<Branch>(activeBranch);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shortageByProduct, setShortageByProduct] = useState<
     Record<number, ShortageInfo>
+  >({});
+  const [breakdownByProduct, setBreakdownByProduct] = useState<
+    Record<number, RecipeBreakdownItem[]>
   >({});
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
@@ -95,6 +111,25 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
     null
   );
 
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const stored = localStorage.getItem(BRANCH_STORAGE_KEY);
+    const storedBranchId = stored ? Number(stored) : NaN;
+    if (
+      !stored ||
+      Number.isNaN(storedBranchId) ||
+      !branches.some((b) => b.id === storedBranchId) ||
+      storedBranchId !== activeBranch.id
+    ) {
+      localStorage.setItem(BRANCH_STORAGE_KEY, String(activeBranch.id));
+    }
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [activeBranch.id, branches]);
+
   const getAvailability = useCallback(
     (productId: number) => {
       const product = products.find((p) => p.id === productId);
@@ -105,17 +140,10 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
 
   const { items, total, addItem, removeItem, updateQuantity, clearCart } =
     useCart({
-      branchId,
+      branchId: branch.id,
       products,
       getAvailability,
     });
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   // Carga inicial con disponibilidad actualizada en caso de que el SSR tenga datos de caché.
   useEffect(() => {
@@ -124,13 +152,17 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
       setError(null);
       try {
         const response = await fetch(
-          `${PUBLIC_CATALOGO_API}?branchId=${branchId}&includeAvailability=true`
+          `${PUBLIC_CATALOGO_API}?branchId=${branch.id}&includeAvailability=true`
         );
         if (!response.ok) throw new Error('Error al cargar el catálogo');
 
-        const data = (await response.json()) as PublicCatalogProduct[];
+        const data = (await response.json()) as {
+          branch: Branch;
+          products: PublicCatalogProduct[];
+        };
         if (!isMountedRef.current) return;
-        setProducts(data);
+        setProducts(data.products);
+        setBranch(data.branch);
       } catch (err) {
         if (!isMountedRef.current) return;
         setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -140,7 +172,7 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
     }
 
     void load();
-  }, [branchId]);
+  }, [branch.id]);
 
   // Refresco periódico de disponibilidad.
   useEffect(() => {
@@ -149,26 +181,31 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
     const interval = setInterval(async () => {
       try {
         const response = await fetch(
-          `${PUBLIC_CATALOGO_API}?branchId=${branchId}&includeAvailability=true`
+          `${PUBLIC_CATALOGO_API}?branchId=${branch.id}&includeAvailability=true`
         );
         if (!response.ok) throw new Error('Error al refrescar el catálogo');
 
-        const data = (await response.json()) as PublicCatalogProduct[];
+        const data = (await response.json()) as {
+          branch: Branch;
+          products: PublicCatalogProduct[];
+        };
         if (!isMountedRef.current) return;
-        setProducts(data);
+        setProducts(data.products);
+        setBranch(data.branch);
       } catch {
         // No saturar la UI con errores de fondo.
       }
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [branchId]);
+  }, [branch.id]);
 
   // Validación de disponibilidad del carrito.
   useEffect(() => {
     if (items.length === 0) {
       queueMicrotask(() => {
         setShortageByProduct({});
+        setBreakdownByProduct({});
       });
       return;
     }
@@ -178,7 +215,7 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
 
       try {
         const response = await fetch(
-          `${PUBLIC_DISPONIBILIDAD_API}?branchId=${branchId}`,
+          `${PUBLIC_DISPONIBILIDAD_API}?branchId=${branch.id}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -200,10 +237,12 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
         const data = (await response.json()) as {
           availabilityByProduct: Record<number, number>;
           shortageByProduct: Record<number, ShortageInfo>;
+          breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
         };
 
         if (!isMountedRef.current) return;
         setShortageByProduct(data.shortageByProduct ?? {});
+        setBreakdownByProduct(data.breakdownByProduct ?? {});
       } catch (err) {
         if (!isMountedRef.current) return;
         setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -213,11 +252,20 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [items, products, branchId]);
+  }, [items, products, branch.id]);
 
   const groupedProducts = groupPublicProductsByType(products);
 
   const inCartIds = new Set(items.map((item) => item.id));
+
+  function handleBranchChange(branchId: string | null) {
+    if (!branchId) return;
+    const selected = branches.find((b) => b.id === Number(branchId));
+    if (!selected || selected.id === branch.id) return;
+
+    localStorage.setItem(BRANCH_STORAGE_KEY, String(selected.id));
+    router.push(`/pedido?branchId=${selected.id}`);
+  }
 
   function handleOpenCheckout() {
     setCheckoutOpen(true);
@@ -240,7 +288,7 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${branchId}`, {
+      const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${branch.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -289,7 +337,7 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
 
     try {
       const response = await fetch(
-        `${PUBLIC_PEDIDO_CANCELAR_API(createdOrder.id)}?branchId=${branchId}`,
+        `${PUBLIC_PEDIDO_CANCELAR_API(createdOrder.id)}?branchId=${branch.id}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -354,6 +402,44 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
         </div>
       )}
 
+      <div className="space-y-2 rounded-2xl border border-white/8 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Catálogo de {branch.name}
+            </h1>
+            <p className="text-base text-muted-foreground">
+              Elegí los productos y armá tu pedido.
+            </p>
+          </div>
+
+          {branches.length > 1 ? (
+            <div className="w-full sm:w-auto">
+              <Label htmlFor="branchSelect" className="sr-only">
+                Sucursal
+              </Label>
+              <Select
+                value={String(branch.id)}
+                onValueChange={handleBranchChange}
+              >
+                <SelectTrigger id="branchSelect" className="w-full sm:w-[240px]">
+                  <SelectValue placeholder="Seleccionar sucursal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <p className="text-base text-muted-foreground">{branch.name}</p>
+          )}
+        </div>
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {groupedProducts.map((group) => (
@@ -369,6 +455,7 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
                     key={product.id}
                     product={product}
                     inCart={inCartIds.has(product.id)}
+                    breakdown={breakdownByProduct[product.id] ?? product.breakdown ?? []}
                     onAdd={() => addItem(product)}
                     disabled={isCheckingAvailability}
                   />
@@ -380,6 +467,7 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
 
         <div className="space-y-4">
           <CartSummary
+            branchName={branch.name}
             items={items}
             total={total}
             onUpdateQuantity={updateQuantity}
@@ -429,7 +517,9 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="delivery">Envío a domicilio</SelectItem>
-                  <SelectItem value="pickup">Retiro en sucursal</SelectItem>
+                  <SelectItem value="pickup">
+                    Retiro en sucursal: {branch.name}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -510,6 +600,12 @@ export function PedidoClient({ initialProducts, branchId }: PedidoClientProps) {
                   Cliente:{' '}
                   <span className="text-foreground">
                     {createdOrder.customerName}
+                  </span>
+                </p>
+                <p>
+                  Sucursal:{' '}
+                  <span className="text-foreground">
+                    {createdOrder.branchName ?? branch.name}
                   </span>
                 </p>
                 <p>

@@ -1,5 +1,6 @@
 import {
   calculateAvailability,
+  calculateAvailabilityForProductIds,
   validateCartAvailability,
   confirmSale,
   cancelSale,
@@ -216,34 +217,28 @@ describe('calculateAvailability', () => {
   });
 
   test('devuelve 0 si el producto no existe', async () => {
-    mockedProductRepository.findById.mockResolvedValue(null);
+    setProducts([]);
     const result = await calculateAvailability(BRANCH_ID, 999);
     expect(result).toBe(0);
   });
 
   test('devuelve stock para bebida crítica', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
-      createProductRow({
+    setProducts([
+      {
         id: 1,
         name: 'Gaseosa',
         type: 'critical_supply',
         criticalSupplyType: 'beverage',
         stock: 50,
-      })
-    );
+      },
+    ]);
 
     const result = await calculateAvailability(BRANCH_ID, 1);
     expect(result).toBe(50);
   });
 
   test('calcula disponibilidad de producto compuesto', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
-      createProductRow({
-        id: 1,
-        name: 'Panchuque',
-        type: 'compound',
-      })
-    );
+    setProducts([{ id: 1, name: 'Panchuque', type: 'compound' }]);
 
     mockedDb.query.recipes.findMany.mockResolvedValue([
       createRecipeWithSupply({
@@ -270,13 +265,7 @@ describe('calculateAvailability', () => {
   });
 
   test('devuelve 0 si la receta no tiene items con auto descuento', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
-      createProductRow({
-        id: 1,
-        name: 'Panchuque',
-        type: 'compound',
-      })
-    );
+    setProducts([{ id: 1, name: 'Panchuque', type: 'compound' }]);
 
     mockedDb.query.recipes.findMany.mockResolvedValue([
       createRecipeWithSupply({
@@ -294,13 +283,7 @@ describe('calculateAvailability', () => {
   });
 
   test('ignora recetas cuyo insumo pertenece a otra sucursal', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
-      createProductRow({
-        id: 1,
-        name: 'Panchuque',
-        type: 'compound',
-      })
-    );
+    setProducts([{ id: 1, name: 'Panchuque', type: 'compound' }]);
 
     mockedDb.query.recipes.findMany.mockResolvedValue([
       createRecipeWithSupply({
@@ -318,16 +301,68 @@ describe('calculateAvailability', () => {
   });
 
   test('devuelve disponibilidad ilimitada para servicios', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
-      createProductRow({
-        id: 1,
-        name: 'Agregado de toppings',
-        type: 'service',
-      })
-    );
+    setProducts([
+      { id: 1, name: 'Agregado de toppings', type: 'service' },
+    ]);
 
     const result = await calculateAvailability(BRANCH_ID, 1);
     expect(result).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe('calculateAvailabilityForProductIds', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('devuelve disponibilidad y desglose por productos', async () => {
+    setProducts([
+      { id: 1, name: 'Panchuque', type: 'compound' },
+      { id: 2, name: 'Pan', type: 'critical_supply', criticalSupplyType: 'bread', stock: 10 },
+      { id: 3, name: 'Salchicha', type: 'critical_supply', criticalSupplyType: 'sausage', stock: 9 },
+      { id: 4, name: 'Gaseosa', type: 'critical_supply', criticalSupplyType: 'beverage', stock: 12 },
+      { id: 5, name: 'Vaso', type: 'service' },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 2,
+        quantity: 1,
+        autoDiscount: true,
+        supply: { name: 'Pan', stock: 10 },
+      }),
+      createRecipeWithSupply({
+        id: 2,
+        compoundProductId: 1,
+        supplyId: 3,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 9 },
+      }),
+    ]);
+
+    const result = await calculateAvailabilityForProductIds(BRANCH_ID, [1, 4, 5]);
+
+    expect(result[1].availability).toBe(4);
+    expect(result[1].breakdown).toHaveLength(2);
+    expect(result[1].breakdown[0]).toMatchObject({
+      supplyName: 'Pan',
+      available: 10,
+      required: 1,
+      isLimiting: false,
+    });
+    expect(result[1].breakdown[1]).toMatchObject({
+      supplyName: 'Salchicha',
+      available: 9,
+      required: 2,
+      isLimiting: true,
+    });
+    expect(result[4].availability).toBe(12);
+    expect(result[4].breakdown).toEqual([]);
+    expect(result[5].availability).toBe(Number.MAX_SAFE_INTEGER);
+    expect(result[5].breakdown).toEqual([]);
   });
 });
 
