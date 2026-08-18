@@ -329,13 +329,15 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 
 ## 11. Flujo compartido entre ventas y pedidos
 
-Tanto `confirmSale` como `createOrder` usan los mismos helpers de `saleService`:
+Tanto `confirmSale` como `createOrder` usan los mismos helpers compartidos:
 
-- `buildProductContext(branchId, productIds)`: carga productos y recetas.
-- `validateProductsForOperation(...)`: valida que los productos sean vendibles, activos y de la sucursal.
-- `validateCartAvailability(...)`: calcula disponibilidad y shortage.
-- `buildSaleItemValues(productById, items)`: calcula `unitPrice` y `subtotal`.
-- `deductStockForItems(...)`: descuenta stock con lock pesimista (`SELECT ... FOR UPDATE`).
+- `buildProductContext(branchId, productIds)` (`src/lib/product-helpers.ts`): carga productos y recetas.
+- `validateProductsForOperation(...)` (`src/lib/product-helpers.ts`): valida que los productos sean vendibles, activos y de la sucursal.
+- `validateCartAvailability(...)` (`src/lib/product-helpers.ts`): calcula disponibilidad y shortage.
+- `buildSaleItemValues(productById, items)` (`src/lib/sale-helpers.ts`): calcula `unitPrice` y `subtotal`.
+- `buildOrderValues(...)` y `buildOrderItemValues(...)` (`src/lib/order-helpers.ts`): construyen los registros de `orders` y `order_items`.
+- `deductStockForItems(...)` (`src/application/services/saleService.ts`): descuenta stock con lock pesimista (`SELECT ... FOR UPDATE`).
+- `lockOpenCashRegister(...)` y `lockCashRegisterById(...)` (`src/lib/cash-register-helpers.ts`): lockean la caja abierta para actualizarla.
 
 La diferencia es:
 
@@ -380,6 +382,7 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 | `DEFAULT_BRANCH_NAME` | Seed y resolución de sucursal por defecto | `Sucursal por defecto` |
 | `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` | Refresco del estado de caja en panel | `5000` ms |
 | `AUTO_CLOSE_HOURS` | Cierre automático de caja | `12` h |
+| `AUTO_CLOSED_BY` | Label de cierre automático de caja | `'Sistema'` |
 | `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo público | `30000` ms |
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos | `60s`, `10` req |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp para pedidos | — |

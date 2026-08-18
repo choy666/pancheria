@@ -1,0 +1,25 @@
+docs: actualizar AGENTS.md, guia y reporte de estado.
+
+- Actualiza `AGENTS.md`:
+  - Detalla la capa de repositorios.
+  - Documenta los helpers nuevos en `src/lib/`:
+    summary-helpers, stock-helpers, cash-register-helpers,
+    product-helpers, sale-helpers, order-helpers, validation-helpers.
+  - Agrega consideracion tecnica futura sobre `cashRegisters.closedBy`.
+
+- Actualiza `.devin/informes/guia-funcionamiento-pancheria.md`:
+  - Seccion 11 ahora referencia los helpers en `src/lib/`.
+  - Agrega `AUTO_CLOSED_BY` a la tabla de configuracion.
+
+- Actualiza `.devin/informes/reporte-estado.md`:
+  - Actualiza conteo de tests a 68 suites y 744 tests.
+  - Agrega hallazgos resueltos de arquitectura, cobertura e
+    integridad referencial.
+  - Extiende la conclusion con la refactorizacion reciente.
+
+Verificado con npm run lint, npx tsc --noEmit, npm test (744 tests) y
+npm run build.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

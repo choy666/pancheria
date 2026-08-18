@@ -74,13 +74,21 @@ Copiar `.env.example` a `.env.local` y completar:
 
 - `src/app/` — páginas y rutas API
 - `src/application/` — servicios de aplicación (casos de uso y coordinación)
-- `src/repositories/` — capa de repositorios
+- `src/repositories/` — capa de repositorios (`productRepository`, `saleRepository`, `cashRegisterRepository`, `orderRepository`, etc.)
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
 - `src/config/` — constantes de configuración (APIs, caja, paginación)
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
-- `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, etc.)
+- `src/lib/` — utilidades y helpers transversales:
+  - `money`, `date`, `catalog`, `product-grouping`, etc.
+  - `summary-helpers` — cálculo de resúmenes de productos e insumos críticos.
+  - `stock-helpers` — locks, iteración de recetas y razones de movimientos de stock.
+  - `cash-register-helpers` — selección y bloqueo pesimista de cajas.
+  - `product-helpers` — contexto de productos, disponibilidad y validaciones.
+  - `sale-helpers` — construcción de ítems y totales de venta.
+  - `order-helpers` — generación de números/tokens y construcción de pedidos.
+  - `validation-helpers` — validaciones reutilizables.
 
 ## Tecnologías
 - Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.

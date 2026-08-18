@@ -21,7 +21,7 @@ Las verificaciones automatizadas (`lint`, `tsc`, `test`, `build`) y los tests E2
 || ---- | ------- | --------- |
 || 1 | `npm run lint` | Pasa (exit 0) |
 || 2 | `npx tsc --noEmit` | Pasa |
-|| 3 | `npm test` | 61 suites, 684 tests pasan |
+|| 3 | `npm test` | 68 suites, 744 tests pasan |
 || 4 | `npm run build` | Build de producción exitoso (39 páginas) |
 || 5 | `npm run test:e2e` | 81 tests E2E pasan (10.2 min) en base de datos de prueba |
 || — | `npx tsx src/db/seeds.ts` | No ejecutado (modifica datos) |
@@ -125,6 +125,9 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 || Menor / Operativo | `STORAGE_PROVIDER=local` en producción con `BLOB_READ_WRITE_TOKEN` configurado. | **Resuelto** — `STORAGE_PROVIDER` cambiado a `vercel-blob` en producción y en `.env.example`. |
 || Menor / Documentación | `guia-funcionamiento-pancheria.md` tenía limitaciones y checklist desactualizados. | **Resuelto** — sección 1, tabla de movimientos de stock, limitaciones, checklist y conclusiones actualizadas. |
 || Informativo | Las verificaciones automatizadas pasan; no hay regresiones detectadas. | Confirmado. |
+||| Menor / Arquitectura | `saleService.ts` concentraba lógica de productos, disponibilidad, validaciones y ventas. | **Resuelto** — se extrajeron `src/lib/product-helpers.ts`, `src/lib/sale-helpers.ts` y `src/lib/order-helpers.ts`; `saleService.ts` se redujo en ~500 líneas. |
+||| Menor / Cobertura | Nuevos helpers y `orderRepository.ts` carecían de tests dedicados. | **Resuelto** — se agregaron `product-helpers.test.ts`, `sale-helpers.test.ts`, `order-helpers.test.ts` y `orderRepository.test.ts`. |
+||| Menor / Integridad referencial | `cashRegisters.closedBy` no era FK a `users`. | **Resuelto documentalmente** — se documentó la excepción y se centralizó el label de cierre automático en `AUTO_CLOSED_BY` de `src/config/caja.ts`. | |
 
 ---
 
@@ -154,4 +157,4 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 
 ## 11. Conclusión
 
-El proyecto incorporó la expiración automática de pedidos, actualizó la `guia-funcionamiento-pancheria.md` para reflejar el estado real, eliminó informes históricos obsoletos, migró todos los Server Components del panel a `getCurrentBranchIdOrRedirect` y ajustó el flujo de pedidos para que el stock se descuente solo al confirmar desde el panel. Las pruebas unitarias, el build de producción y los tests E2E pasan. Quedan las recomendaciones habituales de despliegue y la evaluación futura del rate limit compartido.
+El proyecto incorporó la expiración automática de pedidos, actualizó la `guia-funcionamiento-pancheria.md` para reflejar el estado real, eliminó informes históricos obsoletos, migró todos los Server Components del panel a `getCurrentBranchIdOrRedirect` y ajustó el flujo de pedidos para que el stock se descuente solo al confirmar desde el panel. Además, se refactorizaron los servicios de venta y pedido extrayendo helpers transversales (`product-helpers`, `sale-helpers`, `order-helpers`), se creó `orderRepository.ts` y se documentó la excepción de integridad referencial de `cashRegisters.closedBy`. Las pruebas unitarias, el build de producción y los tests E2E pasan. Quedan las recomendaciones habituales de despliegue y la evaluación futura del rate limit compartido.
