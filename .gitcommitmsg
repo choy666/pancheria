@@ -1,0 +1,26 @@
+refactor: unificar resumenes, locks, repositorio de pedidos y trazabilidad.
+
+- Crea src/lib/summary-helpers.ts con addItemToSummary y
+  fillMissingCriticalSupplies; lo usa saleService, summaryService y
+  cashRegisterService.
+- Crea src/lib/stock-helpers.ts con collectStockProductIdsToLock,
+  iterRecipeConsumptions y buildStockMovementReason; unifica el calculo
+  de productos a lockear y el recorrido de recetas en
+  deductStockForItems y reintegrateStockForItems.
+- Crea src/lib/cash-register-helpers.ts con lockCashRegisterById y
+  lockOpenCashRegister; unifica los SELECT ... FOR UPDATE de cajas en
+  cashRegisterService y saleService.
+- Crea src/repositories/orderRepository.ts y migra orderService.ts
+  para usarlo en busquedas, inserciones y actualizaciones.
+- Agrega reason automatico en movimientos de stock de tipo sale y
+  cancellation: "Venta #<saleId>" / "Anulacion de venta #<saleId>".
+- Decidio no convertir closedBy a referencia a users: el cierre
+  automatico usa 'Sistema' y requeriria migracion de datos/semantica.
+- Ejecuta npx drizzle-kit push --force con exito; la columna order_id
+  tenia 0 valores no nulos, por lo que no hubo perdida de datos.
+- Verifica npm run lint, npx tsc --noEmit, npm test, npm run build y
+  npm run dev listos.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

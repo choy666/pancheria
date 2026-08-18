@@ -13,6 +13,11 @@ import {
   validatePositiveInteger,
   validateNonEmptyString,
 } from '@/lib/validation-helpers';
+import { fillMissingCriticalSupplies } from '@/lib/summary-helpers';
+import {
+  lockCashRegisterById,
+  lockOpenCashRegister,
+} from '@/lib/cash-register-helpers';
 
 export async function getOpenCashRegister(branchId: number) {
   const cashRegister = await cashRegisterRepository.findOpen(branchId);
@@ -24,18 +29,10 @@ export async function getOpenCashRegister(branchId: number) {
 
   if (autoCloseAt <= now) {
     return executeInTransaction(async (tx) => {
-      const [locked] = await tx
-        .select()
-        .from(cashRegisters)
-        .where(
-          and(
-            eq(cashRegisters.id, cashRegister.id),
-            eq(cashRegisters.branchId, branchId),
-            eq(cashRegisters.status, 'open'),
-            isNull(cashRegisters.deletedAt)
-          )
-        )
-        .for('update');
+      const locked = await lockCashRegisterById(tx, branchId, cashRegister.id, {
+        requireOpen: true,
+        requireNotDeleted: true,
+      });
 
       if (!locked) return null;
 
@@ -84,17 +81,7 @@ export async function openCashRegister(params: {
 
   try {
     return await executeInTransaction(async (tx) => {
-      const [existingOpen] = await tx
-        .select()
-        .from(cashRegisters)
-        .where(
-          and(
-            eq(cashRegisters.branchId, branchId),
-            eq(cashRegisters.status, 'open'),
-            isNull(cashRegisters.deletedAt)
-          )
-        )
-        .for('update');
+      const existingOpen = await lockOpenCashRegister(tx, branchId);
 
       if (existingOpen) {
         throw new ValidationError('Ya existe una caja abierta.');
@@ -151,14 +138,14 @@ type CashRegisterSummaryInput = Pick<
 export async function parseCashRegisterSummary(
   branchId: number,
   cashRegister: CashRegisterSummaryInput,
-  fillMissingCriticalSupplies = false
+  shouldFillMissingCriticalSupplies = false
 ) {
   const productsSummary: Record<string, number> =
     cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary: Record<string, number> =
     cashRegister.criticalSuppliesSummary ?? {};
 
-  if (fillMissingCriticalSupplies) {
+  if (shouldFillMissingCriticalSupplies) {
     const activeCriticalSupplies = await db.query.products.findMany({
       where: and(
         eq(products.branchId, branchId),
@@ -168,11 +155,7 @@ export async function parseCashRegisterSummary(
       ),
     });
 
-    for (const supply of activeCriticalSupplies) {
-      if (criticalSuppliesSummary[supply.name] === undefined) {
-        criticalSuppliesSummary[supply.name] = 0;
-      }
-    }
+    fillMissingCriticalSupplies(criticalSuppliesSummary, activeCriticalSupplies);
   }
 
   return { productsSummary, criticalSuppliesSummary };
@@ -200,17 +183,9 @@ export async function closeCashRegister(
   const closedByTrimmed = validateNonEmptyString(closedBy, 'El usuario que cierra la caja');
 
   return executeInTransaction(async (tx) => {
-    const [cashRegister] = await tx
-      .select()
-      .from(cashRegisters)
-      .where(
-        and(
-          eq(cashRegisters.id, id),
-          eq(cashRegisters.branchId, branchId),
-          isNull(cashRegisters.deletedAt)
-        )
-      )
-      .for('update');
+    const cashRegister = await lockCashRegisterById(tx, branchId, id, {
+      requireNotDeleted: true,
+    });
 
     if (!cashRegister) {
       throw new NotFoundError('Caja', id);

@@ -2,6 +2,10 @@ import { eq, and, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, recipes } from '@/db/schema';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import {
+  addItemToSummary,
+  fillMissingCriticalSupplies,
+} from '@/lib/summary-helpers';
 import type { ProductRow } from '@/domain/types';
 
 export async function findRecipesForProducts(
@@ -108,28 +112,13 @@ export async function calculateSummaryFromSales(
       const product = item.product;
       if (!product) continue;
 
-      productsSummary[product.name] =
-        (productsSummary[product.name] ?? 0) + item.quantity;
-
-      if (product.type === 'compound') {
-        const recipeList = recipesByProduct.get(product.id) ?? [];
-
-        for (const recipeItem of recipeList) {
-          if (!recipeItem.autoDiscount) continue;
-
-          const consumed = recipeItem.quantity * item.quantity;
-          const supplyName =
-            recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
-          criticalSuppliesSummary[supplyName] =
-            (criticalSuppliesSummary[supplyName] ?? 0) + consumed;
-        }
-      } else if (
-        product.type === 'critical_supply' &&
-        product.criticalSupplyType === 'beverage'
-      ) {
-        criticalSuppliesSummary[product.name] =
-          (criticalSuppliesSummary[product.name] ?? 0) + item.quantity;
-      }
+      addItemToSummary(
+        productsSummary,
+        criticalSuppliesSummary,
+        product,
+        item.quantity,
+        recipesByProduct
+      );
     }
   }
 
@@ -144,12 +133,7 @@ export async function calculateSummaryFromSales(
     ),
   });
 
-  for (const supply of criticalSupplies) {
-    const key = supply.name;
-    if (criticalSuppliesSummary[key] === undefined) {
-      criticalSuppliesSummary[key] = 0;
-    }
-  }
+  fillMissingCriticalSupplies(criticalSuppliesSummary, criticalSupplies);
 
   return {
     total: moneyToNumber(total),

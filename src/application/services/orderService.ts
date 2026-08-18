@@ -1,7 +1,8 @@
-import { eq, and, isNull, count, lt } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { randomBytes, randomUUID } from 'crypto';
 import { db } from '@/db';
-import { orders, orderItems, sales } from '@/db/schema';
+import { sales } from '@/db/schema';
+import * as orderRepository from '@/repositories/orderRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -57,19 +58,7 @@ async function getOrderByIdempotencyKey(
   branchId: number,
   key: string
 ): Promise<OrderWithItems | null> {
-  const order = (await db.query.orders.findFirst({
-    where: and(
-      eq(orders.branchId, branchId),
-      eq(orders.idempotencyKey, key),
-      isNull(orders.deletedAt)
-    ),
-    with: {
-      branch: true,
-      items: { with: { product: true } },
-    },
-  })) as OrderWithItems | undefined;
-
-  return order ?? null;
+  return orderRepository.findByIdempotencyKey(branchId, key);
 }
 
 export async function createOrder(
@@ -115,24 +104,22 @@ export async function createOrder(
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
 
-    const [order] = await tx
-      .insert(orders)
-      .values({
-        branchId,
-        orderNumber,
-        total: orderTotal,
-        status: 'pending',
-        customerName: customerName.trim(),
-        deliveryType,
-        address: address?.trim() || null,
-        notes: notes?.trim() || null,
-        cancellationToken,
-        idempotencyKey: branchIdempotencyKey,
-        createdAt: nowUTC(),
-      })
-      .returning();
+    const order = await orderRepository.insertOrder(tx, {
+      branchId,
+      orderNumber,
+      total: orderTotal,
+      status: 'pending',
+      customerName: customerName.trim(),
+      deliveryType,
+      address: address?.trim() || null,
+      notes: notes?.trim() || null,
+      cancellationToken,
+      idempotencyKey: branchIdempotencyKey,
+      createdAt: nowUTC(),
+    });
 
-    await tx.insert(orderItems).values(
+    await orderRepository.insertOrderItems(
+      tx,
       orderItemValues.map((item) => ({
         ...item,
         orderId: order.id,
@@ -156,10 +143,7 @@ export async function cancelOrder(
   reason: string,
   token?: string
 ): Promise<OrderWithItems> {
-  const order = (await db.query.orders.findFirst({
-    where: and(eq(orders.id, id), eq(orders.branchId, branchId), isNull(orders.deletedAt)),
-    with: { branch: true, items: true },
-  })) as (OrderWithItems & { items: { productId: number; quantity: number }[] }) | undefined;
+  const order = await orderRepository.findByIdForCancel(branchId, id);
 
   if (!order) {
     throw new NotFoundError('Pedido', id);
@@ -179,15 +163,11 @@ export async function cancelOrder(
     throw new ValidationError('El token de cancelación no es válido.');
   }
 
-  const [updated] = await db
-    .update(orders)
-    .set({
-      status: 'cancelled',
-      cancelledAt: nowUTC(),
-      cancellationReason: reason,
-    })
-    .where(and(eq(orders.id, id), eq(orders.branchId, branchId)))
-    .returning();
+  const updated = await orderRepository.cancel(branchId, id, {
+    status: 'cancelled',
+    cancelledAt: nowUTC(),
+    cancellationReason: reason,
+  });
 
   return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
 }
@@ -227,10 +207,7 @@ export async function convertOrderToSale(
     );
   }
 
-  const order = (await db.query.orders.findFirst({
-    where: and(eq(orders.id, orderId), eq(orders.branchId, branchId), isNull(orders.deletedAt)),
-    with: { items: true },
-  })) as OrderWithItems | undefined;
+  const order = await orderRepository.findById(branchId, orderId);
 
   if (!order) {
     throw new NotFoundError('Pedido', orderId);
@@ -285,13 +262,10 @@ export async function convertOrderToSale(
       recipesByProduct
     );
 
-    await tx
-      .update(orders)
-      .set({
-        status: 'converted',
-        convertedSaleId: sale.id,
-      })
-      .where(and(eq(orders.id, orderId), eq(orders.branchId, branchId)));
+    await orderRepository.updateStatus(tx, branchId, orderId, {
+      status: 'converted',
+      convertedSaleId: sale.id,
+    });
 
     return sale;
   });
@@ -301,31 +275,13 @@ export async function getOrderById(
   branchId: number,
   id: number
 ): Promise<OrderWithItems | undefined> {
-  return (await db.query.orders.findFirst({
-    where: and(
-      eq(orders.id, id),
-      eq(orders.branchId, branchId),
-      isNull(orders.deletedAt)
-    ),
-    with: {
-      branch: true,
-      items: { with: { product: true } },
-    },
-  })) as OrderWithItems | undefined;
+  return orderRepository.findById(branchId, id);
 }
 
 export async function getPendingOrders(
   branchId: number
 ): Promise<OrderWithItems[]> {
-  return (await db.query.orders.findMany({
-    where: and(
-      eq(orders.branchId, branchId),
-      eq(orders.status, 'pending'),
-      isNull(orders.deletedAt)
-    ),
-    orderBy: (orders, { desc }) => [desc(orders.createdAt)],
-    with: { branch: true, items: { with: { product: true } } },
-  })) as OrderWithItems[];
+  return orderRepository.findPending(branchId);
 }
 
 export async function getOrders(
@@ -336,38 +292,7 @@ export async function getOrders(
     limit?: number;
   } = {}
 ): Promise<{ items: OrderWithItems[]; total: number; page: number; limit: number }> {
-  const page = options.page ?? 1;
-  const limit = options.limit ?? 10;
-  const offset = (page - 1) * limit;
-
-  const conditions = [
-    eq(orders.branchId, branchId),
-    isNull(orders.deletedAt),
-  ];
-
-  if (options.status) {
-    conditions.push(eq(orders.status, options.status));
-  }
-
-  const [{ count: total }] = await db
-    .select({ count: count() })
-    .from(orders)
-    .where(and(...conditions));
-
-  const items = (await db.query.orders.findMany({
-    where: and(...conditions),
-    orderBy: (orders, { desc }) => [desc(orders.createdAt)],
-    limit,
-    offset,
-    with: { branch: true, items: { with: { product: true } } },
-  })) as OrderWithItems[];
-
-  return {
-    items,
-    total: Number(total),
-    page,
-    limit,
-  };
+  return orderRepository.findOrders(branchId, options);
 }
 
 export async function expirePendingOrders(
@@ -376,20 +301,10 @@ export async function expirePendingOrders(
   const expirationMs = getOrderExpirationMs();
   const cutoff = new Date(Date.now() - expirationMs);
 
-  const conditions = [
-    eq(orders.status, 'pending'),
-    lt(orders.createdAt, cutoff),
-    isNull(orders.deletedAt),
-  ];
-
-  if (branchId !== undefined) {
-    conditions.push(eq(orders.branchId, branchId));
-  }
-
-  const expiredOrders = await db.query.orders.findMany({
-    where: and(...conditions),
-    columns: { id: true, branchId: true },
-  });
+  const expiredOrders =
+    branchId === undefined
+      ? await orderRepository.findExpiredPendingAll(cutoff)
+      : await orderRepository.findExpiredPending(branchId, cutoff);
 
   let expiredCount = 0;
 

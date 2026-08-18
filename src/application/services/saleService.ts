@@ -37,6 +37,13 @@ import {
   type RecipeWithSupply,
 } from '@/application/services/summaryService';
 import { isPublicSellableProduct } from '@/lib/catalog';
+import { addItemToSummary } from '@/lib/summary-helpers';
+import {
+  collectStockProductIdsToLock,
+  iterRecipeConsumptions,
+  buildStockMovementReason,
+} from '@/lib/stock-helpers';
+import { lockCashRegisterById } from '@/lib/cash-register-helpers';
 
 export interface RecipeBreakdownItem {
   supplyName: string;
@@ -464,29 +471,14 @@ export async function updateCashRegisterSummary(
     const product = productById.get(item.productId);
     if (!product) continue;
 
-    productsSummary[product.name] =
-      (productsSummary[product.name] ?? 0) + sign * item.quantity;
-
-    if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
-      criticalSuppliesSummary[product.name] =
-        (criticalSuppliesSummary[product.name] ?? 0) +
-        sign * item.quantity;
-    }
-
-    if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-      for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-
-        const consumed = recipeItem.quantity * item.quantity;
-        const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
-        criticalSuppliesSummary[supplyName] =
-          (criticalSuppliesSummary[supplyName] ?? 0) + sign * consumed;
-      }
-    }
+    addItemToSummary(
+      productsSummary,
+      criticalSuppliesSummary,
+      product,
+      item.quantity,
+      recipesByProduct,
+      sign as 1 | -1
+    );
   }
 
   await tx
@@ -516,27 +508,14 @@ export async function deductStockForItems(
   source: { saleId?: number },
   movementType: StockMovementType
 ) {
-  const productIdsToLock = new Set<number>();
+  const idsToLock = collectStockProductIdsToLock(
+    items,
+    productById,
+    recipesByProduct
+  );
 
-  for (const item of items) {
-    const product = productById.get(item.productId);
-    if (!product) continue;
+  const reason = buildStockMovementReason(movementType, source.saleId);
 
-    if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-      for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-        productIdsToLock.add(recipeItem.supplyId);
-      }
-    } else if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
-      productIdsToLock.add(product.id);
-    }
-  }
-
-  const idsToLock = Array.from(productIdsToLock);
   if (idsToLock.length > 0) {
     await tx
       .select()
@@ -549,19 +528,17 @@ export async function deductStockForItems(
     const product = productById.get(item.productId)!;
 
     if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-
-      for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-
-        const consumed = recipeItem.quantity * item.quantity;
-
+      for (const { supplyId, consumed, supplyName } of iterRecipeConsumptions(
+        product,
+        item.quantity,
+        recipesByProduct
+      )) {
         const [updated] = await tx
           .update(products)
           .set({ stock: sql`${products.stock} - ${consumed}` })
           .where(
             and(
-              eq(products.id, recipeItem.supplyId),
+              eq(products.id, supplyId),
               gte(products.stock, consumed)
             )
           )
@@ -572,17 +549,17 @@ export async function deductStockForItems(
             product.name,
             product.stock,
             consumed,
-            recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`
+            supplyName
           );
         }
 
         await tx.insert(stockMovements).values({
           branchId,
-          productId: recipeItem.supplyId,
+          productId: supplyId,
           type: movementType,
           quantity: -consumed,
           saleId: source.saleId ?? null,
-
+          reason,
           createdAt: nowUTC(),
         });
       }
@@ -612,7 +589,7 @@ export async function deductStockForItems(
         type: movementType,
         quantity: -item.quantity,
         saleId: source.saleId ?? null,
-
+        reason,
         createdAt: nowUTC(),
       });
     } else if (product.type === 'service') {
@@ -691,16 +668,11 @@ export async function reintegrateStockAndUpdateCashRegister(
     );
   }
 
-  const [lockedCashRegister] = await tx
-    .select()
-    .from(cashRegisters)
-    .where(
-      and(
-        eq(cashRegisters.id, cashRegister.id),
-        eq(cashRegisters.branchId, cashRegister.branchId)
-      )
-    )
-    .for('update');
+  const lockedCashRegister = await lockCashRegisterById(
+    tx,
+    cashRegister.branchId,
+    cashRegister.id
+  );
 
   if (!lockedCashRegister) {
     throw new ValidationError('La caja asociada a la venta ya no existe.');
@@ -733,27 +705,14 @@ export async function reintegrateStockForItems(
   source: { saleId?: number },
   movementType: StockMovementType
 ) {
-  const productIdsToLock = new Set<number>();
+  const idsToLock = collectStockProductIdsToLock(
+    items,
+    productById,
+    recipesByProduct
+  );
 
-  for (const item of items) {
-    const product = productById.get(item.productId);
-    if (!product) continue;
+  const reason = buildStockMovementReason(movementType, source.saleId);
 
-    if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-      for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-        productIdsToLock.add(recipeItem.supplyId);
-      }
-    } else if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
-      productIdsToLock.add(product.id);
-    }
-  }
-
-  const idsToLock = Array.from(productIdsToLock);
   if (idsToLock.length > 0) {
     await tx
       .select()
@@ -767,25 +726,23 @@ export async function reintegrateStockForItems(
     if (!product) continue;
 
     if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-
-      for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-
-        const reintegrated = recipeItem.quantity * item.quantity;
-
+      for (const { supplyId, consumed: reintegrated } of iterRecipeConsumptions(
+        product,
+        item.quantity,
+        recipesByProduct
+      )) {
         await tx
           .update(products)
           .set({ stock: sql`${products.stock} + ${reintegrated}` })
-          .where(eq(products.id, recipeItem.supplyId));
+          .where(eq(products.id, supplyId));
 
         await tx.insert(stockMovements).values({
           branchId,
-          productId: recipeItem.supplyId,
+          productId: supplyId,
           type: movementType,
           quantity: reintegrated,
           saleId: source.saleId ?? null,
-
+          reason,
           createdAt: nowUTC(),
         });
       }
@@ -804,7 +761,7 @@ export async function reintegrateStockForItems(
         type: movementType,
         quantity: item.quantity,
         saleId: source.saleId ?? null,
-
+        reason,
         createdAt: nowUTC(),
       });
     } else if (product.type === 'service') {
@@ -903,16 +860,11 @@ export async function insertSaleAndUpdateCashRegister(
     'sale'
   );
 
-  const [lockedCashRegister] = await tx
-    .select()
-    .from(cashRegisters)
-    .where(
-      and(
-        eq(cashRegisters.id, cashRegister?.id ?? -1),
-        eq(cashRegisters.branchId, branchId)
-      )
-    )
-    .for('update');
+  const lockedCashRegister = await lockCashRegisterById(
+    tx,
+    branchId,
+    cashRegister?.id ?? -1
+  );
 
   if (!lockedCashRegister) {
     throw new ValidationError('La caja abierta ya no existe.');
