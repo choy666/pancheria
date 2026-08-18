@@ -7,6 +7,7 @@ import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import type { PaginationParams, StockMovementType } from '@/domain/types';
 import { validateMinLength } from '@/lib/validation-helpers';
+import { STOCK_MOVEMENT_TYPES } from '@/lib/stock-helpers';
 
 export async function listStockAlerts(branchId: number) {
   const allProducts = await productRepository.findActive(branchId);
@@ -39,13 +40,7 @@ export async function adjustStock(
 
   validateMinLength(reason, 3, 'El motivo del ajuste');
 
-  const validTypes: StockMovementType[] = [
-    'sale',
-    'cancellation',
-    'manual_adjustment',
-    'restock',
-  ];
-  if (!validTypes.includes(type)) {
+  if (!STOCK_MOVEMENT_TYPES.includes(type)) {
     throw new ValidationError('Tipo de movimiento de stock inválido.');
   }
 

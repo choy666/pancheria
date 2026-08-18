@@ -1,3 +1,5 @@
+import type { StockMovementType } from '@/domain/types';
+
 type ProductLike = {
   id: number;
   type: string;
@@ -63,9 +65,7 @@ export function buildStockMovementReason(
   saleId?: number
 ): string | null {
   if (movementType === 'sale') {
-    return saleId !== undefined
-      ? `Venta #${saleId}`
-      : 'Venta';
+    return saleId !== undefined ? `Venta #${saleId}` : 'Venta';
   }
 
   if (movementType === 'cancellation') {
@@ -77,3 +77,9 @@ export function buildStockMovementReason(
   return null;
 }
 
+export const STOCK_MOVEMENT_TYPES: readonly StockMovementType[] = [
+  'sale',
+  'cancellation',
+  'manual_adjustment',
+  'restock',
+];

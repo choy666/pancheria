@@ -2,6 +2,7 @@ import {
   collectStockProductIdsToLock,
   iterRecipeConsumptions,
   buildStockMovementReason,
+  STOCK_MOVEMENT_TYPES,
 } from './stock-helpers';
 
 describe('stock-helpers', () => {
@@ -161,6 +162,17 @@ describe('stock-helpers', () => {
       const product = { id: 1, name: 'Panchuque', type: 'compound', criticalSupplyType: null };
       const result = Array.from(iterRecipeConsumptions(product, 1, new Map()));
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('STOCK_MOVEMENT_TYPES', () => {
+    it('contiene los tipos de movimiento validos', () => {
+      expect(STOCK_MOVEMENT_TYPES).toEqual([
+        'sale',
+        'cancellation',
+        'manual_adjustment',
+        'restock',
+      ]);
     });
   });
 

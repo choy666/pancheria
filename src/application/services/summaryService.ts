@@ -6,7 +6,7 @@ import {
   addItemToSummary,
   fillMissingCriticalSupplies,
 } from '@/lib/summary-helpers';
-import type { ProductRow } from '@/domain/types';
+import type { CriticalSupplyType, ProductRow } from '@/domain/types';
 
 export async function findRecipesForProducts(
   branchId: number,
@@ -29,7 +29,12 @@ export type RecipeWithSupply = typeof recipes.$inferSelect & {
 
 export type SaleItemWithProduct = {
   quantity: number;
-  product: { id: number; name: string; type: string; criticalSupplyType: string | null } | null;
+  product: {
+    id: number;
+    name: string;
+    type: string;
+    criticalSupplyType: CriticalSupplyType | null;
+  } | null;
 };
 
 export type SaleWithItems = {

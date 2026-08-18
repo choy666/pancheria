@@ -1,5 +1,3 @@
-import { Money } from '@/lib/money';
-
 export type PaginationParams = {
   page: number;
   limit: number;
@@ -55,51 +53,9 @@ export type ProductRow = {
   deletedAt: Date | null;
 };
 
-export type Product = {
-  id: number;
-  branchId: number;
-  name: string;
-  description: string | null;
-  type: ProductType;
-  criticalSupplyType: CriticalSupplyType | null;
-  price: Money;
-  unit: string;
-  stock: number;
-  minStock: number;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-};
-
 export type SaleItemInput = {
   productId: number;
   quantity: number;
-};
-
-export type SaleItem = {
-  id: number;
-  saleId: number;
-  productId: number;
-  quantity: number;
-  unitPrice: Money;
-  subtotal: Money;
-  product?: Product;
-};
-
-export type Sale = {
-  id: number;
-  branchId: number;
-  total: Money;
-  paymentMethod: PaymentMethod;
-  status: SaleStatus;
-  cashRegisterId: number | null;
-  cashRegister?: CashRegister | null;
-  idempotencyKey: string | null;
-  createdAt: Date;
-  cancelledAt: Date | null;
-  cancellationReason: string | null;
-  items?: SaleItem[];
 };
 
 export type Order = {
@@ -137,26 +93,6 @@ export type OrderWithItems = Order & {
   branch?: Branch;
 };
 
-export type CashRegister = {
-  id: number;
-  branchId: number;
-  openedAt: Date;
-  closedAt: Date | null;
-  openedBy: string;
-  closedBy: string | null;
-  status: CashRegisterStatus;
-  autoClosed: boolean;
-  total: Money;
-  cashTotal: Money;
-  transferTotal: Money;
-  totalSales: number;
-  productsSummary: Record<string, number>;
-  criticalSuppliesSummary: Record<string, number>;
-  createdAt: Date;
-  deletedAt: Date | null;
-  sales?: Sale[];
-};
-
 export type StockMovement = {
   id: number;
   branchId: number;
@@ -181,5 +117,3 @@ export type VideoRow = {
   updatedAt: Date;
   deletedAt: Date | null;
 };
-
-
