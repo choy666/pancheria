@@ -1,5 +1,4 @@
 import { eq, and } from 'drizzle-orm';
-import { randomBytes, randomUUID } from 'crypto';
 import { db } from '@/db';
 import { sales } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
@@ -22,12 +21,18 @@ import type {
   SaleItemInput,
 } from '@/domain/types';
 import {
-  validateCartAvailability,
-  validateProductsForOperation,
-  buildSaleItemValues,
-  insertSaleAndUpdateCashRegister,
   buildProductContext,
-} from '@/application/services/saleService';
+  validateProductsForOperation,
+  validateCartAvailability,
+} from '@/lib/product-helpers';
+import { buildSaleItemValues } from '@/lib/sale-helpers';
+import {
+  generateOrderNumber,
+  generateCancellationToken,
+  buildOrderValues,
+  buildOrderItemValues,
+} from '@/lib/order-helpers';
+import { insertSaleAndUpdateCashRegister } from '@/application/services/saleService';
 
 export interface CreateOrderInput {
   branchId: number;
@@ -44,14 +49,6 @@ export interface ConvertOrderInput {
   orderId: number;
   paymentMethod: PaymentMethod;
   idempotencyKey: string;
-}
-
-function generateOrderNumber(branchId: number): string {
-  return `PED-${branchId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
-}
-
-function generateCancellationToken(): string {
-  return randomBytes(32).toString('hex');
 }
 
 async function getOrderByIdempotencyKey(
@@ -104,27 +101,23 @@ export async function createOrder(
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
 
-    const order = await orderRepository.insertOrder(tx, {
+    const orderValues = buildOrderValues({
       branchId,
       orderNumber,
       total: orderTotal,
-      status: 'pending',
-      customerName: customerName.trim(),
+      customerName,
       deliveryType,
-      address: address?.trim() || null,
-      notes: notes?.trim() || null,
+      address,
+      notes,
       cancellationToken,
       idempotencyKey: branchIdempotencyKey,
-      createdAt: nowUTC(),
     });
 
-    await orderRepository.insertOrderItems(
-      tx,
-      orderItemValues.map((item) => ({
-        ...item,
-        orderId: order.id,
-      }))
-    );
+    const order = await orderRepository.insertOrder(tx, orderValues);
+
+    const orderItemsToInsert = buildOrderItemValues(orderItemValues, order.id);
+
+    await orderRepository.insertOrderItems(tx, orderItemsToInsert);
 
     const resultItems: OrderWithItems['items'] = orderItemValues.map((item) => ({
       ...item,
