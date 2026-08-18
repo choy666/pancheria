@@ -134,7 +134,7 @@ El plan original se archivó en <ref_file file="C:/developer/paginas/pancheria/.
 | `npx tsx src/db/seeds.ts` | No ejecutado. Es idempotente pero modifica datos. Ejecutar solo con confirmación. |
 | `npx drizzle-kit check` | Ejecutar tras cambios de esquema futuros para validar consistencia. |
 | Migración de `getCurrentBranchIdOrRedirect` | **Resuelto** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`. Las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`. |
-| Variables de producción | Confirmar `NEXTAUTH_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `DATABASE_URL`, `STORAGE_PROVIDER` y `ORDER_EXPIRATION_MS` en Vercel. |
+| Variables de producción | `NEXTAUTH_URL` corregida a `https://pancheria-alpha.vercel.app` y re-desplegada. Revisar `NEXT_PUBLIC_WHATSAPP_NUMBER`, `DATABASE_URL`, `STORAGE_PROVIDER` y `ORDER_EXPIRATION_MS` en Vercel. |
 
 ---
 

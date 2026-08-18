@@ -31,7 +31,7 @@ Copiar `.env.example` a `.env.local` y completar:
 
 - `DATABASE_URL` — URL de conexión a PostgreSQL (Neon). En Vercel Postgres equivale a `POSTGRES_URL` (pooled).
 - `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
-- `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida.
+- `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida. En NextAuth v5, si existe `AUTH_URL`, tiene prioridad sobre `NEXTAUTH_URL`; en ese caso `AUTH_URL` también debe coincidir con el dominio de producción.
 - `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos (`STORAGE_PROVIDER=local`).
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
 - `ADMIN_USERNAME` — usuario administrador inicial.
@@ -224,6 +224,12 @@ useEffect(() => {
 - Para eventos asíncronos, preferir `await act(async () => { ... })` o `userEvent` sobre `fireEvent` cuando sea posible.
 
 ## Troubleshooting
+
+### `GET /` redirige a `http://localhost:3000/pedido` en producción
+
+- Síntoma: Vercel responde `307 Temporary Redirect` con `Location: http://localhost:3000/pedido` aunque el `Host` sea el dominio de producción.
+- Causa: `NEXTAUTH_URL` (o `AUTH_URL`, que tiene prioridad en v5) está configurada como `http://localhost:3000` en Vercel. NextAuth v5 la usa como URL base para las redirecciones del middleware.
+- Solución: actualizar la variable al dominio de producción (`https://<dominio>.vercel.app`), eliminar `AUTH_URL` si no se usa, y re-desplegar. Verificar con `curl -I https://<dominio>.vercel.app/`; el `Location` debe ser `/pedido` (relativo) o `https://<dominio>.vercel.app/pedido`.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 
