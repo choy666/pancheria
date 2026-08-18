@@ -5,6 +5,7 @@ import {
   getOrderById,
   getPendingOrders,
   getOrders,
+  expirePendingOrders,
 } from './orderService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -302,7 +303,7 @@ describe('orderService', () => {
   });
 
   describe('createOrder', () => {
-    test('reserva stock de una bebida al crear el pedido', async () => {
+    test('crea un pedido sin descontar stock', async () => {
       setProducts([
         {
           id: 1,
@@ -330,18 +331,11 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedInsert(orderItems)).toHaveLength(1);
-      expect(findCapturedUpdate(products)).toHaveLength(1);
-
-      const stockMovement = findCapturedInsert(stockMovements)[0]
-        ?.data as typeof stockMovements.$inferInsert;
-      expect(stockMovement).toBeDefined();
-      expect(stockMovement.type).toBe('order');
-      expect(stockMovement.quantity).toBe(-2);
-      expect(stockMovement.orderId).toBe(1);
-      expect(stockMovement.saleId).toBeNull();
+      expect(findCapturedUpdate(products)).toHaveLength(0);
+      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
-    test('reserva stock de una promo con insumos compartidos', async () => {
+    test('crea un pedido con promo sin descontar insumos compartidos', async () => {
       setProducts([
         { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
         { id: 2, name: 'Promo B', type: 'compound', price: 2000 },
@@ -384,20 +378,9 @@ describe('orderService', () => {
         idempotencyKey: 'key-shared',
       });
 
-      // Cada promo consume 2 salchichas, total 4. Se actualiza el stock de Salchicha por cada ítem.
-      expect(findCapturedUpdate(products)).toHaveLength(2);
-
-      const stockMovementsTotal = findCapturedInsert(stockMovements).reduce(
-        (sum, insert) => sum + ((insert.data as typeof stockMovements.$inferInsert).quantity as number),
-        0
-      );
-      expect(stockMovementsTotal).toBe(-4);
-      expect(
-        findCapturedInsert(stockMovements).every(
-          (insert) =>
-            (insert.data as typeof stockMovements.$inferInsert).type === 'order'
-        )
-      ).toBe(true);
+      expect(findCapturedInsert(orders)).toHaveLength(1);
+      expect(findCapturedUpdate(products)).toHaveLength(0);
+      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
     test('rechaza el pedido si hay stock insuficiente', async () => {
@@ -545,7 +528,7 @@ describe('orderService', () => {
   });
 
   describe('cancelOrder', () => {
-    test('reintegra el stock al cancelar un pedido pendiente', async () => {
+    test('cancela un pedido pendiente sin modificar stock', async () => {
       setProducts([
         {
           id: 1,
@@ -572,14 +555,8 @@ describe('orderService', () => {
 
       expect(result.status).toBe('cancelled');
 
-      expect(findCapturedUpdate(products)).toHaveLength(1);
-
-      const stockMovement = findCapturedInsert(stockMovements)[0]
-        ?.data as typeof stockMovements.$inferInsert;
-      expect(stockMovement).toBeDefined();
-      expect(stockMovement.type).toBe('order_cancellation');
-      expect(stockMovement.quantity).toBe(3);
-      expect(stockMovement.orderId).toBe(1);
+      expect(findCapturedUpdate(products)).toHaveLength(0);
+      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
     test('rechaza cancelación con token inválido', async () => {
@@ -662,6 +639,7 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(sales)).toHaveLength(1);
       expect(findCapturedInsert(saleItems)).toHaveLength(1);
+      expect(findCapturedUpdate(products)).toHaveLength(1);
 
       const sale = findCapturedInsert(sales)[0]?.data as typeof sales.$inferInsert;
       expect(sale.total).toBe(2000);
@@ -676,7 +654,7 @@ describe('orderService', () => {
       });
     });
 
-    test('crea una venta sin descontar stock nuevamente', async () => {
+    test('descontar stock al confirmar pedido', async () => {
       setProducts([
         {
           id: 1,
@@ -712,7 +690,8 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(sales)).toHaveLength(1);
       expect(findCapturedInsert(saleItems)).toHaveLength(1);
-      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
+      expect(findCapturedUpdate(products)).toHaveLength(1);
+      expect(findCapturedInsert(stockMovements)).toHaveLength(1);
       expect(findCapturedUpdate(cashRegisters)).toHaveLength(1);
       expect(findCapturedUpdate(orders)).toHaveLength(1);
 
@@ -724,6 +703,13 @@ describe('orderService', () => {
       const orderUpdate = findCapturedUpdate(orders)[0]
         ?.data as Partial<OrderRow>;
       expect(orderUpdate.status).toBe('converted');
+
+      const stockMovement = findCapturedInsert(stockMovements)[0]
+        ?.data as typeof stockMovements.$inferInsert;
+      expect(stockMovement.type).toBe('sale');
+      expect(stockMovement.quantity).toBe(-2);
+      expect(stockMovement.saleId).toBe(1);
+      expect(stockMovement.orderId).toBeNull();
     });
 
     test('es idempotente cuando la venta ya fue procesada', async () => {
@@ -927,6 +913,74 @@ describe('orderService', () => {
       expect(result.items).toHaveLength(1);
       expect(result.page).toBe(1);
       expect(result.limit).toBe(10);
+    });
+  });
+
+  describe('expirePendingOrders', () => {
+    const ORIGINAL_ORDER_EXPIRATION_MS = process.env.ORDER_EXPIRATION_MS;
+
+    beforeEach(() => {
+      process.env.ORDER_EXPIRATION_MS = '60000';
+    });
+
+    afterEach(() => {
+      process.env.ORDER_EXPIRATION_MS = ORIGINAL_ORDER_EXPIRATION_MS;
+    });
+
+    test('expira pedidos pending creados antes del tiempo de expiración sin modificar stock', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findMany.mockResolvedValue([
+        { id: 1, branchId: BRANCH_ID },
+      ]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({
+          createdAt: new Date(Date.now() - 120_000),
+        }),
+        items: [createOrderItemRow({ productId: 1, quantity: 3 })],
+      });
+
+      const count = await expirePendingOrders(BRANCH_ID);
+
+      expect(count).toBe(1);
+      expect(mockedDb.query.orders.findMany).toHaveBeenCalled();
+      expect(mockedDb.query.orders.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+        })
+      );
+      expect(findCapturedUpdate(orders)).toHaveLength(1);
+
+      const updatedOrder = findCapturedUpdate(orders)[0]?.data as Partial<
+        typeof orders.$inferInsert
+      >;
+      expect(updatedOrder.status).toBe('cancelled');
+      expect(updatedOrder.cancellationReason).toBe(
+        'Expiración automática por inactividad'
+      );
+
+      expect(findCapturedUpdate(products)).toHaveLength(0);
+      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
+    });
+
+    test('no cancela pedidos pending recientes', async () => {
+      mockedDb.query.orders.findMany.mockResolvedValue([]);
+
+      const count = await expirePendingOrders(BRANCH_ID);
+
+      expect(count).toBe(0);
+      expect(mockedDb.query.orders.findFirst).not.toHaveBeenCalled();
     });
   });
 });

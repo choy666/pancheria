@@ -880,8 +880,7 @@ export async function insertSaleAndUpdateCashRegister(
     subtotal: number;
   }[],
   productById: Map<number, ProductRow>,
-  recipesByProduct: Map<number, RecipeWithSupply[]>,
-  options?: { skipStockDeduct?: boolean }
+  recipesByProduct: Map<number, RecipeWithSupply[]>
 ) {
   const [sale] = await tx
     .insert(sales)
@@ -902,17 +901,15 @@ export async function insertSaleAndUpdateCashRegister(
     }))
   );
 
-  if (!options?.skipStockDeduct) {
-    await deductStockForItems(
-      tx,
-      branchId,
-      saleItemValues,
-      productById,
-      recipesByProduct,
-      { saleId: sale.id },
-      'sale'
-    );
-  }
+  await deductStockForItems(
+    tx,
+    branchId,
+    saleItemValues,
+    productById,
+    recipesByProduct,
+    { saleId: sale.id },
+    'sale'
+  );
 
   const [lockedCashRegister] = await tx
     .select()

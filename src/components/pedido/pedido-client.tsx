@@ -447,7 +447,7 @@ export function PedidoClient({
           <DialogHeader>
             <DialogTitle>Finalizar pedido</DialogTitle>
             <DialogDescription>
-              Completá tus datos para reservar el pedido y enviarlo por WhatsApp.
+              Completá tus datos para enviar el pedido por WhatsApp. El stock se confirma cuando el operador acepta el pedido.
             </DialogDescription>
           </DialogHeader>
 
@@ -535,7 +535,7 @@ export function PedidoClient({
               }
               onClick={handleSubmitCheckout}
             >
-              {isSubmitting ? 'Reservando...' : 'Reservar y abrir WhatsApp'}
+              {isSubmitting ? 'Enviando...' : 'Enviar pedido por WhatsApp'}
             </Button>
           </DialogFooter>
         </DialogContent>

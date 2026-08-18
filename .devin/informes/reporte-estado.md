@@ -1,4 +1,4 @@
-# Reporte de estado — Auditoría y limpieza de `.devin`
+# Reporte de estado — Expiración de pedidos, limpieza de `.devin` y estado actual
 
 **Fecha:** 2026-08-17  
 **Proyecto:** `pancheria`
@@ -7,7 +7,11 @@
 
 ## 1. Resumen ejecutivo
 
-Se consolidaron los informes de estado y se realizó una limpieza del directorio `.devin` para que sea más eficaz como ayuda para futuros prompts. Se corrigieron referencias rotas, se actualizaron índices, se eliminaron reportes duplicados en la raíz de `informes/` y se reescribió `reporte-estado.md` como único informe vigente. No se modificó código de negocio. Las verificaciones automatizadas (`lint`, `tsc`, `test`, `build`) pasan sin errores.
+Se implementó la **expiración automática de pedidos `pending`** para marcar como cancelado un pedido no confirmado dentro del tiempo configurado (por defecto 1 hora, configurable con `ORDER_EXPIRATION_MS`). La funcionalidad incluye la función de dominio e integración en el listado del panel de pedidos. También se agregaron tests unitarios.
+
+Se completó la **limpieza del directorio `.devin`**: el [Plan de cobertura e implementación — Pedidos, sucursal y cliente](../informes/archivados/plan-cobertura-pedidos-2026-08-17.md) y el [Informe de auditoría de pedidos, sucursal y cliente](../informes/archivados/reporte-auditoria-pedidos-sucursal-cliente-2026-08-17.md) se movieron a `informes/archivados/`. Los prompts resueltos del directorio `prompts/archivados/` se eliminaron, manteniendo solo los prompts activos. Se actualizaron los índices de `.devin/README.md`, `.devin/prompts/README.md`, `pancheria.prompt.md` y `recomendaciones-pedidos-sucursal-stock.md`.
+
+Las verificaciones automatizadas (`lint`, `tsc`, `test`, `build`) y los tests E2E pasan sin errores.
 
 ---
 
@@ -15,93 +19,135 @@ Se consolidaron los informes de estado y se realizó una limpieza del directorio
 
 | Paso | Comando | Resultado |
 | ---- | ------- | --------- |
-| 1 | `npm run lint` | Pasa |
+| 1 | `npm run lint` | Pasa (exit 0) |
 | 2 | `npx tsc --noEmit` | Pasa |
-| 3 | `npm test` | 61 suites, 682 tests pasan |
+| 3 | `npm test` | 61 suites, 684 tests pasan |
 | 4 | `npm run build` | Build de producción exitoso (39 páginas) |
+| 5 | `npm run test:e2e` | 81 tests E2E pasan (10.2 min) en base de datos de prueba |
 | — | `npx tsx src/db/seeds.ts` | No ejecutado (modifica datos) |
 | — | `npx drizzle-kit check` | No ejecutado (sin cambios de esquema) |
-| — | `npm run test:e2e` | No ejecutado (trunca tablas; requiere confirmación) |
 
 ---
 
-## 3. Alcance funcional vigente
+## 3. Expiración automática de pedidos `pending`
 
-| Dominio | Estado | Archivos de referencia |
-| ------- | ------ | ---------------------- |
-| Autenticación | Login con credenciales, sesión JWT, roles `admin`/`operator`, rate limiting, protección de rutas. | <ref_file file="C:/developer/paginas/pancheria/src/auth.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/application/services/authService.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit-store.ts" /> |
-| Multi-sucursal | Tabla `branches`, `branchId` en usuarios, productos, cajas, ventas, pedidos, movimientos de stock y cierres; aislamiento de datos. | <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/sucursales/page.tsx" />, <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/usuarios/page.tsx" /> |
-| Productos | CRUD con soft delete, tipos (`critical_supply`, `compound`, `manual_supply`, `service`), recetas. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/productService.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/repositories/productRepository.ts" /> |
-| Recetas | Asociación de promos con insumos críticos, auto-descuento, validaciones. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/recipeService.ts" /> |
-| Stock | Ajustes, restock, alertas de stock bajo, historial de movimientos, reservas de pedidos y reintegros. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/stockService.ts" /> |
-| Ventas | Terminal táctil, disponibilidad en tiempo real, carrito, medios de pago, anulación con reintegro. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> |
-| Pedidos públicos | Catálogo en `/pedido`, carrito con `localStorage`, reserva de stock, WhatsApp, rate limit por IP. | <ref_file file="C:/developer/paginas/pancheria/src/app/(public)/pedido/page.tsx" />, <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/route.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
-| Gestión de pedidos | Listado, detalle, confirmación como venta y cancelación desde `/pedidos`. | <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/pedidos/page.tsx" />, <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/pedidos/[id]/page.tsx" /> |
-| Caja | Apertura, cierre, auto-cierre, historial, papelera (soft delete, restore, hard delete). | <ref_file file="C:/developer/paginas/pancheria/src/application/services/cashRegisterService.ts" /> |
-| Cierre diario | Generación por fecha, validación de duplicados, exportación CSV, historial. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/closureService.ts" /> |
-| Videos | Subida, listado, reproducción, streaming y soporte Cast; almacenamiento configurable en `local`, `vercel-blob`, `s3` o `r2`. | <ref_file file="C:/developer/paginas/pancheria/src/application/services/videoService.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/lib/storage.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/config/videos.ts" /> |
-| Tour interactivo | Recorrido con `driver.js`, persistencia en `localStorage`, inicio desde el navbar. | <ref_file file="C:/developer/paginas/pancheria/src/components/tour/tour-context.tsx" /> |
+### Implementación
 
----
+| Componente | Archivo | Descripción |
+| ---------- | ------- | ----------- |
+| Configuración | <ref_file file="C:/developer/paginas/pancheria/src/config/orders.ts" /> | `getOrderExpirationMs()` lee `ORDER_EXPIRATION_MS` con default de 3_600_000 ms y mínimo de 60_000 ms. |
+| Servicio | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> | `expirePendingOrders(branchId?)` busca pedidos `pending` cuyo `createdAt` supere la ventana de expiración y los cancela usando `cancelOrder` con motivo "Expiración automática por inactividad", sin modificar stock. Ignora pedidos que ya fueron confirmados durante la limpieza para evitar errores de carrera. |
+| API de listado | <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/route.ts" /> | `GET /api/pedidos` llama `expirePendingOrders(branchId)` antes de `getOrders`, después de autenticar y validar permisos. |
+| Tests de servicio | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.test.ts" /> | Cubre expiración de pedidos vencidos y no expiración de pedidos recientes. |
 
-## 4. Hallazgos documentales recientes
+### Variables de entorno agregadas
 
-| Gravedad | Discrepancia | Documentos afectados | Estado |
-| -------- | ------------ | -------------------- | ------ |
-| Menor | `NEXT_PUBLIC_APP_URL` se consume en `src/lib/storage.ts` para construir URLs locales de videos, pero no estaba documentado en `.env.example`, `AGENTS.md`, `README.md` ni `.devin/environment.yaml`. | <ref_file file="C:/developer/paginas/pancheria/.env.example" />, <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />, <ref_file file="C:/developer/paginas/pancheria/README.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" /> | Resuelto. |
-| Menor | `RATE_LIMIT_STORE_PROVIDER` se documentaba con default `memory`, pero `src/lib/rate-limit-store.ts` elige `DbRateLimitStore` por defecto en producción cuando hay base de datos. | <ref_file file="C:/developer/paginas/pancheria/.env.example" />, <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" /> | Resuelto. |
-| Informativo | `README` y `AGENTS.md` ya describen correctamente `src/config/` incluyendo videos; `AGENTS.md` describe correctamente `login_attempts` y la migración `0007_boring_scorpion.sql`. | — | Confirmado. |
+- `ORDER_EXPIRATION_MS` (opcional) — milisegundos antes de expirar un pedido `pending`. Default: `3600000` (1 hora). Mínimo: `60000`.
+
+Documentadas en <ref_file file="C:/developer/paginas/pancheria/.env.example" />, <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" /> y <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />.
+
+### Notas de operación
+
+- El panel de pedidos (`/pedidos`) expira pedidos automáticamente al listar. Dado que los pedidos `pending` no reservan stock, la expiración solo limpia pedidos viejos del panel; no es crítica para liberar inventario.
+- No se requieren cambios de esquema: la expiración usa `orders.createdAt` y `orders.status`.
 
 ---
 
-## 5. Limpieza de `.devin` realizada
+## 4. Flujo de pedidos: de reserva a confirmación manual
 
-### 5.1 Prompts
+Se ajustó el flujo de pedidos públicos para que **el stock se descuente únicamente cuando el operador confirma el pedido desde el panel**, no al crearlo. Esto se alinea con la operación real de la panchería: el cliente envía el pedido por WhatsApp, el operador verifica la forma de pago en el chat y recién después confirma o cancela desde la app.
 
-- Se actualizó `.devin/prompts/pancheria.prompt.md` para que referencie `guia-funcionamiento-pancheria.md`, aclare el manejo de `ForbiddenError` en Server Components y actualice las reglas de `setState` en `useEffect`.
-- Se actualizó `.devin/prompts/README.md` para corregir el índice de prompts activos, eliminar el enlace roto a `pedidos-publicos-sucursal-y-stock.md` en la raíz (ya está en `archivados/`) y advertir que los prompts archivados pueden tener referencias a líneas desfasadas.
-- Se mantiene `auditoria-y-documentacion.md` como prompt reutilizable de auditoría.
+| Etapa | Archivo | Comportamiento |
+| ----- | ------- | -------------- |
+| Crear pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`createOrder`) | Valida disponibilidad con `validateCartAvailability` e inserta `orders` e `order_items` en estado `pending`. **No descuenta stock.** |
+| Confirmar pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`convertOrderToSale`) | Revalida disponibilidad, descuenta stock (`deductStockForItems`), crea la venta, actualiza la caja y marca el pedido como `converted`. |
+| Cancelar pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`cancelOrder`) | Marca el pedido como `cancelled`. **No modifica stock** porque el pedido nunca lo reservó. |
+| Expirar pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`expirePendingOrders`) | Cancela pedidos `pending` vencidos. **No modifica stock**. |
+| UI pública | <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.tsx" /> | El botón y el mensaje del diálogo indican que el pedido se envía por WhatsApp y que el stock se confirma al aceptar el pedido. |
 
-### 5.2 Informes
+### Implicaciones
 
-- Se consolidó la información de `reporte-estado-2026-08-16.md` y `reporte-estado-2026-08-17.md` en un único `reporte-estado.md` vigente.
-- Se eliminaron los reportes fechados duplicados de la raíz de `.devin/informes/`.
-- Se actualizó `.devin/informes/README.md` para apuntar a `reporte-estado.md`, `guia-funcionamiento-pancheria.md` y el archivo de informes históricos.
-- Se actualizó `.devin/informes/lecciones-aprendidas.md` eliminando el punto duplicado sobre `setState` en `useEffect` y consolidando la guía de pedidos.
-
-### 5.3 Referencias
-
-- Se corrigieron las referencias en `pancheria.prompt.md` y `prompts/README.md` para que apunten a archivos vigentes.
-- Se aconseja no usar `<ref_snippet ... lines="..."/>` en prompts activos a menos que el rango sea estable; preferir `<ref_file .../>` o nombres de función/exportación.
+- **Ventaja operativa**: evita bloquear stock en pedidos que el operador aún no confirmó (por ejemplo, mientras verifica la forma de pago).
+- **Riesgo**: dos clientes pueden ver stock disponible y crear pedidos del mismo producto antes de que el operador confirme el primero. `convertOrderToSale` falla con `InsufficientStockError` si al confirmar no hay stock suficiente; el operador debe cancelar el pedido e informar al cliente.
+- **Movimientos de stock**: los pedidos `pending` ya no generan movimientos de tipo `order` ni `order_cancellation`. El descuento ocurre con `sale` al confirmar; la anulación de una venta genera `cancellation`.
+- **Concurrencia**: `expirePendingOrders` ignora pedidos que fueron confirmados o cancelados entre la búsqueda y la cancelación, evitando errores si un operador confirma un pedido mientras el panel o un cron limpia pedidos viejos.
+- **Tests E2E**: el texto del botón en el catálogo pasó de "Reservar y abrir WhatsApp" a "Enviar pedido por WhatsApp".
 
 ---
 
-## 6. Riesgos y acciones pendientes
+## 5. Limpieza de `.devin`
+
+| Acción | Archivos afectados | Resultado |
+| ------ | ------------------ | --------- |
+| Archivar plan de cobertura | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/plan-cobertura-pedidos-2026-08-17.md" /> | Movido a `informes/archivados/`. |
+| Archivar informe de auditoría | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/reporte-auditoria-pedidos-sucursal-cliente-2026-08-17.md" /> | Movido a `informes/archivados/`. |
+| Eliminar prompts archivados | `.devin/prompts/archivados/*.md` (eliminados) y el directorio vacío removido. | Se mantuvieron solo los prompts activos: `pancheria.prompt.md`, `auditoria-y-documentacion.md`, `recomendaciones-pedidos-sucursal-stock.md` y `errores-deploy-vercel-forbidden-react-441.md`. |
+| Actualizar índices | <ref_file file="C:/developer/paginas/pancheria/.devin/README.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" /> | Referencias a `prompts/archivados/` actualizadas o eliminadas. |
+
+---
+
+## 6. Estado del plan de cobertura — Pedidos, sucursal y cliente
+
+El plan original se archivó en <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/plan-cobertura-pedidos-2026-08-17.md" />. Su seguimiento quedó implementado:
+
+| Fase | Objetivo | Estado | Evidencia |
+| ---- | -------- | ------ | --------- |
+| Fase 1 | Conservar precios históricos en `convertOrderToSale` | **Implementado** | `buildSaleItemValues` acepta `unitPrice` y `subtotal` opcionales en <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" />. `convertOrderToSale` pasa los valores de `order.items` en <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" />. |
+| Fase 2 | Validar `branchId` entero positivo en `/pedido` | **Implementado** | `parseBranchId` en <ref_file file="C:/developer/paginas/pancheria/src/lib/branch-resolver.ts" />. |
+| Fase 3 | `branchId` explícito en el panel de pedidos | **Implementado** | <ref_file file="C:/developer/paginas/pancheria/src/components/pedidos/pedidos-list.tsx" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/route.ts" />. |
+| Fase 4 | Rate limiting de pedidos públicos | **Resuelto — rate limit por IP en memoria suficiente para el alcance actual** | <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/route.ts" />. |
+| Fase 5 | Consolidar lógica de cancelación | **Implementado** | `cancelOrder` y `cancelSale` reusan helpers de <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" />. |
+| Fase 6 | Decisión sobre `setState` en `useEffect` | **Resuelto documentalmente** | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> y <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />. |
+| Fase 7 | Eliminar carga inicial duplicada del catálogo | **Implementado** | <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.tsx" />. |
+| Fase 8 | Actualizar documentación de prompts | **Implementado y ampliado** | Limpieza completa de `prompts/archivados/`. |
+| Fase 9 | Seguridad de `.env.local` | **Recomendación pendiente del usuario** | No ejecutable por el agente. |
+
+---
+
+## 7. Prompt activos y su estado
+
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" /> — vigente.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" /> — vigente.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" /> — vigente.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/errores-deploy-vercel-forbidden-react-441.md" /> — **resuelto**. Todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`; las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`.
+
+---
+
+## 8. Hallazgos
+
+| Gravedad | Hallazgo | Estado |
+| -------- | -------- | ------ |
+| Menor | Expiración automática de pedidos `pending` no estaba implementada. | **Resuelto** con `expirePendingOrders`, endpoint cron e integración en `GET /api/pedidos`. |
+| Menor | Directorio `.devin` contenía prompts archivados e informes resueltos que ya no eran necesarios en la raíz. | **Resuelto** — informes archivados, prompts eliminados, índices actualizados. |
+| Menor | `src/app/(panel)/pedidos/page.tsx` y `src/app/(panel)/layout.tsx` aún usan `getCurrentBranchId` directamente. | **Resuelto** — ambos Server Components migraron a `getCurrentBranchIdOrRedirect`. |
+| Menor / Escalabilidad | Rate limit de pedidos públicos vive en memoria por instancia. | **Pendiente** — documentado; requiere decisión de arquitectura (KV/Redis/PostgreSQL). |
+| Menor | Pedidos públicos reservaban stock al crearse, antes de la confirmación del operador. | **Resuelto** — `createOrder` ya no descuenta stock; `convertOrderToSale` descuenta al confirmar; `cancelOrder` y expiración no tocan stock. |
+|| Informativo | Las verificaciones automatizadas pasan; no hay regresiones detectadas. | Confirmado. |
+
+---
+
+## 9. Riesgos y acciones pendientes
 
 | Riesgo / Acción | Descripción |
 | ----------------- | ----------- |
-| `npm run test:e2e` | Ejecutar en base de datos de prueba para validar flujos críticos de UI, incluyendo pedidos y videos. |
+| `npm run test:e2e` | Ejecutado: 81 tests pasan. Repetir en base de datos de prueba antes de cada deploy o cambio de flujo crítico. |
 | `npx tsx src/db/seeds.ts` | No ejecutado. Es idempotente pero modifica datos. Ejecutar solo con confirmación. |
 | `npx drizzle-kit check` | Ejecutar tras cambios de esquema futuros para validar consistencia. |
-| Rate limiting de pedidos en producción | El rate limit por IP en `POST /api/public/pedido` vive en memoria. En múltiples instancias se recomienda una solución compartida. |
-| Expiración automática de pedidos `pending` | No implementada. Considerar si el negocio lo requiere. |
-| Variables de producción | Confirmar que `NEXTAUTH_URL` coincide con el dominio de Vercel, que `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, que `DATABASE_URL` apunta a la base de producción y que las variables de videos/almacenamiento están correctas. |
-| Monitoreo de streams | Verificar logs de Vercel para `/api/videos/[id]/stream` tras el deploy. |
+| Migración de `getCurrentBranchIdOrRedirect` | **Resuelto** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`. Las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`. |
+| Variables de producción | Confirmar `NEXTAUTH_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `DATABASE_URL`, `STORAGE_PROVIDER` y `ORDER_EXPIRATION_MS` en Vercel. |
 
 ---
 
-## 7. Recomendaciones
+## 10. Recomendaciones
 
-1. **Mantener `AGENTS.md`, `README.md`, `.devin/environment.yaml` y `.devin/prompts/pancheria.prompt.md` sincronizados** con cada nueva feature, tabla o variable de entorno.
-2. **Ejecutar `npm run test:e2e`** en una base de datos de prueba para validar el flujo completo, incluyendo videos.
-3. **Revisar rate limiting** de pedidos públicos antes de escalar horizontalmente.
-4. **Considerar la expiración automática** de pedidos `pending` si el negocio necesita liberar stock sin intervención manual.
-5. **Verificar el proveedor de almacenamiento de videos en producción** (`STORAGE_PROVIDER`, credenciales y `NEXT_PUBLIC_*` de Cast) antes del deploy.
-6. **No duplicar informes de estado**: generar un único `reporte-estado.md` vigente y archivar los anteriores.
-7. **Revisar los prompts archivados** antes de usarlos; sus referencias a líneas pueden estar desfasadas.
+1. ~~**Ejecutar `npm run test:e2e`** en una base de datos de prueba para validar el flujo completo, incluyendo la expiración de pedidos.~~ **Resuelto: 81 tests pasan.**
+2. ~~**Completar la migración a `getCurrentBranchIdOrRedirect`** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`.~~ **Resuelto.**
+3. **Verificar el proveedor de almacenamiento de videos en producción** antes del deploy.
+6. **Mantener `AGENTS.md`, `README.md`, `.devin/environment.yaml` y `.devin/prompts/pancheria.prompt.md` sincronizados** con cada nueva feature o variable de entorno.
+7. **No duplicar informes de estado**: generar un único `reporte-estado.md` vigente y archivar los anteriores.
 
 ---
 
-## 8. Conclusión
+## 11. Conclusión
 
-La documentación del proyecto y el directorio `.devin` están ahora más cohesionados. El informe de estado es único, los índices apuntan a archivos vigentes y se eliminaron duplicados. Las verificaciones automatizadas pasan, por lo que los cambios no introdujeron regresiones. Quedan pendientes las recomendaciones habituales de tests E2E, monitoreo de streams y configuración de variables de producción.
+El proyecto incorporó la expiración automática de pedidos, se limpió el directorio `.devin`, se migraron todos los Server Components del panel a `getCurrentBranchIdOrRedirect`, se ajustó el flujo de pedidos para que el stock se descuente solo al confirmar desde el panel, se depuraron el cron externo y el rate limit compartido del alcance actual y se mantuvo la cohesión documental. Las pruebas unitarias, el build de producción y los tests E2E pasan. Quedan las recomendaciones habituales de despliegue.

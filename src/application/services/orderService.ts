@@ -1,4 +1,4 @@
-import { eq, and, isNull, count } from 'drizzle-orm';
+import { eq, and, isNull, count, lt } from 'drizzle-orm';
 import { randomBytes, randomUUID } from 'crypto';
 import { db } from '@/db';
 import { orders, orderItems, sales } from '@/db/schema';
@@ -8,6 +8,7 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import * as idempotencyService from '@/application/idempotencyService';
 
 import { nowUTC } from '@/lib/date';
+import { getOrderExpirationMs } from '@/config/orders';
 import {
   InsufficientStockError,
   NotFoundError,
@@ -24,9 +25,6 @@ import {
   validateProductsForOperation,
   buildSaleItemValues,
   insertSaleAndUpdateCashRegister,
-  deductStockForItems,
-  buildReintegrationContext,
-  reintegrateStockAndUpdateCashRegister,
   buildProductContext,
 } from '@/application/services/saleService';
 
@@ -92,10 +90,7 @@ export async function createOrder(
   }
 
   const productIds = items.map((item) => item.productId);
-  const { productById, recipesByProduct } = await buildProductContext(
-    branchId,
-    productIds
-  );
+  const { productById } = await buildProductContext(branchId, productIds);
 
   validateProductsForOperation(items, productById, branchId, 'pedido');
 
@@ -144,16 +139,6 @@ export async function createOrder(
       }))
     );
 
-    await deductStockForItems(
-      tx,
-      branchId,
-      orderItemValues,
-      productById,
-      recipesByProduct,
-      { orderId: order.id },
-      'order'
-    );
-
     const resultItems: OrderWithItems['items'] = orderItemValues.map((item) => ({
       ...item,
       id: 0,
@@ -194,37 +179,17 @@ export async function cancelOrder(
     throw new ValidationError('El token de cancelación no es válido.');
   }
 
-  return executeInTransaction(async (tx) => {
-    const { productById, recipesByProduct } = await buildReintegrationContext(
-      tx,
-      branchId,
-      order.items,
-      true
-    );
+  const [updated] = await db
+    .update(orders)
+    .set({
+      status: 'cancelled',
+      cancelledAt: nowUTC(),
+      cancellationReason: reason,
+    })
+    .where(and(eq(orders.id, id), eq(orders.branchId, branchId)))
+    .returning();
 
-    await reintegrateStockAndUpdateCashRegister(
-      tx,
-      branchId,
-      null,
-      order.items,
-      productById,
-      recipesByProduct,
-      { orderId: order.id },
-      'order_cancellation'
-    );
-
-    const [updated] = await tx
-      .update(orders)
-      .set({
-        status: 'cancelled',
-        cancelledAt: nowUTC(),
-        cancellationReason: reason,
-      })
-      .where(and(eq(orders.id, id), eq(orders.branchId, branchId)))
-      .returning();
-
-    return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
-  });
+  return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
 }
 
 export async function convertOrderToSale(
@@ -283,6 +248,20 @@ export async function convertOrderToSale(
 
   validateProductsForOperation(order.items, productById, branchId, 'venta');
 
+  const { shortageByProduct } = await validateCartAvailability(branchId, order.items);
+
+  if (Object.keys(shortageByProduct).length > 0) {
+    const productId = Number(Object.keys(shortageByProduct)[0]);
+    const product = productById.get(productId)!;
+    const shortage = shortageByProduct[productId];
+    throw new InsufficientStockError(
+      product.name,
+      shortage.available,
+      shortage.required,
+      shortage.supplyName !== product.name ? shortage.supplyName : undefined
+    );
+  }
+
   const { saleItemValues, total: saleTotal } = buildSaleItemValues(
     productById,
     order.items.map((item) => ({
@@ -303,8 +282,7 @@ export async function convertOrderToSale(
       saleTotal,
       saleItemValues,
       productById,
-      recipesByProduct,
-      { skipStockDeduct: true }
+      recipesByProduct
     );
 
     await tx
@@ -390,4 +368,51 @@ export async function getOrders(
     page,
     limit,
   };
+}
+
+export async function expirePendingOrders(
+  branchId?: number
+): Promise<number> {
+  const expirationMs = getOrderExpirationMs();
+  const cutoff = new Date(Date.now() - expirationMs);
+
+  const conditions = [
+    eq(orders.status, 'pending'),
+    lt(orders.createdAt, cutoff),
+    isNull(orders.deletedAt),
+  ];
+
+  if (branchId !== undefined) {
+    conditions.push(eq(orders.branchId, branchId));
+  }
+
+  const expiredOrders = await db.query.orders.findMany({
+    where: and(...conditions),
+    columns: { id: true, branchId: true },
+  });
+
+  let expiredCount = 0;
+
+  for (const order of expiredOrders) {
+    try {
+      await cancelOrder(
+        order.branchId,
+        order.id,
+        'Expiración automática por inactividad'
+      );
+      expiredCount += 1;
+    } catch (error) {
+      // Si el pedido fue confirmado o cancelado entre la búsqueda y la
+      // cancelación, no interrumpimos la limpieza del resto.
+      if (
+        error instanceof ValidationError &&
+        error.message.includes('confirmado')
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return expiredCount;
 }

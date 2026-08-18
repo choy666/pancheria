@@ -10,7 +10,7 @@ Este prompt documenta las decisiones arquitectónicas y las buenas prácticas ap
 
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/auditoria-pedidos-sucursal-cliente.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/reporte-auditoria-pedidos-sucursal-cliente-2026-08-17.md" />
 
 ## 1. Aislamiento por sucursal
 
@@ -67,7 +67,7 @@ Para **sincronizar props con estado**, preferir:
 - <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> — `validateProductsForOperation`.
 - <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> — `buildSaleItemValues`.
 - <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> — `insertSaleAndUpdateCashRegister`.
-- <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> — `buildReintegrationContext` y `reintegrateStockAndUpdateCashRegister` para `cancelOrder` y `cancelSale`.
+- <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> — `buildReintegrationContext` y `reintegrateStockAndUpdateCashRegister` para `cancelSale`. `cancelOrder` no modifica stock porque los pedidos `pending` no reservan.
 
 ### Semántica de disponibilidad
 - En `/pedido` solo interesa la disponibilidad de los items del carrito.

@@ -31,13 +31,13 @@ test.describe('Pedido público por WhatsApp', () => {
 
     // Sin NEXT_PUBLIC_WHATSAPP_NUMBER configurado, el envío muestra un error
     // claro en lugar de abrir un enlace inválido.
-    await page.getByRole('button', { name: 'Reservar y abrir WhatsApp' }).click();
+    await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
     await expect(
       page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
     ).toBeVisible();
   });
 
-  test('crea un pedido en una sucursal no default reservando stock correcto', async ({
+  test('crea un pedido en una sucursal no default', async ({
     page,
   }) => {
     const second = await getTestSecondBranch();
@@ -76,7 +76,7 @@ test.describe('Pedido público por WhatsApp', () => {
     await page.getByRole('button', { name: 'Pedir por WhatsApp' }).click();
     await page.fill('input#customerName', 'Ana García');
 
-    await page.getByRole('button', { name: 'Reservar y abrir WhatsApp' }).click();
+    await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
     await expect(
       page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
     ).toBeVisible();

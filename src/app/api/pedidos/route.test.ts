@@ -48,6 +48,7 @@ describe('GET /api/pedidos', () => {
       name: 'Sucursal Test',
       createdAt: new Date(),
     });
+    mockedOrderService.expirePendingOrders.mockResolvedValue(0);
   });
 
   function buildRequest(path = ''): NextRequest {

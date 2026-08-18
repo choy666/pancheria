@@ -65,21 +65,22 @@ knowledge:
       5. Empujar migraciones: npx drizzle-kit push
       6. Ejecutar seed (administrador y catálogo inicial): npx tsx src/db/seeds.ts
       7. Variables de entorno usadas por el seed: `DEFAULT_BRANCH_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`; opcionalmente `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD` para crear una segunda sucursal y usuario.
-      8. El esquema incluye las tablas `orders` e `order_items` para pedidos públicos con reserva de stock.
+      8. El esquema incluye las tablas `orders` e `order_items` para pedidos públicos.
       9. El esquema incluye la tabla `videos` para contenido audiovisual y `login_attempts` para rate limiting de login en base de datos.
       10. `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` controla el intervalo de refresco del panel de caja (por defecto 5000 ms).
       11. `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` configuran el catálogo y pedidos.
-      12. `RATE_LIMIT_STORE_PROVIDER` (opcional) controla dónde se almacenan los intentos fallidos de login: `memory` en desarrollo/test, `db` por defecto en producción si hay base de datos, o explícito con `RATE_LIMIT_STORE_PROVIDER=db`.
-      13. Variables de videos y almacenamiento: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
-      14. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      12. `ORDER_EXPIRATION_MS` (opcional) — milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3600000 ms = 1 hora; mínimo 60000 ms). No libera stock; limpia pedidos viejos del panel al listar.
+      14. `RATE_LIMIT_STORE_PROVIDER` (opcional) controla dónde se almacenan los intentos fallidos de login: `memory` en desarrollo/test, `db` por defecto en producción si hay base de datos, o explícito con `RATE_LIMIT_STORE_PROVIDER=db`.
+      15. Variables de videos y almacenamiento: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
+      16. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
 
   - name: pedidos
     contents: |
       Catálogo público y pedidos:
       - Ruta pública `/pedido` para armar carrito y enviar pedido por WhatsApp.
-      - Panel `/pedidos` para listar, confirmar o cancelar pedidos.
-      - El stock se reserva al crear el pedido y se reintegra al cancelar.
-      - Variables de entorno: `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
+      - Panel `/pedidos` para listar, confirmar o cancelar pedidos; al listar se expiran automáticamente los pedidos `pending` cuyo `createdAt` supere `ORDER_EXPIRATION_MS`.
+      - El stock se valida al crear el pedido y se descuenta únicamente al confirmar desde el panel; la cancelación o expiración no modifica stock.
+      - Variables de entorno: `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `ORDER_EXPIRATION_MS`.
 
   - name: videos
     contents: |

@@ -90,8 +90,8 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 | `manual_adjustment` | Ajuste manual por pérdida, rotura, etc. | Operador desde `/stock` | Sí (`+quantity`) |
 | `sale` | Venta confirmada desde el terminal | Automático al confirmar venta | Sí (`-quantity`) |
 | `cancellation` | Anulación de una venta | Automático al anular venta | Sí (`+quantity`, reintegro) |
-| `order` | Pedido público creado | Automático al crear pedido | Sí (`-quantity`, reserva) |
-| `order_cancellation` | Cancelación de un pedido | Automático al cancelar pedido | Sí (`+quantity`, reintegro) |
+| `order` | Pedido público creado | Automático al crear pedido | No (no se genera) |
+| `order_cancellation` | Cancelación de un pedido | **No se genera** en el flujo actual. | No |
 
 <ref_file file="C:/developer/paginas/pancheria/src/domain/types.ts" /> (`StockMovementType`).
 
@@ -106,14 +106,13 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 2. **Pedido público (`/pedido`)**
    - El cliente arma el carrito y envía el pedido por WhatsApp.
-   - Se reserva stock transaccionalmente (`deductStockForItems` con `movementType: 'order'`).
-   - El pedido queda `pending` y el stock ya está comprometido.
+   - Se valida disponibilidad de stock en el momento (`validateCartAvailability`) pero **no se reserva ni descuenta stock**.
+   - El pedido queda `pending` y el stock sigue disponible para otras ventas hasta que el operador confirme.
 
 3. **Conversión de pedido a venta (`/pedidos/[id]/confirmar`)**
-   - El operador abre el pedido pendiente y confirma.
-   - Se crea la venta (`sales` + `sale_items`).
-   - **No se descuenta stock nuevamente** porque ya fue reservado al crear el pedido. `insertSaleAndUpdateCashRegister` recibe `skipStockDeduct: true`.
-   - Se actualiza el resumen de caja.
+   - El operador revisa el pedido pendiente, confirma la forma de pago y confirma.
+   - Se valida nuevamente la disponibilidad de stock y se descuenta transaccionalmente (`deductStockForItems` con `movementType: 'sale'`).
+   - Se crea la venta (`sales` + `sale_items`) y se actualiza el resumen de caja.
    - El pedido pasa a `converted` y se vincula con `convertedSaleId`.
 
 ### 4.4 ¿Cuándo se reintegra stock automáticamente?
@@ -127,7 +126,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 2. **Cancelación de pedido público (`/pedido/[id]/cancelar` o panel `/pedidos/[id]/cancelar`)**
    - El pedido debe estar `pending`.
    - El cliente puede cancelar con el `cancellationToken`; el operador cancela desde el panel sin token.
-   - Se reintegra stock (`reintegrateStockForItems` con `movementType: 'order_cancellation'`).
+   - **No se modifica stock** porque el pedido nunca reservó ni descontó stock.
    - El pedido pasa a `cancelled`.
 
 ### 4.5 Ajustes manuales
@@ -236,7 +235,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 8. Al confirmar:
    - Se valida disponibilidad.
    - Se crea el pedido con estado `pending`.
-   - Se reserva stock (`order`).
+   - **No se reserva ni descuenta stock**.
    - Se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}`.
 9. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
 
@@ -246,18 +245,17 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 2. Al abrir un pedido, ve detalle y acciones.
 3. **Confirmar como venta**
    - Requiere caja abierta.
-   - Se crea la venta sin descontar stock nuevamente.
+   - Valida disponibilidad, descuenta stock y crea la venta.
    - El pedido pasa a `converted`.
 4. **Cancelar**
    - Requiere motivo.
-   - Reintegra stock (`order_cancellation`).
+   - No modifica stock.
    - El pedido pasa a `cancelled`.
 
 ### 7.3 Rate limiting
 
 - `POST /api/public/pedido` limita por IP usando un `Map` en memoria.
 - Ventana y máximo configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
-- **Limitación**: en múltiples instancias serverless el límite no se comparte.
 
 ---
 
@@ -320,9 +318,9 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 | Ajuste manual negativo | Sí | `manual_adjustment` | `products`, `stock_movements` | No permite stock negativo |
 | Confirmar venta | Sí | `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `cashRegisters` | Descuenta insumos críticos y bebidas |
 | Anular venta | Sí | `cancellation` | `products`, `sales`, `stock_movements`, `cashRegisters` | Reintegra stock; requiere caja abierta |
-| Crear pedido público | Sí | `order` | `products`, `order_items`, `orders`, `stock_movements` | Reserva stock; estado `pending` |
-| Cancelar pedido público | Sí | `order_cancellation` | `products`, `orders`, `stock_movements` | Reintegra stock |
-| Confirmar pedido como venta | No (ya reservado) | — | `sales`, `sale_items`, `orders`, `cashRegisters` | `converted`, `convertedSaleId` |
+| Crear pedido público | No | — | `order_items`, `orders` | Valida stock; estado `pending` (no reserva) |
+| Cancelar pedido público | No | — | `orders` | No modifica stock |
+| Confirmar pedido como venta | Sí | `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `orders`, `cashRegisters` | Descuenta stock, crea venta y actualiza caja |
 | Eliminar producto | No | — | `products` (soft delete) | No si está en recetas activas |
 | Eliminar caja | No | — | `cashRegisters` (soft delete) | No si está abierta |
 | Cierre diario | No | — | `dailyClosures` | Resumen informativo |
@@ -342,8 +340,8 @@ Tanto `confirmSale` como `createOrder` usan los mismos helpers de `saleService`:
 La diferencia es:
 
 - **Venta**: `deductStockForItems` con `movementType: 'sale'`.
-- **Pedido**: `deductStockForItems` con `movementType: 'order'`.
-- **Conversión de pedido a venta**: no vuelve a descontar stock (`skipStockDeduct: true`); solo inserta venta y actualiza resumen de caja.
+- **Pedido**: no genera movimiento de stock.
+- **Conversión de pedido a venta**: revalida disponibilidad y descuenta stock (`deductStockForItems` con `movementType: 'sale'`); inserta venta y actualiza resumen de caja.
 
 ---
 
@@ -416,7 +414,7 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 3. **Pedidos por WhatsApp**
    - Configurar `NEXT_PUBLIC_WHATSAPP_NUMBER` en producción.
    - El cliente envía el mensaje; el operador confirma el pedido en `/pedidos` cuando la caja esté abierta.
-   - Si el cliente cancela, reintegra stock automáticamente.
+   - Si el cliente cancela, no se modifica stock; el pedido pasa a `cancelled`.
 
 4. **Cierre de caja**
    - Cerrar la caja al finalizar el turno.
@@ -434,10 +432,9 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 
 ## 16. Checklist antes de producción
 
-- [ ] Corregir `convertOrderToSale` para conservar precios históricos.
-- [ ] Validar `branchId` entero en `/pedido`.
-- [ ] Decidir e implementar rate limit compartido o documentar limitación.
-- [ ] Incluir `branchId` explícito en el panel de pedidos.
+- [x] Corregir `convertOrderToSale` para conservar precios históricos.
+- [x] Validar `branchId` entero en `/pedido`.
+- [x] Incluir `branchId` explícito en el panel de pedidos.
 - [ ] Configurar `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET` en Vercel.
 - [ ] Configurar `DATABASE_URL` y `DATABASE_URL_UNPOOLED` con base de producción.
 - [ ] Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
@@ -449,6 +446,6 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 
 ## 17. Conclusión
 
-Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos por WhatsApp. El flujo central es: **abrir caja → vender/reservar → descontar stock → cerrar caja → generar cierre diario**. Los pedidos añaden una capa de reserva previa que luego se convierte en venta.
+Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos por WhatsApp. El flujo central es: **abrir caja → vender/confirmar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock; el stock se descuenta únicamente cuando el operador confirma el pedido desde el panel.
 
 Para producción se recomienda resolver los hallazgos críticos documentados, en especial el precio histórico en pedidos, y ejecutar las verificaciones estándar antes y después del deploy.

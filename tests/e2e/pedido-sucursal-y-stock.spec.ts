@@ -43,7 +43,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     await page.fill('input#customerName', 'Juan Pérez');
-    await page.getByRole('button', { name: 'Reservar y abrir WhatsApp' }).click();
+    await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
 
     await expect(
       page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')

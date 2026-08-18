@@ -1,9 +1,8 @@
 import { PedidosList } from '@/components/pedidos/pedidos-list';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 
 export default async function PedidosPage() {
-  const session = await requireAuth();
-  const branchId = await getCurrentBranchId(session);
+  const branchId = await getCurrentBranchIdOrRedirect();
 
   return (
     <div className="space-y-5">

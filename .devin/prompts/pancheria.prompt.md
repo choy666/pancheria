@@ -44,5 +44,5 @@ Documentación de referencia obligatoria:
 1. Leer `AGENTS.md`, `.devin/informes/lecciones-aprendidas.md` y, si aplica, `.devin/informes/guia-funcionamiento-pancheria.md`.
 2. Confirmar el estado actual del código con búsquedas antes de asumir que algo existe.
 3. Si la tarea es una auditoría o actualización de documentación, seguir <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />.
-4. Los prompts de funcionalidades resueltas están en `.devin/prompts/archivados/`. Antes de retomarlos, verificar su contexto histórico.
+4. Los prompts resueltos se eliminaron del directorio activo; su contexto histórico queda resumido en `lecciones-aprendidas.md` y en los informes archivados de `.devin/informes/archivados/`.
 5. Antes de terminar, ejecutar las verificaciones de la tabla y documentar discrepancias en `.devin/informes/reporte-estado.md` cuando corresponda.

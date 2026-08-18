@@ -117,7 +117,6 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 - Usar `<ref_file file="..."/>` para archivos completos.
 - Usar `<ref_snippet file="..." lines="x-y"/>` solo cuando el rango sea estable; de lo contrario, preferir `<ref_file .../>` o nombres de función/exportación.
-- Los prompts archivados contienen referencias históricas que pueden estar desfasadas; consultar el código antes de usarlos.
 
 ## Prompts guardados
 
@@ -132,21 +131,6 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Errores de deploy en Vercel](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y React #441 por usuarios sin sucursal asignada.
-
-### Prompts resueltos y archivados
-
-Los prompts cuya implementación finalizó se archivan en `archivados/` como contexto histórico:
-
-- `catalogo-whatsapp.md`
-- `pedido-stock-centralizado.md`
-- `tour-guia-responsive.md`
-- `diseno-responsive.md`
-- `videos-y-cast.md`
-- `auditoria-pedidos-sucursal-cliente.md`
-- `pedidos-publicos-sin-autenticacion.md`
-- `pedidos-publicos-sucursal-y-stock.md`
-
-Su contexto queda resumido en `.devin/informes/lecciones-aprendidas.md` y en `pancheria.prompt.md`.
 
 ## Véase también
 
