@@ -225,6 +225,12 @@ useEffect(() => {
 
 ## Troubleshooting
 
+### Los videos subidos no se reproducen o desaparecen en producción
+
+- Síntoma: un video se sube correctamente pero al intentar reproducirlo da `404`, o desaparece tras un nuevo deploy.
+- Causa: `STORAGE_PROVIDER=local` guarda los archivos en el filesystem efímero de la función serverless (`tmp/videos` por defecto). Entre invocaciones o deploys el archivo puede no estar disponible.
+- Solución: en producción usar `STORAGE_PROVIDER=vercel-blob` (si ya se configuró `BLOB_READ_WRITE_TOKEN`), `s3` o `r2`, con las credenciales correspondientes. Re-desplegar para que la variable forme parte del build.
+
 ### `GET /` redirige a `http://localhost:3000/pedido` en producción
 
 - Síntoma: Vercel responde `307 Temporary Redirect` con `Location: http://localhost:3000/pedido` aunque el `Host` sea el dominio de producción.
