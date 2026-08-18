@@ -121,9 +121,9 @@ El plan original se archivó en <ref_file file="C:/developer/paginas/pancheria/.
 | Menor | Directorio `.devin` contenía prompts archivados e informes resueltos que ya no eran necesarios en la raíz. | **Resuelto** — informes archivados, prompts eliminados, índices actualizados. |
 | Menor | `src/app/(panel)/pedidos/page.tsx` y `src/app/(panel)/layout.tsx` aún usan `getCurrentBranchId` directamente. | **Resuelto** — ambos Server Components migraron a `getCurrentBranchIdOrRedirect`. |
 | Menor / Escalabilidad | Rate limit de pedidos públicos vive en memoria por instancia. | **Pendiente** — documentado; requiere decisión de arquitectura (KV/Redis/PostgreSQL). |
-| Menor | Pedidos públicos reservaban stock al crearse, antes de la confirmación del operador. |
-|| Menor / Operativo | `STORAGE_PROVIDER=local` en producción con `BLOB_READ_WRITE_TOKEN` configurado. | **Pendiente de decisión** — si se usa `/videos`, cambiar a `vercel-blob` y re-desplegar. Si no se usa, no afecta. | **Resuelto** — `createOrder` ya no descuenta stock; `convertOrderToSale` descuenta al confirmar; `cancelOrder` y expiración no tocan stock. |
-|| Informativo | Las verificaciones automatizadas pasan; no hay regresiones detectadas. | Confirmado. |
+| Menor | Pedidos públicos reservaban stock al crearse, antes de la confirmación del operador. | **Resuelto** — `createOrder` ya no descuenta stock; `convertOrderToSale` descuenta al confirmar; `cancelOrder` y expiración no tocan stock. |
+| Menor / Operativo | `STORAGE_PROVIDER=local` en producción con `BLOB_READ_WRITE_TOKEN` configurado. | **Resuelto** — `STORAGE_PROVIDER` cambiado a `vercel-blob` en producción y en `.env.example`. |
+| Informativo | Las verificaciones automatizadas pasan; no hay regresiones detectadas. | Confirmado. |
 
 ---
 
@@ -135,7 +135,7 @@ El plan original se archivó en <ref_file file="C:/developer/paginas/pancheria/.
 | `npx tsx src/db/seeds.ts` | No ejecutado. Es idempotente pero modifica datos. Ejecutar solo con confirmación. |
 | `npx drizzle-kit check` | Ejecutar tras cambios de esquema futuros para validar consistencia. |
 | Migración de `getCurrentBranchIdOrRedirect` | **Resuelto** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`. Las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`. |
-| Variables de producción | `NEXTAUTH_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED` y `ORDER_EXPIRATION_MS` verificadas. `STORAGE_PROVIDER` sigue en `local`; revisar si se usará `/videos` en producción. |
+| Variables de producción | `NEXTAUTH_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ORDER_EXPIRATION_MS` y `STORAGE_PROVIDER` verificadas. `STORAGE_PROVIDER` ahora es `vercel-blob`. |
 
 ---
 
@@ -143,9 +143,9 @@ El plan original se archivó en <ref_file file="C:/developer/paginas/pancheria/.
 
 1. ~~**Ejecutar `npm run test:e2e`** en una base de datos de prueba para validar el flujo completo, incluyendo la expiración de pedidos.~~ **Resuelto: 81 tests pasan.**
 2. ~~**Completar la migración a `getCurrentBranchIdOrRedirect`** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`.~~ **Resuelto.**
-3. **Verificar el proveedor de almacenamiento de videos en producción** antes del deploy.
-6. **Mantener `AGENTS.md`, `README.md`, `.devin/environment.yaml` y `.devin/prompts/pancheria.prompt.md` sincronizados** con cada nueva feature o variable de entorno.
-7. **No duplicar informes de estado**: generar un único `reporte-estado.md` vigente y archivar los anteriores.
+3. ~~**Verificar el proveedor de almacenamiento de videos en producción** antes del deploy.~~ **Resuelto — `STORAGE_PROVIDER` es `vercel-blob`.**
+4. **Mantener `AGENTS.md`, `README.md`, `.devin/environment.yaml` y `.devin/prompts/pancheria.prompt.md` sincronizados** con cada nueva feature o variable de entorno.
+5. **No duplicar informes de estado**: generar un único `reporte-estado.md` vigente y archivar los anteriores.
 
 ---
 

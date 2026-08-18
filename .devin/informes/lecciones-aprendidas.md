@@ -15,7 +15,7 @@
 - **Soportar la jerarquía de variables de Vercel Postgres.** El runtime debe probar `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`. Las migraciones deben probar `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.
 - **Nunca hardcodear credenciales, secretos ni URLs de API en el código.** Todos los valores sensibles deben venir de variables de entorno o configuraciones dinámicas.
 - **Verificar `NEXTAUTH_URL` y `AUTH_URL` en Vercel tras cada deploy.** Si `NEXTAUTH_URL` (o `AUTH_URL`, que en NextAuth v5 tiene prioridad) apunta a `http://localhost:3000`, el middleware redirige a `localhost` en lugar del dominio de producción.
-- **No usar `STORAGE_PROVIDER=local` en producción si se almacenan videos.** El filesystem de Vercel es efímero; usar `vercel-blob`, `s3` o `r2` con sus credenciales.
+- **No usar `STORAGE_PROVIDER=local` en producción si se almacenan videos.** El filesystem de Vercel es efímero; usar `vercel-blob`, `s3` o `r2` con sus credenciales. También se recomienda `vercel-blob` en desarrollo para no depender del filesystem local.
 - **Ejecutar tests E2E solo en bases de datos de prueba.** `tests/e2e/global-setup.ts` trunca tablas de negocio y re-seedea. No usar en producción ni contra datos reales.
 
 ## 2. Calidad de código y arquitectura
