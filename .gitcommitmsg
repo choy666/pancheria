@@ -1,0 +1,19 @@
+refactor: unificar errores de caja y documentar closedBy.
+
+- Sustituye el error generico `throw new Error('No se pudo cerrar la caja.')`
+  en `closeCashRegister` por `NotFoundError('Caja', id)` para mantener
+  consistencia con el resto del servicio.
+- Mueve el valor simbolico 'Sistema' de cierre automatico a la constante
+  `AUTO_CLOSED_BY` en `src/config/caja.ts` y lo usa en
+  `cashRegisterService.ts`.
+- Agrega documentacion en `cashRegisterService.ts` explicando por que
+  `closedBy` no es FK a `users`.
+- Actualiza `AGENTS.md` con la excepcion de integridad referencial de
+  `cashRegisters.closedBy`.
+
+Verificado con npm run lint, npx tsc --noEmit, npm test (744 tests) y
+npm run build.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

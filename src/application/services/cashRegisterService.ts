@@ -7,7 +7,21 @@ import { calculateSummaryFromSales, type SaleWithItems } from '@/application/ser
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { AUTO_CLOSE_HOURS } from '@/config/caja';
+import { AUTO_CLOSE_HOURS, AUTO_CLOSED_BY } from '@/config/caja';
+
+/**
+ * Nota sobre integridad referencial:
+ * `cashRegisters.closedBy` permanece como `varchar` en lugar de FK a `users`.
+ * Razones:
+ *  - El cierre automatico (`autoClosed = true`) se atribuye a un valor simbolico
+ *    (`AUTO_CLOSED_BY`) y no a un registro de usuario.
+ *  - Convertirlo a FK requeriria un usuario "Sistema" o un campo `closedByUserId`
+ *    nullable mas un indicador de cierre automatico, lo que implica migrar datos
+ *    historicos y duplicar la semantica actual.
+ *  - No hay un requisito de negocio que justifique el riesgo de la migracion.
+ * Si en el futuro se requiere trazabilidad estricta de usuario, se evaluara
+ * agregar `closedByUserId` nullable junto con `closedBy` como label.
+ */
 import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
 import {
   validatePositiveInteger,
@@ -46,7 +60,7 @@ export async function getOpenCashRegister(branchId: number) {
         .set({
           status: 'closed',
           closedAt: closeThreshold,
-          closedBy: 'Sistema',
+          closedBy: AUTO_CLOSED_BY,
           autoClosed: true,
           ...summary,
         })
@@ -209,7 +223,7 @@ export async function closeCashRegister(
       .returning();
 
     if (!updated) {
-      throw new Error('No se pudo cerrar la caja.');
+      throw new NotFoundError('Caja', id);
     }
 
     return updated;
