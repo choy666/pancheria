@@ -512,6 +512,12 @@ export const loginAttempts = pgTable('login_attempts', {
   lastAttempt: bigint('last_attempt', { mode: 'number' }).notNull(),
 });
 
+export const publicOrderRateLimits = pgTable('public_order_rate_limits', {
+  ip: varchar('ip', { length: 255 }).primaryKey(),
+  count: integer('count').notNull(),
+  resetAt: bigint('reset_at', { mode: 'number' }).notNull(),
+});
+
 export const videosRelations = relations(videos, ({ one }) => ({
   branch: one(branches, {
     fields: [videos.branchId],

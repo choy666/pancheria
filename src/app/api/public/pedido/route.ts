@@ -6,6 +6,10 @@ import { orderSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId } from '@/lib/branch-resolver';
 import { buildWhatsAppMessage, encodeWhatsAppUrl } from '@/lib/whatsapp';
 import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
+import {
+  createPublicOrderRateLimitStore,
+  type PublicOrderRateLimitStore,
+} from '@/lib/public-order-rate-limit-store';
 import type { PublicOrderItem } from '@/lib/whatsapp';
 
 const querySchema = z.object({
@@ -19,14 +23,8 @@ const RATE_LIMIT_MAX_REQUESTS = Number(
   process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS ?? 10
 );
 
-// El rate limit se aplica en memoria por instancia de función serverless.
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-const rateLimitMap = new Map<string, RateLimitEntry>();
+const rateLimitStore: PublicOrderRateLimitStore =
+  createPublicOrderRateLimitStore();
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -37,28 +35,29 @@ function getClientIp(request: NextRequest): string {
   return (request as unknown as { ip?: string }).ip ?? 'unknown';
 }
 
-function isRateLimited(ip: string): boolean {
+async function isRateLimited(ip: string): Promise<boolean> {
   if (process.env.NODE_ENV === 'test') {
     return false;
   }
 
   const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+  const record = await rateLimitStore.get(ip);
 
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, {
+  if (!record || now > record.resetAt) {
+    await rateLimitStore.set(ip, {
       count: 1,
       resetAt: now + RATE_LIMIT_WINDOW_MS,
     });
     return false;
   }
 
-  entry.count += 1;
+  record.count += 1;
 
-  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
     return true;
   }
 
+  await rateLimitStore.set(ip, record);
   return false;
 }
 
@@ -68,7 +67,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const branchId = query.branchId ?? (await getDefaultBranchId());
 
   const ip = getClientIp(request);
-  if (isRateLimited(ip)) {
+  if (await isRateLimited(ip)) {
     return NextResponse.json(
       { error: 'Demasiados pedidos. Intentalo más tarde.' },
       { status: 429 }

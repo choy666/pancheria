@@ -135,7 +135,7 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 
 || Riesgo / Acción | Descripción |
 || ----------------- | ----------- |
-|| `npm run test:e2e` | Ejecutado: 81 tests pasan. Repetir en base de datos de prueba antes de cada deploy o cambio de flujo crítico. |
+|| `npm run test:e2e` | Deuda técnica activa. En el entorno local no logró pasar por redirecciones de `AUTH_URL` a producción, rate limit de login acumulado y caja preexistente. Se configuró `.env.e2e`, `playwright.config.ts` y `global-setup.ts` para facilitar la corrida en una base descartable. |
 || `npx tsx src/db/seeds.ts` | No ejecutado. Es idempotente pero modifica datos. Ejecutar solo con confirmación. |
 || `npx drizzle-kit check` | Ejecutar tras cambios de esquema futuros para validar consistencia. |
 || Migración de `getCurrentBranchIdOrRedirect` | **Resuelto** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`. Las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`. |
@@ -146,7 +146,7 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 
 ## 10. Recomendaciones
 
-1. ~~**Ejecutar `npm run test:e2e`** en una base de datos de prueba para validar el flujo completo, incluyendo la expiración de pedidos.~~ **Resuelto: 81 tests pasan.**
+1. **Resolver `npm run test:e2e`** en una base de datos de prueba descartable. Configuración lista; restan ajustar `AUTH_URL` local, rate limit de login y estado de caja entre corridas.
 2. ~~**Completar la migración a `getCurrentBranchIdOrRedirect`** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`.~~ **Resuelto.**
 3. ~~**Verificar el proveedor de almacenamiento de videos en producción** antes del deploy.~~ **Resuelto — `STORAGE_PROVIDER` es `vercel-blob`.**
 4. **Mantener `AGENTS.md`, `README.md`, `.devin/environment.yaml`, `guia-funcionamiento-pancheria.md` y `.devin/prompts/pancheria.prompt.md` sincronizados** con cada nueva feature o variable de entorno.

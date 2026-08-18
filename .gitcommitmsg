@@ -1,0 +1,17 @@
+feat: rate limit distribuido para pedidos publicos.
+
+- Crea `src/lib/public-order-rate-limit-store.ts` con
+  `InMemoryPublicOrderRateLimitStore` y `DbPublicOrderRateLimitStore`.
+- Refactoriza `src/app/api/public/pedido/route.ts` para usar el store
+  seleccionado por `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`.
+- Agrega la tabla `public_order_rate_limits` en `src/db/schema.ts`.
+- Genera y aplica migracion `drizzle/0010_harsh_lizard.sql`.
+- Actualiza `.env.example`, `AGENTS.md` y `reporte-estado.md` con
+  la nueva variable y el estado de E2E como deuda documentada.
+
+Verificado con npm run lint, npx tsc --noEmit, npm test (744 tests),
+npm run build y npx drizzle-kit push --force.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

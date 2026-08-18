@@ -24,7 +24,9 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Empujar migraciones      | `npx drizzle-kit push`                            |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
 
-> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+>
+> Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El archivo `.env.e2e` y `playwright.config.ts` ya están configurados para sobrescribir esas variables; en entornos donde `.env.local` apunta a producción, usar `NO_WEB_SERVER=1` y levantar manualmente `npm run dev` con las variables de `.env.e2e`.
 
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:
@@ -45,6 +47,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
+- `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos: `memory` (por defecto) o `db` (PostgreSQL, recomendado para producción con múltiples instancias). Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
@@ -265,4 +268,5 @@ Antes de iniciar tareas de auditoría, refactorización, integridad de datos, co
 
 - `authService.ts` abstrae el almacenamiento de intentos fallidos mediante `RateLimitStore` (`src/lib/rate-limit-store.ts`). La implementación por defecto es `InMemoryRateLimitStore`. Para producción con múltiples instancias, usar `DbRateLimitStore` configurando `RATE_LIMIT_STORE_PROVIDER=db` (requiere la tabla `login_attempts`, ya existente en `src/db/schema.ts` y creada con la migración `0007_boring_scorpion.sql`).
 - Los resúmenes de caja y cierre (`productsSummary`, `criticalSuppliesSummary`) ya se migraron a `jsonb` en `src/db/schema.ts` para aprovechar la validación nativa de PostgreSQL.
+- El rate limit de pedidos públicos (`POST /api/public/pedido`) soporta `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` para usar PostgreSQL como store compartida en producción con múltiples instancias. Ver la tabla `public_order_rate_limits` en `src/db/schema.ts`.
 - `cashRegisters.closedBy` permanece como `varchar` y no como FK a `users`. El cierre automático usa el valor simbólico `AUTO_CLOSED_BY` definido en `src/config/caja.ts`. Si en el futuro se requiere trazabilidad estricta del usuario que cierra, se evaluará agregar un campo `closedByUserId` nullable manteniendo `closedBy` como label legible.
