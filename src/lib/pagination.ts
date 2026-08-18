@@ -6,7 +6,7 @@ import {
 } from '@/config/pagination';
 import type { PaginationParams } from '@/domain/types';
 
-export function clamp(value: number, min: number, max: number): number {
+function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
@@ -33,8 +33,4 @@ export function parsePaginationParams(
     page: parsePage(searchParams.get('page')),
     limit: parseLimit(searchParams.get('limit')),
   };
-}
-
-export function calculateOffset(pagination: PaginationParams): number {
-  return (pagination.page - 1) * pagination.limit;
 }

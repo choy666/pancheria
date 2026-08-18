@@ -138,8 +138,6 @@ export const stockMovementTypeSchema = z.enum([
   'cancellation',
   'manual_adjustment',
   'restock',
-  'order',
-  'order_cancellation',
 ]);
 
 export const stockAdjustmentSchema = z.object({

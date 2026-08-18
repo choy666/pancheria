@@ -26,7 +26,7 @@ export default async function DashboardPage() {
             <p className="text-base leading-relaxed text-muted-foreground">
               Pantalla táctil para registrar ventas rápidas.
             </p>
-            <Link href="/ventas" className="mt-5 inline-block">
+            <Link href={routes.ventas} className="mt-5 inline-block">
               <Button className="w-full sm:w-auto">Ir a ventas</Button>
             </Link>
           </CardContent>
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
               <p className="text-base leading-relaxed text-muted-foreground">
                 Administrar productos y promos.
               </p>
-              <Link href="/productos" className="mt-5 inline-block">
+              <Link href={routes.productos} className="mt-5 inline-block">
                 <Button variant="outline" className="w-full sm:w-auto">
                   Ir a productos
                 </Button>
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
             <p className="text-base leading-relaxed text-muted-foreground">
               Ver alertas y ajustar stock manualmente.
             </p>
-            <Link href="/stock" className="mt-5 inline-block">
+            <Link href={routes.stock} className="mt-5 inline-block">
               <Button variant="outline" className="w-full sm:w-auto">
                 Ir a stock
               </Button>
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
             <p className="text-base leading-relaxed text-muted-foreground">
               Abrir, cerrar y controlar la caja.
             </p>
-            <Link href="/cierre" className="mt-5 inline-block">
+            <Link href={routes.cierre} className="mt-5 inline-block">
               <Button variant="outline" className="w-full sm:w-auto">
                 Ir a caja
               </Button>

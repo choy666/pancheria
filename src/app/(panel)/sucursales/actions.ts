@@ -7,11 +7,6 @@ import { DomainError, NotFoundError } from '@/domain/errors';
 
 export type BranchState = { error: string } | null;
 
-export async function listBranches() {
-  await requireAdmin();
-  return branchService.listBranches();
-}
-
 export async function createBranch(
   _prevState: BranchState,
   formData: FormData

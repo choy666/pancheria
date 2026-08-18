@@ -1,5 +1,4 @@
-import type { Duration } from 'date-fns';
-import { format, formatDuration, intervalToDuration } from 'date-fns';
+import { format, formatDuration, type Duration } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 /**
@@ -76,16 +75,4 @@ export function formatTime(date: Date | string): string {
   return `${hours}:${minutes}`;
 }
 
-export function calculateDuration(start: Date | string, end: Date | string | null): Duration | null {
-  const endDate = end ? new Date(end) : new Date();
-  const duration = intervalToDuration({ start: new Date(start), end: endDate });
-  return {
-    years: 0,
-    months: 0,
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-    ...duration,
-  };
-}
+

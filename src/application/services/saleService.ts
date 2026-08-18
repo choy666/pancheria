@@ -23,6 +23,7 @@ import {
   NotFoundError,
   ValidationError,
 } from '@/domain/errors';
+import { validateBranchOwnership } from '@/lib/validation-helpers';
 import type {
   PaymentMethod,
   ProductRow,
@@ -35,6 +36,7 @@ import {
   groupRecipesByProduct,
   type RecipeWithSupply,
 } from '@/application/services/summaryService';
+import { isPublicSellableProduct } from '@/lib/catalog';
 
 export interface RecipeBreakdownItem {
   supplyName: string;
@@ -252,23 +254,13 @@ export function validateProductsForOperation(
       throw new NotFoundError('Producto', item.productId);
     }
 
-    if (product.branchId !== branchId) {
-      throw new ValidationError(
-        `El producto ${product.name} no pertenece a la sucursal.`
-      );
-    }
+    validateBranchOwnership(product, branchId, 'Producto');
 
     if (!product.isActive) {
       throw new ValidationError(`El producto ${product.name} no está activo.`);
     }
 
-    const isSellable =
-      product.type === 'compound' ||
-      product.type === 'service' ||
-      (product.type === 'critical_supply' &&
-        product.criticalSupplyType === 'beverage');
-
-    if (!isSellable) {
+    if (!isPublicSellableProduct(product)) {
       const operationLabel = operation === 'pedido' ? 'el pedido' : 'la venta';
       throw new ValidationError(
         `El producto ${product.name} no está disponible para ${operationLabel}.`
@@ -521,7 +513,7 @@ export async function deductStockForItems(
   items: { productId: number; quantity: number }[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
-  source: { saleId?: number; orderId?: number },
+  source: { saleId?: number },
   movementType: StockMovementType
 ) {
   const productIdsToLock = new Set<number>();
@@ -590,7 +582,7 @@ export async function deductStockForItems(
           type: movementType,
           quantity: -consumed,
           saleId: source.saleId ?? null,
-          orderId: source.orderId ?? null,
+
           createdAt: nowUTC(),
         });
       }
@@ -620,7 +612,7 @@ export async function deductStockForItems(
         type: movementType,
         quantity: -item.quantity,
         saleId: source.saleId ?? null,
-        orderId: source.orderId ?? null,
+
         createdAt: nowUTC(),
       });
     } else if (product.type === 'service') {
@@ -675,7 +667,7 @@ export async function reintegrateStockAndUpdateCashRegister(
   items: { productId: number; quantity: number }[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
-  source: { saleId?: number; orderId?: number },
+  source: { saleId?: number },
   movementType: StockMovementType,
   paymentMethod?: PaymentMethod,
   total?: number,
@@ -738,7 +730,7 @@ export async function reintegrateStockForItems(
   items: { productId: number; quantity: number }[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
-  source: { saleId?: number; orderId?: number },
+  source: { saleId?: number },
   movementType: StockMovementType
 ) {
   const productIdsToLock = new Set<number>();
@@ -793,7 +785,7 @@ export async function reintegrateStockForItems(
           type: movementType,
           quantity: reintegrated,
           saleId: source.saleId ?? null,
-          orderId: source.orderId ?? null,
+
           createdAt: nowUTC(),
         });
       }
@@ -812,7 +804,7 @@ export async function reintegrateStockForItems(
         type: movementType,
         quantity: item.quantity,
         saleId: source.saleId ?? null,
-        orderId: source.orderId ?? null,
+
         createdAt: nowUTC(),
       });
     } else if (product.type === 'service') {

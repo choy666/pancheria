@@ -30,9 +30,7 @@ export type StockMovementType =
   | 'sale'
   | 'cancellation'
   | 'manual_adjustment'
-  | 'restock'
-  | 'order'
-  | 'order_cancellation';
+  | 'restock';
 
 export type Branch = {
   id: number;
@@ -72,15 +70,6 @@ export type Product = {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
-};
-
-export type RecipeItem = {
-  id: number;
-  compoundProductId: number;
-  supplyId: number;
-  quantity: number;
-  autoDiscount: boolean;
-  supply?: Product;
 };
 
 export type SaleItemInput = {
@@ -176,20 +165,6 @@ export type StockMovement = {
   quantity: number;
   reason: string | null;
   saleId: number | null;
-  orderId: number | null;
-  createdAt: Date;
-};
-
-export type DailyClosure = {
-  id: number;
-  branchId: number;
-  date: Date;
-  total: Money;
-  cashTotal: Money;
-  transferTotal: Money;
-  totalSales: number;
-  productsSummary: Record<string, number>;
-  criticalSuppliesSummary: Record<string, number>;
   createdAt: Date;
 };
 
@@ -207,4 +182,4 @@ export type VideoRow = {
   deletedAt: Date | null;
 };
 
-export type Video = VideoRow;
+

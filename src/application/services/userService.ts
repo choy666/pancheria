@@ -4,15 +4,12 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import * as branchService from '@/application/services/branchService';
 import { ValidationError, NotFoundError } from '@/domain/errors';
+import {
+  validateNonEmptyString,
+  validateMinLength,
+} from '@/lib/validation-helpers';
 
 type UserRole = 'admin' | 'operator';
-
-export async function getUserById(id: number) {
-  return db.query.users.findFirst({
-    where: eq(users.id, id),
-    with: { branch: true },
-  });
-}
 
 export async function listUsers(branchId?: number) {
   return db.query.users.findMany({
@@ -28,15 +25,12 @@ export async function createUser(data: {
   role: UserRole;
   branchId: number;
 }) {
-  const username = data.username.trim();
+  const username = validateNonEmptyString(
+    data.username,
+    'El nombre de usuario'
+  );
 
-  if (!username) {
-    throw new ValidationError('El nombre de usuario es obligatorio.');
-  }
-
-  if (data.password.length < 4) {
-    throw new ValidationError('La contraseña debe tener al menos 4 caracteres.');
-  }
+  validateMinLength(data.password, 4, 'La contraseña');
 
   if (data.role !== 'operator') {
     throw new ValidationError('Solo se permiten usuarios operador.');
@@ -102,10 +96,7 @@ export async function updateUser(
   const updates: Partial<typeof users.$inferInsert> = {};
 
   if (data.username !== undefined) {
-    const username = data.username.trim();
-    if (!username) {
-      throw new ValidationError('El nombre de usuario es obligatorio.');
-    }
+    const username = validateNonEmptyString(data.username, 'El nombre de usuario');
 
     const existing = await db.query.users.findFirst({
       where: and(eq(users.username, username), not(eq(users.id, id))),
@@ -133,9 +124,7 @@ export async function updateUser(
   }
 
   if (data.password !== undefined && data.password.length > 0) {
-    if (data.password.length < 4) {
-      throw new ValidationError('La contraseña debe tener al menos 4 caracteres.');
-    }
+    validateMinLength(data.password, 4, 'La contraseña');
 
     updates.passwordHash = await bcrypt.hash(data.password, 10);
   }

@@ -28,10 +28,6 @@ export function moneyToNumber(money: Money): number {
   return Number(toDecimal(money));
 }
 
-export function moneyToString(money: Money): string {
-  return toDecimal(money);
-}
-
 export function addMoney(a: Money, b: Money): Money {
   return add(a, b);
 }
@@ -40,10 +36,4 @@ export function multiplyMoney(money: Money, factor: number): Money {
   return multiply(money, { amount: Math.round(factor * 100), scale: 2 });
 }
 
-export function sumMoney(monies: Money[]): Money {
-  let total = dinero({ amount: 0, currency: ARS }) as Money;
-  for (const money of monies) {
-    total = add(total, money);
-  }
-  return total;
-}
+

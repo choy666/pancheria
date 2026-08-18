@@ -46,8 +46,6 @@ export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
   'cancellation',
   'manual_adjustment',
   'restock',
-  'order',
-  'order_cancellation',
 ]);
 
 export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
@@ -312,12 +310,10 @@ export const stockMovements = pgTable(
     quantity: integer('quantity').notNull(),
     reason: text('reason'),
     saleId: integer('sale_id').references(() => sales.id, { onDelete: 'set null' }),
-    orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
     branchIdIdx: index('stock_movements_branch_id_idx').on(table.branchId),
-    orderIdIdx: index('stock_movements_order_id_idx').on(table.orderId),
     productCreatedAtIdx: index('stock_movements_product_created_at_idx').on(
       table.productId,
       table.createdAt
@@ -500,10 +496,6 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   sale: one(sales, {
     fields: [stockMovements.saleId],
     references: [sales.id],
-  }),
-  order: one(orders, {
-    fields: [stockMovements.orderId],
-    references: [orders.id],
   }),
 }));
 

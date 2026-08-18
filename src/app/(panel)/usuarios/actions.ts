@@ -7,11 +7,6 @@ import { DomainError } from '@/domain/errors';
 
 export type UserState = { error: string } | null;
 
-export async function listUsers() {
-  await requireAdmin();
-  return userService.listUsers();
-}
-
 export async function createUser(
   _prevState: UserState,
   formData: FormData

@@ -1,5 +1,4 @@
 export const PRODUCTOS_API = '/api/productos';
-export const PRODUCTOS_DISPONIBILIDAD_API = '/api/productos/disponibilidad';
 export const RECETAS_API = '/api/recetas';
 export const STOCK_API = '/api/stock';
 export const STOCK_AJUSTAR_API = '/api/stock/ajustar';

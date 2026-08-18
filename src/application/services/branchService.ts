@@ -12,6 +12,7 @@ import {
   users,
 } from '@/db/schema';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { validateNonEmptyString } from '@/lib/validation-helpers';
 
 export async function listBranches() {
   return db.query.branches.findMany({
@@ -26,11 +27,7 @@ export async function getBranchById(id: number) {
 }
 
 export async function createBranch(name: string) {
-  const trimmed = name.trim();
-
-  if (!trimmed) {
-    throw new ValidationError('El nombre de la sucursal es obligatorio.');
-  }
+  const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
 
   const existing = await db.query.branches.findFirst({
     where: eq(branches.name, trimmed),
@@ -53,11 +50,7 @@ export async function createBranch(name: string) {
 }
 
 export async function updateBranch(id: number, name: string) {
-  const trimmed = name.trim();
-
-  if (!trimmed) {
-    throw new ValidationError('El nombre de la sucursal es obligatorio.');
-  }
+  const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
 
   const branch = await db.query.branches.findFirst({
     where: eq(branches.id, id),

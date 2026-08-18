@@ -9,6 +9,10 @@ import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { AUTO_CLOSE_HOURS } from '@/config/caja';
 import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
+import {
+  validatePositiveInteger,
+  validateNonEmptyString,
+} from '@/lib/validation-helpers';
 
 export async function getOpenCashRegister(branchId: number) {
   const cashRegister = await cashRegisterRepository.findOpen(branchId);
@@ -73,13 +77,10 @@ export async function openCashRegister(params: {
 }) {
   const { branchId, openedBy } = params;
 
-  if (!branchId || branchId <= 0) {
-    throw new ValidationError('La sucursal es obligatoria para abrir la caja.');
-  }
+  validatePositiveInteger(branchId, 'La sucursal');
+  const openedByTrimmed = validateNonEmptyString(openedBy, 'El usuario que abre la caja');
 
-  if (!openedBy || openedBy.trim() === '') {
-    throw new ValidationError('El usuario que abre la caja es obligatorio.');
-  }
+  const finalParams = { branchId, openedBy: openedByTrimmed };
 
   try {
     return await executeInTransaction(async (tx) => {
@@ -102,9 +103,9 @@ export async function openCashRegister(params: {
       const [result] = await tx
         .insert(cashRegisters)
         .values({
-          branchId,
+          branchId: finalParams.branchId,
           openedAt: nowUTC(),
-          openedBy,
+          openedBy: finalParams.openedBy,
           status: 'open',
         })
         .returning();
@@ -195,13 +196,8 @@ export async function closeCashRegister(
   id: number,
   closedBy: string
 ) {
-  if (!branchId || branchId <= 0) {
-    throw new ValidationError('La sucursal es obligatoria para cerrar la caja.');
-  }
-
-  if (!closedBy || closedBy.trim() === '') {
-    throw new ValidationError('El usuario que cierra la caja es obligatorio.');
-  }
+  validatePositiveInteger(branchId, 'La sucursal');
+  const closedByTrimmed = validateNonEmptyString(closedBy, 'El usuario que cierra la caja');
 
   return executeInTransaction(async (tx) => {
     const [cashRegister] = await tx
@@ -231,7 +227,7 @@ export async function closeCashRegister(
       .set({
         status: 'closed',
         closedAt: nowUTC(),
-        closedBy,
+        closedBy: closedByTrimmed,
         ...summary,
       })
       .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))

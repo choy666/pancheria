@@ -4,6 +4,7 @@ import { recipes } from '@/db/schema';
 import * as recipeRepository from '@/repositories/recipeRepository';
 import * as productRepository from '@/repositories/productRepository';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { validateBranchOwnership } from '@/lib/validation-helpers';
 import type { RecipeItemInsert } from '@/repositories/recipeRepository';
 
 export async function getRecipeByProductId(branchId: number, productId: number) {
@@ -25,9 +26,7 @@ export async function saveRecipe(
     throw new ValidationError('El producto debe ser de tipo compuesto.');
   }
 
-  if (product.branchId !== branchId) {
-    throw new ValidationError('El producto compuesto no pertenece a la sucursal.');
-  }
+  validateBranchOwnership(product, branchId, 'Producto compuesto');
 
   const hasCritical = items.some((item) => item.autoDiscount);
   if (!hasCritical) {
@@ -61,11 +60,7 @@ export async function saveRecipe(
       throw new ValidationError(`Insumo con ID ${item.supplyId} no encontrado.`);
     }
 
-    if (supply.branchId !== branchId) {
-      throw new ValidationError(
-        `El insumo ${supply.name} no pertenece a la sucursal.`
-      );
-    }
+    validateBranchOwnership(supply, branchId, 'Insumo');
 
     if (supply.type !== 'critical_supply') {
       if (item.autoDiscount) {

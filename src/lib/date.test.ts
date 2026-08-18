@@ -3,7 +3,6 @@ import {
   safeFormatDuration,
   formatLastUpdated,
   formatTime,
-  calculateDuration,
   startOfDayUTC,
   endOfDayUTC,
   parseDateStringUTC,
@@ -114,26 +113,6 @@ describe('date helpers', () => {
       const after = Date.now();
       expect(result).toBeGreaterThanOrEqual(before);
       expect(result).toBeLessThanOrEqual(after);
-    });
-  });
-
-  describe('calculateDuration', () => {
-    test('calcula la duración entre dos fechas', () => {
-      const start = new Date('2025-06-15T10:00:00');
-      const end = new Date('2025-06-15T11:30:45');
-      const result = calculateDuration(start, end);
-
-      expect(result).not.toBeNull();
-      expect(result?.hours).toBe(1);
-      expect(result?.minutes).toBe(30);
-    });
-
-    test('calcula la duración hasta ahora si no hay fin', () => {
-      const start = new Date('2025-06-15T10:00:00');
-      const result = calculateDuration(start, null);
-
-      expect(result).not.toBeNull();
-      expect(result?.minutes).toBeGreaterThanOrEqual(0);
     });
   });
 });

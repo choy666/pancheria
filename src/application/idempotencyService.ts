@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, orders } from '@/db/schema';
 
-export type IdempotencyScope = 'sale' | 'order';
+type IdempotencyScope = 'sale' | 'order';
 
 export async function isIdempotencyKeyUsed(
   scope: IdempotencyScope,

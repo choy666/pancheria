@@ -709,7 +709,6 @@ describe('orderService', () => {
       expect(stockMovement.type).toBe('sale');
       expect(stockMovement.quantity).toBe(-2);
       expect(stockMovement.saleId).toBe(1);
-      expect(stockMovement.orderId).toBeNull();
     });
 
     test('es idempotente cuando la venta ya fue procesada', async () => {
