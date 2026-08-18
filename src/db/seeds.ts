@@ -46,18 +46,24 @@ async function seedAdmin(defaultBranchId: number) {
   });
 
   if (existing) {
+    const passwordHash = await bcrypt.hash(password, 10);
+
     if (!existing.branchId) {
       await db
         .update(users)
-        .set({ branchId: defaultBranchId })
+        .set({ branchId: defaultBranchId, passwordHash })
         .where(eq(users.id, existing.id));
       console.log(
-        'El usuario administrador existía sin sucursal; se le asignó la sucursal por defecto.'
+        'El usuario administrador existía sin sucursal; se le asignó la sucursal por defecto y se actualizó la contraseña.'
       );
       return;
     }
 
-    console.log('El usuario administrador ya existe.');
+    await db
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, existing.id));
+    console.log('El usuario administrador ya existe; se actualizó la contraseña.');
     return;
   }
 
