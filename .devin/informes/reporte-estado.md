@@ -120,7 +120,7 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 || Menor | Expiración automática de pedidos `pending` no estaba implementada. | **Resuelto** con `expirePendingOrders` e integración en `GET /api/pedidos`. |
 || Menor | Directorio `.devin` contenía prompts archivados e informes resueltos que ya no eran necesarios en la raíz. | **Resuelto** — documentación actualizada, informes obsoletos eliminados, índices actualizados. |
 || Menor | `src/app/(panel)/pedidos/page.tsx` y `src/app/(panel)/layout.tsx` aún usan `getCurrentBranchId` directamente. | **Resuelto** — ambos Server Components migraron a `getCurrentBranchIdOrRedirect`. |
-|| Menor / Escalabilidad | Rate limit de pedidos públicos vive en memoria por instancia. | **Pendiente** — documentado; requiere decisión de arquitectura (KV/Redis/PostgreSQL). |
+|| Menor / Escalabilidad | Rate limit de pedidos públicos soporta store en PostgreSQL para múltiples instancias. | **Resuelto** — se implementó `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` con soporte `db` (PostgreSQL) para múltiples instancias. |
 || Menor | Pedidos públicos reservaban stock al crearse, antes de la confirmación del operador. | **Resuelto** — `createOrder` ya no descuenta stock; `convertOrderToSale` descuenta al confirmar; `cancelOrder` y expiración no tocan stock. |
 || Menor / Operativo | `STORAGE_PROVIDER=local` en producción con `BLOB_READ_WRITE_TOKEN` configurado. | **Resuelto** — `STORAGE_PROVIDER` cambiado a `vercel-blob` en producción y en `.env.example`. |
 || Menor / Documentación | `guia-funcionamiento-pancheria.md` tenía limitaciones y checklist desactualizados. | **Resuelto** — sección 1, tabla de movimientos de stock, limitaciones, checklist y conclusiones actualizadas. |
@@ -140,7 +140,7 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 || `npx drizzle-kit check` | Ejecutar tras cambios de esquema futuros para validar consistencia. |
 || Migración de `getCurrentBranchIdOrRedirect` | **Resuelto** en `src/app/(panel)/layout.tsx` y `src/app/(panel)/pedidos/page.tsx`. Las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`. |
 || Variables de producción | `NEXTAUTH_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ORDER_EXPIRATION_MS` y `STORAGE_PROVIDER` verificadas. `STORAGE_PROVIDER` ahora es `vercel-blob`. |
-|| Rate limit compartido | Evaluar store compartido para `POST /api/public/pedido` si se escala horizontalmente. |
+|| Rate limit compartido | Resuelto — implementado en PostgreSQL con `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`. Configurar en Vercel si se escala horizontalmente. |
 
 ---
 
@@ -151,10 +151,10 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 3. ~~**Verificar el proveedor de almacenamiento de videos en producción** antes del deploy.~~ **Resuelto — `STORAGE_PROVIDER` es `vercel-blob`.**
 4. **Mantener `AGENTS.md`, `README.md`, `.devin/environment.yaml`, `guia-funcionamiento-pancheria.md` y `.devin/prompts/pancheria.prompt.md` sincronizados** con cada nueva feature o variable de entorno.
 5. **No duplicar informes de estado**: generar un único `reporte-estado.md` vigente y archivar los anteriores.
-6. **Evaluar rate limit compartido** para pedidos públicos antes de escalar horizontalmente.
+6. ~~**Evaluar rate limit compartido** para pedidos públicos antes de escalar horizontalmente.~~ **Resuelto — usar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` en Vercel si hay múltiples instancias.**
 
 ---
 
 ## 11. Conclusión
 
-El proyecto incorporó la expiración automática de pedidos, actualizó la `guia-funcionamiento-pancheria.md` para reflejar el estado real, eliminó informes históricos obsoletos, migró todos los Server Components del panel a `getCurrentBranchIdOrRedirect` y ajustó el flujo de pedidos para que el stock se descuente solo al confirmar desde el panel. Además, se refactorizaron los servicios de venta y pedido extrayendo helpers transversales (`product-helpers`, `sale-helpers`, `order-helpers`), se creó `orderRepository.ts` y se documentó la excepción de integridad referencial de `cashRegisters.closedBy`. Las pruebas unitarias, el build de producción y los tests E2E pasan. Quedan las recomendaciones habituales de despliegue y la evaluación futura del rate limit compartido.
+El proyecto incorporó la expiración automática de pedidos, actualizó la `guia-funcionamiento-pancheria.md` para reflejar el estado real, eliminó informes históricos obsoletos, migró todos los Server Components del panel a `getCurrentBranchIdOrRedirect` y ajustó el flujo de pedidos para que el stock se descuente solo al confirmar desde el panel. Además, se refactorizaron los servicios de venta y pedido extrayendo helpers transversales (`product-helpers`, `sale-helpers`, `order-helpers`), se creó `orderRepository.ts` y se documentó la excepción de integridad referencial de `cashRegisters.closedBy`. Finalmente, se implementó el rate limit distribuido de pedidos públicos con soporte para PostgreSQL (`public_order_rate_limits`). Las pruebas unitarias y el build de producción pasan. Quedan la deuda técnica de E2E y las recomendaciones habituales de despliegue.

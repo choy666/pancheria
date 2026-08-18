@@ -1,0 +1,17 @@
+docs: sincronizar informes y default de rate limit.
+
+- `src/lib/public-order-rate-limit-store.ts` ahora usa `db` por defecto
+  en `NODE_ENV=production` cuando hay `DATABASE_URL` o `POSTGRES_URL`,
+  alineado con `rate-limit-store.ts` para login.
+- Actualiza `.devin/informes/guia-funcionamiento-pancheria.md` para
+  marcar rate limit compartido como resuelto y agregar la variable de
+  entorno a la checklist de producción.
+- Actualiza `.devin/informes/reporte-estado.md` con el estado resuelto
+  del rate limit y corrige la conclusión.
+
+Verificado con npm run lint, npx tsc --noEmit, npm test (744 tests) y
+npm run build.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

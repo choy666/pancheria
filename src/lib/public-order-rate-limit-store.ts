@@ -85,5 +85,12 @@ export function createPublicOrderRateLimitStore(): PublicOrderRateLimitStore {
     return new InMemoryPublicOrderRateLimitStore();
   }
 
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (process.env.DATABASE_URL || process.env.POSTGRES_URL)
+  ) {
+    return new DbPublicOrderRateLimitStore();
+  }
+
   return new InMemoryPublicOrderRateLimitStore();
 }

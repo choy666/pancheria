@@ -458,9 +458,11 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 - [ ] Rotar secretos si `.env.local` fue expuesto.
 - [ ] Verificar que `STORAGE_PROVIDER` y credenciales de videos estén configuradas si se usa `/videos`.
 
-### Escalabilidad futura
+### Escalabilidad
 
-- [ ] Evaluar rate limit compartido para `POST /api/public/pedido` si se escala horizontalmente.
+- [x] Evaluar rate limit compartido para `POST /api/public/pedido`.
+  - Resuelto: se implementó `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (`memory` por defecto, `db` para producción con múltiples instancias).
+- [ ] Configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` en Vercel si se escala horizontalmente.
 
 ---
 
@@ -468,4 +470,4 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 
 Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos por WhatsApp. El flujo central es: **abrir caja → vender/confirmar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock; el stock se descuenta únicamente cuando el operador confirma el pedido desde el panel.
 
-Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y evaluar el rate limit compartido si se espera alta concurrencia.
+Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`.
