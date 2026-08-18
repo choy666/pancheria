@@ -50,6 +50,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos: `memory` (por defecto) o `db` (PostgreSQL, recomendado para producción con múltiples instancias). Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
+- `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup`. Si no se define, el endpoint rechaza todas las llamadas.
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).

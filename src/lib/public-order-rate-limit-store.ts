@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { db } from '@/db';
 import { publicOrderRateLimits } from '@/db/schema';
 
@@ -43,6 +43,13 @@ export class DbPublicOrderRateLimitStore
       return undefined;
     }
 
+    // Limpieza lazy: si la ventana ya vencio, borramos el registro
+    // para evitar acumulacion de IPs que no vuelven a pedir.
+    if (Date.now() > row.resetAt) {
+      await this.delete(ip);
+      return undefined;
+    }
+
     return { count: row.count, resetAt: row.resetAt };
   }
 
@@ -67,6 +74,14 @@ export class DbPublicOrderRateLimitStore
     await db
       .delete(publicOrderRateLimits)
       .where(eq(publicOrderRateLimits.ip, ip));
+  }
+
+  async cleanupExpired(): Promise<number> {
+    const result = await db
+      .delete(publicOrderRateLimits)
+      .where(lt(publicOrderRateLimits.resetAt, Date.now()))
+      .returning({ ip: publicOrderRateLimits.ip });
+    return result.length;
   }
 }
 

@@ -1,0 +1,19 @@
+feat: limpieza de rate limits vencidos y cobertura de tests.
+
+- `DbPublicOrderRateLimitStore.get` ahora borra lazy el registro si
+  `resetAt` ya paso, reduciendo el crecimiento de la tabla en IPs
+  transitorias.
+- Agrega `cleanupExpired()` a `DbPublicOrderRateLimitStore` para
+  limpieza masiva de entradas vencidas.
+- Crea `src/app/api/cron/rate-limit-cleanup/route.ts` y `vercel.json`
+  para ejecutar limpieza diaria a las 04:00 con `CRON_SECRET`.
+- Agrega `CRON_SECRET` a `.env.example`.
+- Crea `src/lib/public-order-rate-limit-store.test.ts` con cobertura
+  para `InMemoryPublicOrderRateLimitStore` y `DbPublicOrderRateLimitStore`.
+
+Verificado con npm run lint, npx tsc --noEmit, npm test (69 suites,
+750 tests) y npm run build.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
