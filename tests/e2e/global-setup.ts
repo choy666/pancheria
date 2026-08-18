@@ -20,6 +20,7 @@ export default async function globalSetup() {
       videos,
       cash_registers,
       daily_closures,
+      login_attempts,
       users,
       branches
     RESTART IDENTITY CASCADE;

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { defineConfig, devices } from '@playwright/test';
 
 dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env.e2e', override: true });
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const useGlobalSetup = !process.env.NO_GLOBAL_SETUP;
