@@ -1,16 +1,16 @@
 # Guía de funcionamiento y manejo de la aplicación — Panchería
 
-**Fecha:** 2026-08-17  
+**Fecha:** 2026-08-18  
 **Proyecto:** `pancheria`  
-**Basada en:** código actual, `AGENTS.md`, `README.md`, `.devin/informes/reporte-auditoria-pedidos-sucursal-cliente-2026-08-17.md` y `.devin/informes/plan-cobertura-pedidos-2026-08-17.md`.
+**Basada en:** código actual, `AGENTS.md`, `README.md`, <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> y <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />.
 
 ---
 
 ## 1. ¿Se puede pasar a producción con el estado actual?
 
-**Respuesta corta:** la aplicación es funcional y los tests unitarios pasan, pero **no se recomienda pasar a producción sin corregir al menos el riesgo crítico de `convertOrderToSale`**. Ese riesgo puede generar inconsistencia entre el total del pedido y el total de la venta si cambian los precios mientras un pedido está pendiente. Ver sección <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-auditoria-pedidos-sucursal-cliente-2026-08-17.md" /> para el detalle.
+**Respuesta corta:** la aplicación es funcional, los tests unitarios y E2E pasan, y el build de producción es exitoso. Los riesgos críticos del flujo de pedidos (`convertOrderToSale` con precios históricos, `branchId` explícito, expiración automática de pedidos `pending`) ya están resueltos.
 
-El resto de los hallazgos son de deuda técnica, documentación y escalabilidad, y no bloquean por completo la operación, pero conviene resolverlos antes de escalar.
+Los hallazgos restantes son de deuda técnica, documentación, escalabilidad y configuración de producción. No bloquean por completo la operación, pero conviene resolverlos antes de escalar, en especial el rate limit en memoria y la configuración de variables de entorno en Vercel.
 
 ---
 
@@ -88,10 +88,10 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 | ---- | ----------- | ----------------- | --------------------------- |
 | `restock` | Carga inicial o reposición de stock | Operador desde `/stock` o seed | Sí (`+quantity`) |
 | `manual_adjustment` | Ajuste manual por pérdida, rotura, etc. | Operador desde `/stock` | Sí (`+quantity`) |
-| `sale` | Venta confirmada desde el terminal | Automático al confirmar venta | Sí (`-quantity`) |
+| `sale` | Venta confirmada desde el terminal o conversión de un pedido | Automático al confirmar venta o pedido | Sí (`-quantity`) |
 | `cancellation` | Anulación de una venta | Automático al anular venta | Sí (`+quantity`, reintegro) |
-| `order` | Pedido público creado | Automático al crear pedido | No (no se genera) |
-| `order_cancellation` | Cancelación de un pedido | **No se genera** en el flujo actual. | No |
+| `order` | Reserva de stock por pedido público | **No se genera** en el flujo actual; los pedidos `pending` no reservan stock. | No (no se genera) |
+| `order_cancellation` | Liberación de stock reservado por pedido | **No se genera** en el flujo actual; los pedidos `pending` no reservan stock. | No |
 
 <ref_file file="C:/developer/paginas/pancheria/src/domain/types.ts" /> (`StockMovementType`).
 
@@ -388,13 +388,19 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 
 ## 14. Limitaciones y comportamientos a tener en cuenta
 
-1. **Cambio de precio entre pedido y venta**: al confirmar un pedido, la venta se calcula con el precio actual del producto. Si el precio cambió desde que se hizo el pedido, la venta quedará con un total distinto al del pedido. **Recomendación: corregir antes de producción.**
-2. **Rate limit en memoria**: no escala horizontalmente; en Vercel con múltiples funciones no es efectivo.
-3. **Pedido `pending` infinito**: no hay expiración automática; un pedido puede quedarse `pending` para siempre si nadie lo confirma ni cancela. Si el negocio lo requiere, agregar job de expiración.
-4. **Cambio de sucursal en panel sin `branchId` explícito**: el listado de pedidos depende de cookie; en escenarios con tabs concurrentes puede desfasarse.
-5. **Stock de productos `compound`**: el stock del producto compuesto en `products.stock` no se usa para calcular disponibilidad; se usa el stock de sus insumos. Sin embargo, `products.stock` se mantiene en `0` y puede servir para referencia si se ajusta manualmente.
-6. **Productos `manual_supply` en recetas**: son informativos; no afectan disponibilidad ni se descuentan.
-7. **Soft delete**: al eliminar un producto, venta o caja, el registro permanece en base con `deletedAt`. Para eliminar definitivamente hay que ir a la papelera.
+### Resueltos recientemente
+
+1. ~~**Cambio de precio entre pedido y venta**~~: resuelto. `convertOrderToSale` conserva los precios históricos de `order.items` usando `buildSaleItemValues` con `unitPrice` y `subtotal`.
+2. ~~**Pedido `pending` infinito**~~: resuelto. `expirePendingOrders` cancela pedidos `pending` cuya antigüedad supere `ORDER_EXPIRATION_MS` (default 1 hora) e integra en `GET /api/pedidos`.
+3. ~~**Cambio de sucursal en panel sin `branchId` explícito**~~: resuelto. `PedidosList` envía `branchId` en query string y `GET /api/pedidos` lo valida contra `getCurrentBranchId(session)`, rechazando accesos cruzados de `operator`.
+
+### Limitaciones vigentes
+
+4. **Rate limit en memoria**: `POST /api/public/pedido` limita por IP con un `Map` en el proceso de Node. No escala horizontalmente en Vercel con múltiples funciones; requiere store compartido (Redis, Vercel KV, PostgreSQL) para escalar.
+5. **Tipos `order` y `order_cancellation` en `stock_movements`**: los enum `StockMovementType` y el esquema de base de datos aún incluyen estos valores, pero el flujo actual de pedidos no los genera porque los pedidos `pending` no reservan stock. Se conservan por compatibilidad histórica y posibles ajustes manuales.
+6. **Stock de productos `compound`**: el campo `products.stock` de un producto compuesto no se usa para calcular disponibilidad; se usa el stock de sus insumos críticos con `autoDiscount`. `products.stock` se mantiene en `0` y puede servir como referencia si se ajusta manualmente.
+7. **Productos `manual_supply` en recetas**: son informativos; no afectan disponibilidad ni se descuentan.
+8. **Soft delete**: al eliminar un producto, venta o caja, el registro permanece en base con `deletedAt`. Para eliminar definitivamente hay que ir a la papelera.
 
 ---
 
@@ -432,9 +438,16 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 
 ## 16. Checklist antes de producción
 
+### Implementación (resuelto)
+
 - [x] Corregir `convertOrderToSale` para conservar precios históricos.
 - [x] Validar `branchId` entero en `/pedido`.
 - [x] Incluir `branchId` explícito en el panel de pedidos.
+- [x] Implementar expiración automática de pedidos `pending`.
+- [x] Ajustar flujo de pedidos para que no reserven stock al crearse.
+
+### Configuración manual (pendiente del usuario)
+
 - [ ] Configurar `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET` en Vercel.
 - [ ] Configurar `DATABASE_URL` y `DATABASE_URL_UNPOOLED` con base de producción.
 - [ ] Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
@@ -442,10 +455,14 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 - [ ] Rotar secretos si `.env.local` fue expuesto.
 - [ ] Verificar que `STORAGE_PROVIDER` y credenciales de videos estén configuradas si se usa `/videos`.
 
+### Escalabilidad futura
+
+- [ ] Evaluar rate limit compartido para `POST /api/public/pedido` si se escala horizontalmente.
+
 ---
 
 ## 17. Conclusión
 
 Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos por WhatsApp. El flujo central es: **abrir caja → vender/confirmar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock; el stock se descuenta únicamente cuando el operador confirma el pedido desde el panel.
 
-Para producción se recomienda resolver los hallazgos críticos documentados, en especial el precio histórico en pedidos, y ejecutar las verificaciones estándar antes y después del deploy.
+Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y evaluar el rate limit compartido si se espera alta concurrencia.

@@ -10,7 +10,7 @@ Este prompt documenta las decisiones arquitectónicas y las buenas prácticas ap
 
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/reporte-auditoria-pedidos-sucursal-cliente-2026-08-17.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
 
 ## 1. Aislamiento por sucursal
 
