@@ -1,0 +1,19 @@
+feat: cron ajustable y tests del endpoint de limpieza.
+
+- Cambia `vercel.json` a `0 */6 * * *` para limpiar entradas vencidas
+  cada 6 horas por defecto.
+- Agrega `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE` a `.env.example`
+  y `AGENTS.md` para documentar el schedule del cron.
+- Crea `src/app/api/cron/rate-limit-cleanup/route.test.ts` con cobertura
+  para autorizacion fallida y limpieza exitosa.
+
+Nota: Vercel Cron Jobs no leen variables de entorno para el schedule,
+por lo que `vercel.json` (o el cron externo) debe reflejar el valor
+configurado.
+
+Verificado con npm run lint, npx tsc --noEmit, npm test (70 suites,
+753 tests) y npm run build.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
