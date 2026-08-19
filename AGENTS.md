@@ -126,7 +126,7 @@ El sistema permite subir, listar, reproducir y transmitir videos desde el panel 
    vercel --prod --yes
    ```
    - El CLI detectará Next.js automáticamente y conectará el repositorio de GitHub si existe.
-   - Anotá el dominio de producción asignado (por ejemplo `https://pancheria-alpha.vercel.app`).
+   - Anotá el dominio de producción asignado. Para este proyecto, el dominio oficial es `https://pancheria-alpha.vercel.app`; ese mismo valor debe usarse para `NEXTAUTH_URL` en producción.
 4. Subir las variables de entorno a Vercel:
    ```bash
    $db = (Get-Content .env.local | Select-String '^DATABASE_URL=(.*)').Matches.Groups[1].Value; $db | vercel env add DATABASE_URL production

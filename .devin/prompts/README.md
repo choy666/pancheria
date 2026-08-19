@@ -132,6 +132,10 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Errores de deploy en Vercel](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y React #441 por usuarios sin sucursal asignada.
 
+### Prompts archivados
+
+- [Auditoría de `DEPLOYMENT_NOT_FOUND` en Vercel](archivados/auditoria-deploy-pancheria-five.md) — resuelta: `pancheria-five` era un dominio huérfano; el dominio productivo oficial es `pancheria-alpha.vercel.app`.
+
 ## Véase también
 
 - [Índice general de `.devin`](../README.md)

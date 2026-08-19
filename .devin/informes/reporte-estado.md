@@ -1,3 +1,128 @@
+# Reporte de estado — Auditoría de deploy `pancheria-five`
+
+**Fecha:** 2026-08-19  
+**Proyecto:** `pancheria`
+
+---
+
+## 1. Resumen ejecutivo
+
+Se auditó el estado de los dominios `pancheria-five.vercel.app` y `pancheria-alpha.vercel.app` para determinar por qué el primero devuelve `DEPLOYMENT_NOT_FOUND` mientras el segundo funciona correctamente.
+
+Se confirmó que `pancheria-alpha.vercel.app` es el dominio productivo asignado al proyecto `pancheria` en Vercel. Responde con `307 Temporary Redirect` a `/pedido` y la cookie `authjs.callback-url` apunta a `https://pancheria-alpha.vercel.app`, lo que indica que la sesión de NextAuth está configurada para el dominio correcto.
+
+El dominio `pancheria-five.vercel.app` no está vinculado al proyecto `pancheria` ni a ningún deployment visible en la cuenta de Vercel. El build local se completó exitosamente, descartando problemas en el código fuente.
+
+---
+
+## 2. Causa probable de `DEPLOYMENT_NOT_FOUND` en `pancheria-five`
+
+El header `X-Vercel-Error: DEPLOYMENT_NOT_FOUND` indica que Vercel recibió la solicitud en su edge pero no encontró un deployment asociado al hostname `pancheria-five.vercel.app`.
+
+Las pruebas con Vercel CLI confirman que:
+
+- El proyecto `pancheria` en la cuenta actual tiene como dominio de producción `pancheria-alpha.vercel.app`.
+- `pancheria-five.vercel.app` no aparece como deployment, alias ni dominio personalizado.
+- No hay otros proyectos en la cuenta con el nombre `pancheria-five`.
+
+Las causas probables, ordenadas de más a menos probable, son:
+
+1. **Deployment o proyecto eliminado.** El subdominio `pancheria-five` pertenecía a un deployment o proyecto anterior que fue eliminado, dejando el hostname huérfano.
+2. **Proyecto recreado.** Al recrear el proyecto (por ejemplo, para corregir `Framework Preset: Other`), Vercel asignó el nuevo dominio `pancheria-alpha`, dejando `pancheria-five` sin deployment asociado.
+3. **Dominio personalizado huérfano.** `pancheria-five` podría haber sido un dominio personalizado o alias externo que apuntaba a un `deployment URL` que ya no existe.
+
+---
+
+## 3. Comparativa entre `pancheria-five` y `pancheria-alpha`
+
+| Característica | `pancheria-five.vercel.app` | `pancheria-alpha.vercel.app` |
+|---|---|---|
+| Estado HTTP | 404 Not Found | 307 Temporary Redirect |
+| `X-Vercel-Error` | `DEPLOYMENT_NOT_FOUND` | Ninguno |
+| `Location` | — | `/pedido` |
+| Cookie `authjs.callback-url` | No presente | `https%3A%2F%2Fpancheria-alpha.vercel.app` |
+| Vinculación al proyecto `pancheria` | No encontrada | Sí, proyecto productivo |
+| Framework Preset | No aplica | Next.js |
+| Funciones serverless (`λ`) | No aplica | Sí |
+| Build local | Exitoso | Exitoso |
+
+---
+
+## 4. Estado de variables de entorno y Framework Preset
+
+### Framework Preset
+
+El proyecto `pancheria` está configurado en Vercel con:
+
+- **Framework Preset:** Next.js
+- **Build Command:** `npm run build` / `next build`
+- **Output Directory:** Next.js default
+
+El deployment productivo inspeccionado contiene funciones serverless (`λ`) para las rutas dinámicas, lo que confirma que el App Router de Next.js se sirve correctamente.
+
+### Variables de entorno
+
+Se verificaron las variables configuradas en el entorno `Production` de Vercel. Los valores están encriptados, por lo que no se exponen en este informe. Se confirmó:
+
+- Existe `NEXTAUTH_URL` en producción. No existe `AUTH_URL`, por lo que `NEXTAUTH_URL` tiene prioridad.
+- La cookie `__Secure-authjs.callback-url=https%3A%2F%2Fpancheria-alpha.vercel.app` indica que NextAuth apunta al dominio productivo correcto.
+- No se detectaron variables con `localhost` en el entorno de producción.
+- Existen `DATABASE_URL`, `DATABASE_URL_UNPOOLED` y las variables de Vercel Postgres (`POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`, etc.).
+- Existen `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN` y variables relacionadas con videos.
+- Existen `ORDER_EXPIRATION_MS`, `RATE_LIMIT_STORE_PROVIDER` y variables de rate limiting.
+
+---
+
+## 5. Hallazgos clasificados
+
+| Gravedad | Hallazgo | Evidencia |
+|---|---|---|
+| Mayor | `pancheria-five.vercel.app` devuelve `DEPLOYMENT_NOT_FOUND` y no está asociado al proyecto `pancheria` ni a ningún deployment visible en la cuenta. | `curl -I`, `vercel inspect`, `vercel project ls`, `vercel domains ls`. |
+| Menor | `pancheria-five` podría ser una URL obsoleta que requiera limpieza de bookmarks, documentación o DNS. | No se encontraron referencias en el código ni en la documentación del proyecto. |
+| Informativo | `pancheria-alpha.vercel.app` es el dominio productivo vigente con build y redirección correctos. | `vercel inspect`, `vercel project ls`, `curl -I`. |
+| Informativo | Framework Preset es Next.js y el build contiene funciones serverless. | `vercel project inspect pancheria`, `vercel inspect https://pancheria-alpha.vercel.app`. |
+| Informativo | Build local (`npm run build`) se completó exitosamente. | Salida del comando. |
+
+---
+
+## 6. Recomendaciones y acciones correctivas
+
+1. **Consolidar `pancheria-alpha` como dominio productivo oficial.** Actualizar cualquier documentación, README o comunicación que aún referencie `pancheria-five`.
+2. **Investigar el origen de `pancheria-five`.** Revisar el dashboard de Vercel (Projects, Activity Log, Domains) para confirmar si corresponde a un proyecto eliminado o un dominio personalizado abandonado.
+3. **Si `pancheria-five` debe redirigir a `pancheria-alpha`:** agregarlo como dominio personalizado o alias en el proyecto `pancheria`, o configurar un redirect a nivel de DNS.
+4. **Si `pancheria-five` no se usa más:** eliminar registros DNS, bookmarks y referencias para evitar confusiones.
+5. **Mantener `NEXTAUTH_URL` apuntando a `pancheria-alpha`.** Evitar definir `AUTH_URL` a menos que sea necesario; si se define, debe coincidir con el dominio productivo.
+6. **No ejecutar `vercel project remove` ni recrear el proyecto** sin confirmación explícita y sin respaldar variables de entorno.
+7. **Mantener `.env.example` y `AGENTS.md` sincronizados** con las variables de entorno actuales.
+
+---
+
+## 7. Comandos ejecutados y resultados
+
+| Paso | Comando | Resultado |
+|---|---|---|
+| 1 | `curl.exe -I https://pancheria-five.vercel.app` | 404, `X-Vercel-Error: DEPLOYMENT_NOT_FOUND` |
+| 2 | `curl.exe -I https://pancheria-alpha.vercel.app` | 307, `Location: /pedido`, `authjs.callback-url=https%3A%2F%2Fpancheria-alpha.vercel.app` |
+| 3 | `npx vercel project ls` | `pancheria` con `Latest Production URL: https://pancheria-alpha.vercel.app` |
+| 4 | `npx vercel domains ls` | 0 dominios personalizados |
+| 5 | `npx vercel inspect https://pancheria-alpha.vercel.app` | Deployment productivo `Ready`, alias `pancheria-alpha.vercel.app`, funciones `λ` |
+| 6 | `npx vercel inspect https://pancheria-five.vercel.app` | Error: no se encontró el deployment |
+| 7 | `npx vercel env ls` | Variables de producción configuradas (encriptadas) |
+| 8 | `npx vercel project inspect pancheria` | Framework Preset: Next.js |
+| 9 | `npx vercel list pancheria` | Lista de deployments recientes, ninguno asociado a `pancheria-five` |
+| 10 | `npm run build` | Build local exitoso |
+
+---
+
+## 8. Acciones aplicadas tras la auditoría
+
+- **Dominio productivo oficial consolidado:** se actualizó <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" /> para indicar que el dominio de producción asignado es `https://pancheria-alpha.vercel.app` y que ese mismo valor debe usarse para `NEXTAUTH_URL` en producción.
+- **Prompt archivado:** el prompt de auditoría se movió a <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/auditoria-deploy-pancheria-five.md" /> y se actualizó <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" /> para reflejar su estado resuelto.
+- **Limpieza de documentación:** no se encontraron referencias a `pancheria-five` en `README.md`, `.env.example`, código fuente ni otros documentos del repositorio. El informe vigente conserva el nombre solo como registro histórico del objeto auditado.
+- **DNS y bookmarks:** estas referencias están fuera del alcance del repositorio; se recomienda al operador eliminar manualmente cualquier DNS, bookmark o enlace compartido que aún apunte a `pancheria-five.vercel.app`.
+
+---
+
 # Reporte de estado — Expiración de pedidos, limpieza de `.devin` y estado actual
 
 **Fecha:** 2026-08-18  
