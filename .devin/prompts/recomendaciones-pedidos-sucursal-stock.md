@@ -21,7 +21,8 @@ Este prompt documenta las decisiones arquitectónicas y las buenas prácticas ap
 - Cualquier Client Component que dependa de la sucursal debería recibirla como prop o reaccionar a su cambio.
 
 ### Implementación concreta
-- <ref_file file="C:/developer/paginas/pancheria/src/app/(public)/pedido/page.tsx" /> valida y resuelve `branchId` antes de renderizar.
+- <ref_file file="C:/developer/paginas/pancheria/src/app/(public)/pedido/page.tsx" /> valida y resuelve `branchId`, y envuelve la carga del catálogo en `Suspense` mediante el componente asíncrono `PedidoCatalog`.
+- `PedidoCatalog` (definido en <ref_file file="C:/developer/paginas/pancheria/src/app/(public)/pedido/page.tsx" />) carga `branches` e `initialProducts` dentro de `Suspense` para mostrar `PedidoSkeleton` mientras se resuelven.
 - <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.tsx" /> recibe `activeBranch` y `initialProducts`; al cambiar de sucursal limpia el carrito y navega.
 - <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/pedidos/page.tsx" /> obtiene la sucursal activa en el Server Component y se la pasa a <ref_file file="C:/developer/paginas/pancheria/src/components/pedidos/pedidos-list.tsx" />.
 
@@ -29,15 +30,16 @@ Este prompt documenta las decisiones arquitectónicas y las buenas prácticas ap
 La invalidez del carrito se defiende en tres puntos:
 
 1. **Estado React**: `handleBranchChange` llama `clearCart()` antes de `router.push`.
-2. **Remonte limpio**: `PedidoClient` recibe `key={branchId}` en `pedido/page.tsx`, por lo que React remonta el componente al cambiar de sucursal.
+2. **Remonte limpio**: `PedidoCatalog` (en `pedido/page.tsx`) renderiza `PedidoClient` con `key={branchId}`, por lo que React remonta el componente al cambiar de sucursal.
 3. **Persistencia**: <ref_file file="C:/developer/paginas/pancheria/src/hooks/useCart.ts" /> valida `stored.data.branchId` en `getInitialItems` y descarta el carrito si no coincide.
 
 ## 2. Hydration y Client Components
 
 ### Evitar hydration mismatch en props que dependen de `localStorage`
 - Si un Client Component recibe una prop que solo se conoce en el cliente (por ejemplo, el carrito que se hidrata desde `localStorage`), el servidor y el cliente pueden renderizar contenido diferente y causar un error de hydration.
-- En <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" /> la prop `inCart` proviene del carrito persistido. Para evitar el mismatch, el componente usa `useSyncExternalStore` con `getServerSnapshot` que devuelve `false` durante el SSR y `true` en el cliente, de modo que el primer render del servidor y del cliente coinciden en `Agregar`. Tras la hidratación, el valor del cliente prevalece y se muestra `Agregar otro` cuando corresponde.
-- No usar `useEffect(() => setMounted(true), [])` para este caso porque el linter del proyecto prohíbe `setState` dentro de efectos excepto en los casos documentados.
+- La raíz del problema suele estar en leer `localStorage` durante el render, por ejemplo en el inicializador de `useState`. En su lugar, inicializar el estado con un valor seguro para SSR (como un arreglo vacío) y cargar el valor real en un `useEffect`.
+- En <ref_file file="C:/developer/paginas/pancheria/src/hooks/useCart.ts" /> el carrito inicia vacío y se hidrata desde `localStorage` dentro de un `useEffect`. De ese modo `PedidoClient`, `ProductCard` y `CartSummary` reciben `items = []` tanto en el servidor como en el primer render del cliente, eliminando el mismatch.
+- <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" /> usa la prop `inCart` directamente para decidir entre `Agregar` y `Agregar otro`; no necesita `useSyncExternalStore` ni flags de montaje.
 
 ### `setState` dentro de `useEffect`
 El proyecto permite `setState` en efectos en dos casos concretos:
@@ -53,8 +55,8 @@ Para **sincronizar props con estado**, preferir:
 
 ### Ejemplos aplicados
 - `PedidoClient` carga el catálogo asíncronamente en un `useEffect` con `isMountedRef` y actualiza `products` (carga inicial y refresco periódico); `activeBranch` se sincroniza vía `key={branchId}`, no por efecto.
-- `useCart` persiste el carrito en `localStorage` en un `useEffect` y reinicializa el estado cuando cambia `branchId` usando una referencia a la sucursal previa.
-- `ProductCard` evita el hydration mismatch del label del botón usando `useSyncExternalStore`, porque `inCart` proviene del carrito hidratado desde `localStorage`.
+- `useCart` inicia con un carrito vacío (SSR-safe), persiste el carrito en `localStorage` en un `useEffect` y lo hidrata en otro `useEffect` cuando cambia `branchId`.
+- `ProductCard` usa la prop `inCart` directamente para mostrar `Agregar` o `Agregar otro`; el mismatch desaparece porque `useCart` no lee `localStorage` durante el render.
 
 ## 3. Consolidación de lógica de ventas y pedidos
 

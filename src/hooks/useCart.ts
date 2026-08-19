@@ -99,13 +99,15 @@ export function useCart({
   products,
   getAvailability,
 }: UseCartOptions) {
-  const [items, setItems] = useState<CartItem[]>(
-    () => getInitialItems(branchId, products, getAvailability)
-  );
-  const previousBranchIdRef = useRef(branchId);
+  // Inicializamos con un arreglo vacío para que el primer render coincida
+  // entre SSR y cliente. Esto evita errores de hydration cuando el carrito
+  // se persiste en localStorage y se restaura en el cliente.
+  const [items, setItems] = useState<CartItem[]>([]);
+  const previousBranchIdRef = useRef<number | null>(null);
 
-  // Si cambia la sucursal en tiempo de ejecución, reinicializamos el carrito
-  // desde el storage o lo descartamos si no coincide con la sucursal actual.
+  // Carga inicial y reinicialización al cambiar de sucursal. Se ejecuta en
+  // un efecto porque localStorage no está disponible durante el render del
+  // servidor y no queremos que el HTML inicial dependa de él.
   useEffect(() => {
     if (previousBranchIdRef.current === branchId) return;
     previousBranchIdRef.current = branchId;

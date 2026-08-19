@@ -9,7 +9,7 @@
 
 Se implementó el flujo de **confirmación de envío de pedido por WhatsApp**: tras crear un pedido `pending`, el cliente abre WhatsApp, envía el mensaje y al volver a la app confirma el envío. El sistema registra `sentAt` en `orders` sin cambiar el estado del pedido, y el operador ve un indicador visual en el panel.
 
-Durante la verificación surgió un **hydration mismatch** en `ProductCard` porque el label del botón (`Agregar` / `Agregar otro`) depende de `inCart`, prop calculada a partir del carrito hidratado desde `localStorage`. Se resolvió con `useSyncExternalStore` y `getServerSnapshot` para que el primer render del servidor y del cliente coincidan.
+Durante la verificación surgió un **hydration mismatch** en `ProductCard` / `CartSummary` porque el carrito se hidrataba desde `localStorage` durante el render inicial de `useCart`. El servidor renderizaba el carrito vacío mientras que el cliente podía tener ítems persistidos, lo que generaba diferencias en el botón (`Agregar` / `Agregar otro`) y en el resumen del carrito (`<p>` vacío vs `<ul>` con ítems). Se resolvió moviendo la carga de `localStorage` a un `useEffect` en `useCart` e inicializando el estado con un arreglo vacío, de modo que el primer render del servidor y del cliente coincidan. `ProductCard` usa directamente la prop `inCart`.
 
 Se actualizaron los prompts, lecciones aprendidas, guía de funcionamiento y este reporte para reflejar la implementación.
 
@@ -35,7 +35,7 @@ Se actualizaron los prompts, lecciones aprendidas, guía de funcionamiento y est
 | Menor | El diálogo de éxito mostraba siempre "Cancelar pedido" y "Abrir WhatsApp" aunque el cliente ya hubiera vuelto de WhatsApp. | Implementada máquina de estados `reserved → confirming → sent` en `PedidoClient`. |
 | Menor | No existía registro de que el cliente envió el mensaje por WhatsApp. | Agregada columna `sentAt` en `orders` y endpoint `POST /api/public/pedido/[id]/enviar`. |
 | Menor | El operador no distinguía pedidos enviados de WhatsApp de pedidos recién creados. | Agregado badge `Enviado por WhatsApp` en listado y detalle de pedidos. |
-| Mayor | `ProductCard` causaba hydration mismatch por `inCart` dependiente de `localStorage`. | Resuelto con `useSyncExternalStore` y `getServerSnapshot` en `ProductCard`. |
+| Mayor | `ProductCard` / `CartSummary` causaban hydration mismatch porque el carrito se leía de `localStorage` durante el render de `useCart`. | Resuelto en `useCart`: estado inicial vacío (SSR-safe) y carga desde `localStorage` en `useEffect`. `ProductCard` usa `inCart` directamente. |
 | Informativo | La documentación no reflejaba el nuevo flujo ni el patrón de hydration. | Actualizados `recomendaciones-pedidos-sucursal-stock.md`, `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md` y este reporte. |
 
 ---
@@ -47,7 +47,7 @@ Se actualizaron los prompts, lecciones aprendidas, guía de funcionamiento y est
 | Esquema y migración | `src/db/schema.ts`, `drizzle/0011_blushing_lucky_pierre.sql`, `drizzle/meta/0011_snapshot.json`, `drizzle/meta/_journal.json` |
 | Tipos y config | `src/domain/types.ts`, `src/config/api.ts`, `src/lib/zod-schemas.ts` |
 | Backend | `src/repositories/orderRepository.ts`, `src/application/services/orderService.ts`, `src/app/api/public/pedido/[id]/enviar/route.ts`, `src/app/api/public/pedido/route.ts` |
-| Frontend | `src/components/pedido/pedido-client.tsx`, `src/components/pedido/product-card.tsx`, `src/components/pedido/cart-summary.tsx`, `src/components/pedidos/pedidos-list.tsx`, `src/components/pedidos/pedido-detail.tsx` |
+| Frontend | `src/components/pedido/pedido-client.tsx`, `src/hooks/useCart.ts`, `src/components/pedido/product-card.tsx`, `src/components/pedido/cart-summary.tsx`, `src/components/pedidos/pedidos-list.tsx`, `src/components/pedidos/pedido-detail.tsx` |
 | Tests | `src/repositories/orderRepository.test.ts`, `src/application/services/orderService.test.ts`, `src/app/api/public/pedido/[id]/enviar/route.test.ts`, `src/components/pedido/pedido-client.test.tsx` |
 | Documentación | `.devin/prompts/recomendaciones-pedidos-sucursal-stock.md`, `.devin/informes/lecciones-aprendidas.md`, `.devin/informes/guia-funcionamiento-pancheria.md`, `.devin/informes/reporte-estado.md` |
 

@@ -97,7 +97,12 @@ describe('PedidoPage', () => {
     });
 
     expect(element.type).toBe(Suspense);
-    expect(getComponentName(element.props.children)).toBe('PedidoClient');
+    const catalog = element.props.children;
+    expect(getComponentName(catalog)).toBe('PedidoCatalog');
+    expect(catalog.props.branchId).toBe(1);
+
+    const catalogResult = await catalog.type(catalog.props);
+    expect(getComponentName(catalogResult)).toBe('PedidoClient');
   });
 
   test('renderiza PedidoError cuando la sucursal explícita no existe', async () => {
@@ -110,7 +115,10 @@ describe('PedidoPage', () => {
       searchParams: Promise.resolve({ branchId: '999' }),
     });
 
-    expect(getComponentName(element)).toBe('PedidoError');
+    expect(element.type).toBe(Suspense);
+    const catalog = element.props.children;
+    const catalogResult = await catalog.type(catalog.props);
+    expect(getComponentName(catalogResult)).toBe('PedidoError');
   });
 
   test('redirige a /pedido cuando branchId no es un entero positivo', async () => {

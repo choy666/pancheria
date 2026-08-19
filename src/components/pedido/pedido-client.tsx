@@ -422,10 +422,6 @@ export function PedidoClient({
     }
   }
 
-  function handleReopenWhatsApp() {
-    handleOpenWhatsApp();
-  }
-
   return (
     <div className="space-y-5">
       {error && (
@@ -773,7 +769,7 @@ export function PedidoClient({
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={handleReopenWhatsApp}
+                  onClick={handleOpenWhatsApp}
                   disabled={!createdOrder}
                   className="w-full sm:w-auto"
                 >

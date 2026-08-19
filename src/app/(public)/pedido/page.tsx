@@ -20,6 +20,47 @@ type CatalogResult = Awaited<
   ReturnType<typeof catalogService.listPublicCatalogWithAvailability>
 >;
 
+interface PedidoCatalogProps {
+  branchId: number;
+}
+
+/**
+ * Componente asíncrono que carga el catálogo y sucursales. Al estar envuelto
+ * en Suspense, el esqueleto se muestra mientras se resuelven los datos.
+ */
+async function PedidoCatalog({ branchId }: PedidoCatalogProps) {
+  let catalog: CatalogResult | null = null;
+  let branches: Branch[] = [];
+  let hasError = false;
+
+  try {
+    [catalog, branches] = await Promise.all([
+      catalogService.listPublicCatalogWithAvailability(branchId),
+      listPublicBranches(),
+    ]);
+
+    if (!catalog || !branches.some((b) => b.id === branchId)) {
+      hasError = true;
+    }
+  } catch (error) {
+    logError('Error al cargar el catálogo público', error);
+    hasError = true;
+  }
+
+  if (hasError || !catalog) {
+    return <PedidoError />;
+  }
+
+  return (
+    <PedidoClient
+      key={branchId}
+      branches={branches}
+      activeBranch={catalog.branch}
+      initialProducts={catalog.products}
+    />
+  );
+}
+
 export default async function PedidoPage({ searchParams }: PedidoPageProps) {
   const params = await searchParams;
   let branchId: number | null = null;
@@ -44,36 +85,9 @@ export default async function PedidoPage({ searchParams }: PedidoPageProps) {
     redirect(`/pedido?branchId=${branchId}`);
   }
 
-  let catalog: CatalogResult | null = null;
-  let branches: Branch[] = [];
-  let hasError = false;
-
-  try {
-    [catalog, branches] = await Promise.all([
-      catalogService.listPublicCatalogWithAvailability(branchId),
-      listPublicBranches(),
-    ]);
-
-    if (!catalog || !branches.some((b) => b.id === branchId)) {
-      hasError = true;
-    }
-  } catch (error) {
-    logError('Error al cargar el catálogo público', error);
-    hasError = true;
-  }
-
-  if (hasError || !catalog) {
-    return <PedidoError />;
-  }
-
   return (
     <Suspense fallback={<PedidoSkeleton />}>
-      <PedidoClient
-        key={branchId}
-        branches={branches}
-        activeBranch={catalog.branch}
-        initialProducts={catalog.products}
-      />
+      <PedidoCatalog branchId={branchId} />
     </Suspense>
   );
 }

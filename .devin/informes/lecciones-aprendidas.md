@@ -25,7 +25,7 @@
 - **No mezclar helpers de UI con utilidades generales.** `src/lib/utils.ts` contiene `cn` de shadcn/ui. Las utilidades de JSON deben vivir en `src/lib/json.ts`.
 - **Eliminar duplicaciones en helpers E2E.** Centralizar funciones como `unique`, `login` y `createProductViaApi` en `tests/e2e/helpers.ts`.
 - **No ocultar reglas de negocio en helpers de test.** Los productos nuevos nacen con `stock: 0` y la carga inicial se registra con un movimiento `type: 'restock'`. Separar `createProductViaApi` de `restockProductViaApi` para mantener la regla visible.
-- **Evitar `setState` directo en `useEffect` para corregir hydration mismatch.** El linter del proyecto prohíbe este patrón salvo carga asíncrona con flag de montaje o persistencia derivada. Si una prop depende de estado que solo existe en el cliente (por ejemplo `localStorage`), preferir `useSyncExternalStore` con `getServerSnapshot` para que el servidor y el cliente rendericen el mismo contenido en el primer paso.
+- **No leer `localStorage` ni otras APIs del cliente durante el render de un Client Component.** Eso incluye pasar el resultado como estado inicial de `useState`. En el primer render del servidor y del cliente el valor de `localStorage` no coincide, lo que provoca hydration mismatch. Inicializar el estado con un valor seguro para SSR (por ejemplo un arreglo vacío) y cargar el valor real en un `useEffect`. Ver el patrón aplicado en `useCart`.
 
 ## 3. Manejo de errores y validaciones
 
