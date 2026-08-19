@@ -16,6 +16,7 @@ import {
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
 } from '@/config/api';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -37,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { ProductCard } from './product-card';
 import { CartSummary } from './cart-summary';
+import { PedidoError } from './pedido-error';
 import { useCart } from '@/hooks/useCart';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
@@ -225,6 +227,11 @@ export function PedidoClient({
 
   const inCartIds = new Set(items.map((item) => item.id));
 
+  const isActiveBranchValid = branches.some((b) => b.id === activeBranch.id);
+  if (!isActiveBranchValid) {
+    return <PedidoError />;
+  }
+
   function handleBranchChange(branchId: string | null) {
     if (!branchId) return;
     const selected = branches.find((b) => b.id === Number(branchId));
@@ -379,19 +386,32 @@ export function PedidoClient({
 
           {branches.length > 1 ? (
             <div className="w-full sm:w-auto">
-              <Label htmlFor="branchSelect" className="sr-only">
+              <Label
+                htmlFor="branchSelect"
+                className="mb-1 block text-sm font-medium"
+                data-testid="branch-select-label"
+              >
                 Sucursal
               </Label>
               <Select
                 value={String(activeBranch.id)}
                 onValueChange={handleBranchChange}
               >
-                <SelectTrigger id="branchSelect" data-testid="branch-select-trigger" className="w-full sm:w-[240px]">
-                  <SelectValue placeholder="Seleccionar sucursal" />
+                <SelectTrigger
+                  id="branchSelect"
+                  data-testid="branch-select-trigger"
+                  className="w-full sm:w-[260px]"
+                >
+                  <SelectValue placeholder="Seleccionar sucursal">
+                    {(value) =>
+                      branches.find((b) => String(b.id) === value)?.name ??
+                      activeBranch.name
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {branches.map((b) => (
-                    <SelectItem key={b.id} value={String(b.id)}>
+                    <SelectItem key={b.id} value={String(b.id)} label={b.name}>
                       {b.name}
                     </SelectItem>
                   ))}
@@ -399,7 +419,13 @@ export function PedidoClient({
               </Select>
             </div>
           ) : (
-            <p className="text-base text-muted-foreground">{activeBranch.name}</p>
+            <div
+              className="flex items-center gap-2"
+              data-testid="single-branch-indicator"
+            >
+              <span className="text-sm text-muted-foreground">Sucursal</span>
+              <Badge variant="secondary">{activeBranch.name}</Badge>
+            </div>
           )}
         </div>
       </div>

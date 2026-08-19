@@ -62,6 +62,37 @@ describe('buildWhatsAppMessage', () => {
 
     expect(message).toContain('Total: $1200.50');
   });
+
+  test('incluye el nombre de la sucursal cuando está definido', () => {
+    const order: PublicOrder = {
+      items: [
+        { productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 },
+      ],
+      customerName: 'Carlos',
+      deliveryType: 'pickup',
+      total: 1200,
+      branchName: 'Sucursal Centro',
+    };
+
+    const message = buildWhatsAppMessage(order);
+
+    expect(message).toContain('Sucursal: Sucursal Centro');
+  });
+
+  test('omite la línea de sucursal cuando no está definida', () => {
+    const order: PublicOrder = {
+      items: [
+        { productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 },
+      ],
+      customerName: 'Carlos',
+      deliveryType: 'pickup',
+      total: 1200,
+    };
+
+    const message = buildWhatsAppMessage(order);
+
+    expect(message).not.toContain('Sucursal:');
+  });
 });
 
 describe('encodeWhatsAppUrl', () => {

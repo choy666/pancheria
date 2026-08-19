@@ -283,3 +283,76 @@ El plan de cobertura del 2026-08-17 quedó implementado. A continuación el esta
 ## 11. Conclusión
 
 El proyecto incorporó la expiración automática de pedidos, actualizó la `guia-funcionamiento-pancheria.md` para reflejar el estado real, eliminó informes históricos obsoletos, migró todos los Server Components del panel a `getCurrentBranchIdOrRedirect` y ajustó el flujo de pedidos para que el stock se descuente solo al confirmar desde el panel. Además, se refactorizaron los servicios de venta y pedido extrayendo helpers transversales (`product-helpers`, `sale-helpers`, `order-helpers`), se creó `orderRepository.ts` y se documentó la excepción de integridad referencial de `cashRegisters.closedBy`. Finalmente, se implementó el rate limit distribuido de pedidos públicos con soporte para PostgreSQL (`public_order_rate_limits`). Las pruebas unitarias y el build de producción pasan. Quedan la deuda técnica de E2E y las recomendaciones habituales de despliegue.
+
+---
+
+# Reporte de estado — Selector de sucursales en `/pedido`
+
+**Fecha:** 2026-08-19
+**Proyecto:** `pancheria`
+
+---
+
+## 1. Resumen
+
+Se reforzó la visibilidad y funcionalidad del selector de sucursales en el catálogo público de pedidos (`/pedido`). El flujo completo —catálogo, disponibilidad, carrito, creación, cancelación y mensaje de WhatsApp— ya estaba aislado por `branchId`; los cambios se enfocaron en hacer el selector más claro, agregar defensas en el Client Component y ampliar la cobertura de tests.
+
+---
+
+## 2. Cambios aplicados
+
+### UI del selector
+
+- <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.tsx" />
+- Cuando hay más de una sucursal se muestra un `Select` con una etiqueta visible "Sucursal" y el trigger ancho (`sm:w-[260px]`).
+- Cuando hay una sola sucursal se muestra un `Badge` prominente con el nombre de la sucursal junto al label "Sucursal".
+- El `SelectValue` ahora muestra el **nombre** de la sucursal activa, no su id, y resuelve dinámicamente la etiqueta al cambiar el valor.
+- Se agregó una guarda defensiva que renderiza `<PedidoError />` si la sucursal activa no está en el listado recibido.
+
+### Carrito y persistencia
+
+- <ref_file file="C:/developer/paginas/pancheria/src/hooks/useCart.ts" />
+- El hook ya valida que el carrito guardado pertenezca a la misma sucursal y lo descarta si cambia.
+- `PedidoClient` actualiza `localStorage` bajo `pancheria-branch-id` al montar y al cambiar de sucursal.
+
+### Mensaje de WhatsApp
+
+- <ref_file file="C:/developer/paginas/pancheria/src/lib/whatsapp.ts" />
+- El mensaje generado incluye la línea `Sucursal: {order.branchName}` cuando el pedido tiene sucursal.
+- <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/route.ts" /> ya enviaba `branchName: order.branch?.name` en la respuesta.
+
+### Tests
+
+- <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.test.tsx" /> — tests unitarios que cubren:
+  - selector visible con múltiples sucursales;
+  - nombre de sucursal prominente con una sola sucursal;
+  - estado de error ante sucursal activa inválida;
+  - persistencia de `pancheria-branch-id`;
+  - descarte del carrito almacenado de otra sucursal;
+  - cambio de sucursal limpiando carrito, actualizando `localStorage` y navegando.
+- <ref_file file="C:/developer/paginas/pancheria/src/lib/whatsapp.test.ts" /> — tests para la inclusión/omisión del nombre de sucursal en el mensaje.
+
+---
+
+## 3. Verificaciones
+
+| Paso | Comando | Resultado |
+| ---- | ------- | --------- |
+| 1 | `npm run lint` | Pasa (exit 0) |
+| 2 | `npx tsc --noEmit` | Pasa |
+| 3 | `npm test` | 75 suites, 785 tests pasan |
+| 4 | `npm run build` | Build de producción exitoso (40 páginas) |
+| 5 | `npx playwright test tests/e2e/pedido-sucursal-y-stock.spec.ts` | 4/4 tests pasan |
+
+---
+
+## 4. Tests E2E
+
+La corrida enfocada del flujo de sucursal y stock arrojó **4 tests pasados**:
+
+- redirección de `branchId` inválido;
+- selección de otra sucursal, cambio de catálogo y limpieza del carrito;
+- limpieza del carrito al cambiar de sucursal y volver a la original;
+- creación de un pedido de pickup desde la sucursal por defecto.
+
+El test de pickup fue ajustado para soportar entornos con o sin `NEXT_PUBLIC_WHATSAPP_NUMBER` configurado: si la variable está definida, se verifica el diálogo de éxito; si no, se verifica el mensaje de configuración faltante.

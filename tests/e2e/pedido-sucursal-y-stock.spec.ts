@@ -33,6 +33,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     });
 
     await page.goto('/pedido');
+    await expect(page).toHaveURL(/\/pedido\?branchId=\d+$/);
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
@@ -45,9 +46,17 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.fill('input#customerName', 'Juan Pérez');
     await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
 
-    await expect(
-      page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
-    ).toBeVisible();
+    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? '';
+
+    if (whatsappNumber) {
+      // Si el número de WhatsApp está configurado, el pedido se crea y se muestra el diálogo de éxito.
+      await expect(page.getByText('El pedido se reservó correctamente')).toBeVisible();
+    } else {
+      // Si no hay número configurado, la API devuelve el error de configuración antes de crear el pedido.
+      await expect(
+        page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
+      ).toBeVisible();
+    }
   });
 
   test('selecciona otra sucursal, cambia el catálogo y limpia el carrito', async ({
