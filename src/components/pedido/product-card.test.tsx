@@ -51,6 +51,7 @@ describe('ProductCard', () => {
         inCart={false}
         breakdown={product.breakdown}
         onAdd={jest.fn()}
+        showBreakdown={true}
       />
     );
 
@@ -59,6 +60,31 @@ describe('ProductCard', () => {
     expect(
       screen.getByText('Salchicha: 8 disp., 2 req. (limitante)')
     ).toBeInTheDocument();
+  });
+
+  test('oculta el desglose de insumos de una promo cuando showBreakdown es false', () => {
+    const product = makeProduct({
+      breakdown: [
+        { supplyName: 'Pan', available: 12, required: 1, isLimiting: false },
+        { supplyName: 'Salchicha', available: 8, required: 2, isLimiting: true },
+      ],
+    });
+
+    render(
+      <ProductCard
+        product={product}
+        inCart={false}
+        breakdown={product.breakdown}
+        onAdd={jest.fn()}
+        showBreakdown={false}
+      />
+    );
+
+    expect(screen.queryByText('Ver insumos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pan: 12 disp., 1 req.')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Salchicha: 8 disp., 2 req. (limitante)')
+    ).not.toBeInTheDocument();
   });
 
   test('muestra "Agregar otro" cuando el producto ya está en el carrito', () => {

@@ -131,6 +131,7 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Errores de deploy en Vercel](errores-deploy-vercel-forbidden-react-441.md) — guía para corregir 500 y React #441 por usuarios sin sucursal asignada.
+- [Confirmación de envío de pedido por WhatsApp](confirmacion-envio-pedido-whatsapp.md) — flujo de confirmación de envío vía WhatsApp.
 
 ### Prompts archivados
 
