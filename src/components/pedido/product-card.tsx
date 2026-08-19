@@ -1,3 +1,6 @@
+'use client';
+
+import { useSyncExternalStore } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +18,7 @@ interface ProductCardProps {
   breakdown: RecipeBreakdownItem[];
   onAdd: () => void;
   disabled?: boolean;
+  showBreakdown?: boolean;
 }
 
 export function ProductCard({
@@ -23,7 +27,14 @@ export function ProductCard({
   breakdown,
   onAdd,
   disabled = false,
+  showBreakdown = true,
 }: ProductCardProps) {
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
   const isOutOfStock = product.type !== 'service' && product.availability <= 0;
   const typeLabel = product.criticalSupplyType
     ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
@@ -31,7 +42,7 @@ export function ProductCard({
 
   const buttonLabel = isOutOfStock
     ? 'Agotado'
-    : inCart
+    : inCart && mounted
       ? 'Agregar otro'
       : 'Agregar';
 
@@ -74,7 +85,7 @@ export function ProductCard({
 
         <p className="text-sm text-muted-foreground">{availabilityLabel}</p>
 
-        {product.type === 'compound' && breakdown.length > 0 && (
+        {showBreakdown && product.type === 'compound' && breakdown.length > 0 && (
           <details className="text-sm text-muted-foreground">
             <summary className="cursor-pointer text-foreground hover:text-primary">
               Ver insumos

@@ -34,9 +34,10 @@ La invalidez del carrito se defiende en tres puntos:
 
 ## 2. Hydration y Client Components
 
-### No usar `useEffect` como parche de hydration
-- Si un componente necesita un flag `mounted` para corregir algo, es señal de que el render no es simétrico entre servidor y cliente.
-- En <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" /> se resolvió usando `inCart` como prop pura. El botón muestra `Agregar` o `Agregar otro` directamente, sin estados de montaje.
+### Evitar hydration mismatch en props que dependen de `localStorage`
+- Si un Client Component recibe una prop que solo se conoce en el cliente (por ejemplo, el carrito que se hidrata desde `localStorage`), el servidor y el cliente pueden renderizar contenido diferente y causar un error de hydration.
+- En <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" /> la prop `inCart` proviene del carrito persistido. Para evitar el mismatch, el componente usa `useSyncExternalStore` con `getServerSnapshot` que devuelve `false` durante el SSR y `true` en el cliente, de modo que el primer render del servidor y del cliente coinciden en `Agregar`. Tras la hidratación, el valor del cliente prevalece y se muestra `Agregar otro` cuando corresponde.
+- No usar `useEffect(() => setMounted(true), [])` para este caso porque el linter del proyecto prohíbe `setState` dentro de efectos excepto en los casos documentados.
 
 ### `setState` dentro de `useEffect`
 El proyecto permite `setState` en efectos en dos casos concretos:
@@ -53,7 +54,7 @@ Para **sincronizar props con estado**, preferir:
 ### Ejemplos aplicados
 - `PedidoClient` carga el catálogo asíncronamente en un `useEffect` con `isMountedRef` y actualiza `products` (carga inicial y refresco periódico); `activeBranch` se sincroniza vía `key={branchId}`, no por efecto.
 - `useCart` persiste el carrito en `localStorage` en un `useEffect` y reinicializa el estado cuando cambia `branchId` usando una referencia a la sucursal previa.
-- `ProductCard` no guarda `mounted` en estado; elige el label del botón a partir de `inCart`.
+- `ProductCard` evita el hydration mismatch del label del botón usando `useSyncExternalStore`, porque `inCart` proviene del carrito hidratado desde `localStorage`.
 
 ## 3. Consolidación de lógica de ventas y pedidos
 
