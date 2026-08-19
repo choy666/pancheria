@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import type { CartItem } from '@/hooks/useCart';
 
 interface CartSummaryProps {
-  branchName: string;
+  branchName?: string;
   items: CartItem[];
   total: number;
   onUpdateQuantity: (productId: number, quantity: number) => void;
@@ -28,9 +28,11 @@ export function CartSummary({
       </CardHeader>
 
       <CardContent className="space-y-5">
-        <p className="text-sm text-muted-foreground">
-          Sucursal: <span className="text-foreground">{branchName}</span>
-        </p>
+        {branchName && (
+          <p className="text-sm text-muted-foreground">
+            Sucursal: <span className="text-foreground">{branchName}</span>
+          </p>
+        )}
 
         {items.length === 0 ? (
           <p className="text-base text-muted-foreground">

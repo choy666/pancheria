@@ -3,7 +3,7 @@ import { z } from 'zod';
 import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderCancellationSchema } from '@/lib/zod-schemas';
-import { getDefaultBranchId } from '@/lib/branch-resolver';
+import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
@@ -17,6 +17,10 @@ export const POST = withApiErrorHandling(
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
     const branchId = query.branchId ?? (await getDefaultBranchId());
+
+    if (!branchId) {
+      return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
+    }
 
     const { id } = await params;
     const orderId = Number(id);

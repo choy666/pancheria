@@ -3,7 +3,7 @@ import { z } from 'zod';
 import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
-import { getDefaultBranchId } from '@/lib/branch-resolver';
+import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
 import { buildWhatsAppMessage, encodeWhatsAppUrl } from '@/lib/whatsapp';
 import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
 import {
@@ -65,6 +65,10 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const query = querySchema.parse(Object.fromEntries(searchParams));
   const branchId = query.branchId ?? (await getDefaultBranchId());
+
+  if (!branchId) {
+    return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
+  }
 
   const ip = getClientIp(request);
   if (await isRateLimited(ip)) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as catalogService from '@/application/services/catalogService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { getDefaultBranchId } from '@/lib/branch-resolver';
+import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
@@ -17,6 +17,10 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const query = querySchema.parse(Object.fromEntries(searchParams));
   const branchId = query.branchId ?? (await getDefaultBranchId());
+
+  if (!branchId) {
+    return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
+  }
 
   const result = query.includeAvailability
     ? await catalogService.listPublicCatalogWithAvailability(branchId)

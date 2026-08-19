@@ -9,6 +9,7 @@ import { NotFoundError } from '@/domain/errors';
 
 jest.mock('@/application/services/catalogService');
 jest.mock('@/lib/branch-resolver', () => ({
+  ...jest.requireActual('@/lib/branch-resolver'),
   getDefaultBranchId: jest.fn(),
 }));
 jest.mock('@/lib/logger', () => ({
@@ -94,5 +95,19 @@ describe('GET /api/public/catalogo', () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toContain('Sucursal');
+  });
+
+  test('devuelve 400 si no se puede resolver la sucursal por defecto', async () => {
+    mockedGetDefaultBranchId.mockResolvedValue(null);
+
+    const response = await GET(buildRequest());
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('sucursal activa');
+    expect(mockedCatalogService.listPublicCatalog).not.toHaveBeenCalled();
+    expect(
+      mockedCatalogService.listPublicCatalogWithAvailability
+    ).not.toHaveBeenCalled();
   });
 });

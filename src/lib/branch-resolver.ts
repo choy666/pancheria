@@ -1,6 +1,12 @@
 import * as branchService from '@/application/services/branchService';
 import type { Branch } from '@/domain/types';
-import { ValidationError } from '@/domain/errors';
+
+/**
+ * Mensaje genérico que se expone al cliente cuando no se puede resolver la
+ * sucursal activa. Se centraliza aquí para evitar duplicarlo en cada ruta API.
+ */
+export const DEFAULT_BRANCH_ERROR =
+  'No se encontró la sucursal activa. Volvé a intentar más tarde.';
 
 export function parseBranchId(value: unknown): number | null {
   if (typeof value !== 'string' && typeof value !== 'number') {
@@ -29,22 +35,25 @@ export async function listPublicBranches(): Promise<Branch[]> {
   }));
 }
 
-export async function getDefaultBranchId(): Promise<number> {
+/**
+ * Resuelve el identificador de la sucursal por defecto.
+ * Devuelve `null` si la variable de entorno no está configurada o si no
+ * existe una sucursal con ese nombre. Esto permite que los llamadores
+ * decidan si renderizar un estado de error o responder con un código
+ * controlado, sin exponer detalles internos al cliente.
+ */
+export async function getDefaultBranchId(): Promise<number | null> {
   const defaultBranchName = process.env.DEFAULT_BRANCH_NAME?.trim();
 
   if (!defaultBranchName) {
-    throw new ValidationError(
-      'DEFAULT_BRANCH_NAME no está configurado en las variables de entorno.'
-    );
+    return null;
   }
 
   const branches = await branchService.listBranches();
   const branch = branches.find((b) => b.name === defaultBranchName);
 
   if (!branch) {
-    throw new ValidationError(
-      `No se encontró la sucursal por defecto "${defaultBranchName}".`
-    );
+    return null;
   }
 
   return branch.id;

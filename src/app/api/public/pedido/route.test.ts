@@ -14,6 +14,7 @@ import {
 
 jest.mock('@/application/services/orderService');
 jest.mock('@/lib/branch-resolver', () => ({
+  ...jest.requireActual('@/lib/branch-resolver'),
   getDefaultBranchId: jest.fn(),
 }));
 jest.mock('@/config/catalog', () => ({
@@ -158,6 +159,22 @@ describe('POST /api/public/pedido', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mockedOrderService.createOrder).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 400 si no se puede resolver la sucursal por defecto', async () => {
+    mockedGetDefaultBranchId.mockResolvedValue(null);
+
+    const response = await POST(
+      buildRequest('', {
+        method: 'POST',
+        body: JSON.stringify(validBody),
+      })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('sucursal activa');
     expect(mockedOrderService.createOrder).not.toHaveBeenCalled();
   });
 
