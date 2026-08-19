@@ -184,6 +184,10 @@ export const orderCancellationSchema = z.object({
   token: z.string().optional(),
 });
 
+export const orderSendSchema = z.object({
+  token: z.string().min(1, 'El token de envío es obligatorio.'),
+});
+
 export const videoBaseSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().max(1000).optional().nullable(),

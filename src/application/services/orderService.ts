@@ -165,6 +165,42 @@ export async function cancelOrder(
   return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
 }
 
+export async function markOrderAsSent(
+  branchId: number,
+  id: number,
+  token: string
+): Promise<OrderWithItems> {
+  const order = await orderRepository.findById(branchId, id);
+
+  if (!order) {
+    throw new NotFoundError('Pedido', id);
+  }
+
+  if (order.status !== 'pending') {
+    throw new ValidationError('El pedido no está pendiente de envío.');
+  }
+
+  if (order.cancellationToken !== token) {
+    throw new ValidationError('El token de envío no es válido.');
+  }
+
+  if (order.sentAt) {
+    return order;
+  }
+
+  const updated = await orderRepository.markOrderAsSent(branchId, id);
+
+  if (!updated) {
+    const existing = await orderRepository.findById(branchId, id);
+    if (existing && existing.sentAt) {
+      return existing;
+    }
+    throw new Error('No se pudo marcar el envío del pedido.');
+  }
+
+  return { ...order, ...updated, branch: order.branch, items: order.items };
+}
+
 export async function convertOrderToSale(
   input: ConvertOrderInput
 ): Promise<typeof sales.$inferSelect> {

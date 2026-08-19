@@ -107,6 +107,7 @@ export function CartSummary({
           className="w-full"
           disabled={items.length === 0 || disabled}
           onClick={onCheckout}
+          data-testid="checkout-button"
         >
           Pedir por WhatsApp
         </Button>

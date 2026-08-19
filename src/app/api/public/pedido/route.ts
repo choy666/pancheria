@@ -134,6 +134,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         branchName: order.branch?.name,
         items: publicItems,
         createdAt: order.createdAt,
+        sentAt: order.sentAt,
       },
       whatsappUrl,
     },

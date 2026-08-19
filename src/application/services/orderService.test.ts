@@ -6,6 +6,7 @@ import {
   getPendingOrders,
   getOrders,
   expirePendingOrders,
+  markOrderAsSent,
 } from './orderService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -134,6 +135,7 @@ function createOrderRow(overrides: Partial<OrderRow> = {}): OrderRow {
     createdAt: new Date(),
     cancelledAt: null,
     cancellationReason: null,
+    sentAt: null,
     deletedAt: null,
     ...overrides,
   };
@@ -980,6 +982,68 @@ describe('orderService', () => {
 
       expect(count).toBe(0);
       expect(mockedDb.query.orders.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('markOrderAsSent', () => {
+    test('marca el pedido como enviado', async () => {
+      const order = {
+        ...createOrderRow(),
+        items: [createOrderItemRow()],
+      };
+      mockedDb.query.orders.findFirst.mockResolvedValue(order);
+
+      const result = await markOrderAsSent(BRANCH_ID, 1, 'token');
+
+      expect(result.sentAt).not.toBeNull();
+      expect(findCapturedUpdate(orders)).toHaveLength(1);
+
+      const update = findCapturedUpdate(orders)[0]?.data as Partial<OrderRow>;
+      expect(update.sentAt).toBeInstanceOf(Date);
+    });
+
+    test('rechaza token inválido', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ cancellationToken: 'valid-token' }),
+        items: [],
+      });
+
+      await expect(
+        markOrderAsSent(BRANCH_ID, 1, 'invalid-token')
+      ).rejects.toThrow('El token de envío no es válido.');
+    });
+
+    test('rechaza pedido no pendiente', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'converted' }),
+        items: [],
+      });
+
+      await expect(
+        markOrderAsSent(BRANCH_ID, 1, 'token')
+      ).rejects.toThrow('El pedido no está pendiente de envío.');
+    });
+
+    test('lanza NotFoundError si el pedido no existe', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue(undefined);
+
+      await expect(
+        markOrderAsSent(BRANCH_ID, 999, 'token')
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    test('es idempotente cuando el pedido ya fue enviado', async () => {
+      const sentAt = new Date();
+      const order = {
+        ...createOrderRow({ sentAt }),
+        items: [createOrderItemRow()],
+      };
+      mockedDb.query.orders.findFirst.mockResolvedValue(order);
+
+      const result = await markOrderAsSent(BRANCH_ID, 1, 'token');
+
+      expect(result.sentAt).toEqual(sentAt);
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
     });
   });
 });

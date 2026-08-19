@@ -45,6 +45,7 @@ interface OrderDetail {
   status: OrderStatus;
   convertedSaleId: number | null;
   createdAt: string;
+  sentAt: string | null;
   branch: { name: string } | null;
   items: OrderDetailItem[];
 }
@@ -211,9 +212,14 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
           <h1 className="text-2xl font-semibold tracking-tight">
             Pedido #{order.orderNumber}
           </h1>
-          <Badge variant={statusVariants[order.status]}>
-            {statusLabels[order.status]}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={statusVariants[order.status]}>
+              {statusLabels[order.status]}
+            </Badge>
+            {order.status === 'pending' && order.sentAt && (
+              <Badge variant="outline">Enviado por WhatsApp</Badge>
+            )}
+          </div>
         </div>
       </div>
 

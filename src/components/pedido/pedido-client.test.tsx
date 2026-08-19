@@ -25,6 +25,47 @@ const mockedUseRouter = useRouter as jest.Mock;
 const STORAGE_KEY = 'pancheria-cart-v1';
 const BRANCH_KEY = 'pancheria-branch-id';
 
+const ORDER_ID = 42;
+const CANCELLATION_TOKEN = 'cancel-token';
+const WHATSAPP_URL = 'https://wa.me/5493415555555?text=pedido';
+
+interface CreatedOrder {
+  id: number;
+  orderNumber: string;
+  status: string;
+  total: number;
+  customerName: string;
+  deliveryType: 'delivery' | 'pickup';
+  address: string | null;
+  notes: string | null;
+  cancellationToken: string;
+  branchName: string | null;
+  items: { productId: number; name: string; price: number; unit: string; quantity: number }[];
+  createdAt: string;
+  sentAt: string | null;
+  whatsappUrl: string;
+}
+
+function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
+  return {
+    id: ORDER_ID,
+    orderNumber: 'PED-1-1234567890-abc',
+    status: 'pending',
+    total: 1200,
+    customerName: 'Juan Pérez',
+    deliveryType: 'pickup',
+    address: null,
+    notes: null,
+    cancellationToken: CANCELLATION_TOKEN,
+    branchName: 'Sucursal A',
+    items: [{ productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 }],
+    createdAt: new Date().toISOString(),
+    sentAt: null,
+    whatsappUrl: WHATSAPP_URL,
+    ...overrides,
+  };
+}
+
 function makeBranch(id: number, name: string): Branch {
   return { id, name, createdAt: new Date() };
 }
@@ -44,10 +85,14 @@ function makeProduct(overrides: Partial<PublicCatalogProduct> = {}): PublicCatal
   };
 }
 
-function createFetchResponse<T>(body: T, ok = true) {
+function createFetchResponse<T>(
+  body: T,
+  ok = true,
+  status = ok ? 200 : 500
+): Response {
   return {
     ok,
-    status: ok ? 200 : 500,
+    status,
     json: async () => body,
   } as Response;
 }
@@ -239,5 +284,245 @@ describe('PedidoClient', () => {
     });
     expect(localStorage.getItem(BRANCH_KEY)).toBe('2');
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  describe('flujo de checkout y confirmación por WhatsApp', () => {
+    const originalOpen = window.open;
+
+    function setupFetchMocks(overrides: {
+      createBody?: { order: CreatedOrder; whatsappUrl: string };
+      sendBody?: { order: CreatedOrder };
+      sendOk?: boolean;
+      sendError?: string;
+    } = {}) {
+      global.fetch = jest.fn().mockImplementation(async (url, init) => {
+        if (typeof url === 'string' && url.includes('/api/public/disponibilidad')) {
+          return createFetchResponse({
+            availabilityByProduct: { 1: 5 },
+            shortageByProduct: {},
+            breakdownByProduct: {},
+          });
+        }
+
+        if (typeof url === 'string' && url.includes('/api/public/pedido/') && url.includes('/enviar')) {
+          if (overrides.sendError) {
+            return createFetchResponse({ error: overrides.sendError }, false);
+          }
+          return createFetchResponse(overrides.sendBody ?? { order: makeCreatedOrder({ sentAt: new Date().toISOString() }) });
+        }
+
+        if (typeof url === 'string' && url.includes('/api/public/pedido') && init?.method === 'POST') {
+          return createFetchResponse(
+            overrides.createBody ?? {
+              order: makeCreatedOrder(),
+              whatsappUrl: WHATSAPP_URL,
+            },
+            true,
+            201
+          );
+        }
+
+        return createFetchResponse({
+          branch: makeBranch(1, 'Sucursal A'),
+          products: [makeProduct()],
+        });
+      });
+    }
+
+    beforeEach(() => {
+      window.open = jest.fn().mockReturnValue({});
+    });
+
+    afterEach(() => {
+      window.open = originalOpen;
+    });
+
+    async function completeCheckout() {
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-product-1'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('cart-item-1')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('checkout-button'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Finalizar pedido')).toBeInTheDocument()
+      );
+
+      const nameInput = screen.getByPlaceholderText('Tu nombre');
+      await act(async () => {
+        fireEvent.change(nameInput, { target: { value: 'Juan Pérez' } });
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Enviar pedido por WhatsApp'));
+        await Promise.resolve();
+      });
+    }
+
+    test('abre WhatsApp y confirma el envío del pedido', async () => {
+      setupFetchMocks();
+
+      await completeCheckout();
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido reservado')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        await Promise.resolve();
+      });
+
+      expect(window.open).toHaveBeenCalledWith(
+        WHATSAPP_URL,
+        '_blank',
+        'noopener,noreferrer'
+      );
+
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+        configurable: true,
+      });
+
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('¿Enviaste el mensaje por WhatsApp?')
+        ).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Sí, ya envié'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('¡Pedido enviado correctamente!')
+        ).toBeInTheDocument()
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/public/pedido/${ORDER_ID}/enviar?branchId=1`,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ token: CANCELLATION_TOKEN }),
+        })
+      );
+    });
+
+    test('permite volver a abrir WhatsApp desde la confirmación', async () => {
+      setupFetchMocks();
+
+      await completeCheckout();
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido reservado')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        await Promise.resolve();
+      });
+
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+        configurable: true,
+      });
+
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('¿Enviaste el mensaje por WhatsApp?')
+        ).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('No, volver a WhatsApp'));
+        await Promise.resolve();
+      });
+
+      expect(window.open).toHaveBeenCalledTimes(2);
+      expect(window.open).toHaveBeenLastCalledWith(
+        WHATSAPP_URL,
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    test('muestra el error del backend si falla la confirmación', async () => {
+      setupFetchMocks({ sendError: 'El token de envío no es válido.' });
+
+      await completeCheckout();
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido reservado')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        await Promise.resolve();
+      });
+
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+        configurable: true,
+      });
+
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('¿Enviaste el mensaje por WhatsApp?')
+        ).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Sí, ya envié'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('El token de envío no es válido.')
+        ).toBeInTheDocument()
+      );
+    });
   });
 });

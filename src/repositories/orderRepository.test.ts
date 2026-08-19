@@ -60,6 +60,7 @@ function buildOrder(overrides: Partial<typeof orders.$inferSelect> = {}): typeof
     createdAt: new Date('2024-01-01'),
     cancelledAt: null,
     cancellationReason: null,
+    sentAt: null,
     deletedAt: null,
     ...overrides,
   };
@@ -306,6 +307,26 @@ describe('orderRepository', () => {
       await expect(
         orderRepository.cancel(BRANCH_ID, ORDER_ID, { status: 'cancelled' })
       ).rejects.toThrow('No se pudo cancelar el pedido.');
+    });
+  });
+
+  describe('markOrderAsSent', () => {
+    test('marca el pedido como enviado', async () => {
+      const expected = buildOrder({ sentAt: new Date() });
+      mockReturning.mockResolvedValue([expected]);
+
+      const result = await orderRepository.markOrderAsSent(BRANCH_ID, ORDER_ID);
+
+      expect(result).toEqual(expected);
+      expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({ sentAt: expect.any(Date) }));
+    });
+
+    test('devuelve undefined si el pedido ya fue enviado', async () => {
+      mockReturning.mockResolvedValue([]);
+
+      const result = await orderRepository.markOrderAsSent(BRANCH_ID, ORDER_ID);
+
+      expect(result).toBeUndefined();
     });
   });
 });

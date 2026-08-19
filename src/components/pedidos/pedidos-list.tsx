@@ -30,6 +30,7 @@ interface OrderListItem {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  sentAt: string | null;
   branch: { name: string } | null;
   items: {
     quantity: number;
@@ -144,9 +145,14 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                   ${order.total.toFixed(2)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusVariants[order.status]}>
-                    {statusLabels[order.status]}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={statusVariants[order.status]}>
+                      {statusLabels[order.status]}
+                    </Badge>
+                    {order.status === 'pending' && order.sentAt && (
+                      <Badge variant="outline">Enviado por WhatsApp</Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{formatDateTime(order.createdAt)}</TableCell>
                 <TableCell className="text-right">

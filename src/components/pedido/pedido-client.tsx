@@ -15,6 +15,7 @@ import {
   PUBLIC_DISPONIBILIDAD_API,
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
+  PUBLIC_PEDIDO_ENVIAR_API,
 } from '@/config/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ interface CreatedOrder {
   branchName: string | null;
   items: PublicOrderItem[];
   createdAt: string;
+  sentAt: string | null;
   whatsappUrl: string;
 }
 
@@ -110,6 +112,12 @@ export function PedidoClient({
   const [cancellationError, setCancellationError] = useState<string | null>(
     null
   );
+
+  type DialogPhase = 'reserved' | 'confirming' | 'sent';
+  const [dialogPhase, setDialogPhase] = useState<DialogPhase>('reserved');
+  const [whatsappOpenedAt, setWhatsappOpenedAt] = useState<number | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -223,6 +231,19 @@ export function PedidoClient({
     return () => clearTimeout(timer);
   }, [items, products, activeBranch.id]);
 
+  useEffect(() => {
+    if (!successDialogOpen || !whatsappOpenedAt || dialogPhase === 'sent') return;
+
+    const handler = () => {
+      if (document.visibilityState === 'visible' && isMountedRef.current) {
+        setDialogPhase('confirming');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, [successDialogOpen, whatsappOpenedAt, dialogPhase]);
+
   const groupedProducts = groupPublicProductsByType(products);
 
   const inCartIds = new Set(items.map((item) => item.id));
@@ -290,6 +311,10 @@ export function PedidoClient({
       };
 
       setCreatedOrder({ ...order, whatsappUrl });
+      setDialogPhase('reserved');
+      setWhatsappOpenedAt(null);
+      setSendError(null);
+      setIsSending(false);
       setSuccessDialogOpen(true);
       setCheckoutOpen(false);
       clearCart();
@@ -343,11 +368,62 @@ export function PedidoClient({
 
   function handleOpenWhatsApp() {
     if (!createdOrder) return;
-    window.open(
+
+    const opened = window.open(
       createdOrder.whatsappUrl,
       '_blank',
       'noopener,noreferrer'
     );
+
+    if (!opened) {
+      setSendError(
+        'No se pudo abrir WhatsApp. Permití las ventanas emergentes e intentá de nuevo.'
+      );
+      return;
+    }
+
+    setWhatsappOpenedAt(Date.now());
+    setSendError(null);
+  }
+
+  async function handleConfirmSend() {
+    if (!createdOrder) return;
+
+    setIsSending(true);
+    setSendError(null);
+
+    try {
+      const response = await fetch(
+        `${PUBLIC_PEDIDO_ENVIAR_API(createdOrder.id)}?branchId=${activeBranch.id}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: createdOrder.cancellationToken }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? 'Error al confirmar el envío');
+      }
+
+      const { order } = (await response.json()) as { order: CreatedOrder };
+
+      if (!isMountedRef.current) return;
+      setCreatedOrder({ ...order, whatsappUrl: createdOrder.whatsappUrl });
+      setDialogPhase('sent');
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setSendError(
+        err instanceof Error ? err.message : 'Error desconocido'
+      );
+    } finally {
+      if (isMountedRef.current) setIsSending(false);
+    }
+  }
+
+  function handleReopenWhatsApp() {
+    handleOpenWhatsApp();
   }
 
   return (
@@ -448,6 +524,7 @@ export function PedidoClient({
                     breakdown={breakdownByProduct[product.id] ?? product.breakdown ?? []}
                     onAdd={() => addItem(product)}
                     disabled={isCheckingAvailability}
+                    showBreakdown={false}
                   />
                 ))}
               </div>
@@ -567,18 +644,43 @@ export function PedidoClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+      <Dialog
+        open={successDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && dialogPhase !== 'sent') {
+            setSendError(null);
+            setWhatsappOpenedAt(null);
+            setDialogPhase('reserved');
+          }
+          setSuccessDialogOpen(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Pedido {createdOrder?.orderNumber}</DialogTitle>
+            <DialogTitle>
+              {dialogPhase === 'reserved' && 'Pedido reservado'}
+              {dialogPhase === 'confirming' &&
+                '¿Enviaste el mensaje por WhatsApp?'}
+              {dialogPhase === 'sent' && '¡Pedido enviado correctamente!'}
+            </DialogTitle>
             <DialogDescription>
-              El pedido se reservó correctamente. Abrí WhatsApp para enviarlo, o
-              cancelalo si te equivocaste.
+              {dialogPhase === 'reserved' &&
+                'El pedido se reservó correctamente. Abrí WhatsApp para enviarlo, o cancelalo si te equivocaste.'}
+              {dialogPhase === 'confirming' &&
+                'Confirmá si ya enviaste el pedido por WhatsApp. Si no, podés volver a abrirlo.'}
+              {dialogPhase === 'sent' &&
+                'Te contactaremos para confirmarlo.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {cancellationError && (
+            {sendError && (
+              <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
+                {sendError}
+              </div>
+            )}
+
+            {cancellationError && dialogPhase === 'reserved' && (
               <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
                 {cancellationError}
               </div>
@@ -604,40 +706,115 @@ export function PedidoClient({
                     ${createdOrder.total.toFixed(2)}
                   </span>
                 </p>
+                {dialogPhase === 'sent' && createdOrder.items.length > 0 && (
+                  <ul className="space-y-0.5 pt-1">
+                    {createdOrder.items.map((item) => (
+                      <li key={item.productId}>
+                        {item.quantity}x {item.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="cancellation-reason">
-                Motivo de cancelación (opcional)
-              </Label>
-              <Textarea
-                id="cancellation-reason"
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                placeholder="Por qué querés cancelar el pedido"
-              />
-            </div>
+            {dialogPhase === 'reserved' && (
+              <div className="space-y-2">
+                <Label htmlFor="cancellation-reason">
+                  Motivo de cancelación (opcional)
+                </Label>
+                <Textarea
+                  id="cancellation-reason"
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Por qué querés cancelar el pedido"
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleCancelOrder}
-              disabled={isCancelling || !createdOrder}
-              className="w-full sm:w-auto"
-            >
-              {isCancelling ? 'Cancelando...' : 'Cancelar pedido'}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleOpenWhatsApp}
-              disabled={!createdOrder}
-              className="w-full sm:w-auto"
-            >
-              Abrir WhatsApp
-            </Button>
+            {dialogPhase === 'reserved' && (
+              <>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleCancelOrder}
+                  disabled={isCancelling || !createdOrder}
+                  className="w-full sm:w-auto"
+                >
+                  {isCancelling ? 'Cancelando...' : 'Cancelar pedido'}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleOpenWhatsApp}
+                  disabled={!createdOrder}
+                  className="w-full sm:w-auto"
+                >
+                  Abrir WhatsApp
+                </Button>
+              </>
+            )}
+
+            {dialogPhase === 'confirming' && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCancellationReason('');
+                    setSendError(null);
+                    setDialogPhase('reserved');
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Cancelar pedido
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleReopenWhatsApp}
+                  disabled={!createdOrder}
+                  className="w-full sm:w-auto"
+                >
+                  No, volver a WhatsApp
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmSend}
+                  disabled={isSending || !createdOrder}
+                  className="w-full sm:w-auto"
+                >
+                  {isSending ? 'Confirmando...' : 'Sí, ya envié'}
+                </Button>
+              </>
+            )}
+
+            {dialogPhase === 'sent' && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSuccessDialogOpen(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSuccessDialogOpen(false);
+                    setCreatedOrder(null);
+                    setDialogPhase('reserved');
+                    setWhatsappOpenedAt(null);
+                    setSendError(null);
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Hacer otro pedido
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

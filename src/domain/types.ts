@@ -74,6 +74,7 @@ export type Order = {
   createdAt: Date;
   cancelledAt: Date | null;
   cancellationReason: string | null;
+  sentAt: Date | null;
   deletedAt: Date | null;
   items?: OrderItem[];
 };
