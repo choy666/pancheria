@@ -10,6 +10,10 @@ import * as schema from './schema';
 // sigue viniendo de las variables configuradas en la plataforma.
 dotenv.config({ path: '.env.local' });
 
+type Db =
+  | ReturnType<typeof drizzleNeon<typeof schema>>
+  | ReturnType<typeof drizzlePg<typeof schema>>;
+
 function resolveDatabaseUrl(): string {
   const candidate =
     process.env.DATABASE_URL ??
@@ -29,10 +33,27 @@ function isNeonDatabase(url: string): boolean {
   return url.includes('neon.tech');
 }
 
-const databaseUrl = resolveDatabaseUrl();
+let dbInstance: Db | undefined;
 
-const db = isNeonDatabase(databaseUrl)
-  ? drizzleNeon(new NeonPool({ connectionString: databaseUrl }), { schema })
-  : drizzlePg(new PgPool({ connectionString: databaseUrl }), { schema });
+function getDb(): Db {
+  if (dbInstance) {
+    return dbInstance;
+  }
 
-export { db };
+  const databaseUrl = resolveDatabaseUrl();
+
+  dbInstance = isNeonDatabase(databaseUrl)
+    ? (drizzleNeon(
+        new NeonPool({ connectionString: databaseUrl }),
+        { schema }
+      ) as Db)
+    : (drizzlePg(new PgPool({ connectionString: databaseUrl }), { schema }) as Db);
+
+  return dbInstance;
+}
+
+export const db = new Proxy({} as Db, {
+  get(_target, prop) {
+    return Reflect.get(getDb(), prop);
+  },
+}) as Db;
