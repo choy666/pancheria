@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { login, unique, createProductViaApi, getTestSecondBranch } from './helpers';
 
-test.describe('Pedido público por WhatsApp', () => {
-  test('muestra el catálogo, permite armar el carrito y abrir el checkout', async ({
+test.describe('Pedido público con chat', () => {
+  test('muestra el catálogo, permite armar el carrito y abrir el chat del pedido', async ({
     page,
   }) => {
     await login(page);
@@ -28,16 +28,16 @@ test.describe('Pedido público por WhatsApp', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     await page.fill('input#customerName', 'Juan Pérez');
-
-    // Sin NEXT_PUBLIC_WHATSAPP_NUMBER configurado, el envío muestra un error
-    // claro en lugar de abrir un enlace inválido.
     await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
-    await expect(
-      page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
-    ).toBeVisible();
+
+    await expect(page.getByText('Pedido creado')).toBeVisible();
+    await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
+
+    await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
+    await expect(page.getByText('Chat del pedido')).toBeVisible();
   });
 
-  test('crea un pedido en una sucursal no default', async ({
+  test('crea un pedido en una sucursal no default y abre el chat', async ({
     page,
   }) => {
     const second = await getTestSecondBranch();
@@ -75,10 +75,11 @@ test.describe('Pedido público por WhatsApp', () => {
 
     await page.getByRole('button', { name: 'Pedir por WhatsApp' }).click();
     await page.fill('input#customerName', 'Ana García');
-
     await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
-    await expect(
-      page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
-    ).toBeVisible();
+
+    await expect(page.getByText('Pedido creado')).toBeVisible();
+    await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
+
+    await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
   });
 });
