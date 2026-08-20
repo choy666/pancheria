@@ -87,7 +87,7 @@ La página `/usuarios` lista siempre **todos** los usuarios del sistema para el 
 
 ## Catálogo público y pedidos
 
-El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder al catálogo. La raíz (`/`) redirige temporalmente a `/pedido`, por lo que acceder a `http://localhost:3000/` lleva al catálogo por defecto.
+El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder al catálogo. La raíz (`/`) es el panel de control; los usuarios no autenticados son redirigidos a `/pedido`, mientras que administradores y operadores autenticados acceden al panel.
 
 - Ver el catálogo de productos vendibles de una sucursal.
 - Armar un carrito con validación de disponibilidad en tiempo real.

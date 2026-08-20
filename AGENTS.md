@@ -245,11 +245,11 @@ useEffect(() => {
 - Causa: `STORAGE_PROVIDER=local` guarda los archivos en el filesystem efímero de la función serverless (`tmp/videos` por defecto). Entre invocaciones o deploys el archivo puede no estar disponible.
 - Solución: en producción usar `STORAGE_PROVIDER=vercel-blob` (si ya se configuró `BLOB_READ_WRITE_TOKEN`), `s3` o `r2`, con las credenciales correspondientes. Re-desplegar para que la variable forme parte del build.
 
-### `GET /` redirige a `http://localhost:3000/pedido` en producción
+### Acceso a `/` redirige al catálogo en lugar del panel
 
-- Síntoma: Vercel responde `307 Temporary Redirect` con `Location: http://localhost:3000/pedido` aunque el `Host` sea el dominio de producción. Nota: la raíz (`/`) redirige intencionalmente a `/pedido` en `next.config.ts`; el problema es que la URL de redirección apunta a `localhost` en lugar de al dominio de producción.
-- Causa: `NEXTAUTH_URL` (o `AUTH_URL`, que tiene prioridad en v5) está configurada como `http://localhost:3000` en Vercel. NextAuth v5 la usa como URL base para construir URLs absolutas en redirecciones.
-- Solución: actualizar la variable al dominio de producción (`https://<dominio>.vercel.app`), eliminar `AUTH_URL` si no se usa, y re-desplegar. Verificar con `curl -I https://<dominio>.vercel.app/`; el `Location` debe ser `/pedido` (relativo) o `https://<dominio>.vercel.app/pedido`.
+- Síntoma: administradores u operadores autenticados van a `/` y terminan en `/pedido` en lugar del panel de control.
+- Causa: el proxy (`src/proxy.ts`) no está interceptando la ruta, o el redirect incondicional de `next.config.ts` aún está activo.
+- Solución: verificar que `src/proxy.ts` tenga el matcher correcto y que `next.config.ts` no contenga un redirect estático de `/` a `/pedido`. El proxy redirige a `/pedido` solo cuando no hay sesión; con sesión válida permite el acceso al panel (`/`). Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción, ya que NextAuth v5 las usa como base para redirecciones de autenticación.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 
