@@ -381,6 +381,7 @@ export function OrderChat({
             onClick={() => void handleSend()}
             disabled={readOnly || isSending || (!content.trim() && !selectedFile)}
             size="icon"
+            aria-label="Enviar mensaje"
           >
             <Send className="size-4" />
           </Button>
