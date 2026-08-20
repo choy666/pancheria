@@ -70,6 +70,4 @@ export function getVideoMaxSizeBytes(): number {
   return getVideoMaxSizeMb() * 1024 * 1024;
 }
 
-export function isAllowedVideoMimeType(mimeType: string): boolean {
-  return getVideoAllowedMimeTypes().includes(mimeType);
-}
+

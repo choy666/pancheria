@@ -14,7 +14,7 @@ Este prompt documenta el estado del flujo de pedidos públicos por WhatsApp desp
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />
 
-> **Advertencia:** `guia-funcionamiento-pancheria.md` y `reporte-estado.md` contienen secciones históricas del flujo anterior con `sentAt` y confirmación de envío por WhatsApp, que fue revertido. Este prompt y el código son la fuente de verdad del flujo vigente.
+> **Advertencia:** el flujo anterior con `sentAt` y confirmación de envío por WhatsApp fue revertido. El único contexto histórico vive en `.devin/informes/archivados/`. Este prompt y el código son la fuente de verdad del flujo vigente.
 
 ## 1. Flujo vigente de pedidos públicos
 
@@ -111,11 +111,11 @@ Los siguientes items quedaron como deuda técnica / mejoras futuras. Revisarlos 
 
 ### 4.2 Simplificación de schemas
 
-- En <ref_file file="C:/developer/paginas/pancheria/src/lib/zod-schemas.ts" />, `videoSchema` es un alias de `videoBaseSchema`. Unificar en uno solo.
+- ~~En <ref_file file="C:/developer/paginas/pancheria/src/lib/zod-schemas.ts" />, `videoSchema` es un alias de `videoBaseSchema`. Unificar en uno solo.~~ **Resuelto / obsoleto:** `videoBaseSchema` no existe; `videoSchema` es el único schema de video.
 
 ### 4.3 Documentación
 
-- En <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> la tabla de "¿se modifica el stock y quién lo hace?" contenía una fila obsoleta: "Confirmar envío por WhatsApp" con referencia a `sentAt`. Esa fila describía el flujo revertido y fue eliminada. Verificar que no queden referencias a `sentAt`, `sent_at`, confirmación de envío por WhatsApp ni `POST /api/public/pedido/[id]/enviar` en los informes activos.
+- ~~En <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> la tabla de "¿se modifica el stock y quién lo hace?" contenía una fila obsoleta: "Confirmar envío por WhatsApp" con referencia a `sentAt`.~~ **Resuelto:** no quedan referencias a `sentAt`, `sent_at`, confirmación de envío por WhatsApp ni `POST /api/public/pedido/[id]/enviar` en los informes activos ni en el código.
 
 ### 4.4 Validación completa
 
@@ -123,7 +123,7 @@ Los siguientes items quedaron como deuda técnica / mejoras futuras. Revisarlos 
 
 ### 4.5 Dependencias marcadas como no usadas
 
-- `knip` marca `@aws-sdk/client-s3` y `@aws-sdk/s3-presigned-post` como no usadas, pero se importan dinámicamente en <ref_file file="C:/developer/paginas/pancheria/src/lib/storage.ts" />. No eliminar. Considerar agregar un comentario o tipar mejor los imports dinámicos.
+- `knip` puede marcar `@aws-sdk/client-s3` y `@aws-sdk/s3-presigned-post` como no usadas porque se importan dinámicamente en <ref_file file="C:/developer/paginas/pancheria/src/lib/storage.ts" />. No eliminar. **Resuelto:** los imports dinámicos ahora están tipados con `import type { S3Client }` y `import type { createPresignedPost }`.
 
 ## 5. Mejoras sugeridas
 
@@ -134,7 +134,7 @@ Los siguientes items quedaron como deuda técnica / mejoras futuras. Revisarlos 
 
 ### 5.2 Tipado de `src/lib/storage.ts`
 
-- Los `any` para clientes S3/R2 son difíciles de mantener. Considerar tipar los módulos importados dinámicamente o usar librerías más específicas.
+- ~~Los `any` para clientes S3/R2 son difíciles de mantener. Considerar tipar los módulos importados dinámicamente o usar librerías más específicas.~~ **Resuelto:** se tiparon los clientes con `import type { S3Client }` y `import type { createPresignedPost }`, y se eliminaron los `any`.
 
 ### 5.3 Auditoría periódica
 
@@ -142,7 +142,7 @@ Los siguientes items quedaron como deuda técnica / mejoras futuras. Revisarlos 
 
 ### 5.4 Rate limiting en producción
 
-- El proyecto tiene `public_order_rate_limits`. Asegurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` en producción con múltiples instancias.
+- El proyecto tiene `public_order_rate_limits`. Asegurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` en producción con múltiples instancias. Esto es una acción de configuración en Vercel, no de código.
 
 ## 6. Decisiones clave que no se deben revertir sin consultar
 

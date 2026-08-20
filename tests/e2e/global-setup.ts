@@ -20,6 +20,7 @@ export default async function globalSetup() {
       videos,
       cash_registers,
       daily_closures,
+      public_order_rate_limits,
       login_attempts,
       users,
       branches

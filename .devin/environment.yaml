@@ -53,7 +53,7 @@ knowledge:
 
   - name: e2e
     contents: |
-      `npx playwright test` ejecuta `tests/e2e/global-setup.ts`, que trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `videos`, `users` y `branches`, y re-seedea la base. No usar en producción.
+      `npx playwright test` ejecuta `tests/e2e/global-setup.ts`, que trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `videos`, `login_attempts`, `users` y `branches`, y re-seedea la base. No usar en producción.
 
   - name: database
     contents: |
@@ -70,9 +70,9 @@ knowledge:
       10. `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` controla el intervalo de refresco del panel de caja (por defecto 5000 ms).
       11. `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` configuran el catálogo y pedidos.
       12. `ORDER_EXPIRATION_MS` (opcional) — milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3600000 ms = 1 hora; mínimo 60000 ms). No libera stock; limpia pedidos viejos del panel al listar.
-      14. `RATE_LIMIT_STORE_PROVIDER` (opcional) controla dónde se almacenan los intentos fallidos de login: `memory` en desarrollo/test, `db` por defecto en producción si hay base de datos, o explícito con `RATE_LIMIT_STORE_PROVIDER=db`.
-      15. Variables de videos y almacenamiento: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
-      16. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      13. `RATE_LIMIT_STORE_PROVIDER` (opcional) controla dónde se almacenan los intentos fallidos de login: `memory` en desarrollo/test, `db` por defecto en producción si hay base de datos, o explícito con `RATE_LIMIT_STORE_PROVIDER=db`.
+      14. Variables de videos y almacenamiento: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
+      15. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
 
   - name: pedidos
     contents: |

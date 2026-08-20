@@ -24,7 +24,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Empujar migraciones      | `npx drizzle-kit push`                            |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
 
-> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
 > Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El archivo `.env.e2e` y `playwright.config.ts` ya están configurados para sobrescribir esas variables; en entornos donde `.env.local` apunta a producción, usar `NO_WEB_SERVER=1` y levantar manualmente `npm run dev` con las variables de `.env.e2e`.
 
@@ -34,6 +34,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `DATABASE_URL` — URL de conexión a PostgreSQL (Neon). En Vercel Postgres equivale a `POSTGRES_URL` (pooled).
 - `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida. En NextAuth v5, si existe `AUTH_URL`, tiene prioridad sobre `NEXTAUTH_URL`; en ese caso `AUTH_URL` también debe coincidir con el dominio de producción.
+- `AUTH_URL` (opcional) — URL de autenticación para NextAuth v5. Si se define, tiene prioridad sobre `NEXTAUTH_URL`. Debe coincidir con el dominio de producción; en desarrollo/tests suele ser `http://localhost:3000`.
 - `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos (`STORAGE_PROVIDER=local`).
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
 - `ADMIN_USERNAME` — usuario administrador inicial.
@@ -246,8 +247,8 @@ useEffect(() => {
 
 ### `GET /` redirige a `http://localhost:3000/pedido` en producción
 
-- Síntoma: Vercel responde `307 Temporary Redirect` con `Location: http://localhost:3000/pedido` aunque el `Host` sea el dominio de producción.
-- Causa: `NEXTAUTH_URL` (o `AUTH_URL`, que tiene prioridad en v5) está configurada como `http://localhost:3000` en Vercel. NextAuth v5 la usa como URL base para las redirecciones del middleware.
+- Síntoma: Vercel responde `307 Temporary Redirect` con `Location: http://localhost:3000/pedido` aunque el `Host` sea el dominio de producción. Nota: la raíz (`/`) redirige intencionalmente a `/pedido` en `next.config.ts`; el problema es que la URL de redirección apunta a `localhost` en lugar de al dominio de producción.
+- Causa: `NEXTAUTH_URL` (o `AUTH_URL`, que tiene prioridad en v5) está configurada como `http://localhost:3000` en Vercel. NextAuth v5 la usa como URL base para construir URLs absolutas en redirecciones.
 - Solución: actualizar la variable al dominio de producción (`https://<dominio>.vercel.app`), eliminar `AUTH_URL` si no se usa, y re-desplegar. Verificar con `curl -I https://<dominio>.vercel.app/`; el `Location` debe ser `/pedido` (relativo) o `https://<dominio>.vercel.app/pedido`.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo

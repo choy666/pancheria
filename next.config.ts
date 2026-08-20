@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: '/',
+        destination: '/pedido',
+        permanent: false,
+      },
+      {
         source: '/recetas/:productId/editar',
         destination: '/productos/:productId/editar',
         permanent: true,

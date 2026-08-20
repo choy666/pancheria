@@ -2,6 +2,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
 import type { StorageProviderName } from '@/config/videos';
+import type { S3Client } from '@aws-sdk/client-s3';
+import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 
 const mimeTypesByExtension: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -166,14 +168,13 @@ export class S3R2StorageProvider implements StorageProvider {
     const clientModuleName = '@aws-sdk/client-s3';
     const presignerModuleName = '@aws-sdk/s3-presigned-post';
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let s3Client: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let createPresignedPost: any;
+    let s3Client: S3Client;
+    let createPresignedPostFn: typeof createPresignedPost;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const clientModule: any = await import(clientModuleName);
+      const clientModule = (await import(clientModuleName)) as {
+        S3Client: typeof S3Client;
+      };
       s3Client = new clientModule.S3Client({
         region,
         endpoint,
@@ -183,9 +184,10 @@ export class S3R2StorageProvider implements StorageProvider {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const presignerModule: any = await import(presignerModuleName);
-      createPresignedPost = presignerModule.createPresignedPost;
+      const presignerModule = (await import(presignerModuleName)) as {
+        createPresignedPost: typeof createPresignedPost;
+      };
+      createPresignedPostFn = presignerModule.createPresignedPost;
     } catch {
       throw new Error(
         'Para usar STORAGE_PROVIDER=s3 o r2, instalá @aws-sdk/client-s3 y @aws-sdk/s3-presigned-post.'
@@ -197,7 +199,7 @@ export class S3R2StorageProvider implements StorageProvider {
 
     const publicUrl = this.getPublicUrl(key);
 
-    const { url, fields } = await createPresignedPost(s3Client, {
+    const { url, fields } = await createPresignedPostFn(s3Client, {
       Bucket: bucket,
       Key: key,
       Conditions: [

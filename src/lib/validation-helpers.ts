@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from '@/domain/errors';
+import { ValidationError } from '@/domain/errors';
 
 export function validateNonEmptyString(
   value: string | undefined | null,
@@ -43,13 +43,4 @@ export function validateBranchOwnership<T extends { branchId: number; name?: str
   }
 }
 
-export function ensureExists<T>(
-  entity: T | undefined | null,
-  entityType: string,
-  id?: number | string
-): T {
-  if (!entity) {
-    throw new NotFoundError(entityType, id);
-  }
-  return entity;
-}
+

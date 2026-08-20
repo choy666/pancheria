@@ -255,7 +255,10 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 ### 7.3 Rate limiting
 
-- `POST /api/public/pedido` limita por IP usando un `Map` en memoria.
+- `POST /api/public/pedido` limita por IP.
+- El proveedor de almacenamiento se configura con `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`:
+  - `memory` (por defecto): usa un `Map` en el proceso de Node. Suficiente para una sola instancia.
+  - `db`: usa PostgreSQL (`public_order_rate_limits`) y es recomendado para producción con múltiples instancias.
 - Ventana y máximo configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
 
 ---
