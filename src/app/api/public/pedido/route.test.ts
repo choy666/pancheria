@@ -135,19 +135,25 @@ describe('POST /api/public/pedido', () => {
     );
   });
 
-  test('devuelve 400 si no está configurado el número de WhatsApp', async () => {
+  test('crea el pedido con whatsappUrl nulo si no está configurado el número de WhatsApp', async () => {
     mockedGetWhatsAppNumber.mockImplementation(() => {
       throw new Error('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado.');
     });
 
+    const order = createMockOrder();
+    mockedOrderService.createOrder.mockResolvedValue(order as any);
+
     const response = await POST(
       buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
     );
-    const body = (await response.json()) as { error: string };
+    const body = (await response.json()) as {
+      order: typeof order;
+      whatsappUrl: string | null;
+    };
 
-    expect(response.status).toBe(400);
-    expect(body.error).toContain('NEXT_PUBLIC_WHATSAPP_NUMBER');
-    expect(mockedOrderService.createOrder).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(body.whatsappUrl).toBeNull();
+    expect(mockedOrderService.createOrder).toHaveBeenCalled();
   });
 
   test('devuelve 400 cuando el cuerpo es inválido', async () => {

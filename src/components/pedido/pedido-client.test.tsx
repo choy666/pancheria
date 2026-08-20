@@ -42,7 +42,7 @@ interface CreatedOrder {
   branchName: string | null;
   items: { productId: number; name: string; price: number; unit: string; quantity: number }[];
   createdAt: string;
-  whatsappUrl: string;
+  whatsappUrl: string | null;
 }
 
 function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
@@ -288,7 +288,7 @@ describe('PedidoClient', () => {
     const originalOpen = window.open;
 
     function setupFetchMocks(overrides: {
-      createBody?: { order: CreatedOrder; whatsappUrl: string };
+      createBody?: { order: CreatedOrder; whatsappUrl: string | null };
     } = {}) {
       global.fetch = jest.fn().mockImplementation(async (url, init) => {
         if (typeof url === 'string' && url.includes('/api/public/disponibilidad')) {
@@ -379,7 +379,7 @@ describe('PedidoClient', () => {
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Enviar Pedido'));
+        fireEvent.click(screen.getByText('WhatsApp'));
         await Promise.resolve();
       });
 
@@ -407,12 +407,13 @@ describe('PedidoClient', () => {
       expect(summary).toHaveTextContent('1x Panchuque (unidad)');
       expect(summary).toHaveTextContent('$1200.00 c/u');
 
-      const sendButton = screen.getByText('Enviar Pedido');
-      expect(sendButton).toBeInTheDocument();
+      const chatButton = screen.getByText('Ir al chat del pedido');
+      expect(chatButton).toBeInTheDocument();
       expect(screen.getAllByTestId('whatsapp-icon').length).toBeGreaterThan(0);
 
+      const whatsappButton = screen.getByText('WhatsApp');
       await act(async () => {
-        fireEvent.click(sendButton);
+        fireEvent.click(whatsappButton);
         await Promise.resolve();
       });
 
@@ -432,7 +433,7 @@ describe('PedidoClient', () => {
         expect(screen.getByText('Pedido creado')).toBeInTheDocument()
       );
 
-      const manualLink = screen.getByText('Abrir WhatsApp manualmente');
+      const manualLink = screen.getByText('Abrir WhatsApp');
       expect(manualLink).toBeInTheDocument();
       expect(manualLink).toHaveAttribute('href', WHATSAPP_URL);
     });

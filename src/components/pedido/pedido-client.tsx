@@ -15,6 +15,7 @@ import {
   PUBLIC_DISPONIBILIDAD_API,
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
+  PUBLIC_PEDIDO_CHAT_API,
 } from '@/config/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,7 +70,7 @@ interface CreatedOrder {
   branchName: string | null;
   items: PublicOrderItem[];
   createdAt: string;
-  whatsappUrl: string;
+  whatsappUrl: string | null;
 }
 
 interface WhatsAppIconProps {
@@ -312,7 +313,7 @@ export function PedidoClient({
 
       const { order, whatsappUrl } = (await response.json()) as {
         order: CreatedOrder;
-        whatsappUrl: string;
+        whatsappUrl: string | null;
       };
 
       setCreatedOrder({ ...order, whatsappUrl });
@@ -368,12 +369,21 @@ export function PedidoClient({
   }
 
   function handleOpenWhatsApp() {
-    if (!createdOrder) return;
+    if (!createdOrder?.whatsappUrl) return;
 
     window.open(
       createdOrder.whatsappUrl,
       '_blank',
       'noopener,noreferrer'
+    );
+  }
+
+  function handleGoToChat() {
+    if (!createdOrder) return;
+    router.push(
+      `${PUBLIC_PEDIDO_CHAT_API(createdOrder.id)}?token=${encodeURIComponent(
+        createdOrder.cancellationToken
+      )}`
     );
   }
 
@@ -603,7 +613,7 @@ export function PedidoClient({
           <DialogHeader>
             <DialogTitle>Pedido creado</DialogTitle>
             <DialogDescription>
-              {`El pedido ${createdOrder?.orderNumber ? '#' + createdOrder.orderNumber : ''} se creó correctamente. Abrí WhatsApp para enviarlo; si no se abre, usá el enlace de abajo. El operador lo confirmará y preparará al recibir el mensaje.`}
+              {`El pedido ${createdOrder?.orderNumber ? '#' + createdOrder.orderNumber : ''} se creó correctamente. Usá el chat para coordinar con la sucursal. También podés enviar el pedido por WhatsApp si preferís.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -667,10 +677,10 @@ export function PedidoClient({
               </div>
             )}
 
-            {createdOrder && (
+            {createdOrder?.whatsappUrl && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Si no se abre automáticamente, usá este enlace:
+                  Si preferís, envialo por WhatsApp:
                 </p>
                 <a
                   href={createdOrder.whatsappUrl}
@@ -679,7 +689,7 @@ export function PedidoClient({
                   className="inline-flex items-center gap-2 rounded-md border border-[#25D366] bg-[#25D366]/10 px-3 py-2 text-sm font-medium text-[#128C7E] hover:bg-[#25D366]/20"
                 >
                   <WhatsAppIcon className="size-4" />
-                  Abrir WhatsApp manualmente
+                  Abrir WhatsApp
                 </a>
               </div>
             )}
@@ -715,16 +725,25 @@ export function PedidoClient({
             >
               Cerrar
             </Button>
-            {/* Verde oficial de WhatsApp (#25D366) para el CTA de envío. */}
+            {createdOrder?.whatsappUrl && (
+              <Button
+                type="button"
+                onClick={handleOpenWhatsApp}
+                variant="outline"
+                aria-label="Enviar pedido por WhatsApp"
+                className="w-full sm:w-auto border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10"
+              >
+                <WhatsAppIcon className="size-4" />
+                WhatsApp
+              </Button>
+            )}
             <Button
               type="button"
-              onClick={handleOpenWhatsApp}
+              onClick={handleGoToChat}
               disabled={!createdOrder}
-              aria-label="Enviar pedido por WhatsApp"
-              className="w-full sm:w-auto bg-[#25D366] text-white hover:bg-[#128C7E] active:bg-[#0e7a56] focus-visible:ring-[#25D366]/50"
+              className="w-full sm:w-auto"
             >
-              <WhatsAppIcon className="size-4" />
-              Enviar Pedido
+              Ir al chat del pedido
             </Button>
           </DialogFooter>
         </DialogContent>

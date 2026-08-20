@@ -12,6 +12,7 @@ import { getOrderExpirationMs } from '@/config/orders';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import type {
   OrderWithItems,
+  OrderWithUnreadCount,
   OrderStatus,
   PaymentMethod,
   SaleItemInput,
@@ -261,7 +262,7 @@ export async function getOrders(
     page?: number;
     limit?: number;
   } = {}
-): Promise<{ items: OrderWithItems[]; total: number; page: number; limit: number }> {
+): Promise<{ items: OrderWithUnreadCount[]; total: number; page: number; limit: number }> {
   return orderRepository.findOrders(branchId, options);
 }
 

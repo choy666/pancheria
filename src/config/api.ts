@@ -10,11 +10,25 @@ export const PUBLIC_DISPONIBILIDAD_API = '/api/public/disponibilidad';
 export const PUBLIC_PEDIDO_API = '/api/public/pedido';
 export const PUBLIC_PEDIDO_CANCELAR_API = (orderId: number | string) =>
   `/api/public/pedido/${orderId}/cancelar`;
+export const PUBLIC_PEDIDO_CHAT_API = (orderId: number | string) =>
+  `/api/public/pedido/${orderId}/chat`;
+export const PUBLIC_PEDIDO_CHAT_LEIDO_API = (orderId: number | string) =>
+  `/api/public/pedido/${orderId}/chat/leido`;
+export const PUBLIC_PEDIDO_CHAT_UPLOAD_API = (orderId: number | string) =>
+  `/api/public/pedido/${orderId}/chat/upload`;
 export const PEDIDOS_API = '/api/pedidos';
 export const PEDIDOS_CONFIRMAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/confirmar`;
 export const PEDIDOS_CANCELAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/cancelar`;
+export const PEDIDOS_CHAT_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/chat`;
+export const PEDIDOS_CHAT_LEIDO_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/chat/leido`;
+export const PEDIDOS_CHAT_UPLOAD_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/chat/upload`;
+export const CHAT_ATTACHMENT_API = (key: string) =>
+  `/api/chat/attachment/${encodeURIComponent(key)}`;
 export const CAJA_API = '/api/caja';
 export const CAJA_HISTORIAL_API = '/api/caja/historial';
 export const CAJA_ELIMINADAS_API = '/api/caja/eliminadas';

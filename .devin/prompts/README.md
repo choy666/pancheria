@@ -131,6 +131,7 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — estado actual, limpieza realizada, pendientes y mejoras del flujo de pedidos.
+- [Chat mínimo por pedido (Opción A)](chat-pedido-opcion-a.md) — implementación en dos etapas (texto + imágenes) para evitar que el cliente salga de la app.
 
 ### Prompts archivados
 

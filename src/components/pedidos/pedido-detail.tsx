@@ -19,7 +19,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PEDIDOS_CONFIRMAR_API, PEDIDOS_CANCELAR_API } from '@/config/api';
+import {
+  PEDIDOS_CONFIRMAR_API,
+  PEDIDOS_CANCELAR_API,
+  PEDIDOS_CHAT_API,
+  PEDIDOS_CHAT_LEIDO_API,
+  PEDIDOS_CHAT_UPLOAD_API,
+} from '@/config/api';
+import { OrderChat } from '@/components/chat/order-chat';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import type { OrderStatus, DeliveryType, PaymentMethod } from '@/domain/types';
 
@@ -332,8 +339,8 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
           </CardContent>
         </Card>
 
-        <div className="space-y-5">
-          {order.status === 'pending' && (
+        {order.status === 'pending' && (
+          <div className="space-y-5">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Acciones</CardTitle>
@@ -410,9 +417,19 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
                 </Button>
               </CardContent>
             </Card>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      <OrderChat
+        orderId={order.id}
+        initialMessages={[]}
+        readOnly={order.status !== 'pending'}
+        chatApiUrl={PEDIDOS_CHAT_API(order.id)}
+        readApiUrl={PEDIDOS_CHAT_LEIDO_API(order.id)}
+        uploadApiUrl={PEDIDOS_CHAT_UPLOAD_API(order.id)}
+        title="Chat con el cliente"
+      />
     </div>
   );
 }

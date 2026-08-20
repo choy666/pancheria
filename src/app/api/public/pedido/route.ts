@@ -4,61 +4,23 @@ import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
-import { assertWhatsAppConfigured, buildWhatsAppUrl } from '@/lib/whatsapp';
+import { buildWhatsAppUrl } from '@/lib/whatsapp';
+import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import {
-  createPublicOrderRateLimitStore,
-  type PublicOrderRateLimitStore,
-} from '@/lib/public-order-rate-limit-store';
+  getOrderRateLimitWindowMs,
+  getOrderRateLimitMaxRequests,
+} from '@/config/orders';
 import type { PublicOrderItem } from '@/lib/whatsapp';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
 });
 
-const RATE_LIMIT_WINDOW_MS = Number(
-  process.env.PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS ?? 60_000
+const isRateLimited = createRateLimiter(
+  'order',
+  getOrderRateLimitWindowMs(),
+  getOrderRateLimitMaxRequests()
 );
-const RATE_LIMIT_MAX_REQUESTS = Number(
-  process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS ?? 10
-);
-
-const rateLimitStore: PublicOrderRateLimitStore =
-  createPublicOrderRateLimitStore();
-
-function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-
-  return (request as unknown as { ip?: string }).ip ?? 'unknown';
-}
-
-async function isRateLimited(ip: string): Promise<boolean> {
-  if (process.env.NODE_ENV === 'test') {
-    return false;
-  }
-
-  const now = Date.now();
-  const record = await rateLimitStore.get(ip);
-
-  if (!record || now > record.resetAt) {
-    await rateLimitStore.set(ip, {
-      count: 1,
-      resetAt: now + RATE_LIMIT_WINDOW_MS,
-    });
-    return false;
-  }
-
-  record.count += 1;
-
-  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
-    return true;
-  }
-
-  await rateLimitStore.set(ip, record);
-  return false;
-}
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
@@ -76,8 +38,6 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
       { status: 429 }
     );
   }
-
-  assertWhatsAppConfigured();
 
   const body = await request.json();
   const data = orderSchema.parse(body);
@@ -106,7 +66,13 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     branchName: order.branch?.name,
   };
 
-  const whatsappUrl = buildWhatsAppUrl(publicOrder);
+  let whatsappUrl: string | null = null;
+  try {
+    whatsappUrl = buildWhatsAppUrl(publicOrder);
+  } catch {
+    // Si no está configurado WhatsApp, el chat sigue siendo el canal principal.
+    whatsappUrl = null;
+  }
 
   return NextResponse.json(
     {

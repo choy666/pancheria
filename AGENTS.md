@@ -24,7 +24,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Empujar migraciones      | `npx drizzle-kit push`                            |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
 
-> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
 > Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El archivo `.env.e2e` y `playwright.config.ts` ya están configurados para sobrescribir esas variables; en entornos donde `.env.local` apunta a producción, usar `NO_WEB_SERVER=1` y levantar manualmente `npm run dev` con las variables de `.env.e2e`.
 
@@ -48,6 +48,12 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
+- `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del chat del pedido en milisegundos (por defecto 5000 ms).
+- `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` (opcional) — longitud máxima de un mensaje de chat en caracteres (por defecto 1000).
+- `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit del chat en milisegundos (por defecto 60000 ms).
+- `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de mensajes de chat por IP en la ventana (por defecto 60).
+- `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen en el chat en MB (por defecto 5).
+- `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos en el chat separados por coma (por defecto `image/jpeg,image/png,image/webp`).
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos: `memory` (por defecto) o `db` (PostgreSQL, recomendado para producción con múltiples instancias). Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
@@ -266,6 +272,18 @@ El directorio `.devin/informes` contiene la guía de lecciones aprendidas de las
 - Guía para escribir prompts: `.devin/prompts/README.md`
 
 Antes de iniciar tareas de auditoría, refactorización, integridad de datos, configuración de entorno o escritura de prompts, consultar estos archivos para evitar regresiones documentadas.
+
+## Chat de pedidos
+
+Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes se almacenan en `order_messages` y se asocian al token `cancellationToken` del pedido para el acceso público.
+
+- Página pública: `/pedido/[id]/chat?token=...`.
+- Panel: el chat se renderiza dentro del detalle del pedido (`/pedidos/[id]`).
+- Endpoints públicos: `GET/POST /api/public/pedido/[id]/chat`, `POST /api/public/pedido/[id]/chat/leido`, `POST /api/public/pedido/[id]/chat/upload`.
+- Endpoints del panel: `GET/POST /api/pedidos/[id]/chat`, `POST /api/pedidos/[id]/chat/leido`, `POST /api/pedidos/[id]/chat/upload`.
+- Adjuntos: soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`.
+  - Local: se sirven mediante `GET /api/chat/attachment/[key]` y nunca exponen paths físicos.
+- WhatsApp sigue disponible como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado.
 
 ## Consideraciones técnicas futuras
 

@@ -156,6 +156,7 @@ function createOrderItemRow(
 function createMockDb(): MockDb {
   const query = {
     orders: { findFirst: jest.fn(), findMany: jest.fn() },
+    orderMessages: { findMany: jest.fn().mockResolvedValue([]) },
     sales: { findFirst: jest.fn() },
     recipes: { findMany: jest.fn() },
     products: { findMany: jest.fn() },
@@ -211,11 +212,13 @@ function createMockDb(): MockDb {
       from: jest.Mock;
       where: jest.Mock;
       for: jest.Mock;
+      groupBy: jest.Mock;
       then: (onFulfilled?: (value: unknown) => unknown) => Promise<unknown>;
     } = {
       from: jest.fn(() => builder),
       where: jest.fn(() => builder),
       for: jest.fn().mockResolvedValue(forValue),
+      groupBy: jest.fn(() => builder),
       then: (onFulfilled?: (value: unknown) => unknown) =>
         Promise.resolve(thenValue).then(onFulfilled),
     };

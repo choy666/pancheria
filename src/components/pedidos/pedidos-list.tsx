@@ -31,6 +31,7 @@ interface OrderListItem {
   status: OrderStatus;
   createdAt: string;
   branch: { name: string } | null;
+  unreadCount: number;
   items: {
     quantity: number;
     product?: {
@@ -152,14 +153,25 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                 </TableCell>
                 <TableCell>{formatDateTime(order.createdAt)}</TableCell>
                 <TableCell className="text-right">
-                  <Link
-                    href={routes.pedidoDetalle(order.id)}
-                    className={cn(
-                      buttonVariants({ variant: 'outline', size: 'sm' })
+                  <div className="flex items-center justify-end gap-2">
+                    {order.unreadCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="px-1.5 py-0.5 text-xs"
+                        aria-label={`${order.unreadCount} mensajes sin leer`}
+                      >
+                        {order.unreadCount}
+                      </Badge>
                     )}
-                  >
-                    Ver
-                  </Link>
+                    <Link
+                      href={routes.pedidoDetalle(order.id)}
+                      className={cn(
+                        buttonVariants({ variant: 'outline', size: 'sm' })
+                      )}
+                    >
+                      Ver
+                    </Link>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

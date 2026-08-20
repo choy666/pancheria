@@ -1,8 +1,56 @@
-import { eq, and, isNull, count, lt } from 'drizzle-orm';
+import { eq, and, isNull, count, lt, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { orders, orderItems } from '@/db/schema';
-import type { OrderStatus } from '@/domain/types';
-import type { OrderWithItems } from '@/domain/types';
+import { orders, orderItems, orderMessages } from '@/db/schema';
+import type { OrderStatus, OrderWithItems, OrderWithUnreadCount } from '@/domain/types';
+
+export async function findByIdWithToken(
+  orderId: number,
+  token: string
+): Promise<(typeof orders.$inferSelect) | undefined> {
+  return db.query.orders.findFirst({
+    where: and(
+      eq(orders.id, orderId),
+      eq(orders.cancellationToken, token),
+      isNull(orders.deletedAt)
+    ),
+  });
+}
+
+export async function findByIdWithTokenForUpdate(
+  tx: typeof db,
+  orderId: number,
+  token: string
+): Promise<(typeof orders.$inferSelect) | undefined> {
+  const [order] = await tx
+    .select()
+    .from(orders)
+    .where(
+      and(
+        eq(orders.id, orderId),
+        eq(orders.cancellationToken, token),
+        isNull(orders.deletedAt)
+      )
+    )
+    .for('update');
+
+  return order;
+}
+
+export async function findByIdForUpdate(
+  tx: typeof db,
+  branchId: number,
+  orderId: number
+): Promise<(typeof orders.$inferSelect) | undefined> {
+  const [order] = await tx
+    .select()
+    .from(orders)
+    .where(
+      and(eq(orders.id, orderId), eq(orders.branchId, branchId), isNull(orders.deletedAt))
+    )
+    .for('update');
+
+  return order;
+}
 
 export async function findById(
   branchId: number,
@@ -69,7 +117,7 @@ export async function findOrders(
     page?: number;
     limit?: number;
   } = {}
-): Promise<{ items: OrderWithItems[]; total: number; page: number; limit: number }> {
+): Promise<{ items: OrderWithUnreadCount[]; total: number; page: number; limit: number }> {
   const page = options.page ?? 1;
   const limit = options.limit ?? 10;
   const offset = (page - 1) * limit;
@@ -96,8 +144,30 @@ export async function findOrders(
     with: { branch: true, items: { with: { product: true } } },
   })) as OrderWithItems[];
 
+  const orderIds = items.map((item) => item.id);
+  const unreadRows = orderIds.length
+    ? await db.query.orderMessages.findMany({
+        where: and(
+          inArray(orderMessages.orderId, orderIds),
+          eq(orderMessages.senderType, 'client'),
+          isNull(orderMessages.readAt)
+        ),
+        columns: { orderId: true },
+      })
+    : [];
+
+  const unreadByOrderId = new Map<number, number>();
+  for (const row of unreadRows) {
+    unreadByOrderId.set(row.orderId, (unreadByOrderId.get(row.orderId) ?? 0) + 1);
+  }
+
+  const itemsWithUnread = items.map((item) => ({
+    ...item,
+    unreadCount: unreadByOrderId.get(item.id) ?? 0,
+  })) as OrderWithUnreadCount[];
+
   return {
-    items,
+    items: itemsWithUnread,
     total: Number(total),
     page,
     limit,

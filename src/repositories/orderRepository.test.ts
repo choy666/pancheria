@@ -18,6 +18,7 @@ var mockSelect: jest.Mock;
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
   mockFindMany = jest.fn();
+  const mockOrderMessagesFindMany = jest.fn().mockResolvedValue([]);
   mockReturning = jest.fn();
   mockValues = jest.fn((data: unknown) => ({ returning: mockReturning }));
   mockInsert = jest.fn(() => ({ values: mockValues }));
@@ -32,6 +33,7 @@ jest.mock('@/db', () => {
     db: {
       query: {
         orders: { findFirst: mockFindFirst, findMany: mockFindMany },
+        orderMessages: { findMany: mockOrderMessagesFindMany },
       },
       insert: mockInsert,
       update: mockUpdate,

@@ -93,6 +93,26 @@ export type OrderWithItems = Order & {
   branch?: Branch;
 };
 
+export type OrderMessageSenderType = 'client' | 'operator';
+
+export type OrderMessage = {
+  id: number;
+  orderId: number;
+  senderType: OrderMessageSenderType;
+  senderName: string | null;
+  content: string | null;
+  attachmentUrl: string | null;
+  attachmentMimeType: string | null;
+  attachmentSize: number | null;
+  attachmentName: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+};
+
+export type OrderWithUnreadCount = OrderWithItems & {
+  unreadCount: number;
+};
+
 export type StockMovement = {
   id: number;
   branchId: number;

@@ -12,6 +12,7 @@ export default async function globalSetup() {
     TRUNCATE TABLE
       sale_items,
       order_items,
+      order_messages,
       stock_movements,
       sales,
       orders,

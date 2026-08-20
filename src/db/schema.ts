@@ -39,6 +39,11 @@ export const orderStatusEnum = pgEnum('order_status', [
   'cancelled',
 ]);
 
+export const orderMessageSenderEnum = pgEnum('order_message_sender', [
+  'client',
+  'operator',
+]);
+
 export const deliveryTypeEnum = pgEnum('delivery_type', ['delivery', 'pickup']);
 
 export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
@@ -296,6 +301,37 @@ export const orderItems = pgTable(
   })
 );
 
+export const orderMessages = pgTable(
+  'order_messages',
+  {
+    id: serial('id').primaryKey(),
+    orderId: integer('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    senderType: orderMessageSenderEnum('sender_type').notNull(),
+    senderName: varchar('sender_name', { length: 255 }),
+    content: text('content'),
+    attachmentUrl: text('attachment_url'),
+    attachmentMimeType: varchar('attachment_mime_type', { length: 100 }),
+    attachmentSize: integer('attachment_size'),
+    attachmentName: varchar('attachment_name', { length: 255 }),
+    readAt: timestamp('read_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    orderIdIdx: index('order_messages_order_id_idx').on(table.orderId),
+    orderCreatedAtIdx: index('order_messages_order_created_at_idx').on(
+      table.orderId,
+      table.createdAt
+    ),
+    orderSenderReadAtIdx: index('order_messages_order_sender_read_at_idx').on(
+      table.orderId,
+      table.senderType,
+      table.readAt
+    ),
+  })
+);
+
 export const stockMovements = pgTable(
   'stock_movements',
   {
@@ -470,7 +506,15 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [sales.id],
   }),
   items: many(orderItems),
+  messages: many(orderMessages),
   stockMovements: many(stockMovements),
+}));
+
+export const orderMessagesRelations = relations(orderMessages, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderMessages.orderId],
+    references: [orders.id],
+  }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({

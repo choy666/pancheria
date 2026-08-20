@@ -194,3 +194,29 @@ export const videoSchema = z.object({
 });
 
 export const videoUpdateSchema = videoSchema.partial();
+
+export const chatAttachmentSchema = z.object({
+  url: z.string().min(1).url(),
+  mimeType: z.string().min(1).max(100),
+  size: z.number().int().nonnegative(),
+  name: z.string().min(1).max(255),
+});
+
+export const chatMessageSchema = z
+  .object({
+    content: z.string().min(1).optional().nullable(),
+    attachment: chatAttachmentSchema.optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.content?.trim() && !data.attachment) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'El mensaje debe contener texto o un adjunto.',
+        path: ['content'],
+      });
+    }
+  });
+
+export const chatMessageContentSchema = z.object({
+  content: z.string().min(1),
+});

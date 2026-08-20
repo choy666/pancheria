@@ -16,3 +16,23 @@ export function getOrderExpirationMs(): number {
 
   return parsed;
 }
+
+export function getOrderRateLimitWindowMs(): number {
+  const raw = process.env.PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS;
+  if (!raw) return 60_000;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1_000) return 60_000;
+
+  return parsed;
+}
+
+export function getOrderRateLimitMaxRequests(): number {
+  const raw = process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS;
+  if (!raw) return 10;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return 10;
+
+  return parsed;
+}
