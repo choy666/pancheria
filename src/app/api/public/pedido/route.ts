@@ -4,8 +4,7 @@ import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
-import { buildWhatsAppMessage, encodeWhatsAppUrl } from '@/lib/whatsapp';
-import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
+import { assertWhatsAppConfigured, buildWhatsAppUrl } from '@/lib/whatsapp';
 import {
   createPublicOrderRateLimitStore,
   type PublicOrderRateLimitStore,
@@ -78,14 +77,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     );
   }
 
-  let phone: string;
-  try {
-    phone = getWhatsAppNumber();
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Error de configuración de WhatsApp';
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
+  assertWhatsAppConfigured();
 
   const body = await request.json();
   const data = orderSchema.parse(body);
@@ -114,10 +106,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     branchName: order.branch?.name,
   };
 
-  const { greeting, closing } = getWhatsAppMessageParts();
-  const messageBody = buildWhatsAppMessage(publicOrder);
-  const fullMessage = `${greeting}\n\n${messageBody}\n\n${closing}`;
-  const whatsappUrl = encodeWhatsAppUrl(phone, fullMessage);
+  const whatsappUrl = buildWhatsAppUrl(publicOrder);
 
   return NextResponse.json(
     {
@@ -134,7 +123,6 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         branchName: order.branch?.name,
         items: publicItems,
         createdAt: order.createdAt,
-        sentAt: order.sentAt,
       },
       whatsappUrl,
     },

@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from '@/domain/errors';
+import { InsufficientStockError, NotFoundError, ValidationError } from '@/domain/errors';
 import { validateBranchOwnership } from '@/lib/validation-helpers';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import type { ProductRow, SaleItemInput } from '@/domain/types';
@@ -391,6 +391,29 @@ export async function validateCartAvailability(
   }
 
   return { availabilityByProduct, consumedBySupply, shortageByProduct, breakdownByProduct };
+}
+
+export function assertNoStockShortage(
+  shortageByProduct: Record<
+    number,
+    { available: number; required: number; supplyName: string }
+  >,
+  productById: Map<number, ProductRow>
+) {
+  const productIds = Object.keys(shortageByProduct);
+  if (productIds.length === 0) return;
+
+  const productId = Number(productIds[0]);
+  const product = productById.get(productId);
+  const shortage = shortageByProduct[productId];
+  if (!product || !shortage) return;
+
+  throw new InsufficientStockError(
+    product.name,
+    shortage.available,
+    shortage.required,
+    shortage.supplyName !== product.name ? shortage.supplyName : undefined
+  );
 }
 
 export async function buildReintegrationContext(

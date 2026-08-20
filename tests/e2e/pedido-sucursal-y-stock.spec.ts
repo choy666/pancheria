@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, getTestSecondBranch } from './helpers';
+import { login, unique, createProductViaApi, getTestSecondBranch, restockProductViaApi, ensureCashRegisterOpen } from './helpers';
 
 test.describe('Pedido público con sucursal y stock aislado', () => {
   test('redirige a /pedido cuando branchId no es un entero positivo', async ({
@@ -50,7 +50,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
 
     if (whatsappNumber) {
       // Si el número de WhatsApp está configurado, el pedido se crea y se muestra el diálogo de éxito.
-      await expect(page.getByText('El pedido se reservó correctamente')).toBeVisible();
+      await expect(page.getByText(/se creó correctamente/)).toBeVisible();
     } else {
       // Si no hay número configurado, la API devuelve el error de configuración antes de crear el pedido.
       await expect(
@@ -156,5 +156,66 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.goto('/pedido');
 
     await expect(page.getByTestId(`cart-item-${productDefault.id}`)).toHaveCount(0);
+  });
+
+  test('no descuenta stock al crear el pedido y sí al confirmarlo desde el panel', async ({
+    page,
+  }) => {
+    await login(page);
+
+    const product = await createProductViaApi(page, {
+      name: unique('Bebida Stock E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'beverage',
+      price: 1000,
+      unit: 'unidad',
+      isActive: true,
+    });
+    await restockProductViaApi(page, product.id, 5);
+
+    await page.goto('/pedido');
+    await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
+    await expect(
+      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
+    ).toBeVisible();
+
+    await page.getByTestId(`add-product-${product.id}`).click();
+    await expect(page.getByTestId(`cart-item-${product.id}`)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Pedir por WhatsApp' }).click();
+    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+
+    await page.fill('input#customerName', 'Juan Pérez');
+    await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
+
+    await expect(page.getByText(/se creó correctamente/)).toBeVisible();
+
+    // Cerrar el diálogo para poder seguir navegando.
+    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await expect(page.getByText(/se creó correctamente/)).not.toBeVisible();
+
+    // El stock no se descontó: sigue disponible en 5 unidades.
+    await page.goto('/pedido');
+    await expect(
+      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
+    ).toBeVisible();
+
+    // Confirmar el pedido desde el panel.
+    await page.goto('/pedidos');
+    await page.locator('[data-testid^="row-order-"]').first().getByRole('link', { name: 'Ver' }).click();
+
+    await ensureCashRegisterOpen(page);
+
+    await page.getByLabel('Medio de pago').click();
+    await page.getByRole('option', { name: 'Efectivo' }).click();
+
+    await page.getByRole('button', { name: 'Confirmar como venta' }).click();
+    await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });
+
+    // El stock se descontó: ahora quedan 4 unidades.
+    await page.goto('/pedido');
+    await expect(
+      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 4 unidades')
+    ).toBeVisible();
   });
 });

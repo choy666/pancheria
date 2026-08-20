@@ -1,11 +1,15 @@
-# Reporte de estado — Confirmación de envío de pedido por WhatsApp y fix de hydration
+# Reporte de estado — Confirmación de envío de pedido por WhatsApp y fix de hydration (HISTÓRICO / REVERTIDO)
 
 **Fecha:** 2026-08-19  
 **Proyecto:** `pancheria`
 
+> **Actualización posterior:** este reporte describe una implementación intermedia que fue **revertida**. El flujo final no incluye confirmación de envío por parte del cliente, ni columna `sentAt`, ni endpoint `/api/public/pedido/[id]/enviar`. Ver la guía actual y el reporte más reciente.
+
 ---
 
 ## 0. Resumen ejecutivo
+
+> **Este resumen describe una implementación intermedia que fue revertida y no forma parte del flujo vigente.** El sistema actual no registra `sentAt`, no expone un endpoint `/api/public/pedido/[id]/enviar` y no pide confirmación de envío al cliente. El flujo vigente está documentado en `.devin/prompts/cobertura-auditoria-flujo-pedidos.md`.
 
 Se implementó el flujo de **confirmación de envío de pedido por WhatsApp**: tras crear un pedido `pending`, el cliente abre WhatsApp, envía el mensaje y al volver a la app confirma el envío. El sistema registra `sentAt` en `orders` sin cambiar el estado del pedido, y el operador ve un indicador visual en el panel.
 
@@ -243,7 +247,7 @@ Se ajustó el flujo de pedidos públicos para que **el stock se descuente única
 || Confirmar pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`convertOrderToSale`) | Revalida disponibilidad, descuenta stock (`deductStockForItems` con `movementType: 'sale'`), crea la venta, actualiza la caja y marca el pedido como `converted`. Conserva los precios históricos de `order.items`. |
 || Cancelar pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`cancelOrder`) | Marca el pedido como `cancelled`. **No modifica stock** porque el pedido nunca lo reservó. |
 || Expirar pedido | <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> (`expirePendingOrders`) | Cancela pedidos `pending` vencidos. **No modifica stock**. |
-|| UI pública | <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.tsx" /> | El botón y el mensaje del diálogo indican que el pedido se envía por WhatsApp y que el stock se confirma al aceptar el pedido. |
+|| UI pública | <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/pedido-client.tsx" /> | El título del diálogo es "Pedido creado" y el mensaje indica que el pedido se envía por WhatsApp y que el operador confirmará el pedido para prepararlo. |
 
 ### Implicaciones
 

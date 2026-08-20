@@ -42,7 +42,6 @@ interface CreatedOrder {
   branchName: string | null;
   items: { productId: number; name: string; price: number; unit: string; quantity: number }[];
   createdAt: string;
-  sentAt: string | null;
   whatsappUrl: string;
 }
 
@@ -60,7 +59,6 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
     branchName: 'Sucursal A',
     items: [{ productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 }],
     createdAt: new Date().toISOString(),
-    sentAt: null,
     whatsappUrl: WHATSAPP_URL,
     ...overrides,
   };
@@ -286,14 +284,11 @@ describe('PedidoClient', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  describe('flujo de checkout y confirmación por WhatsApp', () => {
+  describe('flujo de checkout y envío por WhatsApp', () => {
     const originalOpen = window.open;
 
     function setupFetchMocks(overrides: {
       createBody?: { order: CreatedOrder; whatsappUrl: string };
-      sendBody?: { order: CreatedOrder };
-      sendOk?: boolean;
-      sendError?: string;
     } = {}) {
       global.fetch = jest.fn().mockImplementation(async (url, init) => {
         if (typeof url === 'string' && url.includes('/api/public/disponibilidad')) {
@@ -302,13 +297,6 @@ describe('PedidoClient', () => {
             shortageByProduct: {},
             breakdownByProduct: {},
           });
-        }
-
-        if (typeof url === 'string' && url.includes('/api/public/pedido/') && url.includes('/enviar')) {
-          if (overrides.sendError) {
-            return createFetchResponse({ error: overrides.sendError }, false);
-          }
-          return createFetchResponse(overrides.sendBody ?? { order: makeCreatedOrder({ sentAt: new Date().toISOString() }) });
         }
 
         if (typeof url === 'string' && url.includes('/api/public/pedido') && init?.method === 'POST') {
@@ -381,17 +369,17 @@ describe('PedidoClient', () => {
       });
     }
 
-    test('abre WhatsApp y confirma el envío del pedido', async () => {
+    test('abre WhatsApp al crear el pedido', async () => {
       setupFetchMocks();
 
       await completeCheckout();
 
       await waitFor(() =>
-        expect(screen.getByText('Pedido reservado')).toBeInTheDocument()
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        fireEvent.click(screen.getByText('Enviar Pedido'));
         await Promise.resolve();
       });
 
@@ -400,128 +388,71 @@ describe('PedidoClient', () => {
         '_blank',
         'noopener,noreferrer'
       );
-
-      Object.defineProperty(document, 'visibilityState', {
-        value: 'visible',
-        writable: true,
-        configurable: true,
-      });
-
-      await act(async () => {
-        document.dispatchEvent(new Event('visibilitychange'));
-        await Promise.resolve();
-      });
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('¿Enviaste el mensaje por WhatsApp?')
-        ).toBeInTheDocument()
-      );
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('Sí, ya envié'));
-        await Promise.resolve();
-      });
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('¡Pedido enviado correctamente!')
-        ).toBeInTheDocument()
-      );
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        `/api/public/pedido/${ORDER_ID}/enviar?branchId=1`,
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ token: CANCELLATION_TOKEN }),
-        })
-      );
     });
 
-    test('permite volver a abrir WhatsApp desde la confirmación', async () => {
+    test('muestra el resumen del pedido y el ícono de WhatsApp en el diálogo de pedido creado', async () => {
       setupFetchMocks();
 
       await completeCheckout();
 
       await waitFor(() =>
-        expect(screen.getByText('Pedido reservado')).toBeInTheDocument()
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
       );
 
+      const summary = screen.getByTestId('order-summary');
+      expect(summary).toBeInTheDocument();
+      expect(summary).toHaveTextContent('Cliente: Juan Pérez');
+      expect(summary).toHaveTextContent('Sucursal: Sucursal A');
+      expect(summary).toHaveTextContent('Total: $1200.00');
+      expect(summary).toHaveTextContent('1x Panchuque (unidad)');
+      expect(summary).toHaveTextContent('$1200.00 c/u');
+
+      const sendButton = screen.getByText('Enviar Pedido');
+      expect(sendButton).toBeInTheDocument();
+      expect(screen.getAllByTestId('whatsapp-icon').length).toBeGreaterThan(0);
+
       await act(async () => {
-        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        fireEvent.click(sendButton);
         await Promise.resolve();
       });
 
-      Object.defineProperty(document, 'visibilityState', {
-        value: 'visible',
-        writable: true,
-        configurable: true,
-      });
-
-      await act(async () => {
-        document.dispatchEvent(new Event('visibilitychange'));
-        await Promise.resolve();
-      });
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('¿Enviaste el mensaje por WhatsApp?')
-        ).toBeInTheDocument()
-      );
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('No, volver a WhatsApp'));
-        await Promise.resolve();
-      });
-
-      expect(window.open).toHaveBeenCalledTimes(2);
-      expect(window.open).toHaveBeenLastCalledWith(
+      expect(window.open).toHaveBeenCalledWith(
         WHATSAPP_URL,
         '_blank',
         'noopener,noreferrer'
       );
     });
 
-    test('muestra el error del backend si falla la confirmación', async () => {
-      setupFetchMocks({ sendError: 'El token de envío no es válido.' });
+    test('muestra el enlace manual para abrir WhatsApp', async () => {
+      setupFetchMocks();
 
       await completeCheckout();
 
       await waitFor(() =>
-        expect(screen.getByText('Pedido reservado')).toBeInTheDocument()
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
+      );
+
+      const manualLink = screen.getByText('Abrir WhatsApp manualmente');
+      expect(manualLink).toBeInTheDocument();
+      expect(manualLink).toHaveAttribute('href', WHATSAPP_URL);
+    });
+
+    test('permite cerrar el diálogo de pedido creado', async () => {
+      setupFetchMocks();
+
+      await completeCheckout();
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Abrir WhatsApp'));
-        await Promise.resolve();
-      });
-
-      Object.defineProperty(document, 'visibilityState', {
-        value: 'visible',
-        writable: true,
-        configurable: true,
-      });
-
-      await act(async () => {
-        document.dispatchEvent(new Event('visibilitychange'));
+        fireEvent.click(screen.getByText('Cerrar'));
         await Promise.resolve();
       });
 
       await waitFor(() =>
-        expect(
-          screen.getByText('¿Enviaste el mensaje por WhatsApp?')
-        ).toBeInTheDocument()
-      );
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('Sí, ya envié'));
-        await Promise.resolve();
-      });
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('El token de envío no es válido.')
-        ).toBeInTheDocument()
+        expect(screen.queryByText('Pedido creado')).not.toBeInTheDocument()
       );
     });
   });

@@ -27,6 +27,7 @@ import {
   buildReintegrationContext as buildReintegrationProductContext,
   validateProductsForOperation,
   validateCartAvailability,
+  assertNoStockShortage,
 } from '@/lib/product-helpers';
 import { buildSaleItemValues } from '@/lib/sale-helpers';
 
@@ -463,17 +464,7 @@ export async function confirmSale(params: {
 
   const { shortageByProduct } = await validateCartAvailability(branchId, items);
 
-  if (Object.keys(shortageByProduct).length > 0) {
-    const productId = Number(Object.keys(shortageByProduct)[0]);
-    const product = productById.get(productId)!;
-    const shortage = shortageByProduct[productId];
-    throw new InsufficientStockError(
-      product.name,
-      shortage.available,
-      shortage.required,
-      shortage.supplyName !== product.name ? shortage.supplyName : undefined
-    );
-  }
+  assertNoStockShortage(shortageByProduct, productById);
 
   const { saleItemValues, total: saleTotal } = buildSaleItemValues(
     productById,

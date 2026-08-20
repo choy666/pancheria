@@ -1,7 +1,6 @@
 import { eq, and, isNull, count, lt } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders, orderItems } from '@/db/schema';
-import { nowUTC } from '@/lib/date';
 import type { OrderStatus } from '@/domain/types';
 import type { OrderWithItems } from '@/domain/types';
 
@@ -182,27 +181,6 @@ export async function cancel(
   if (!updated) {
     throw new Error('No se pudo cancelar el pedido.');
   }
-
-  return updated;
-}
-
-export async function markOrderAsSent(
-  branchId: number,
-  id: number
-): Promise<typeof orders.$inferSelect | undefined> {
-  const [updated] = await db
-    .update(orders)
-    .set({ sentAt: nowUTC() })
-    .where(
-      and(
-        eq(orders.id, id),
-        eq(orders.branchId, branchId),
-        eq(orders.status, 'pending'),
-        isNull(orders.deletedAt),
-        isNull(orders.sentAt)
-      )
-    )
-    .returning();
 
   return updated;
 }

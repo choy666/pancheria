@@ -10,8 +10,6 @@ export const PUBLIC_DISPONIBILIDAD_API = '/api/public/disponibilidad';
 export const PUBLIC_PEDIDO_API = '/api/public/pedido';
 export const PUBLIC_PEDIDO_CANCELAR_API = (orderId: number | string) =>
   `/api/public/pedido/${orderId}/cancelar`;
-export const PUBLIC_PEDIDO_ENVIAR_API = (orderId: number | string) =>
-  `/api/public/pedido/${orderId}/enviar`;
 export const PEDIDOS_API = '/api/pedidos';
 export const PEDIDOS_CONFIRMAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/confirmar`;

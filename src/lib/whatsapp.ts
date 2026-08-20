@@ -1,4 +1,6 @@
 import { moneyToNumber, parseMoney } from '@/lib/money';
+import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
+import { ValidationError } from '@/domain/errors';
 
 export interface PublicOrderItem {
   productId: number;
@@ -57,4 +59,30 @@ export function encodeWhatsAppUrl(phone: string, message: string): string {
   const cleanedPhone = phone.replace(/\D/g, '');
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
+}
+
+export function assertWhatsAppConfigured(): void {
+  try {
+    getWhatsAppNumber();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new ValidationError(error.message);
+    }
+    throw error;
+  }
+}
+
+export function buildWhatsAppUrl(order: PublicOrder): string {
+  try {
+    const phone = getWhatsAppNumber();
+    const { greeting, closing } = getWhatsAppMessageParts();
+    const messageBody = buildWhatsAppMessage(order);
+    const fullMessage = `${greeting}\n\n${messageBody}\n\n${closing}`;
+    return encodeWhatsAppUrl(phone, fullMessage);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new ValidationError(error.message);
+    }
+    throw error;
+  }
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { authenticatedFetch } from '@/lib/fetch';
 import { formatDateTime } from '@/lib/date';
+import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +46,6 @@ interface OrderDetail {
   status: OrderStatus;
   convertedSaleId: number | null;
   createdAt: string;
-  sentAt: string | null;
   branch: { name: string } | null;
   items: OrderDetailItem[];
 }
@@ -82,6 +82,31 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
   const [cancelReason, setCancelReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const whatsappUrl = useMemo(() => {
+    if (!order) return null;
+
+    try {
+      return buildWhatsAppUrl({
+        items: order.items.map((item) => ({
+          productId: item.productId,
+          name: item.product?.name ?? `Producto ${item.productId}`,
+          price: item.unitPrice,
+          unit: item.product?.unit ?? 'unidad',
+          quantity: item.quantity,
+        })),
+        customerName: order.customerName,
+        deliveryType: order.deliveryType,
+        address: order.address ?? undefined,
+        notes: order.notes ?? undefined,
+        total: order.total,
+        orderNumber: order.orderNumber,
+        branchName: order.branch?.name,
+      });
+    } catch {
+      return null;
+    }
+  }, [order]);
 
   const { cashRegister, refresh: refreshCashRegister, loading: cashRegisterLoading } =
     useCashRegister();
@@ -216,9 +241,6 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
             <Badge variant={statusVariants[order.status]}>
               {statusLabels[order.status]}
             </Badge>
-            {order.status === 'pending' && order.sentAt && (
-              <Badge variant="outline">Enviado por WhatsApp</Badge>
-            )}
           </div>
         </div>
       </div>
@@ -347,6 +369,17 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {whatsappUrl && (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center rounded-md bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#128C7E]"
+                  >
+                    Abrir WhatsApp del cliente
+                  </a>
+                )}
 
                 <Button
                   className="w-full"

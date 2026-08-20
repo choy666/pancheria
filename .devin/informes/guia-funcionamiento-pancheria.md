@@ -237,19 +237,14 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
    - Se crea el pedido con estado `pending`.
    - **No se reserva ni descuenta stock**.
    - Se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}`.
-9. El cliente abre WhatsApp, envía el mensaje y vuelve a la app:
-   - El diálogo detecta el regreso y pregunta si logró enviar el mensaje.
-   - Si confirma, se registra `sentAt` en el pedido mediante `POST /api/public/pedido/[id]/enviar` validado con `cancellationToken`.
-   - El pedido sigue en estado `pending`; `sentAt` solo indica que el cliente ya envió el mensaje.
-   - El diálogo muestra un mensaje de éxito definitivo.
+9. El cliente abre WhatsApp y envía el mensaje. El navegador no puede verificar la entrega; el pedido queda `pending` hasta que el operador actúe.
 10. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
 
 ### 7.2 Flujo del operador
 
 1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`.
-2. Los pedidos `pending` que ya fueron enviados por WhatsApp muestran un badge `Enviado por WhatsApp` además del estado `Pendiente`.
-3. Al abrir un pedido, ve detalle y acciones.
-4. **Confirmar como venta**
+2. Al abrir un pedido, ve detalle, un enlace para abrir el WhatsApp del cliente y las acciones de confirmar o cancelar.
+3. **Confirmar como venta**
    - Requiere caja abierta.
    - Valida disponibilidad, descuenta stock y crea la venta.
    - El pedido pasa a `converted`.
@@ -325,7 +320,6 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 | Confirmar venta | Sí | `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `cashRegisters` | Descuenta insumos críticos y bebidas |
 | Anular venta | Sí | `cancellation` | `products`, `sales`, `stock_movements`, `cashRegisters` | Reintegra stock; requiere caja abierta |
 | Crear pedido público | No | — | `order_items`, `orders` | Valida stock; estado `pending` (no reserva) |
-| Confirmar envío por WhatsApp | No | — | `orders` | Actualiza `sentAt`; el estado sigue `pending` |
 | Cancelar pedido público | No | — | `orders` | No modifica stock |
 | Confirmar pedido como venta | Sí | `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `orders`, `cashRegisters` | Descuenta stock, crea venta y actualiza caja |
 | Eliminar producto | No | — | `products` (soft delete) | No si está en recetas activas |

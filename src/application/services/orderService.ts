@@ -9,11 +9,7 @@ import * as idempotencyService from '@/application/idempotencyService';
 
 import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
-import {
-  InsufficientStockError,
-  NotFoundError,
-  ValidationError,
-} from '@/domain/errors';
+import { NotFoundError, ValidationError } from '@/domain/errors';
 import type {
   OrderWithItems,
   OrderStatus,
@@ -24,6 +20,7 @@ import {
   buildProductContext,
   validateProductsForOperation,
   validateCartAvailability,
+  assertNoStockShortage,
 } from '@/lib/product-helpers';
 import { buildSaleItemValues } from '@/lib/sale-helpers';
 import {
@@ -82,17 +79,7 @@ export async function createOrder(
 
   const { shortageByProduct } = await validateCartAvailability(branchId, items);
 
-  if (Object.keys(shortageByProduct).length > 0) {
-    const productId = Number(Object.keys(shortageByProduct)[0]);
-    const product = productById.get(productId)!;
-    const shortage = shortageByProduct[productId];
-    throw new InsufficientStockError(
-      product.name,
-      shortage.available,
-      shortage.required,
-      shortage.supplyName !== product.name ? shortage.supplyName : undefined
-    );
-  }
+  assertNoStockShortage(shortageByProduct, productById);
 
   const { saleItemValues: orderItemValues, total: orderTotal } =
     buildSaleItemValues(productById, items);
@@ -165,42 +152,6 @@ export async function cancelOrder(
   return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
 }
 
-export async function markOrderAsSent(
-  branchId: number,
-  id: number,
-  token: string
-): Promise<OrderWithItems> {
-  const order = await orderRepository.findById(branchId, id);
-
-  if (!order) {
-    throw new NotFoundError('Pedido', id);
-  }
-
-  if (order.status !== 'pending') {
-    throw new ValidationError('El pedido no está pendiente de envío.');
-  }
-
-  if (order.cancellationToken !== token) {
-    throw new ValidationError('El token de envío no es válido.');
-  }
-
-  if (order.sentAt) {
-    return order;
-  }
-
-  const updated = await orderRepository.markOrderAsSent(branchId, id);
-
-  if (!updated) {
-    const existing = await orderRepository.findById(branchId, id);
-    if (existing && existing.sentAt) {
-      return existing;
-    }
-    throw new Error('No se pudo marcar el envío del pedido.');
-  }
-
-  return { ...order, ...updated, branch: order.branch, items: order.items };
-}
-
 export async function convertOrderToSale(
   input: ConvertOrderInput
 ): Promise<typeof sales.$inferSelect> {
@@ -256,17 +207,7 @@ export async function convertOrderToSale(
 
   const { shortageByProduct } = await validateCartAvailability(branchId, order.items);
 
-  if (Object.keys(shortageByProduct).length > 0) {
-    const productId = Number(Object.keys(shortageByProduct)[0]);
-    const product = productById.get(productId)!;
-    const shortage = shortageByProduct[productId];
-    throw new InsufficientStockError(
-      product.name,
-      shortage.available,
-      shortage.required,
-      shortage.supplyName !== product.name ? shortage.supplyName : undefined
-    );
-  }
+  assertNoStockShortage(shortageByProduct, productById);
 
   const { saleItemValues, total: saleTotal } = buildSaleItemValues(
     productById,

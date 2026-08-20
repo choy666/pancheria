@@ -184,11 +184,7 @@ export const orderCancellationSchema = z.object({
   token: z.string().optional(),
 });
 
-export const orderSendSchema = z.object({
-  token: z.string().min(1, 'El token de envío es obligatorio.'),
-});
-
-export const videoBaseSchema = z.object({
+export const videoSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().max(1000).optional().nullable(),
   fileUrl: z.string().min(1).url(),
@@ -197,5 +193,4 @@ export const videoBaseSchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 
-export const videoSchema = videoBaseSchema;
-export const videoUpdateSchema = videoBaseSchema.partial();
+export const videoUpdateSchema = videoSchema.partial();
