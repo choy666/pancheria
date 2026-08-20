@@ -238,11 +238,12 @@ export async function updateStatus(
 }
 
 export async function cancel(
+  tx: typeof db,
   branchId: number,
   id: number,
   values: Partial<typeof orders.$inferInsert>
 ): Promise<typeof orders.$inferSelect> {
-  const [updated] = await db
+  const [updated] = await tx
     .update(orders)
     .set(values)
     .where(and(eq(orders.id, id), eq(orders.branchId, branchId)))

@@ -124,7 +124,7 @@ export async function cancelOrder(
   reason: string,
   token?: string
 ): Promise<OrderWithItems> {
-  const order = await orderRepository.findByIdForCancel(branchId, id);
+  const order = await orderRepository.findById(branchId, id);
 
   if (!order) {
     throw new NotFoundError('Pedido', id);
@@ -144,13 +144,35 @@ export async function cancelOrder(
     throw new ValidationError('El token de cancelación no es válido.');
   }
 
-  const updated = await orderRepository.cancel(branchId, id, {
-    status: 'cancelled',
-    cancelledAt: nowUTC(),
-    cancellationReason: reason,
-  });
+  return executeInTransaction(async (tx) => {
+    const locked = await orderRepository.findByIdForUpdate(tx, branchId, id);
 
-  return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
+    if (!locked) {
+      throw new NotFoundError('Pedido', id);
+    }
+
+    if (locked.status === 'cancelled') {
+      return order as OrderWithItems;
+    }
+
+    if (locked.status !== 'pending') {
+      throw new ValidationError(
+        'El pedido no puede cancelarse porque ya fue confirmado.'
+      );
+    }
+
+    if (token !== undefined && locked.cancellationToken !== token) {
+      throw new ValidationError('El token de cancelación no es válido.');
+    }
+
+    const updated = await orderRepository.cancel(tx, branchId, id, {
+      status: 'cancelled',
+      cancelledAt: nowUTC(),
+      cancellationReason: reason,
+    });
+
+    return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
+  });
 }
 
 export async function convertOrderToSale(
@@ -221,6 +243,20 @@ export async function convertOrderToSale(
   );
 
   return executeInTransaction(async (tx) => {
+    const lockedOrder = await orderRepository.findByIdForUpdate(
+      tx,
+      branchId,
+      orderId
+    );
+
+    if (!lockedOrder) {
+      throw new NotFoundError('Pedido', orderId);
+    }
+
+    if (lockedOrder.status !== 'pending') {
+      throw new ValidationError('El pedido no está pendiente de confirmación.');
+    }
+
     const sale = await insertSaleAndUpdateCashRegister(
       tx,
       branchId,

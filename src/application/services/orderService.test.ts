@@ -189,24 +189,12 @@ function createMockDb(): MockDb {
   }));
 
   const select = jest.fn().mockImplementation((columns: unknown) => {
-    const forValue = [
-      {
-        id: 1,
-        branchId: BRANCH_ID,
-        status: 'open',
-        deletedAt: null,
-        total: 0,
-        cashTotal: 0,
-        transferTotal: 0,
-        totalSales: 0,
-        productsSummary: {},
-        criticalSuppliesSummary: {},
-      },
-    ];
     const thenValue =
       columns && typeof columns === 'object' && 'count' in columns
         ? [{ count: 1 }]
         : [];
+
+    let lastTable: unknown = null;
 
     const builder: {
       from: jest.Mock;
@@ -215,9 +203,21 @@ function createMockDb(): MockDb {
       groupBy: jest.Mock;
       then: (onFulfilled?: (value: unknown) => unknown) => Promise<unknown>;
     } = {
-      from: jest.fn(() => builder),
+      from: jest.fn((table: unknown) => {
+        lastTable = table;
+        return builder;
+      }),
       where: jest.fn(() => builder),
-      for: jest.fn().mockResolvedValue(forValue),
+      for: jest.fn().mockImplementation(async () => {
+        if (lastTable === orders) {
+          const order = await query.orders.findFirst();
+          return order ? [order] : [];
+        }
+        if (lastTable === cashRegisters) {
+          return [createOpenCashRegister()];
+        }
+        return [];
+      }),
       groupBy: jest.fn(() => builder),
       then: (onFulfilled?: (value: unknown) => unknown) =>
         Promise.resolve(thenValue).then(onFulfilled),

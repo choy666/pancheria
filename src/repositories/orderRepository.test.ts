@@ -291,7 +291,8 @@ describe('orderRepository', () => {
       const expected = buildOrder({ status: 'cancelled' });
       mockReturning.mockResolvedValue([expected]);
 
-      const result = await orderRepository.cancel(BRANCH_ID, ORDER_ID, {
+      const tx: any = { update: mockUpdate };
+      const result = await orderRepository.cancel(tx, BRANCH_ID, ORDER_ID, {
         status: 'cancelled',
         cancelledAt: new Date(),
       });
@@ -305,8 +306,9 @@ describe('orderRepository', () => {
     test('lanza error si no encuentra el pedido', async () => {
       mockReturning.mockResolvedValue([]);
 
+      const tx: any = { update: mockUpdate };
       await expect(
-        orderRepository.cancel(BRANCH_ID, ORDER_ID, { status: 'cancelled' })
+        orderRepository.cancel(tx, BRANCH_ID, ORDER_ID, { status: 'cancelled' })
       ).rejects.toThrow('No se pudo cancelar el pedido.');
     });
   });
