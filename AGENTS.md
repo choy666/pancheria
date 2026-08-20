@@ -285,6 +285,16 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
   - Local: se sirven mediante `GET /api/chat/attachment/[key]` y nunca exponen paths físicos.
 - WhatsApp sigue disponible como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado.
 
+### Lineamientos para futuros chats
+
+Para evitar duplicación de código al agregar nuevos canales de chat o extender el existente:
+
+- Reutilizar `src/lib/rate-limit.ts` con un scope propio (por ejemplo, `chat:` o `support:`) en lugar de crear un nuevo sistema de rate limit.
+- Reutilizar `src/lib/chat-storage.ts` para cualquier adjunto de imagen; no crear un storage paralelo. Si se requieren tipos de archivo distintos, extender los MIME y la validación de tamaño en `src/config/chat.ts`.
+- Extender el esquema `order_messages` (o crear una tabla específica con el mismo patrón de columnas) en lugar de duplicar tablas de mensajes genéricas.
+- Reutilizar `src/components/chat/order-chat.tsx` parametrizando `chatApiUrl`, `readApiUrl`, `uploadApiUrl`, `isClient` y `readOnly`.
+- Seguir el flujo `chatService` → `orderMessageRepository` → endpoints API → componente `OrderChat`. No replicar la lógica de envío/lectura en componentes o páginas.
+
 ## Consideraciones técnicas futuras
 
 - `authService.ts` abstrae el almacenamiento de intentos fallidos mediante `RateLimitStore` (`src/lib/rate-limit-store.ts`). La implementación por defecto es `InMemoryRateLimitStore`. Para producción con múltiples instancias, usar `DbRateLimitStore` configurando `RATE_LIMIT_STORE_PROVIDER=db` (requiere la tabla `login_attempts`, ya existente en `src/db/schema.ts` y creada con la migración `0007_boring_scorpion.sql`).
