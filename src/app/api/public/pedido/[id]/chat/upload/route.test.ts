@@ -83,6 +83,7 @@ describe('POST /api/public/pedido/[id]/chat/upload', () => {
         content: 'Hola',
         attachment: {
           url: 'http://localhost:3000/api/chat/attachment/chat%2F10%2Fabc123.jpg',
+          key: 'chat/10/abc123.jpg',
           mimeType: 'image/jpeg',
           size: 100,
           name: 'foto.jpg',

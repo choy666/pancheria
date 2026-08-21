@@ -1,4 +1,4 @@
-import { eq, and, isNull, asc, sql } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, asc, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { orderMessages } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
@@ -67,4 +67,13 @@ export async function countUnreadByOrderAndSender(
     );
 
   return Number(rows[0]?.count ?? 0);
+}
+
+export async function findAllAttachmentKeys(): Promise<string[]> {
+  const rows = await db
+    .select({ attachmentKey: orderMessages.attachmentKey })
+    .from(orderMessages)
+    .where(isNotNull(orderMessages.attachmentKey));
+
+  return rows.map((row) => row.attachmentKey as string);
 }

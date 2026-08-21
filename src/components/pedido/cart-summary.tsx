@@ -109,7 +109,7 @@ export function CartSummary({
           onClick={onCheckout}
           data-testid="checkout-button"
         >
-          Pedir por WhatsApp
+          Hacer pedido
         </Button>
       </CardContent>
     </Card>

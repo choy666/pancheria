@@ -1,7 +1,10 @@
 /**
  * @jest-environment jsdom
  */
-import { renderHook, act } from '@testing-library/react';
+/**
+ * @jest-environment jsdom
+ */
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { usePaginatedData } from './use-paginated-data';
 import type { PaginatedResult } from '@/domain/types';
 
@@ -158,5 +161,30 @@ describe('usePaginatedData', () => {
     await act(async () => {});
 
     expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  test('refresca automáticamente según refreshIntervalMs', async () => {
+    jest.useFakeTimers();
+    const load = jest.fn().mockResolvedValue({
+      items: ['a'],
+      total: 1,
+      page: 1,
+      limit: 10,
+    });
+
+    const { result } = renderHook(() =>
+      usePaginatedData(load as unknown as TestLoad, { refreshIntervalMs: 1_000 })
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(load).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+    jest.useRealTimers();
   });
 });

@@ -19,6 +19,7 @@ export interface UsePaginatedDataResult<T> {
 export interface UsePaginatedDataOptions {
   initialPage?: number;
   initialLimit?: number;
+  refreshIntervalMs?: number;
 }
 
 export function usePaginatedData<T>(
@@ -85,11 +86,26 @@ export function usePaginatedData<T>(
         setIsLoading(false);
       });
 
+    let interval: ReturnType<typeof setInterval> | undefined;
+
+    if (options.refreshIntervalMs && options.refreshIntervalMs > 0) {
+      interval = setInterval(() => {
+        if (
+          typeof document !== 'undefined' &&
+          document.visibilityState === 'hidden'
+        ) {
+          return;
+        }
+        refresh();
+      }, options.refreshIntervalMs);
+    }
+
     return () => {
+      if (interval) clearInterval(interval);
       abortController.abort();
       isMountedRef.current = false;
     };
-  }, [load, page, limit, refreshKey]);
+  }, [load, page, limit, refreshKey, options.refreshIntervalMs, refresh]);
 
   return {
     items: result.items,

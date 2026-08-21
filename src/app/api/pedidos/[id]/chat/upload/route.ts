@@ -38,6 +38,7 @@ export const POST = withApiErrorHandling(
       content: typeof content === 'string' ? content : null,
       attachment: {
         url: attachment.publicUrl,
+        key: attachment.key,
         mimeType: attachment.mimeType,
         size: attachment.size,
         name: attachment.name,

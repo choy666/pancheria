@@ -284,7 +284,7 @@ describe('PedidoClient', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  describe('flujo de checkout y envío por WhatsApp', () => {
+  describe('flujo de checkout', () => {
     const originalOpen = window.open;
 
     function setupFetchMocks(overrides: {
@@ -364,7 +364,7 @@ describe('PedidoClient', () => {
       });
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Enviar pedido por WhatsApp'));
+        fireEvent.click(screen.getByText('Confirmar pedido'));
         await Promise.resolve();
       });
     }

@@ -12,11 +12,13 @@ import {
 import type {
   OrderMessage,
   OrderMessageSenderType,
+  OrderStatus,
   OrderWithItems,
 } from '@/domain/types';
 
 export interface ChatAttachmentInput {
   url: string;
+  key?: string | null;
   mimeType: string;
   size: number;
   name: string;
@@ -80,6 +82,7 @@ function normalizeMessageValues(
     senderName: input.senderName?.trim() || null,
     content,
     attachmentUrl: attachment?.url ?? null,
+    attachmentKey: attachment?.key ?? null,
     attachmentMimeType: attachment?.mimeType ?? null,
     attachmentSize: attachment?.size ?? null,
     attachmentName: attachment?.name ?? null,
@@ -108,30 +111,39 @@ export async function getChatContext(
   };
 }
 
+export interface ChatMessagesResult {
+  messages: OrderMessage[];
+  status: OrderStatus;
+}
+
 export async function listClientMessages(
   orderId: number,
   token: string
-): Promise<OrderMessage[]> {
+): Promise<ChatMessagesResult> {
   const order = await orderRepository.findByIdWithToken(orderId, token);
 
   if (!order) {
     throw new NotFoundError('Pedido', orderId);
   }
 
-  return orderMessageRepository.findByOrderId(orderId);
+  const messages = await orderMessageRepository.findByOrderId(orderId);
+
+  return { messages, status: order.status };
 }
 
 export async function listOperatorMessages(
   orderId: number,
   branchId: number
-): Promise<OrderMessage[]> {
+): Promise<ChatMessagesResult> {
   const order = await orderRepository.findById(branchId, orderId);
 
   if (!order) {
     throw new NotFoundError('Pedido', orderId);
   }
 
-  return orderMessageRepository.findByOrderId(orderId);
+  const messages = await orderMessageRepository.findByOrderId(orderId);
+
+  return { messages, status: order.status };
 }
 
 export async function sendClientMessage(

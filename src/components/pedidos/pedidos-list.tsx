@@ -17,6 +17,7 @@ import {
 import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PEDIDOS_API } from '@/config/api';
+import { getPedidosRefreshIntervalMs } from '@/config/orders';
 import { routes } from '@/config/routes';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
 import { cn } from '@/lib/utils';
@@ -100,7 +101,9 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
     error,
     setPage,
     setLimit,
-  } = usePaginatedData(load);
+  } = usePaginatedData(load, {
+    refreshIntervalMs: getPedidosRefreshIntervalMs(),
+  });
 
   if (isLoading) {
     return (

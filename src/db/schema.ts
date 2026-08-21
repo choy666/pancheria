@@ -312,6 +312,7 @@ export const orderMessages = pgTable(
     senderName: varchar('sender_name', { length: 255 }),
     content: text('content'),
     attachmentUrl: text('attachment_url'),
+    attachmentKey: text('attachment_key'),
     attachmentMimeType: varchar('attachment_mime_type', { length: 100 }),
     attachmentSize: integer('attachment_size'),
     attachmentName: varchar('attachment_name', { length: 255 }),

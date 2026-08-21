@@ -22,11 +22,11 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByTestId(`add-product-${product.id}`).click();
     await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Pedir por WhatsApp' }).click();
+    await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     await page.fill('input#customerName', 'Juan Pérez');
-    await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
+    await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();

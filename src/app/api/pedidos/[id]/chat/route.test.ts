@@ -41,20 +41,28 @@ describe('GET /api/pedidos/[id]/chat', () => {
     mockedGetCurrentBranchId.mockResolvedValue(BRANCH_ID);
   });
 
-  test('devuelve los mensajes del pedido', async () => {
-    mockedChatService.listOperatorMessages.mockResolvedValue([
-      { id: 1, content: 'Hola' },
-    ] as any);
+  test('devuelve los mensajes y el estado del pedido', async () => {
+    mockedChatService.listOperatorMessages.mockResolvedValue({
+      messages: [{ id: 1, content: 'Hola' }] as any,
+      status: 'pending',
+    });
 
     const response = await GET(
       buildRequest(),
       { params: Promise.resolve({ id: String(ORDER_ID) }) }
     );
-    const body = (await response.json()) as { messages: unknown[] };
+    const body = (await response.json()) as {
+      messages: unknown[];
+      status: string;
+    };
 
     expect(response.status).toBe(200);
     expect(body.messages).toHaveLength(1);
-    expect(mockedChatService.listOperatorMessages).toHaveBeenCalledWith(ORDER_ID, BRANCH_ID);
+    expect(body.status).toBe('pending');
+    expect(mockedChatService.listOperatorMessages).toHaveBeenCalledWith(
+      ORDER_ID,
+      BRANCH_ID
+    );
   });
 
   test('rechaza un ID inválido', async () => {

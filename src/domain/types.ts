@@ -102,6 +102,7 @@ export type OrderMessage = {
   senderName: string | null;
   content: string | null;
   attachmentUrl: string | null;
+  attachmentKey: string | null;
   attachmentMimeType: string | null;
   attachmentSize: number | null;
   attachmentName: string | null;

@@ -1,0 +1,1 @@
+ALTER TABLE "order_messages" ADD COLUMN "attachment_key" text;

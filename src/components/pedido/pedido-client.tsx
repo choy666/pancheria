@@ -510,7 +510,7 @@ export function PedidoClient({
           <DialogHeader>
             <DialogTitle>Finalizar pedido</DialogTitle>
             <DialogDescription>
-              Completá tus datos para enviar el pedido por WhatsApp. El stock se confirma cuando el operador acepta el pedido.
+              Completá tus datos para hacer el pedido. El stock se confirma cuando el operador acepta el pedido.
             </DialogDescription>
           </DialogHeader>
 
@@ -598,7 +598,7 @@ export function PedidoClient({
               }
               onClick={handleSubmitCheckout}
             >
-              {isSubmitting ? 'Enviando...' : 'Enviar pedido por WhatsApp'}
+              {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -729,7 +729,7 @@ export function PedidoClient({
                 type="button"
                 onClick={handleOpenWhatsApp}
                 variant="outline"
-                aria-label="Enviar pedido por WhatsApp"
+                aria-label="Abrir WhatsApp"
                 className="w-full sm:w-auto border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10"
               >
                 <WhatsAppIcon className="size-4" />

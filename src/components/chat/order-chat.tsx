@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Send, Paperclip, X, ImageIcon } from 'lucide-react';
-import type { OrderMessage, OrderMessageSenderType } from '@/domain/types';
+import type { OrderMessage, OrderMessageSenderType, OrderStatus } from '@/domain/types';
 
 interface OrderChatProps {
   orderId: number;
@@ -46,6 +46,7 @@ export function OrderChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFetchingRef = useRef(false);
+  const isSendingRef = useRef(false);
   const isFirstUnreadEffectRef = useRef(true);
 
   const [messages, setMessages] = useState<OrderMessage[]>(initialMessages);
@@ -55,6 +56,10 @@ export function OrderChat({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(initialMessages.length > 0);
+  const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
+
+  const isReadOnly =
+    orderStatus !== null ? orderStatus !== 'pending' : readOnly;
 
   const otherSenderType: OrderMessageSenderType = isClient
     ? 'operator'
@@ -68,7 +73,7 @@ export function OrderChat({
     !hasFetched && unreadCount > 0 ? unreadCount : unreadFromMessages;
 
   const fetchMessages = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (isSendingRef.current || isFetchingRef.current) return;
     isFetchingRef.current = true;
 
     try {
@@ -81,7 +86,10 @@ export function OrderChat({
         throw new Error(data.error ?? 'Error al cargar mensajes');
       }
 
-      const data = (await response.json()) as { messages: OrderMessage[] };
+      const data = (await response.json()) as {
+        messages: OrderMessage[];
+        status?: OrderStatus;
+      };
       if (!isMountedRef.current) return;
 
       setMessages((prev) => {
@@ -91,6 +99,10 @@ export function OrderChat({
         return data.messages;
       });
       setHasFetched(true);
+
+      if (data.status) {
+        setOrderStatus(data.status);
+      }
     } catch (err) {
       if (!isMountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -167,11 +179,12 @@ export function OrderChat({
   }, [previewUrl]);
 
   async function handleSend() {
-    if (readOnly) return;
+    if (isReadOnly) return;
 
     const trimmed = content.trim();
     if (!trimmed && !selectedFile) return;
 
+    isSendingRef.current = true;
     setIsSending(true);
     setError(null);
 
@@ -226,10 +239,15 @@ export function OrderChat({
       }
       setPreviewUrl(null);
       void markAsRead();
+
+      if (isMountedRef.current) {
+        void fetchMessages();
+      }
     } catch (err) {
       if (!isMountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
+      isSendingRef.current = false;
       if (isMountedRef.current) setIsSending(false);
     }
   }
@@ -371,7 +389,7 @@ export function OrderChat({
         )}
 
         <div className="flex items-end gap-2">
-          {!readOnly && (
+          {!isReadOnly && (
             <>
               <input
                 ref={fileInputRef}
@@ -402,11 +420,11 @@ export function OrderChat({
               }
             }}
             placeholder={
-              readOnly
+              isReadOnly
                 ? 'El pedido no está pendiente.'
                 : 'Escribí un mensaje...'
             }
-            disabled={readOnly || isSending}
+            disabled={isReadOnly || isSending}
             maxLength={getChatMaxTextLength()}
             rows={1}
             className="min-h-0 flex-1 resize-none"
@@ -415,7 +433,7 @@ export function OrderChat({
           <Button
             type="button"
             onClick={() => void handleSend()}
-            disabled={readOnly || isSending || (!content.trim() && !selectedFile)}
+            disabled={isReadOnly || isSending || (!content.trim() && !selectedFile)}
             size="icon"
             aria-label="Enviar mensaje"
           >

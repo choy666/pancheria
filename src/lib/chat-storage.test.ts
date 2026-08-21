@@ -71,6 +71,32 @@ describe('chat-storage', () => {
       });
     });
 
+    test('usa CHAT_LOCAL_STORAGE_PATH cuando está definida', async () => {
+      process.env.CHAT_LOCAL_STORAGE_PATH = '/tmp/chat-only';
+      const file = createFile('foto.jpg', 'image/jpeg', 100);
+
+      const result = await saveChatAttachment(file, 10);
+
+      expect(mockMkdir).toHaveBeenCalledWith(
+        expect.stringMatching(/tmp[/\\]chat-only[/\\]chat[/\\]10/),
+        { recursive: true }
+      );
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        expect.stringMatching(/tmp[/\\]chat-only[/\\]chat[/\\]10[/\\]abc123\.jpg/),
+        expect.any(Buffer)
+      );
+      expect(result).toMatchObject({
+        key: 'chat/10/abc123.jpg',
+        publicUrl:
+          'http://localhost:3000/api/chat/attachment/chat%2F10%2Fabc123.jpg',
+        mimeType: 'image/jpeg',
+        size: 100,
+        name: 'foto.jpg',
+      });
+
+      delete process.env.CHAT_LOCAL_STORAGE_PATH;
+    });
+
     test('rechaza un tipo de imagen no permitido', async () => {
       const file = createFile('foto.gif', 'image/gif', 100);
 

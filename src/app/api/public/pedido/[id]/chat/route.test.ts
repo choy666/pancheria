@@ -36,20 +36,28 @@ describe('GET /api/public/pedido/[id]/chat', () => {
     jest.clearAllMocks();
   });
 
-  test('devuelve los mensajes del pedido', async () => {
-    mockedChatService.listClientMessages.mockResolvedValue([
-      { id: 1, content: 'Hola' },
-    ] as any);
+  test('devuelve los mensajes y el estado del pedido', async () => {
+    mockedChatService.listClientMessages.mockResolvedValue({
+      messages: [{ id: 1, content: 'Hola' }] as any,
+      status: 'pending',
+    });
 
     const response = await GET(
       buildRequest(`?token=${TOKEN}`),
       { params: Promise.resolve({ id: String(ORDER_ID) }) }
     );
-    const body = (await response.json()) as { messages: unknown[] };
+    const body = (await response.json()) as {
+      messages: unknown[];
+      status: string;
+    };
 
     expect(response.status).toBe(200);
     expect(body.messages).toHaveLength(1);
-    expect(mockedChatService.listClientMessages).toHaveBeenCalledWith(ORDER_ID, TOKEN);
+    expect(body.status).toBe('pending');
+    expect(mockedChatService.listClientMessages).toHaveBeenCalledWith(
+      ORDER_ID,
+      TOKEN
+    );
   });
 
   test('rechaza un ID inválido', async () => {

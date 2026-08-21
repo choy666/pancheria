@@ -21,9 +21,12 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const messages = await chatService.listOperatorMessages(orderId, branchId);
+    const { messages, status } = await chatService.listOperatorMessages(
+      orderId,
+      branchId
+    );
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({ messages, status });
   }
 );
 

@@ -29,8 +29,12 @@ function getLocalBaseUrl(): string {
   return env.replace(/\/$/, '');
 }
 
-function getLocalStorageDir(): string {
-  return process.env.LOCAL_STORAGE_PATH ?? path.join(process.cwd(), 'tmp', 'videos');
+export function getChatLocalStorageBasePath(): string {
+  return (
+    process.env.CHAT_LOCAL_STORAGE_PATH ??
+    process.env.LOCAL_STORAGE_PATH ??
+    path.join(process.cwd(), 'tmp', 'videos')
+  );
 }
 
 function getExtension(mimeType: string): string {
@@ -87,10 +91,11 @@ async function saveLocal(
   info: ChatFileInfo
 ): Promise<SavedChatAttachment> {
   const key = `chat/${orderId}/${nanoid()}${getExtension(info.type)}`;
-  const dir = path.join(/*turbopackIgnore: true*/ getLocalStorageDir(), /*turbopackIgnore: true*/ path.dirname(key));
+  const basePath = getChatLocalStorageBasePath();
+  const dir = path.join(/*turbopackIgnore: true*/ basePath, /*turbopackIgnore: true*/ path.dirname(key));
   await fs.mkdir(/*turbopackIgnore: true*/ dir, { recursive: true });
 
-  const filePath = path.join(/*turbopackIgnore: true*/ getLocalStorageDir(), /*turbopackIgnore: true*/ key);
+  const filePath = path.join(/*turbopackIgnore: true*/ basePath, /*turbopackIgnore: true*/ key);
   const arrayBuffer = await file.arrayBuffer();
   await fs.writeFile(/*turbopackIgnore: true*/ filePath, Buffer.from(arrayBuffer));
 
@@ -224,8 +229,8 @@ export async function readChatAttachment(
     return null;
   }
 
-  const dir = getLocalStorageDir();
-  const filePath = path.join(/*turbopackIgnore: true*/ dir, /*turbopackIgnore: true*/ key);
+  const basePath = getChatLocalStorageBasePath();
+  const filePath = path.join(/*turbopackIgnore: true*/ basePath, /*turbopackIgnore: true*/ key);
 
   try {
     const buffer = await fs.readFile(/*turbopackIgnore: true*/ filePath);

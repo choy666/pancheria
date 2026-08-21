@@ -151,13 +151,14 @@ describe('chatService', () => {
   });
 
   describe('listClientMessages', () => {
-    test('devuelve mensajes del cliente autenticado', async () => {
+    test('devuelve mensajes y estado del cliente autenticado', async () => {
       mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
       mockedOrderMessageRepository.findByOrderId.mockResolvedValue([buildMessage()]);
 
       const result = await listClientMessages(ORDER_ID, TOKEN);
 
-      expect(result).toHaveLength(1);
+      expect(result.messages).toHaveLength(1);
+      expect(result.status).toBe('pending');
       expect(mockedOrderRepository.findByIdWithToken).toHaveBeenCalledWith(
         ORDER_ID,
         TOKEN
@@ -177,14 +178,18 @@ describe('chatService', () => {
   });
 
   describe('listOperatorMessages', () => {
-    test('devuelve mensajes del operador autenticado', async () => {
+    test('devuelve mensajes y estado del operador autenticado', async () => {
       mockedOrderRepository.findById.mockResolvedValue(buildOrder() as any);
       mockedOrderMessageRepository.findByOrderId.mockResolvedValue([buildMessage()]);
 
       const result = await listOperatorMessages(ORDER_ID, BRANCH_ID);
 
-      expect(result).toHaveLength(1);
-      expect(mockedOrderRepository.findById).toHaveBeenCalledWith(BRANCH_ID, ORDER_ID);
+      expect(result.messages).toHaveLength(1);
+      expect(result.status).toBe('pending');
+      expect(mockedOrderRepository.findById).toHaveBeenCalledWith(
+        BRANCH_ID,
+        ORDER_ID
+      );
     });
   });
 

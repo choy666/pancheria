@@ -48,6 +48,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
+- `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del listado de pedidos del operador en milisegundos (por defecto 10000 ms; 0 lo deshabilita).
 - `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del chat del pedido en milisegundos (por defecto 5000 ms).
 - `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` (opcional) — longitud máxima de un mensaje de chat en caracteres (por defecto 1000).
 - `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit del chat en milisegundos (por defecto 60000 ms).
@@ -58,7 +59,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
 - `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE` (opcional) — expresión `cron` para la limpieza de entradas vencidas de `public_order_rate_limits`. Por defecto `0 0 * * *` (una vez por día). Vercel Cron Jobs no lee variables de entorno para el `schedule`, así que este valor debe reflejarse en `vercel.json` o en la configuración de cron externo que llame a `GET /api/cron/rate-limit-cleanup`. En el plan Hobby de Vercel los cron jobs deben ser diarios; para una frecuencia mayor es necesario un plan Pro o un cron externo.
-- `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup`. Si no se define, el endpoint rechaza todas las llamadas.
+- `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup` y `GET /api/cron/chat-attachments-cleanup`. Si no se define, los endpoints rechazan todas las llamadas.
+- `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` (opcional) — expresión `cron` para la limpieza de adjuntos huérfanos del chat. Por defecto `0 0 * * *` (una vez por día). Vercel Cron Jobs no lee variables de entorno para el `schedule`; este valor debe reflejarse en `vercel.json`.
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).
@@ -71,7 +73,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `BLOB_READ_WRITE_TOKEN` — token de Vercel Blob, requerido si `STORAGE_PROVIDER=vercel-blob`.
 - `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` — credenciales de AWS S3, requeridas si `STORAGE_PROVIDER=s3`.
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_REGION` — credenciales de Cloudflare R2, requeridas si `STORAGE_PROVIDER=r2`.
-- `LOCAL_STORAGE_PATH` (opcional) — ruta local para almacenar videos cuando `STORAGE_PROVIDER=local` (por defecto `tmp/videos`).
+- `LOCAL_STORAGE_PATH` (opcional) — ruta local base para almacenar videos y adjuntos de chat cuando `STORAGE_PROVIDER=local` (por defecto `tmp/videos`).
+- `CHAT_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para los adjuntos del chat; si no se define, usa `LOCAL_STORAGE_PATH` como fallback.
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
 

@@ -44,9 +44,12 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const messages = await chatService.listClientMessages(orderId, query.token);
+    const { messages, status } = await chatService.listClientMessages(
+      orderId,
+      query.token
+    );
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({ messages, status });
   }
 );
 
