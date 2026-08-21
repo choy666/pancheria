@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
+import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -281,8 +282,16 @@ export async function convertOrderToSale(
 export async function getOrderById(
   branchId: number,
   id: number
-): Promise<OrderWithItems | undefined> {
-  return orderRepository.findById(branchId, id);
+): Promise<OrderWithUnreadCount | undefined> {
+  const order = await orderRepository.findById(branchId, id);
+  if (!order) return undefined;
+
+  const unreadCount = await orderMessageRepository.countUnreadByOrderAndSender(
+    order.id,
+    'client'
+  );
+
+  return { ...order, unreadCount };
 }
 
 export async function getPendingOrders(

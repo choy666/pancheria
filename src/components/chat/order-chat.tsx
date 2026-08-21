@@ -7,6 +7,7 @@ import { getChatRefreshIntervalMs, getChatMaxTextLength } from '@/config/chat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import { Send, Paperclip, X, ImageIcon } from 'lucide-react';
 import type { OrderMessage, OrderMessageSenderType } from '@/domain/types';
 
@@ -45,6 +46,7 @@ export function OrderChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFetchingRef = useRef(false);
+  const isFirstUnreadEffectRef = useRef(true);
 
   const [messages, setMessages] = useState<OrderMessage[]>(initialMessages);
   const [content, setContent] = useState('');
@@ -52,13 +54,18 @@ export function OrderChat({
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(initialMessages.length > 0);
+
+  const otherSenderType: OrderMessageSenderType = isClient
+    ? 'operator'
+    : 'client';
+
+  const unreadFromMessages = messages.filter(
+    (m) => m.senderType === otherSenderType && !m.readAt
+  ).length;
 
   const displayedUnreadCount =
-    unreadCount > 0
-      ? unreadCount
-      : messages.filter(
-          (m) => m.senderType === (isClient ? 'operator' : 'client') && !m.readAt
-        ).length;
+    !hasFetched && unreadCount > 0 ? unreadCount : unreadFromMessages;
 
   const fetchMessages = useCallback(async () => {
     if (isFetchingRef.current) return;
@@ -83,6 +90,7 @@ export function OrderChat({
         }
         return data.messages;
       });
+      setHasFetched(true);
     } catch (err) {
       if (!isMountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -129,6 +137,26 @@ export function OrderChat({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (isFirstUnreadEffectRef.current) {
+      isFirstUnreadEffectRef.current = false;
+      return;
+    }
+
+    if (!isMountedRef.current) return;
+
+    const hasUnreadFromOther = messages.some(
+      (m) => m.senderType === otherSenderType && !m.readAt
+    );
+
+    if (
+      hasUnreadFromOther &&
+      (typeof document === 'undefined' || document.visibilityState === 'visible')
+    ) {
+      void markAsRead();
+    }
+  }, [messages, otherSenderType, markAsRead]);
 
   useEffect(() => {
     return () => {
@@ -277,10 +305,14 @@ export function OrderChat({
                   className="mt-2 block"
                 >
                   {message.attachmentMimeType?.startsWith('image/') ? (
-                    <img
+                    <Image
                       src={message.attachmentUrl}
                       alt={message.attachmentName ?? 'Adjunto'}
-                      className="max-h-40 rounded-lg object-cover"
+                      width={320}
+                      height={160}
+                      unoptimized
+                      className="max-h-40 w-auto rounded-lg object-cover"
+                      data-testid="chat-attachment-image"
                     />
                   ) : (
                     <div className="flex items-center gap-2 rounded-lg border border-white/10 p-2 text-sm">
@@ -319,9 +351,12 @@ export function OrderChat({
       <div className="border-t border-white/8 p-3">
         {selectedFile && previewUrl && (
           <div className="relative mb-2 inline-block">
-            <img
+            <Image
               src={previewUrl}
               alt="Vista previa"
+              width={80}
+              height={80}
+              unoptimized
               className="h-20 w-20 rounded-lg object-cover"
             />
             <button
@@ -346,6 +381,7 @@ export function OrderChat({
                 onChange={handleFileSelect}
                 className="sr-only"
                 id={`chat-file-${orderId}`}
+                data-testid="chat-file-input"
               />
               <label
                 htmlFor={`chat-file-${orderId}`}

@@ -11,6 +11,7 @@ import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
 import * as productRepository from '@/repositories/productRepository';
+import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
 import {
@@ -238,6 +239,9 @@ function findCapturedUpdate(table: unknown) {
 }
 
 jest.mock('@/repositories/productRepository');
+jest.mock('@/repositories/orderMessageRepository', () => ({
+  countUnreadByOrderAndSender: jest.fn(),
+}));
 jest.mock('@/application/services/branchService', () => ({
   getBranchById: jest.fn(),
 }));
@@ -254,6 +258,9 @@ jest.mock('@/db', () => ({ db: createMockDb() }));
 
 const mockedProductRepository = productRepository as jest.Mocked<
   typeof productRepository
+>;
+const mockedOrderMessageRepository = orderMessageRepository as jest.Mocked<
+  typeof orderMessageRepository
 >;
 const mockedBranchService = branchService as jest.Mocked<typeof branchService>;
 const mockedCashRegisterService = cashRegisterService as jest.Mocked<
@@ -299,6 +306,7 @@ describe('orderService', () => {
     mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
       createOpenCashRegister()
     );
+    mockedOrderMessageRepository.countUnreadByOrderAndSender.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -880,6 +888,7 @@ describe('orderService', () => {
       expect(result).toMatchObject({
         id: 1,
         orderNumber: expected.orderNumber,
+        unreadCount: 0,
       });
       expect(result?.items).toHaveLength(1);
     });

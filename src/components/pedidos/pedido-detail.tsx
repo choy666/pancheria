@@ -28,7 +28,7 @@ import {
 } from '@/config/api';
 import { OrderChat } from '@/components/chat/order-chat';
 import { useCashRegister } from '@/hooks/useCashRegister';
-import type { OrderStatus, DeliveryType, PaymentMethod } from '@/domain/types';
+import type { OrderStatus, DeliveryType, PaymentMethod, OrderMessage } from '@/domain/types';
 
 interface OrderDetailItem {
   id: number;
@@ -82,6 +82,8 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
   const router = useRouter();
   const isMountedRef = useRef(true);
   const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [initialMessages, setInitialMessages] = useState<OrderMessage[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,16 +125,32 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
     setError(null);
 
     try {
-      const response = await authenticatedFetch(`/api/pedidos/${orderId}`);
+      const [orderResponse, messagesResponse] = await Promise.all([
+        authenticatedFetch(`/api/pedidos/${orderId}`),
+        authenticatedFetch(PEDIDOS_CHAT_API(orderId)),
+      ]);
 
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
+      if (!orderResponse.ok) {
+        const data = (await orderResponse.json()) as { error?: string };
         throw new Error(data.error || 'Error al cargar el pedido');
       }
 
-      const data = (await response.json()) as { order: OrderDetail };
+      const data = (await orderResponse.json()) as {
+        order: OrderDetail & { unreadCount?: number };
+      };
+
       if (!isMountedRef.current) return;
       setOrder(data.order);
+
+      if (messagesResponse.ok) {
+        const messagesData = (await messagesResponse.json()) as {
+          messages: OrderMessage[];
+        };
+        if (isMountedRef.current) {
+          setInitialMessages(messagesData.messages);
+          setUnreadCount(data.order.unreadCount ?? 0);
+        }
+      }
     } catch (err) {
       if (!isMountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -423,11 +441,12 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
 
       <OrderChat
         orderId={order.id}
-        initialMessages={[]}
+        initialMessages={initialMessages}
         readOnly={order.status !== 'pending'}
         chatApiUrl={PEDIDOS_CHAT_API(order.id)}
         readApiUrl={PEDIDOS_CHAT_LEIDO_API(order.id)}
         uploadApiUrl={PEDIDOS_CHAT_UPLOAD_API(order.id)}
+        unreadCount={unreadCount}
         title="Chat con el cliente"
       />
     </div>

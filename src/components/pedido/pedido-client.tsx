@@ -15,7 +15,6 @@ import {
   PUBLIC_DISPONIBILIDAD_API,
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
-  PUBLIC_PEDIDO_CHAT_API,
 } from '@/config/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -381,7 +380,7 @@ export function PedidoClient({
   function handleGoToChat() {
     if (!createdOrder) return;
     router.push(
-      `${PUBLIC_PEDIDO_CHAT_API(createdOrder.id)}?token=${encodeURIComponent(
+      `/pedido/${createdOrder.id}/chat?token=${encodeURIComponent(
         createdOrder.cancellationToken
       )}`
     );

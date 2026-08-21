@@ -1,11 +1,16 @@
 import { db } from '../../src/db';
 import { sql } from 'drizzle-orm';
 import { execSync } from 'child_process';
+import { rmSync } from 'fs';
 import { setupSecondBranchForE2E } from './helpers';
 
 export default async function globalSetup() {
   if (process.env.NO_GLOBAL_SETUP) {
     return;
+  }
+
+  if (process.env.LOCAL_STORAGE_PATH) {
+    rmSync(process.env.LOCAL_STORAGE_PATH, { recursive: true, force: true });
   }
 
   await db.execute(sql`

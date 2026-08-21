@@ -1,12 +1,19 @@
 import { test, expect } from '@playwright/test';
 import { login, unique, createProductViaApi } from './helpers';
 
-test.describe('Chat anclado a pedidos', () => {
-  test('cliente y operador intercambian mensajes', async ({ page }) => {
+const PNG_PIXEL_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+function pngBuffer(): Buffer {
+  return Buffer.from(PNG_PIXEL_BASE64, 'base64');
+}
+
+test.describe('Chat con adjuntos', () => {
+  test('cliente y operador intercambian imágenes', async ({ page }) => {
     await login(page);
 
     const product = await createProductViaApi(page, {
-      name: unique('Chat E2E'),
+      name: unique('Chat Adjuntos'),
       type: 'service',
       price: 1000,
       unit: 'unidad',
@@ -25,7 +32,7 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByRole('button', { name: 'Pedir por WhatsApp' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.fill('input#customerName', 'Juan Pérez');
+    await page.fill('input#customerName', 'María López');
     await page.getByRole('button', { name: 'Enviar pedido por WhatsApp' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();
@@ -34,30 +41,38 @@ test.describe('Chat anclado a pedidos', () => {
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
     const clientChatUrl = page.url();
 
-    // Cliente envía mensaje.
-    const clientMessage = '¿Cuándo llega?';
-    await page.getByPlaceholder('Escribí un mensaje...').fill(clientMessage);
+    // Cliente envía una imagen.
+    await page.getByTestId('chat-file-input').setInputFiles({
+      name: 'cliente.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer(),
+    });
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
-    await expect(page.getByText(clientMessage)).toBeVisible();
+
+    await expect(page.getByTestId('chat-attachment-image').first()).toBeVisible();
 
     // Operador: inicia sesión y abre el pedido.
     await login(page);
     await page.goto('/pedidos');
 
-    await expect(page.getByText('Juan Pérez')).toBeVisible();
+    await expect(page.getByText('María López')).toBeVisible();
     await page.getByRole('link', { name: 'Ver' }).first().click();
 
     await expect(page.getByText('Chat con el cliente')).toBeVisible();
-    await expect(page.getByText(clientMessage)).toBeVisible();
+    await expect(page.getByTestId('chat-attachment-image').first()).toBeVisible();
 
-    const operatorMessage = 'En 20 minutos.';
-    await page.getByPlaceholder('Escribí un mensaje...').fill(operatorMessage);
+    // Operador responde con una imagen.
+    await page.getByTestId('chat-file-input').setInputFiles({
+      name: 'operador.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer(),
+    });
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
-    await expect(page.getByText(operatorMessage)).toBeVisible();
+    await expect(page.getByTestId('chat-attachment-image').nth(1)).toBeVisible();
 
     // Cliente ve la respuesta recargando la URL del chat.
     await page.goto(clientChatUrl);
-    await expect(page.getByText(operatorMessage)).toBeVisible();
+    await expect(page.getByTestId('chat-attachment-image').nth(1)).toBeVisible();
   });
 });
