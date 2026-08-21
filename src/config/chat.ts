@@ -44,7 +44,7 @@ export function getChatRateLimitMaxRequests(): number {
   return parsed;
 }
 
-export function getChatImageMaxSizeMb(): number {
+function getChatImageMaxSizeMb(): number {
   const raw = process.env.NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB;
   if (!raw) return 5;
 
@@ -58,7 +58,7 @@ export function getChatImageMaxSizeBytes(): number {
   return getChatImageMaxSizeMb() * 1024 * 1024;
 }
 
-export const DEFAULT_CHAT_ALLOWED_IMAGE_MIME_TYPES = [
+const DEFAULT_CHAT_ALLOWED_IMAGE_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',

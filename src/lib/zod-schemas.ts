@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-export const productTypeSchema = z.enum([
+const productTypeSchema = z.enum([
   'critical_supply',
   'compound',
   'manual_supply',
   'service',
 ]);
 
-export const criticalSupplyTypeSchema = z.enum(['bread', 'sausage', 'beverage']);
+const criticalSupplyTypeSchema = z.enum(['bread', 'sausage', 'beverage']);
 
 const productBaseSchema = z.object({
   name: z.string().min(1).max(255),
@@ -117,7 +117,7 @@ export const recipeSchema = z
     }
   });
 
-export const saleItemSchema = z.object({
+const saleItemSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int().positive(),
 });
@@ -133,7 +133,7 @@ export const cartAvailabilitySchema = z.object({
   productIds: z.array(z.number().int().positive()).optional(),
 });
 
-export const stockMovementTypeSchema = z.enum([
+const stockMovementTypeSchema = z.enum([
   'sale',
   'cancellation',
   'manual_adjustment',
@@ -194,28 +194,6 @@ export const videoSchema = z.object({
 });
 
 export const videoUpdateSchema = videoSchema.partial();
-
-export const chatAttachmentSchema = z.object({
-  url: z.string().min(1).url(),
-  mimeType: z.string().min(1).max(100),
-  size: z.number().int().nonnegative(),
-  name: z.string().min(1).max(255),
-});
-
-export const chatMessageSchema = z
-  .object({
-    content: z.string().min(1).optional().nullable(),
-    attachment: chatAttachmentSchema.optional().nullable(),
-  })
-  .superRefine((data, ctx) => {
-    if (!data.content?.trim() && !data.attachment) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'El mensaje debe contener texto o un adjunto.',
-        path: ['content'],
-      });
-    }
-  });
 
 export const chatMessageContentSchema = z.object({
   content: z.string().min(1),

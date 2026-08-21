@@ -230,10 +230,6 @@ export async function closeCashRegister(
   });
 }
 
-export async function getCurrentCashRegister(branchId: number) {
-  return getOpenCashRegister(branchId);
-}
-
 export async function getCashRegisterById(
   branchId: number,
   id: number,

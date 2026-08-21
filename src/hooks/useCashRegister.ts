@@ -11,8 +11,6 @@ import {
 } from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
 
-export type { CashRegister };
-
 export interface UseCashRegisterResult {
   cashRegister: CashRegister | null;
   loading: boolean;

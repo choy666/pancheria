@@ -72,7 +72,7 @@ export async function getDefaultBranchId(): Promise<number> {
  * Crea o actualiza un usuario operador en la base de datos.
  * Si el usuario ya existe, conserva su sucursal asignada pero actualiza la contraseña.
  */
-export async function ensureOperatorUser(
+async function ensureOperatorUser(
   username = 'operator',
   password?: string,
   branchId?: number

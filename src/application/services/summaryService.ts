@@ -27,7 +27,7 @@ export type RecipeWithSupply = typeof recipes.$inferSelect & {
   supply: ProductRow | null;
 };
 
-export type SaleItemWithProduct = {
+type SaleItemWithProduct = {
   quantity: number;
   product: {
     id: number;

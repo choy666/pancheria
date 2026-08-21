@@ -2,7 +2,7 @@ export const AUTO_CLOSE_HOURS = 12;
 
 export const AUTO_CLOSED_BY = 'Sistema';
 
-export const DEFAULT_CAJA_REFRESH_INTERVAL_MS = 5000;
+const DEFAULT_CAJA_REFRESH_INTERVAL_MS = 5000;
 
 export const CAJA_CLOCK_INTERVAL_MS = 60000;
 

@@ -1,14 +1,14 @@
-export const DEFAULT_VIDEO_MAX_SIZE_MB = 100;
+const DEFAULT_VIDEO_MAX_SIZE_MB = 100;
 
-export const DEFAULT_VIDEO_ALLOWED_MIME_TYPES = [
+const DEFAULT_VIDEO_ALLOWED_MIME_TYPES = [
   'video/mp4',
   'video/webm',
   'video/ogg',
 ] as const;
 
-export const DEFAULT_CAST_RECEIVER_APP_ID = 'CC1AD845';
+const DEFAULT_CAST_RECEIVER_APP_ID = 'CC1AD845';
 
-export const DEFAULT_CAST_SENDER_SDK_URL =
+const DEFAULT_CAST_SENDER_SDK_URL =
   'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
 
 export type StorageProviderName =

@@ -1,41 +1,42 @@
-# Reporte de estado — Auditoría y sincronización de documentación
+# Reporte de estado — Sincronización de documentación del chat de pedidos
 
-**Fecha:** 2026-08-19  
+**Fecha:** 2026-08-21  
 **Proyecto:** `pancheria`
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se realizó una auditoría de la documentación del proyecto (`README.md`, `AGENTS.md`, `.env.example`, `.devin/environment.yaml`, prompts e informes) comparándola con el estado real del código. Los comandos de verificación (`lint`, `tsc`, `test`, `build`) pasan sin errores. Se detectaron y corrigieron inconsistencias documentales; los informes históricos se archivaron, los prompts resueltos se movieron a `prompts/archivados/`, se tipó `src/lib/storage.ts` y se limpió código muerto detectado por `knip`.
+Se realizó una auditoría y sincronización de documentación centrada en el flujo de pedidos y chat, y una limpieza de código muerto detectado con `npx knip`. Se actualizaron `AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, `.devin/prompts/README.md`, `.devin/README.md`, `guia-funcionamiento-pancheria.md` y `reporte-estado.md`. El `plan-mitigacion-riesgos-chat-pedido.md` se archivó porque todas sus fases (A, B y C) están implementadas. Los comandos de verificación (`lint`, `tsc`, `test`, `build`) pasan sin errores. El informe anterior (2026-08-19) se archivó en `.devin/informes/archivados/reporte-estado-2026-08-19.md`.
 
 ## 2. Alcance verificado
 
 | Área | Estado | Evidencia |
 |------|--------|-----------|
 | Stack y dependencias | Actualizado | `package.json`: Next.js 16.3.0, React 19.2.8, Drizzle ORM 0.45.2, Zod 4.4.3, Tailwind CSS v4. |
-| Estructura del proyecto | Actualizada | `src/app/`, `src/application/`, `src/repositories/`, `src/db/`, `src/components/`, `src/config/`, `src/domain/`, `src/hooks/`, `src/lib/`. |
-| Esquema de base de datos | Sincronizado | `src/db/schema.ts` incluye `branches`, `users`, `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `stock_movements`, `cash_registers`, `daily_closures`, `videos`, `login_attempts`, `public_order_rate_limits`. |
-| Flujo de pedidos | Vigente | `createOrder` no descuenta stock; `convertOrderToSale` descuenta al confirmar; `cancelOrder` y `expirePendingOrders` no tocan stock. No quedan referencias a `sentAt` ni a `POST /api/public/pedido/[id]/enviar`. |
-| Multi-sucursal y autenticación | Funcional | Todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`. Las server actions y rutas API usan `getCurrentBranchId` para devolver `403`. |
-| Videos y almacenamiento | Configurable | `src/lib/storage.ts` soporta `local`, `vercel-blob`, `s3`, `r2`; los imports dinámicos de S3/R2 están tipados. |
-| Variables de entorno | Revisadas | `.env.example`, `AGENTS.md` y `.devin/environment.yaml` cubren las variables consumidas por el código. Se agregó `AUTH_URL` a `.env.example`. |
-| Ruta raíz | Resuelto | `next.config.ts` redirige `/` a `/pedido`. |
-| Limpieza de knip | Parcial | Se eliminaron `isAllowedVideoMimeType` (no usada) y `ensureExists` (no usada). El resto de los "unused exports" reportados por knip son falsos positivos (componentes shadcn, helpers usados localmente, exports condicionales). |
+| Estructura del proyecto | Actualizada | `src/app/` con `(panel)`, `(public)`, `(auth)`; `src/config/` incluye chat, pedidos, rutas; `src/lib/` incluye `chat-storage`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store`, `route-guard`, `branch-resolver`, `fetch`, `whatsapp`, `auth`, `db-errors` y helpers de dominio. |
+| Chat de pedidos | Implementado | `order_messages` con `attachmentKey`; `GET /api/public/pedido/[id]/chat` devuelve `{ messages, status }`; `OrderChat` sincroniza `readOnly` desde el `status` y pausa el polling durante el envío (`isSendingRef`); `POST /api/public/pedido/[id]/chat/upload` soporta imágenes. |
+| Flujo de pedidos | Vigente | `createOrder` valida disponibilidad pero **no reserva ni descuenta stock**; `convertOrderToSale` descuenta al confirmar; `cancelOrder` y `expirePendingOrders` no tocan stock; `PedidosList` hace polling y muestra `unreadCount`; `whatsappUrl` es fallback si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. |
+| Multi-sucursal y autenticación | Funcional | `src/lib/route-guard.ts` maneja redirecciones (`/` → `/pedido` sin sesión, `/login` → `/` con sesión) y `src/proxy.ts` (middleware NextAuth) las ejecuta. Server Components del panel usan `getCurrentBranchIdOrRedirect`; rutas API y server actions usan `getCurrentBranchId` para devolver `403`. |
+| Storage | Configurable | `src/lib/storage.ts` (videos) y `src/lib/chat-storage.ts` soportan `local`, `vercel-blob`, `s3` y `r2`. `LOCAL_STORAGE_PATH` es la ruta base; `CHAT_LOCAL_STORAGE_PATH` permite separar adjuntos de chat. |
+| Limpieza de código | Parcial | `npx knip` redujo de 48 exports no usados a 14. Se eliminaron exports muertos en `saleService.ts`, `authService.ts`, `cashRegisterService.ts`, `chatService.ts`, `videoService.ts` (actions), `zod-schemas.ts`, `config/*`, `lib/storage.ts`, `lib/rate-limit-store.ts`, `lib/pagination.ts`, `lib/money.ts`, `lib/whatsapp.ts`, `lib/chat.ts`, `summaryService.ts` y `domain/types.ts`. Quedan sólo falsos positivos de `shadcn/ui` y el script `src/db/seeds.ts`. |
+| Cron jobs | Configurados | `vercel.json` define `GET /api/cron/rate-limit-cleanup` y `GET /api/cron/chat-attachments-cleanup`, ambos protegidos por `CRON_SECRET`. |
+| Variables de entorno | Sincronizadas | `.env.example`, `AGENTS.md`, `README.md`, `.devin/environment.yaml` y `guia-funcionamiento-pancheria.md` cubren las variables de catálogo, pedidos, chat, videos, caja y rate limit. Se agregó `NEXT_PUBLIC_API_TIMEOUT_MS` y se corrigió el default de `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`. |
 
 ## 3. Hallazgos y acciones correctivas
 
 | Gravedad | Hallazgo | Acción |
 |----------|----------|--------|
-| Menor / Documentación | `.devin/prompts/errores-deploy-vercel-forbidden-react-441.md` seguía listado como activo aunque el problema estaba resuelto. | Se archivó el prompt y se actualizó `.devin/prompts/README.md`. |
-| Menor / Documentación | `.devin/prompts/README.md` referenciaba `archivados/auditoria-deploy-pancheria-five.md`, que no existía. | Se eliminó la referencia inexistente; el contexto histórico del deploy queda en el informe archivado. |
-| Menor / Documentación | `.devin/environment.yaml` tenía la numeración del knowledge `database` salteada (faltaba el punto 13). | Se corrigió la numeración. |
-| Menor / Documentación | `.env.example` no incluía `AUTH_URL`, aunque `AGENTS.md` y `.env.e2e` la usan. | Se agregó `AUTH_URL` comentada en `.env.example`. |
-| Menor / Documentación | `reporte-estado.md` acumulaba múltiples informes históricos, contraviniendo la regla de un único informe vigente. | Se creó `.devin/informes/archivados/reporte-estado-historico-2026-08-19.md` con el contenido histórico y se reescribió `reporte-estado.md` con el informe vigente. |
-| Menor | No existe `src/app/page.tsx` ni un redirect de `/` a `/pedido` en `next.config.ts` o `middleware.ts`. | **Resuelto** — se agregó el redirect en `next.config.ts` y se actualizaron `README.md` y `AGENTS.md`. |
-| Menor | `tests/e2e/global-setup.ts` no trunca `public_order_rate_limits`. | **Resuelto** — se agregó `public_order_rate_limits` al `TRUNCATE` y se actualizaron `AGENTS.md` y `.devin/environment.yaml`. |
-| Menor | `src/lib/storage.ts` usaba `any` para los clientes S3/R2 importados dinámicamente. | **Resuelto** — se tiparon con `import type { S3Client }` y `import type { createPresignedPost }`. |
-| Menor | `knip` reportó `isAllowedVideoMimeType` y `ensureExists` como no usados. | **Resuelto** — se eliminaron ambas funciones. |
+| Menor / Documentación | `README.md` no documentaba el chat de pedidos, el polling del listado, la limpieza de adjuntos, los cron jobs ni todas las variables de entorno relacionadas. | Reescritas las secciones de **Catálogo público, pedidos y chat**, **Videos**, **Cron jobs** y **Notas**. |
+| Menor / Documentación | `AGENTS.md`: faltaba `NEXT_PUBLIC_API_TIMEOUT_MS`; la descripción de `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` decía `memory` por defecto; la sección de chat no detallaba `status`, `unreadCount`, carrera de envío/polling, `attachmentKey` ni cleanup; el troubleshooting seguía mencionando un redirect estático en `next.config.ts`. | Se agregó la variable, se corrigió el default del rate limit store, se amplió la sección de chat y se actualizó el troubleshooting a `src/lib/route-guard.ts` + `src/proxy.ts`. |
+| Menor / Documentación | `.env.example` indicaba que `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` tenía default `memory`. | Se corrigió el comentario: en producción con `DATABASE_URL`/`POSTGRES_URL` definidas el default es `db`; `memory` en desarrollo/test. |
+| Menor / Documentación | `.devin/prompts/README.md` listaba `chat-pedido-opcion-a.md` como activo (está en `archivados/`) y no incluía `plan-mitigacion-riesgos-chat-pedido.md`. | Se actualizaron activos y archivados. |
+| Menor / Documentación | `.devin/environment.yaml` tenía numeración rota en `database`, faltaban variables de chat/pedidos y describía el flujo como "enviar pedido por WhatsApp". | Se reescribieron los conocimientos `database`, `pedidos`, `videos` y `deploy`. |
+| Menor / Documentación | `.devin/README.md` no reflejaba todos los prompts e informes actuales. | Se actualizó el árbol de `prompts/`. |
+| Menor / Documentación | `guia-funcionamiento-pancheria.md` describía a WhatsApp como canal principal, omitía el chat y tenía el default de rate limit incorrecto. | Se actualizaron las secciones 7.1, 7.2, 7.3, 13 y 14. |
+| Menor / Documentación | Informe anterior (2026-08-19) indicaba que `next.config.ts` redirige `/` a `/pedido`; actualmente la redirección la realiza `src/lib/route-guard.ts` en el middleware de NextAuth (`src/proxy.ts`). | Se corrigió en este informe y en `AGENTS.md` / `README.md`. |
+| Menor / Documentación | `plan-mitigacion-riesgos-chat-pedido.md` seguía activo pese a que todas sus fases estaban implementadas. | Se archivó en `.devin/prompts/archivados/` y se actualizaron los índices de prompts. |
+| Menor | `npx knip` reportaba 48 exports y 1 archivo sin usar, la mayoría falsos positivos de `shadcn/ui` y exports de constantes internas. | Se eliminaron 34 exports/archivos muertos reales y se dejaron los falsos positivos. |
 
 ## 4. Comandos ejecutados y resultados
 
@@ -43,22 +44,27 @@ Se realizó una auditoría de la documentación del proyecto (`README.md`, `AGEN
 |------|---------|-----------|
 | 1 | `npm run lint` | Pasa (exit 0) |
 | 2 | `npx tsc --noEmit` | Pasa |
-| 3 | `npm test` | 75 suites, 790 tests pasan |
-| 4 | `npm run build` | Build de producción exitoso (40 páginas) |
-| 5 | `npx knip` | Reporta falsos positivos de shadcn y exports condicionales; se limpió código muerto real. |
+| 3 | `npm test` | 86 suites, 841 tests pasan |
+| 4 | `npm run build` | Build de producción exitoso (41 páginas) |
+| 5 | `npx knip` | Inicialmente 48 exports no usados; tras la limpieza quedan 14 falsos positivos de `shadcn/ui` y el script `src/db/seeds.ts`. |
 
-## 5. Recomendaciones
+## 5. Recomendaciones y pendientes
 
-1. **Configuración de producción.** Completar variables en Vercel (`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, etc.), ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
-2. **Rate limit distribuido.** Configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` y `RATE_LIMIT_STORE_PROVIDER=db` en Vercel si se escala horizontalmente.
-3. **Verificar el blueprint de Devin.** Ejecutar `devin.exe cloud drs build` con `.devin/environment.yaml` para confirmar que el snapshot se genera correctamente.
-4. **Tests E2E.** Correr `npm run test:e2e` en una base de datos descartable para detectar regresiones.
-5. **Mantener la documentación sincronizada.** Con cada nueva feature, variable de entorno o cambio arquitectónico, actualizar `AGENTS.md`, `README.md`, `.env.example` y `.devin/environment.yaml`.
-6. **Auditoría periódica con `npx knip`.** Revisar periódicamente para descartar falsos positivos y detectar código muerto real.
+1. **~~Archivar el plan de mitigación~~** (hecho). `plan-mitigacion-riesgos-chat-pedido.md` se movió a `.devin/prompts/archivados/` y se actualizaron `.devin/prompts/README.md` y `.devin/README.md`.
+2. **Tests E2E del flujo de pedidos y chat.** Correr `npm run test:e2e` en una base de datos descartable para validar el flujo completo de creación de pedido, chat con adjuntos, confirmación desde el panel y expiración.
+3. **Verificar el blueprint de Devin.** Ejecutar `devin.exe cloud drs build` con `.devin/environment.yaml` para confirmar que el snapshot se genera correctamente tras los cambios.
+4. **Rate limit en producción.** Configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` y `RATE_LIMIT_STORE_PROVIDER=db` en Vercel si se escala horizontalmente.
+5. **Configuración de producción.** Completar variables en Vercel (`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXTAUTH_URL`/`AUTH_URL`, `NEXTAUTH_SECRET`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, etc.), ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts`.
+6. **Auditoría periódica con `npx knip`.** Ejecutar periódicamente para detectar código muerto real; los restantes 14 exports son falsos positivos de `shadcn/ui` y el script `src/db/seeds.ts` (usado por `npx tsx` y E2E).
+7. **Mantener la documentación sincronizada.** Con cada nueva feature, variable de entorno o cambio arquitectónico, actualizar `AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, `guia-funcionamiento-pancheria.md` y el reporte vigente.
 
 ## 6. Enlaces relevantes
 
-- `.devin/informes/archivados/reporte-estado-historico-2026-08-19.md` — informes anteriores.
-- `.devin/prompts/archivados/errores-deploy-vercel-forbidden-react-441.md` — prompt resuelto.
-- `.devin/prompts/cobertura-auditoria-flujo-pedidos.md` — flujo de pedidos vigente.
+- `.devin/informes/archivados/reporte-estado-2026-08-19.md` — informe anterior (2026-08-19).
+- `.devin/informes/archivados/reporte-estado-historico-2026-08-19.md` — reportes históricos anteriores.
+- `.devin/prompts/archivados/plan-mitigacion-riesgos-chat-pedido.md` — plan cuyas fases están implementadas.
+- `.devin/prompts/cobertura-auditoria-flujo-pedidos.md` — cobertura del flujo de pedidos.
+- `.devin/informes/lecciones-aprendidas.md` — lecciones transversales.
+- `.devin/informes/guia-funcionamiento-pancheria.md` — guía de negocio actualizada.
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" /> — notas para agentes.
+- <ref_file file="C:/developer/paginas/pancheria/README.md" /> — README del proyecto.

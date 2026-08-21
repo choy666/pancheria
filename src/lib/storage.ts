@@ -51,7 +51,7 @@ function getLocalBaseUrl(): string {
   return env.replace(/\/$/, '');
 }
 
-export class LocalStorageProvider implements StorageProvider {
+class LocalStorageProvider implements StorageProvider {
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
     const extension = path.extname(file.name) || '';
@@ -96,7 +96,7 @@ export class LocalStorageProvider implements StorageProvider {
   }
 }
 
-export class VercelBlobStorageProvider implements StorageProvider {
+class VercelBlobStorageProvider implements StorageProvider {
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
     const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
@@ -134,7 +134,7 @@ export class VercelBlobStorageProvider implements StorageProvider {
   }
 }
 
-export class S3R2StorageProvider implements StorageProvider {
+class S3R2StorageProvider implements StorageProvider {
   private readonly kind: 's3' | 'r2';
 
   constructor(kind: 's3' | 'r2') {

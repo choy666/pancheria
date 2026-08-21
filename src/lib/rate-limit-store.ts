@@ -29,7 +29,7 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-export class DbRateLimitStore implements RateLimitStore {
+class DbRateLimitStore implements RateLimitStore {
   async get(username: string): Promise<AttemptRecord | undefined> {
     const row = await db.query.loginAttempts.findFirst({
       where: eq(loginAttempts.username, username),

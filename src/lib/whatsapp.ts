@@ -61,17 +61,6 @@ export function encodeWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${cleanedPhone}?text=${encodedMessage}`;
 }
 
-export function assertWhatsAppConfigured(): void {
-  try {
-    getWhatsAppNumber();
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new ValidationError(error.message);
-    }
-    throw error;
-  }
-}
-
 export function buildWhatsAppUrl(order: PublicOrder): string {
   try {
     const phone = getWhatsAppNumber();

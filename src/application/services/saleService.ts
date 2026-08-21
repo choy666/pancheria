@@ -31,11 +31,7 @@ import {
 } from '@/lib/product-helpers';
 import { buildSaleItemValues } from '@/lib/sale-helpers';
 
-export {
-  buildProductContext,
-  validateProductsForOperation,
-  validateCartAvailability,
-} from '@/lib/product-helpers';
+export { validateCartAvailability } from '@/lib/product-helpers';
 
 export { buildSaleItemValues } from '@/lib/sale-helpers';
 
@@ -46,7 +42,7 @@ export {
 
 export type { ProductAvailability, RecipeBreakdownItem } from '@/lib/product-helpers';
 
-export async function updateCashRegisterSummary(
+async function updateCashRegisterSummary(
   tx: typeof db,
   cashRegister: (typeof cashRegisters.$inferSelect) | null,
   saleItems: { productId: number; quantity: number }[],
@@ -109,7 +105,7 @@ export async function updateCashRegisterSummary(
     );
 }
 
-export async function deductStockForItems(
+async function deductStockForItems(
   tx: typeof db,
   branchId: number,
   items: { productId: number; quantity: number }[],
@@ -208,7 +204,7 @@ export async function deductStockForItems(
   }
 }
 
-export async function buildReintegrationContext(
+async function buildReintegrationContext(
   tx: typeof db,
   branchId: number,
   items: { productId: number }[],
@@ -220,7 +216,7 @@ export async function buildReintegrationContext(
   return buildReintegrationProductContext(tx, branchId, items, includeDeleted);
 }
 
-export async function reintegrateStockAndUpdateCashRegister(
+async function reintegrateStockAndUpdateCashRegister(
   tx: typeof db,
   branchId: number,
   cashRegister: { id: number; branchId: number } | null,
@@ -279,7 +275,7 @@ export async function reintegrateStockAndUpdateCashRegister(
   );
 }
 
-export async function reintegrateStockForItems(
+async function reintegrateStockForItems(
   tx: typeof db,
   branchId: number,
   items: { productId: number; quantity: number }[],

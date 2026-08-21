@@ -10,7 +10,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-export function parsePage(value: string | null | undefined): number {
+function parsePage(value: string | null | undefined): number {
   const parsed = Number(value);
   if (Number.isNaN(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
     return DEFAULT_PAGE;
@@ -18,7 +18,7 @@ export function parsePage(value: string | null | undefined): number {
   return parsed;
 }
 
-export function parseLimit(value: string | null | undefined): number {
+function parseLimit(value: string | null | undefined): number {
   const parsed = Number(value);
   if (Number.isNaN(parsed) || parsed < MIN_LIMIT || !Number.isInteger(parsed)) {
     return DEFAULT_LIMIT;

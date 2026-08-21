@@ -35,7 +35,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida. En NextAuth v5, si existe `AUTH_URL`, tiene prioridad sobre `NEXTAUTH_URL`; en ese caso `AUTH_URL` también debe coincidir con el dominio de producción.
 - `AUTH_URL` (opcional) — URL de autenticación para NextAuth v5. Si se define, tiene prioridad sobre `NEXTAUTH_URL`. Debe coincidir con el dominio de producción; en desarrollo/tests suele ser `http://localhost:3000`.
-- `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos (`STORAGE_PROVIDER=local`).
+- `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos y adjuntos de chat (`STORAGE_PROVIDER=local`).
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
 - `ADMIN_USERNAME` — usuario administrador inicial.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
@@ -49,13 +49,14 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del listado de pedidos del operador en milisegundos (por defecto 10000 ms; 0 lo deshabilita).
+- `NEXT_PUBLIC_API_TIMEOUT_MS` (opcional) — timeout por defecto para solicitudes al API desde el cliente en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del chat del pedido en milisegundos (por defecto 5000 ms).
 - `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` (opcional) — longitud máxima de un mensaje de chat en caracteres (por defecto 1000).
 - `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit del chat en milisegundos (por defecto 60000 ms).
 - `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de mensajes de chat por IP en la ventana (por defecto 60).
 - `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen en el chat en MB (por defecto 5).
 - `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos en el chat separados por coma (por defecto `image/jpeg,image/png,image/webp`).
-- `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos: `memory` (por defecto) o `db` (PostgreSQL, recomendado para producción con múltiples instancias). Requiere la tabla `public_order_rate_limits` en el esquema.
+- `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos y del chat público: `memory` o `db` (PostgreSQL). En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`. `db` es recomendado para producción con múltiples instancias. Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
 - `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE` (opcional) — expresión `cron` para la limpieza de entradas vencidas de `public_order_rate_limits`. Por defecto `0 0 * * *` (una vez por día). Vercel Cron Jobs no lee variables de entorno para el `schedule`, así que este valor debe reflejarse en `vercel.json` o en la configuración de cron externo que llame a `GET /api/cron/rate-limit-cleanup`. En el plan Hobby de Vercel los cron jobs deben ser diarios; para una frecuencia mayor es necesario un plan Pro o un cron externo.
@@ -69,7 +70,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_CAST_SENDER_SDK_URL` (opcional) — URL del SDK de Cast (por defecto `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`).
 - `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; en `.env.example` figura 250 MB como referencia).
 - `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES` (opcional) — tipos MIME permitidos separados por coma (por defecto `video/mp4,video/webm,video/ogg`).
-- `STORAGE_PROVIDER` (opcional) — proveedor de almacenamiento de videos: `local` (por defecto), `vercel-blob`, `s3` o `r2`. Se recomienda `vercel-blob` en desarrollo y producción si se usa `/videos`; requiere `BLOB_READ_WRITE_TOKEN`.
+- `STORAGE_PROVIDER` (opcional) — proveedor de almacenamiento de videos y adjuntos de chat: `local` (por defecto), `vercel-blob`, `s3` o `r2`. Se recomienda `vercel-blob` en desarrollo y producción si se usa `/videos` o chat con imágenes; requiere `BLOB_READ_WRITE_TOKEN`.
 - `BLOB_READ_WRITE_TOKEN` — token de Vercel Blob, requerido si `STORAGE_PROVIDER=vercel-blob`.
 - `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` — credenciales de AWS S3, requeridas si `STORAGE_PROVIDER=s3`.
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_REGION` — credenciales de Cloudflare R2, requeridas si `STORAGE_PROVIDER=r2`.
@@ -92,11 +93,21 @@ Copiar `.env.example` a `.env.local` y completar:
 - `src/repositories/` — capa de repositorios (`productRepository`, `saleRepository`, `cashRegisterRepository`, `orderRepository`, etc.)
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
-- `src/config/` — constantes de configuración (APIs, caja, paginación)
+- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas)
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
 - `src/lib/` — utilidades y helpers transversales:
-  - `money`, `date`, `catalog`, `product-grouping`, etc.
+  - `money`, `date`, `catalog`, `product-grouping`, `product-style`, etc.
+  - `storage` — almacenamiento de videos: `local`, `vercel-blob`, `s3`, `r2`.
+  - `chat-storage` — almacenamiento de adjuntos del chat, con `getChatLocalStorageBasePath()` y lectura segura vía `GET /api/chat/attachment/[key]`.
+  - `rate-limit` y `public-order-rate-limit-store` — rate limiting de pedidos públicos y chat (`PUBLIC_ORDER_RATE_LIMIT_*`, `PUBLIC_CHAT_RATE_LIMIT_*`).
+  - `rate-limit-store` — almacenamiento de intentos fallidos de login (`RATE_LIMIT_STORE_PROVIDER`: `memory`/`db`).
+  - `branch-resolver` — resolución de la sucursal activa para Server y Client Components.
+  - `route-guard` — redirecciones de autenticación (`/` → `/pedido` sin sesión, `/login` → `/` con sesión).
+  - `fetch` — wrapper `authenticatedFetch` y timeout configurable (`NEXT_PUBLIC_API_TIMEOUT_MS`).
+  - `whatsapp` — generación del mensaje y enlace de WhatsApp.
+  - `auth` — helpers de sesión, `getCurrentBranchId`/`getCurrentBranchIdOrRedirect`.
+  - `db-errors` — manejo centralizado de errores de conexión a PostgreSQL (`503`).
   - `summary-helpers` — cálculo de resúmenes de productos e insumos críticos.
   - `stock-helpers` — locks, iteración de recetas y razones de movimientos de stock.
   - `cash-register-helpers` — selección y bloqueo pesimista de cajas.
@@ -250,15 +261,15 @@ useEffect(() => {
 
 ### Los videos subidos no se reproducen o desaparecen en producción
 
-- Síntoma: un video se sube correctamente pero al intentar reproducirlo da `404`, o desaparece tras un nuevo deploy.
-- Causa: `STORAGE_PROVIDER=local` guarda los archivos en el filesystem efímero de la función serverless (`tmp/videos` por defecto). Entre invocaciones o deploys el archivo puede no estar disponible.
+- Síntoma: un video o adjunto de chat se sube correctamente pero al intentar reproducirlo/descargarlo da `404`, o desaparece tras un nuevo deploy.
+- Causa: `STORAGE_PROVIDER=local` guarda los archivos en el filesystem efímero de la función serverless (`tmp/videos` por defecto, o `CHAT_LOCAL_STORAGE_PATH`/`LOCAL_STORAGE_PATH` para chat). Entre invocaciones o deploys el archivo puede no estar disponible.
 - Solución: en producción usar `STORAGE_PROVIDER=vercel-blob` (si ya se configuró `BLOB_READ_WRITE_TOKEN`), `s3` o `r2`, con las credenciales correspondientes. Re-desplegar para que la variable forme parte del build.
 
 ### Acceso a `/` redirige al catálogo en lugar del panel
 
 - Síntoma: administradores u operadores autenticados van a `/` y terminan en `/pedido` en lugar del panel de control.
-- Causa: el proxy (`src/proxy.ts`) no está interceptando la ruta, o el redirect incondicional de `next.config.ts` aún está activo.
-- Solución: verificar que `src/proxy.ts` tenga el matcher correcto y que `next.config.ts` no contenga un redirect estático de `/` a `/pedido`. El proxy redirige a `/pedido` solo cuando no hay sesión; con sesión válida permite el acceso al panel (`/`). Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción, ya que NextAuth v5 las usa como base para redirecciones de autenticación.
+- Causa: el middleware de autenticación (`src/proxy.ts`) no está ejecutando la lógica de `src/lib/route-guard.ts`, o `getAuthRedirect` redirige `/` a `/pedido` cuando no hay sesión.
+- Solución: verificar que `src/proxy.ts` tenga el matcher correcto (`/((?!api|_next/static|_next/image|favicon.ico|login|pedido|.*\\.svg$).*)`), que `auth.config.ts` tenga `pages.signIn: '/login'` y que `getAuthRedirect` en `src/lib/route-guard.ts` maneje `/` y `/login` correctamente. `next.config.ts` no debe contener un redirect estático de `/` a `/pedido`. Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción, ya que NextAuth v5 las usa como base para redirecciones de autenticación.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 
@@ -281,11 +292,18 @@ Antes de iniciar tareas de auditoría, refactorización, integridad de datos, co
 Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes se almacenan en `order_messages` y se asocian al token `cancellationToken` del pedido para el acceso público.
 
 - Página pública: `/pedido/[id]/chat?token=...`.
-- Panel: el chat se renderiza dentro del detalle del pedido (`/pedidos/[id]`).
-- Endpoints públicos: `GET/POST /api/public/pedido/[id]/chat`, `POST /api/public/pedido/[id]/chat/leido`, `POST /api/public/pedido/[id]/chat/upload`.
-- Endpoints del panel: `GET/POST /api/pedidos/[id]/chat`, `POST /api/pedidos/[id]/chat/leido`, `POST /api/pedidos/[id]/chat/upload`.
-- Adjuntos: soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`.
-  - Local: se sirven mediante `GET /api/chat/attachment/[key]` y nunca exponen paths físicos.
+- Panel: el chat se renderiza dentro del detalle del pedido (`/pedidos/[id]`); el listado (`/pedidos`) muestra `unreadCount` y hace polling según `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`.
+- Endpoints públicos:
+  - `GET /api/public/pedido/[id]/chat` devuelve `{ messages, status }`; `status` permite al cliente saber si el operador confirmó o canceló el pedido mientras la pestaña sigue abierta.
+  - `POST /api/public/pedido/[id]/chat` envía un mensaje de texto.
+  - `POST /api/public/pedido/[id]/chat/leido` marca como leídos los mensajes del operador.
+  - `POST /api/public/pedido/[id]/chat/upload` envía un mensaje con imagen.
+- Endpoints del panel: equivalentes bajo `/api/pedidos/[id]/chat`, `/api/pedidos/[id]/chat/leido` y `/api/pedidos/[id]/chat/upload`.
+- Adjuntos: soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`. La key interna se guarda en `order_messages.attachmentKey`; las URLs públicas locales usan `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` como base y se sirven por `GET /api/chat/attachment/[key]`, sin exponer paths físicos.
+- Refresco: `OrderChat` hace polling cada `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (por defecto 5000 ms) y pausa el polling durante el envío de un mensaje para evitar condiciones de carrera.
+- Rate limit del chat: `createRateLimiter` en `src/lib/rate-limit.ts` comparte el mismo store que el rate limit de pedidos públicos (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`). La ventana y el máximo se configuran con `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
+- Limpieza de adjuntos huérfanos: el cron `GET /api/cron/chat-attachments-cleanup` (configurado en `vercel.json` y protegido por `CRON_SECRET`) elimina archivos bajo el prefijo `chat/` que no tengan un `attachmentKey` asociado en `order_messages`.
+- Variables relacionadas: `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE`, `CRON_SECRET`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
 - WhatsApp sigue disponible como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado.
 
 ### Lineamientos para futuros chats
@@ -302,5 +320,6 @@ Para evitar duplicación de código al agregar nuevos canales de chat o extender
 
 - `authService.ts` abstrae el almacenamiento de intentos fallidos mediante `RateLimitStore` (`src/lib/rate-limit-store.ts`). La implementación por defecto es `InMemoryRateLimitStore`. Para producción con múltiples instancias, usar `DbRateLimitStore` configurando `RATE_LIMIT_STORE_PROVIDER=db` (requiere la tabla `login_attempts`, ya existente en `src/db/schema.ts` y creada con la migración `0007_boring_scorpion.sql`).
 - Los resúmenes de caja y cierre (`productsSummary`, `criticalSuppliesSummary`) ya se migraron a `jsonb` en `src/db/schema.ts` para aprovechar la validación nativa de PostgreSQL.
-- El rate limit de pedidos públicos (`POST /api/public/pedido`) soporta `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` para usar PostgreSQL como store compartida en producción con múltiples instancias. Ver la tabla `public_order_rate_limits` en `src/db/schema.ts`.
+- El rate limit de pedidos públicos (`POST /api/public/pedido`) y del chat público soporta `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` para usar PostgreSQL como store compartida en producción con múltiples instancias. Ver la tabla `public_order_rate_limits` en `src/db/schema.ts`.
+- Los adjuntos del chat almacenan `attachmentKey` en `order_messages`, lo que permite la limpieza periódica de archivos huérfanos mediante `GET /api/cron/chat-attachments-cleanup`. El cron debe reflejarse en `vercel.json` y protegerse con `CRON_SECRET`.
 - `cashRegisters.closedBy` permanece como `varchar` y no como FK a `users`. El cierre automático usa el valor simbólico `AUTO_CLOSED_BY` definido en `src/config/caja.ts`. Si en el futuro se requiere trazabilidad estricta del usuario que cierra, se evaluará agregar un campo `closedByUserId` nullable manteniendo `closedBy` como label legible.

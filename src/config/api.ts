@@ -27,8 +27,6 @@ export const PEDIDOS_CHAT_LEIDO_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/chat/leido`;
 export const PEDIDOS_CHAT_UPLOAD_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/chat/upload`;
-export const CHAT_ATTACHMENT_API = (key: string) =>
-  `/api/chat/attachment/${encodeURIComponent(key)}`;
 export const CAJA_API = '/api/caja';
 export const CAJA_HISTORIAL_API = '/api/caja/historial';
 export const CAJA_ELIMINADAS_API = '/api/caja/eliminadas';

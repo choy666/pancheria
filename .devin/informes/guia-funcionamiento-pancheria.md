@@ -236,14 +236,16 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
    - Se valida disponibilidad.
    - Se crea el pedido con estado `pending`.
    - **No se reserva ni descuenta stock**.
-   - Se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}`.
-9. El cliente abre WhatsApp y envía el mensaje. El navegador no puede verificar la entrega; el pedido queda `pending` hasta que el operador actúe.
-10. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
+   - El sistema muestra un resumen del pedido y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
+   - Si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}` como fallback.
+9. El cliente coordina con la sucursal por el chat (texto e imágenes). El pedido queda `pending` hasta que el operador actúe.
+10. Si prefiere, el cliente puede abrir WhatsApp y enviar el mensaje. El navegador no puede verificar la entrega.
+11. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
 
 ### 7.2 Flujo del operador
 
-1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`.
-2. Al abrir un pedido, ve detalle, un enlace para abrir el WhatsApp del cliente y las acciones de confirmar o cancelar.
+1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado hace polling según `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` y muestra `unreadCount` de mensajes sin leer.
+2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback) y las acciones de confirmar o cancelar.
 3. **Confirmar como venta**
    - Requiere caja abierta.
    - Valida disponibilidad, descuenta stock y crea la venta.
@@ -255,11 +257,13 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 ### 7.3 Rate limiting
 
-- `POST /api/public/pedido` limita por IP.
+- `POST /api/public/pedido` y los endpoints del chat público (`GET/POST /api/public/pedido/[id]/chat`) limitan por IP.
 - El proveedor de almacenamiento se configura con `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`:
-  - `memory` (por defecto): usa un `Map` en el proceso de Node. Suficiente para una sola instancia.
+  - `memory`: usa un `Map` en el proceso de Node.
   - `db`: usa PostgreSQL (`public_order_rate_limits`) y es recomendado para producción con múltiples instancias.
-- Ventana y máximo configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
+  - En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`.
+- Ventana y máximo de pedidos configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
+- Ventana y máximo de chat configurables por `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
 
 ---
 
@@ -388,8 +392,16 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 | `AUTO_CLOSE_HOURS` | Cierre automático de caja | `12` h |
 | `AUTO_CLOSED_BY` | Label de cierre automático de caja | `'Sistema'` |
 | `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo público | `30000` ms |
-| `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos | `60s`, `10` req |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp para pedidos | — |
+| `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` | Refresco del listado de pedidos del operador | `10000` ms |
+| `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat del pedido | `5000` ms |
+| `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` | Longitud máxima de mensaje de chat | `1000` caracteres |
+| `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño máximo de imagen en chat | `5` MB |
+| `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
+| `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp para pedidos (fallback) | — |
+| `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
+| `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` | Cron de limpieza de adjuntos de chat | `0 0 * * *` |
+| `CRON_SECRET` | Protección de endpoints de cron | — |
 
 ---
 
@@ -400,14 +412,15 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 1. ~~**Cambio de precio entre pedido y venta**~~: resuelto. `convertOrderToSale` conserva los precios históricos de `order.items` usando `buildSaleItemValues` con `unitPrice` y `subtotal`.
 2. ~~**Pedido `pending` infinito**~~: resuelto. `expirePendingOrders` cancela pedidos `pending` cuya antigüedad supere `ORDER_EXPIRATION_MS` (default 1 hora) e integra en `GET /api/pedidos`.
 3. ~~**Cambio de sucursal en panel sin `branchId` explícito**~~: resuelto. `PedidosList` envía `branchId` en query string y `GET /api/pedidos` lo valida contra `getCurrentBranchId(session)`, rechazando accesos cruzados de `operator`.
+4. ~~**Pedido exclusivo por WhatsApp sin coordinación**~~: resuelto. El flujo vigente crea el pedido en la app, ofrece un chat de pedidos (`/pedido/[id]/chat`) como canal principal y mantiene WhatsApp como fallback. Se agregaron `order_messages`, adjuntos con `attachmentKey`, `unreadCount` y limpieza de adjuntos huérfanos.
 
 ### Limitaciones vigentes
 
-4. **Rate limit en memoria**: `POST /api/public/pedido` limita por IP con un `Map` en el proceso de Node. No escala horizontalmente en Vercel con múltiples funciones; requiere store compartido (Redis, Vercel KV, PostgreSQL) para escalar.
-5. **Tipos `order` y `order_cancellation` en `stock_movements`**: los enum `StockMovementType` y el esquema de base de datos aún incluyen estos valores, pero el flujo actual de pedidos no los genera porque los pedidos `pending` no reservan stock. Se conservan por compatibilidad histórica y posibles ajustes manuales.
-6. **Stock de productos `compound`**: el campo `products.stock` de un producto compuesto no se usa para calcular disponibilidad; se usa el stock de sus insumos críticos con `autoDiscount`. `products.stock` se mantiene en `0` y puede servir como referencia si se ajusta manualmente.
-7. **Productos `manual_supply` en recetas**: son informativos; no afectan disponibilidad ni se descuentan.
-8. **Soft delete**: al eliminar un producto, venta o caja, el registro permanece en base con `deletedAt`. Para eliminar definitivamente hay que ir a la papelera.
+5. **Rate limit en una sola instancia**: `POST /api/public/pedido` y el chat comparten el mismo store. En una sola función serverless `memory` funciona; para escalar horizontalmente en Vercel, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` (usa `public_order_rate_limits` en PostgreSQL).
+6. **Tipos `order` y `order_cancellation` en `stock_movements`**: los enum `StockMovementType` y el esquema de base de datos aún incluyen estos valores, pero el flujo actual de pedidos no los genera porque los pedidos `pending` no reservan stock. Se conservan por compatibilidad histórica y posibles ajustes manuales.
+7. **Stock de productos `compound`**: el campo `products.stock` de un producto compuesto no se usa para calcular disponibilidad; se usa el stock de sus insumos críticos con `autoDiscount`. `products.stock` se mantiene en `0` y puede servir como referencia si se ajusta manualmente.
+8. **Productos `manual_supply` en recetas**: son informativos; no afectan disponibilidad ni se descuentan.
+9. **Soft delete**: al eliminar un producto, venta o caja, el registro permanece en base con `deletedAt`. Para eliminar definitivamente hay que ir a la papelera.
 
 ---
 

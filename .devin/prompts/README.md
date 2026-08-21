@@ -131,12 +131,13 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — estado actual, limpieza realizada, pendientes y mejoras del flujo de pedidos.
-- [Chat mínimo por pedido (Opción A)](chat-pedido-opcion-a.md) — implementación en dos etapas (texto + imágenes) para evitar que el cliente salga de la app.
 
 ### Prompts archivados
 
 - [Errores de deploy en Vercel](archivados/errores-deploy-vercel-forbidden-react-441.md) — resuelto: todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`; las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`.
 - [Confirmación de envío de pedido por WhatsApp](archivados/confirmacion-envio-pedido-whatsapp.md) — flujo anterior con `sentAt` y confirmación del cliente; eliminado del flujo vigente.
+- [Chat mínimo por pedido (Opción A)](archivados/chat-pedido-opcion-a.md) — propuesta anterior de implementación en dos etapas; reemplazada por el plan de mitigación de riesgos.
+- [Plan de mitigación de riesgos del chat de pedidos](archivados/plan-mitigacion-riesgos-chat-pedido.md) — todas sus fases (A, B y C) implementadas: status en endpoints, polling, rate limit, storage, `attachmentKey` y limpieza de adjuntos huérfanos.
 
 ## Véase también
 

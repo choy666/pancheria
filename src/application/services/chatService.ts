@@ -16,7 +16,7 @@ import type {
   OrderWithItems,
 } from '@/domain/types';
 
-export interface ChatAttachmentInput {
+interface ChatAttachmentInput {
   url: string;
   key?: string | null;
   mimeType: string;
@@ -24,7 +24,7 @@ export interface ChatAttachmentInput {
   name: string;
 }
 
-export interface SendMessageInput {
+interface SendMessageInput {
   content?: string | null;
   attachment?: ChatAttachmentInput | null;
   senderName?: string | null;

@@ -35,8 +35,9 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── pancheria.prompt.md       # Prompt maestro
 │   ├── README.md                 # Guía para escribir prompts
 │   ├── auditoria-y-documentacion.md
+│   ├── cobertura-auditoria-flujo-pedidos.md
 │   ├── recomendaciones-pedidos-sucursal-stock.md
-│   └── errores-deploy-vercel-forbidden-react-441.md
+│   └── archivados/               # Prompts resueltos
 ```
 
 ## Reglas de uso

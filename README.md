@@ -1,6 +1,6 @@
 # Panchería - Sistema de Gestión
 
-Sistema web para la gestión de stock y ventas de una panchería.
+Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual de una panchería.
 
 ## Tecnologías
 
@@ -20,13 +20,17 @@ Sistema web para la gestión de stock y ventas de una panchería.
 
 ## Configuración
 
-1. Copiar `.env.example` a `.env.local` y completar las variables.
-2. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
-3. Para migraciones (`drizzle-kit`) usar una URL sin pooler: `DATABASE_URL_UNPOOLED` o `POSTGRES_URL_NON_POOLING`.
-4. Instalar dependencias: `npm install`
-5. Generar y empujar migraciones: `npx drizzle-kit push`
-6. Ejecutar seed: `npx tsx src/db/seeds.ts`
-7. Iniciar en desarrollo: `npm run dev`
+1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME` y `NEXT_PUBLIC_WHATSAPP_NUMBER` (si se quiere el fallback de WhatsApp).
+2. `AUTH_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` en NextAuth v5; usar en producción para que coincida con el dominio de Vercel.
+3. `NEXT_PUBLIC_APP_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` para construir URLs locales de videos y adjuntos de chat cuando `STORAGE_PROVIDER=local`.
+4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
+5. Para migraciones (`drizzle-kit`) usar una URL sin pooler: `DATABASE_URL_UNPOOLED` o `POSTGRES_URL_NON_POOLING`.
+6. Instalar dependencias: `npm install`
+7. Generar y empujar migraciones: `npx drizzle-kit push`
+8. Ejecutar seed: `npx tsx src/db/seeds.ts`
+9. Iniciar en desarrollo: `npm run dev`
+
+Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`; en entornos donde `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
 
 ## Comandos
 
@@ -44,15 +48,15 @@ Sistema web para la gestión de stock y ventas de una panchería.
 
 ## Estructura
 
-- `src/app/` — páginas y rutas API
+- `src/app/` — páginas y rutas API, organizadas en `(panel)`, `(public)` y `(auth)`
 - `src/application/` — servicios de aplicación (casos de uso y coordinación)
 - `src/repositories/` — capa de repositorios
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
-- `src/config/` — constantes de configuración (APIs, caja, paginación, videos)
+- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas)
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
-- `src/lib/` — utilidades (`cn`, `json`, `money`, `date`, `storage`, etc.)
+- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `route-guard`, `fetch`, `whatsapp`, `auth`, `db-errors`, y helpers de productos/ventas/pedidos/stock/caja
 
 ## Guía interactiva
 
@@ -70,7 +74,7 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 - Cada usuario pertenece a una única sucursal (`users.branchId`).
 - La sucursal se determina automáticamente al iniciar sesión a partir del usuario.
 - Los operadores (`operator`) siempre trabajan en su sucursal asignada.
-- Los administradores pueden cambiar la sucursal activa desde el selector del panel.
+- Los administradores pueden cambiar la sucursal activa desde el selector del panel; la selección se guarda en la cookie `activeBranchId`.
 - Productos, recetas, stock, cajas, ventas, movimientos y cierres diarios se filtran por la sucursal activa (`branchId`).
 - Las páginas `/sucursales` y `/usuarios` permiten a los administradores crear nuevas sucursales y usuarios operador.
 - El seed usa `DEFAULT_BRANCH_NAME` para crear la sucursal inicial y asignarle el administrador (`ADMIN_USERNAME`).
@@ -79,30 +83,26 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 
 El sistema distingue dos roles: `admin` y `operator`.
 
-- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial`, `Productos`, `Stock`, `Caja`, `Sucursales` y `Usuarios`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
+- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial`, `Productos`, `Stock`, `Caja`, `Pedidos`, `Sucursales`, `Usuarios`, `Videos` y `Catálogo`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
 
-- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Solo puede acceder a `Panel`, `Ventas`, `Historial`, `Stock` y `Caja`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja` puede abrir, cerrar y consultar historial, así como generar cierres diarios de su sucursal. El nombre de su sucursal asignada se muestra en la navbar.
+- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Puede acceder a `Panel`, `Ventas`, `Historial`, `Stock`, `Caja`, `Pedidos` y `Catálogo`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja` puede abrir, cerrar y consultar historial, así como generar cierres diarios de su sucursal. El nombre de su sucursal asignada se muestra en la navbar.
 
 La página `/usuarios` lista siempre **todos** los usuarios del sistema para el administrador, mostrando la sucursal asignada de cada uno. No es posible crear más administradores desde la interfaz.
 
-## Catálogo público y pedidos
+## Catálogo público, pedidos y chat
 
 El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder al catálogo. La raíz (`/`) es el panel de control; los usuarios no autenticados son redirigidos a `/pedido`, mientras que administradores y operadores autenticados acceden al panel.
 
 - Ver el catálogo de productos vendibles de una sucursal.
 - Armar un carrito con validación de disponibilidad en tiempo real.
-- Enviar el pedido por WhatsApp a un número configurable.
+- Hacer el pedido desde la app; si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un enlace de WhatsApp como fallback.
 - El pedido valida disponibilidad, pero **no reserva ni descuenta stock**. El stock se descuenta únicamente al confirmar el pedido desde el panel.
+- Al crear el pedido, el cliente puede ir al chat `/pedido/[id]/chat?token=...` para coordinar con la sucursal. El chat soporta texto e imágenes.
+- El listado de pedidos del operador (`/pedidos`) hace polling según `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (por defecto 10000 ms; 0 lo deshabilita) y muestra la cantidad de mensajes no leídos (`unreadCount`) por pedido.
+- Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado. La expiración no libera stock porque el pedido nunca reservó.
 
-Los administradores y operadores gestionan los pedidos desde `/pedidos`:
-
-- Listar pedidos `pending` de la sucursal.
-- Ver detalle de un pedido.
-- Confirmar el pedido como venta (requiere caja abierta).
-- Cancelar el pedido. No modifica stock porque el pedido nunca lo reservó.
-
-Las variables de entorno relacionadas están en `.env.example`:
-`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
+Variables de entorno relacionadas (ver `.env.example` para el listado completo):
+`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
 
 ## Videos, reproducción y Cast
 
@@ -116,7 +116,16 @@ El panel incluye una sección `/videos` para gestionar contenido audiovisual:
 El almacenamiento es configurable a través de `STORAGE_PROVIDER`: `local` (desarrollo), `vercel-blob`, `s3` o `r2`. Cada proveedor requiere sus propias credenciales en `.env.local` (ver `.env.example`).
 
 Variables de entorno relacionadas:
-`NEXT_PUBLIC_APP_URL` (opcional, prioridad sobre `NEXTAUTH_URL` para URLs de videos en modo local), `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`.
+`NEXT_PUBLIC_APP_URL` (opcional, prioridad sobre `NEXTAUTH_URL` para URLs de videos en modo local), `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
+
+## Cron jobs
+
+`vercel.json` define dos cron jobs diarios:
+
+- `GET /api/cron/rate-limit-cleanup` — limpia entradas vencidas de `public_order_rate_limits`.
+- `GET /api/cron/chat-attachments-cleanup` — elimina archivos de chat huérfanos comparando las keys almacenadas en `order_messages.attachmentKey`.
+
+Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se configuran en `vercel.json`; Vercel Cron Jobs no leen variables de entorno para el `schedule`.
 
 ## Notas
 
@@ -124,3 +133,5 @@ Variables de entorno relacionadas:
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
 - Los insumos manuales son informativos en recetas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.
+- La raíz `/` redirige a `/pedido` si no hay sesión y `/login` redirige a `/` si el usuario ya está autenticado; la lógica vive en `src/lib/route-guard.ts` y se ejecuta en el middleware de NextAuth (`src/proxy.ts`).
+- El esquema incluye `order_messages`, `public_order_rate_limits` y `login_attempts`, además de las tablas de negocio principales.

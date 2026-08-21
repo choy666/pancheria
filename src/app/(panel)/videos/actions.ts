@@ -14,12 +14,6 @@ export type PrepareUploadState =
   | { data: UploadInstructions }
   | null;
 
-export async function listVideosForBranch() {
-  const session = await requireAdmin();
-  const branchId = await getCurrentBranchId(session);
-  return videoService.listVideos(branchId);
-}
-
 export async function prepareUploadAction(
   _prevState: PrepareUploadState,
   formData: FormData
@@ -64,42 +58,6 @@ export async function createVideoAction(
 
   try {
     await videoService.createVideo(branchId, {
-      title,
-      description,
-      fileUrl,
-      mimeType,
-      size,
-      isActive,
-    });
-  } catch (error) {
-    if (error instanceof DomainError) {
-      return { error: error.message };
-    }
-    throw error;
-  }
-
-  revalidatePath(routes.videos);
-  return null;
-}
-
-export async function updateVideoAction(
-  _prevState: VideoState,
-  formData: FormData
-): Promise<VideoState> {
-  const session = await requireAdmin();
-  const branchId = await getCurrentBranchId(session);
-
-  const id = Number(formData.get('id'));
-  const title = formData.get('title')?.toString() ?? '';
-  const description = formData.get('description')?.toString() || null;
-  const fileUrl = formData.get('fileUrl')?.toString() ?? '';
-  const mimeType = formData.get('mimeType')?.toString() ?? '';
-  const sizeRaw = formData.get('size')?.toString() ?? '';
-  const size = sizeRaw ? Number(sizeRaw) : null;
-  const isActive = formData.get('isActive')?.toString() === 'true';
-
-  try {
-    await videoService.updateVideo(branchId, id, {
       title,
       description,
       fileUrl,

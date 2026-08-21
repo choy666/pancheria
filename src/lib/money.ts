@@ -9,7 +9,7 @@ import {
 // Definición de la moneda argentina (ARS) para dinero.js.
 // El paquete oficial de monedas no está disponible en el registro,
 // por lo que se define la moneda localmente.
-export const ARS = {
+const ARS = {
   code: 'ARS',
   base: 10,
   exponent: 2,

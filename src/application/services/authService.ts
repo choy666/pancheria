@@ -17,10 +17,6 @@ export function setRateLimitStore(store: RateLimitStore): void {
   rateLimitStore = store;
 }
 
-export function getRateLimitStore(): RateLimitStore {
-  return rateLimitStore;
-}
-
 async function isRateLimited(username: string): Promise<boolean> {
   const record = await rateLimitStore.get(username);
   if (!record) return false;

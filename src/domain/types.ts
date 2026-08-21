@@ -78,7 +78,7 @@ export type Order = {
   items?: OrderItem[];
 };
 
-export type OrderItem = {
+type OrderItem = {
   id: number;
   orderId: number;
   productId: number;
