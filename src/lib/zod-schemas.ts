@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getChatMaxTextLength } from '@/config/chat';
 
 const productTypeSchema = z.enum([
   'critical_supply',
@@ -196,7 +197,12 @@ export const videoSchema = z.object({
 export const videoUpdateSchema = videoSchema.partial();
 
 export const chatMessageContentSchema = z.object({
-  content: z.string().min(1),
+  content: z
+    .string()
+    .min(1)
+    .refine((value) => value.length <= getChatMaxTextLength(), {
+      message: `El contenido no puede superar los ${getChatMaxTextLength()} caracteres.`,
+    }),
 });
 
 export const chatPaginationQuerySchema = z

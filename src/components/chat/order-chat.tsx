@@ -90,6 +90,8 @@ export function OrderChat({
       (initialTotal === undefined && initialHasMore === false)
   );
   const scrollIntentRef = useRef<ScrollIntent | null>(null);
+  const consecutiveErrorsRef = useRef(0);
+  const nextAllowedAtRef = useRef(0);
 
   const [messages, setMessages] = useState<OrderMessage[]>(() =>
     mergeMessages([], initialMessages, 'replace')
@@ -166,7 +168,7 @@ export function OrderChat({
   }, [messages]);
 
   const loadInitialMessages = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) return true;
     isFetchingRef.current = true;
     setIsPolling(true);
     setError(null);
@@ -192,7 +194,7 @@ export function OrderChat({
         hasMore: boolean;
         isExpired: boolean;
       };
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) return true;
 
       chatEmptyRef.current = data.total === 0;
       setHasFetched(true);
@@ -203,9 +205,11 @@ export function OrderChat({
       if (data.status) {
         setOrderStatus(data.status);
       }
+      return true;
     } catch (err) {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) return false;
       setError(err instanceof Error ? err.message : 'Error desconocido');
+      return false;
     } finally {
       isFetchingRef.current = false;
       if (isMountedRef.current) setIsPolling(false);
@@ -213,8 +217,8 @@ export function OrderChat({
   }, [chatApiUrl, token, isClient, addMessages]);
 
   const pollNewMessages = useCallback(
-    async (afterId?: number) => {
-      if (isSendingRef.current || isFetchingRef.current) return;
+    async (afterId?: number): Promise<boolean> => {
+      if (isSendingRef.current || isFetchingRef.current) return true;
 
       let after: number;
       if (afterId !== undefined) {
@@ -251,7 +255,7 @@ export function OrderChat({
           hasMore: boolean;
           isExpired: boolean;
         };
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current) return true;
 
         if (data.messages.length > 0) {
           chatEmptyRef.current = false;
@@ -262,9 +266,11 @@ export function OrderChat({
         if (data.status) {
           setOrderStatus(data.status);
         }
+        return true;
       } catch (err) {
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current) return false;
         setError(err instanceof Error ? err.message : 'Error desconocido');
+        return false;
       } finally {
         isFetchingRef.current = false;
         if (isMountedRef.current) setIsPolling(false);
@@ -357,8 +363,41 @@ export function OrderChat({
     }
 
     const intervalMs = getChatRefreshIntervalMs();
+    const maxBackoffMs = intervalMs * 8;
+    consecutiveErrorsRef.current = 0;
+    nextAllowedAtRef.current = 0;
+
+    function scheduleBackoff() {
+      const exponent = Math.max(0, consecutiveErrorsRef.current - 1);
+      const delay = Math.min(
+        intervalMs * Math.pow(2, exponent),
+        maxBackoffMs
+      );
+      nextAllowedAtRef.current = Date.now() + delay;
+    }
+
+    function runScheduledPoll() {
+      if (!isMountedRef.current) return;
+      if (Date.now() < nextAllowedAtRef.current) return;
+      if (isSendingRef.current || isFetchingRef.current) return;
+
+      queueMicrotask(async () => {
+        if (!isMountedRef.current) return;
+        const ok = await pollNewMessages();
+        if (!isMountedRef.current) return;
+
+        if (ok) {
+          consecutiveErrorsRef.current = 0;
+          nextAllowedAtRef.current = 0;
+        } else {
+          consecutiveErrorsRef.current += 1;
+          scheduleBackoff();
+        }
+      });
+    }
+
     const interval = setInterval(() => {
-      queueMicrotask(() => void pollNewMessages());
+      runScheduledPoll();
     }, intervalMs);
 
     if (initialHasMore !== undefined && !disablePollingOnMount) {
@@ -367,6 +406,8 @@ export function OrderChat({
 
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted) {
+        consecutiveErrorsRef.current = 0;
+        nextAllowedAtRef.current = 0;
         void pollNewMessages();
       }
     }
@@ -374,6 +415,8 @@ export function OrderChat({
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
+        consecutiveErrorsRef.current = 0;
+        nextAllowedAtRef.current = 0;
         void pollNewMessages();
       }
     }
@@ -445,12 +488,13 @@ export function OrderChat({
               body: formData,
             });
       } else {
-        const chatUrl = buildUrl(chatApiUrl, token);
-        const separator = chatUrl.includes('?') ? '&' : '?';
-        const url = `${chatUrl}${separator}content=${encodeURIComponent(trimmed)}`;
-        response = isClient
-          ? await fetch(url, { method: 'POST' })
-          : await authenticatedFetch(url, { method: 'POST' });
+        const url = buildUrl(chatApiUrl, token);
+        const init = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: trimmed }),
+        };
+        response = isClient ? await fetch(url, init) : await authenticatedFetch(url, init);
       }
 
       if (!response.ok) {
@@ -473,6 +517,8 @@ export function OrderChat({
       void markAsRead();
 
       if (isMountedRef.current) {
+        consecutiveErrorsRef.current = 0;
+        nextAllowedAtRef.current = 0;
         void pollNewMessages(data.message.id);
       }
     } catch (err) {
