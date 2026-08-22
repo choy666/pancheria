@@ -1,22 +1,59 @@
-import { eq, and, isNull, isNotNull, asc, sql } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, asc, desc, sql, gt, lt, count } from 'drizzle-orm';
 import { db } from '@/db';
 import { orderMessages } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
 import type { OrderMessageSenderType } from '@/domain/types';
 
+interface FindByOrderIdOptions {
+  limit?: number;
+  offset?: number;
+  before?: number;
+  after?: number;
+}
+
 export async function findByOrderId(
   orderId: number,
-  options: { limit?: number; offset?: number } = {}
+  options: FindByOrderIdOptions = {}
 ): Promise<(typeof orderMessages.$inferSelect)[]> {
   const limit = options.limit ?? 100;
   const offset = options.offset ?? 0;
 
-  return db.query.orderMessages.findMany({
-    where: eq(orderMessages.orderId, orderId),
-    orderBy: asc(orderMessages.createdAt),
+  const conditions = [eq(orderMessages.orderId, orderId)];
+
+  if (options.before !== undefined) {
+    conditions.push(lt(orderMessages.id, options.before));
+  }
+
+  if (options.after !== undefined) {
+    conditions.push(gt(orderMessages.id, options.after));
+  }
+
+  if (options.after !== undefined) {
+    return db.query.orderMessages.findMany({
+      where: and(...conditions),
+      orderBy: asc(orderMessages.id),
+      limit,
+      offset,
+    });
+  }
+
+  const rows = await db.query.orderMessages.findMany({
+    where: and(...conditions),
+    orderBy: desc(orderMessages.id),
     limit,
     offset,
   });
+
+  return rows.reverse();
+}
+
+export async function countByOrderId(orderId: number): Promise<number> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(orderMessages)
+    .where(eq(orderMessages.orderId, orderId));
+
+  return Number(row?.count ?? 0);
 }
 
 export async function insertMessage(

@@ -1,5 +1,6 @@
 import {
   buildWhatsAppMessage,
+  buildChatPublicUrl,
   encodeWhatsAppUrl,
   type PublicOrder,
 } from '@/lib/whatsapp';
@@ -92,6 +93,58 @@ describe('buildWhatsAppMessage', () => {
     const message = buildWhatsAppMessage(order);
 
     expect(message).not.toContain('Sucursal:');
+  });
+
+  test('incluye enlace al chat cuando tiene id y token', () => {
+    const order: PublicOrder = {
+      id: 123,
+      cancellationToken: 'abc123',
+      items: [
+        { productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 },
+      ],
+      customerName: 'Carlos',
+      deliveryType: 'pickup',
+      total: 1200,
+    };
+
+    const message = buildWhatsAppMessage(order);
+
+    expect(message).toContain('Seguí tu pedido y chateá con la sucursal:');
+    expect(message).toContain('/pedido/123/chat?token=abc123');
+  });
+
+  test('omite el enlace al chat cuando no tiene id o token', () => {
+    const order: PublicOrder = {
+      items: [
+        { productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 },
+      ],
+      customerName: 'Carlos',
+      deliveryType: 'pickup',
+      total: 1200,
+    };
+
+    const message = buildWhatsAppMessage(order);
+
+    expect(message).not.toContain('Seguí tu pedido y chateá con la sucursal:');
+  });
+});
+
+describe('buildChatPublicUrl', () => {
+  test('construye la URL pública del chat', () => {
+    const url = buildChatPublicUrl(123, 'abc123');
+
+    expect(url).toBe('http://localhost:3000/pedido/123/chat?token=abc123');
+  });
+
+  test('usa NEXT_PUBLIC_APP_URL cuando está definida', () => {
+    const original = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://pancheria.example.com';
+
+    const url = buildChatPublicUrl(123, 'abc123');
+
+    expect(url).toBe('https://pancheria.example.com/pedido/123/chat?token=abc123');
+
+    process.env.NEXT_PUBLIC_APP_URL = original;
   });
 });
 

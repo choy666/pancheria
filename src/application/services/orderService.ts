@@ -347,3 +347,49 @@ export async function expirePendingOrders(
 
   return expiredCount;
 }
+
+export interface TrackOrderResult {
+  id: number;
+  orderNumber: string;
+  status: OrderStatus;
+  total: number;
+  customerName: string;
+  branchId: number;
+  branchName: string | null;
+  cancellationToken?: string;
+  expiresAt?: string;
+}
+
+export async function trackOrder(
+  orderNumber: string,
+  customerName: string
+): Promise<TrackOrderResult | null> {
+  const order =
+    await orderRepository.findByOrderNumberAndCustomerName(
+      orderNumber,
+      customerName
+    );
+
+  if (!order) {
+    return null;
+  }
+
+  const result: TrackOrderResult = {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    total: order.total,
+    customerName: order.customerName,
+    branchId: order.branchId,
+    branchName: order.branch?.name ?? null,
+  };
+
+  if (order.status === 'pending') {
+    result.cancellationToken = order.cancellationToken;
+    result.expiresAt = new Date(
+      order.createdAt.getTime() + getOrderExpirationMs()
+    ).toISOString();
+  }
+
+  return result;
+}

@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { chatMessageContentSchema } from '@/lib/zod-schemas';
+import {
+  chatMessageContentSchema,
+  chatPaginationQuerySchema,
+} from '@/lib/zod-schemas';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import {
   getChatRateLimitWindowMs,
   getChatRateLimitMaxRequests,
 } from '@/config/chat';
 
-const querySchema = z.object({
+const querySchema = chatPaginationQuerySchema.extend({
   token: z.string().min(1),
 });
 
@@ -44,12 +47,21 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const { messages, status } = await chatService.listClientMessages(
-      orderId,
-      query.token
-    );
+    const { messages, status, total, hasMore, expiresAt, isExpired } =
+      await chatService.listClientMessages(orderId, query.token, {
+        limit: query.limit,
+        before: query.before,
+        after: query.after,
+      });
 
-    return NextResponse.json({ messages, status });
+    return NextResponse.json({
+      messages,
+      status,
+      total,
+      hasMore,
+      expiresAt,
+      isExpired,
+    });
   }
 );
 
@@ -78,8 +90,11 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const body = await request.json();
-    const data = chatMessageContentSchema.parse(body);
+    const queryContent = searchParams.get('content');
+    const body = await request.json().catch(() => ({}));
+    const data = chatMessageContentSchema.parse({
+      content: (body as { content?: string } | undefined)?.content ?? queryContent,
+    });
 
     const message = await chatService.sendClientMessage(orderId, query.token, {
       content: data.content,
@@ -90,3 +105,4 @@ export const POST = withApiErrorHandling(
 );
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';

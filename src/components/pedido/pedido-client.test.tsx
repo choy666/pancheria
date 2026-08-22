@@ -42,6 +42,7 @@ interface CreatedOrder {
   branchName: string | null;
   items: { productId: number; name: string; price: number; unit: string; quantity: number }[];
   createdAt: string;
+  expiresAt: string;
   whatsappUrl: string | null;
 }
 
@@ -59,6 +60,7 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
     branchName: 'Sucursal A',
     items: [{ productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 }],
     createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
     whatsappUrl: WHATSAPP_URL,
     ...overrides,
   };
@@ -102,12 +104,20 @@ describe('PedidoClient', () => {
     jest.clearAllMocks();
     localStorage.clear();
     mockedUseRouter.mockReturnValue({ push: jest.fn() });
-    global.fetch = jest.fn().mockResolvedValue(
-      createFetchResponse({
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      const urlString = String(url);
+      if (urlString.includes('/api/public/pedido/') && urlString.includes('/estado')) {
+        return createFetchResponse({
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          isExpired: false,
+        });
+      }
+      return createFetchResponse({
         branch: makeBranch(1, 'Sucursal A'),
         products: [],
-      })
-    );
+      });
+    });
   });
 
   afterEach(() => {
@@ -291,7 +301,8 @@ describe('PedidoClient', () => {
       createBody?: { order: CreatedOrder; whatsappUrl: string | null };
     } = {}) {
       global.fetch = jest.fn().mockImplementation(async (url, init) => {
-        if (typeof url === 'string' && url.includes('/api/public/disponibilidad')) {
+        const urlString = String(url);
+        if (urlString.includes('/api/public/disponibilidad')) {
           return createFetchResponse({
             availabilityByProduct: { 1: 5 },
             shortageByProduct: {},
@@ -299,7 +310,15 @@ describe('PedidoClient', () => {
           });
         }
 
-        if (typeof url === 'string' && url.includes('/api/public/pedido') && init?.method === 'POST') {
+        if (urlString.includes('/api/public/pedido/') && urlString.includes('/estado')) {
+          return createFetchResponse({
+            status: 'pending',
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+            isExpired: false,
+          });
+        }
+
+        if (urlString.includes('/api/public/pedido') && init?.method === 'POST') {
           return createFetchResponse(
             overrides.createBody ?? {
               order: makeCreatedOrder(),
@@ -455,6 +474,70 @@ describe('PedidoClient', () => {
       await waitFor(() =>
         expect(screen.queryByText('Pedido creado')).not.toBeInTheDocument()
       );
+    });
+
+    test('guarda el pedido en localStorage al crearlo y muestra el banner al cerrar el diálogo', async () => {
+      setupFetchMocks();
+
+      await completeCheckout();
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Cerrar'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByText('Pedido creado')).not.toBeInTheDocument()
+      );
+
+      const banner = screen.getByTestId('recent-orders-banner');
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveTextContent('PED-1-1234567890-abc');
+      expect(banner).toHaveTextContent('Ir al chat');
+
+      const stored = localStorage.getItem('pancheria-recent-orders-v1');
+      expect(stored).not.toBeNull();
+      const parsed = JSON.parse(stored as string);
+      expect(parsed.orders[0].id).toBe(ORDER_ID);
+      expect(parsed.orders[0].cancellationToken).toBe(CANCELLATION_TOKEN);
+    });
+
+    test('muestra el banner de pedidos recientes guardados previamente', async () => {
+      const stored = {
+        version: 'pancheria-recent-orders-v1',
+        orders: [
+          {
+            id: ORDER_ID,
+            orderNumber: 'PED-1-1234567890-abc',
+            cancellationToken: CANCELLATION_TOKEN,
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+            branchId: 1,
+            branchName: 'Sucursal A',
+          },
+        ],
+      };
+      localStorage.setItem('pancheria-recent-orders-v1', JSON.stringify(stored));
+
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      const banner = screen.getByTestId('recent-orders-banner');
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveTextContent('PED-1-1234567890-abc');
     });
   });
 });

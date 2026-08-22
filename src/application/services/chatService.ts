@@ -3,11 +3,13 @@ import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as branchService from '@/application/services/branchService';
 import { orderMessages } from '@/db/schema';
+import { getOrderExpirationMs } from '@/config/orders';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import {
   getChatMaxTextLength,
   getChatImageMaxSizeBytes,
   getChatAllowedImageMimeTypes,
+  getChatPageSize,
 } from '@/config/chat';
 import type {
   OrderMessage,
@@ -30,12 +32,45 @@ interface SendMessageInput {
   senderName?: string | null;
 }
 
+export interface FindMessagesOptions {
+  limit?: number;
+  before?: number;
+  after?: number;
+}
+
 export interface ChatContext {
   orderNumber: string;
   branchName: string | null;
   status: OrderWithItems['status'];
   customerName: string;
   messages: OrderMessage[];
+  total: number;
+  hasMore: boolean;
+  expiresAt: string;
+  isExpired: boolean;
+}
+
+export interface ChatMessagesResult {
+  messages: OrderMessage[];
+  status: OrderStatus;
+  total: number;
+  hasMore: boolean;
+  expiresAt: string;
+  isExpired: boolean;
+}
+
+export interface ChatStatusResult {
+  status: OrderStatus;
+  expiresAt: string;
+  isExpired: boolean;
+}
+
+function getOrderExpiresAt(order: { createdAt: Date }): string {
+  return new Date(order.createdAt.getTime() + getOrderExpirationMs()).toISOString();
+}
+
+function isOrderExpired(order: { createdAt: Date }): boolean {
+  return order.createdAt.getTime() + getOrderExpirationMs() < Date.now();
 }
 
 function sanitizeContent(content: unknown): string | null {
@@ -91,7 +126,8 @@ function normalizeMessageValues(
 
 export async function getChatContext(
   orderId: number,
-  token: string
+  token: string,
+  options: FindMessagesOptions = {}
 ): Promise<ChatContext> {
   const order = await orderRepository.findByIdWithToken(orderId, token);
 
@@ -100,7 +136,14 @@ export async function getChatContext(
   }
 
   const branch = await branchService.getBranchById(order.branchId);
-  const messages = await orderMessageRepository.findByOrderId(orderId);
+  const [messages, total] = await Promise.all([
+    orderMessageRepository.findByOrderId(orderId, {
+      limit: options.limit ?? getChatPageSize(),
+      after: options.after,
+      before: options.before,
+    }),
+    orderMessageRepository.countByOrderId(orderId),
+  ]);
 
   return {
     orderNumber: order.orderNumber,
@@ -108,17 +151,44 @@ export async function getChatContext(
     status: order.status,
     customerName: order.customerName,
     messages,
+    total,
+    hasMore: messages.length < total,
+    expiresAt: getOrderExpiresAt(order),
+    isExpired: isOrderExpired(order),
   };
 }
 
-export interface ChatMessagesResult {
-  messages: OrderMessage[];
-  status: OrderStatus;
+async function listMessages(
+  orderId: number,
+  options: FindMessagesOptions = {}
+): Promise<{
+  rows: OrderMessage[];
+  hasMore: boolean;
+}> {
+  const pageSize = options.limit ?? getChatPageSize();
+
+  if (options.before !== undefined) {
+    const rows = await orderMessageRepository.findByOrderId(orderId, {
+      before: options.before,
+      limit: pageSize + 1,
+    });
+
+    const hasMore = rows.length > pageSize;
+    return { rows: rows.slice(rows.length > pageSize ? 1 : 0), hasMore };
+  }
+
+  const rows = await orderMessageRepository.findByOrderId(orderId, {
+    after: options.after,
+    limit: pageSize,
+  });
+
+  return { rows, hasMore: options.after !== undefined ? rows.length === pageSize : false };
 }
 
 export async function listClientMessages(
   orderId: number,
-  token: string
+  token: string,
+  options: FindMessagesOptions = {}
 ): Promise<ChatMessagesResult> {
   const order = await orderRepository.findByIdWithToken(orderId, token);
 
@@ -126,14 +196,30 @@ export async function listClientMessages(
     throw new NotFoundError('Pedido', orderId);
   }
 
-  const messages = await orderMessageRepository.findByOrderId(orderId);
+  const [{ rows: messages, hasMore }, total] = await Promise.all([
+    listMessages(orderId, options),
+    orderMessageRepository.countByOrderId(orderId),
+  ]);
 
-  return { messages, status: order.status };
+  return {
+    messages,
+    status: order.status,
+    total,
+    hasMore:
+      options.before !== undefined
+        ? hasMore
+        : options.after !== undefined
+          ? hasMore
+          : messages.length < total,
+    expiresAt: getOrderExpiresAt(order),
+    isExpired: isOrderExpired(order),
+  };
 }
 
 export async function listOperatorMessages(
   orderId: number,
-  branchId: number
+  branchId: number,
+  options: FindMessagesOptions = {}
 ): Promise<ChatMessagesResult> {
   const order = await orderRepository.findById(branchId, orderId);
 
@@ -141,9 +227,41 @@ export async function listOperatorMessages(
     throw new NotFoundError('Pedido', orderId);
   }
 
-  const messages = await orderMessageRepository.findByOrderId(orderId);
+  const [{ rows: messages, hasMore }, total] = await Promise.all([
+    listMessages(orderId, options),
+    orderMessageRepository.countByOrderId(orderId),
+  ]);
 
-  return { messages, status: order.status };
+  return {
+    messages,
+    status: order.status,
+    total,
+    hasMore:
+      options.before !== undefined
+        ? hasMore
+        : options.after !== undefined
+          ? hasMore
+          : messages.length < total,
+    expiresAt: getOrderExpiresAt(order),
+    isExpired: isOrderExpired(order),
+  };
+}
+
+export async function getOrderChatStatus(
+  orderId: number,
+  token: string
+): Promise<ChatStatusResult> {
+  const order = await orderRepository.findByIdWithToken(orderId, token);
+
+  if (!order) {
+    throw new NotFoundError('Pedido', orderId);
+  }
+
+  return {
+    status: order.status,
+    expiresAt: getOrderExpiresAt(order),
+    isExpired: isOrderExpired(order),
+  };
 }
 
 export async function sendClientMessage(
@@ -166,6 +284,10 @@ export async function sendClientMessage(
       throw new ValidationError(
         'El pedido no está pendiente, no se pueden enviar mensajes.'
       );
+    }
+
+    if (isOrderExpired(order)) {
+      throw new ValidationError('El pedido expiró, no se pueden enviar mensajes.');
     }
 
     const values = normalizeMessageValues(orderId, 'client', input);
@@ -193,6 +315,10 @@ export async function sendOperatorMessage(
       throw new ValidationError(
         'El pedido no está pendiente, no se pueden enviar mensajes.'
       );
+    }
+
+    if (isOrderExpired(order)) {
+      throw new ValidationError('El pedido expiró, no se pueden enviar mensajes.');
     }
 
     const values = normalizeMessageValues(orderId, 'operator', input);

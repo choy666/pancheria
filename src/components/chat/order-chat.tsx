@@ -1,9 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
 import { formatTime } from '@/lib/date';
-import { getChatRefreshIntervalMs, getChatMaxTextLength } from '@/config/chat';
+import {
+  getChatRefreshIntervalMs,
+  getChatMaxTextLength,
+  getChatPageSize,
+} from '@/config/chat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +19,9 @@ interface OrderChatProps {
   orderId: number;
   token?: string;
   initialMessages: OrderMessage[];
+  initialTotal?: number;
+  initialHasMore?: boolean;
+  initialIsExpired?: boolean;
   readOnly?: boolean;
   isClient?: boolean;
   chatApiUrl: string;
@@ -22,6 +29,7 @@ interface OrderChatProps {
   uploadApiUrl?: string;
   title?: string;
   unreadCount?: number;
+  disablePollingOnMount?: boolean;
 }
 
 function buildUrl(base: string, token?: string): string {
@@ -30,10 +38,36 @@ function buildUrl(base: string, token?: string): string {
   return `${base}${separator}token=${encodeURIComponent(token)}`;
 }
 
+interface ScrollIntent {
+  type: 'bottom' | 'preserve';
+  prevHeight?: number;
+  prevTop?: number;
+}
+
+function mergeMessages(
+  current: OrderMessage[],
+  incoming: OrderMessage[],
+  position: 'append' | 'prepend' | 'replace'
+): OrderMessage[] {
+  if (position === 'replace') {
+    return [...incoming].sort((a, b) => a.id - b.id);
+  }
+
+  const combined =
+    position === 'append'
+      ? [...current, ...incoming]
+      : [...incoming, ...current];
+  const byId = new Map(combined.map((m) => [m.id, m]));
+  return Array.from(byId.values()).sort((a, b) => a.id - b.id);
+}
+
 export function OrderChat({
   orderId,
   token,
   initialMessages,
+  initialTotal,
+  initialHasMore,
+  initialIsExpired = false,
   readOnly = false,
   isClient = false,
   chatApiUrl,
@@ -41,6 +75,7 @@ export function OrderChat({
   uploadApiUrl,
   title = 'Chat del pedido',
   unreadCount = 0,
+  disablePollingOnMount = false,
 }: OrderChatProps) {
   const isMountedRef = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -48,18 +83,33 @@ export function OrderChat({
   const isFetchingRef = useRef(false);
   const isSendingRef = useRef(false);
   const isFirstUnreadEffectRef = useRef(true);
+  const firstMessageIdRef = useRef<number | null>(null);
+  const lastMessageIdRef = useRef<number | null>(null);
+  const chatEmptyRef = useRef(
+    initialTotal === 0 ||
+      (initialTotal === undefined && initialHasMore === false)
+  );
+  const scrollIntentRef = useRef<ScrollIntent | null>(null);
 
-  const [messages, setMessages] = useState<OrderMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<OrderMessage[]>(() =>
+    mergeMessages([], initialMessages, 'replace')
+  );
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(initialMessages.length > 0);
+  const [hasFetched, setHasFetched] = useState(initialHasMore !== undefined);
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
+  const [isExpired, setIsExpired] = useState(initialIsExpired);
+  const [hasMore, setHasMore] = useState(initialHasMore ?? false);
 
   const isReadOnly =
-    orderStatus !== null ? orderStatus !== 'pending' : readOnly;
+    orderStatus !== null
+      ? orderStatus !== 'pending' || isExpired
+      : readOnly || isExpired;
 
   const otherSenderType: OrderMessageSenderType = isClient
     ? 'operator'
@@ -72,14 +122,63 @@ export function OrderChat({
   const displayedUnreadCount =
     !hasFetched && unreadCount > 0 ? unreadCount : unreadFromMessages;
 
-  const fetchMessages = useCallback(async () => {
-    if (isSendingRef.current || isFetchingRef.current) return;
+  const addMessages = useCallback(
+    (
+      incoming: OrderMessage[],
+      position: 'append' | 'prepend' | 'replace',
+      intent: ScrollIntent | null = null
+    ) => {
+      if (intent) {
+        scrollIntentRef.current = intent;
+      }
+      setMessages((prev) => mergeMessages(prev, incoming, position));
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (messages.length === 0) {
+      firstMessageIdRef.current = null;
+      lastMessageIdRef.current = null;
+    } else {
+      const ids = messages.map((m) => m.id);
+      firstMessageIdRef.current = Math.min(...ids);
+      lastMessageIdRef.current = Math.max(...ids);
+    }
+  }, [messages]);
+
+  useLayoutEffect(() => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+
+    if (scrollIntentRef.current?.type === 'bottom') {
+      el.scrollTop = el.scrollHeight;
+    } else if (
+      scrollIntentRef.current?.type === 'preserve' &&
+      scrollIntentRef.current.prevHeight !== undefined &&
+      scrollIntentRef.current.prevTop !== undefined
+    ) {
+      const { prevHeight, prevTop } = scrollIntentRef.current;
+      el.scrollTop = el.scrollHeight - prevHeight + prevTop;
+    }
+
+    scrollIntentRef.current = null;
+  }, [messages]);
+
+  const loadInitialMessages = useCallback(async () => {
+    if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+    setIsPolling(true);
+    setError(null);
 
     try {
+      const url = buildUrl(
+        `${chatApiUrl}?limit=${getChatPageSize()}`,
+        token
+      );
       const response = isClient
-        ? await fetch(buildUrl(chatApiUrl, token))
-        : await authenticatedFetch(chatApiUrl);
+        ? await fetch(url)
+        : await authenticatedFetch(url);
 
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
@@ -88,17 +187,18 @@ export function OrderChat({
 
       const data = (await response.json()) as {
         messages: OrderMessage[];
-        status?: OrderStatus;
+        status: OrderStatus;
+        total: number;
+        hasMore: boolean;
+        isExpired: boolean;
       };
       if (!isMountedRef.current) return;
 
-      setMessages((prev) => {
-        if (JSON.stringify(prev) === JSON.stringify(data.messages)) {
-          return prev;
-        }
-        return data.messages;
-      });
+      chatEmptyRef.current = data.total === 0;
       setHasFetched(true);
+      addMessages(data.messages, 'replace', { type: 'bottom' });
+      setHasMore(data.hasMore);
+      setIsExpired(data.isExpired);
 
       if (data.status) {
         setOrderStatus(data.status);
@@ -108,8 +208,128 @@ export function OrderChat({
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       isFetchingRef.current = false;
+      if (isMountedRef.current) setIsPolling(false);
     }
-  }, [chatApiUrl, token, isClient]);
+  }, [chatApiUrl, token, isClient, addMessages]);
+
+  const pollNewMessages = useCallback(
+    async (afterId?: number) => {
+      if (isSendingRef.current || isFetchingRef.current) return;
+
+      let after: number;
+      if (afterId !== undefined) {
+        after = afterId;
+      } else if (lastMessageIdRef.current !== null) {
+        after = lastMessageIdRef.current;
+      } else if (chatEmptyRef.current) {
+        after = 0;
+      } else {
+        return loadInitialMessages();
+      }
+
+      isFetchingRef.current = true;
+      setIsPolling(true);
+
+      try {
+        const url = buildUrl(
+          `${chatApiUrl}?after=${after}&limit=${getChatPageSize()}`,
+          token
+        );
+        const response = isClient
+          ? await fetch(url)
+          : await authenticatedFetch(url);
+
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string };
+          throw new Error(data.error ?? 'Error al cargar mensajes');
+        }
+
+        const data = (await response.json()) as {
+          messages: OrderMessage[];
+          status: OrderStatus;
+          total: number;
+          hasMore: boolean;
+          isExpired: boolean;
+        };
+        if (!isMountedRef.current) return;
+
+        if (data.messages.length > 0) {
+          chatEmptyRef.current = false;
+          addMessages(data.messages, 'append', { type: 'bottom' });
+        }
+        setIsExpired(data.isExpired);
+
+        if (data.status) {
+          setOrderStatus(data.status);
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } finally {
+        isFetchingRef.current = false;
+        if (isMountedRef.current) setIsPolling(false);
+      }
+    },
+    [chatApiUrl, token, isClient, loadInitialMessages, addMessages]
+  );
+
+  const loadOlderMessages = useCallback(async () => {
+    if (isFetchingRef.current || isLoadingOlder) return;
+    if (firstMessageIdRef.current === null) return;
+
+    const el = scrollRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    const prevTop = el?.scrollTop ?? 0;
+
+    isFetchingRef.current = true;
+    setIsLoadingOlder(true);
+    setError(null);
+
+    try {
+      const url = buildUrl(
+        `${chatApiUrl}?before=${firstMessageIdRef.current}&limit=${getChatPageSize()}`,
+        token
+      );
+      const response = isClient
+        ? await fetch(url)
+        : await authenticatedFetch(url);
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? 'Error al cargar mensajes anteriores');
+      }
+
+      const data = (await response.json()) as {
+        messages: OrderMessage[];
+        status: OrderStatus;
+        total: number;
+        hasMore: boolean;
+        expiresAt: string;
+        isExpired: boolean;
+      };
+      if (!isMountedRef.current) return;
+
+      if (data.messages.length > 0) {
+        addMessages(data.messages, 'prepend', {
+          type: 'preserve',
+          prevHeight,
+          prevTop,
+        });
+      }
+      setHasMore(data.hasMore);
+      setIsExpired(data.isExpired);
+
+      if (data.status) {
+        setOrderStatus(data.status);
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      isFetchingRef.current = false;
+      if (isMountedRef.current) setIsLoadingOlder(false);
+    }
+  }, [chatApiUrl, token, isClient, isLoadingOlder, addMessages]);
 
   const markAsRead = useCallback(async () => {
     if (!readApiUrl) return;
@@ -131,24 +351,41 @@ export function OrderChat({
   useEffect(() => {
     isMountedRef.current = true;
     markAsRead();
-    queueMicrotask(() => void fetchMessages());
+
+    if (initialHasMore === undefined) {
+      queueMicrotask(() => void loadInitialMessages());
+    }
 
     const intervalMs = getChatRefreshIntervalMs();
     const interval = setInterval(() => {
-      queueMicrotask(() => void fetchMessages());
+      queueMicrotask(() => void pollNewMessages());
     }, intervalMs);
+
+    if (initialHasMore !== undefined && !disablePollingOnMount) {
+      queueMicrotask(() => void pollNewMessages());
+    }
+
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        void pollNewMessages();
+      }
+    }
+    window.addEventListener('pageshow', handlePageShow);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void pollNewMessages();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       isMountedRef.current = false;
       clearInterval(interval);
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchMessages, markAsRead]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+  }, [markAsRead, loadInitialMessages, pollNewMessages, initialHasMore, disablePollingOnMount]);
 
   useEffect(() => {
     if (isFirstUnreadEffectRef.current) {
@@ -208,18 +445,12 @@ export function OrderChat({
               body: formData,
             });
       } else {
-        const body = JSON.stringify({ content: trimmed });
+        const chatUrl = buildUrl(chatApiUrl, token);
+        const separator = chatUrl.includes('?') ? '&' : '?';
+        const url = `${chatUrl}${separator}content=${encodeURIComponent(trimmed)}`;
         response = isClient
-          ? await fetch(buildUrl(chatApiUrl, token), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body,
-            })
-          : await authenticatedFetch(chatApiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body,
-            });
+          ? await fetch(url, { method: 'POST' })
+          : await authenticatedFetch(url, { method: 'POST' });
       }
 
       if (!response.ok) {
@@ -231,17 +462,18 @@ export function OrderChat({
 
       if (!isMountedRef.current) return;
 
-      setMessages((prev) => [...prev, data.message]);
+      addMessages([data.message], 'append', { type: 'bottom' });
       setContent('');
       setSelectedFile(null);
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
       setPreviewUrl(null);
+      chatEmptyRef.current = false;
       void markAsRead();
 
       if (isMountedRef.current) {
-        void fetchMessages();
+        void pollNewMessages(data.message.id);
       }
     } catch (err) {
       if (!isMountedRef.current) return;
@@ -288,6 +520,9 @@ export function OrderChat({
               {displayedUnreadCount}
             </Badge>
           )}
+          {isPolling && (
+            <span className="text-xs text-muted-foreground">Sincronizando...</span>
+          )}
         </div>
       </div>
 
@@ -295,6 +530,20 @@ export function OrderChat({
         ref={scrollRef}
         className="flex-1 space-y-3 overflow-y-auto p-4"
       >
+        {hasMore && (
+          <div className="flex justify-center py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void loadOlderMessages()}
+              disabled={isLoadingOlder}
+            >
+              {isLoadingOlder ? 'Cargando...' : 'Cargar mensajes anteriores'}
+            </Button>
+          </div>
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}

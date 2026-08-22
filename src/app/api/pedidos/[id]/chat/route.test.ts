@@ -45,6 +45,10 @@ describe('GET /api/pedidos/[id]/chat', () => {
     mockedChatService.listOperatorMessages.mockResolvedValue({
       messages: [{ id: 1, content: 'Hola' }] as any,
       status: 'pending',
+      total: 1,
+      hasMore: false,
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      isExpired: false,
     });
 
     const response = await GET(
@@ -54,14 +58,19 @@ describe('GET /api/pedidos/[id]/chat', () => {
     const body = (await response.json()) as {
       messages: unknown[];
       status: string;
+      total: number;
+      hasMore: boolean;
     };
 
     expect(response.status).toBe(200);
     expect(body.messages).toHaveLength(1);
     expect(body.status).toBe('pending');
+    expect(body.total).toBe(1);
+    expect(body.hasMore).toBe(false);
     expect(mockedChatService.listOperatorMessages).toHaveBeenCalledWith(
       ORDER_ID,
-      BRANCH_ID
+      BRANCH_ID,
+      expect.any(Object)
     );
   });
 
@@ -115,6 +124,36 @@ describe('POST /api/pedidos/[id]/chat', () => {
       buildRequest({
         method: 'POST',
         body: JSON.stringify({ content: '   ' }),
+      }),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  test('acepta contenido por query param cuando el body está vacío (fallback)', async () => {
+    const response = await POST(
+      new NextRequest(
+        `http://localhost:3000/api/pedidos/${ORDER_ID}/chat?content=${encodeURIComponent('Confirmado')}`,
+        { method: 'POST', body: '' }
+      ),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+    const body = (await response.json()) as { message: unknown };
+
+    expect(response.status).toBe(201);
+    expect(body.message).toEqual(expect.objectContaining({ content: 'Confirmado' }));
+    expect(mockedChatService.sendOperatorMessage).toHaveBeenCalledWith(
+      ORDER_ID,
+      BRANCH_ID,
+      { content: 'Confirmado', senderName: 'Juan' }
+    );
+  });
+
+  test('rechaza POST sin body ni query param', async () => {
+    const response = await POST(
+      buildRequest({
+        method: 'POST',
       }),
       { params: Promise.resolve({ id: String(ORDER_ID) }) }
     );

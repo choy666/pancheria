@@ -131,6 +131,8 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — estado actual, limpieza realizada, pendientes y mejoras del flujo de pedidos.
+- [Plan de mejoras del chat de pedidos](plan-mejoras-chat-pedido.md) — validación del banner de pedidos recientes, recordar nombre en seguimiento y paginación del chat.
+- [Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes](auditoria-chat-workaround-y-mejoras.md) — revisar el fallback de query param, warnings de Gzip/streams, polling y deuda técnica del chat.
 
 ### Prompts archivados
 

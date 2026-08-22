@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
-  compress: true,
+  compress: process.env.NODE_ENV !== 'test',
   typescript: {
     tsconfigPath: './tsconfig.build.json',
   },

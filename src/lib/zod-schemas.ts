@@ -198,3 +198,18 @@ export const videoUpdateSchema = videoSchema.partial();
 export const chatMessageContentSchema = z.object({
   content: z.string().min(1),
 });
+
+export const chatPaginationQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().positive().max(100).optional(),
+    before: z.coerce.number().int().positive().optional(),
+    after: z.coerce.number().int().nonnegative().optional(),
+  })
+  .refine((data) => !(data.before !== undefined && data.after !== undefined), {
+    message: 'No se puede usar before y after al mismo tiempo.',
+  });
+
+export const orderTrackingSchema = z.object({
+  orderNumber: z.string().min(1),
+  customerName: z.string().min(1),
+});

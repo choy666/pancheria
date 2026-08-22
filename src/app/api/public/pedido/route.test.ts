@@ -75,7 +75,8 @@ function createMockOrder() {
         },
       },
     ],
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
   };
 }
 
@@ -112,6 +113,7 @@ describe('POST /api/public/pedido', () => {
     expect(response.status).toBe(201);
     expect(body.order.orderNumber).toBe(order.orderNumber);
     expect(body.order.branchName).toBe('Sucursal Test');
+    expect(body.order.expiresAt).toBeDefined();
     expect(body.whatsappUrl).toContain('https://wa.me/5493415555555');
     expect(mockedOrderService.createOrder).toHaveBeenCalledWith({
       branchId: BRANCH_ID,

@@ -11,6 +11,8 @@ export interface PublicOrderItem {
 }
 
 export interface PublicOrder {
+  id?: number;
+  cancellationToken?: string;
   items: PublicOrderItem[];
   customerName: string;
   deliveryType: 'delivery' | 'pickup';
@@ -19,6 +21,20 @@ export interface PublicOrder {
   total: number;
   orderNumber?: string;
   branchName?: string;
+}
+
+export function buildChatPublicUrl(
+  orderId: number,
+  cancellationToken: string
+): string {
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXTAUTH_URL ??
+    'http://localhost:3000'
+  ).replace(/\/$/, '');
+  return `${baseUrl}/pedido/${orderId}/chat?token=${encodeURIComponent(
+    cancellationToken
+  )}`;
 }
 
 export function buildWhatsAppMessage(order: PublicOrder): string {
@@ -50,6 +66,11 @@ export function buildWhatsAppMessage(order: PublicOrder): string {
 
   if (order.notes) {
     parts.push(`Notas: ${order.notes}`);
+  }
+
+  if (order.id && order.cancellationToken) {
+    const chatUrl = buildChatPublicUrl(order.id, order.cancellationToken);
+    parts.push(`Seguí tu pedido y chateá con la sucursal: ${chatUrl}`);
   }
 
   return parts.join('\n');

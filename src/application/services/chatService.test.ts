@@ -5,6 +5,7 @@ import {
   listOperatorMessages,
   markClientMessagesAsRead,
   markOperatorMessagesAsRead,
+  getOrderChatStatus,
 } from './chatService';
 import { executeInTransaction } from '@/application/transactionService';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
@@ -71,11 +72,14 @@ function buildMessage(overrides: Partial<OrderMessage> = {}): OrderMessage {
 describe('chatService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedOrderMessageRepository.countByOrderId.mockResolvedValue(1);
   });
 
   describe('sendClientMessage', () => {
     test('envía un mensaje del cliente cuando el pedido está pendiente', async () => {
-      mockedOrderRepository.findByIdWithTokenForUpdate.mockResolvedValue(buildOrder());
+      mockedOrderRepository.findByIdWithTokenForUpdate.mockResolvedValue(
+        buildOrder()
+      );
       mockedOrderMessageRepository.insertMessage.mockResolvedValue(buildMessage());
 
       const result = await sendClientMessage(ORDER_ID, TOKEN, { content: 'Hola' });
@@ -114,6 +118,17 @@ describe('chatService', () => {
         sendClientMessage(ORDER_ID, TOKEN, { content: '   ' })
       ).rejects.toThrow(ValidationError);
     });
+
+    test('rechaza un pedido vencido', async () => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000);
+      mockedOrderRepository.findByIdWithTokenForUpdate.mockResolvedValue(
+        buildOrder({ createdAt: twoHoursAgo })
+      );
+
+      await expect(
+        sendClientMessage(ORDER_ID, TOKEN, { content: 'Hola' })
+      ).rejects.toThrow(ValidationError);
+    });
   });
 
   describe('sendOperatorMessage', () => {
@@ -148,10 +163,21 @@ describe('chatService', () => {
         sendOperatorMessage(ORDER_ID, BRANCH_ID, { content: 'Hola' })
       ).rejects.toThrow(NotFoundError);
     });
+
+    test('rechaza un pedido vencido', async () => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000);
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ createdAt: twoHoursAgo })
+      );
+
+      await expect(
+        sendOperatorMessage(ORDER_ID, BRANCH_ID, { content: 'Hola' })
+      ).rejects.toThrow(ValidationError);
+    });
   });
 
   describe('listClientMessages', () => {
-    test('devuelve mensajes y estado del cliente autenticado', async () => {
+    test('devuelve mensajes, estado, total, hasMore y expiresAt del cliente autenticado', async () => {
       mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
       mockedOrderMessageRepository.findByOrderId.mockResolvedValue([buildMessage()]);
 
@@ -159,11 +185,20 @@ describe('chatService', () => {
 
       expect(result.messages).toHaveLength(1);
       expect(result.status).toBe('pending');
+      expect(result.total).toBe(1);
+      expect(result.hasMore).toBe(false);
+      expect(result.expiresAt).toBeDefined();
+      expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
+      expect(result.isExpired).toBe(false);
       expect(mockedOrderRepository.findByIdWithToken).toHaveBeenCalledWith(
         ORDER_ID,
         TOKEN
       );
       expect(mockedOrderMessageRepository.findByOrderId).toHaveBeenCalledWith(
+        ORDER_ID,
+        expect.any(Object)
+      );
+      expect(mockedOrderMessageRepository.countByOrderId).toHaveBeenCalledWith(
         ORDER_ID
       );
     });
@@ -175,10 +210,22 @@ describe('chatService', () => {
         listClientMessages(ORDER_ID, 'wrong-token')
       ).rejects.toThrow(NotFoundError);
     });
+
+    test('pasa opciones de paginación al repositorio', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([buildMessage()]);
+
+      await listClientMessages(ORDER_ID, TOKEN, { before: 5, limit: 20 });
+
+      expect(mockedOrderMessageRepository.findByOrderId).toHaveBeenCalledWith(
+        ORDER_ID,
+        expect.objectContaining({ before: 5, limit: 21 })
+      );
+    });
   });
 
   describe('listOperatorMessages', () => {
-    test('devuelve mensajes y estado del operador autenticado', async () => {
+    test('devuelve mensajes, estado, total, hasMore y expiresAt del operador autenticado', async () => {
       mockedOrderRepository.findById.mockResolvedValue(buildOrder() as any);
       mockedOrderMessageRepository.findByOrderId.mockResolvedValue([buildMessage()]);
 
@@ -186,6 +233,11 @@ describe('chatService', () => {
 
       expect(result.messages).toHaveLength(1);
       expect(result.status).toBe('pending');
+      expect(result.total).toBe(1);
+      expect(result.hasMore).toBe(false);
+      expect(result.expiresAt).toBeDefined();
+      expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
+      expect(result.isExpired).toBe(false);
       expect(mockedOrderRepository.findById).toHaveBeenCalledWith(
         BRANCH_ID,
         ORDER_ID
@@ -218,6 +270,33 @@ describe('chatService', () => {
       expect(
         mockedOrderMessageRepository.markAllAsReadByOrderAndSender
       ).toHaveBeenCalledWith(ORDER_ID, 'client');
+    });
+  });
+
+  describe('getOrderChatStatus', () => {
+    test('devuelve el estado, la expiración y si venció del pedido', async () => {
+      const createdAt = new Date('2026-01-01T00:00:00.000Z');
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(
+        buildOrder({ createdAt })
+      );
+
+      const result = await getOrderChatStatus(ORDER_ID, TOKEN);
+
+      expect(result.status).toBe('pending');
+      expect(result.expiresAt).toContain('2026-01-01T01:00:00');
+      expect(result.isExpired).toBe(true);
+      expect(mockedOrderRepository.findByIdWithToken).toHaveBeenCalledWith(
+        ORDER_ID,
+        TOKEN
+      );
+    });
+
+    test('rechaza un token inválido', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(undefined);
+
+      await expect(getOrderChatStatus(ORDER_ID, 'wrong-token')).rejects.toThrow(
+        NotFoundError
+      );
     });
   });
 });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { nanoid } from 'nanoid';
 import { groupPublicProductsByType } from '@/lib/catalog';
 import {
@@ -39,7 +40,9 @@ import {
 import { ProductCard } from './product-card';
 import { CartSummary } from './cart-summary';
 import { PedidoError } from './pedido-error';
+import { RecentOrdersBanner } from './recent-orders-banner';
 import { useCart } from '@/hooks/useCart';
+import { useRecentOrders } from '@/hooks/useRecentOrders';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
 import type { Branch } from '@/domain/types';
@@ -69,6 +72,7 @@ interface CreatedOrder {
   branchName: string | null;
   items: PublicOrderItem[];
   createdAt: string;
+  expiresAt: string;
   whatsappUrl: string | null;
 }
 
@@ -170,6 +174,9 @@ export function PedidoClient({
       products,
       getAvailability,
     });
+
+  const { orders: recentOrders, add: addRecentOrder, remove: removeRecentOrder } =
+    useRecentOrders();
 
   // Refresco periódico de disponibilidad.
   useEffect(() => {
@@ -316,6 +323,14 @@ export function PedidoClient({
       };
 
       setCreatedOrder({ ...order, whatsappUrl });
+      addRecentOrder({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        cancellationToken: order.cancellationToken,
+        expiresAt: order.expiresAt,
+        branchId: activeBranch.id,
+        branchName: order.branchName ?? activeBranch.name,
+      });
       setSuccessDialogOpen(true);
       setCheckoutOpen(false);
       clearCart();
@@ -409,6 +424,11 @@ export function PedidoClient({
         </div>
       )}
 
+      <RecentOrdersBanner
+        orders={recentOrders}
+        onDismiss={removeRecentOrder}
+      />
+
       <div className="space-y-2 rounded-2xl border border-white/8 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -417,6 +437,14 @@ export function PedidoClient({
             </h1>
             <p className="text-base text-muted-foreground">
               Elegí los productos y armá tu pedido.
+            </p>
+            <p className="mt-1 text-sm">
+              <Link
+                href="/pedido/seguimiento"
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                ¿Ya hiciste un pedido? Seguilo acá
+              </Link>
             </p>
           </div>
 

@@ -46,6 +46,9 @@ export default async function PedidoChatPage({
         orderId={orderId}
         token={token}
         initialMessages={context.messages}
+        initialTotal={context.total}
+        initialHasMore={context.hasMore}
+        initialIsExpired={context.isExpired}
         readOnly={context.status !== 'pending'}
         isClient
         chatApiUrl={PUBLIC_PEDIDO_CHAT_API(orderId)}
@@ -56,3 +59,5 @@ export default async function PedidoChatPage({
     </div>
   );
 }
+
+export const dynamic = 'force-dynamic';

@@ -83,6 +83,11 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
   const isMountedRef = useRef(true);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [initialMessages, setInitialMessages] = useState<OrderMessage[]>([]);
+  const [chatTotal, setChatTotal] = useState<number | undefined>(undefined);
+  const [chatHasMore, setChatHasMore] = useState<boolean | undefined>(undefined);
+  const [chatIsExpired, setChatIsExpired] = useState<boolean | undefined>(
+    undefined
+  );
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,9 +150,15 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
       if (messagesResponse.ok) {
         const messagesData = (await messagesResponse.json()) as {
           messages: OrderMessage[];
+          total: number;
+          hasMore: boolean;
+          isExpired: boolean;
         };
         if (isMountedRef.current) {
           setInitialMessages(messagesData.messages);
+          setChatTotal(messagesData.total);
+          setChatHasMore(messagesData.hasMore);
+          setChatIsExpired(messagesData.isExpired);
           setUnreadCount(data.order.unreadCount ?? 0);
         }
       }
@@ -442,6 +453,9 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
       <OrderChat
         orderId={order.id}
         initialMessages={initialMessages}
+        initialTotal={chatTotal}
+        initialHasMore={chatHasMore}
+        initialIsExpired={chatIsExpired}
         readOnly={order.status !== 'pending'}
         chatApiUrl={PEDIDOS_CHAT_API(order.id)}
         readApiUrl={PEDIDOS_CHAT_LEIDO_API(order.id)}

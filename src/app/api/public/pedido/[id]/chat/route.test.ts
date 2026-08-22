@@ -40,6 +40,10 @@ describe('GET /api/public/pedido/[id]/chat', () => {
     mockedChatService.listClientMessages.mockResolvedValue({
       messages: [{ id: 1, content: 'Hola' }] as any,
       status: 'pending',
+      total: 1,
+      hasMore: false,
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      isExpired: false,
     });
 
     const response = await GET(
@@ -49,14 +53,19 @@ describe('GET /api/public/pedido/[id]/chat', () => {
     const body = (await response.json()) as {
       messages: unknown[];
       status: string;
+      total: number;
+      hasMore: boolean;
     };
 
     expect(response.status).toBe(200);
     expect(body.messages).toHaveLength(1);
     expect(body.status).toBe('pending');
+    expect(body.total).toBe(1);
+    expect(body.hasMore).toBe(false);
     expect(mockedChatService.listClientMessages).toHaveBeenCalledWith(
       ORDER_ID,
-      TOKEN
+      TOKEN,
+      expect.any(Object)
     );
   });
 
@@ -116,6 +125,36 @@ describe('POST /api/public/pedido/[id]/chat', () => {
       buildRequest(`?token=${TOKEN}`, {
         method: 'POST',
         body: JSON.stringify({ content: '   ' }),
+      }),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  test('acepta contenido por query param cuando el body está vacío (fallback)', async () => {
+    const response = await POST(
+      buildRequest(`?token=${TOKEN}&content=${encodeURIComponent('Hola')}`, {
+        method: 'POST',
+        body: '',
+      }),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+    const body = (await response.json()) as { message: unknown };
+
+    expect(response.status).toBe(201);
+    expect(body.message).toEqual(expect.objectContaining({ content: 'Hola' }));
+    expect(mockedChatService.sendClientMessage).toHaveBeenCalledWith(
+      ORDER_ID,
+      TOKEN,
+      { content: 'Hola' }
+    );
+  });
+
+  test('rechaza POST sin body ni query param', async () => {
+    const response = await POST(
+      buildRequest(`?token=${TOKEN}`, {
+        method: 'POST',
       }),
       { params: Promise.resolve({ id: String(ORDER_ID) }) }
     );

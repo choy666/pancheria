@@ -81,3 +81,11 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **Usar `data-tour` en las secciones exclusivas de cada rol.** Las páginas administrativas (`/productos`, `/sucursales`, `/usuarios`) y el selector de sucursal deben tener sus propios atributos `data-tour` para que el tour las pueda resaltar.
 - **Nunca hardcodear rutas de navegación del tour.** Las URLs deben obtenerse de `src/config/routes.ts` para mantener consistencia con el resto de la aplicación.
 - **Usar `skipMissingElement: true` en pasos que resaltan elementos asíncronos.** El panel, las tablas y los selectores pueden no estar renderizados inmediatamente; `skipMissingElement` permite que el tour continúe sin romperse.
+
+## 10. Chat de pedidos
+
+- **No ramificar componentes por `process.env.NODE_ENV === 'test'`.** Usar props como `disablePollingOnMount` para controlar comportamientos específicos de tests, y dejar que el componente decida en runtime.
+- **Mantener un fallback por query param en `POST` de chat.** En Next.js 16.3.0 con Turbopack, `request.body` puede llegar `null` aunque el header `Content-Length` sea correcto. Las rutas deben aceptar JSON body y `?content=...`; el cliente puede enviar el contenido por query para evitar el bug. Documentar la decisión en `AGENTS.md`.
+- **Deshabilitar compresión en `NODE_ENV=test` si aparecen warnings de Gzip.** En E2E con `npm run dev`, `compress: true` puede generar `MaxListenersExceededWarning: 11 drain listeners added to [Gzip]` y errores de streams cerrados. Usar `compress: process.env.NODE_ENV !== 'test'` en `next.config.ts`.
+- **Usar cursores `before`/`after` para paginar mensajes.** El chat carga el historial con `before`, los nuevos mensajes del polling con `after`, y preserva el scroll al cargar mensajes anteriores. La página de chat público usa `dynamic = 'force-dynamic'`; no agregar directivas de cache redundantes.
+- **Recordar el `customerName` de seguimiento y validar el banner de pedidos recientes.** Usar helpers aislados (`last-customer-name.ts`, `recent-orders.ts`) y `useSyncExternalStore` para evitar hydration mismatch y duplicar lógica en componentes.

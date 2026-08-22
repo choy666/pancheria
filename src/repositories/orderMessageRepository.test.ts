@@ -11,6 +11,8 @@ var mockWhereReturning: jest.Mock;
 var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockWhere: jest.Mock;
+var mockFrom: jest.Mock;
+var mockSelect: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindMany = jest.fn();
@@ -20,7 +22,9 @@ jest.mock('@/db', () => {
   mockWhereReturning = jest.fn(() => ({ returning: mockReturning }));
   mockSet = jest.fn(() => ({ where: mockWhereReturning }));
   mockUpdate = jest.fn(() => ({ set: mockSet }));
-  mockWhere = jest.fn();
+  mockWhere = jest.fn().mockResolvedValue([{ count: 5 }]);
+  mockFrom = jest.fn(() => ({ where: mockWhere }));
+  mockSelect = jest.fn(() => ({ from: mockFrom }));
 
   return {
     db: {
@@ -29,6 +33,7 @@ jest.mock('@/db', () => {
       },
       insert: mockInsert,
       update: mockUpdate,
+      select: mockSelect,
     },
   };
 });
@@ -85,6 +90,49 @@ describe('orderMessageRepository', () => {
           offset: 40,
         })
       );
+    });
+
+    test('ordena ascendente por id cuando se consulta after', async () => {
+      mockFindMany.mockResolvedValue([buildMessage({ id: 5 })]);
+
+      const result = await orderMessageRepository.findByOrderId(ORDER_ID, {
+        after: 3,
+        limit: 10,
+      });
+
+      expect(result[0].id).toBe(5);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          limit: 10,
+        })
+      );
+    });
+
+    test('invierte el resultado cuando se consulta before', async () => {
+      mockFindMany.mockResolvedValue([buildMessage({ id: 2 }), buildMessage({ id: 1 })]);
+
+      const result = await orderMessageRepository.findByOrderId(ORDER_ID, {
+        before: 5,
+        limit: 10,
+      });
+
+      expect(result[0].id).toBe(1);
+      expect(result[1].id).toBe(2);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          limit: 10,
+        })
+      );
+    });
+  });
+
+  describe('countByOrderId', () => {
+    test('devuelve la cantidad de mensajes del pedido', async () => {
+      const result = await orderMessageRepository.countByOrderId(ORDER_ID);
+
+      expect(result).toBe(5);
+      expect(mockSelect).toHaveBeenCalledWith(expect.any(Object));
+      expect(mockFrom).toHaveBeenCalledWith(orderMessages);
     });
   });
 

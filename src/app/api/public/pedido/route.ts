@@ -9,6 +9,7 @@ import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import {
   getOrderRateLimitWindowMs,
   getOrderRateLimitMaxRequests,
+  getOrderExpirationMs,
 } from '@/config/orders';
 import type { PublicOrderItem } from '@/lib/whatsapp';
 
@@ -55,7 +56,13 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     quantity: item.quantity,
   }));
 
+  const expiresAt = new Date(
+    order.createdAt.getTime() + getOrderExpirationMs()
+  ).toISOString();
+
   const publicOrder = {
+    id: order.id,
+    cancellationToken: order.cancellationToken,
     items: publicItems,
     customerName: order.customerName,
     deliveryType: order.deliveryType,
@@ -89,6 +96,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         branchName: order.branch?.name,
         items: publicItems,
         createdAt: order.createdAt,
+        expiresAt,
       },
       whatsappUrl,
     },

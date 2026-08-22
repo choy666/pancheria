@@ -6,6 +6,7 @@ import {
   getPendingOrders,
   getOrders,
   expirePendingOrders,
+  trackOrder,
 } from './orderService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -992,6 +993,53 @@ describe('orderService', () => {
 
       expect(count).toBe(0);
       expect(mockedDb.query.orders.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('trackOrder', () => {
+    test('devuelve el pedido con token y expiresAt cuando está pending', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        branch: { id: BRANCH_ID, name: 'Sucursal Test', createdAt: new Date() },
+        items: [createOrderItemRow()],
+      });
+
+      const result = await trackOrder(
+        'PED-1-1234567890-abcdef',
+        'Juan Pérez'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.status).toBe('pending');
+      expect(result?.cancellationToken).toBe('token');
+      expect(result?.expiresAt).toBeDefined();
+      expect(result?.branchName).toBe('Sucursal Test');
+    });
+
+    test('no incluye token ni expiresAt cuando el pedido no está pending', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'converted' }),
+        branch: { id: BRANCH_ID, name: 'Sucursal Test', createdAt: new Date() },
+        items: [createOrderItemRow()],
+      });
+
+      const result = await trackOrder(
+        'PED-1-1234567890-abcdef',
+        'Juan Pérez'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.status).toBe('converted');
+      expect(result?.cancellationToken).toBeUndefined();
+      expect(result?.expiresAt).toBeUndefined();
+    });
+
+    test('devuelve null si no encuentra el pedido', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue(undefined);
+
+      const result = await trackOrder('PED-999', 'Juan Pérez');
+
+      expect(result).toBeNull();
     });
   });
 

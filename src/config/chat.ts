@@ -73,3 +73,13 @@ export function getChatAllowedImageMimeTypes(): string[] {
     .map((type) => type.trim())
     .filter(Boolean);
 }
+
+export function getChatPageSize(): number {
+  const raw = process.env.NEXT_PUBLIC_CHAT_PAGE_SIZE;
+  if (!raw) return 50;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return 50;
+
+  return Math.min(parsed, 100);
+}

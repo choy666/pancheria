@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { chatMessageContentSchema } from '@/lib/zod-schemas';
+import {
+  chatMessageContentSchema,
+  chatPaginationQuerySchema,
+} from '@/lib/zod-schemas';
 import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+
+const querySchema = chatPaginationQuerySchema;
 
 export const GET = withApiErrorHandling(
   async (
@@ -21,12 +26,24 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const { messages, status } = await chatService.listOperatorMessages(
-      orderId,
-      branchId
-    );
+    const { searchParams } = new URL(request.url);
+    const query = querySchema.parse(Object.fromEntries(searchParams));
 
-    return NextResponse.json({ messages, status });
+    const { messages, status, total, hasMore, expiresAt, isExpired } =
+      await chatService.listOperatorMessages(orderId, branchId, {
+        limit: query.limit,
+        before: query.before,
+        after: query.after,
+      });
+
+    return NextResponse.json({
+      messages,
+      status,
+      total,
+      hasMore,
+      expiresAt,
+      isExpired,
+    });
   }
 );
 
@@ -47,8 +64,12 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const body = await request.json();
-    const data = chatMessageContentSchema.parse(body);
+    const { searchParams } = new URL(request.url);
+    const queryContent = searchParams.get('content');
+    const body = await request.json().catch(() => ({}));
+    const data = chatMessageContentSchema.parse({
+      content: (body as { content?: string } | undefined)?.content ?? queryContent,
+    });
 
     const message = await chatService.sendOperatorMessage(orderId, branchId, {
       content: data.content,

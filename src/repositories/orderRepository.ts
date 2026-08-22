@@ -255,3 +255,17 @@ export async function cancel(
 
   return updated;
 }
+
+export async function findByOrderNumberAndCustomerName(
+  orderNumber: string,
+  customerName: string
+): Promise<OrderWithItems | undefined> {
+  return (await db.query.orders.findFirst({
+    where: and(
+      eq(orders.orderNumber, orderNumber),
+      eq(orders.customerName, customerName),
+      isNull(orders.deletedAt)
+    ),
+    with: { branch: true, items: { with: { product: true } } },
+  })) as OrderWithItems | undefined;
+}
