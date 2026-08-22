@@ -161,4 +161,24 @@ describe('POST /api/public/pedido/[id]/chat', () => {
 
     expect(response.status).toBe(400);
   });
+
+  test('rechaza contenido que supera el límite de caracteres', async () => {
+    const original = process.env.NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH;
+    process.env.NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH = '5';
+
+    try {
+      const response = await POST(
+        buildRequest(`?token=${TOKEN}`, {
+          method: 'POST',
+          body: JSON.stringify({ content: '123456' }),
+        }),
+        { params: Promise.resolve({ id: String(ORDER_ID) }) }
+      );
+
+      expect(response.status).toBe(400);
+      expect(mockedChatService.sendClientMessage).not.toHaveBeenCalled();
+    } finally {
+      process.env.NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH = original;
+    }
+  });
 });
