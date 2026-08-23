@@ -1,42 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorageProvider } from '@/config/videos';
-import { getStorageProvider as getProviderInstance } from '@/lib/storage';
+import {
+  getStorageProvider,
+  getVideoAllowedMimeTypes,
+  getVideoMaxSizeBytes,
+} from '@/config/videos';
+import {
+  getStorageProvider as getProviderInstance,
+  isValidLocalVideoKey,
+} from '@/lib/storage';
+import { requireAdmin } from '@/lib/auth';
+import { withApiErrorHandling } from '@/lib/api-handler';
+import { ValidationError } from '@/domain/errors';
 
-export async function POST(request: NextRequest) {
+export const POST = withApiErrorHandling(async (request: NextRequest) => {
+  await requireAdmin();
+
   const providerName = getStorageProvider();
 
   if (providerName !== 'local') {
-    return NextResponse.json(
-      { error: 'La subida directa solo está disponible en modo local.' },
-      { status: 400 }
+    throw new ValidationError('La subida directa solo está disponible en modo local.');
+  }
+
+  const formData = await request.formData();
+  const key = formData.get('key')?.toString();
+  const file = formData.get('file');
+
+  if (!key || !(file instanceof File)) {
+    throw new ValidationError('Faltan el identificador o el archivo.');
+  }
+
+  if (!isValidLocalVideoKey(key)) {
+    throw new ValidationError('El identificador del video no es válido.');
+  }
+
+  const allowedTypes = getVideoAllowedMimeTypes();
+  if (!allowedTypes.includes(file.type)) {
+    throw new ValidationError(
+      `El tipo de archivo ${file.type} no está permitido. Tipos permitidos: ${allowedTypes.join(', ')}.`
     );
   }
 
-  try {
-    const formData = await request.formData();
-    const key = formData.get('key')?.toString();
-    const file = formData.get('file');
-
-    if (!key || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: 'Faltan el identificador o el archivo.' },
-        { status: 400 }
-      );
-    }
-
-    const provider = getProviderInstance('local');
-    if (!provider.saveFile) {
-      return NextResponse.json(
-        { error: 'El proveedor local no soporta guardar archivos.' },
-        { status: 500 }
-      );
-    }
-    const publicUrl = await provider.saveFile(key, file);
-
-    return NextResponse.json({ url: publicUrl }, { status: 200 });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Error al guardar el archivo.';
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (file.size > getVideoMaxSizeBytes()) {
+    throw new ValidationError(
+      `El archivo supera el tamaño máximo permitido de ${getVideoMaxSizeBytes()} bytes.`
+    );
   }
-}
+
+  const provider = getProviderInstance('local');
+  if (!provider.saveFile) {
+    throw new Error('El proveedor local no soporta guardar archivos.');
+  }
+
+  const publicUrl = await provider.saveFile(key, file);
+
+  return NextResponse.json({ url: publicUrl }, { status: 200 });
+});

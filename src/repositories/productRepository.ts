@@ -1,6 +1,7 @@
 import { eq, inArray, isNull, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { products } from '@/db/schema';
+import { getCurrentTransaction } from '@/application/transactionService';
 import { nowUTC } from '@/lib/date';
 import type { ProductRow } from '@/domain/types';
 import type { productSchema } from '@/lib/zod-schemas';
@@ -24,6 +25,27 @@ export async function findAll(
   });
 }
 
+export async function findByIdForUpdate(
+  branchId: number,
+  id: number,
+  includeDeleted = false,
+  dbOrTx?: typeof db
+): Promise<ProductRow | null> {
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  const conditions = [eq(products.id, id), eq(products.branchId, branchId)];
+  if (!includeDeleted) {
+    conditions.push(isNull(products.deletedAt));
+  }
+
+  const [result] = await client
+    .select()
+    .from(products)
+    .where(and(...conditions))
+    .for('update');
+
+  return result ?? null;
+}
+
 export async function findById(
   branchId: number,
   id: number,
@@ -44,10 +66,11 @@ export async function findByIds(
   branchId: number,
   ids: number[],
   includeDeleted = false,
-  dbOrTx: typeof db = db
+  dbOrTx?: typeof db
 ): Promise<ProductRow[]> {
   if (ids.length === 0) return [];
 
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
   const conditions = [
     inArray(products.id, ids),
     eq(products.branchId, branchId),
@@ -56,9 +79,33 @@ export async function findByIds(
     conditions.push(isNull(products.deletedAt));
   }
 
-  return dbOrTx.query.products.findMany({
+  return client.query.products.findMany({
     where: and(...conditions),
   });
+}
+
+export async function findByIdsForUpdate(
+  branchId: number,
+  ids: number[],
+  includeDeleted = false,
+  dbOrTx?: typeof db
+): Promise<ProductRow[]> {
+  if (ids.length === 0) return [];
+
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  const conditions = [
+    inArray(products.id, ids),
+    eq(products.branchId, branchId),
+  ];
+  if (!includeDeleted) {
+    conditions.push(isNull(products.deletedAt));
+  }
+
+  return client
+    .select()
+    .from(products)
+    .where(and(...conditions))
+    .for('update');
 }
 
 export async function findActive(branchId: number): Promise<ProductRow[]> {
@@ -88,9 +135,11 @@ export async function create(data: ProductInsert & { branchId: number }): Promis
 export async function update(
   branchId: number,
   id: number,
-  data: ProductUpdate
+  data: ProductUpdate,
+  dbOrTx?: typeof db
 ): Promise<ProductRow | null> {
-  const [result] = await db
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  const [result] = await client
     .update(products)
     .set({
       ...data,

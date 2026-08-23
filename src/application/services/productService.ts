@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
+import { executeInTransaction } from '@/application/transactionService';
 import * as productRepository from '@/repositories/productRepository';
 import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
@@ -65,51 +66,52 @@ export async function updateProduct(
   id: number,
   data: ProductUpdate
 ) {
-  const existing = await getProductById(branchId, id);
-
-  try {
-    productUpdateSchema.parse({ ...existing, ...data });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      throw new ValidationError(error.issues.map((e) => e.message).join('. '));
-    }
-    throw error;
-  }
-
   const updateData = { ...data };
-  const effectiveType = updateData.type ?? existing.type;
-
   delete updateData.stock;
 
-  if (effectiveType === 'compound' || effectiveType === 'service') {
-    updateData.stock = 0;
-    updateData.minStock = 0;
-  }
+  return executeInTransaction(async (tx) => {
+    const current = await productRepository.findByIdForUpdate(branchId, id, false);
+    if (!current) throw new NotFoundError('Producto', id);
 
-  if (updateData.type && updateData.type !== existing.type) {
-    if (existing.type === 'compound') {
-      await db
-        .delete(recipes)
-        .where(eq(recipes.compoundProductId, id));
+    try {
+      productUpdateSchema.parse({ ...current, ...data });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError(error.issues.map((e) => e.message).join('. '));
+      }
+      throw error;
     }
 
-    const usedAsSupply = await db.query.recipes.findMany({
-      where: eq(recipes.supplyId, id),
-      with: { compoundProduct: true },
-    });
+    const effectiveType = updateData.type ?? current.type;
 
-    const usedInActiveRecipe = usedAsSupply.some(
-      (recipe) => recipe.compoundProduct && !recipe.compoundProduct.deletedAt
-    );
+    if (effectiveType === 'compound' || effectiveType === 'service') {
+      updateData.stock = 0;
+      updateData.minStock = 0;
+    }
 
-    if (usedInActiveRecipe) {
-      throw new ValidationError(
-        'No se puede cambiar el tipo porque el producto está usado en una receta.'
+    if (updateData.type && updateData.type !== current.type) {
+      if (current.type === 'compound') {
+        await tx.delete(recipes).where(eq(recipes.compoundProductId, id));
+      }
+
+      const usedAsSupply = await tx.query.recipes.findMany({
+        where: eq(recipes.supplyId, id),
+        with: { compoundProduct: true },
+      });
+
+      const usedInActiveRecipe = usedAsSupply.some(
+        (recipe) => recipe.compoundProduct && !recipe.compoundProduct.deletedAt
       );
-    }
-  }
 
-  return productRepository.update(branchId, id, updateData);
+      if (usedInActiveRecipe) {
+        throw new ValidationError(
+          'No se puede cambiar el tipo porque el producto está usado en una receta.'
+        );
+      }
+    }
+
+    return productRepository.update(branchId, id, updateData);
+  });
 }
 
 export async function deleteProduct(branchId: number, id: number) {

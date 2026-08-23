@@ -1,12 +1,14 @@
 import { createReadStream, statSync } from 'fs';
-import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorageProvider } from '@/config/videos';
 import {
   getStorageProvider as getProviderInstance,
-  getLocalStorageDir,
   guessMimeType,
+  resolveLocalVideoPath,
 } from '@/lib/storage';
+import { requireAdmin } from '@/lib/auth';
+import { withApiErrorHandling } from '@/lib/api-handler';
+import { NotFoundError } from '@/domain/errors';
 
 function fileToWebStream(
   filePath: string,
@@ -96,24 +98,37 @@ function parseRange(
   return { start, end: Math.min(end, fileSize - 1) };
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const key = decodeURIComponent(id);
+export const GET = withApiErrorHandling(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+  ) => {
+    await requireAdmin();
 
-  const providerName = getStorageProvider();
+    const { id } = await params;
+    const key = decodeURIComponent(id);
 
-  if (providerName !== 'local') {
-    const provider = getProviderInstance(providerName);
-    return NextResponse.redirect(provider.getPublicUrl(key));
-  }
+    const providerName = getStorageProvider();
 
-  const filePath = path.join(getLocalStorageDir(), key);
+    if (providerName !== 'local') {
+      const provider = getProviderInstance(providerName);
+      return NextResponse.redirect(provider.getPublicUrl(key));
+    }
 
-  try {
-    const stats = statSync(filePath);
+    let filePath: string;
+    try {
+      filePath = resolveLocalVideoPath(key);
+    } catch {
+      throw new NotFoundError('Video');
+    }
+
+    let stats;
+    try {
+      stats = statSync(filePath);
+    } catch {
+      throw new NotFoundError('Video');
+    }
+
     const fileSize = stats.size;
     const mimeType = guessMimeType(key);
 
@@ -154,10 +169,5 @@ export async function GET(
         'Content-Length': String(chunkSize),
       },
     });
-  } catch {
-    return NextResponse.json(
-      { error: 'Video no encontrado.' },
-      { status: 404 }
-    );
   }
-}
+);

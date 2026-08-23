@@ -283,6 +283,10 @@ function setProducts(productsList: Partial<ProductRow>[]) {
     async (_branchId: number, ids: number[], _includeDeleted?: boolean) =>
       normalized.filter((p) => ids.includes(p.id))
   );
+  mockedProductRepository.findByIdsForUpdate.mockImplementation(
+    async (_branchId: number, ids: number[], _includeDeleted?: boolean) =>
+      normalized.filter((p) => ids.includes(p.id))
+  );
   mockedProductRepository.findById.mockImplementation(
     async (_branchId: number, id: number) =>
       normalized.find((p) => p.id === id) ?? null

@@ -25,17 +25,25 @@ export interface ProductAvailability {
 export async function buildProductContext(
   branchId: number,
   productIds: number[],
-  options?: { includeDeleted?: boolean }
+  options?: { includeDeleted?: boolean; dbOrTx?: typeof import('@/db').db }
 ): Promise<{
   productsList: ProductRow[];
   productById: Map<number, ProductRow>;
   recipesByProduct: Map<number, RecipeWithSupply[]>;
 }> {
-  const productsList = await productRepository.findByIds(
-    branchId,
-    productIds,
-    options?.includeDeleted
-  );
+  const client = options?.dbOrTx;
+  const productsList = client
+    ? await productRepository.findByIdsForUpdate(
+        branchId,
+        productIds,
+        options?.includeDeleted,
+        client
+      )
+    : await productRepository.findByIds(
+        branchId,
+        productIds,
+        options?.includeDeleted
+      );
 
   if (productsList.length !== productIds.length) {
     throw new NotFoundError('Producto');
@@ -49,7 +57,11 @@ export async function buildProductContext(
 
   let recipesByProduct = new Map<number, RecipeWithSupply[]>();
   if (compoundProductIds.length > 0) {
-    const allRecipes = await findRecipesForProducts(branchId, compoundProductIds);
+    const allRecipes = await findRecipesForProducts(
+      branchId,
+      compoundProductIds,
+      client
+    );
     recipesByProduct = groupRecipesByProduct(allRecipes);
   }
 
@@ -66,9 +78,19 @@ interface AvailabilityContext {
 
 async function buildAvailabilityContext(
   branchId: number,
-  productIds: number[]
+  productIds: number[],
+  dbOrTx?: typeof import('@/db').db
 ): Promise<AvailabilityContext> {
-  const productsList = await productRepository.findByIds(branchId, productIds);
+  const client = dbOrTx;
+  const productsList = client
+    ? await productRepository.findByIdsForUpdate(
+        branchId,
+        productIds,
+        false,
+        client
+      )
+    : await productRepository.findByIds(branchId, productIds);
+
   const productById = new Map(productsList.map((p) => [p.id, p]));
 
   const compoundProductIds = productsList
@@ -90,7 +112,11 @@ async function buildAvailabilityContext(
   }
 
   if (compoundProductIds.length > 0) {
-    const allRecipes = await findRecipesForProducts(branchId, compoundProductIds);
+    const allRecipes = await findRecipesForProducts(
+      branchId,
+      compoundProductIds,
+      client
+    );
 
     for (const recipeItem of allRecipes) {
       if (recipeItem.autoDiscount) {
@@ -242,7 +268,8 @@ export function validateProductsForOperation(
 export async function validateCartAvailability(
   branchId: number,
   items: SaleItemInput[],
-  productIds?: number[]
+  productIds?: number[],
+  dbOrTx?: typeof import('@/db').db
 ): Promise<{
   availabilityByProduct: Record<number, number>;
   consumedBySupply: Record<number, number>;
@@ -260,7 +287,7 @@ export async function validateCartAvailability(
     recipesByProduct,
     supplyStockById,
     supplyNameById,
-  } = await buildAvailabilityContext(branchId, allProductIds);
+  } = await buildAvailabilityContext(branchId, allProductIds, dbOrTx);
 
   for (const item of items) {
     if (!productById.has(item.productId)) {

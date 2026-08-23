@@ -199,6 +199,10 @@ function setProducts(productsList: Partial<ProductRow>[]) {
   mockedProductRepository.findByIds.mockImplementation(async (_branchId: number, ids: number[]) =>
     normalized.filter((p) => ids.includes(p.id))
   );
+  mockedProductRepository.findByIdsForUpdate.mockImplementation(
+    async (_branchId: number, ids: number[]) =>
+      normalized.filter((p) => ids.includes(p.id))
+  );
   mockedProductRepository.findById.mockImplementation(
     async (_branchId: number, id: number) => normalized.find((p) => p.id === id) ?? null
   );

@@ -94,7 +94,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock rechaza stock negativo', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
@@ -102,7 +102,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock rechaza cantidad cero', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
@@ -110,7 +110,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock rechaza motivo corto', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
@@ -118,7 +118,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock ajusta correctamente', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
@@ -127,7 +127,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock con type restock usa el tipo recibido', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 0 })
     );
 
@@ -151,7 +151,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock rechaza un tipo inválido', async () => {
-    mockedProductRepository.findById.mockResolvedValue(
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
     );
 
@@ -220,7 +220,7 @@ describe('stockService', () => {
   });
 
   test('adjustStock lanza NotFoundError cuando el producto no existe', async () => {
-    mockedProductRepository.findById.mockResolvedValue(null);
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(null);
 
     await expect(adjustStock(BRANCH_ID, 999, 5, 'Ajuste de prueba')).rejects.toThrow(NotFoundError);
   });

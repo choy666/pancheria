@@ -74,19 +74,26 @@ export async function createOrder(
     return existing;
   }
 
-  const productIds = items.map((item) => item.productId);
-  const { productById } = await buildProductContext(branchId, productIds);
-
-  validateProductsForOperation(items, productById, branchId, 'pedido');
-
-  const { shortageByProduct } = await validateCartAvailability(branchId, items);
-
-  assertNoStockShortage(shortageByProduct, productById);
-
-  const { saleItemValues: orderItemValues, total: orderTotal } =
-    buildSaleItemValues(productById, items);
-
   return executeInTransaction(async (tx) => {
+    const productIds = items.map((item) => item.productId);
+    const { productById } = await buildProductContext(branchId, productIds, {
+      dbOrTx: tx,
+    });
+
+    validateProductsForOperation(items, productById, branchId, 'pedido');
+
+    const { shortageByProduct } = await validateCartAvailability(
+      branchId,
+      items,
+      undefined,
+      tx
+    );
+
+    assertNoStockShortage(shortageByProduct, productById);
+
+    const { saleItemValues: orderItemValues, total: orderTotal } =
+      buildSaleItemValues(productById, items);
+
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
 
@@ -221,28 +228,6 @@ export async function convertOrderToSale(
     throw new ValidationError('El pedido no está pendiente de confirmación.');
   }
 
-  const productIds = order.items.map((item) => item.productId);
-  const { productById, recipesByProduct } = await buildProductContext(
-    branchId,
-    productIds
-  );
-
-  validateProductsForOperation(order.items, productById, branchId, 'venta');
-
-  const { shortageByProduct } = await validateCartAvailability(branchId, order.items);
-
-  assertNoStockShortage(shortageByProduct, productById);
-
-  const { saleItemValues, total: saleTotal } = buildSaleItemValues(
-    productById,
-    order.items.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      subtotal: item.subtotal,
-    }))
-  );
-
   return executeInTransaction(async (tx) => {
     const lockedOrder = await orderRepository.findByIdForUpdate(
       tx,
@@ -257,6 +242,34 @@ export async function convertOrderToSale(
     if (lockedOrder.status !== 'pending') {
       throw new ValidationError('El pedido no está pendiente de confirmación.');
     }
+
+    const productIds = order.items.map((item) => item.productId);
+    const { productById, recipesByProduct } = await buildProductContext(
+      branchId,
+      productIds,
+      { dbOrTx: tx }
+    );
+
+    validateProductsForOperation(order.items, productById, branchId, 'venta');
+
+    const { shortageByProduct } = await validateCartAvailability(
+      branchId,
+      order.items,
+      undefined,
+      tx
+    );
+
+    assertNoStockShortage(shortageByProduct, productById);
+
+    const { saleItemValues, total: saleTotal } = buildSaleItemValues(
+      productById,
+      order.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+      }))
+    );
 
     const sale = await insertSaleAndUpdateCashRegister(
       tx,

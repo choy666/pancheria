@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { db } from '@/db';
 import { products, stockMovements } from '@/db/schema';
+import { executeInTransaction } from '@/application/transactionService';
 import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
 import { nowUTC } from '@/lib/date';
@@ -31,13 +31,6 @@ export async function adjustStock(
   reason: string,
   type: StockMovementType = 'manual_adjustment'
 ) {
-  const product = await productRepository.findById(branchId, productId);
-  if (!product) throw new NotFoundError('Producto', productId);
-
-  if (product.branchId !== branchId) {
-    throw new NotFoundError('Producto', productId);
-  }
-
   validateMinLength(reason, 3, 'El motivo del ajuste');
 
   if (!STOCK_MOVEMENT_TYPES.includes(type)) {
@@ -48,14 +41,29 @@ export async function adjustStock(
     throw new ValidationError('La cantidad no puede ser cero.');
   }
 
-  const newStock = product.stock + quantity;
-  if (newStock < 0) {
-    throw new ValidationError(
-      `El ajuste dejaría el stock de ${product.name} en negativo.`
+  return executeInTransaction(async (tx) => {
+    const current = await productRepository.findByIdForUpdate(
+      branchId,
+      productId,
+      false,
+      tx
     );
-  }
 
-  await db.transaction(async (tx) => {
+    if (!current) {
+      throw new NotFoundError('Producto', productId);
+    }
+
+    if (current.branchId !== branchId) {
+      throw new NotFoundError('Producto', productId);
+    }
+
+    const newStock = current.stock + quantity;
+    if (newStock < 0) {
+      throw new ValidationError(
+        `El ajuste dejaría el stock de ${current.name} en negativo.`
+      );
+    }
+
     await tx
       .update(products)
       .set({ stock: newStock })
@@ -69,9 +77,9 @@ export async function adjustStock(
       reason,
       createdAt: nowUTC(),
     });
-  });
 
-  return { productId, newStock };
+    return { productId, newStock };
+  });
 }
 
 export async function getStockHistory(

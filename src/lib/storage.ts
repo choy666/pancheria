@@ -17,6 +17,33 @@ export function guessMimeType(filename: string): string {
   return mimeTypesByExtension[extension] ?? 'video/mp4';
 }
 
+const SAFE_LOCAL_VIDEO_KEY_PATTERN = /^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)?$/;
+const SAFE_LOCAL_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.ogg', '.ogv']);
+
+export function isValidLocalVideoKey(key: string): boolean {
+  if (typeof key !== 'string' || key.length === 0) return false;
+  if (!SAFE_LOCAL_VIDEO_KEY_PATTERN.test(key)) return false;
+  const ext = path.extname(key).toLowerCase();
+  if (ext === '') return false;
+  return SAFE_LOCAL_VIDEO_EXTENSIONS.has(ext);
+}
+
+export function resolveLocalVideoPath(key: string, baseDir?: string): string {
+  if (!isValidLocalVideoKey(key)) {
+    throw new Error('Identificador de video inválido.');
+  }
+  const dir = baseDir ?? getLocalStorageDir();
+  const resolved = path.resolve(
+    /*turbopackIgnore: true*/ dir,
+    /*turbopackIgnore: true*/ key
+  );
+  const baseResolved = path.resolve(/*turbopackIgnore: true*/ dir);
+  if (!resolved.startsWith(baseResolved + path.sep)) {
+    throw new Error('Ruta de video fuera del directorio permitido.');
+  }
+  return resolved;
+}
+
 export interface FileInfo {
   name: string;
   type: string;
@@ -77,22 +104,23 @@ class LocalStorageProvider implements StorageProvider {
 
   async saveFile(key: string, file: File): Promise<string> {
     const dir = getLocalStorageDir();
-    await fs.mkdir(dir, { recursive: true });
-    const filePath = path.join(/*turbopackIgnore: true*/ dir, /*turbopackIgnore: true*/ key);
+    const filePath = resolveLocalVideoPath(key, dir);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     const arrayBuffer = await file.arrayBuffer();
     await fs.writeFile(filePath, Buffer.from(arrayBuffer));
     return this.getPublicUrl(key);
   }
 
   async readFile(key: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    if (!isValidLocalVideoKey(key)) return null;
     const dir = getLocalStorageDir();
-    const files = await fs.readdir(/*turbopackIgnore: true*/ dir);
-    const match = files.find((f) => f === key);
-    if (!match) return null;
-
-    const filePath = path.join(/*turbopackIgnore: true*/ dir, /*turbopackIgnore: true*/ key);
-    const buffer = await fs.readFile(filePath);
-    return { buffer, mimeType: guessMimeType(key) };
+    const filePath = resolveLocalVideoPath(key, dir);
+    try {
+      const buffer = await fs.readFile(/*turbopackIgnore: true*/ filePath);
+      return { buffer, mimeType: guessMimeType(key) };
+    } catch {
+      return null;
+    }
   }
 }
 

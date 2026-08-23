@@ -20,6 +20,11 @@ import type { ProductRow } from '@/domain/types';
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/recipeRepository');
 jest.mock('@/application/services/saleService');
+jest.mock('@/application/transactionService', () => ({
+  executeInTransaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(db)
+  ),
+}));
 jest.mock('@/db', () => ({
   db: {
     delete: jest.fn().mockReturnThis(),
@@ -50,6 +55,13 @@ const BRANCH_ID = 1;
 describe('productService', () => {
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    mockedProductRepository.findByIdForUpdate.mockImplementation(
+      async (branchId: number, id: number, includeDeleted = false) =>
+        mockedProductRepository.findById(branchId, id, includeDeleted)
+    );
   });
 
   describe('listProducts', () => {

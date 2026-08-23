@@ -450,24 +450,30 @@ export async function confirmSale(params: {
     throw new ValidationError('La caja abierta no pertenece a la sucursal.');
   }
 
-  const productIds = items.map((item) => item.productId);
-  const { productById, recipesByProduct } = await buildProductContext(
-    branchId,
-    productIds
-  );
-
-  validateProductsForOperation(items, productById, branchId, 'venta');
-
-  const { shortageByProduct } = await validateCartAvailability(branchId, items);
-
-  assertNoStockShortage(shortageByProduct, productById);
-
-  const { saleItemValues, total: saleTotal } = buildSaleItemValues(
-    productById,
-    items
-  );
-
   return executeInTransaction(async (tx) => {
+    const productIds = items.map((item) => item.productId);
+    const { productById, recipesByProduct } = await buildProductContext(
+      branchId,
+      productIds,
+      { dbOrTx: tx }
+    );
+
+    validateProductsForOperation(items, productById, branchId, 'venta');
+
+    const { shortageByProduct } = await validateCartAvailability(
+      branchId,
+      items,
+      undefined,
+      tx
+    );
+
+    assertNoStockShortage(shortageByProduct, productById);
+
+    const { saleItemValues, total: saleTotal } = buildSaleItemValues(
+      productById,
+      items
+    );
+
     return insertSaleAndUpdateCashRegister(
       tx,
       branchId,

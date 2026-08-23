@@ -29,6 +29,32 @@ function getLocalBaseUrl(): string {
   return env.replace(/\/$/, '');
 }
 
+const CHAT_KEY_PATTERN = /^chat\/\d+\/[A-Za-z0-9_-]+(?:\.(?:jpg|jpeg|png|webp))?$/;
+
+export function isValidChatAttachmentKey(key: string): boolean {
+  if (typeof key !== 'string' || key.length === 0) return false;
+  return CHAT_KEY_PATTERN.test(key);
+}
+
+export function resolveChatAttachmentPath(
+  key: string,
+  basePath?: string
+): string {
+  if (!isValidChatAttachmentKey(key)) {
+    throw new Error('Clave de adjunto inválida.');
+  }
+  const base = basePath ?? getChatLocalStorageBasePath();
+  const resolved = path.resolve(
+    /*turbopackIgnore: true*/ base,
+    /*turbopackIgnore: true*/ key
+  );
+  const baseResolved = path.resolve(/*turbopackIgnore: true*/ base);
+  if (!resolved.startsWith(baseResolved + path.sep)) {
+    throw new Error('Ruta de adjunto fuera del directorio permitido.');
+  }
+  return resolved;
+}
+
 export function getChatLocalStorageBasePath(): string {
   return (
     process.env.CHAT_LOCAL_STORAGE_PATH ??
@@ -92,10 +118,9 @@ async function saveLocal(
 ): Promise<SavedChatAttachment> {
   const key = `chat/${orderId}/${nanoid()}${getExtension(info.type)}`;
   const basePath = getChatLocalStorageBasePath();
-  const dir = path.join(/*turbopackIgnore: true*/ basePath, /*turbopackIgnore: true*/ path.dirname(key));
-  await fs.mkdir(/*turbopackIgnore: true*/ dir, { recursive: true });
+  const filePath = resolveChatAttachmentPath(key, basePath);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
 
-  const filePath = path.join(/*turbopackIgnore: true*/ basePath, /*turbopackIgnore: true*/ key);
   const arrayBuffer = await file.arrayBuffer();
   await fs.writeFile(/*turbopackIgnore: true*/ filePath, Buffer.from(arrayBuffer));
 
@@ -223,14 +248,17 @@ async function saveS3R2(
 export async function readChatAttachment(
   key: string
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  if (!isValidChatAttachmentKey(key)) {
+    return null;
+  }
+
   const provider = getGlobalStorageProvider();
 
   if (provider !== 'local') {
     return null;
   }
 
-  const basePath = getChatLocalStorageBasePath();
-  const filePath = path.join(/*turbopackIgnore: true*/ basePath, /*turbopackIgnore: true*/ key);
+  const filePath = resolveChatAttachmentPath(key);
 
   try {
     const buffer = await fs.readFile(/*turbopackIgnore: true*/ filePath);

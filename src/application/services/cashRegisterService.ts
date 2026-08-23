@@ -59,7 +59,7 @@ export async function getOpenCashRegister(branchId: number) {
         .update(cashRegisters)
         .set({
           status: 'closed',
-          closedAt: closeThreshold,
+          closedAt: nowUTC(),
           closedBy: AUTO_CLOSED_BY,
           autoClosed: true,
           ...summary,
