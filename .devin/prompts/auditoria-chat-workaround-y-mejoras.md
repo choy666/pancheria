@@ -4,7 +4,7 @@
 
 Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja y cierre de caja.
 
-Stack: Next.js 16.3.0, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM con PostgreSQL (Neon), NextAuth v5.
+Stack: Next.js 16.3.2, React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon), NextAuth v5.
 
 Documentación de referencia:
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />

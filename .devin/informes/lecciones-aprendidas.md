@@ -14,7 +14,7 @@
 - **No usar `DATABASE_URL` apuntando a `localhost` salvo que haya un PostgreSQL local corriendo.** En desarrollo se recomienda apuntar a la misma base de Neon usada en producción para garantizar comportamiento idéntico.
 - **Soportar la jerarquía de variables de Vercel Postgres.** El runtime debe probar `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`. Las migraciones deben probar `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.
 - **Nunca hardcodear credenciales, secretos ni URLs de API en el código.** Todos los valores sensibles deben venir de variables de entorno o configuraciones dinámicas.
-- **Verificar `NEXTAUTH_URL` y `AUTH_URL` en Vercel tras cada deploy.** Si `NEXTAUTH_URL` (o `AUTH_URL`, que en NextAuth v5 tiene prioridad) apunta a `http://localhost:3000`, el middleware redirige a `localhost` en lugar del dominio de producción.
+- **Verificar `NEXTAUTH_URL` y `AUTH_URL` en Vercel tras cada deploy.** Si `NEXTAUTH_URL` (o `AUTH_URL`, que en NextAuth v5 tiene prioridad) apunta a `http://localhost:3000`, las redirecciones de autenticación (ya sea por middleware o por Server Components) pueden enviar a `localhost` en lugar del dominio de producción.
 - **No usar `STORAGE_PROVIDER=local` en producción si se almacenan videos.** El filesystem de Vercel es efímero; usar `vercel-blob`, `s3` o `r2` con sus credenciales. También se recomienda `vercel-blob` en desarrollo para no depender del filesystem local.
 - **Ejecutar tests E2E solo en bases de datos de prueba.** `tests/e2e/global-setup.ts` trunca tablas de negocio y re-seedea. No usar en producción ni contra datos reales.
 
@@ -26,6 +26,7 @@
 - **Eliminar duplicaciones en helpers E2E.** Centralizar funciones como `unique`, `login` y `createProductViaApi` en `tests/e2e/helpers.ts`.
 - **No ocultar reglas de negocio en helpers de test.** Los productos nuevos nacen con `stock: 0` y la carga inicial se registra con un movimiento `type: 'restock'`. Separar `createProductViaApi` de `restockProductViaApi` para mantener la regla visible.
 - **No leer `localStorage` ni otras APIs del cliente durante el render de un Client Component.** Eso incluye pasar el resultado como estado inicial de `useState`. En el primer render del servidor y del cliente el valor de `localStorage` no coincide, lo que provoca hydration mismatch. Inicializar el estado con un valor seguro para SSR (por ejemplo un arreglo vacío) y cargar el valor real en un `useEffect`. Ver el patrón aplicado en `useCart`.
+- **No asumir que un archivo con lógica de middleware se ejecuta si no sigue la convención de Next.js.** Next.js reconoce `src/middleware.ts` (o `middleware.ts`) como middleware; un archivo como `src/proxy.ts` no se ejecuta aunque exporte `auth`. Las redirecciones deben vivir en middleware, layouts o Server Components de forma consistente.
 
 ## 3. Manejo de errores y validaciones
 

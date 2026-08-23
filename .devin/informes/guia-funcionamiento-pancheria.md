@@ -1,6 +1,6 @@
 # Guía de funcionamiento y manejo de la aplicación — Panchería
 
-**Fecha:** 2026-08-18  
+**Fecha:** 2026-08-23  
 **Proyecto:** `pancheria`  
 **Basada en:** código actual, `AGENTS.md`, `README.md`, <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> y <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />.
 
@@ -395,7 +395,9 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 | `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` | Refresco del listado de pedidos del operador | `10000` ms |
 | `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat del pedido | `5000` ms |
 | `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` | Longitud máxima de mensaje de chat | `1000` caracteres |
+| `NEXT_PUBLIC_CHAT_PAGE_SIZE` | Mensajes de chat por página | `50` (máximo `100`) |
 | `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño máximo de imagen en chat | `5` MB |
+| `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout por defecto de requests al API | `30000` ms |
 | `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp para pedidos (fallback) | — |
@@ -437,9 +439,11 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
    - Ajustar stock por rotura/pérdida con movimiento `manual_adjustment` y motivo claro.
    - Revisar alertas de stock bajo periódicamente.
 
-3. **Pedidos por WhatsApp**
-   - Configurar `NEXT_PUBLIC_WHATSAPP_NUMBER` en producción.
-   - El cliente envía el mensaje; el operador confirma el pedido en `/pedidos` cuando la caja esté abierta.
+3. **Pedidos públicos y chat**
+   - El cliente arma el pedido desde `/pedido` y lo confirma en la app.
+   - Si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, la app también ofrece un mensaje de WhatsApp como fallback.
+   - El cliente coordina con la sucursal por el chat del pedido (`/pedido/[id]/chat`) o, si prefiere, por WhatsApp.
+   - El operador confirma el pedido en `/pedidos` cuando la caja esté abierta.
    - Si el cliente cancela, no se modifica stock; el pedido pasa a `cancelled`.
 
 4. **Cierre de caja**
@@ -485,6 +489,6 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 
 ## 17. Conclusión
 
-Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos por WhatsApp. El flujo central es: **abrir caja → vender/confirmar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock; el stock se descuenta únicamente cuando el operador confirma el pedido desde el panel.
+Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado. WhatsApp funciona como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. El flujo central es: **abrir caja → vender/confirmar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock; el stock se descuenta únicamente cuando el operador confirma el pedido desde el panel.
 
 Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`.

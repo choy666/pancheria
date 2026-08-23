@@ -52,6 +52,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_API_TIMEOUT_MS` (opcional) — timeout por defecto para solicitudes al API desde el cliente en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del chat del pedido en milisegundos (por defecto 5000 ms).
 - `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` (opcional) — longitud máxima de un mensaje de chat en caracteres (por defecto 1000).
+- `NEXT_PUBLIC_CHAT_PAGE_SIZE` (opcional) — cantidad de mensajes de chat por página (por defecto 50; máximo 100).
 - `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit del chat en milisegundos (por defecto 60000 ms).
 - `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de mensajes de chat por IP en la ventana (por defecto 60).
 - `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen en el chat en MB (por defecto 5).
@@ -68,7 +69,7 @@ Copiar `.env.example` a `.env.local` y completar:
   - `db`: en PostgreSQL usando la tabla `login_attempts` (por defecto en producción cuando `DATABASE_URL` o `POSTGRES_URL` están definidas; configurable explícitamente con `RATE_LIMIT_STORE_PROVIDER=db`).
 - `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` (opcional) — ID de la aplicación receptora de Google Cast (por defecto `CC1AD845`).
 - `NEXT_PUBLIC_CAST_SENDER_SDK_URL` (opcional) — URL del SDK de Cast (por defecto `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`).
-- `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; en `.env.example` figura 250 MB como referencia).
+- `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; descomentar en `.env.example` para sobrescribir).
 - `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES` (opcional) — tipos MIME permitidos separados por coma (por defecto `video/mp4,video/webm,video/ogg`).
 - `STORAGE_PROVIDER` (opcional) — proveedor de almacenamiento de videos y adjuntos de chat: `local` (por defecto), `vercel-blob`, `s3` o `r2`. Se recomienda `vercel-blob` en desarrollo y producción si se usa `/videos` o chat con imágenes; requiere `BLOB_READ_WRITE_TOKEN`.
 - `BLOB_READ_WRITE_TOKEN` — token de Vercel Blob, requerido si `STORAGE_PROVIDER=vercel-blob`.
@@ -117,7 +118,7 @@ Copiar `.env.example` a `.env.local` y completar:
   - `validation-helpers` — validaciones reutilizables.
 
 ## Tecnologías
-- Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM, PostgreSQL, NextAuth v5.
+- Next.js 16.3.2, React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2, PostgreSQL, NextAuth v5.
 
 ## Videos, reproducción y Cast
 
@@ -265,11 +266,15 @@ useEffect(() => {
 - Causa: `STORAGE_PROVIDER=local` guarda los archivos en el filesystem efímero de la función serverless (`tmp/videos` por defecto, o `CHAT_LOCAL_STORAGE_PATH`/`LOCAL_STORAGE_PATH` para chat). Entre invocaciones o deploys el archivo puede no estar disponible.
 - Solución: en producción usar `STORAGE_PROVIDER=vercel-blob` (si ya se configuró `BLOB_READ_WRITE_TOKEN`), `s3` o `r2`, con las credenciales correspondientes. Re-desplegar para que la variable forme parte del build.
 
-### Acceso a `/` redirige al catálogo en lugar del panel
+### Acceso a `/` no redirige como se espera
 
-- Síntoma: administradores u operadores autenticados van a `/` y terminan en `/pedido` en lugar del panel de control.
-- Causa: el middleware de autenticación (`src/proxy.ts`) no está ejecutando la lógica de `src/lib/route-guard.ts`, o `getAuthRedirect` redirige `/` a `/pedido` cuando no hay sesión.
-- Solución: verificar que `src/proxy.ts` tenga el matcher correcto (`/((?!api|_next/static|_next/image|favicon.ico|login|pedido|.*\\.svg$).*)`), que `auth.config.ts` tenga `pages.signIn: '/login'` y que `getAuthRedirect` en `src/lib/route-guard.ts` maneje `/` y `/login` correctamente. `next.config.ts` no debe contener un redirect estático de `/` a `/pedido`. Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción, ya que NextAuth v5 las usa como base para redirecciones de autenticación.
+- Síntoma: sin sesión, `/` muestra el panel o un error en lugar de redirigir; con sesión, `/login` no redirige al panel; o `/` redirige al catálogo `/pedido` en lugar del panel.
+- Causa: el proyecto **no tiene un middleware NextAuth activo**. El archivo `src/proxy.ts` existe pero no es reconocido por Next.js como middleware (`src/middleware.ts` o `middleware.ts`). Las redirecciones actuales se implementan directamente en los Server Components:
+  - `src/app/(panel)/layout.tsx` redirige a `/login` si no hay sesión.
+  - `src/app/(auth)/login/page.tsx` redirige a `/` si ya hay sesión.
+  - `src/lib/route-guard.ts` y `src/auth.config.ts` contienen la lógica de redirección para middleware, pero no se ejecutan en el flujo actual.
+- Solución inmediata: revisar `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx`. Asegurarse de que `auth()` devuelva la sesión y de que las redirecciones sean las esperadas.
+- Solución alternativa (middleware): si se quiere redirección global con `getAuthRedirect`, crear `src/middleware.ts` que exporte `auth` desde `src/auth.ts` y reutilice el matcher de `src/proxy.ts`. `next.config.ts` no debe contener un redirect estático de `/` a `/pedido`. Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 

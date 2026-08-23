@@ -4,7 +4,7 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 
 ## Tecnologías
 
-- Next.js 16
+- Next.js 16.3.2
 - React 19
 - TypeScript
 - Tailwind CSS v4
@@ -102,7 +102,7 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
 - Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado. La expiración no libera stock porque el pedido nunca reservó.
 
 Variables de entorno relacionadas (ver `.env.example` para el listado completo):
-`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
+`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_API_TIMEOUT_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
 
 ## Videos, reproducción y Cast
 
@@ -133,5 +133,5 @@ Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se c
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
 - Los insumos manuales son informativos en recetas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.
-- La raíz `/` redirige a `/pedido` si no hay sesión y `/login` redirige a `/` si el usuario ya está autenticado; la lógica vive en `src/lib/route-guard.ts` y se ejecuta en el middleware de NextAuth (`src/proxy.ts`).
+- La raíz `/` redirige a `/login` si no hay sesión (`src/app/(panel)/layout.tsx`) y `/login` redirige a `/` si el usuario ya está autenticado (`src/app/(auth)/login/page.tsx`). El archivo `src/lib/route-guard.ts` contiene la lógica de redirección prevista para un middleware, pero actualmente no hay un `src/middleware.ts` activo; `src/proxy.ts` no es reconocido por Next.js como middleware.
 - El esquema incluye `order_messages`, `public_order_rate_limits` y `login_attempts`, además de las tablas de negocio principales.
