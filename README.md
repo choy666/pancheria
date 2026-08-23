@@ -133,5 +133,5 @@ Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se c
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
 - Los insumos manuales son informativos en recetas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.
-- La raíz `/` redirige a `/login` si no hay sesión (`src/app/(panel)/layout.tsx`) y `/login` redirige a `/` si el usuario ya está autenticado (`src/app/(auth)/login/page.tsx`). El archivo `src/lib/route-guard.ts` contiene la lógica de redirección prevista para un middleware, pero actualmente no hay un `src/middleware.ts` activo; `src/proxy.ts` no es reconocido por Next.js como middleware.
+- La raíz `/` redirige a `/pedido` si no hay sesión y `/login` redirige a `/` si el usuario ya está autenticado, a través del proxy de NextAuth en `src/proxy.ts` y la lógica de `src/lib/route-guard.ts`. `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` conservan redirecciones defensivas que duplican la lógica del proxy. `next.config.ts` no contiene un redirect estático de `/` a `/pedido`.
 - El esquema incluye `order_messages`, `public_order_rate_limits` y `login_attempts`, además de las tablas de negocio principales.

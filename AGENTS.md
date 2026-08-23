@@ -268,13 +268,12 @@ useEffect(() => {
 
 ### Acceso a `/` no redirige como se espera
 
-- Síntoma: sin sesión, `/` muestra el panel o un error en lugar de redirigir; con sesión, `/login` no redirige al panel; o `/` redirige al catálogo `/pedido` en lugar del panel.
-- Causa: el proyecto **no tiene un middleware NextAuth activo**. El archivo `src/proxy.ts` existe pero no es reconocido por Next.js como middleware (`src/middleware.ts` o `middleware.ts`). Las redirecciones actuales se implementan directamente en los Server Components:
+- Síntoma: sin sesión, `/` redirige al catálogo `/pedido` en lugar del panel, o muestra el panel, o `/login` no redirige al panel con sesión.
+- Causa: el proyecto **sí tiene un proxy/middleware NextAuth activo** en `src/proxy.ts` (Next.js 16 renombró `middleware.ts` a `proxy.ts`; el archivo en `src/proxy.ts` es válido). `src/lib/route-guard.ts` se ejecuta a través del callback `authorized` de `src/auth.config.ts` dentro del proxy. Sin embargo, las redirecciones también están duplicadas en los Server Components:
   - `src/app/(panel)/layout.tsx` redirige a `/login` si no hay sesión.
   - `src/app/(auth)/login/page.tsx` redirige a `/` si ya hay sesión.
-  - `src/lib/route-guard.ts` y `src/auth.config.ts` contienen la lógica de redirección para middleware, pero no se ejecutan en el flujo actual.
-- Solución inmediata: revisar `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx`. Asegurarse de que `auth()` devuelva la sesión y de que las redirecciones sean las esperadas.
-- Solución alternativa (middleware): si se quiere redirección global con `getAuthRedirect`, crear `src/middleware.ts` que exporte `auth` desde `src/auth.ts` y reutilice el matcher de `src/proxy.ts`. `next.config.ts` no debe contener un redirect estático de `/` a `/pedido`. Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
+- Además, `src/lib/route-guard.ts` redirige `/` sin sesión a `/pedido`, mientras que `src/app/(panel)/layout.tsx` redirige `/` sin sesión a `/login`. Eso genera una inconsistencia si ambas capas se ejecutan.
+- Solución: alinear el destino de redirección de `/` sin sesión. Si `/` debe ser el panel, cambiar `getAuthRedirect` en `src/lib/route-guard.ts:46-48` para redirigir a `/login` en lugar de `/pedido`. Si `/` debe ser el catálogo para usuarios no autenticados, mantener `/pedido` y eliminar la redirección redundante de `src/app/(panel)/layout.tsx`. Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 
