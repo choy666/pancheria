@@ -11,6 +11,7 @@ import {
   getChatRateLimitWindowMs,
   getChatRateLimitMaxRequests,
 } from '@/config/chat';
+import { parseId } from '@/lib/id';
 
 const querySchema = chatPaginationQuerySchema.extend({
   token: z.string().min(1),
@@ -30,9 +31,9 @@ export const GET = withApiErrorHandling(
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
     const { id } = await params;
-    const orderId = Number(id);
+    const orderId = parseId(id);
 
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    if (orderId === null) {
       return NextResponse.json(
         { error: 'El ID de pedido debe ser un número positivo.' },
         { status: 400 }
@@ -73,9 +74,9 @@ export const POST = withApiErrorHandling(
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
     const { id } = await params;
-    const orderId = Number(id);
+    const orderId = parseId(id);
 
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    if (orderId === null) {
       return NextResponse.json(
         { error: 'El ID de pedido debe ser un número positivo.' },
         { status: 400 }
@@ -90,10 +91,9 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const queryContent = searchParams.get('content');
     const body = await request.json().catch(() => ({}));
     const data = chatMessageContentSchema.parse({
-      content: (body as { content?: string } | undefined)?.content ?? queryContent,
+      content: (body as { content?: string } | undefined)?.content,
     });
 
     const message = await chatService.sendClientMessage(orderId, query.token, {

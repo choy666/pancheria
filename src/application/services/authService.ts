@@ -17,47 +17,28 @@ export function setRateLimitStore(store: RateLimitStore): void {
   rateLimitStore = store;
 }
 
-async function isRateLimited(username: string): Promise<boolean> {
-  const record = await rateLimitStore.get(username);
-  if (!record) return false;
-
-  const now = Date.now();
-  if (now - record.lastAttempt > RATE_LIMIT_WINDOW_MS) {
-    await rateLimitStore.delete(username);
-    return false;
-  }
-
-  return record.count >= MAX_FAILED_ATTEMPTS;
+async function clearFailedAttempts(username: string) {
+  await rateLimitStore.recordSuccessfulAttempt(username);
 }
 
 async function recordFailedAttempt(username: string) {
-  const now = Date.now();
-  const record = await rateLimitStore.get(username);
+  const blocked = await rateLimitStore.recordFailedAttempt(
+    username,
+    RATE_LIMIT_WINDOW_MS,
+    MAX_FAILED_ATTEMPTS
+  );
 
-  if (!record || now - record.lastAttempt > RATE_LIMIT_WINDOW_MS) {
-    await rateLimitStore.set(username, { count: 1, lastAttempt: now });
-    return;
+  if (blocked) {
+    throw new ValidationError(
+      'Demasiados intentos fallidos. Probá más tarde.'
+    );
   }
-
-  record.count += 1;
-  record.lastAttempt = now;
-  await rateLimitStore.set(username, record);
-}
-
-async function clearFailedAttempts(username: string) {
-  await rateLimitStore.delete(username);
 }
 
 export async function verifyCredentials(
   username: string,
   password: string
 ): Promise<{ id: number; username: string; role: string; branchId: number; branchName: string } | null> {
-  if (await isRateLimited(username)) {
-    throw new ValidationError(
-      'Demasiados intentos fallidos. Probá más tarde.'
-    );
-  }
-
   const user = await db.query.users.findFirst({
     where: eq(users.username, username),
     with: {

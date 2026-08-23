@@ -167,13 +167,15 @@ function createMockDb(): MockDb {
   const insert = jest.fn().mockImplementation((table: unknown) => ({
     values: (data: unknown) => {
       capturedInserts.push({ table, data });
-      return {
+      const builder = {
+        onConflictDoNothing: () => builder,
         returning: jest
           .fn()
           .mockResolvedValue([
             { ...(data as object), id: 1, createdAt: new Date() },
           ]),
       };
+      return builder;
     },
   }));
 
@@ -251,6 +253,7 @@ jest.mock('@/application/services/cashRegisterService', () => ({
 }));
 jest.mock('@/application/idempotencyService', () => ({
   isIdempotencyKeyUsed: jest.fn(),
+  findExistingByIdempotencyKey: jest.fn(),
 }));
 jest.mock('@/application/transactionService', () => ({
   executeInTransaction: jest.fn(),
@@ -308,6 +311,9 @@ describe('orderService', () => {
       createdAt: new Date(),
     });
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+      null
+    );
     mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
       createOpenCashRegister()
     );
@@ -734,8 +740,9 @@ describe('orderService', () => {
         total: 2000,
         paymentMethod: 'cash',
       };
-      mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(true);
-      mockedDb.query.sales.findFirst.mockResolvedValue(existingSale);
+      mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+        existingSale as any
+      );
 
       const result = await convertOrderToSale({
         branchId: BRANCH_ID,

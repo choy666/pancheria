@@ -8,7 +8,7 @@ import {
   stockMovements,
 } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
-import { isIdempotencyKeyUsed } from '@/application/idempotencyService';
+import * as idempotencyService from '@/application/idempotencyService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { nowUTC } from '@/lib/date';
@@ -375,7 +375,21 @@ export async function insertSaleAndUpdateCashRegister(
       idempotencyKey,
       createdAt: nowUTC(),
     })
+    .onConflictDoNothing()
     .returning();
+
+  if (!sale) {
+    const existing = await idempotencyService.findExistingByIdempotencyKey(
+      'sale',
+      branchId,
+      idempotencyKey,
+      tx
+    );
+    if (!existing) {
+      throw new Error('No se pudo crear ni recuperar la venta.');
+    }
+    return existing;
+  }
 
   await tx.insert(saleItems).values(
     saleItemValues.map((item) => ({
@@ -434,10 +448,6 @@ export async function confirmSale(params: {
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
 
-  if (await isIdempotencyKeyUsed('sale', branchId, branchIdempotencyKey)) {
-    throw new ValidationError('La venta ya fue procesada.');
-  }
-
   const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
 
   if (!cashRegister) {
@@ -451,6 +461,16 @@ export async function confirmSale(params: {
   }
 
   return executeInTransaction(async (tx) => {
+    const existingSale = await idempotencyService.findExistingByIdempotencyKey(
+      'sale',
+      branchId,
+      branchIdempotencyKey,
+      tx
+    );
+    if (existingSale) {
+      throw new ValidationError('La venta ya fue procesada.');
+    }
+
     const productIds = items.map((item) => item.productId);
     const { productById, recipesByProduct } = await buildProductContext(
       branchId,

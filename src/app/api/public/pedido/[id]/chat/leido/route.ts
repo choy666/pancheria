@@ -2,10 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
+import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
+import {
+  getChatRateLimitWindowMs,
+  getChatRateLimitMaxRequests,
+} from '@/config/chat';
+import { parseId } from '@/lib/id';
 
 const querySchema = z.object({
   token: z.string().min(1),
 });
+
+const isRateLimited = createRateLimiter(
+  'chat',
+  getChatRateLimitWindowMs(),
+  getChatRateLimitMaxRequests()
+);
 
 export const POST = withApiErrorHandling(
   async (
@@ -15,12 +27,20 @@ export const POST = withApiErrorHandling(
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
     const { id } = await params;
-    const orderId = Number(id);
+    const orderId = parseId(id);
 
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    if (orderId === null) {
       return NextResponse.json(
         { error: 'El ID de pedido debe ser un número positivo.' },
         { status: 400 }
+      );
+    }
+
+    const ip = getClientIp(request);
+    if (await isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Demasiados mensajes. Intentalo más tarde.' },
+        { status: 429 }
       );
     }
 

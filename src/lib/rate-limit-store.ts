@@ -1,65 +1,77 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { loginAttempts } from '@/db/schema';
 
-export type AttemptRecord = {
-  count: number;
-  lastAttempt: number;
-};
-
 export interface RateLimitStore {
-  get(username: string): Promise<AttemptRecord | undefined>;
-  set(username: string, record: AttemptRecord): Promise<void>;
-  delete(username: string): Promise<void>;
+  /**
+   * Registra un intento fallido y devuelve `true` si el usuario
+   * superó el límite. La operación es atómica.
+   */
+  recordFailedAttempt(
+    username: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<boolean>;
+  recordSuccessfulAttempt(username: string): Promise<void>;
 }
 
 export class InMemoryRateLimitStore implements RateLimitStore {
-  private attemptsByUsername = new Map<string, AttemptRecord>();
+  private attemptsByUsername = new Map<
+    string,
+    { count: number; lastAttempt: number }
+  >();
 
-  async get(username: string): Promise<AttemptRecord | undefined> {
-    return this.attemptsByUsername.get(username);
+  async recordFailedAttempt(
+    username: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<boolean> {
+    const now = Date.now();
+    const record = this.attemptsByUsername.get(username);
+
+    if (!record || now - record.lastAttempt > windowMs) {
+      this.attemptsByUsername.set(username, { count: 1, lastAttempt: now });
+      return 1 > maxAttempts;
+    }
+
+    record.count += 1;
+    record.lastAttempt = now;
+    return record.count > maxAttempts;
   }
 
-  async set(username: string, record: AttemptRecord): Promise<void> {
-    this.attemptsByUsername.set(username, record);
-  }
-
-  async delete(username: string): Promise<void> {
+  async recordSuccessfulAttempt(username: string): Promise<void> {
     this.attemptsByUsername.delete(username);
   }
 }
 
 class DbRateLimitStore implements RateLimitStore {
-  async get(username: string): Promise<AttemptRecord | undefined> {
-    const row = await db.query.loginAttempts.findFirst({
-      where: eq(loginAttempts.username, username),
-    });
+  async recordFailedAttempt(
+    username: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<boolean> {
+    const now = Date.now();
 
-    if (!row) {
-      return undefined;
-    }
-
-    return { count: row.count, lastAttempt: row.lastAttempt };
-  }
-
-  async set(username: string, record: AttemptRecord): Promise<void> {
-    await db
+    const [row] = await db
       .insert(loginAttempts)
       .values({
         username,
-        count: record.count,
-        lastAttempt: record.lastAttempt,
+        count: 1,
+        lastAttempt: now,
       })
       .onConflictDoUpdate({
         target: loginAttempts.username,
         set: {
-          count: record.count,
-          lastAttempt: record.lastAttempt,
+          count: sql`CASE WHEN ${loginAttempts.lastAttempt} + ${windowMs} > ${now} THEN ${loginAttempts.count} + 1 ELSE 1 END`,
+          lastAttempt: now,
         },
-      });
+      })
+      .returning({ count: loginAttempts.count });
+
+    return (row?.count ?? 1) > maxAttempts;
   }
 
-  async delete(username: string): Promise<void> {
+  async recordSuccessfulAttempt(username: string): Promise<void> {
     await db.delete(loginAttempts).where(eq(loginAttempts.username, username));
   }
 }

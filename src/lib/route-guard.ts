@@ -44,6 +44,8 @@ export function getAuthRedirect(
   }
 
   if (pathname === routes.home && !isLoggedIn) {
+    // La raíz apunta al catálogo público para usuarios no autenticados.
+    // Las demás rutas protegidas redirigen a /login.
     return NextResponse.redirect(new URL(routes.pedido, origin));
   }
 

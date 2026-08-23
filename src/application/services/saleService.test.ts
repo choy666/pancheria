@@ -121,11 +121,13 @@ function createMockDb(): MockDb {
   const insert = jest.fn().mockImplementation((table: unknown) => ({
     values: (data: unknown) => {
       capturedInserts.push({ table, data });
-      return {
+      const builder = {
+        onConflictDoNothing: () => builder,
         returning: jest
           .fn()
           .mockResolvedValue([{ ...(data as object), id: 1, createdAt: new Date() }]),
       };
+      return builder;
     },
   }));
 
@@ -172,6 +174,7 @@ jest.mock('@/application/services/cashRegisterService', () => ({
 }));
 jest.mock('@/application/idempotencyService', () => ({
   isIdempotencyKeyUsed: jest.fn(),
+  findExistingByIdempotencyKey: jest.fn(),
 }));
 jest.mock('@/application/transactionService', () => ({
   executeInTransaction: jest.fn(),
@@ -604,6 +607,9 @@ describe('confirmSale', () => {
     capturedInserts.length = 0;
     capturedUpdates.length = 0;
     mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db));
+    mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+      null
+    );
   });
 
   afterEach(() => {
@@ -611,7 +617,9 @@ describe('confirmSale', () => {
   });
 
   test('rechaza la venta si la clave de idempotencia ya fue usada', async () => {
-    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(true);
+    mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+      { id: 1 } as any
+    );
 
     await expect(
       confirmSale({
@@ -622,7 +630,6 @@ describe('confirmSale', () => {
       })
     ).rejects.toThrow(ValidationError);
 
-    expect(mockedCashRegisterService.getOpenCashRegister).not.toHaveBeenCalled();
     expect(mockedProductRepository.findByIds).not.toHaveBeenCalled();
   });
 
@@ -1110,6 +1117,9 @@ describe('cancelSale', () => {
     capturedInserts.length = 0;
     capturedUpdates.length = 0;
     mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db));
+    mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+      null
+    );
   });
 
   afterEach(() => {

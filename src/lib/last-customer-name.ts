@@ -26,7 +26,4 @@ export function setLastCustomerName(name: string): void {
   }
 }
 
-export function removeLastCustomerName(): void {
-  const storage = getStorage();
-  storage.removeItem(STORAGE_KEY);
-}
+

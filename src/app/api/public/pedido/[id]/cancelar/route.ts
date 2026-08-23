@@ -4,6 +4,7 @@ import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderCancellationSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import { parseId } from '@/lib/id';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
@@ -23,8 +24,8 @@ export const POST = withApiErrorHandling(
     }
 
     const { id } = await params;
-    const orderId = Number(id);
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    const orderId = parseId(id);
+    if (orderId === null) {
       return NextResponse.json({ error: 'ID de pedido inválido' }, { status: 400 });
     }
 

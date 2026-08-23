@@ -6,6 +6,7 @@ import {
   chatPaginationQuerySchema,
 } from '@/lib/zod-schemas';
 import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { parseId } from '@/lib/id';
 
 const querySchema = chatPaginationQuerySchema;
 
@@ -17,9 +18,9 @@ export const GET = withApiErrorHandling(
     const session = await requireAuth();
     const branchId = await getCurrentBranchId(session);
     const { id } = await params;
-    const orderId = Number(id);
+    const orderId = parseId(id);
 
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    if (orderId === null) {
       return NextResponse.json(
         { error: 'El ID de pedido debe ser un número positivo.' },
         { status: 400 }
@@ -55,20 +56,18 @@ export const POST = withApiErrorHandling(
     const session = await requireAuth();
     const branchId = await getCurrentBranchId(session);
     const { id } = await params;
-    const orderId = Number(id);
+    const orderId = parseId(id);
 
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    if (orderId === null) {
       return NextResponse.json(
         { error: 'El ID de pedido debe ser un número positivo.' },
         { status: 400 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const queryContent = searchParams.get('content');
     const body = await request.json().catch(() => ({}));
     const data = chatMessageContentSchema.parse({
-      content: (body as { content?: string } | undefined)?.content ?? queryContent,
+      content: (body as { content?: string } | undefined)?.content,
     });
 
     const message = await chatService.sendOperatorMessage(orderId, branchId, {

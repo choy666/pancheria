@@ -273,7 +273,7 @@ useEffect(() => {
   - `src/app/(panel)/layout.tsx` redirige a `/login` si no hay sesión.
   - `src/app/(auth)/login/page.tsx` redirige a `/` si ya hay sesión.
 - Además, `src/lib/route-guard.ts` redirige `/` sin sesión a `/pedido`, mientras que `src/app/(panel)/layout.tsx` redirige `/` sin sesión a `/login`. Eso genera una inconsistencia si ambas capas se ejecutan.
-- Solución: alinear el destino de redirección de `/` sin sesión. Si `/` debe ser el panel, cambiar `getAuthRedirect` en `src/lib/route-guard.ts:46-48` para redirigir a `/login` en lugar de `/pedido`. Si `/` debe ser el catálogo para usuarios no autenticados, mantener `/pedido` y eliminar la redirección redundante de `src/app/(panel)/layout.tsx`. Verificar también que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
+- Solución: la redirección autoritaria es la del proxy (`src/proxy.ts` + `src/lib/route-guard.ts`). `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` son redirecciones defensivas de fallback (el matcher del proxy excluye `/login` y las subrutas del panel no deberían llegar al layout sin pasar por el proxy). No hace falta eliminarlas, pero sí documentar su rol. Verificar que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 

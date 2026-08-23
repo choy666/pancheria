@@ -132,11 +132,11 @@ describe('POST /api/public/pedido/[id]/chat', () => {
     expect(response.status).toBe(400);
   });
 
-  test('acepta contenido por query param cuando el body está vacío (fallback)', async () => {
+  test('acepta contenido por body JSON', async () => {
     const response = await POST(
-      buildRequest(`?token=${TOKEN}&content=${encodeURIComponent('Hola')}`, {
+      buildRequest(`?token=${TOKEN}`, {
         method: 'POST',
-        body: '',
+        body: JSON.stringify({ content: 'Hola' }),
       }),
       { params: Promise.resolve({ id: String(ORDER_ID) }) }
     );
@@ -151,7 +151,7 @@ describe('POST /api/public/pedido/[id]/chat', () => {
     );
   });
 
-  test('rechaza POST sin body ni query param', async () => {
+  test('rechaza POST sin body', async () => {
     const response = await POST(
       buildRequest(`?token=${TOKEN}`, {
         method: 'POST',

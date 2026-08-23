@@ -16,6 +16,9 @@ export default async function PanelLayout({
   const session = await auth();
 
   if (!session) {
+    // Fallback defensivo: el proxy de NextAuth en src/proxy.ts ya debería
+    // redirigir las rutas del panel antes de llegar acá. Si por alguna razón
+    // no se ejecuta, esta redirección evita renderizar el panel sin sesión.
     redirect(routes.login);
   }
 

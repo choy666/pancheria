@@ -9,7 +9,7 @@ const recentOrderSchema = z.object({
   branchName: z.string(),
 });
 
-export const recentOrdersStorageSchema = z.object({
+const recentOrdersStorageSchema = z.object({
   version: z.literal('pancheria-recent-orders-v1'),
   orders: z.array(recentOrderSchema),
 });

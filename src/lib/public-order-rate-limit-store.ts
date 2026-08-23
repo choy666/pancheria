@@ -1,79 +1,88 @@
-import { eq, lt } from 'drizzle-orm';
+import { lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { publicOrderRateLimits } from '@/db/schema';
 
-export type PublicOrderRateLimitRecord = {
-  count: number;
-  resetAt: number;
-};
-
 export interface PublicOrderRateLimitStore {
-  get(ip: string): Promise<PublicOrderRateLimitRecord | undefined>;
-  set(ip: string, record: PublicOrderRateLimitRecord): Promise<void>;
-  delete(ip: string): Promise<void>;
+  /**
+   * Registra un request y devuelve `true` si el IP superó el límite.
+   * La operación es atómica: incrementa el contador si la ventana aún
+   * no venció, o lo reinicia en caso contrario.
+   */
+  recordRequest(
+    ip: string,
+    windowMs: number,
+    maxRequests: number
+  ): Promise<boolean>;
+  cleanupExpired(): Promise<number>;
 }
 
 export class InMemoryPublicOrderRateLimitStore
   implements PublicOrderRateLimitStore
 {
-  private attemptsByIp = new Map<string, PublicOrderRateLimitRecord>();
+  private attemptsByIp = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
 
-  async get(ip: string): Promise<PublicOrderRateLimitRecord | undefined> {
-    return this.attemptsByIp.get(ip);
+  async recordRequest(
+    ip: string,
+    windowMs: number,
+    maxRequests: number
+  ): Promise<boolean> {
+    const now = Date.now();
+    const record = this.attemptsByIp.get(ip);
+
+    if (!record || now > record.resetAt) {
+      this.attemptsByIp.set(ip, { count: 1, resetAt: now + windowMs });
+      return 1 > maxRequests;
+    }
+
+    record.count += 1;
+    return record.count > maxRequests;
   }
 
-  async set(ip: string, record: PublicOrderRateLimitRecord): Promise<void> {
-    this.attemptsByIp.set(ip, record);
-  }
+  async cleanupExpired(): Promise<number> {
+    const now = Date.now();
+    let deleted = 0;
 
-  async delete(ip: string): Promise<void> {
-    this.attemptsByIp.delete(ip);
+    for (const [ip, record] of this.attemptsByIp.entries()) {
+      if (now > record.resetAt) {
+        this.attemptsByIp.delete(ip);
+        deleted += 1;
+      }
+    }
+
+    return deleted;
   }
 }
 
 export class DbPublicOrderRateLimitStore
   implements PublicOrderRateLimitStore
 {
-  async get(ip: string): Promise<PublicOrderRateLimitRecord | undefined> {
-    const row = await db.query.publicOrderRateLimits.findFirst({
-      where: eq(publicOrderRateLimits.ip, ip),
-    });
+  async recordRequest(
+    ip: string,
+    windowMs: number,
+    maxRequests: number
+  ): Promise<boolean> {
+    const now = Date.now();
 
-    if (!row) {
-      return undefined;
-    }
-
-    // Limpieza lazy: si la ventana ya vencio, borramos el registro
-    // para evitar acumulacion de IPs que no vuelven a pedir.
-    if (Date.now() > row.resetAt) {
-      await this.delete(ip);
-      return undefined;
-    }
-
-    return { count: row.count, resetAt: row.resetAt };
-  }
-
-  async set(ip: string, record: PublicOrderRateLimitRecord): Promise<void> {
-    await db
+    const [row] = await db
       .insert(publicOrderRateLimits)
       .values({
         ip,
-        count: record.count,
-        resetAt: record.resetAt,
+        count: 1,
+        resetAt: now + windowMs,
       })
       .onConflictDoUpdate({
         target: publicOrderRateLimits.ip,
         set: {
-          count: record.count,
-          resetAt: record.resetAt,
+          count: sql`CASE WHEN ${publicOrderRateLimits.resetAt} > ${now} THEN ${publicOrderRateLimits.count} + 1 ELSE 1 END`,
+          resetAt: sql`CASE WHEN ${publicOrderRateLimits.resetAt} > ${now} THEN ${publicOrderRateLimits.resetAt} ELSE ${now + windowMs} END`,
         },
-      });
-  }
+      })
+      .returning({ count: publicOrderRateLimits.count });
 
-  async delete(ip: string): Promise<void> {
-    await db
-      .delete(publicOrderRateLimits)
-      .where(eq(publicOrderRateLimits.ip, ip));
+    return (row?.count ?? 1) > maxRequests;
   }
 
   async cleanupExpired(): Promise<number> {

@@ -33,7 +33,7 @@ export const GET = withApiErrorHandling(
     return new NextResponse(new Uint8Array(file.buffer), {
       headers: {
         'Content-Type': file.mimeType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=86400, must-revalidate',
       },
     });
   }

@@ -1,5 +1,3 @@
-import { eq, and } from 'drizzle-orm';
-import { db } from '@/db';
 import { sales } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
@@ -190,27 +188,6 @@ export async function convertOrderToSale(
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
 
-  if (
-    await idempotencyService.isIdempotencyKeyUsed(
-      'sale',
-      branchId,
-      branchIdempotencyKey
-    )
-  ) {
-    const existingSale = await db.query.sales.findFirst({
-      where: and(
-        eq(sales.branchId, branchId),
-        eq(sales.idempotencyKey, branchIdempotencyKey)
-      ),
-    });
-
-    if (!existingSale) {
-      throw new ValidationError('La venta ya fue procesada.');
-    }
-
-    return existingSale;
-  }
-
   const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
   if (!cashRegister) {
     throw new ValidationError(
@@ -229,6 +206,16 @@ export async function convertOrderToSale(
   }
 
   return executeInTransaction(async (tx) => {
+    const existingSale = await idempotencyService.findExistingByIdempotencyKey(
+      'sale',
+      branchId,
+      branchIdempotencyKey,
+      tx
+    );
+    if (existingSale) {
+      return existingSale;
+    }
+
     const lockedOrder = await orderRepository.findByIdForUpdate(
       tx,
       branchId,

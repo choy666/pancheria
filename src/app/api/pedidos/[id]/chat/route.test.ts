@@ -131,26 +131,7 @@ describe('POST /api/pedidos/[id]/chat', () => {
     expect(response.status).toBe(400);
   });
 
-  test('acepta contenido por query param cuando el body está vacío (fallback)', async () => {
-    const response = await POST(
-      new NextRequest(
-        `http://localhost:3000/api/pedidos/${ORDER_ID}/chat?content=${encodeURIComponent('Confirmado')}`,
-        { method: 'POST', body: '' }
-      ),
-      { params: Promise.resolve({ id: String(ORDER_ID) }) }
-    );
-    const body = (await response.json()) as { message: unknown };
-
-    expect(response.status).toBe(201);
-    expect(body.message).toEqual(expect.objectContaining({ content: 'Confirmado' }));
-    expect(mockedChatService.sendOperatorMessage).toHaveBeenCalledWith(
-      ORDER_ID,
-      BRANCH_ID,
-      { content: 'Confirmado', senderName: 'Juan' }
-    );
-  });
-
-  test('rechaza POST sin body ni query param', async () => {
+  test('rechaza POST sin body', async () => {
     const response = await POST(
       buildRequest({
         method: 'POST',

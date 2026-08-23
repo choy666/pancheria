@@ -66,7 +66,7 @@ export interface StorageProvider {
   readFile?(key: string): Promise<{ buffer: Buffer; mimeType: string } | null>;
 }
 
-export function getLocalStorageDir(): string {
+function getLocalStorageDir(): string {
   return process.env.LOCAL_STORAGE_PATH ?? path.join(process.cwd(), 'tmp', 'videos');
 }
 

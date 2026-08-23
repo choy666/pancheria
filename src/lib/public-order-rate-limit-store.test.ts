@@ -5,11 +5,10 @@ import {
 
 jest.mock('@/db', () => ({
   db: {
-    query: {
-      publicOrderRateLimits: {
-        findFirst: jest.fn(),
-      },
-    },
+    insert: jest.fn().mockReturnThis(),
+    values: jest.fn().mockReturnThis(),
+    onConflictDoUpdate: jest.fn().mockReturnThis(),
+    returning: jest.fn(),
     delete: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
   },
@@ -18,11 +17,9 @@ jest.mock('@/db', () => ({
 import { db } from '@/db';
 
 const mockedDb = db as unknown as {
-  query: {
-    publicOrderRateLimits: {
-      findFirst: jest.Mock;
-    };
-  };
+  insert: jest.Mock;
+  onConflictDoUpdate: jest.Mock;
+  returning: jest.Mock;
   delete: jest.Mock;
   where: jest.Mock;
 };
@@ -34,25 +31,31 @@ describe('InMemoryPublicOrderRateLimitStore', () => {
     store = new InMemoryPublicOrderRateLimitStore();
   });
 
-  test('get devuelve undefined cuando no hay registro', async () => {
-    const record = await store.get('192.168.1.1');
-    expect(record).toBeUndefined();
+  test('permite el primer request', async () => {
+    const blocked = await store.recordRequest('192.168.1.1', 60_000, 10);
+    expect(blocked).toBe(false);
   });
 
-  test('set y get guardan y recuperan un registro', async () => {
-    const record = { count: 3, resetAt: Date.now() + 60_000 };
-    await store.set('192.168.1.1', record);
+  test('bloquea cuando se supera el límite', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      await store.recordRequest('192.168.1.1', 60_000, 10);
+    }
 
-    const retrieved = await store.get('192.168.1.1');
-    expect(retrieved).toEqual(record);
+    const blocked = await store.recordRequest('192.168.1.1', 60_000, 10);
+    expect(blocked).toBe(true);
   });
 
-  test('delete elimina un registro', async () => {
-    await store.set('192.168.1.1', { count: 1, resetAt: Date.now() });
-    await store.delete('192.168.1.1');
+  test('reinicia el contador después de la ventana', async () => {
+    const windowMs = 1;
 
-    const record = await store.get('192.168.1.1');
-    expect(record).toBeUndefined();
+    for (let i = 0; i < 10; i += 1) {
+      await store.recordRequest('192.168.1.1', windowMs, 10);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const blocked = await store.recordRequest('192.168.1.1', windowMs, 10);
+    expect(blocked).toBe(false);
   });
 });
 
@@ -64,36 +67,22 @@ describe('DbPublicOrderRateLimitStore', () => {
     store = new DbPublicOrderRateLimitStore();
   });
 
-  test('get devuelve undefined cuando no hay registro', async () => {
-    mockedDb.query.publicOrderRateLimits.findFirst.mockResolvedValue(undefined);
+  test('recordRequest devuelve si el IP superó el límite', async () => {
+    mockedDb.returning.mockResolvedValue([{ count: 11 }]);
 
-    const record = await store.get('192.168.1.1');
-    expect(record).toBeUndefined();
-    expect(mockedDb.delete).not.toHaveBeenCalled();
+    const blocked = await store.recordRequest('192.168.1.1', 60_000, 10);
+
+    expect(blocked).toBe(true);
+    expect(mockedDb.insert).toHaveBeenCalled();
+    expect(mockedDb.onConflictDoUpdate).toHaveBeenCalled();
+    expect(mockedDb.returning).toHaveBeenCalled();
   });
 
-  test('get devuelve registro vigente', async () => {
-    const resetAt = Date.now() + 60_000;
-    mockedDb.query.publicOrderRateLimits.findFirst.mockResolvedValue({
-      ip: '192.168.1.1',
-      count: 2,
-      resetAt,
-    });
+  test('recordRequest permite el request si no supera el límite', async () => {
+    mockedDb.returning.mockResolvedValue([{ count: 1 }]);
 
-    const record = await store.get('192.168.1.1');
-    expect(record).toEqual({ count: 2, resetAt });
-    expect(mockedDb.delete).not.toHaveBeenCalled();
-  });
+    const blocked = await store.recordRequest('192.168.1.1', 60_000, 10);
 
-  test('get borra y devuelve undefined cuando el registro ya vencio', async () => {
-    mockedDb.query.publicOrderRateLimits.findFirst.mockResolvedValue({
-      ip: '192.168.1.1',
-      count: 2,
-      resetAt: Date.now() - 1,
-    });
-
-    const record = await store.get('192.168.1.1');
-    expect(record).toBeUndefined();
-    expect(mockedDb.delete).toHaveBeenCalled();
+    expect(blocked).toBe(false);
   });
 });

@@ -8,7 +8,7 @@ export function getClientIp(request: NextRequest): string {
 }
 
 export function createRateLimiter(
-  scope: string,
+  _scope: string,
   windowMs: number,
   maxRequests: number
 ) {
@@ -17,19 +17,6 @@ export function createRateLimiter(
   return async function isRateLimited(ip: string): Promise<boolean> {
     if (process.env.NODE_ENV === 'test') return false;
 
-    const key = `${scope}:${ip}`;
-    const now = Date.now();
-    const record = await store.get(key);
-
-    if (!record || now > record.resetAt) {
-      await store.set(key, { count: 1, resetAt: now + windowMs });
-      return false;
-    }
-
-    record.count += 1;
-    if (record.count > maxRequests) return true;
-
-    await store.set(key, record);
-    return false;
+    return store.recordRequest(ip, windowMs, maxRequests);
   };
 }

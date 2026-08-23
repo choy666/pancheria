@@ -3,6 +3,7 @@ import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { cancellationSchema } from '@/lib/zod-schemas';
 import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { parseId } from '@/lib/id';
 
 export const POST = withApiErrorHandling(
   async (
@@ -12,9 +13,9 @@ export const POST = withApiErrorHandling(
     const session = await requireAuth();
     const branchId = await getCurrentBranchId(session);
     const { id } = await params;
-    const orderId = Number(id);
+    const orderId = parseId(id);
 
-    if (Number.isNaN(orderId) || orderId <= 0) {
+    if (orderId === null) {
       return NextResponse.json(
         { error: 'El ID de pedido debe ser un número positivo.' },
         { status: 400 }
