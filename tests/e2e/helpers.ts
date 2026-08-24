@@ -219,36 +219,25 @@ export async function getTestSecondBranch(): Promise<{
   return secondBranchSetupPromise;
 }
 
-export async function login(page: Page, maxAttempts = 3) {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
-
-    const currentUrl = page.url();
-    const alreadyLoggedIn =
-      currentUrl.endsWith('/') && !currentUrl.endsWith('/login');
-
-    if (alreadyLoggedIn) {
-      return;
-    }
-
-    try {
-      await page
-        .getByLabel('Usuario')
-        .waitFor({ state: 'visible', timeout: 8000 });
-      await page.getByLabel('Usuario').fill(adminUsername);
-      await page.getByLabel('Contraseña').fill(adminPassword);
-      await page.getByRole('button', { name: 'Ingresar' }).click();
-      await expect(page).toHaveURL('/', { timeout: 15000 });
-      return;
-    } catch (error) {
-      if (attempt === maxAttempts) {
-        throw new Error(
-          `No se pudo iniciar sesión después de ${maxAttempts} intentos: ${error}`
-        );
-      }
-      await page.waitForTimeout(500);
-    }
+export async function login(page: Page) {
+  if (!adminUsername || !adminPassword) {
+    throw new Error(
+      'ADMIN_USERNAME y ADMIN_PASSWORD deben estar definidos para iniciar sesión en los tests E2E. ' +
+        'Configuralos en .env.e2e o en los repository secrets de GitHub Actions.'
+    );
   }
+
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+
+  const currentUrl = page.url();
+  const alreadyLoggedIn =
+    currentUrl.endsWith('/') && !currentUrl.endsWith('/login');
+
+  if (alreadyLoggedIn) {
+    return;
+  }
+
+  await loginAs(page, adminUsername, adminPassword);
 }
 
 export async function ensureLoggedIn(page: Page) {

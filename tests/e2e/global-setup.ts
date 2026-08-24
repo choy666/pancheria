@@ -95,6 +95,38 @@ function validateE2EEnvironment(): void {
         'Debe estar dentro del proyecto y bajo tmp/ o contener "e2e"/"test" en la ruta.'
     );
   }
+
+  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  if (!authSecret) {
+    throw new Error(
+      'Falta el secreto de autenticación (AUTH_SECRET o NEXTAUTH_SECRET) para los tests E2E. ' +
+        'Configuralo en .env.e2e o en los repository secrets de GitHub Actions.'
+    );
+  }
+
+  if (authSecret.length < 32) {
+    throw new Error(
+      'El secreto de autenticación para E2E debe tener al menos 32 caracteres. ' +
+        'Generalo con "npx auth secret" o "openssl rand -base64 32".'
+    );
+  }
+
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminUsername || !adminPassword) {
+    throw new Error(
+      'Faltan ADMIN_USERNAME y/o ADMIN_PASSWORD para los tests E2E. ' +
+        'El seed del administrador las requiere. Configuralas en .env.e2e o en los repository secrets de GitHub Actions.'
+    );
+  }
+
+  const authUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
+  if (!authUrl) {
+    throw new Error(
+      'Falta la URL de autenticación (AUTH_URL o NEXTAUTH_URL) para los tests E2E. ' +
+        'Debe apuntar a http://localhost:3000.'
+    );
+  }
 }
 
 export default async function globalSetup() {

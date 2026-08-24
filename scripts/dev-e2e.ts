@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 
 // Cargar las variables de entorno de E2E con prioridad sobre .env.local.
@@ -29,7 +30,7 @@ async function main() {
   process.argv = ['node', 'next', 'dev'];
 
   try {
-    await import(nextBin);
+    await import(pathToFileURL(nextBin).href);
   } catch (error) {
     console.error('Error al iniciar el servidor de Next.js para E2E:', error);
     process.exit(1);

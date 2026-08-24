@@ -82,13 +82,21 @@ jobs:
   e2e:
     name: Tests end-to-end
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: pancheria_e2e
+          # Fallbacks locales para que el contenedor arranque y pueda reportar un
+          # error claro si faltan las variables del repositorio. La URL real se
+          # construye en el step "Verificar secretos y exportar DATABASE_URL".
+          POSTGRES_USER: ${{ vars.E2E_DB_USER || 'postgres' }}
+          POSTGRES_PASSWORD: ${{ secrets.E2E_DB_PASSWORD || 'postgres' }}
+          POSTGRES_DB: ${{ vars.E2E_DB_NAME || 'pancheria_e2e' }}
+          # pg_isready por defecto intenta conectarse con el usuario del sistema
+          # (root), generando "FATAL: role \"root\" does not exist". Con PGUSER
+          # se fuerza el usuario correcto para el health check.
+          PGUSER: postgres
         ports:
           - 5432:5432
         options: >-
@@ -97,15 +105,20 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pancheria_e2e
-      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/pancheria_e2e
+      # Valores requeridos, se validan en el step de verificación.
+      E2E_DB_USER: ${{ vars.E2E_DB_USER }}
+      E2E_DB_PASSWORD: ${{ secrets.E2E_DB_PASSWORD }}
+      E2E_DB_NAME: ${{ vars.E2E_DB_NAME }}
       NEXTAUTH_URL: http://localhost:3000
+      AUTH_URL: http://localhost:3000
+      BASE_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       DEFAULT_BRANCH_NAME: Sucursal CI
       STORAGE_PROVIDER: local
       LOCAL_STORAGE_PATH: tmp/e2e
+      RATE_LIMIT_STORE_PROVIDER: memory
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
@@ -114,7 +127,49 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      - name: Verificar secretos y exportar DATABASE_URL
+        run: |
+          node -e "
+          const fs = require('fs');
+
+          const required = [
+            { key: 'NEXTAUTH_SECRET', label: 'NEXTAUTH_SECRET', type: 'secret' },
+            { key: 'ADMIN_USERNAME', label: 'ADMIN_USERNAME', type: 'secret o variable' },
+            { key: 'ADMIN_PASSWORD', label: 'ADMIN_PASSWORD', type: 'secret' },
+            { key: 'E2E_DB_USER', label: 'E2E_DB_USER', type: 'variable' },
+            { key: 'E2E_DB_PASSWORD', label: 'E2E_DB_PASSWORD', type: 'secret' },
+            { key: 'E2E_DB_NAME', label: 'E2E_DB_NAME', type: 'variable' },
+          ];
+
+          let missing = false;
+          for (const { key, label, type } of required) {
+            const value = process.env[key];
+            if (!value || value.trim() === '') {
+              console.error(\`::error::Falta \${label}. Configuralo como repository \${type} en GitHub Actions.\`);
+              missing = true;
+            }
+          }
+
+          if (missing) {
+            process.exit(1);
+          }
+
+          const user = encodeURIComponent(process.env.E2E_DB_USER);
+          const password = encodeURIComponent(process.env.E2E_DB_PASSWORD);
+          const dbName = encodeURIComponent(process.env.E2E_DB_NAME);
+          const url = \`postgresql://\${user}:\${password}@localhost:5432/\${dbName}\`;
+
+          fs.appendFileSync(process.env.GITHUB_ENV, \`DATABASE_URL=\${url}\\n\`);
+          fs.appendFileSync(process.env.GITHUB_ENV, \`DATABASE_URL_UNPOOLED=\${url}\\n\`);
+          console.log('DATABASE_URL exportada para E2E.');
+          "
+
       - run: npx drizzle-kit push --force
-      - run: npx tsx src/db/seeds.ts
+        timeout-minutes: 5
+
       - run: npx playwright install --with-deps
+        timeout-minutes: 10
+
       - run: npx playwright test --reporter=line
+        timeout-minutes: 15
