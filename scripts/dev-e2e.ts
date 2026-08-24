@@ -3,8 +3,10 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 
-// Cargar las variables de entorno de E2E con prioridad sobre .env.local.
-dotenv.config({ path: '.env.e2e', override: true });
+// Cargar .env.e2e como base y luego .env.local para que este ultimo tenga
+// prioridad. Asi E2E usa los mismos valores que el entorno de desarrollo.
+dotenv.config({ path: '.env.e2e' });
+dotenv.config({ path: '.env.local', override: true });
 
 function resolveNextBin(): string {
   const require = createRequire(import.meta.url);
