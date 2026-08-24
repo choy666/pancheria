@@ -7,6 +7,9 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Prompt maestro — Proyecto Panchería](prompts/pancheria.prompt.md)
 - [Guía de escritura de prompts](prompts/README.md)
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
+- [Recomendaciones — pedidos, sucursales y stock](prompts/recomendaciones-pedidos-sucursal-stock.md)
+- [Cobertura de auditoría — flujo de pedidos](prompts/cobertura-auditoria-flujo-pedidos.md)
+- [Corrección de tests E2E](prompts/correccion-tests-e2e-caja-y-entorno.md)
 
 ## Estado del proyecto
 
@@ -30,24 +33,25 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── README.md                 # Índice de informes
-│   └── archivados/               # Reportes históricos
-├── prompts/
-│   ├── pancheria.prompt.md       # Prompt maestro
-│   ├── README.md                 # Guía para escribir prompts
-│   ├── auditoria-y-documentacion.md
-│   ├── cobertura-auditoria-flujo-pedidos.md
-│   ├── recomendaciones-pedidos-sucursal-stock.md
-│   └── archivados/               # Prompts resueltos
+│   └── archivados/               # Reportes históricos y planes resueltos
+└── prompts/
+    ├── pancheria.prompt.md       # Prompt maestro
+    ├── README.md                 # Guía para escribir prompts
+    ├── auditoria-y-documentacion.md
+    ├── cobertura-auditoria-flujo-pedidos.md
+    ├── recomendaciones-pedidos-sucursal-stock.md
+    ├── correccion-tests-e2e-caja-y-entorno.md
+    └── archivados/               # Prompts resueltos
 ```
 
 ## Reglas de uso
 
 1. **Idioma español** para toda explicación, comentario y documentación.
 2. **No hardcodear** credenciales, URLs de APIs ni secretos.
-3. **Prompts activos** reflejan el estado actual; los prompts resueltos se eliminan para evitar referencias desfasadas. Su contexto histórico queda en `lecciones-aprendidas.md` y en `informes/archivados/`.
+3. **Prompts activos** reflejan el estado actual; los prompts resueltos se archivan en `prompts/archivados/` para evitar referencias desfasadas. Su contexto histórico queda en `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md` y en `informes/archivados/`.
 4. **Un único `reporte-estado.md` vigente**: generar un nuevo informe editando este archivo; si se requiere histórico, archivar el anterior en `informes/archivados/`.
 5. Antes de tocar código, leer `AGENTS.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md`.
-6. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test` y `npm run build` antes de dar por terminada una tarea.
+6. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` antes de dar por terminada una tarea; `npm run test:e2e` solo con `.env.e2e` en base descartable.
 
 ## Documentación externa
 

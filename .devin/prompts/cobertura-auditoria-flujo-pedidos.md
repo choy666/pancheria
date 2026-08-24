@@ -6,7 +6,7 @@ Proyecto: `pancheria` — Sistema multi-sucursal de gestión de stock, ventas, c
 
 Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM con PostgreSQL (Neon), NextAuth v5, Playwright.
 
-Este prompt documenta el estado del flujo de pedidos públicos por WhatsApp después de una auditoría y limpieza. Antes de tocar cualquiera de estos archivos, leer:
+Este prompt documenta el flujo de pedidos públicos vigente y las decisiones de arquitectura que lo sostienen. Antes de tocar cualquiera de estos archivos, leer:
 
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
@@ -14,7 +14,7 @@ Este prompt documenta el estado del flujo de pedidos públicos por WhatsApp desp
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />
 
-> **Advertencia:** el flujo anterior con `sentAt` y confirmación de envío por WhatsApp fue revertido. El único contexto histórico vive en `.devin/informes/archivados/`. Este prompt y el código son la fuente de verdad del flujo vigente.
+> **Advertencia:** el flujo anterior con `sentAt` y confirmación de envío por WhatsApp fue revertido. El contexto histórico vive en `.devin/prompts/archivados/confirmacion-envio-pedido-whatsapp.md` e `.devin/informes/archivados/`. Este prompt y el código son la fuente de verdad del flujo vigente.
 
 ## 1. Flujo vigente de pedidos públicos
 
@@ -90,6 +90,7 @@ npx tsc --noEmit
 npm run lint
 npm test
 npm run build
+npm run knip
 npx playwright test tests/e2e/pedido-sucursal-y-stock.spec.ts
 ```
 
@@ -101,53 +102,17 @@ npm run test:e2e
 
 > **Atención:** `tests/e2e/global-setup.ts` trunca tablas y re-ejecuta `src/db/seeds.ts`. No correr E2E en una base de datos con datos reales.
 
-## 4. Pendientes documentados
-
-Los siguientes items quedaron como deuda técnica / mejoras futuras. Revisarlos en próximas auditorías:
-
-### 4.1 Código muerto
-
-- ~~<ref_file file="C:/developer/paginas/pancheria/src/components/panel/branch-required-fallback.tsx" /> no es importado por ningún otro archivo.~~ Resuelto: se eliminó porque el flujo actual redirige a login o sucursales cuando el usuario no tiene una sucursal asignada.
-
-### 4.2 Simplificación de schemas
-
-- ~~En <ref_file file="C:/developer/paginas/pancheria/src/lib/zod-schemas.ts" />, `videoSchema` es un alias de `videoBaseSchema`. Unificar en uno solo.~~ **Resuelto / obsoleto:** `videoBaseSchema` no existe; `videoSchema` es el único schema de video.
-
-### 4.3 Documentación
-
-- ~~En <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> la tabla de "¿se modifica el stock y quién lo hace?" contenía una fila obsoleta: "Confirmar envío por WhatsApp" con referencia a `sentAt`.~~ **Resuelto:** no quedan referencias a `sentAt`, `sent_at`, confirmación de envío por WhatsApp ni `POST /api/public/pedido/[id]/enviar` en los informes activos ni en el código.
-
-### 4.4 Validación completa
-
-- Correr la suite E2E completa (`npm run test:e2e`) para detectar regresiones en otros flujos.
-
-### 4.5 Dependencias marcadas como no usadas
-
-- `knip` puede marcar `@aws-sdk/client-s3` y `@aws-sdk/s3-presigned-post` como no usadas porque se importan dinámicamente en <ref_file file="C:/developer/paginas/pancheria/src/lib/storage.ts" />. No eliminar. **Resuelto:** los imports dinámicos ahora están tipados con `import type { S3Client }` y `import type { createPresignedPost }`.
-
-## 5. Mejoras sugeridas
-
-### 5.1 Tests E2E más robustos
-
-- Preferir `getByRole` con nombres exactos en lugar de `getByText` parciales para reducir fragilidad.
-- En `tests/e2e/pedido-sucursal-y-stock.spec.ts` se usó `.getByTestId()` con `.getByText()` para scopar selectores de disponibilidad.
-
-### 5.2 Tipado de `src/lib/storage.ts`
-
-- ~~Los `any` para clientes S3/R2 son difíciles de mantener. Considerar tipar los módulos importados dinámicamente o usar librerías más específicas.~~ **Resuelto:** se tiparon los clientes con `import type { S3Client }` y `import type { createPresignedPost }`, y se eliminaron los `any`.
-
-### 5.3 Auditoría periódica
-
-- Ejecutar `npx knip` cada cierto tiempo para detectar exports muertos. Muchos son componentes de shadcn generados automáticamente, pero conviene revisar los propios del dominio.
-
-### 5.4 Rate limiting en producción
-
-- El proyecto tiene `public_order_rate_limits`. Asegurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` en producción con múltiples instancias. Esto es una acción de configuración en Vercel, no de código.
-
-## 6. Decisiones clave que no se deben revertir sin consultar
+## 4. Decisiones clave que no se deben revertir sin consultar
 
 1. **No se reserva stock al crear el pedido.** La disponibilidad del catálogo es solo informativa/validación inicial.
 2. **El stock se descuenta solo al confirmar la venta** desde el panel (`convertOrderToSale`).
 3. **La confirmación de envío no es del cliente.** El cliente envía por WhatsApp; el operador confirma desde el panel.
 4. **No hay `sentAt`.** Si en el futuro se quiere trackear envío, se debe diseñar de nuevo y no restaurar el código anterior.
 5. **El enlace de WhatsApp del panel es la herramienta del operador**, no un reemplazo del flujo del cliente.
+
+## 5. Relación con otros prompts e informes
+
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" /> — flujo de pedidos, sucursales y stock.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> — guía operativa del negocio: multi-sucursal, stock, caja, pedidos.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> — lecciones transversales de auditorías anteriores.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" /> — estado verificado del proyecto y recomendaciones vigentes.

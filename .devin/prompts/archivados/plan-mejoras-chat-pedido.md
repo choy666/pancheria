@@ -1,4 +1,6 @@
-# Prompt: Mejoras del flujo de chat de pedidos
+# ARCHIVADO — Prompt: Mejoras del flujo de chat de pedidos
+
+> **Estado: resuelto.** Las tres mejoras propuestas (validación del banner de pedidos recientes, recordar `customerName` en seguimiento y paginación del chat) ya están implementadas y probadas. Ver `.devin/informes/reporte-estado.md` y `.devin/informes/guia-funcionamiento-pancheria.md` para el estado actual.
 
 ## Contexto
 

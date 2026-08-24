@@ -1,11 +1,11 @@
 # Informes de auditoría
 
-Este directorio contiene las lecciones aprendidas, el informe de estado vigente, la guía de funcionamiento y el archivo de informes históricos del proyecto `pancheria`.
+Este directorio contiene las lecciones aprendidas, el informe de estado vigente, la guía de funcionamiento y el archivo de informes históricos y planes resueltos del proyecto `pancheria`.
 
 - [Lecciones aprendidas](lecciones-aprendidas.md) — resumen transversal para prompts y auditorías futuras.
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
-- [Archivo de informes históricos](archivados/) — reportes anteriores (por ejemplo, `reporte-estado-2026-08-19.md`, `reporte-estado-historico-2026-08-19.md`).
+- [Archivo de informes históricos](archivados/) — reportes anteriores (`reporte-estado-YYYY-MM-DD.md`) y planes resueltos (`plan-implementacion-chat-2026-08-23.md`, `informe-pro-contras-recomendaciones-2026-08-23.md`, etc.).
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 
 ## Cómo usar este directorio

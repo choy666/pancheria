@@ -36,13 +36,14 @@ Documentación de referencia obligatoria:
 | 2 | `npx tsc --noEmit` | Verificación de tipos |
 | 3 | `npm test` | Tests unitarios |
 | 4 | `npm run build` | Build de producción |
-| 5 | `npx drizzle-kit check` | Consistencia del esquema (con base de prueba) |
-| 6 | `npm run test:e2e` | Tests E2E (solo con confirmación / base de prueba) |
+| 5 | `npm run knip` | Detección de código muerto |
+| 6 | `npx drizzle-kit check` | Consistencia del esquema (con base de prueba) |
+| 7 | `npm run test:e2e` | Tests E2E (solo con confirmación / base de prueba) |
 
 ## Instrucciones de trabajo
 
 1. Leer `AGENTS.md`, `.devin/informes/lecciones-aprendidas.md` y, si aplica, `.devin/informes/guia-funcionamiento-pancheria.md`.
 2. Confirmar el estado actual del código con búsquedas antes de asumir que algo existe.
 3. Si la tarea es una auditoría o actualización de documentación, seguir <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />.
-4. Los prompts resueltos se eliminaron del directorio activo; su contexto histórico queda resumido en `lecciones-aprendidas.md` y en los informes archivados de `.devin/informes/archivados/`.
+4. Los prompts resueltos se archivan en `.devin/prompts/archivados/`; su contexto histórico queda resumido en `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md` y en los informes archivados de `.devin/informes/archivados/`.
 5. Antes de terminar, ejecutar las verificaciones de la tabla y documentar discrepancias en `.devin/informes/reporte-estado.md` cuando corresponda.

@@ -130,17 +130,18 @@ Usar como punto de entrada para cualquier tarea futura:
 
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
-- [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — estado actual, limpieza realizada, pendientes y mejoras del flujo de pedidos.
-- [Plan de mejoras del chat de pedidos](plan-mejoras-chat-pedido.md) — validación del banner de pedidos recientes, recordar nombre en seguimiento y paginación del chat.
-- [Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes](auditoria-chat-workaround-y-mejoras.md) — revisar el fallback de query param, warnings de Gzip/streams, polling y deuda técnica del chat.
-- [Corrección de tests E2E fallidos — caja, stock y entorno](correccion-tests-e2e-caja-y-entorno.prompt.md) — corrección masiva de fallos E2E detectados en la auditoría: `/api/caja/resumen`, `/api/stock/ajustar`, flujo de pedidos y aislamiento de base de datos.
+- [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — flujo vigente, limpieza realizada y decisiones clave.
+- [Corrección de tests E2E fallidos — caja, stock y entorno](correccion-tests-e2e-caja-y-entorno.md) — entorno, helpers y locators robustos para `npm run test:e2e`.
 
 ### Prompts archivados
 
 - [Errores de deploy en Vercel](archivados/errores-deploy-vercel-forbidden-react-441.md) — resuelto: todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`; las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`.
 - [Confirmación de envío de pedido por WhatsApp](archivados/confirmacion-envio-pedido-whatsapp.md) — flujo anterior con `sentAt` y confirmación del cliente; eliminado del flujo vigente.
 - [Chat mínimo por pedido (Opción A)](archivados/chat-pedido-opcion-a.md) — propuesta anterior de implementación en dos etapas; reemplazada por el plan de mitigación de riesgos.
+- [Plan definitivo: chat anclado a pedidos](archivados/chat-pedido-plan-definitivo.md) — propuesta inicial de implementación del chat; reemplazada por los prompts y el código vigente.
 - [Plan de mitigación de riesgos del chat de pedidos](archivados/plan-mitigacion-riesgos-chat-pedido.md) — todas sus fases (A, B y C) implementadas: status en endpoints, polling, rate limit, storage, `attachmentKey` y limpieza de adjuntos huérfanos.
+- [Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes](archivados/auditoria-chat-workaround-y-mejoras.md) — resuelto: JSON body, compresión en test, `disablePollingOnMount` y `force-dynamic`.
+- [Plan de mejoras del chat de pedidos](archivados/plan-mejoras-chat-pedido.md) — resuelto: banner de pedidos recientes, `customerName` en seguimiento y paginación del chat.
 
 ## Véase también
 

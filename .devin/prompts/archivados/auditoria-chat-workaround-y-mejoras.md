@@ -1,4 +1,6 @@
-# Prompt: Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes
+# ARCHIVADO — Prompt: Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes
+
+> **Estado: resuelto.** El workaround de query param fue eliminado al actualizar a Next.js 16.3.2, la compresión se maneja con `compress: process.env.NODE_ENV !== 'test'`, se reemplazó la guarda `process.env.NODE_ENV === 'test'` por la prop `disablePollingOnMount` y la página de chat usa `dynamic = 'force-dynamic'`. Ver `.devin/informes/reporte-estado.md` y `.devin/informes/lecciones-aprendidas.md`.
 
 ## Contexto
 

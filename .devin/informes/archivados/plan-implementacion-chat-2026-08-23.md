@@ -1,13 +1,15 @@
-# Plan de implementación — Chat de pedidos
+# ARCHIVADO — Plan de implementación — Chat de pedidos
 
-> Plan derivado de la auditoría del prompt `.devin/prompts/auditoria-chat-workaround-y-mejoras.md`.
+> **Estado: resuelto / obsoleto.** Las fases de este plan ya se aplicaron: el cliente envía JSON body, el workaround de query param fue eliminado, la compresión se maneja en `NODE_ENV=test` y el polling usa `disablePollingOnMount`. Para el estado actual ver `.devin/informes/reporte-estado.md`, `.devin/informes/lecciones-aprendidas.md` y `.devin/informes/guia-funcionamiento-pancheria.md`.
+>
+> Plan derivado de la auditoría del prompt `.devin/prompts/archivados/auditoria-chat-workaround-y-mejoras.md`.
 > Este documento cubre el workaround del body vacío, warnings de Gzip/streams, la guarda `process.env.NODE_ENV !== 'test'`, la estrategia de polling y el commit final del flujo de chat.
 
 ## Decisiones de alcance
 
 | Tema | Decisión |
 | --- | --- |
-| Base de datos E2E | Usar `.env.local` (proyecto aún en desarrollo). |
+| Base de datos E2E | Usar `.env.e2e` con una base de datos descartable; ver `AGENTS.md` y `.devin/informes/reporte-estado.md` vigente. |
 | Workaround del body | Probar actualizar Next.js a la última 16.x en rama aparte; si el bug persiste, migrar `POST` de chat a Pages Router. |
 | SSE | Profundizar como análisis técnico y dejar para iteración futura. |
 | Persistencia del plan | Este archivo. |

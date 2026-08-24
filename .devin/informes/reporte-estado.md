@@ -1,44 +1,43 @@
-# Reporte de estado — Auditoría y depuración de documentación
+# Reporte de estado — Auditoría, depuración y limpieza del directorio `.devin`
 
-**Fecha:** 2026-08-23
+**Fecha:** 2026-08-24  
 **Proyecto:** `pancheria`
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se completó la auditoría integral de la documentación vigente y la implementación de las recomendaciones priorizadas. Se corrigieron discrepancias en la descripción del proxy/middleware, se alinearon redirecciones, se endureció la seguridad, se hicieron atómicos el rate limiting y la idempotencia, se estandarizó la validación de IDs y se instaló `knip` para detectar código muerto. Todos los comandos de verificación (lint, TypeScript, tests unitarios, build, `knip` y tests E2E) pasan con éxito.
+Se auditó, depuró, actualizó y limpió el directorio `.devin` del proyecto. Se archivaron prompts e informes resueltos, se actualizaron los índices, se corrigieron inconsistencias documentales y se verificó que el blueprint `environment.yaml` siga alineado con los comandos y variables del proyecto. Las verificaciones de código (`lint`, `tsc`, `test`, `build`, `knip`) pasan con los mismos resultados vigentes. No se reejecutó `npm run test:e2e` en esta sesión por no contar con una base de datos descartable configurada en `.env.e2e`.
+
+---
 
 ## 2. Alcance verificado
 
 | Área | Estado | Evidencia |
 |------|--------|-----------|
-| Stack y dependencias | Actualizado | `package.json`: Next.js 16.3.2, React 19.2.8, Drizzle ORM 0.45.2, Zod 4.4.3, Tailwind CSS v4. |
-| Tests unitarios | Actualizado | 92 suites, 890 tests pasan. |
-| Tests E2E | Corregido | 84 tests pasan con `npm run test:e2e` usando el servidor de desarrollo con `.env.e2e`. |
-| Build de producción | Exitoso | 43 páginas, funciones serverless (`ƒ`). |
-| Proxy/middleware de autenticación | Alineado | `src/proxy.ts` es el proxy activo de Next.js 16. `src/lib/route-guard.ts` redirige `/` sin sesión a `/login` y `/login` con sesión a `/`. Los layouts y página de login fueron ajustados para no contradecir al proxy. |
-| Rate limiting | Atómico | `public-order-rate-limit-store.ts` usa `INSERT ... ON CONFLICT DO UPDATE` en DB y una sola operación en memoria. `rate-limit-store.ts` (login) usa `INSERT ... ON CONFLICT DO UPDATE` en DB y operaciones atómicas en memoria. |
-| Idempotencia | Atómica | `saleService.ts` y `orderService.ts` verifican dentro de la transacción mediante `idempotencyService.findExistingByIdempotencyKey` e insertan con `ON CONFLICT DO NOTHING`. |
-| Headers de seguridad | Añadidos | `next.config.ts` define `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `X-DNS-Prefetch-Control` y HSTS en producción. |
-| Validación de IDs | Estandarizada | Los endpoints de pedidos y chat usan `parseId()` de `src/lib/id.ts`. |
-| Cache de adjuntos | Reducido | `GET /api/chat/attachment/[key]` usa `max-age=86400, must-revalidate`. |
-| Knip | Configurado | `knip` en `devDependencies`, script `npm run knip` y `knip.json` limpio. |
+| `.devin/environment.yaml` | Actualizado | Alineado con `package.json` y `AGENTS.md`; se agregaron entradas de `knip` y `e2e`; se mantiene `Node.js 20 LTS` y `npm install` como base del DRS. |
+| Índices de `.devin` | Actualizados | `.devin/README.md`, `.devin/prompts/README.md` y `.devin/informes/README.md` reflejan archivos activos y archivados. |
+| Prompts resueltos | Archivados | `plan-mejoras-chat-pedido.md` y `auditoria-chat-workaround-y-mejoras.md` se movieron a `prompts/archivados/`. |
+| Informes resueltos | Archivados | `plan-implementacion-chat.md`, `informe-pro-contras-recomendaciones.md` y el reporte anterior se movieron a `informes/archivados/`. |
+| Prompt activo renombrado | Actualizado | `correccion-tests-e2e-caja-y-entorno.prompt.md` se renombró a `correccion-tests-e2e-caja-y-entorno.md` para consistencia. |
+| `cobertura-auditoria-flujo-pedidos.md` | Limpio | Se eliminaron secciones de pendientes y mejoras sugeridas ya resueltas; se conservan el flujo vigente, la limpieza realizada y las decisiones clave. |
+| `pancheria.prompt.md` | Actualizado | Se corrigió la nota sobre prompts resueltos (ahora se archivan en `prompts/archivados/`) y se agregó `npm run knip` a las verificaciones. |
+| Código del proyecto | Estable | `npm run lint`, `npx tsc --noEmit`, `npm test` (92 suites, 890 tests), `npm run build` (43 páginas), `npm run knip` pasan. |
+
+---
 
 ## 3. Hallazgos y acciones correctivas
 
 | Gravedad | Hallazgo | Acción |
 |----------|----------|--------|
-| Mayor / Arquitectura | El proxy redirigía `/` sin sesión a `/pedido` mientras el layout lo hacía a `/login`. | Se cambió `src/lib/route-guard.ts` para redirigir a `/login`, se ajustaron `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx`, y se actualizó la documentación. |
-| Medio / Seguridad | `POST /api/public/pedido/[id]/chat/leido` no tenía rate limit. | Se agregó `createRateLimiter` con scope `'chat'`, usando `getChatRateLimitWindowMs` y `getChatRateLimitMaxRequests`, y se responde `429` cuando se excede el límite. |
-| Medio / Calidad | Los endpoints de chat aceptaban `?content=` como fallback. | Se eliminó el fallback de query param en los endpoints público y privado de chat y se actualizaron los tests. |
-| Medio / Concurrencia | Rate limiting e idempotencia usaban `get` seguido de `set`. | Se reemplazaron por operaciones atómicas SQL (`INSERT ... ON CONFLICT DO UPDATE` / `DO NOTHING`) y métodos atómicos en memoria. |
-| Medio / Seguridad | `next.config.ts` no definía headers de seguridad. | Se añadieron headers de seguridad compatibles con el catálogo, autenticación, Cast, uploads y recursos externos. |
-| Bajo / Calidad | `knip` no estaba instalado. | Se instaló `knip`, se agregó el script y la configuración, y se limpiaron exports no usados. |
-| Bajo / Calidad | Varios endpoints usaban `Number(id)` y `Number.isNaN` manualmente. | Se estandarizó el uso de `parseId()`. |
-| Bajo / Seguridad | El cache de adjuntos de chat era de un año (`max-age=31536000, immutable`). | Se redujo a 24 horas con `must-revalidate` para evitar servir archivos eliminados durante un año. |
-| Mayor / Tests E2E | `playwright.config.ts` levantaba `npm run dev` sin `.env.e2e` y esperaba solo `http://localhost:3000`; Turbopack devolvía HTML/404 mientras compilaba rutas API bajo demanda. | Se creó `scripts/dev-e2e.ts` con `dotenv` para `.env.e2e`, se agregó el script `dev:e2e`, se cambió el `webServer` a `npm run dev:e2e` y se apuntó la URL de espera a `/api/caja/resumen` para forzar compilación de una ruta API antes de iniciar tests. |
-| Medio / Tests E2E | `tests/e2e/caja-cierre-vacios.spec.ts` usaba locators que coincidían parcialmente (`filter({ hasText: supply.name })`), fallando cuando existían productos como `Pan E2E` o `Pan sin auto`. | Se cambió el locator a `filter({ hasText: supply.name }).first()` dentro del listado de insumos críticos, y se agregó manejo defensivo en `tests/e2e/helpers.ts` para diagnosticar status y body cuando una respuesta no es JSON. |
+| Mayor / Seguridad | `plan-implementacion-chat.md` indicaba usar `.env.local` como base de datos para E2E y sugería hacer commit de respaldo; es incorrecto y peligroso. | Se archivó el plan y se agregó una nota de archivo que remite a `.env.e2e` y al `reporte-estado.md` vigente. |
+| Medio / Documentación | `.devin/README.md` y `.devin/prompts/README.md` listaban prompts e informes que ya estaban resueltos o tenían nombres inconsistentes. | Se actualizaron los índices; los prompts resueltos se movieron a `prompts/archivados/` y los informes a `informes/archivados/`. |
+| Medio / Documentación | `pancheria.prompt.md` decía que los prompts resueltos se "eliminan", contradiciendo el directorio `prompts/archivados/`. | Se corrigió a "se archivan" y se agregó `npm run knip` a las verificaciones. |
+| Medio / Documentación | `cobertura-auditoria-flujo-pedidos.md` acumulaba secciones de pendientes y mejoras sugeridas ya resueltas. | Se limpió el prompt, eliminando pendientes resueltos y conservando el flujo vigente y las decisiones. |
+| Menor / Documentación | `correccion-tests-e2e-caja-y-entorno.prompt.md` usaba extensión `.prompt.md` inconsistente. | Se renombró a `.md`. |
+| Menor / Blueprint | `environment.yaml` no documentaba `knip` ni el flujo E2E con `.env.e2e`. | Se agregaron entradas en `knowledge` para `knip` y `e2e`. |
+
+---
 
 ## 4. Comandos ejecutados y resultados
 
@@ -49,21 +48,23 @@ Se completó la auditoría integral de la documentación vigente y la implementa
 | 3 | `npm test` | 92 suites, 890 tests pasan |
 | 4 | `npm run build` | Build de producción exitoso (43 páginas) |
 | 5 | `npm run knip` | Sin problemas (exit 0) |
-| 6 | `npm run test:e2e` | 84 tests E2E pasan |
+| 6 | `npm run test:e2e` | No ejecutado en esta sesión (requiere `.env.e2e` con base descartable). Última cifra verificada: 84 passed. |
 
-## 5. Recomendaciones y pendientes
+---
 
-1. **Tests E2E.** Correr `npm run test:e2e` en una base de datos descartable para validar flujos críticos de pedidos, chat, cambio de sucursal y cierre de caja.
-2. **Revisión de headers de seguridad.** Verificar en el despliegue real que el catálogo público, el upload de adjuntos, Google Cast y recursos externos no sean bloqueados.
-3. **Knip en CI.** Agregar `npm run knip` al flujo de integración continua para detectar código muerto en cada PR.
-4. **Auditoría periódica.** Repetir este proceso cada vez que cambie una variable de entorno, ruta o comportamiento arquitectónico.
-5. **Mantener documentación sincronizada.** Con cada cambio, actualizar `AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, `guia-funcionamiento-pancheria.md`, `lecciones-aprendidas.md`, prompts y el reporte vigente.
+## 5. Recomendaciones
+
+1. **Verificar el blueprint de Devin.** Ejecutar `devin.exe cloud drs build` con `.devin/environment.yaml` cuando se tenga acceso a Devin Cloud; en esta sesión no se pudo porque `devin.exe auth login` no estaba configurado.
+2. **Correr E2E en base de prueba.** Ejecutar `npm run test:e2e` en una base de datos descartable para validar que la limpieza de `.devin` no afectó flujos críticos.
+3. **Revisar archivos archivados.** Revisar periódicamente `prompts/archivados/` e `informes/archivados/` para eliminar archivos que ya no tengan valor histórico.
+4. **Mantener `.devin` sincronizado.** Con cada cambio arquitectónico, variable de entorno o feature, actualizar `AGENTS.md`, `.devin/environment.yaml`, prompts, informes e índices.
+
+---
 
 ## 6. Enlaces relevantes
 
-- `.devin/informes/archivados/reporte-estado-2026-08-21.md` — informe anterior (2026-08-21).
-- `.devin/informes/archivados/reporte-estado-2026-08-19.md` — informe anterior (2026-08-19).
+- `.devin/informes/archivados/reporte-estado-2026-08-23.md` — informe anterior.
 - `.devin/informes/lecciones-aprendidas.md` — lecciones transversales.
-- `.devin/informes/guia-funcionamiento-pancheria.md` — guía de negocio actualizada.
+- `.devin/informes/guia-funcionamiento-pancheria.md` — guía de negocio.
+- `.devin/prompts/auditoria-y-documentacion.md` — guía para auditorías futuras.
 - `AGENTS.md` — notas para agentes.
-- `README.md` — README del proyecto.

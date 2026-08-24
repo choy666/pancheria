@@ -1,4 +1,6 @@
-# Informe de pros, contras, consejos y recomendaciones — Proyecto Panchería
+# ARCHIVADO — Informe de pros, contras, consejos y recomendaciones — Proyecto Panchería
+
+> **Estado: archivado.** Este informe fue reemplazado por `.devin/informes/reporte-estado.md` vigente. Se conserva como registro histórico.
 
 **Fecha:** 2026-08-23  
 **Proyecto:** `pancheria`  
@@ -95,4 +97,4 @@ El proyecto tiene una base técnica sólida, buena cobertura de tests y document
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/correccion-tests-e2e-caja-y-entorno.prompt.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/correccion-tests-e2e-caja-y-entorno.md" />

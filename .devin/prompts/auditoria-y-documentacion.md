@@ -71,4 +71,5 @@ Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.
 | 2 | `npx tsc --noEmit` | Verificación de tipos |
 | 3 | `npm test` | Tests unitarios |
 | 4 | `npm run build` | Build de producción |
-| 5 | `npx drizzle-kit check` | Consistencia del esquema (con base de prueba, opcional) |
+| 5 | `npm run knip` | Detección de código muerto |
+| 6 | `npx drizzle-kit check` | Consistencia del esquema (con base de prueba, opcional) |

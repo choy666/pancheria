@@ -117,3 +117,18 @@ knowledge:
       - `guia-funcionamiento-pancheria.md` — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
       - `archivados/` — reportes históricos.
       Antes de iniciar auditorías, refactorización, integridad de datos, configuración de entorno o creación de prompts, consultar estos archivos y `.devin/prompts/README.md`.
+
+  - name: knip
+    contents: |
+      `npm run knip` detecta exports, dependencias y archivos no usados.
+      - Los falsos positivos de `shadcn/ui` y scripts como `src/db/seeds.ts` deben ignorarse en `knip.json`.
+      - Ejecutar periódicamente para detectar código muerto real.
+
+  - name: e2e
+    contents: |
+      Tests end-to-end con Playwright.
+      - `npm run test:e2e` equivale a `npx playwright test`.
+      - Requiere `.env.e2e` con `DATABASE_URL` apuntando a una base de datos descartable.
+      - `tests/e2e/global-setup.ts` trunca tablas y re-seedea; nunca correr contra producción.
+      - `playwright.config.ts` levanta `npm run dev:e2e` y espera `/api/caja/resumen` para forzar compilación de API.
+      - Para levantar manualmente: `npm run dev:e2e` y `NO_WEB_SERVER=1 npx playwright test`.
