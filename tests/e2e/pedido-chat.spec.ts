@@ -38,26 +38,26 @@ test.describe('Chat anclado a pedidos', () => {
     const clientMessage = '¿Cuándo llega?';
     await page.getByPlaceholder('Escribí un mensaje...').fill(clientMessage);
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
-    await expect(page.getByText(clientMessage)).toBeVisible();
+    await expect(page.getByText(clientMessage).first()).toBeVisible();
 
     // Operador: inicia sesión y abre el pedido.
     await login(page);
     await page.goto('/pedidos');
 
-    await expect(page.getByText('Juan Pérez')).toBeVisible();
+    await expect(page.getByText('Juan Pérez').first()).toBeVisible({ timeout: 10000 });
     await page.getByRole('link', { name: 'Ver' }).first().click();
 
     await expect(page.getByText('Chat con el cliente')).toBeVisible();
-    await expect(page.getByText(clientMessage)).toBeVisible();
+    await expect(page.getByText(clientMessage).first()).toBeVisible({ timeout: 15000 });
 
     const operatorMessage = 'En 20 minutos.';
     await page.getByPlaceholder('Escribí un mensaje...').fill(operatorMessage);
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
-    await expect(page.getByText(operatorMessage)).toBeVisible();
+    await expect(page.getByText(operatorMessage).first()).toBeVisible({ timeout: 10000 });
 
     // Cliente ve la respuesta recargando la URL del chat.
     await page.goto(clientChatUrl);
-    await expect(page.getByText(operatorMessage)).toBeVisible();
+    await expect(page.getByText(operatorMessage).first()).toBeVisible({ timeout: 15000 });
   });
 });

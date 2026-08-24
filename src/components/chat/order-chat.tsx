@@ -153,6 +153,12 @@ export function OrderChat({
     if (!scrollRef.current) return;
     const el = scrollRef.current;
 
+    // Al recibir mensajes iniciales sin una intencion de scroll previa,
+    // scrollear al ultimo mensaje para que sea visible.
+    if (!scrollIntentRef.current && messages.length > 0) {
+      scrollIntentRef.current = { type: 'bottom' };
+    }
+
     if (scrollIntentRef.current?.type === 'bottom') {
       el.scrollTop = el.scrollHeight;
     } else if (

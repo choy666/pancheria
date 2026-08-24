@@ -1,11 +1,10 @@
 import dotenv from 'dotenv';
 import { defineConfig, devices } from '@playwright/test';
 
-// Por el momento se usa .env.local como fuente principal para E2E.
-// .env.e2e se carga primero como base y .env.local lo sobrescribe para
-// mantener consistencia con el entorno de desarrollo.
-dotenv.config({ path: '.env.e2e' });
-dotenv.config({ path: '.env.local', override: true });
+// Cargar .env.local como base y luego .env.e2e para permitir sobreescrituras.
+// Asi E2E usa su propia base de datos y credenciales sin afectar .env.local.
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env.e2e', override: true });
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const useGlobalSetup = !process.env.NO_GLOBAL_SETUP;

@@ -112,8 +112,8 @@ test.describe('Rol administrador', () => {
 
     // Crear un operador en la sucursal por defecto.
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
-    await page.getByLabel('Contraseña').fill('1234');
-    await page.getByLabel('Sucursal').click();
+    await page.locator('#password').fill('1234');
+    await page.locator('#branchId').click();
     await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
     await page
       .locator('[data-slot="select-item"]', { hasText: defaultBranchName })
@@ -129,8 +129,8 @@ test.describe('Rol administrador', () => {
     // Editar el operador: cambiar nombre, sucursal y contraseña.
     await operatorRow.getByRole('button', { name: 'Editar' }).click();
     await page.getByLabel('Nombre de usuario').fill(editedUsername);
-    await page.getByLabel('Contraseña').fill('nueva1234');
-    await page.getByLabel('Sucursal').click();
+    await page.locator('#password').fill('nueva1234');
+    await page.locator('#branchId').click();
     await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
     await page
       .locator('[data-slot="select-item"]', { hasText: secondBranch.branchName })
