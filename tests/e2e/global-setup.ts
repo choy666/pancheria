@@ -22,16 +22,23 @@ function maskDatabaseUrl(url: string): string {
 function isAllowedE2EDatabase(url: string): boolean {
   if (!url) return false;
 
-  // Localhost o conexión por socket Unix: seguro para tests.
+  const pathMatch = url.match(/\/([^/?]+)(?:\?|$)/);
+  const dbName = pathMatch?.[1] ?? '';
+  const isSafeName =
+    /(^|[-_.])(test|e2e|testing|qa|staging)([-_.]?|\d*)$/i.test(dbName);
+
+  // Bases locales sin nombre seguro NO son permitidas. El nombre debe terminar
+  // en test/e2e/qa/staging para evitar truncar por accidente una base de
+  // desarrollo cuando falta .env.e2e y se cae a .env.local.
   const isLocalhost = /\/\/(?:[^@]+@)?(?:localhost|127\.0\.0\.1)(?::\d+)?\//i.test(
     url
   );
-  if (isLocalhost) return true;
+  if (isLocalhost) {
+    return isSafeName;
+  }
 
-  // Bases remotas explícitamente marcadas como descartables.
-  const pathMatch = url.match(/\/([^/?]+)(?:\?|$)/);
-  const dbName = pathMatch?.[1] ?? '';
-  if (/(^|[-_.])(test|e2e|testing|qa|staging)([-_.]?|\d*)$/i.test(dbName)) {
+  // Bases remotas explícitamente marcadas como descartables por nombre.
+  if (isSafeName) {
     return true;
   }
 

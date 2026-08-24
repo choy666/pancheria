@@ -91,3 +91,9 @@ export default async function PedidoPage({ searchParams }: PedidoPageProps) {
     </Suspense>
   );
 }
+
+// Fuerza renderizado dinámico para evitar que `next build` consulte la base
+// de datos durante la generación estática. Esto protege a producción de
+// lecturas accidentales en build y asegura que el catálogo siempre se resuelva
+// en el contexto de la sucursal activa.
+export const dynamic = 'force-dynamic';

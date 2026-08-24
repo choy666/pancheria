@@ -35,7 +35,8 @@ jobs:
     name: Tests unitarios
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Los tests unitarios trabajan con mocks y no deben conectarse a ninguna
+      # base de datos. No se pasa DATABASE_URL para evitar impactos accidentales.
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
@@ -53,7 +54,10 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Las páginas públicas usan `dynamic = 'force-dynamic'`, por lo que el
+      # build no debería consultar la base de datos. No se pasa DATABASE_URL
+      # para evitar lecturas accidentales de producción durante la compilación.
+      # Si en el futuro se agrega SSG que requiera DB, usar una URL de staging.
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
