@@ -16,9 +16,9 @@ test.describe('Smoke de login y tour en producción', () => {
     }
 
     await page.goto('/login');
-    await page.fill('input[name="username"]', username!);
-    await page.fill('input[name="password"]', password!);
-    await page.click('button[type="submit"]');
+    await page.getByLabel('Usuario').fill(username!);
+    await page.getByLabel('Contraseña').fill(password!);
+    await page.getByRole('button', { name: 'Ingresar' }).click();
 
     await expect(page).toHaveURL('/', { timeout: 15000 });
     await page.getByRole('button', { name: 'Guía' }).click();
@@ -41,9 +41,9 @@ test.describe('Smoke de login y tour en producción', () => {
     }
 
     await page.goto('/login');
-    await page.fill('input[name="username"]', username!);
-    await page.fill('input[name="password"]', password!);
-    await page.click('button[type="submit"]');
+    await page.getByLabel('Usuario').fill(username!);
+    await page.getByLabel('Contraseña').fill(password!);
+    await page.getByRole('button', { name: 'Ingresar' }).click();
 
     await expect(page).toHaveURL('/', { timeout: 15000 });
 

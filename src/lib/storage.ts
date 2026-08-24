@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
+import { getPublicBaseUrl } from '@/lib/public-url';
 import type { StorageProviderName } from '@/config/videos';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
@@ -70,21 +71,13 @@ function getLocalStorageDir(): string {
   return process.env.LOCAL_STORAGE_PATH ?? path.join(process.cwd(), 'tmp', 'videos');
 }
 
-function getLocalBaseUrl(): string {
-  const env =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    'http://localhost:3000';
-  return env.replace(/\/$/, '');
-}
-
 class LocalStorageProvider implements StorageProvider {
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
     const extension = path.extname(file.name) || '';
     const key = `${nanoid()}${extension}`;
-    const url = `${getLocalBaseUrl()}/api/videos/upload`;
-    const publicUrl = `${getLocalBaseUrl()}/api/videos/${encodeURIComponent(key)}/stream`;
+    const url = `${getPublicBaseUrl()}/api/videos/upload`;
+    const publicUrl = `${getPublicBaseUrl()}/api/videos/${encodeURIComponent(key)}/stream`;
 
     return {
       url,
@@ -99,7 +92,7 @@ class LocalStorageProvider implements StorageProvider {
     if (keyOrUrl.startsWith('http://') || keyOrUrl.startsWith('https://')) {
       return keyOrUrl;
     }
-    return `${getLocalBaseUrl()}/api/videos/${encodeURIComponent(keyOrUrl)}/stream`;
+    return `${getPublicBaseUrl()}/api/videos/${encodeURIComponent(keyOrUrl)}/stream`;
   }
 
   async saveFile(key: string, file: File): Promise<string> {

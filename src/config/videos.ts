@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 const DEFAULT_VIDEO_MAX_SIZE_MB = 100;
 
 const DEFAULT_VIDEO_ALLOWED_MIME_TYPES = [
@@ -51,7 +53,7 @@ export function getCastSenderSdkUrl(): string {
 
 export function getStorageProvider(): StorageProviderName {
   const env = process.env.STORAGE_PROVIDER?.trim();
-  if (!env) return 'local';
+  const provider = env ?? 'local';
 
   const allowed: StorageProviderName[] = [
     'vercel-blob',
@@ -59,11 +61,22 @@ export function getStorageProvider(): StorageProviderName {
     'r2',
     'local',
   ];
-  if (allowed.includes(env as StorageProviderName)) {
-    return env as StorageProviderName;
+
+  if (!allowed.includes(provider as StorageProviderName)) {
+    logger.warn(`STORAGE_PROVIDER inválido: "${env}". Usando local.`, {
+      source: 'getStorageProvider',
+    });
+    return 'local';
   }
 
-  return 'local';
+  if (process.env.NODE_ENV === 'production' && provider === 'local') {
+    logger.warn(
+      'STORAGE_PROVIDER=local en producción. El filesystem de Vercel es efímero; los videos y adjuntos pueden perderse. Recomendado: vercel-blob, s3 o r2.',
+      { source: 'getStorageProvider' }
+    );
+  }
+
+  return provider as StorageProviderName;
 }
 
 export function getVideoMaxSizeBytes(): number {

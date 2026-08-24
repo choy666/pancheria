@@ -31,9 +31,9 @@ export function unique(prefix: string) {
  */
 export async function loginAs(page: Page, username: string, password: string): Promise<void> {
   await page.goto('/login');
-  await page.fill('input[name="username"]', username);
-  await page.fill('input[name="password"]', password);
-  await page.click('button[type="submit"]');
+  await page.getByLabel('Usuario').fill(username);
+  await page.getByLabel('Contraseña').fill(password);
+  await page.getByRole('button', { name: 'Ingresar' }).click();
   await expect(page).toHaveURL('/', { timeout: 15000 });
 }
 
@@ -233,11 +233,11 @@ export async function login(page: Page, maxAttempts = 3) {
 
     try {
       await page
-        .locator('input[name="username"]')
+        .getByLabel('Usuario')
         .waitFor({ state: 'visible', timeout: 8000 });
-      await page.fill('input[name="username"]', adminUsername);
-      await page.fill('input[name="password"]', adminPassword);
-      await page.click('button[type="submit"]');
+      await page.getByLabel('Usuario').fill(adminUsername);
+      await page.getByLabel('Contraseña').fill(adminPassword);
+      await page.getByRole('button', { name: 'Ingresar' }).click();
       await expect(page).toHaveURL('/', { timeout: 15000 });
       return;
     } catch (error) {

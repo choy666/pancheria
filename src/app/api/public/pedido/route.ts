@@ -102,6 +102,6 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     },
     { status: 201 }
   );
-});
+}, 'POST /api/public/pedido');
 
 export const runtime = 'nodejs';

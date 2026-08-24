@@ -30,7 +30,23 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 8. Ejecutar seed: `npx tsx src/db/seeds.ts`
 9. Iniciar en desarrollo: `npm run dev`
 
-Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`; en entornos donde `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
+Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`. Si `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
+
+## Tests end-to-end
+
+1. Copiar `.env.e2e.example` a `.env.e2e` y completar `DATABASE_URL` con una base descartable (nunca producción).
+2. `global-setup.ts` valida que `NODE_ENV=test`, que la base sea local o tenga un nombre de test/e2e/qa/staging, y que `LOCAL_STORAGE_PATH` sea seguro.
+3. Correr `npm run test:e2e` levanta automáticamente `npm run dev:e2e` y ejecuta los tests.
+4. Alternativa manual: `npm run dev:e2e` en una terminal y `NO_WEB_SERVER=1 npx playwright test` en otra.
+
+> **Importante:** `global-setup.ts` trunca todas las tablas del negocio y re-ejecuta `src/db/seeds.ts`. No correr E2E contra una base con datos reales.
+
+## Notas de seguridad y producción
+
+- No commitear `.env.local` ni `.env.e2e`; `.env.e2e.example` es el template seguro para compartir.
+- En producción definir `NEXT_PUBLIC_APP_URL` y `NEXTAUTH_URL` con el dominio real. De lo contrario, las URLs de videos, chat y WhatsApp caerán en `http://localhost:3000`.
+- En producción usar `STORAGE_PROVIDER=vercel-blob`, `s3` o `r2`. `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
+- Si `.env.local` fue expuesto, rotar `NEXTAUTH_SECRET`, `ADMIN_PASSWORD`, `BLOB_READ_WRITE_TOKEN` y las credenciales de Neon.
 
 ## Comandos
 

@@ -34,7 +34,7 @@ test.describe('Videos', () => {
 
   test('el administrador ve el menú de videos', async ({ page }) => {
     await page.goto('/');
-    await page.click('text=Videos');
+    await page.getByRole('link', { name: 'Videos' }).click();
     await expect(page).toHaveURL('/videos');
   });
 

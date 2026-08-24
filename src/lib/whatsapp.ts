@@ -1,5 +1,6 @@
 import { moneyToNumber, parseMoney } from '@/lib/money';
 import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
+import { getPublicBaseUrl } from '@/lib/public-url';
 import { ValidationError } from '@/domain/errors';
 
 export interface PublicOrderItem {
@@ -27,11 +28,7 @@ export function buildChatPublicUrl(
   orderId: number,
   cancellationToken: string
 ): string {
-  const baseUrl = (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    'http://localhost:3000'
-  ).replace(/\/$/, '');
+  const baseUrl = getPublicBaseUrl();
   return `${baseUrl}/pedido/${orderId}/chat?token=${encodeURIComponent(
     cancellationToken
   )}`;

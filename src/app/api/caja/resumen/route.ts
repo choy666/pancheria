@@ -16,4 +16,4 @@ export const GET = withApiErrorHandling(async () => {
   }
 
   return NextResponse.json(live);
-});
+}, 'GET /api/caja/resumen');

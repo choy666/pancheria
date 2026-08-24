@@ -43,7 +43,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.fill('input#customerName', 'Juan Pérez');
+    await page.getByLabel('Nombre').fill('Juan Pérez');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? '';
@@ -185,7 +185,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.fill('input#customerName', 'Juan Pérez');
+    await page.getByLabel('Nombre').fill('Juan Pérez');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();

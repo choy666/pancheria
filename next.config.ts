@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
+  // Deshabilitar compresión en test para evitar advertencias de listeners y
+  // posibles conflictos entre Turbopack y los tests E2E.
   compress: process.env.NODE_ENV !== 'test',
   typescript: {
     tsconfigPath: './tsconfig.build.json',

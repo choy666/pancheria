@@ -111,9 +111,9 @@ test.describe('Rol administrador', () => {
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
     // Crear un operador en la sucursal por defecto.
-    await page.fill('input[name="username"]', operatorUsername);
-    await page.fill('input[name="password"]', '1234');
-    await page.click('#branchId');
+    await page.getByLabel('Nombre de usuario').fill(operatorUsername);
+    await page.getByLabel('Contraseña').fill('1234');
+    await page.getByLabel('Sucursal').click();
     await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
     await page
       .locator('[data-slot="select-item"]', { hasText: defaultBranchName })
@@ -128,9 +128,9 @@ test.describe('Rol administrador', () => {
 
     // Editar el operador: cambiar nombre, sucursal y contraseña.
     await operatorRow.getByRole('button', { name: 'Editar' }).click();
-    await page.fill('input[name="username"]', editedUsername);
-    await page.fill('input[name="password"]', 'nueva1234');
-    await page.click('#branchId');
+    await page.getByLabel('Nombre de usuario').fill(editedUsername);
+    await page.getByLabel('Contraseña').fill('nueva1234');
+    await page.getByLabel('Sucursal').click();
     await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
     await page
       .locator('[data-slot="select-item"]', { hasText: secondBranch.branchName })

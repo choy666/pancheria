@@ -32,7 +32,7 @@ test.describe('Chat con adjuntos', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.fill('input#customerName', 'María López');
+    await page.getByLabel('Nombre').fill('María López');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();

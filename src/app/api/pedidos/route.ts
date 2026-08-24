@@ -52,6 +52,6 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   });
 
   return NextResponse.json(result);
-});
+}, 'GET /api/pedidos');
 
 export const runtime = 'nodejs';

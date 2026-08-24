@@ -8,7 +8,7 @@ import {
   UnauthorizedError,
 } from '@/domain/errors';
 import { isDatabaseConnectionError } from '@/lib/db-errors';
-import { logError } from '@/lib/logger';
+import { logger } from '@/lib/logger';
 
 function isClientAbortError(error: unknown): boolean {
   if (error instanceof Error) {
@@ -24,57 +24,155 @@ function isClientAbortError(error: unknown): boolean {
   return false;
 }
 
+function extractRequestContext(args: unknown[]): {
+  method: string;
+  url: string;
+} {
+  const request = args[0];
+
+  if (request instanceof Request) {
+    return { method: request.method, url: request.url };
+  }
+
+  if (
+    request &&
+    typeof request === 'object' &&
+    'method' in request &&
+    'url' in request
+  ) {
+    return {
+      method: String((request as { method?: unknown }).method ?? 'UNKNOWN'),
+      url: String((request as { url?: unknown }).url ?? 'unknown'),
+    };
+  }
+
+  return { method: 'UNKNOWN', url: 'unknown' };
+}
+
 export function withApiErrorHandling<TArgs extends unknown[]>(
-  handler: (...args: TArgs) => Promise<Response>
+  handler: (...args: TArgs) => Promise<Response>,
+  routeLabel?: string
 ) {
   return async (...args: TArgs): Promise<Response> => {
+    const start = Date.now();
+    const context = extractRequestContext(args);
+
     try {
-      return await handler(...args);
+      const response = await handler(...args);
+
+      if (routeLabel) {
+        logger.info(routeLabel, {
+          ...context,
+          status: response.status,
+          durationMs: Date.now() - start,
+        });
+      }
+
+      return response;
     } catch (error) {
+      const durationMs = Date.now() - start;
+
       if (error instanceof UnauthorizedError) {
-        return NextResponse.json({ error: error.message }, { status: 401 });
+        const response = NextResponse.json(
+          { error: error.message },
+          { status: 401 }
+        );
+        logApiWarning(routeLabel, { ...context, durationMs, status: 401 });
+        return response;
       }
 
       if (error instanceof ForbiddenError) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
+        const response = NextResponse.json(
+          { error: error.message },
+          { status: 403 }
+        );
+        logApiWarning(routeLabel, { ...context, durationMs, status: 403 });
+        return response;
       }
 
       if (error instanceof ZodError) {
         const message = error.issues.map((e) => e.message).join('. ');
-        return NextResponse.json(
+        const response = NextResponse.json(
           { error: message, details: error.issues },
           { status: 400 }
         );
+        logApiWarning(routeLabel, { ...context, durationMs, status: 400 });
+        return response;
       }
 
       if (error instanceof NotFoundError) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
+        const response = NextResponse.json(
+          { error: error.message },
+          { status: 404 }
+        );
+        logApiWarning(routeLabel, { ...context, durationMs, status: 404 });
+        return response;
       }
 
       if (error instanceof InsufficientStockError) {
-        return NextResponse.json({ error: error.message }, { status: 409 });
+        const response = NextResponse.json(
+          { error: error.message },
+          { status: 409 }
+        );
+        logApiWarning(routeLabel, { ...context, durationMs, status: 409 });
+        return response;
       }
 
       if (error instanceof DomainError) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        const response = NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+        logApiWarning(routeLabel, { ...context, durationMs, status: 400 });
+        return response;
       }
 
       if (isDatabaseConnectionError(error)) {
-        return NextResponse.json(
+        const response = NextResponse.json(
           { error: 'Error de conexión con la base de datos' },
           { status: 503 }
         );
+        logApiError(routeLabel, {
+          ...context,
+          durationMs,
+          status: 503,
+          error,
+        });
+        return response;
       }
 
       if (isClientAbortError(error)) {
+        logger.debug('Cliente abortó la conexión', {
+          ...context,
+          errorMessage:
+            error instanceof Error ? error.message : String(error),
+        });
         return new Response(null, { status: 499 });
       }
 
-      logError('Error inesperado en API', error);
+      logApiError(routeLabel, { ...context, durationMs, status: 500, error });
       return NextResponse.json(
         { error: 'Error interno del servidor' },
         { status: 500 }
       );
     }
   };
+}
+
+function logApiWarning(
+  routeLabel: string | undefined,
+  context: Record<string, unknown>
+): void {
+  if (routeLabel) {
+    logger.warn(routeLabel, context);
+  }
+}
+
+function logApiError(
+  routeLabel: string | undefined,
+  context: Record<string, unknown>
+): void {
+  if (routeLabel) {
+    logger.error(routeLabel, context);
+  }
 }

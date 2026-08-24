@@ -12,4 +12,4 @@ export const POST = withApiErrorHandling(async () => {
     openedBy: userName,
   });
   return NextResponse.json(cashRegister, { status: 201 });
-});
+}, 'POST /api/caja/abrir');

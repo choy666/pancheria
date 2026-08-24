@@ -25,7 +25,7 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.fill('input#customerName', 'Juan Pérez');
+    await page.getByLabel('Nombre').fill('Juan Pérez');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();

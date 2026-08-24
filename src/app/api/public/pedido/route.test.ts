@@ -23,6 +23,12 @@ jest.mock('@/config/catalog', () => ({
   getPedidoRefetchIntervalMs: jest.fn().mockReturnValue(30000),
 }));
 jest.mock('@/lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
   logError: jest.fn(),
 }));
 

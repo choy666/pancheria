@@ -44,8 +44,8 @@ test.describe('Stock, ajustes y movimientos', () => {
     ).toBeVisible();
 
     await row.getByRole('button', { name: 'Ajustar' }).first().click();
-    await page.fill('input#adjust-quantity', '-10');
-    await page.fill('textarea#adjust-reason', 'Ajuste negativo de prueba');
+    await page.getByLabel(/Cantidad/).fill('-10');
+    await page.getByLabel('Motivo').fill('Ajuste negativo de prueba');
     await page.getByRole('button', { name: 'Guardar ajuste' }).click();
 
     await expect(page.getByText('en negativo')).toBeVisible({ timeout: 10000 });

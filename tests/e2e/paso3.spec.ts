@@ -25,9 +25,9 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   test('crea y edita un producto manual', async ({ page }) => {
     const baseName = `Producto test E2E ${Date.now()}`;
     await page.goto('/productos/nuevo');
-    await page.fill('input#name', baseName);
-    await page.fill('textarea#description', 'Descripcion de prueba');
-    await page.fill('input#minStock', '5');
+    await page.getByLabel('Nombre').fill(baseName);
+    await page.getByLabel('Descripción').fill('Descripcion de prueba');
+    await page.getByLabel('Stock mínimo').fill('5');
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 
@@ -37,7 +37,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await expect(page).toHaveURL(/productos\/\d+\/editar/);
 
     const editedName = `${baseName} editado`;
-    await page.fill('input#name', editedName);
+    await page.getByLabel('Nombre').fill(editedName);
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
     await expect(page.getByText(editedName)).toBeVisible();
@@ -55,8 +55,8 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await page.goto('/stock');
     const row = page.getByRole('row', { name: /Pan/ });
     await row.getByRole('button', { name: 'Ajustar' }).first().click();
-    await page.fill('input#adjust-quantity', '10');
-    await page.fill('textarea#adjust-reason', 'Ajuste de prueba');
+    await page.getByLabel(/Cantidad/).fill('10');
+    await page.getByLabel('Motivo').fill('Ajuste de prueba');
     await page.getByRole('button', { name: 'Guardar ajuste' }).click();
     await expect(page).toHaveURL('/stock', { timeout: 10000 });
   });

@@ -61,7 +61,7 @@ test.describe('Responsividad en móvil', () => {
     await menuButton.click();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
 
-    const mobileNav = page.locator('header > div + div nav');
+    const mobileNav = page.locator('[data-tour="mobile-nav"] nav');
     await expect(mobileNav.getByRole('link', { name: 'Ventas' })).toBeVisible();
 
     await mobileNav.getByRole('link', { name: 'Productos' }).click();
@@ -99,7 +99,7 @@ test.describe('Responsividad en móvil', () => {
       await expect(menuButton, `menú hamburguesa visible en ${route}`).toBeVisible();
 
       await menuButton.click();
-      const mobileNav = page.locator('header > div + div nav');
+      const mobileNav = page.locator('[data-tour="mobile-nav"] nav');
       await expect(
         mobileNav.getByRole('link').first(),
         `menú hamburguesa desplegado en ${route}`

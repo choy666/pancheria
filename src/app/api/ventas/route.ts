@@ -50,7 +50,7 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     pagination
   );
   return NextResponse.json(sales);
-});
+}, 'GET /api/ventas');
 
 export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const session = await requireAuth();
@@ -59,4 +59,4 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const data = saleSchema.parse(body);
   const sale = await saleService.confirmSale({ branchId, ...data });
   return NextResponse.json(sale, { status: 201 });
-});
+}, 'POST /api/ventas');

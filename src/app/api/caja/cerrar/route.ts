@@ -36,4 +36,4 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     userName
   );
   return NextResponse.json(cashRegister);
-});
+}, 'POST /api/caja/cerrar');

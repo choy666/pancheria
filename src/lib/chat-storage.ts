@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
+import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStorageProvider as getGlobalStorageProvider } from '@/config/videos';
 import { getChatAllowedImageMimeTypes, getChatImageMaxSizeBytes } from '@/config/chat';
 import { ValidationError } from '@/domain/errors';
@@ -19,14 +20,6 @@ export interface SavedChatAttachment {
   mimeType: string;
   size: number;
   name: string;
-}
-
-function getLocalBaseUrl(): string {
-  const env =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    'http://localhost:3000';
-  return env.replace(/\/$/, '');
 }
 
 const CHAT_KEY_PATTERN = /^chat\/\d+\/[A-Za-z0-9_-]+(?:\.(?:jpg|jpeg|png|webp))?$/;
@@ -126,7 +119,7 @@ async function saveLocal(
 
   return {
     key,
-    publicUrl: `${getLocalBaseUrl()}/api/chat/attachment/${encodeURIComponent(key)}`,
+    publicUrl: `${getPublicBaseUrl()}/api/chat/attachment/${encodeURIComponent(key)}`,
     mimeType: info.type,
     size: info.size,
     name: info.name,

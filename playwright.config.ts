@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { defineConfig, devices } from '@playwright/test';
 
+// Cargar .env.local primero y luego .env.e2e para permitir sobreescrituras.
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env.e2e', override: true });
 
@@ -15,7 +16,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: 'html',
+  reporter: process.env.CI ? 'line' : 'html',
   use: {
     baseURL,
     trace: 'on-first-retry',
@@ -26,6 +27,10 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  // El webServer levanta el dev server con .env.e2e. El health check apunta a
+  // /api/caja/resumen para forzar la compilación de una ruta API bajo Turbopack
+  // antes de que los tests comiencen. Si se agregan rutas críticas, considerar
+  // un endpoint de health check dedicado.
   webServer: useWebServer
     ? {
         command: 'npm run dev:e2e',
