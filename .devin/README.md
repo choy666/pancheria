@@ -14,6 +14,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 ## Estado del proyecto
 
 - [Reporte de estado vigente](informes/reporte-estado.md)
+- [Plan de acción — cierre de pendientes](informes/plan-de-accion-pendientes.md)
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
 - [Índice de informes](informes/README.md)

@@ -63,6 +63,19 @@ Auditar, depurar y determinar si la documentación actual (`AGENTS.md`, `README.
    - Recomendaciones y consejos.
    - Comandos ejecutados y resultados.
 
+## Checklist de sincronización de `.devin`
+
+Antes de dar por terminada una tarea que modifique arquitectura, variables de entorno, flujos de negocio o dependencias:
+
+- [ ] Actualizar `AGENTS.md` si cambian comandos, variables de entorno, convenciones o troubleshooting.
+- [ ] Actualizar `.env.example` si aparece una nueva variable de entorno.
+- [ ] Actualizar `.devin/environment.yaml` si cambian versiones, comandos de setup o conocimientos clave.
+- [ ] Actualizar o archivar prompts en `.devin/prompts/` según correspondan; no dejar prompts resueltos como activos.
+- [ ] Actualizar `.devin/informes/reporte-estado.md` o archivar el anterior si se genera uno nuevo.
+- [ ] Actualizar índices (`.devin/README.md`, `.devin/prompts/README.md`, `.devin/informes/README.md`).
+- [ ] Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip`. Ejecutar `npm run test:e2e` solo si aplica y en base de prueba.
+- [ ] No commitear `.env.local`, `.env.e2e` ni secretos.
+
 ## Verificaciones antes de declarar terminada la tarea
 
 | Paso | Comando | Propósito |

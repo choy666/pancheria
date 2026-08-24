@@ -54,10 +54,14 @@ Se auditó, depuró, actualizó y limpió el directorio `.devin` del proyecto. S
 
 ## 5. Recomendaciones
 
+Las acciones concretas para cada punto están detalladas en `.devin/informes/plan-de-accion-pendientes.md`.
+
 1. **Verificar el blueprint de Devin.** Ejecutar `devin.exe cloud drs build` con `.devin/environment.yaml` cuando se tenga acceso a Devin Cloud; en esta sesión no se pudo porque `devin.exe auth login` no estaba configurado.
 2. **Correr E2E en base de prueba.** Ejecutar `npm run test:e2e` en una base de datos descartable para validar que la limpieza de `.devin` no afectó flujos críticos.
-3. **Revisar archivos archivados.** Revisar periódicamente `prompts/archivados/` e `informes/archivados/` para eliminar archivos que ya no tengan valor histórico.
-4. **Mantener `.devin` sincronizado.** Con cada cambio arquitectónico, variable de entorno o feature, actualizar `AGENTS.md`, `.devin/environment.yaml`, prompts, informes e índices.
+3. **Revisar archivos archivados.** Revisar periódicamente `prompts/archivados/` e `informes/archivados/` para eliminar archivos que ya no tengan valor histórico. Ver la propuesta de eliminar `.devin/informes/archivados/plan-implementacion-chat-2026-08-23.md` en el plan de acción.
+4. **Mantener `.devin` sincronizado.** Con cada cambio arquitectónico, variable de entorno o feature, actualizar `AGENTS.md`, `.devin/environment.yaml`, prompts, informes e índices. Usar el checklist de `.devin/prompts/auditoria-y-documentacion.md`.
+5. **Falsos positivos de CI.** Los avisos del IDE sobre `actions/checkout@v4` y `actions/setup-node@v4` son falsos positivos; las acciones son oficiales y el workflow es válido. Ver `.devin/informes/lecciones-aprendidas.md` sección 11.
+6. **`knip`.** Se eliminó la entrada redundante `src/db/seeds.ts` de `knip.json`; `npm run knip` pasa sin configuration hints.
 
 ---
 
