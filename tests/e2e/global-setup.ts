@@ -2,6 +2,7 @@ import { db } from '../../src/db';
 import { sql } from 'drizzle-orm';
 import { execSync } from 'child_process';
 import { rmSync } from 'fs';
+import http from 'http';
 import path from 'path';
 import { setupSecondBranchForE2E } from './helpers';
 
@@ -129,6 +130,85 @@ function validateE2EEnvironment(): void {
   }
 }
 
+function fetchOnce(
+  url: string,
+  options: { method?: string; body?: string } = {}
+): Promise<number> {
+  return new Promise((resolve) => {
+    const method = options.method ?? 'GET';
+    const clientUrl = new URL(url);
+    const req = http.request(
+      {
+        hostname: clientUrl.hostname,
+        port: clientUrl.port,
+        path: clientUrl.pathname + clientUrl.search,
+        method,
+        headers:
+          method === 'POST'
+            ? { 'Content-Type': 'application/json' }
+            : undefined,
+        timeout: 30000,
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      }
+    );
+    req.on('error', () => resolve(0));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(0);
+    });
+    if (options.body) {
+      req.write(options.body);
+    }
+    req.end();
+  });
+}
+
+async function preheatDevServer(): Promise<void> {
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+  // Calentar las páginas y rutas API críticas (chat y pedido público) antes
+  // de que comiencen los tests, para evitar timeouts por compilación bajo
+  // Turbopack. Se usan peticiones reales; el cuerpo vacío/inválido hace que
+  // algunas devuelvan 400/401, pero ya fuerzan la compilación del handler.
+  const requests = [
+    { path: '/api/caja/resumen' },
+    { path: '/pedido?branchId=1' },
+    { path: '/api/public/catalogo?branchId=1' },
+    {
+      path: '/api/public/disponibilidad?branchId=1',
+      method: 'POST',
+      body: JSON.stringify({ items: [] }),
+    },
+    {
+      path: '/api/public/pedido?branchId=1',
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    { path: '/pedido/1/chat?token=invalid' },
+    { path: '/api/public/pedido/1/chat?token=invalid&after=0&limit=50' },
+    {
+      path: '/api/public/pedido/1/chat?token=invalid',
+      method: 'POST',
+      body: JSON.stringify({ content: 'preheat' }),
+    },
+    { path: '/pedidos/1' },
+    { path: '/api/pedidos/1/chat' },
+    {
+      path: '/api/pedidos/1/chat',
+      method: 'POST',
+      body: JSON.stringify({ content: 'preheat' }),
+    },
+    { path: '/pedidos' },
+  ];
+
+  await Promise.all(
+    requests.map((r) => fetchOnce(`${baseUrl}${r.path}`, { method: r.method, body: r.body }))
+  );
+}
+
 export default async function globalSetup() {
   if (process.env.NO_GLOBAL_SETUP) {
     return;
@@ -172,4 +252,6 @@ export default async function globalSetup() {
       throw error;
     }
   }
+
+  await preheatDevServer();
 }

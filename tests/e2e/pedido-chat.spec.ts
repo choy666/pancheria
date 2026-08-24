@@ -38,6 +38,8 @@ test.describe('Chat anclado a pedidos', () => {
     const clientMessage = '¿Cuándo llega?';
     await page.getByPlaceholder('Escribí un mensaje...').fill(clientMessage);
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
+
+    await expect(page.getByPlaceholder('Escribí un mensaje...')).toHaveValue('');
     await expect(page.getByText(clientMessage).first()).toBeVisible();
 
     // Operador: inicia sesión y abre el pedido.
@@ -54,6 +56,7 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByPlaceholder('Escribí un mensaje...').fill(operatorMessage);
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
+    await expect(page.getByPlaceholder('Escribí un mensaje...')).toHaveValue('');
     await expect(page.getByText(operatorMessage).first()).toBeVisible({ timeout: 10000 });
 
     // Cliente ve la respuesta recargando la URL del chat.

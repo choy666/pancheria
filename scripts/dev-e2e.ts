@@ -29,7 +29,9 @@ async function main() {
   const nextBin = resolveNextBin();
 
   // El binario de Next espera argv[2] como comando (dev, build, start, etc.).
-  process.argv = ['node', 'next', 'dev'];
+  // Se usa --turbopack para la compilación rápida en E2E. El flag está
+  // explícito por claridad aunque sea el modo por defecto en Next.js 16.
+  process.argv = ['node', 'next', 'dev', '--turbopack'];
 
   try {
     await import(pathToFileURL(nextBin).href);
