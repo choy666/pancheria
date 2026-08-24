@@ -28,10 +28,10 @@ export default defineConfig({
   ],
   webServer: useWebServer
     ? {
-        command: 'npm run dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: false,
-        timeout: 120 * 1000,
+        command: 'npm run dev:e2e',
+        url: 'http://localhost:3000/api/caja/resumen',
+        reuseExistingServer: true,
+        timeout: 180 * 1000,
       }
     : undefined,
 });

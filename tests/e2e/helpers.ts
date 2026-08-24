@@ -260,6 +260,15 @@ export async function ensureLoggedIn(page: Page) {
 
 export async function getCashRegister(page: Page) {
   const resumen = await page.request.get('/api/caja/resumen');
+  const contentType = resumen.headers()['content-type'] ?? '';
+
+  if (!contentType.includes('application/json')) {
+    const text = await resumen.text();
+    throw new Error(
+      `GET /api/caja/resumen devolvió status ${resumen.status()} con content-type ${contentType}. Body: ${text.slice(0, 500)}`
+    );
+  }
+
   const data = (await resumen.json()) as { status?: string; id?: number };
   return data.status === 'closed' ? null : data;
 }
@@ -309,5 +318,14 @@ export async function restockProductViaApi(
       type: 'restock',
     },
   });
-  expect(response.status()).toBe(200);
+
+  if (!response.ok()) {
+    const contentType = response.headers()['content-type'] ?? '';
+    const body = contentType.includes('application/json')
+      ? JSON.stringify(await response.json())
+      : await response.text();
+    throw new Error(
+      `POST /api/stock/ajustar devolvió status ${response.status()}. Body: ${body.slice(0, 500)}`
+    );
+  }
 }

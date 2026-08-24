@@ -17,6 +17,7 @@
 - **Verificar `NEXTAUTH_URL` y `AUTH_URL` en Vercel tras cada deploy.** Si `NEXTAUTH_URL` (o `AUTH_URL`, que en NextAuth v5 tiene prioridad) apunta a `http://localhost:3000`, las redirecciones de autenticación (ya sea por middleware o por Server Components) pueden enviar a `localhost` en lugar del dominio de producción.
 - **No usar `STORAGE_PROVIDER=local` en producción si se almacenan videos.** El filesystem de Vercel es efímero; usar `vercel-blob`, `s3` o `r2` con sus credenciales. También se recomienda `vercel-blob` en desarrollo para no depender del filesystem local.
 - **Ejecutar tests E2E solo en bases de datos de prueba.** `tests/e2e/global-setup.ts` trunca tablas de negocio y re-seedea. No usar en producción ni contra datos reales.
+- **Configurar Playwright para que el `webServer` cargue `.env.e2e` y espere una ruta API, no la raíz.** Next.js 16 con Turbopack compila las rutas bajo demanda. Si Playwright inicia los tests tan pronto `http://localhost:3000` responde, las primeras requests a rutas API pueden recibir HTML/404 mientras se compilan. Usar `command: 'npm run dev:e2e'` (que cargue `.env.e2e`) y `url: 'http://localhost:3000/api/caja/resumen'` fuerza la compilación de una API antes de empezar. También se puede levantar manualmente con `npm run dev:e2e` y correr con `NO_WEB_SERVER=1`.
 
 ## 2. Calidad de código y arquitectura
 

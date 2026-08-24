@@ -7,7 +7,7 @@
 
 ## 1. Resumen ejecutivo
 
-Se completó la auditoría integral de la documentación vigente y la implementación de las recomendaciones priorizadas. Se corrigieron discrepancias en la descripción del proxy/middleware, se alinearon redirecciones, se endureció la seguridad, se hicieron atómicos el rate limiting y la idempotencia, se estandarizó la validación de IDs y se instaló `knip` para detectar código muerto. Todos los comandos de verificación (lint, TypeScript, tests unitarios, build y `knip`) pasan con éxito.
+Se completó la auditoría integral de la documentación vigente y la implementación de las recomendaciones priorizadas. Se corrigieron discrepancias en la descripción del proxy/middleware, se alinearon redirecciones, se endureció la seguridad, se hicieron atómicos el rate limiting y la idempotencia, se estandarizó la validación de IDs y se instaló `knip` para detectar código muerto. Todos los comandos de verificación (lint, TypeScript, tests unitarios, build, `knip` y tests E2E) pasan con éxito.
 
 ## 2. Alcance verificado
 
@@ -15,6 +15,7 @@ Se completó la auditoría integral de la documentación vigente y la implementa
 |------|--------|-----------|
 | Stack y dependencias | Actualizado | `package.json`: Next.js 16.3.2, React 19.2.8, Drizzle ORM 0.45.2, Zod 4.4.3, Tailwind CSS v4. |
 | Tests unitarios | Actualizado | 92 suites, 890 tests pasan. |
+| Tests E2E | Corregido | 84 tests pasan con `npm run test:e2e` usando el servidor de desarrollo con `.env.e2e`. |
 | Build de producción | Exitoso | 43 páginas, funciones serverless (`ƒ`). |
 | Proxy/middleware de autenticación | Alineado | `src/proxy.ts` es el proxy activo de Next.js 16. `src/lib/route-guard.ts` redirige `/` sin sesión a `/login` y `/login` con sesión a `/`. Los layouts y página de login fueron ajustados para no contradecir al proxy. |
 | Rate limiting | Atómico | `public-order-rate-limit-store.ts` usa `INSERT ... ON CONFLICT DO UPDATE` en DB y una sola operación en memoria. `rate-limit-store.ts` (login) usa `INSERT ... ON CONFLICT DO UPDATE` en DB y operaciones atómicas en memoria. |
@@ -36,6 +37,8 @@ Se completó la auditoría integral de la documentación vigente y la implementa
 | Bajo / Calidad | `knip` no estaba instalado. | Se instaló `knip`, se agregó el script y la configuración, y se limpiaron exports no usados. |
 | Bajo / Calidad | Varios endpoints usaban `Number(id)` y `Number.isNaN` manualmente. | Se estandarizó el uso de `parseId()`. |
 | Bajo / Seguridad | El cache de adjuntos de chat era de un año (`max-age=31536000, immutable`). | Se redujo a 24 horas con `must-revalidate` para evitar servir archivos eliminados durante un año. |
+| Mayor / Tests E2E | `playwright.config.ts` levantaba `npm run dev` sin `.env.e2e` y esperaba solo `http://localhost:3000`; Turbopack devolvía HTML/404 mientras compilaba rutas API bajo demanda. | Se creó `scripts/dev-e2e.ts` con `dotenv` para `.env.e2e`, se agregó el script `dev:e2e`, se cambió el `webServer` a `npm run dev:e2e` y se apuntó la URL de espera a `/api/caja/resumen` para forzar compilación de una ruta API antes de iniciar tests. |
+| Medio / Tests E2E | `tests/e2e/caja-cierre-vacios.spec.ts` usaba locators que coincidían parcialmente (`filter({ hasText: supply.name })`), fallando cuando existían productos como `Pan E2E` o `Pan sin auto`. | Se cambió el locator a `filter({ hasText: supply.name }).first()` dentro del listado de insumos críticos, y se agregó manejo defensivo en `tests/e2e/helpers.ts` para diagnosticar status y body cuando una respuesta no es JSON. |
 
 ## 4. Comandos ejecutados y resultados
 
@@ -46,6 +49,7 @@ Se completó la auditoría integral de la documentación vigente y la implementa
 | 3 | `npm test` | 92 suites, 890 tests pasan |
 | 4 | `npm run build` | Build de producción exitoso (43 páginas) |
 | 5 | `npm run knip` | Sin problemas (exit 0) |
+| 6 | `npm run test:e2e` | 84 tests E2E pasan |
 
 ## 5. Recomendaciones y pendientes
 

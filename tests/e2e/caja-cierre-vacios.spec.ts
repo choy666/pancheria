@@ -66,7 +66,10 @@ test.describe('Caja y cierre con estados vacíos', () => {
     await expect(suppliesSection).toBeVisible();
 
     for (const supply of criticalSupplies) {
-      const row = suppliesSection.locator('li').filter({ hasText: supply.name });
+      const row = suppliesSection
+        .getByRole('listitem')
+        .filter({ hasText: supply.name })
+        .first();
       await expect(row).toBeVisible();
       await expect(row).toContainText('0');
     }

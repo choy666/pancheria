@@ -26,7 +26,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 
 > **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
-> Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El archivo `.env.e2e` y `playwright.config.ts` ya están configurados para sobrescribir esas variables; en entornos donde `.env.local` apunta a producción, usar `NO_WEB_SERVER=1` y levantar manualmente `npm run dev` con las variables de `.env.e2e`.
+> Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El `webServer` de `playwright.config.ts` levanta `npm run dev:e2e`, que carga `.env.e2e` con `dotenv` antes de iniciar Next.js, y espera a que `/api/caja/resumen` responda para forzar la compilación de una ruta API antes de iniciar los tests. También se puede levantar manualmente con `npm run dev:e2e` y correr `NO_WEB_SERVER=1 npx playwright test`; esto es necesario si `.env.local` apunta a producción o si se quiere reutilizar un servidor ya calentado.
 
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:
