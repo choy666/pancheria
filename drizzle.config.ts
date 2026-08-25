@@ -14,9 +14,12 @@ function resolveDatabaseUrl(): string {
     process.env.POSTGRES_URL;
 
   if (!candidate) {
-    throw new Error(
-      'No se encontró una URL de conexión a PostgreSQL. Definí DATABASE_URL_UNPOOLED, POSTGRES_URL_NON_POOLING, DATABASE_URL o POSTGRES_URL en las variables de entorno.'
+    // Knip y otras herramientas de análisis cargan este archivo sin variables
+    // de entorno, por lo que no se lanza un error en tiempo de carga.
+    console.warn(
+      'No se encontró una URL de conexión a PostgreSQL. Definí DATABASE_URL_UNPOOLED, POSTGRES_URL_NON_POOLING, DATABASE_URL o POSTGRES_URL para ejecutar drizzle-kit.'
     );
+    return '';
   }
 
   return candidate;

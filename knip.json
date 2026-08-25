@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": [],
+  "entry": ["src/db/seeds.ts"],
   "ignore": [
     "src/components/ui/badge.tsx",
     "src/components/ui/card.tsx",
