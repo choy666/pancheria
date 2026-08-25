@@ -32,7 +32,8 @@ test.describe('Chat con adjuntos', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.getByLabel('Nombre').fill('María López');
+    const customerName = unique('María López');
+    await page.getByLabel('Nombre').fill(customerName);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();
@@ -49,17 +50,21 @@ test.describe('Chat con adjuntos', () => {
     });
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
-    await expect(page.getByTestId('chat-attachment-image').first()).toBeVisible();
+    await expect(
+      page.getByTestId('chat-attachment-image').first()
+    ).toBeVisible({ timeout: 15_000 });
 
     // Operador: inicia sesión y abre el pedido.
     await login(page);
     await page.goto('/pedidos');
 
-    await expect(page.getByText('María López')).toBeVisible();
+    await expect(page.getByText(customerName).first()).toBeVisible();
     await page.getByRole('link', { name: 'Ver' }).first().click();
 
     await expect(page.getByText('Chat con el cliente')).toBeVisible();
-    await expect(page.getByTestId('chat-attachment-image').first()).toBeVisible();
+    await expect(
+      page.getByTestId('chat-attachment-image').first()
+    ).toBeVisible({ timeout: 15_000 });
 
     // Operador responde con una imagen.
     await page.getByTestId('chat-file-input').setInputFiles({
@@ -69,7 +74,9 @@ test.describe('Chat con adjuntos', () => {
     });
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
-    await expect(page.getByTestId('chat-attachment-image').nth(1)).toBeVisible();
+    await expect(
+      page.getByTestId('chat-attachment-image').nth(1)
+    ).toBeVisible({ timeout: 15_000 });
 
     // Cliente ve la respuesta recargando la URL del chat.
     await page.goto(clientChatUrl);

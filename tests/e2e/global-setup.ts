@@ -1,5 +1,6 @@
 import { db } from '../../src/db';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
+import { products } from '../../src/db/schema';
 import { execSync } from 'child_process';
 import { rmSync } from 'fs';
 import http from 'http';
@@ -175,6 +176,16 @@ function fetchOnce(
 
 async function preheatDevServer(): Promise<void> {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+  const defaultBranchId = 1;
+
+  // Usar un producto real del seed para que el endpoint de disponibilidad
+  // recorra el mismo código que los tests (consulta de producto, recetas e
+  // insumos) y evite la compilación bajo demanda en el primer test.
+  const product = await db.query.products.findFirst({
+    where: eq(products.branchId, defaultBranchId),
+  });
+  const productId = product?.id ?? 1;
+  const cartItem = { productId, quantity: 1 };
 
   // Calentar las páginas y rutas API críticas (chat y pedido público) antes
   // de que comiencen los tests, para evitar timeouts por compilación bajo
@@ -187,17 +198,27 @@ async function preheatDevServer(): Promise<void> {
     {
       path: '/api/public/disponibilidad?branchId=1',
       method: 'POST',
-      body: JSON.stringify({ items: [] }),
+      body: JSON.stringify({ items: [cartItem] }),
     },
     {
       path: '/api/public/pedido?branchId=1',
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        items: [cartItem],
+        customerName: 'Pre Heat',
+        deliveryType: 'pickup',
+        idempotencyKey: 'preheat-1',
+      }),
     },
     { path: '/pedido/1/chat?token=invalid' },
     { path: '/api/public/pedido/1/chat?token=invalid&after=0&limit=50' },
     {
       path: '/api/public/pedido/1/chat?token=invalid',
+      method: 'POST',
+      body: JSON.stringify({ content: 'preheat' }),
+    },
+    {
+      path: '/api/public/pedido/1/chat/upload?token=invalid',
       method: 'POST',
       body: JSON.stringify({ content: 'preheat' }),
     },
@@ -211,9 +232,10 @@ async function preheatDevServer(): Promise<void> {
     { path: '/pedidos' },
   ];
 
-  await Promise.all(
-    requests.map((r) => fetchOnce(`${baseUrl}${r.path}`, { method: r.method, body: r.body }))
-  );
+  // Secuencial para no saturar el dev server durante el precalentamiento.
+  for (const r of requests) {
+    await fetchOnce(`${baseUrl}${r.path}`, { method: r.method, body: r.body });
+  }
 }
 
 export default async function globalSetup() {
@@ -261,4 +283,15 @@ export default async function globalSetup() {
   }
 
   await preheatDevServer();
+
+  // Limpiar el pedido de precalentamiento para no contaminar el estado de los
+  // tests, pero dejar productos, sucursales y catálogos ya cargados.
+  await db.execute(sql`
+    TRUNCATE TABLE
+      order_items,
+      order_messages,
+      public_order_rate_limits,
+      orders
+    RESTART IDENTITY CASCADE;
+  `);
 }

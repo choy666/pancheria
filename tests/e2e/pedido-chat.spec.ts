@@ -25,7 +25,8 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
-    await page.getByLabel('Nombre').fill('Juan Pérez');
+    const customerName = unique('Juan Pérez');
+    await page.getByLabel('Nombre').fill(customerName);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();
@@ -46,7 +47,7 @@ test.describe('Chat anclado a pedidos', () => {
     await login(page);
     await page.goto('/pedidos');
 
-    await expect(page.getByText('Juan Pérez').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(customerName).first()).toBeVisible({ timeout: 10000 });
     await page.getByRole('link', { name: 'Ver' }).first().click();
 
     await expect(page.getByText('Chat con el cliente')).toBeVisible();
