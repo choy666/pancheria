@@ -31,12 +31,8 @@ export interface WhatsAppMessageParts {
 
 export function getWhatsAppMessageParts(): WhatsAppMessageParts {
   return {
-    greeting:
-      process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING?.trim() ||
-      'Hola, quiero hacer el siguiente pedido:',
-    closing:
-      process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING?.trim() ||
-      'Me confirmás el total y el medio de pago. Gracias.',
+    greeting: process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING?.trim() ?? '',
+    closing: process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING?.trim() ?? '',
   };
 }
 

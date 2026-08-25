@@ -3,17 +3,16 @@ import { logger } from './logger';
 /**
  * Resuelve la URL pública base de la aplicación.
  *
- * En el servidor puede usar `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL`.
- * En el cliente solo está disponible `NEXT_PUBLIC_APP_URL` (las variables
- * sin prefijo NEXT_PUBLIC_ no se exponen al navegador).
+ * Orden de resolución:
+ * 1. `NEXT_PUBLIC_APP_URL` (disponible en cliente y servidor).
+ * 2. `NEXTAUTH_URL` (solo servidor; no se expone al navegador).
+ * 3. `HOST` + `PORT` (desarrollo/test; por ejemplo `localhost:3000`).
  *
- * Si no hay ninguna variable configurada, usa `http://localhost:3000` como
- * fallback. En producción emite una advertencia para evitar URLs rotas en
- * Vercel.
+ * En producción no hay fallback hardcodeado: si faltan todas las variables,
+ * se lanza un error para evitar URLs rotas en Vercel. En desarrollo/test el
+ * fallback final es `http://localhost:3000`, configurable con `HOST` y `PORT`.
  */
-export function getPublicBaseUrl(): string {
-  const isBrowser = typeof window !== 'undefined';
-
+function resolveBaseUrl(isBrowser: boolean): string {
   const envUrl = isBrowser
     ? process.env.NEXT_PUBLIC_APP_URL
     : (process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL);
@@ -22,18 +21,38 @@ export function getPublicBaseUrl(): string {
     return envUrl.replace(/\/$/, '');
   }
 
-  const fallback = 'http://localhost:3000';
+  const host = process.env.HOST;
+  const port = process.env.PORT;
+
+  if (host || port) {
+    const safePort = port || '3000';
+    return `http://${host || 'localhost'}:${safePort}`;
+  }
 
   if (process.env.NODE_ENV === 'production') {
     const missing = isBrowser
       ? 'NEXT_PUBLIC_APP_URL'
-      : 'NEXT_PUBLIC_APP_URL ni NEXTAUTH_URL';
+      : 'NEXT_PUBLIC_APP_URL o NEXTAUTH_URL';
 
-    logger.warn(
-      `No se configuró ${missing}. Las URLs públicas caerán en el fallback ${fallback}.`,
-      { source: 'getPublicBaseUrl', browser: isBrowser }
+    throw new Error(
+      `No se configuró ${missing}. Las URLs públicas en producción requieren una URL base válida.`
     );
   }
 
+  const fallback = 'http://localhost:3000';
+  const missing = isBrowser
+    ? 'NEXT_PUBLIC_APP_URL'
+    : 'NEXT_PUBLIC_APP_URL o NEXTAUTH_URL';
+
+  logger.warn(
+    `No se configuró ${missing}. Las URLs públicas usarán el fallback de desarrollo ${fallback}. Configurá HOST y PORT para evitar este valor hardcodeado.`,
+    { source: 'getPublicBaseUrl', browser: isBrowser }
+  );
+
   return fallback;
+}
+
+export function getPublicBaseUrl(): string {
+  const isBrowser = typeof window !== 'undefined';
+  return resolveBaseUrl(isBrowser);
 }

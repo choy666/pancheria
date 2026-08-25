@@ -42,7 +42,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida. En NextAuth v5, si existe `AUTH_URL`, tiene prioridad sobre `NEXTAUTH_URL`; en ese caso `AUTH_URL` también debe coincidir con el dominio de producción.
 - `AUTH_URL` (opcional) — URL de autenticación para NextAuth v5. Si se define, tiene prioridad sobre `NEXTAUTH_URL`. Debe coincidir con el dominio de producción; en desarrollo/tests suele ser `http://localhost:3000`.
 - `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos y adjuntos de chat (`STORAGE_PROVIDER=local`).
-- `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth.
+- `AUTH_SECRET` (opcional) — secreto preferido por NextAuth v5 para firmar sesiones. Si no se define, se usa `NEXTAUTH_SECRET` como compatibilidad. Debe tener al menos 32 bytes.
+- `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth (compatibilidad; Auth.js v5 prefiere `AUTH_SECRET`).
 - `ADMIN_USERNAME` — usuario administrador inicial.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
 - `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (usado por el seed).

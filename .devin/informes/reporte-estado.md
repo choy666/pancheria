@@ -1,13 +1,13 @@
-# Reporte de estado — Auditoría, depuración y limpieza del directorio `.devin`
+# Reporte de estado — Auditoría completa de documentación vigente
 
-**Fecha:** 2026-08-24  
+**Fecha:** 2026-08-25  
 **Proyecto:** `pancheria`
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se auditó, depuró, actualizó y limpió el directorio `.devin` del proyecto. Se archivaron prompts e informes resueltos, se actualizaron los índices, se corrigieron inconsistencias documentales y se verificó que el blueprint `environment.yaml` siga alineado con los comandos y variables del proyecto. Las verificaciones de código (`lint`, `tsc`, `test`, `build`, `knip`) pasan con los mismos resultados vigentes. No se reejecutó `npm run test:e2e` en esta sesión por no contar con una base de datos descartable configurada en `.env.e2e`.
+Se realizó una auditoría completa de la documentación vigente (`.devin`, `README.md`, `AGENTS.md`, `.env.local`, `.env.example`, prompts e informes) y del código fuente, siguiendo el checklist de `.devin/prompts/auditoria-y-documentacion.md`. Se ejecutaron las verificaciones de calidad: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip`, todos con éxito. Se detectaron inconsistencias entre documentación y código, algunas ya corregidas. No se ejecutó `npm run test:e2e` ni `npx drizzle-kit push/check` por requerir una base de datos descartable y confirmación explícita.
 
 ---
 
@@ -15,14 +15,15 @@ Se auditó, depuró, actualizó y limpió el directorio `.devin` del proyecto. S
 
 | Área | Estado | Evidencia |
 |------|--------|-----------|
-| `.devin/environment.yaml` | Actualizado | Alineado con `package.json` y `AGENTS.md`; se agregaron entradas de `knip` y `e2e`; se mantiene `Node.js 20 LTS` y `npm install` como base del DRS. |
-| Índices de `.devin` | Actualizados | `.devin/README.md`, `.devin/prompts/README.md` y `.devin/informes/README.md` reflejan archivos activos y archivados. |
-| Prompts resueltos | Archivados | `plan-mejoras-chat-pedido.md` y `auditoria-chat-workaround-y-mejoras.md` se movieron a `prompts/archivados/`. |
-| Informes resueltos | Archivados | `plan-implementacion-chat.md`, `informe-pro-contras-recomendaciones.md` y el reporte anterior se movieron a `informes/archivados/`. |
-| Prompt activo renombrado | Actualizado | `correccion-tests-e2e-caja-y-entorno.prompt.md` se renombró a `correccion-tests-e2e-caja-y-entorno.md` para consistencia. |
-| `cobertura-auditoria-flujo-pedidos.md` | Limpio | Se eliminaron secciones de pendientes y mejoras sugeridas ya resueltas; se conservan el flujo vigente, la limpieza realizada y las decisiones clave. |
-| `pancheria.prompt.md` | Actualizado | Se corrigió la nota sobre prompts resueltos (ahora se archivan en `prompts/archivados/`) y se agregó `npm run knip` a las verificaciones. |
-| Código del proyecto | Estable | `npm run lint`, `npx tsc --noEmit`, `npm test` (92 suites, 890 tests), `npm run build` (43 páginas), `npm run knip` pasan. |
+| `README.md` | Estable | Coincide con `package.json` y la estructura del proyecto. |
+| `AGENTS.md` | Corregido | Se agregó `AUTH_SECRET` a la lista de variables de entorno. |
+| `.env.example` | Corregido | Se agregaron valores sugeridos para `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` y `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`. |
+| `.env.local` | Revisado | Contiene secretos; `.gitignore` lo excluye. Se recomienda rotar si se expuso. |
+| `.devin/environment.yaml` | Revisado | Se corrigió la lista de tablas truncadas en E2E. El bloque `initialize` con `uses: github.com/actions/setup-node@v4` requiere verificación contra el esquema DRS. |
+| `.devin/informes/lecciones-aprendidas.md` | Corregido | Se actualizaron observaciones obsoletas sobre rate limit de chat/leido, fallback `?content=` y `getLocalBaseUrl()`. |
+| `.devin/informes/plan-de-accion-pendientes.md` | Actualizado | Se corrigió el estado de `knip.json` y la propuesta de archivo inexistente. |
+| Código fuente | Corregido | Se eliminaron los defaults hardcodeados de `getPublicBaseUrl()` (protege producción con error) y `getWhatsAppMessageParts()` (lee variables de entorno). `jest.setup.ts` provee `NEXTAUTH_URL` para tests. |
+| Verificaciones | Pasan | `lint`, `tsc`, `test` (92/890), `build` (42 páginas dinámicas), `knip`. |
 
 ---
 
@@ -30,12 +31,16 @@ Se auditó, depuró, actualizó y limpió el directorio `.devin` del proyecto. S
 
 | Gravedad | Hallazgo | Acción |
 |----------|----------|--------|
-| Mayor / Seguridad | `plan-implementacion-chat.md` indicaba usar `.env.local` como base de datos para E2E y sugería hacer commit de respaldo; es incorrecto y peligroso. | Se archivó el plan y se agregó una nota de archivo que remite a `.env.e2e` y al `reporte-estado.md` vigente. |
-| Medio / Documentación | `.devin/README.md` y `.devin/prompts/README.md` listaban prompts e informes que ya estaban resueltos o tenían nombres inconsistentes. | Se actualizaron los índices; los prompts resueltos se movieron a `prompts/archivados/` y los informes a `informes/archivados/`. |
-| Medio / Documentación | `pancheria.prompt.md` decía que los prompts resueltos se "eliminan", contradiciendo el directorio `prompts/archivados/`. | Se corrigió a "se archivan" y se agregó `npm run knip` a las verificaciones. |
-| Medio / Documentación | `cobertura-auditoria-flujo-pedidos.md` acumulaba secciones de pendientes y mejoras sugeridas ya resueltas. | Se limpió el prompt, eliminando pendientes resueltos y conservando el flujo vigente y las decisiones. |
-| Menor / Documentación | `correccion-tests-e2e-caja-y-entorno.prompt.md` usaba extensión `.prompt.md` inconsistente. | Se renombró a `.md`. |
-| Menor / Blueprint | `environment.yaml` no documentaba `knip` ni el flujo E2E con `.env.e2e`. | Se agregaron entradas en `knowledge` para `knip` y `e2e`. |
+| Mayor / Documentación | `.devin/informes/lecciones-aprendidas.md` contenía observaciones obsoletas: `POST /api/public/pedido/[id]/chat/leido` sin rate limit, fallback `?content=` en chat y referencia a `getLocalBaseUrl()`. | Se actualizaron las lecciones con el estado real del código. |
+| Mayor / Documentación | `AGENTS.md` no documentaba `AUTH_SECRET`, aunque `auth.config.ts`, `.env.example` y `.env.e2e.example` lo soportan. | Se agregó `AUTH_SECRET` a la lista de variables de entorno. |
+| Mayor / Configuración | `.devin/environment.yaml` no fue verificado con `devin.exe cloud drs build` porque `devin.exe auth login` no está configurado. El bloque `uses: github.com/actions/setup-node@v4` es válido según la documentación oficial de DRS (soporta GitHub Actions en blueprints), pero el build real sigue siendo necesario. | Pendiente: autenticarse y ejecutar `devin.exe cloud drs build`. Se corrigió la lista de tablas truncadas en E2E. |
+| Menor / Documentación | El `reporte-estado.md` anterior afirmaba que `src/db/seeds.ts` fue eliminado de `knip.json`; el archivo aún lo incluye y `package.json`/CI no lo referencian como punto de entrada. | Se actualizó el plan de acción y el informe; se mantiene la entrada en `knip.json` hasta decidir si es realmente redundante. |
+| Menor / Documentación | `plan-de-accion-pendientes.md` proponía eliminar `.devin/informes/archivados/plan-implementacion-chat-2026-08-23.md`, que no existe. | Se corrigió el plan; el archivo ya fue eliminado o nunca existió en esta ruta. |
+| Menor / Código | `src/lib/public-url.ts` tenía el fallback `http://localhost:3000` hardcodeado; `src/config/catalog.ts` tenía mensajes de WhatsApp default hardcodeados. | Se refactorizó `getPublicBaseUrl()`: en producción lanza error si falta `NEXT_PUBLIC_APP_URL`/`NEXTAUTH_URL`; en desarrollo/test permite fallback a `http://${HOST}:${PORT}` o `http://localhost:3000` con warning. Se refactorizó `getWhatsAppMessageParts()` para leer las variables sin defaults; los valores sugeridos pasaron a `.env.example`. |
+| Menor / Código | `src/db/seeds.ts` define `DEFAULT_BRANCH_NAME = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto'`. | El fallback duplica el valor de `.env.example`; se recomienda requerir la variable en lugar de hardcodear un default. |
+| Informativo / Seguridad | `.env.local` contiene secretos reales. | Verificar que no se haya compartido y rotar si es necesario. `.gitignore` lo excluye correctamente. |
+| Informativo | CI usa Node.js 22 mientras `.devin/environment.yaml` y `README.md` indican Node.js 20 LTS. | No es un error; 20 es el mínimo documentado, 22 es compatible. |
+| Informativo | `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` está en `.env.example` pero no en `AGENTS.md`. | Se puede agregar a `AGENTS.md` si se considera parte de la documentación principal. |
 
 ---
 
@@ -46,29 +51,27 @@ Se auditó, depuró, actualizó y limpió el directorio `.devin` del proyecto. S
 | 1 | `npm run lint` | Pasa (exit 0) |
 | 2 | `npx tsc --noEmit` | Pasa |
 | 3 | `npm test` | 92 suites, 890 tests pasan |
-| 4 | `npm run build` | Build de producción exitoso (43 páginas) |
+| 4 | `npm run build` | Build de producción exitoso (42 páginas dinámicas) |
 | 5 | `npm run knip` | Sin problemas (exit 0) |
-| 6 | `npm run test:e2e` | No ejecutado en esta sesión (requiere `.env.e2e` con base descartable). Última cifra verificada: 84 passed. |
+| 6 | `npm run test:e2e` | No ejecutado (requiere `.env.e2e` y base descartable). |
 
 ---
 
 ## 5. Recomendaciones
 
-Las acciones concretas para cada punto están detalladas en `.devin/informes/plan-de-accion-pendientes.md`.
-
-1. **Verificar el blueprint de Devin.** Ejecutar `devin.exe cloud drs build` con `.devin/environment.yaml` cuando se tenga acceso a Devin Cloud; en esta sesión no se pudo porque `devin.exe auth login` no estaba configurado.
-2. **Correr E2E en base de prueba.** Ejecutar `npm run test:e2e` en una base de datos descartable para validar que la limpieza de `.devin` no afectó flujos críticos.
-3. **Revisar archivos archivados.** Revisar periódicamente `prompts/archivados/` e `informes/archivados/` para eliminar archivos que ya no tengan valor histórico. Ver la propuesta de eliminar `.devin/informes/archivados/plan-implementacion-chat-2026-08-23.md` en el plan de acción.
-4. **Mantener `.devin` sincronizado.** Con cada cambio arquitectónico, variable de entorno o feature, actualizar `AGENTS.md`, `.devin/environment.yaml`, prompts, informes e índices. Usar el checklist de `.devin/prompts/auditoria-y-documentacion.md`.
-5. **Falsos positivos de CI.** Los avisos del IDE sobre `actions/checkout@v4` y `actions/setup-node@v4` son falsos positivos; las acciones son oficiales y el workflow es válido. Ver `.devin/informes/lecciones-aprendidas.md` sección 11.
-6. **`knip`.** Se eliminó la entrada redundante `src/db/seeds.ts` de `knip.json`; `npm run knip` pasa sin configuration hints.
+1. **Verificar `environment.yaml` con DRS.** Autenticarse con `devin.exe auth login` y ejecutar `devin.exe cloud drs build`. El uso de `uses: github.com/actions/setup-node@v4` es válido según la documentación oficial de DRS, pero solo un build real confirma que el blueprint funciona.
+2. **Correr E2E en base descartable.** Configurar `.env.e2e` y ejecutar `npm run test:e2e` para validar flujos críticos.
+3. **Revisar archivos archivados.** Confirmar la eliminación segura de `.devin/informes/archivados/plan-implementacion-chat-2026-08-23.md` (ya no existe) y limpiar referencias obsoletas.
+4. **Sincronizar `.devin`.** Usar el checklist de `auditoria-y-documentacion.md` con cada cambio arquitectónico.
+5. **Rotar secretos si `.env.local` se expuso.** Cambiar `NEXTAUTH_SECRET`/`AUTH_SECRET`, `ADMIN_PASSWORD`, `BLOB_READ_WRITE_TOKEN` y credenciales de Neon.
+6. **Actualizar `.env.local` con los nuevos defaults de WhatsApp.** Si se desea conservar el saludo/cierre en desarrollo, copiar los valores sugeridos de `.env.example` a `.env.local`.
 
 ---
 
 ## 6. Enlaces relevantes
 
-- `.devin/informes/archivados/reporte-estado-2026-08-23.md` — informe anterior.
-- `.devin/informes/lecciones-aprendidas.md` — lecciones transversales.
-- `.devin/informes/guia-funcionamiento-pancheria.md` — guía de negocio.
-- `.devin/prompts/auditoria-y-documentacion.md` — guía para auditorías futuras.
 - `AGENTS.md` — notas para agentes.
+- `.devin/informes/lecciones-aprendidas.md` — lecciones transversales.
+- `.devin/informes/plan-de-accion-pendientes.md` — plan de acción actualizado.
+- `.devin/environment.yaml` — blueprint de Devin.
+- `.env.example` — plantilla de variables de entorno.
