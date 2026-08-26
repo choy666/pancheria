@@ -30,7 +30,10 @@ export default async function EditProductPage({ params }: PageParams) {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold tracking-tight">
+      <h1
+        className="text-2xl font-semibold tracking-tight"
+        data-testid={isPromo ? 'promo-form-title' : undefined}
+      >
         {isPromo ? 'Editar promo' : 'Editar producto'}
       </h1>
       {isPromo ? (

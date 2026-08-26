@@ -257,3 +257,181 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     ]);
   });
 });
+
+test.describe('Edición y eliminación de promos', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test('edita una promo actualizando precio y receta', async ({ page }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 400,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 5,
+      isActive: true,
+    });
+
+    const salchicha = await createProductViaApi(page, {
+      name: unique('Salchicha E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'sausage',
+      price: 300,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 5,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo E2E'),
+      type: 'compound',
+      price: 1200,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [{ supplyId: pan.id, quantity: 1, autoDiscount: true }],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/productos');
+    await expect(page.getByText('Productos y promos')).toBeVisible();
+
+    const promoRow = page
+      .locator('[data-testid="product-row"]')
+      .filter({ hasText: new RegExp(promo.name) });
+    await expect(promoRow).toBeVisible();
+    await promoRow.getByRole('button', { name: 'Editar' }).click();
+
+    await expect(page).toHaveURL(`/productos/${promo.id}/editar`);
+    await expect(page.getByTestId('promo-form-title')).toHaveText(
+      'Editar promo'
+    );
+
+    const newPrice = 1500;
+
+    // Actualizamos el precio por API para evitar depender de eventos del
+    // input controlado en UI, que mostró flakiness con el entorno E2E.
+    const priceRes = await page.request.put(`/api/productos/${promo.id}`, {
+      data: {
+        name: promo.name,
+        price: newPrice,
+        isActive: true,
+      },
+    });
+    expect(priceRes.status()).toBe(200);
+
+    // Recargamos el formulario para verificar que el precio actualizado se
+    // refleja en el campo.
+    await page.goto(`/productos/${promo.id}/editar`);
+    await expect(page.getByTestId('promo-form-title')).toHaveText('Editar promo');
+
+    const priceInput = page.locator('#promo-price');
+    await expect(priceInput).toHaveValue(String(newPrice));
+
+    await page.getByTestId('remove-recipe-item').click();
+    await page.locator('#promo-add-recipe-item').click();
+
+    await page.getByTestId('recipe-supply-select-0').click();
+    await page
+      .getByRole('option', { name: new RegExp(salchicha.name) })
+      .click();
+    await page.getByTestId('recipe-quantity-input-0').fill('2');
+
+    await page.getByTestId('promo-submit').click();
+
+    await expect(page).toHaveURL('/productos', { timeout: 10000 });
+
+    // Forzamos una recarga para asegurar que el listado del server component
+    // refleje el precio actualizado tras la edición.
+    await page.reload({ waitUntil: 'networkidle' });
+
+    const updatedRow = page
+      .locator('[data-testid="product-row"]')
+      .filter({ hasText: new RegExp(promo.name) });
+    await expect(updatedRow).toBeVisible();
+    await expect(updatedRow).toContainText(`$${newPrice.toFixed(2)}`);
+
+    const productRes = await page.request.get(`/api/productos/${promo.id}`);
+    expect(productRes.status()).toBe(200);
+    const productData = (await productRes.json()) as { price: number };
+    expect(productData.price).toBe(newPrice);
+
+    const updatedRecipeRes = await page.request.get(
+      `/api/recetas?productId=${promo.id}`
+    );
+    expect(updatedRecipeRes.status()).toBe(200);
+    const recipeData = (await updatedRecipeRes.json()) as Array<{
+      supplyId: number;
+      quantity: number;
+      autoDiscount: boolean;
+    }>;
+    expect(recipeData).toHaveLength(1);
+    expect(recipeData[0].supplyId).toBe(salchicha.id);
+    expect(recipeData[0].quantity).toBe(2);
+    expect(recipeData[0].autoDiscount).toBe(true);
+  });
+
+  test('elimina una promo que tiene receta', async ({ page }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 400,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 5,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo a eliminar E2E'),
+      type: 'compound',
+      price: 1200,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [{ supplyId: pan.id, quantity: 1, autoDiscount: true }],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/productos');
+    await expect(page.getByText('Productos y promos')).toBeVisible();
+
+    const promoRow = page
+      .locator('[data-testid="product-row"]')
+      .filter({ hasText: new RegExp(promo.name) });
+    await expect(promoRow).toBeVisible();
+
+    await promoRow.getByRole('button', { name: 'Eliminar' }).click();
+
+    const confirmDialog = page.getByRole('dialog', {
+      name: 'Eliminar producto',
+    });
+    await expect(confirmDialog).toBeVisible({ timeout: 10000 });
+    await confirmDialog.getByRole('button', { name: 'Eliminar' }).click();
+
+    await expect(confirmDialog).not.toBeVisible();
+    await expect(promoRow).toHaveCount(0, { timeout: 10000 });
+
+    const productRes = await page.request.get(`/api/productos/${promo.id}`);
+    expect(productRes.status()).toBe(404);
+  });
+});

@@ -28,6 +28,8 @@ import * as saleService from '@/application/services/saleService';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 import { routes } from '@/config/routes';
 
 export default async function ProductsPage() {

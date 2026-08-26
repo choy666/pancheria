@@ -304,6 +304,7 @@ export async function getOrders(
   branchId: number,
   options: {
     status?: OrderStatus;
+    search?: string;
     page?: number;
     limit?: number;
   } = {}

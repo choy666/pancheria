@@ -3,8 +3,9 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../../src/db';
-import { branches, users } from '../../src/db/schema';
+import { branches, cashRegisters, orders, users } from '../../src/db/schema';
 import { copyCatalogToBranch } from '../../src/db/catalog-copy';
+import { getOrderExpirationMs } from '../../src/config/orders';
 
 const adminUsername = process.env.ADMIN_USERNAME || '';
 const adminPassword = process.env.ADMIN_PASSWORD || '';
@@ -317,4 +318,40 @@ export async function restockProductViaApi(
       `POST /api/stock/ajustar devolvió status ${response.status()}. Body: ${body.slice(0, 500)}`
     );
   }
+}
+
+/**
+ * Actualiza la fecha de creación de un pedido en la base de datos.
+ * Útil para forzar la expiración de pedidos pending sin esperar el tiempo real.
+ */
+export async function setOrderCreatedAt(
+  orderId: number,
+  createdAt: Date
+): Promise<void> {
+  await db.update(orders).set({ createdAt }).where(eq(orders.id, orderId));
+}
+
+/**
+ * Retrocede el createdAt de un pedido para que quede vencido según
+ * ORDER_EXPIRATION_MS. No ejecuta la lógica de negocio de expiración;
+ * la cancelación automática se dispara al consultar el listado de pedidos.
+ */
+export async function expireOrderById(orderId: number): Promise<void> {
+  const expirationMs = getOrderExpirationMs();
+  const expiredCreatedAt = new Date(Date.now() - expirationMs - 1000);
+  await setOrderCreatedAt(orderId, expiredCreatedAt);
+}
+
+/**
+ * Actualiza la fecha de apertura de una caja en la base de datos.
+ * Útil para forzar el cierre automático sin esperar las horas reales.
+ */
+export async function setCashRegisterOpenedAt(
+  cashRegisterId: number,
+  openedAt: Date
+): Promise<void> {
+  await db
+    .update(cashRegisters)
+    .set({ openedAt })
+    .where(eq(cashRegisters.id, cashRegisterId));
 }

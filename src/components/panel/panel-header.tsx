@@ -104,6 +104,15 @@ export function PanelHeader({
           {userName && (
             <span className="text-sm text-muted-foreground">{userName}</span>
           )}
+          <Link
+            href={routes.perfil}
+            data-testid="profile-link"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' })
+            )}
+          >
+            Mi perfil
+          </Link>
           <form action={signOutAction}>
             <Button type="submit" variant="outline" size="sm">
               Cerrar sesión
@@ -163,6 +172,17 @@ export function PanelHeader({
             {userName && (
               <span className="text-sm text-muted-foreground">{userName}</span>
             )}
+            <Link
+              href={routes.perfil}
+              data-testid="profile-link-mobile"
+              onClick={() => setOpen(false)}
+              className={cn(
+                buttonVariants({ variant: 'ghost', size: 'sm' }),
+                'w-full justify-start'
+              )}
+            >
+              Mi perfil
+            </Link>
             <form action={signOutAction}>
               <Button
                 type="submit"

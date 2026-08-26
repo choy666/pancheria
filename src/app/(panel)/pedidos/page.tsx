@@ -9,7 +9,7 @@ export default async function PedidosPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
         <p className="text-base text-muted-foreground">
-          Gestión de pedidos pendientes del catálogo público.
+          Gestión de pedidos del catálogo público.
         </p>
       </div>
 

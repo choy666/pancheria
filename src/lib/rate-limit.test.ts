@@ -94,6 +94,28 @@ describe('createRateLimiter', () => {
     expect(blocked).toBe(false);
   });
 
+  test('en test respeta E2E_ENABLE_RATE_LIMIT=true', async () => {
+    const original = process.env.E2E_ENABLE_RATE_LIMIT;
+    Object.assign(process.env, { E2E_ENABLE_RATE_LIMIT: 'true' });
+
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+    const store = (createPublicOrderRateLimitStore as jest.Mock)();
+
+    const isRateLimited = createRateLimiter('pedido', 60_000, 10);
+    const blocked = await isRateLimited('1.2.3.4');
+
+    expect(blocked).toBe(true);
+    expect(store.recordRequest).toHaveBeenCalledWith('1.2.3.4', 60_000, 10);
+
+    if (original !== undefined) {
+      Object.assign(process.env, { E2E_ENABLE_RATE_LIMIT: original });
+    } else {
+      delete process.env.E2E_ENABLE_RATE_LIMIT;
+    }
+  });
+
   test('delega en el store fuera de test', async () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const { createPublicOrderRateLimitStore } = await import(

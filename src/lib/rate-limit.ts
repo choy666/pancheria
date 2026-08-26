@@ -45,7 +45,12 @@ export function createRateLimiter(
   const store = createPublicOrderRateLimitStore();
 
   return async function isRateLimited(ip: string): Promise<boolean> {
-    if (process.env.NODE_ENV === 'test') return false;
+    if (
+      process.env.NODE_ENV === 'test' &&
+      process.env.E2E_ENABLE_RATE_LIMIT !== 'true'
+    ) {
+      return false;
+    }
 
     return store.recordRequest(ip, windowMs, maxRequests);
   };

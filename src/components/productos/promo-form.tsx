@@ -48,7 +48,7 @@ interface PromoProduct {
 
 interface PromoFormData {
   name: string;
-  price: number;
+  price: string;
   isActive: boolean;
 }
 
@@ -63,7 +63,7 @@ interface PromoFormProps {
 
 const emptyForm: PromoFormData = {
   name: '',
-  price: 0,
+  price: '',
   isActive: true,
 };
 
@@ -108,7 +108,7 @@ export function PromoForm({ product }: PromoFormProps) {
         const base: PromoFormData = product
           ? {
               name: product.name,
-              price: product.price,
+              price: String(product.price),
               isActive: product.isActive,
             }
           : { ...emptyForm };
@@ -174,7 +174,7 @@ export function PromoForm({ product }: PromoFormProps) {
       return;
     }
 
-    if (form.price < 0) {
+    if (Number(form.price) < 0) {
       setError('El precio no puede ser negativo.');
       return;
     }
@@ -222,6 +222,10 @@ export function PromoForm({ product }: PromoFormProps) {
     setIsSubmitting(true);
 
     try {
+      const formData = new FormData(e.currentTarget);
+      const price =
+        Number(formData.get('promo-price')) || Number(form.price) || 0;
+
       let productId = product?.id;
 
       if (!productId) {
@@ -230,7 +234,7 @@ export function PromoForm({ product }: PromoFormProps) {
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             name: form.name.trim(),
             type: 'compound',
-            price: form.price,
+            price,
             unit: 'unidad',
             stock: 0,
             minStock: 0,
@@ -250,7 +254,7 @@ export function PromoForm({ product }: PromoFormProps) {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             name: form.name.trim(),
-            price: form.price,
+            price,
             isActive: form.isActive,
           }),
         });
@@ -327,17 +331,19 @@ export function PromoForm({ product }: PromoFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="promo-price">Precio</Label>
-        <Input
+        <input
           id="promo-price"
-          type="number"
-          step="0.01"
-          min={0}
+          name="promo-price"
+          type="text"
+          inputMode="decimal"
+          pattern="^[0-9]*\.?[0-9]*$"
+          className="min-h-11 w-full min-w-0 rounded-lg border border-input bg-input/50 px-3 py-2 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9 md:min-h-9 md:px-2.5 md:text-sm"
           value={form.price}
           onChange={(e) =>
-            setForm({
-              ...form,
-              price: Number(e.target.value) || 0,
-            })
+            setForm((prev) => ({
+              ...prev,
+              price: e.target.value,
+            }))
           }
           required
         />
@@ -360,6 +366,8 @@ export function PromoForm({ product }: PromoFormProps) {
               return (
                 <div
                   key={index}
+                  data-testid="recipe-item"
+                  data-supply-name={selectedSupply ? selectedSupply.name : ''}
                   className="grid grid-cols-1 gap-4 rounded-2xl border border-white/8 bg-card p-4 sm:grid-cols-2 lg:grid-cols-4"
                 >
                   <div className="min-w-0 space-y-2 sm:col-span-2">
@@ -372,7 +380,10 @@ export function PromoForm({ product }: PromoFormProps) {
                         })
                       }
                     >
-                      <SelectTrigger id={`promo-recipe-${index}`}>
+                      <SelectTrigger
+                        id={`promo-recipe-${index}`}
+                        data-testid={`recipe-supply-select-${index}`}
+                      >
                         <span className="flex-1 text-left">
                           {selectedSupply
                             ? formatSupplyLabel(selectedSupply)
@@ -395,6 +406,7 @@ export function PromoForm({ product }: PromoFormProps) {
                     </Label>
                     <Input
                       id={`promo-recipe-quantity-${index}`}
+                      data-testid={`recipe-quantity-input-${index}`}
                       type="number"
                       min={1}
                       value={item.quantity}
@@ -413,6 +425,7 @@ export function PromoForm({ product }: PromoFormProps) {
                       variant="ghost"
                       size="sm"
                       className="w-full sm:w-auto"
+                      data-testid="remove-recipe-item"
                       onClick={() => removeRecipeItem(index)}
                     >
                       Quitar
@@ -483,7 +496,12 @@ export function PromoForm({ product }: PromoFormProps) {
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" disabled={isSubmitting || loading} className="w-full sm:w-auto">
+        <Button
+          type="submit"
+          data-testid="promo-submit"
+          disabled={isSubmitting || loading}
+          className="w-full sm:w-auto"
+        >
           {isSubmitting
             ? 'Guardando...'
             : product

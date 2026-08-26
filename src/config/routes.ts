@@ -15,6 +15,7 @@ export const routes = {
   videos: '/videos',
   videosNuevo: '/videos/nuevo',
   videoDetalle: (id: number | string) => `/videos/${id}`,
+  perfil: '/perfil',
   pedido: '/pedido',
   pedidoSeguimiento: '/pedido/seguimiento',
   pedidos: '/pedidos',

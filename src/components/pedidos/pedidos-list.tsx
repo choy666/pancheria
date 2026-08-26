@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { authenticatedFetch } from '@/lib/fetch';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatDateTime } from '@/lib/date';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +19,13 @@ import {
 } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PEDIDOS_API } from '@/config/api';
 import { getPedidosRefreshIntervalMs } from '@/config/orders';
 import { routes } from '@/config/routes';
@@ -64,15 +73,25 @@ interface PedidosListProps {
   branchId: number;
 }
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function PedidosList({ status = 'pending', branchId }: PedidosListProps) {
+  const [statusFilter, setStatusFilter] = useState<OrderStatus>(status);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
   const load = useCallback(
     async (page: number, limit: number, signal: AbortSignal) => {
       const params = new URLSearchParams({
         branchId: String(branchId),
-        status,
+        status: statusFilter,
         page: String(page),
         limit: String(limit),
       });
+
+      if (search) {
+        params.set('search', search);
+      }
 
       const response = await authenticatedFetch(`${PEDIDOS_API}?${params}`, {
         signal,
@@ -90,7 +109,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
         limit: number;
       };
     },
-    [status, branchId]
+    [statusFilter, search, branchId]
   );
 
   const {
@@ -106,6 +125,28 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
   } = usePaginatedData(load, {
     refreshIntervalMs: getPedidosRefreshIntervalMs(),
   });
+
+  const appliedSearchRef = useRef(search);
+  const pageRef = useRef(page);
+
+  useEffect(() => {
+    appliedSearchRef.current = search;
+    pageRef.current = page;
+  }, [search, page]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      if (trimmed === appliedSearchRef.current) return;
+
+      setSearch(trimmed);
+      if (pageRef.current !== 1) {
+        setPage(1);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchInput, setPage]);
 
   const [loadingId, setLoadingId] = useState<number | null>(null);
 
@@ -154,6 +195,24 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
     }
   }
 
+  function handleStatusChange(value: string | null) {
+    if (!value || value === statusFilter) return;
+    setStatusFilter(value as OrderStatus);
+    if (page !== 1) {
+      setPage(1);
+    }
+  }
+
+  function handleClearSearch() {
+    setSearchInput('');
+    if (search !== '') {
+      setSearch('');
+    }
+    if (page !== 1) {
+      setPage(1);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-5">
@@ -169,6 +228,60 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
           {error}
         </div>
       )}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
+          <Label htmlFor="orders-status-filter" className="text-sm text-muted-foreground">
+            Estado
+          </Label>
+          <Select
+            value={statusFilter}
+            onValueChange={handleStatusChange}
+          >
+            <SelectTrigger
+              id="orders-status-filter"
+              data-testid="orders-status-filter"
+              className="w-full sm:w-[180px]"
+              aria-label="Filtrar por estado"
+            >
+              <SelectValue placeholder="Seleccionar estado" />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(statusLabels) as OrderStatus[]).map((statusValue) => (
+                <SelectItem key={statusValue} value={statusValue}>
+                  {statusLabels[statusValue]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex w-full items-end gap-2 sm:w-auto">
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Label htmlFor="orders-search" className="text-sm text-muted-foreground">
+              Buscar cliente
+            </Label>
+            <Input
+              id="orders-search"
+              data-testid="orders-search"
+              type="search"
+              placeholder="Nombre del cliente..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full sm:w-[260px]"
+            />
+          </div>
+          <Button
+            data-testid="orders-search-clear"
+            type="button"
+            variant="outline"
+            onClick={handleClearSearch}
+            disabled={!searchInput}
+          >
+            Limpiar
+          </Button>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-white/8">
         <Table>

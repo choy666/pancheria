@@ -1,4 +1,4 @@
-import { eq, and, isNull, count, lt, inArray } from 'drizzle-orm';
+import { eq, and, isNull, count, lt, inArray, ilike } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders, orderItems, orderMessages } from '@/db/schema';
 import type { OrderStatus, OrderWithItems, OrderWithUnreadCount } from '@/domain/types';
@@ -114,6 +114,7 @@ export async function findOrders(
   branchId: number,
   options: {
     status?: OrderStatus;
+    search?: string;
     page?: number;
     limit?: number;
   } = {}
@@ -129,6 +130,10 @@ export async function findOrders(
 
   if (options.status) {
     conditions.push(eq(orders.status, options.status));
+  }
+
+  if (options.search?.trim()) {
+    conditions.push(ilike(orders.customerName, `%${options.search.trim()}%`));
   }
 
   const [{ count: total }] = await db

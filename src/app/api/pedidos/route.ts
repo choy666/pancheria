@@ -13,6 +13,7 @@ import type { OrderStatus } from '@/domain/types';
 const querySchema = z.object({
   status: z.enum(['pending', 'converted', 'cancelled']).optional(),
   branchId: branchIdQueryParamSchema.optional(),
+  search: z.string().max(255).optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -48,6 +49,7 @@ export const GET = withApiErrorHandling(
       status,
       page: pagination.page,
       limit: pagination.limit,
+      search: query.search?.trim() || undefined,
     });
 
     return NextResponse.json(result);
