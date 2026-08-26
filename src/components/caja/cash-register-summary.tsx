@@ -60,7 +60,10 @@ export function CashRegisterSummary({
           <CardTitle className="text-lg">Resumen de caja</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p
+            className="text-sm text-muted-foreground"
+            suppressHydrationWarning
+          >
             {branchName && (
               <>
                 Sucursal: {branchName}
