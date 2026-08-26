@@ -220,18 +220,21 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     const panRow = page.locator('tr').filter({ hasText: new RegExp(pan.name) });
     await expect(panRow).toBeVisible();
 
-    page.on('dialog', (dialog) => dialog.accept());
     await panRow.getByRole('button', { name: 'Eliminar' }).click();
 
-    const errorDialog = page.getByRole('dialog');
+    const confirmDialog = page.getByRole('dialog', { name: 'Eliminar producto' });
+    await expect(confirmDialog).toBeVisible({ timeout: 10000 });
+    await confirmDialog.getByRole('button', { name: 'Eliminar' }).click();
+
+    const errorDialog = page.getByRole('dialog', { name: 'No se puede eliminar' });
     await expect(errorDialog).toBeVisible({ timeout: 10000 });
     await expect(
-      page.getByText(
+      errorDialog.getByText(
         `No se puede eliminar '${pan.name}' porque forma parte de la promo activa '${promo.name}'.`
       )
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10000 });
 
-    await page.locator('[data-slot="dialog-close"]').first().click();
+    await errorDialog.locator('[data-slot="dialog-close"]').first().click();
     await expect(errorDialog).not.toBeVisible();
   });
 

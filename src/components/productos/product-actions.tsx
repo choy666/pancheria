@@ -53,7 +53,9 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
   function handleConfirmDelete() {
     setShowConfirm(false);
     hasSubmittedRef.current = true;
-    formRef.current?.requestSubmit();
+    if (formRef.current) {
+      formAction(new FormData(formRef.current));
+    }
   }
 
   return (

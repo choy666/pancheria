@@ -112,7 +112,7 @@ test.describe('Rol administrador', () => {
 
     // Crear un operador en la sucursal por defecto.
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
-    await page.locator('#password').fill('1234');
+    await page.locator('#password').fill('123456');
     await page.locator('#branchId').click();
     await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
     await page

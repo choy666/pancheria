@@ -100,11 +100,11 @@ export function UserForm({
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               required={!isEditing}
-              minLength={4}
+              minLength={6}
               placeholder={
                 isEditing
                   ? 'Dejar en blanco para mantener la actual'
-                  : 'Mínimo 4 caracteres'
+                  : 'Mínimo 6 caracteres'
               }
               className="pr-10"
             />
@@ -121,7 +121,7 @@ export function UserForm({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            La contraseña debe tener al menos 4 caracteres. En edición, dejala en
+            La contraseña debe tener al menos 6 caracteres. En edición, dejala en
             blanco para conservar la actual.
           </p>
         </div>
