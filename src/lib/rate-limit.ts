@@ -7,10 +7,6 @@ function getFirstHeaderValue(value: string | null): string | null {
 }
 
 export function getClientIp(request: NextRequest): string {
-  // Preferir la IP que proporciona el runtime/plataforma (Vercel, Node, etc.).
-  const runtimeIp = (request as unknown as { ip?: string }).ip;
-  if (runtimeIp) return runtimeIp;
-
   // En Vercel, el header x-vercel-forwarded-for es confiable.
   if (process.env.VERCEL) {
     const vercelForwarded = getFirstHeaderValue(
@@ -48,6 +44,16 @@ export function createRateLimiter(
     if (
       process.env.NODE_ENV === 'test' &&
       process.env.E2E_ENABLE_RATE_LIMIT !== 'true'
+    ) {
+      return false;
+    }
+
+    // En desarrollo se desactiva por defecto para evitar falsos positivos
+    // por la IP compartida de loopback (127.0.0.1 / ::1). Se puede activar
+    // explícitamente para pruebas manuales de rate limit.
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV !== 'true'
     ) {
       return false;
     }

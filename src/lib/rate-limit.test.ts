@@ -10,15 +10,11 @@ jest.mock('@/lib/public-order-rate-limit-store', () => ({
   }),
 }));
 
-function createRequest(
-  headers: Record<string, string> = {},
-  runtimeIp?: string
-): NextRequest {
+function createRequest(headers: Record<string, string> = {}): NextRequest {
   return {
     headers: {
       get: (name: string) => headers[name.toLowerCase()] ?? null,
     },
-    ip: runtimeIp,
   } as unknown as NextRequest;
 }
 
@@ -31,11 +27,6 @@ describe('getClientIp', () => {
     Object.assign(process.env, { NODE_ENV: originalNodeEnv });
     process.env.VERCEL = originalVercel;
     delete process.env.TRUSTED_PROXY_IP_HEADER;
-  });
-
-  test('prefiere la IP del runtime', () => {
-    const request = createRequest({}, '1.2.3.4');
-    expect(getClientIp(request)).toBe('1.2.3.4');
   });
 
   test('usa x-vercel-forwarded-for en Vercel', () => {
@@ -79,6 +70,7 @@ describe('getClientIp', () => {
 
 describe('createRateLimiter', () => {
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalEnableInDev = process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -86,6 +78,13 @@ describe('createRateLimiter', () => {
 
   afterEach(() => {
     Object.assign(process.env, { NODE_ENV: originalNodeEnv });
+    if (originalEnableInDev !== undefined) {
+      Object.assign(process.env, {
+        PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV: originalEnableInDev,
+      });
+    } else {
+      delete process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV;
+    }
   });
 
   test('en test siempre permite el request', async () => {
@@ -114,6 +113,37 @@ describe('createRateLimiter', () => {
     } else {
       delete process.env.E2E_ENABLE_RATE_LIMIT;
     }
+  });
+
+  test('en desarrollo desactiva el rate limit por defecto', async () => {
+    Object.assign(process.env, { NODE_ENV: 'development' });
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+    const store = (createPublicOrderRateLimitStore as jest.Mock)();
+
+    const isRateLimited = createRateLimiter('pedido', 60_000, 10);
+    const blocked = await isRateLimited('1.2.3.4');
+
+    expect(blocked).toBe(false);
+    expect(store.recordRequest).not.toHaveBeenCalled();
+  });
+
+  test('en desarrollo respeta PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV=true', async () => {
+    Object.assign(process.env, {
+      NODE_ENV: 'development',
+      PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV: 'true',
+    });
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+    const store = (createPublicOrderRateLimitStore as jest.Mock)();
+
+    const isRateLimited = createRateLimiter('pedido', 60_000, 10);
+    const blocked = await isRateLimited('1.2.3.4');
+
+    expect(blocked).toBe(true);
+    expect(store.recordRequest).toHaveBeenCalledWith('1.2.3.4', 60_000, 10);
   });
 
   test('delega en el store fuera de test', async () => {
