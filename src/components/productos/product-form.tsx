@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API } from '@/config/api';
+import { routes } from '@/config/routes';
 import { productTypeLabels, criticalTypeLabels } from '@/lib/product-style';
 import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
@@ -122,7 +123,7 @@ export function ProductForm({ product }: ProductFormProps) {
         throw new Error(detail || 'Error al guardar el producto');
       }
 
-      router.push('/productos');
+      router.push(routes.productos);
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error desconocido');
@@ -302,7 +303,7 @@ export function ProductForm({ product }: ProductFormProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push('/productos')}
+          onClick={() => router.push(routes.productos)}
           className="w-full sm:w-auto"
         >
           Cancelar

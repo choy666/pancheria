@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import * as userService from '@/application/services/userService';
 import { requireAdmin } from '@/lib/auth';
 import { DomainError } from '@/domain/errors';
+import { routes } from '@/config/routes';
 
 export type UserState = { error: string } | null;
 
@@ -31,7 +32,7 @@ export async function createUser(
     throw error;
   }
 
-  revalidatePath('/usuarios');
+  revalidatePath(routes.usuarios);
   return null;
 }
 
@@ -59,7 +60,7 @@ export async function updateUserAction(
     throw error;
   }
 
-  revalidatePath('/usuarios');
+  revalidatePath(routes.usuarios);
   return null;
 }
 
@@ -80,6 +81,6 @@ export async function deleteUserAction(
     throw error;
   }
 
-  revalidatePath('/usuarios');
+  revalidatePath(routes.usuarios);
   return null;
 }

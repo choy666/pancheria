@@ -51,6 +51,11 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
 - `NEW_BRANCH_PASSWORD` (opcional) — contraseña en texto plano del usuario de la segunda sucursal; el seed la hashea con bcrypt.
 - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms).
+- `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` (opcional) — horas de cierre automático de cajas abiertas (por defecto 12 horas).
+- `CAJA_AUTO_CLOSED_BY` (opcional) — etiqueta del usuario que cierra cajas automáticamente (por defecto `Sistema`).
+- `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` (opcional) — intervalo del reloj de caja en milisegundos (por defecto 60000 ms).
+- `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` (opcional) — días de historial de caja por defecto (por defecto 30 días).
+- `TRUSTED_PROXY_IP_HEADER` (opcional) — header confiable para obtener la IP real del cliente en rate limiting. Si no se define, en producción se confía en la IP del runtime (Vercel) y en desarrollo se usa `X-Forwarded-For` como fallback.
 - `NEXT_PUBLIC_WHATSAPP_NUMBER` — número de WhatsApp para pedidos, con código de país y sin signo + ni espacios.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
@@ -101,7 +106,9 @@ Copiar `.env.example` a `.env.local` y completar:
 - `src/repositories/` — capa de repositorios (`productRepository`, `saleRepository`, `cashRegisterRepository`, `orderRepository`, etc.)
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
-- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas)
+- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas). En particular:
+  - `src/config/routes.ts` centraliza las rutas de navegación de la UI.
+  - `src/config/caja.ts` expone getters para las variables de entorno de caja.
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
 - `src/lib/` — utilidades y helpers transversales:
@@ -115,6 +122,7 @@ Copiar `.env.example` a `.env.local` y completar:
   - `fetch` — wrapper `authenticatedFetch` y timeout configurable (`NEXT_PUBLIC_API_TIMEOUT_MS`).
   - `whatsapp` — generación del mensaje y enlace de WhatsApp.
   - `auth` — helpers de sesión, `getCurrentBranchId`/`getCurrentBranchIdOrRedirect`.
+  - `with-auth.ts` — wrapper para endpoints autenticados que inyecta `session` y `branchId` en el handler.
   - `db-errors` — manejo centralizado de errores de conexión a PostgreSQL (`503`).
   - `summary-helpers` — cálculo de resúmenes de productos e insumos críticos.
   - `stock-helpers` — locks, iteración de recetas y razones de movimientos de stock.
@@ -125,7 +133,7 @@ Copiar `.env.example` a `.env.local` y completar:
   - `validation-helpers` — validaciones reutilizables.
 
 ## Tecnologías
-- Next.js 16.3.2, React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2, PostgreSQL, NextAuth v5.
+- Next.js 16.3.3, React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2, PostgreSQL, NextAuth v5.
 
 ## Videos, reproducción y Cast
 
@@ -313,7 +321,7 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
 - Adjuntos: soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`. La key interna se guarda en `order_messages.attachmentKey`; las URLs públicas locales usan `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` como base y se sirven por `GET /api/chat/attachment/[key]`, sin exponer paths físicos.
 - Refresco: `OrderChat` hace polling cada `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (por defecto 5000 ms), pausa el polling durante el envío de un mensaje para evitar condiciones de carrera, y dispara un poll inmediato al montar, en `pageshow` y en `visibilitychange`. En tests se puede pasar la prop `disablePollingOnMount` para evitar el poll inmediato sin ramificar el código por `NODE_ENV`.
 - Paginación: el historial se carga por páginas de `NEXT_PUBLIC_CHAT_PAGE_SIZE` mensajes (por defecto 50; máximo 100) usando `before` y `after` como cursores. El botón "Cargar mensajes anteriores" trae mensajes previos preservando la posición del scroll.
-- Body en POST: el cliente envía el contenido como JSON body. El upgrade a Next.js 16.3.2 resolvió el bug de `request.body === null` bajo `next dev` con Turbopack. Los handlers aún aceptan el contenido por query param (`?content=...`) como fallback defensivo, pero el flujo normal usa JSON. Ver <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/[id]/chat/route.ts" />.
+- Body en POST: el cliente envía el contenido como JSON body. El upgrade a Next.js 16.3.3 resolvió el bug de `request.body === null` bajo `next dev` con Turbopack. Los handlers aún aceptan el contenido por query param (`?content=...`) como fallback defensivo, pero el flujo normal usa JSON. Ver <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/[id]/chat/route.ts" />.
 - Backoff de errores: si un poll de mensajes nuevos falla, `OrderChat` duplica el tiempo de espera hasta un máximo de 8 veces el intervalo base (`NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`) para evitar saturar al servidor. El polling se retoma en el momento cuando el usuario vuelve a la pestaña (`visibilitychange` o `pageshow`).
 - SSR de `/pedido/[id]/chat`: `dynamic = 'force-dynamic'` es suficiente para evitar cacheos de la página; no se requieren `unstable_noStore`, `revalidate = 0` ni `fetchCache = 'force-no-store'` adicionales.
 - Rate limit del chat: `createRateLimiter` en `src/lib/rate-limit.ts` comparte el mismo store que el rate limit de pedidos públicos (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`). La ventana y el máximo se configuran con `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
@@ -337,4 +345,4 @@ Para evitar duplicación de código al agregar nuevos canales de chat o extender
 - Los resúmenes de caja y cierre (`productsSummary`, `criticalSuppliesSummary`) ya se migraron a `jsonb` en `src/db/schema.ts` para aprovechar la validación nativa de PostgreSQL.
 - El rate limit de pedidos públicos (`POST /api/public/pedido`) y del chat público soporta `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` para usar PostgreSQL como store compartida en producción con múltiples instancias. Ver la tabla `public_order_rate_limits` en `src/db/schema.ts`.
 - Los adjuntos del chat almacenan `attachmentKey` en `order_messages`, lo que permite la limpieza periódica de archivos huérfanos mediante `GET /api/cron/chat-attachments-cleanup`. El cron debe reflejarse en `vercel.json` y protegerse con `CRON_SECRET`.
-- `cashRegisters.closedBy` permanece como `varchar` y no como FK a `users`. El cierre automático usa el valor simbólico `AUTO_CLOSED_BY` definido en `src/config/caja.ts`. Si en el futuro se requiere trazabilidad estricta del usuario que cierra, se evaluará agregar un campo `closedByUserId` nullable manteniendo `closedBy` como label legible.
+- `cashRegisters.closedBy` permanece como `varchar` y no como FK a `users`. El cierre automático usa el valor simbólico que devuelve `getAutoClosedBy()` en `src/config/caja.ts`. Si en el futuro se requiere trazabilidad estricta del usuario que cierra, se evaluará agregar un campo `closedByUserId` nullable manteniendo `closedBy` como label legible.

@@ -1,250 +1,40 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { nanoid } from 'nanoid';
-import { authenticatedFetch } from '@/lib/fetch';
-import { formatDateTime } from '@/lib/date';
-import { buildWhatsAppUrl } from '@/lib/whatsapp';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  PEDIDOS_CONFIRMAR_API,
-  PEDIDOS_CANCELAR_API,
-  PEDIDOS_CHAT_API,
-  PEDIDOS_CHAT_LEIDO_API,
-  PEDIDOS_CHAT_UPLOAD_API,
-} from '@/config/api';
-import { OrderChat } from '@/components/chat/order-chat';
-import { useCashRegister } from '@/hooks/useCashRegister';
-import type { OrderStatus, DeliveryType, PaymentMethod, OrderMessage } from '@/domain/types';
-
-interface OrderDetailItem {
-  id: number;
-  productId: number;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
-  product?: {
-    name: string;
-    unit: string;
-  } | null;
-}
-
-interface OrderDetail {
-  id: number;
-  orderNumber: string;
-  customerName: string;
-  deliveryType: DeliveryType;
-  address: string | null;
-  notes: string | null;
-  total: number;
-  status: OrderStatus;
-  convertedSaleId: number | null;
-  createdAt: string;
-  branch: { name: string } | null;
-  items: OrderDetailItem[];
-}
-
-const statusLabels: Record<OrderStatus, string> = {
-  pending: 'Pendiente',
-  converted: 'Confirmado',
-  cancelled: 'Cancelado',
-};
-
-const statusVariants: Record<OrderStatus, 'default' | 'secondary' | 'destructive'> = {
-  pending: 'default',
-  converted: 'secondary',
-  cancelled: 'destructive',
-};
-
-const deliveryLabels: Record<DeliveryType, string> = {
-  delivery: 'Envío a domicilio',
-  pickup: 'Retiro en sucursal',
-};
+import { usePedidoDetail } from './usePedidoDetail';
+import { PedidoHeader } from './pedido-header';
+import { PedidoInfo } from './pedido-info';
+import { PedidoItemsList } from './pedido-items-list';
+import { PedidoActions } from './pedido-actions';
+import { PedidoChatSection } from './pedido-chat-section';
 
 interface PedidoDetailProps {
   orderId: number;
 }
 
 export function PedidoDetail({ orderId }: PedidoDetailProps) {
-  const router = useRouter();
-  const isMountedRef = useRef(true);
-  const [order, setOrder] = useState<OrderDetail | null>(null);
-  const [initialMessages, setInitialMessages] = useState<OrderMessage[]>([]);
-  const [chatTotal, setChatTotal] = useState<number | undefined>(undefined);
-  const [chatHasMore, setChatHasMore] = useState<boolean | undefined>(undefined);
-  const [chatIsExpired, setChatIsExpired] = useState<boolean | undefined>(
-    undefined
-  );
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
-  const [cancelReason, setCancelReason] = useState('');
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const whatsappUrl = useMemo(() => {
-    if (!order) return null;
-
-    try {
-      return buildWhatsAppUrl({
-        items: order.items.map((item) => ({
-          productId: item.productId,
-          name: item.product?.name ?? `Producto ${item.productId}`,
-          price: item.unitPrice,
-          unit: item.product?.unit ?? 'unidad',
-          quantity: item.quantity,
-        })),
-        customerName: order.customerName,
-        deliveryType: order.deliveryType,
-        address: order.address ?? undefined,
-        notes: order.notes ?? undefined,
-        total: order.total,
-        orderNumber: order.orderNumber,
-        branchName: order.branch?.name,
-      });
-    } catch {
-      return null;
-    }
-  }, [order]);
-
-  const { cashRegister, refresh: refreshCashRegister, loading: cashRegisterLoading } =
-    useCashRegister();
-
-  const loadOrder = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const [orderResponse, messagesResponse] = await Promise.all([
-        authenticatedFetch(`/api/pedidos/${orderId}`),
-        authenticatedFetch(PEDIDOS_CHAT_API(orderId)),
-      ]);
-
-      if (!orderResponse.ok) {
-        const data = (await orderResponse.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar el pedido');
-      }
-
-      const data = (await orderResponse.json()) as {
-        order: OrderDetail & { unreadCount?: number };
-      };
-
-      if (!isMountedRef.current) return;
-      setOrder(data.order);
-
-      if (messagesResponse.ok) {
-        const messagesData = (await messagesResponse.json()) as {
-          messages: OrderMessage[];
-          total: number;
-          hasMore: boolean;
-          isExpired: boolean;
-        };
-        if (isMountedRef.current) {
-          setInitialMessages(messagesData.messages);
-          setChatTotal(messagesData.total);
-          setChatHasMore(messagesData.hasMore);
-          setChatIsExpired(messagesData.isExpired);
-          setUnreadCount(data.order.unreadCount ?? 0);
-        }
-      }
-    } catch (err) {
-      if (!isMountedRef.current) return;
-      setError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      if (isMountedRef.current) setLoading(false);
-    }
-  }, [orderId]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    queueMicrotask(() => void loadOrder());
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [loadOrder]);
-
-  async function handleConfirm() {
-    setActionError(null);
-    setIsSubmitting(true);
-
-    try {
-      const response = await authenticatedFetch(
-        PEDIDOS_CONFIRMAR_API(orderId),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentMethod,
-            idempotencyKey: nanoid(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al confirmar el pedido');
-      }
-
-      await refreshCashRegister();
-      await loadOrder();
-      router.refresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleCancel() {
-    if (!cancelReason.trim()) {
-      setActionError('El motivo de cancelación es obligatorio.');
-      return;
-    }
-
-    setActionError(null);
-    setIsSubmitting(true);
-
-    try {
-      const response = await authenticatedFetch(
-        PEDIDOS_CANCELAR_API(orderId),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reason: cancelReason.trim(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cancelar el pedido');
-      }
-
-      await loadOrder();
-      router.refresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const {
+    order,
+    initialMessages,
+    chatTotal,
+    chatHasMore,
+    chatIsExpired,
+    unreadCount,
+    loading,
+    error,
+    paymentMethod,
+    setPaymentMethod,
+    cancelReason,
+    setCancelReason,
+    actionError,
+    isSubmitting,
+    cashRegister,
+    cashRegisterLoading,
+    whatsappUrl,
+    handleConfirm,
+    handleCancel,
+  } = usePedidoDetail(orderId);
 
   if (loading || cashRegisterLoading) {
     return (
@@ -263,23 +53,9 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
     );
   }
 
-  const canConfirm = order.status === 'pending' && !!cashRegister;
-  const canCancel = order.status === 'pending';
-
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pedido #{order.orderNumber}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusVariants[order.status]}>
-              {statusLabels[order.status]}
-            </Badge>
-          </div>
-        </div>
-      </div>
+      <PedidoHeader orderNumber={order.orderNumber} status={order.status} />
 
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -287,181 +63,36 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
             <CardTitle className="text-lg">Detalle del pedido</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Cliente</p>
-                <p className="text-base font-medium">{order.customerName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Sucursal</p>
-                <p className="text-base font-medium">
-                  {order.branch?.name ?? '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Entrega</p>
-                <p className="text-base font-medium">
-                  {deliveryLabels[order.deliveryType]}
-                  {order.deliveryType === 'pickup' && order.branch
-                    ? ` (${order.branch.name})`
-                    : ''}
-                </p>
-              </div>
-              {order.address && (
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-muted-foreground">Dirección</p>
-                  <p className="text-base">{order.address}</p>
-                </div>
-              )}
-              {order.notes && (
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-muted-foreground">Notas</p>
-                  <p className="text-base">{order.notes}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-sm text-muted-foreground">Creado</p>
-                <p className="text-base">{formatDateTime(order.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="font-mono text-lg font-bold">
-                  ${order.total.toFixed(2)}
-                </p>
-              </div>
-              {order.convertedSaleId && (
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-muted-foreground">Venta asociada</p>
-                  <p className="text-base">#{order.convertedSaleId}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-white/8">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/8 text-left text-muted-foreground">
-                    <th className="p-3">Producto</th>
-                    <th className="p-3 text-right">Cantidad</th>
-                    <th className="p-3 text-right">Precio unitario</th>
-                    <th className="p-3 text-right">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items.map((item) => (
-                    <tr key={item.id} className="border-b border-white/8 last:border-0">
-                      <td className="p-3">
-                        {item.product?.name ?? `Producto ${item.productId}`}
-                      </td>
-                      <td className="p-3 text-right">{item.quantity}</td>
-                      <td className="p-3 text-right">
-                        ${item.unitPrice.toFixed(2)}
-                      </td>
-                      <td className="p-3 text-right font-mono">
-                        ${item.subtotal.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PedidoInfo order={order} />
+            <PedidoItemsList items={order.items} />
           </CardContent>
         </Card>
 
         {order.status === 'pending' && (
-          <div className="space-y-5">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Acciones</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {actionError && (
-                  <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
-                    {actionError}
-                  </div>
-                )}
-
-                {!cashRegister && (
-                  <div className="rounded-lg bg-amber-500/15 p-3 text-sm text-amber-500">
-                    No hay una caja abierta. Abrí la caja para confirmar el pedido.
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethod">Medio de pago</Label>
-                  <Select
-                    value={paymentMethod}
-                    onValueChange={(value) =>
-                      setPaymentMethod(value as PaymentMethod)
-                    }
-                    disabled={!canConfirm || isSubmitting}
-                  >
-                    <SelectTrigger id="paymentMethod">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Efectivo</SelectItem>
-                      <SelectItem value="transfer">Transferencia</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {whatsappUrl && (
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center rounded-md bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#128C7E]"
-                  >
-                    Abrir WhatsApp del cliente
-                  </a>
-                )}
-
-                <Button
-                  className="w-full"
-                  onClick={handleConfirm}
-                  disabled={!canConfirm || isSubmitting}
-                >
-                  {isSubmitting ? 'Confirmando...' : 'Confirmar como venta'}
-                </Button>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cancelReason">Motivo de cancelación</Label>
-                  <Textarea
-                    id="cancelReason"
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="Motivo de la cancelación"
-                    disabled={!canCancel || isSubmitting}
-                  />
-                </div>
-
-                <Button
-                  className="w-full"
-                  variant="destructive"
-                  onClick={handleCancel}
-                  disabled={!canCancel || isSubmitting}
-                >
-                  {isSubmitting ? 'Cancelando...' : 'Cancelar pedido'}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <PedidoActions
+            status={order.status}
+            cashRegister={cashRegister}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            cancelReason={cancelReason}
+            setCancelReason={setCancelReason}
+            actionError={actionError}
+            isSubmitting={isSubmitting}
+            whatsappUrl={whatsappUrl}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+          />
         )}
       </div>
 
-      <OrderChat
+      <PedidoChatSection
         orderId={order.id}
+        status={order.status}
         initialMessages={initialMessages}
-        initialTotal={chatTotal}
-        initialHasMore={chatHasMore}
-        initialIsExpired={chatIsExpired}
-        readOnly={order.status !== 'pending'}
-        chatApiUrl={PEDIDOS_CHAT_API(order.id)}
-        readApiUrl={PEDIDOS_CHAT_LEIDO_API(order.id)}
-        uploadApiUrl={PEDIDOS_CHAT_UPLOAD_API(order.id)}
+        chatTotal={chatTotal}
+        chatHasMore={chatHasMore}
+        chatIsExpired={chatIsExpired}
         unreadCount={unreadCount}
-        title="Chat con el cliente"
       />
     </div>
   );

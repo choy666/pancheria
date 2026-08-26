@@ -30,7 +30,7 @@ export async function createUser(data: {
     'El nombre de usuario'
   );
 
-  validateMinLength(data.password, 4, 'La contraseña');
+  validateMinLength(data.password, 6, 'La contraseña');
 
   if (data.role !== 'operator') {
     throw new ValidationError('Solo se permiten usuarios operador.');
@@ -124,7 +124,7 @@ export async function updateUser(
   }
 
   if (data.password !== undefined && data.password.length > 0) {
-    validateMinLength(data.password, 4, 'La contraseña');
+    validateMinLength(data.password, 6, 'La contraseña');
 
     updates.passwordHash = await bcrypt.hash(data.password, 10);
   }

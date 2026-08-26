@@ -3,7 +3,10 @@
 import { authenticatedFetch } from '@/lib/fetch';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { useErrorDialog } from '@/hooks/useErrorDialog';
 import { CAJA_API } from '@/config/api';
+import { routes } from '@/config/routes';
 import type { CashRegister } from '@/config/caja';
 
 type CashRegisterDetailActionsProps = {
@@ -18,18 +21,24 @@ export function CashRegisterDetailActions({
   isAdmin = false,
 }: CashRegisterDetailActionsProps) {
   const router = useRouter();
+  const { dialog: confirmDialog, confirm } = useConfirmDialog();
+  const { dialog: errorDialog, showError } = useErrorDialog();
 
   if (!isAdmin) {
     return null;
   }
 
+  const backRoute = fromTrash
+    ? routes.ventasHistorialEliminadas
+    : routes.ventasHistorial;
+
   async function handleDelete() {
-    if (
-      !confirm(
-        `¿Eliminar la caja #${cashRegister.id}? Se moverá a la papelera.`
-      )
-    )
-      return;
+    const shouldDelete = await confirm({
+      title: 'Eliminar caja',
+      description: `¿Eliminar la caja #${cashRegister.id}? Se moverá a la papelera.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!shouldDelete) return;
 
     try {
       const response = await authenticatedFetch(`${CAJA_API}/${cashRegister.id}`, {
@@ -41,15 +50,20 @@ export function CashRegisterDetailActions({
         throw new Error(data.error || 'Error al eliminar la caja');
       }
 
-      router.push('/ventas/historial');
+      router.push(routes.ventasHistorial);
       router.refresh();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error desconocido');
+      showError(error);
     }
   }
 
   async function handleRestore() {
-    if (!confirm(`¿Restaurar la caja #${cashRegister.id}?`)) return;
+    const shouldRestore = await confirm({
+      title: 'Restaurar caja',
+      description: `¿Restaurar la caja #${cashRegister.id}?`,
+      confirmLabel: 'Restaurar',
+    });
+    if (!shouldRestore) return;
 
     try {
       const response = await authenticatedFetch(
@@ -64,20 +78,20 @@ export function CashRegisterDetailActions({
         throw new Error(data.error || 'Error al restaurar la caja');
       }
 
-      router.push('/ventas/historial');
+      router.push(routes.ventasHistorial);
       router.refresh();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error desconocido');
+      showError(error);
     }
   }
 
   async function handlePermanentDelete() {
-    if (
-      !confirm(
-        `¿Eliminar definitivamente la caja #${cashRegister.id}? Esta acción no se puede deshacer.`
-      )
-    )
-      return;
+    const shouldDelete = await confirm({
+      title: 'Eliminar definitivamente',
+      description: `¿Eliminar definitivamente la caja #${cashRegister.id}? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar definitivamente',
+    });
+    if (!shouldDelete) return;
 
     try {
       const response = await authenticatedFetch(
@@ -92,16 +106,18 @@ export function CashRegisterDetailActions({
         throw new Error(data.error || 'Error al eliminar la caja permanentemente');
       }
 
-      router.push('/ventas/historial/eliminadas');
+      router.push(routes.ventasHistorialEliminadas);
       router.refresh();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error desconocido');
+      showError(error);
     }
   }
 
   if (cashRegister.deletedAt) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        {confirmDialog}
+        {errorDialog}
         <Button
           variant="outline"
           className="w-full sm:w-auto"
@@ -121,11 +137,7 @@ export function CashRegisterDetailActions({
         <Button
           variant="outline"
           className="w-full sm:w-auto"
-          onClick={() =>
-            router.push(
-              fromTrash ? '/ventas/historial/eliminadas' : '/ventas/historial'
-            )
-          }
+          onClick={() => router.push(backRoute)}
         >
           {fromTrash ? 'Volver a cajas eliminadas' : 'Volver al historial'}
         </Button>
@@ -135,6 +147,8 @@ export function CashRegisterDetailActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {confirmDialog}
+      {errorDialog}
       <Button
         variant="destructive"
         className="w-full sm:w-auto"
@@ -146,11 +160,7 @@ export function CashRegisterDetailActions({
       <Button
         variant="outline"
         className="w-full sm:w-auto"
-        onClick={() =>
-          router.push(
-            fromTrash ? '/ventas/historial/eliminadas' : '/ventas/historial'
-          )
-        }
+        onClick={() => router.push(backRoute)}
       >
         {fromTrash ? 'Volver a cajas eliminadas' : 'Volver al historial'}
       </Button>

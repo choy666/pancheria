@@ -65,7 +65,7 @@ describe('recetas /api/recetas', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await GET(buildRequest('productId=1'));
+      const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -78,7 +78,7 @@ describe('recetas /api/recetas', () => {
       } as Awaited<ReturnType<typeof requireAuth>>;
       mockedRequireAuth.mockResolvedValue(session);
 
-      const response = await GET(buildRequest('productId=1'));
+      const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(403);
@@ -86,7 +86,7 @@ describe('recetas /api/recetas', () => {
     });
 
     test('devuelve 400 cuando falta el productId', async () => {
-      const response = await GET(buildRequest(''));
+      const response = await GET(buildRequest(''), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -94,7 +94,7 @@ describe('recetas /api/recetas', () => {
     });
 
     test('devuelve 400 cuando el productId es inválido', async () => {
-      const response = await GET(buildRequest('productId=abc'));
+      const response = await GET(buildRequest('productId=abc'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -111,7 +111,7 @@ describe('recetas /api/recetas', () => {
         >
       );
 
-      const response = await GET(buildRequest('productId=1'));
+      const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown[];
 
       expect(response.status).toBe(200);
@@ -127,7 +127,7 @@ describe('recetas /api/recetas', () => {
         new NotFoundError('Producto compuesto', 99)
       );
 
-      const response = await GET(buildRequest('productId=99'));
+      const response = await GET(buildRequest('productId=99'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(404);
@@ -140,7 +140,7 @@ describe('recetas /api/recetas', () => {
       });
       mockedRecipeService.getRecipeByProductId.mockRejectedValue(dbError);
 
-      const response = await GET(buildRequest('productId=1'));
+      const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -152,7 +152,7 @@ describe('recetas /api/recetas', () => {
         new Error('Error desconocido')
       );
 
-      const response = await GET(buildRequest('productId=1'));
+      const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);
@@ -171,9 +171,7 @@ describe('recetas /api/recetas', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -186,9 +184,7 @@ describe('recetas /api/recetas', () => {
       } as Awaited<ReturnType<typeof requireAuth>>;
       mockedRequireAuth.mockResolvedValue(session);
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(403);
@@ -203,9 +199,7 @@ describe('recetas /api/recetas', () => {
         saved as unknown as Awaited<ReturnType<typeof recipeService.saveRecipe>>
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown[];
 
       expect(response.status).toBe(201);
@@ -218,12 +212,10 @@ describe('recetas /api/recetas', () => {
     });
 
     test('devuelve 400 cuando el cuerpo es inválido', async () => {
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify({ compoundProductId: 1, items: [] }),
-        })
-      );
+        }), { params: Promise.resolve({}) });
 
       expect(response.status).toBe(400);
     });
@@ -235,9 +227,7 @@ describe('recetas /api/recetas', () => {
         )
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -252,9 +242,7 @@ describe('recetas /api/recetas', () => {
       });
       mockedRecipeService.saveRecipe.mockRejectedValue(dbError);
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -266,9 +254,7 @@ describe('recetas /api/recetas', () => {
         new Error('Error desconocido')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);

@@ -43,7 +43,7 @@ describe('stock /api/stock', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await GET();
+    const response = await GET(undefined as unknown as Parameters<typeof GET>[0], { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -56,7 +56,7 @@ describe('stock /api/stock', () => {
       alerts as unknown as Awaited<ReturnType<typeof stockService.listStockAlerts>>
     );
 
-    const response = await GET();
+    const response = await GET(undefined as unknown as Parameters<typeof GET>[0], { params: Promise.resolve({}) });
     const body = (await response.json()) as unknown[];
 
     expect(response.status).toBe(200);
@@ -69,7 +69,7 @@ describe('stock /api/stock', () => {
       new NotFoundError('Producto', 1)
     );
 
-    const response = await GET();
+    const response = await GET(undefined as unknown as Parameters<typeof GET>[0], { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -81,7 +81,7 @@ describe('stock /api/stock', () => {
       new ValidationError('Sucursal inválida.')
     );
 
-    const response = await GET();
+    const response = await GET(undefined as unknown as Parameters<typeof GET>[0], { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -94,7 +94,7 @@ describe('stock /api/stock', () => {
     });
     mockedStockService.listStockAlerts.mockRejectedValue(dbError);
 
-    const response = await GET();
+    const response = await GET(undefined as unknown as Parameters<typeof GET>[0], { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -106,7 +106,7 @@ describe('stock /api/stock', () => {
       new Error('Error desconocido')
     );
 
-    const response = await GET();
+    const response = await GET(undefined as unknown as Parameters<typeof GET>[0], { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

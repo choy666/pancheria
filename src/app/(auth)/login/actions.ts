@@ -3,6 +3,7 @@
 import { signIn } from '@/auth';
 import { CredentialsSignin } from 'next-auth';
 import { unstable_rethrow } from 'next/navigation';
+import { routes } from '@/config/routes';
 
 export type LoginFormState = { error: string } | null;
 
@@ -17,7 +18,7 @@ export async function login(
     await signIn('credentials', {
       username,
       password,
-      redirectTo: '/',
+      redirectTo: routes.home,
     });
 
     return null;

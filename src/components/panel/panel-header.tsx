@@ -67,7 +67,7 @@ export function PanelHeader({
     <header className="sticky top-0 z-40 border-b border-white/8 bg-background/95 backdrop-blur-sm">
       <div className="flex min-h-16 items-center justify-between px-4 py-3">
         <Link
-          href="/"
+          href={routes.home}
           className="inline-flex h-11 items-center rounded-lg px-2 text-lg font-semibold tracking-tight"
           aria-label="Inicio"
         >

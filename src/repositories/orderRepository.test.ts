@@ -1,7 +1,6 @@
 import * as orderRepository from './orderRepository';
 import { orders, orderItems } from '@/db/schema';
 
-/* eslint-disable no-var */
 
 var mockFindFirst: jest.Mock;
 var mockFindMany: jest.Mock;

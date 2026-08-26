@@ -1,7 +1,6 @@
 import * as orderMessageRepository from './orderMessageRepository';
 import { orderMessages } from '@/db/schema';
 
-/* eslint-disable no-var */
 
 var mockFindMany: jest.Mock;
 var mockReturning: jest.Mock;

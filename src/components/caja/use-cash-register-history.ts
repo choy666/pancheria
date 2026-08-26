@@ -7,7 +7,7 @@ import {
   CAJA_HISTORIAL_API,
   CAJA_ELIMINADAS_API,
 } from '@/config/api';
-import { DEFAULT_CAJA_HISTORY_DAYS, type CashRegister } from '@/config/caja';
+import { getDefaultCajaHistoryDays, type CashRegister } from '@/config/caja';
 import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
 import type { PaginatedResult } from '@/domain/types';
@@ -38,7 +38,7 @@ export function useCashRegisterHistory({
   const [dateRange] = useState(() => {
     const now = nowUTC();
     const end = endOfDayUTC(now);
-    const start = startOfDayUTC(subDays(now, DEFAULT_CAJA_HISTORY_DAYS));
+    const start = startOfDayUTC(subDays(now, getDefaultCajaHistoryDays()));
     return { startDate: start.toISOString(), endDate: end.toISOString() };
   });
 

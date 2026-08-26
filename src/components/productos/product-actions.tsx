@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { routes } from '@/config/routes';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   deleteProduct,
   type DeleteProductState,
@@ -32,7 +34,9 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
   const hasSubmittedRef = useRef(false);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const [dismissed, setDismissed] = useState<DeleteProductState>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const isDialogOpen = !!state?.error && state !== dismissed;
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (hasSubmittedRef.current && !isPending && state === null) {
@@ -42,22 +46,24 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
   }, [isPending, state, router]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (!confirm(`¿Eliminar ${productName}?`)) {
-      event.preventDefault();
-      return;
-    }
+    event.preventDefault();
+    setShowConfirm(true);
+  }
 
+  function handleConfirmDelete() {
+    setShowConfirm(false);
     hasSubmittedRef.current = true;
+    formRef.current?.requestSubmit();
   }
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      <Link href={`/productos/${productId}/editar`}>
+      <Link href={routes.productosEditar(productId)}>
         <Button variant="ghost" size="sm" className="w-full sm:w-auto">
           Editar
         </Button>
       </Link>
-      <form action={formAction} className="inline" onSubmit={handleSubmit}>
+      <form ref={formRef} action={formAction} className="inline" onSubmit={handleSubmit}>
         <input type="hidden" name="id" value={productId} />
         <Button
           ref={deleteButtonRef}
@@ -97,6 +103,16 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
           </DialogDescription>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Eliminar producto"
+        description={`¿Eliminar ${productName}?`}
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }

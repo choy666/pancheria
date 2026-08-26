@@ -12,7 +12,30 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },
   async headers() {
+    const cspDirectives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com https://va.vercel-scripts.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "media-src 'self' blob:",
+      "connect-src 'self'",
+      "font-src 'self'",
+      "frame-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ];
+
+    if (process.env.NODE_ENV === 'production') {
+      cspDirectives.push('upgrade-insecure-requests');
+    }
+
     const securityHeaders = [
+      {
+        key: 'Content-Security-Policy',
+        value: cspDirectives.join('; '),
+      },
       {
         key: 'X-DNS-Prefetch-Control',
         value: 'on',

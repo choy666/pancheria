@@ -75,7 +75,7 @@ describe('GET /api/pedidos', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await GET(buildRequest());
+    const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -85,7 +85,7 @@ describe('GET /api/pedidos', () => {
   test('devuelve los pedidos pendientes por defecto con status 200', async () => {
     mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
 
-    const response = await GET(buildRequest());
+    const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as { items: unknown[] };
 
     expect(response.status).toBe(200);
@@ -99,7 +99,7 @@ describe('GET /api/pedidos', () => {
   test('permite filtrar por estado', async () => {
     mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
 
-    const response = await GET(buildRequest('status=converted'));
+    const response = await GET(buildRequest('status=converted'), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(200);
     expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
@@ -109,7 +109,7 @@ describe('GET /api/pedidos', () => {
   });
 
   test('devuelve 400 cuando el estado es inválido', async () => {
-    const response = await GET(buildRequest('status=invalid'));
+    const response = await GET(buildRequest('status=invalid'), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(400);
     expect(mockedOrderService.getOrders).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe('GET /api/pedidos', () => {
   test('devuelve 404 cuando el servicio lanza NotFoundError', async () => {
     mockedOrderService.getOrders.mockRejectedValue(new NotFoundError('Sucursal', 1));
 
-    const response = await GET(buildRequest());
+    const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -130,7 +130,7 @@ describe('GET /api/pedidos', () => {
       new ValidationError('Filtro inválido.')
     );
 
-    const response = await GET(buildRequest());
+    const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -140,7 +140,7 @@ describe('GET /api/pedidos', () => {
   test('sin branchId se usa la sucursal actual', async () => {
     mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
 
-    const response = await GET(buildRequest());
+    const response = await GET(buildRequest(), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(200);
     expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
@@ -156,7 +156,7 @@ describe('GET /api/pedidos', () => {
     mockedRequireAuth.mockResolvedValue(session);
     mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
 
-    const response = await GET(buildRequest('branchId=2'));
+    const response = await GET(buildRequest('branchId=2'), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(200);
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(2);
@@ -169,7 +169,7 @@ describe('GET /api/pedidos', () => {
   test('operator no puede listar pedidos de otra sucursal', async () => {
     mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
 
-    const response = await GET(buildRequest('branchId=2'));
+    const response = await GET(buildRequest('branchId=2'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(403);
@@ -184,7 +184,7 @@ describe('GET /api/pedidos', () => {
     mockedRequireAuth.mockResolvedValue(session);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
-    const response = await GET(buildRequest('branchId=2'));
+    const response = await GET(buildRequest('branchId=2'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -197,7 +197,7 @@ describe('GET /api/pedidos', () => {
     });
     mockedOrderService.getOrders.mockRejectedValue(dbError);
 
-    const response = await GET(buildRequest());
+    const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);

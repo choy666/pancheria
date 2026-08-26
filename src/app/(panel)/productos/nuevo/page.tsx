@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { ProductFormTabs } from '@/components/productos/product-form-tabs';
+import { routes } from '@/config/routes';
 
 interface NewProductPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -18,7 +19,7 @@ export default async function NewProductPage({
   const session = await auth();
 
   if (session?.user?.role !== 'admin') {
-    redirect('/');
+    redirect(routes.home);
   }
 
   const params = await searchParams;

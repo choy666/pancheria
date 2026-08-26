@@ -3,16 +3,14 @@ import { productUpdateSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAdmin, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export const GET = withApiErrorHandling(
-  async (_request: NextRequest, { params }: RouteParams) => {
-    const session = await requireAdmin();
-    const branchId = await getCurrentBranchId(session);
+  withAuth(async (_request: NextRequest, { params }: RouteParams, { branchId }) => {
     const { id } = await params;
     const productId = parseId(id);
     if (!productId) {
@@ -23,13 +21,11 @@ export const GET = withApiErrorHandling(
     }
     const product = await productService.getProductById(branchId, productId);
     return NextResponse.json(product);
-  }
+  }, { admin: true })
 );
 
 export const PUT = withApiErrorHandling(
-  async (request: NextRequest, { params }: RouteParams) => {
-    const session = await requireAdmin();
-    const branchId = await getCurrentBranchId(session);
+  withAuth(async (request: NextRequest, { params }: RouteParams, { branchId }) => {
     const { id } = await params;
     const productId = parseId(id);
     if (!productId) {
@@ -42,13 +38,11 @@ export const PUT = withApiErrorHandling(
     const data = productUpdateSchema.parse(body);
     const product = await productService.updateProduct(branchId, productId, data);
     return NextResponse.json(product);
-  }
+  }, { admin: true })
 );
 
 export const DELETE = withApiErrorHandling(
-  async (_request: NextRequest, { params }: RouteParams) => {
-    const session = await requireAdmin();
-    const branchId = await getCurrentBranchId(session);
+  withAuth(async (_request: NextRequest, { params }: RouteParams, { branchId }) => {
     const { id } = await params;
     const productId = parseId(id);
     if (!productId) {
@@ -59,5 +53,5 @@ export const DELETE = withApiErrorHandling(
     }
     await productService.deleteProduct(branchId, productId);
     return NextResponse.json({ success: true });
-  }
+  }, { admin: true })
 );

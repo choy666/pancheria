@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { routes } from '@/config/routes';
 
 export default function NotFoundPage() {
   return (
@@ -8,7 +9,7 @@ export default function NotFoundPage() {
         Esta página no se pudo encontrar.
       </p>
       <Link
-        href="/"
+        href={routes.home}
         className="mt-8 inline-flex h-11 min-w-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85"
       >
         Volver al inicio

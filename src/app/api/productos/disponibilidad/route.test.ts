@@ -50,7 +50,7 @@ describe('productos /api/productos/disponibilidad', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -58,7 +58,7 @@ describe('productos /api/productos/disponibilidad', () => {
   });
 
   test('devuelve 400 cuando falta el productId', async () => {
-    const response = await GET(buildRequest(''));
+    const response = await GET(buildRequest(''), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -66,7 +66,7 @@ describe('productos /api/productos/disponibilidad', () => {
   });
 
   test('devuelve 400 cuando el productId es inválido', async () => {
-    const response = await GET(buildRequest('productId=abc'));
+    const response = await GET(buildRequest('productId=abc'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -76,7 +76,7 @@ describe('productos /api/productos/disponibilidad', () => {
   test('devuelve la disponibilidad con status 200', async () => {
     mockedSaleService.calculateAvailability.mockResolvedValue(5);
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { productId: number; availability: number };
 
     expect(response.status).toBe(200);
@@ -92,7 +92,7 @@ describe('productos /api/productos/disponibilidad', () => {
       new ValidationError('No se pudo calcular la disponibilidad.')
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -104,7 +104,7 @@ describe('productos /api/productos/disponibilidad', () => {
       new NotFoundError('Producto', 99)
     );
 
-    const response = await GET(buildRequest('productId=99'));
+    const response = await GET(buildRequest('productId=99'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -117,7 +117,7 @@ describe('productos /api/productos/disponibilidad', () => {
     });
     mockedSaleService.calculateAvailability.mockRejectedValue(dbError);
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -129,7 +129,7 @@ describe('productos /api/productos/disponibilidad', () => {
       new Error('Error desconocido')
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

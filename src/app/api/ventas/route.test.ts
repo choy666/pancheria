@@ -73,7 +73,7 @@ describe('ventas /api/ventas', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -87,7 +87,7 @@ describe('ventas /api/ventas', () => {
         >
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { items: unknown[] };
 
       expect(response.status).toBe(200);
@@ -108,7 +108,7 @@ describe('ventas /api/ventas', () => {
         >
       );
 
-      const response = await GET(buildRequest('cashRegisterId=5'));
+      const response = await GET(buildRequest('cashRegisterId=5'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { items: unknown[] };
 
       expect(response.status).toBe(200);
@@ -122,7 +122,7 @@ describe('ventas /api/ventas', () => {
     });
 
     test('devuelve 400 cuando el ID de caja es inválido', async () => {
-      const response = await GET(buildRequest('cashRegisterId=abc'));
+      const response = await GET(buildRequest('cashRegisterId=abc'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -134,7 +134,7 @@ describe('ventas /api/ventas', () => {
         new NotFoundError('Venta', 1)
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(404);
@@ -146,7 +146,7 @@ describe('ventas /api/ventas', () => {
         new ValidationError('Rango de fechas inválido.')
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -159,7 +159,7 @@ describe('ventas /api/ventas', () => {
       });
       mockedSaleRepository.findByDateRange.mockRejectedValue(dbError);
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -171,7 +171,7 @@ describe('ventas /api/ventas', () => {
         new Error('Error desconocido')
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);
@@ -191,9 +191,7 @@ describe('ventas /api/ventas', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -206,9 +204,7 @@ describe('ventas /api/ventas', () => {
         sale as unknown as Awaited<ReturnType<typeof saleService.confirmSale>>
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(201);
@@ -220,12 +216,10 @@ describe('ventas /api/ventas', () => {
     });
 
     test('devuelve 400 cuando el cuerpo es inválido', async () => {
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify({ items: [] }),
-        })
-      );
+        }), { params: Promise.resolve({}) });
 
       expect(response.status).toBe(400);
     });
@@ -235,9 +229,7 @@ describe('ventas /api/ventas', () => {
         new NotFoundError('Producto', 99)
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(404);
@@ -249,9 +241,7 @@ describe('ventas /api/ventas', () => {
         new InsufficientStockError('Pancho', 1, 3, 'Pan')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(409);
@@ -263,9 +253,7 @@ describe('ventas /api/ventas', () => {
         new ValidationError('No hay una caja abierta.')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -278,9 +266,7 @@ describe('ventas /api/ventas', () => {
       });
       mockedSaleService.confirmSale.mockRejectedValue(dbError);
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -292,9 +278,7 @@ describe('ventas /api/ventas', () => {
         new Error('Error desconocido')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);

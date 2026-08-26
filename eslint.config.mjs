@@ -15,9 +15,17 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "playwright-report/**",
     "next-env.d.ts",
-    "**/*.test.ts",
-    "**/*.test.tsx",
   ]),
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-var-requires": "off",
+      "no-console": "off",
+      "no-var": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

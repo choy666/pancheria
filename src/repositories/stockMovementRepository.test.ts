@@ -1,6 +1,5 @@
 import * as stockMovementRepository from './stockMovementRepository';
 
-/* eslint-disable no-var */
 
 var mockFindMany: jest.Mock;
 var mockReturning: jest.Mock;

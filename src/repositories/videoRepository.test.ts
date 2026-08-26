@@ -1,7 +1,6 @@
 import * as videoRepository from './videoRepository';
 import { videos } from '@/db/schema';
 
-/* eslint-disable no-var */
 
 var mockFindFirst: jest.Mock;
 var mockFindMany: jest.Mock;

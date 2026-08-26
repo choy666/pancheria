@@ -3,7 +3,10 @@ export const routes = {
   login: '/login',
   ventas: '/ventas',
   ventasHistorial: '/ventas/historial',
+  ventasHistorialEliminadas: '/ventas/historial/eliminadas',
   productos: '/productos',
+  productosNuevo: '/productos/nuevo',
+  productosEditar: (id: number | string) => `/productos/${id}/editar`,
   stock: '/stock',
   cierre: '/cierre',
   cierreHistorial: '/cierre/historial',
@@ -11,8 +14,11 @@ export const routes = {
   usuarios: '/usuarios',
   videos: '/videos',
   videosNuevo: '/videos/nuevo',
-  videoDetalle: '/videos/[id]',
+  videoDetalle: (id: number | string) => `/videos/${id}`,
   pedido: '/pedido',
+  pedidoSeguimiento: '/pedido/seguimiento',
   pedidos: '/pedidos',
   pedidoDetalle: (id: number | string) => `/pedidos/${id}`,
+  pedidoChat: (id: number | string, token: string) =>
+    `/pedido/${id}/chat?token=${encodeURIComponent(token)}`,
 } as const;

@@ -129,20 +129,20 @@ describe('userService', () => {
 
       const result = await createUser({
         username: 'nuevo',
-        password: '1234',
+        password: '123456',
         role: 'operator',
         branchId: 1,
       });
 
       expect(result.username).toBe('nuevo');
-      expect(mockedBcrypt.hash).toHaveBeenCalledWith('1234', 10);
+      expect(mockedBcrypt.hash).toHaveBeenCalledWith('123456', 10);
     });
 
     test('rechaza un nombre de usuario vacío', async () => {
       await expect(
         createUser({
           username: '   ',
-          password: '1234',
+          password: '123456',
           role: 'operator',
           branchId: 1,
         })
@@ -164,7 +164,7 @@ describe('userService', () => {
       await expect(
         createUser({
           username: 'nuevo',
-          password: '1234',
+          password: '123456',
           role: 'admin',
           branchId: 1,
         })
@@ -177,7 +177,7 @@ describe('userService', () => {
       await expect(
         createUser({
           username: 'nuevo',
-          password: '1234',
+          password: '123456',
           role: 'operator',
           branchId: 99,
         })
@@ -197,7 +197,7 @@ describe('userService', () => {
       await expect(
         createUser({
           username: 'existente',
-          password: '1234',
+          password: '123456',
           role: 'operator',
           branchId: 1,
         })

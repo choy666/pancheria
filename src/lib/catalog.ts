@@ -13,6 +13,11 @@ export interface SellableProductLike {
   criticalSupplyType?: CriticalSupplyType | null;
 }
 
+/**
+ * Un producto es vendible al público si es compuesto, un servicio o una
+ * bebida crítica. Los `manual_supply` (aderezos e insumos manuales) no se
+ * venden directamente porque no se descuentan automáticamente del stock.
+ */
 export function isPublicSellableProduct(
   product: SellableProductLike | null | undefined
 ): boolean {

@@ -2,6 +2,7 @@
 
 import type { MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import type { CashRegister } from '@/config/caja';
 
 type CashRegisterActionsProps = {
@@ -21,38 +22,52 @@ export function CashRegisterActions({
   onRestore,
   onPermanentDelete,
 }: CashRegisterActionsProps) {
+  const { dialog, confirm } = useConfirmDialog();
+
   if (!isAdmin) {
     return null;
   }
+
   async function handleDelete(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onDelete) return;
-    if (!confirm(`¿Eliminar la caja #${cashRegister.id}? Se moverá a la papelera.`)) return;
+    const shouldDelete = await confirm({
+      title: 'Eliminar caja',
+      description: `¿Eliminar la caja #${cashRegister.id}? Se moverá a la papelera.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!shouldDelete) return;
     await onDelete(cashRegister.id);
   }
 
   async function handleRestore(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onRestore) return;
-    if (!confirm(`¿Restaurar la caja #${cashRegister.id}?`)) return;
+    const shouldRestore = await confirm({
+      title: 'Restaurar caja',
+      description: `¿Restaurar la caja #${cashRegister.id}?`,
+      confirmLabel: 'Restaurar',
+    });
+    if (!shouldRestore) return;
     await onRestore(cashRegister.id);
   }
 
   async function handlePermanentDelete(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     if (!onPermanentDelete) return;
-    if (
-      !confirm(
-        `¿Eliminar definitivamente la caja #${cashRegister.id}? Esta acción no se puede deshacer.`
-      )
-    )
-      return;
+    const shouldDelete = await confirm({
+      title: 'Eliminar definitivamente',
+      description: `¿Eliminar definitivamente la caja #${cashRegister.id}? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar definitivamente',
+    });
+    if (!shouldDelete) return;
     await onPermanentDelete(cashRegister.id);
   }
 
   if (mode === 'trash') {
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {dialog}
         <Button
           variant="outline"
           size="sm"
@@ -77,6 +92,7 @@ export function CashRegisterActions({
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {dialog}
       <Button
         variant="destructive"
         size="sm"

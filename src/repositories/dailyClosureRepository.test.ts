@@ -1,6 +1,5 @@
 import * as dailyClosureRepository from './dailyClosureRepository';
 
-/* eslint-disable no-var */
 
 var mockFindFirst: jest.Mock;
 var mockFindMany: jest.Mock;

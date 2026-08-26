@@ -50,7 +50,7 @@ describe('stock /api/stock/movimientos', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -58,7 +58,7 @@ describe('stock /api/stock/movimientos', () => {
   });
 
   test('devuelve 400 cuando falta el productId', async () => {
-    const response = await GET(buildRequest(''));
+    const response = await GET(buildRequest(''), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -66,7 +66,7 @@ describe('stock /api/stock/movimientos', () => {
   });
 
   test('devuelve 400 cuando el productId es inválido', async () => {
-    const response = await GET(buildRequest('productId=abc'));
+    const response = await GET(buildRequest('productId=abc'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -84,7 +84,7 @@ describe('stock /api/stock/movimientos', () => {
       history as unknown as Awaited<ReturnType<typeof stockService.getStockHistory>>
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { items: unknown[] };
 
     expect(response.status).toBe(200);
@@ -101,7 +101,7 @@ describe('stock /api/stock/movimientos', () => {
       new NotFoundError('Producto', 99)
     );
 
-    const response = await GET(buildRequest('productId=99'));
+    const response = await GET(buildRequest('productId=99'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -113,7 +113,7 @@ describe('stock /api/stock/movimientos', () => {
       new ValidationError('Producto inválido.')
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -126,7 +126,7 @@ describe('stock /api/stock/movimientos', () => {
     });
     mockedStockService.getStockHistory.mockRejectedValue(dbError);
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -138,7 +138,7 @@ describe('stock /api/stock/movimientos', () => {
       new Error('Error desconocido')
     );
 
-    const response = await GET(buildRequest('productId=1'));
+    const response = await GET(buildRequest('productId=1'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

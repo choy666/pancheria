@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import { db } from '@/db';
 import { products, stockMovements } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as productRepository from '@/repositories/productRepository';
@@ -29,7 +30,8 @@ export async function adjustStock(
   productId: number,
   quantity: number,
   reason: string,
-  type: StockMovementType = 'manual_adjustment'
+  type: StockMovementType = 'manual_adjustment',
+  dbOrTx?: typeof db
 ) {
   validateMinLength(reason, 3, 'El motivo del ajuste');
 
@@ -41,7 +43,7 @@ export async function adjustStock(
     throw new ValidationError('La cantidad no puede ser cero.');
   }
 
-  return executeInTransaction(async (tx) => {
+  const run = async (tx: typeof db) => {
     const current = await productRepository.findByIdForUpdate(
       branchId,
       productId,
@@ -79,7 +81,13 @@ export async function adjustStock(
     });
 
     return { productId, newStock };
-  });
+  };
+
+  if (dbOrTx) {
+    return run(dbOrTx);
+  }
+
+  return executeInTransaction(run);
 }
 
 export async function getStockHistory(

@@ -2,7 +2,7 @@
 
 import { addHours, intervalToDuration } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AUTO_CLOSE_HOURS } from '@/config/caja';
+import { getAutoCloseHours } from '@/config/caja';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 
 interface CashRegisterSummaryData {
@@ -46,7 +46,7 @@ export function CashRegisterSummary({
   const remaining = isOpen
     ? intervalToDuration({
         start: now,
-        end: addHours(openedAt, AUTO_CLOSE_HOURS),
+        end: addHours(openedAt, getAutoCloseHours()),
       })
     : null;
 

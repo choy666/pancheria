@@ -17,8 +17,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
 import { Pagination } from '@/components/ui/pagination';
+import { routes } from '@/config/routes';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
 import { useCashRegisterHistory } from '@/components/caja/use-cash-register-history';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import type { CashRegister } from '@/config/caja';
 
 interface Branch {
@@ -40,7 +42,7 @@ interface CajaHistoryProps {
 }
 
 export function CajaHistory({
-  detailRoute = '/cierre',
+  detailRoute = routes.cierre,
   statusFilter = 'closed',
   showAutoColumn = true,
   deletedOnly = false,
@@ -52,6 +54,7 @@ export function CajaHistory({
   onEmptyTrash,
 }: CajaHistoryProps) {
   const router = useRouter();
+  const { dialog, confirm } = useConfirmDialog();
   const [actionError, setActionError] = useState<string | null>(null);
   const {
     data: cashRegisters,
@@ -181,16 +184,19 @@ export function CajaHistory({
 
       {deletedOnly && isAdmin && (
         <div className="flex justify-end">
+          {dialog}
           <Button
             variant="destructive"
             size="sm"
             data-testid="empty-trash"
-            onClick={() => {
-              if (
-                confirm(
-                  '¿Vaciar la papelera? Se eliminarán definitivamente todas las cajas mostradas en el rango actual.'
-                )
-              ) {
+            onClick={async () => {
+              const shouldEmpty = await confirm({
+                title: 'Vaciar papelera',
+                description:
+                  '¿Vaciar la papelera? Se eliminarán definitivamente todas las cajas mostradas en el rango actual.',
+                confirmLabel: 'Vaciar',
+              });
+              if (shouldEmpty) {
                 void handleEmptyTrash(startDate, endDate);
               }
             }}

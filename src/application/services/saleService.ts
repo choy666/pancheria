@@ -198,8 +198,9 @@ async function deductStockForItems(
         reason,
         createdAt: nowUTC(),
       });
-    } else if (product.type === 'service') {
-      // Los servicios no generan movimientos de stock.
+    } else if (product.type === 'service' || product.type === 'manual_supply') {
+      // Los servicios y los insumos manuales no generan movimientos de stock
+      // automáticos. Los insumos manuales se controlan fuera del flujo de venta.
     }
   }
 }
@@ -343,8 +344,8 @@ async function reintegrateStockForItems(
         reason,
         createdAt: nowUTC(),
       });
-    } else if (product.type === 'service') {
-      // Los servicios no reintegran stock al anularse.
+    } else if (product.type === 'service' || product.type === 'manual_supply') {
+      // Los servicios y los insumos manuales no reintegran stock al anularse.
     }
   }
 }

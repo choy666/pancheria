@@ -45,7 +45,7 @@ describe('GET /api/caja/historial', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -61,7 +61,7 @@ describe('GET /api/caja/historial', () => {
       limit: 10,
     } as unknown as Awaited<ReturnType<typeof cashRegisterService.listCashRegisterHistory>>);
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { items: unknown[] };
 
     expect(response.status).toBe(200);
@@ -83,7 +83,7 @@ describe('GET /api/caja/historial', () => {
       limit: 10,
     });
 
-    await GET(buildRequest('start=2025-01-01&end=2025-01-31&status=open'));
+    await GET(buildRequest('start=2025-01-01&end=2025-01-31&status=open'), { params: Promise.resolve({}) });
 
     expect(mockedCashRegisterService.listCashRegisterHistory).toHaveBeenCalledWith(
       BRANCH_ID,
@@ -101,7 +101,7 @@ describe('GET /api/caja/historial', () => {
     );
     mockedCashRegisterService.listCashRegisterHistory.mockRejectedValue(dbError);
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -113,7 +113,7 @@ describe('GET /api/caja/historial', () => {
       new Error('Error desconocido')
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

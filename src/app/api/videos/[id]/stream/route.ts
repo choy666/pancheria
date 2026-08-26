@@ -6,7 +6,7 @@ import {
   guessMimeType,
   resolveLocalVideoPath,
 } from '@/lib/storage';
-import { requireAdmin } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { NotFoundError } from '@/domain/errors';
 
@@ -99,12 +99,10 @@ function parseRange(
 }
 
 export const GET = withApiErrorHandling(
-  async (
+  withAuth(async (
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
   ) => {
-    await requireAdmin();
-
     const { id } = await params;
     const key = decodeURIComponent(id);
 
@@ -169,5 +167,5 @@ export const GET = withApiErrorHandling(
         'Content-Length': String(chunkSize),
       },
     });
-  }
+  }, { admin: true })
 );

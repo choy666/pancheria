@@ -4,11 +4,22 @@ import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderCancellationSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
+import {
+  getOrderRateLimitWindowMs,
+  getOrderRateLimitMaxRequests,
+} from '@/config/orders';
 import { parseId } from '@/lib/id';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
 });
+
+const isRateLimited = createRateLimiter(
+  'order-cancellation',
+  getOrderRateLimitWindowMs(),
+  getOrderRateLimitMaxRequests()
+);
 
 export const POST = withApiErrorHandling(
   async (
@@ -21,6 +32,14 @@ export const POST = withApiErrorHandling(
 
     if (!branchId) {
       return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
+    }
+
+    const ip = getClientIp(request);
+    if (await isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Demasiadas cancelaciones. Intentalo más tarde.' },
+        { status: 429 }
+      );
     }
 
     const { id } = await params;

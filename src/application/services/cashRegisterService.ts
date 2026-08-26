@@ -7,7 +7,7 @@ import { calculateSummaryFromSales, type SaleWithItems } from '@/application/ser
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { AUTO_CLOSE_HOURS, AUTO_CLOSED_BY } from '@/config/caja';
+import { getAutoCloseHours, getAutoClosedBy } from '@/config/caja';
 
 /**
  * Nota sobre integridad referencial:
@@ -39,7 +39,7 @@ export async function getOpenCashRegister(branchId: number) {
   if (!cashRegister || cashRegister.branchId !== branchId) return null;
 
   const now = nowUTC();
-  const autoCloseAt = addHours(cashRegister.openedAt, AUTO_CLOSE_HOURS);
+  const autoCloseAt = addHours(cashRegister.openedAt, getAutoCloseHours());
 
   if (autoCloseAt <= now) {
     return executeInTransaction(async (tx) => {
@@ -50,7 +50,7 @@ export async function getOpenCashRegister(branchId: number) {
 
       if (!locked) return null;
 
-      const closeThreshold = addHours(locked.openedAt, AUTO_CLOSE_HOURS);
+      const closeThreshold = addHours(locked.openedAt, getAutoCloseHours());
       if (closeThreshold > now) return null;
 
       const summary = await calculateCashRegisterSummary(branchId, locked.id, tx);
@@ -60,7 +60,7 @@ export async function getOpenCashRegister(branchId: number) {
         .set({
           status: 'closed',
           closedAt: nowUTC(),
-          closedBy: AUTO_CLOSED_BY,
+          closedBy: getAutoClosedBy(),
           autoClosed: true,
           ...summary,
         })

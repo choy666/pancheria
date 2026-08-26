@@ -50,7 +50,7 @@ describe('cierre /api/cierre/historial', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -68,7 +68,7 @@ describe('cierre /api/cierre/historial', () => {
       history as unknown as Awaited<ReturnType<typeof closureService.listClosures>>
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { items: unknown[] };
 
     expect(response.status).toBe(200);
@@ -88,7 +88,7 @@ describe('cierre /api/cierre/historial', () => {
       >
     );
 
-    await GET(buildRequest('start=2025-01-01&end=2025-01-31&page=2&limit=25'));
+    await GET(buildRequest('start=2025-01-01&end=2025-01-31&page=2&limit=25'), { params: Promise.resolve({}) });
 
     expect(mockedClosureService.listClosures).toHaveBeenCalledWith(
       BRANCH_ID,
@@ -103,7 +103,7 @@ describe('cierre /api/cierre/historial', () => {
       new NotFoundError('Cierre', 1)
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -115,7 +115,7 @@ describe('cierre /api/cierre/historial', () => {
       new ValidationError('Rango de fechas inválido.')
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -128,7 +128,7 @@ describe('cierre /api/cierre/historial', () => {
     });
     mockedClosureService.listClosures.mockRejectedValue(dbError);
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -140,7 +140,7 @@ describe('cierre /api/cierre/historial', () => {
       new Error('Error desconocido')
     );
 
-    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'));
+    const response = await GET(buildRequest('start=2025-01-01&end=2025-01-31'), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

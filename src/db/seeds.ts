@@ -1,7 +1,10 @@
+import dotenv from 'dotenv';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { pathToFileURL } from 'url';
 import { db } from './index';
+
+dotenv.config({ path: '.env.local' });
 import { products, recipes, users, branches } from './schema';
 import { copyCatalogToBranch } from './catalog-copy';
 import * as stockService from '@/application/services/stockService';

@@ -1,19 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withApiErrorHandling(async () => {
-  const session = await requireAuth();
-  const branchId = await getCurrentBranchId(session);
+export const GET = withApiErrorHandling(
+  withAuth(async (_request: NextRequest, _context, { branchId }) => {
+    const live = await cashRegisterService.getOpenCashRegisterSummary(branchId);
 
-  const live = await cashRegisterService.getOpenCashRegisterSummary(branchId);
+    if (!live) {
+      return NextResponse.json({ status: 'closed' });
+    }
 
-  if (!live) {
-    return NextResponse.json({ status: 'closed' });
-  }
-
-  return NextResponse.json(live);
-}, 'GET /api/caja/resumen');
+    return NextResponse.json(live);
+  })
+, 'GET /api/caja/resumen');

@@ -60,9 +60,7 @@ describe('stock /api/stock/ajustar', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -75,9 +73,7 @@ describe('stock /api/stock/ajustar', () => {
       result as unknown as Awaited<ReturnType<typeof stockService.adjustStock>>
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as unknown;
 
     expect(response.status).toBe(200);
@@ -92,8 +88,7 @@ describe('stock /api/stock/ajustar', () => {
   });
 
   test('devuelve 400 cuando el cuerpo es inválido', async () => {
-    const response = await POST(
-      buildRequest({
+    const response = await POST(buildRequest({
         method: 'POST',
         body: JSON.stringify({
           productId: 1,
@@ -101,8 +96,7 @@ describe('stock /api/stock/ajustar', () => {
           reason: 'no',
           type: 'restock',
         }),
-      })
-    );
+      }), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(400);
   });
@@ -112,9 +106,7 @@ describe('stock /api/stock/ajustar', () => {
       new NotFoundError('Producto', 99)
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -126,9 +118,7 @@ describe('stock /api/stock/ajustar', () => {
       new ValidationError('El ajuste dejaría el stock de Pan en negativo.')
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -141,9 +131,7 @@ describe('stock /api/stock/ajustar', () => {
     });
     mockedStockService.adjustStock.mockRejectedValue(dbError);
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -155,9 +143,7 @@ describe('stock /api/stock/ajustar', () => {
       new Error('Error desconocido')
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

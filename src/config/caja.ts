@@ -1,12 +1,32 @@
-export const AUTO_CLOSE_HOURS = 12;
+export function getAutoCloseHours(): number {
+  const raw = process.env.CAJA_AUTO_CLOSE_HOURS ?? process.env.NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS;
+  if (!raw) return 12;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) return 12;
+  return parsed;
+}
 
-export const AUTO_CLOSED_BY = 'Sistema';
+export function getAutoClosedBy(): string {
+  return process.env.CAJA_AUTO_CLOSED_BY ?? 'Sistema';
+}
 
 const DEFAULT_CAJA_REFRESH_INTERVAL_MS = 5000;
 
-export const CAJA_CLOCK_INTERVAL_MS = 60000;
+export function getCajaClockIntervalMs(): number {
+  const raw = process.env.NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS;
+  if (!raw) return 60000;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) return 60000;
+  return parsed;
+}
 
-export const DEFAULT_CAJA_HISTORY_DAYS = 30;
+export function getDefaultCajaHistoryDays(): number {
+  const raw = process.env.CAJA_DEFAULT_HISTORY_DAYS ?? process.env.NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS;
+  if (!raw) return 30;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) return 30;
+  return parsed;
+}
 
 export const CAJA_RESUMEN_API = '/api/caja/resumen';
 export const CAJA_OPEN_API = '/api/caja/abrir';

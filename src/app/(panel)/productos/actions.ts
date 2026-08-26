@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import * as productService from '@/application/services/productService';
 import { DomainError } from '@/domain/errors';
 import { requireAdmin, getCurrentBranchId } from '@/lib/auth';
+import { routes } from '@/config/routes';
 
 export type DeleteProductState = { error: string } | null;
 
@@ -24,6 +25,6 @@ export async function deleteProduct(
     throw error;
   }
 
-  revalidatePath('/productos');
+  revalidatePath(routes.productos);
   return null;
 }

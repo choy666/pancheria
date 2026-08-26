@@ -1,4 +1,16 @@
+/**
+ * Configuración de Auth.js (next-auth) v5 beta.
+ *
+ * Actualmente next-auth no ha publicado una versión estable v5; la última
+ * versión disponible es `5.0.0-beta.32`. Para migrar a estable cuando salga:
+ *   1. Revisar el changelog oficial de breaking changes.
+ *   2. Actualizar `next-auth` y `@auth/core` juntos.
+ *   3. Revisar el adaptador de DB si se adopta sesiones en base de datos.
+ *   4. Verificar que `authorized`, `jwt` y `session` callbacks sigan siendo compatibles.
+ *   5. Ejecutar tests, lint, tsc y build antes de desplegar.
+ */
 import type { NextAuthConfig } from 'next-auth';
+import { routes } from '@/config/routes';
 import { getAuthRedirect } from '@/lib/route-guard';
 
 function getAuthSecret(): string {
@@ -29,7 +41,7 @@ export const authConfig = {
     strategy: 'jwt',
   },
   pages: {
-    signIn: '/login',
+    signIn: routes.login,
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {

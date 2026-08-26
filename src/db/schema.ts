@@ -13,9 +13,20 @@ import {
   index,
   uniqueIndex,
   jsonb,
+  check,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+/**
+ * Tipos de producto:
+ * - `critical_supply`: insumos críticos que se descuentan automáticamente en ventas
+ *   (pan, salchicha, bebida) y afectan la disponibilidad de productos compuestos.
+ * - `compound`: productos compuestos formados por recetas de insumos críticos.
+ * - `manual_supply`: insumos que NO se descuentan automáticamente en ventas.
+ *   Sirven como aderezos/opcionales en recetas o como referencia informativa.
+ *   Su stock debe ajustarse manualmente si se desea controlarlo.
+ * - `service`: servicios o productos intangibles sin stock.
+ */
 export const productTypeEnum = pgEnum('product_type', [
   'critical_supply',
   'compound',
@@ -117,6 +128,8 @@ export const products = pgTable(
       table.deletedAt
     ),
     nameIdx: index('products_name_idx').on(table.name),
+    stockCheck: check('products_stock_check', sql`${table.stock} >= 0`),
+    minStockCheck: check('products_min_stock_check', sql`${table.minStock} >= 0`),
   })
 );
 
@@ -275,6 +288,11 @@ export const orders = pgTable(
       table.branchId,
       table.orderNumber
     ),
+    orderNumberIdx: index('orders_order_number_idx').on(table.orderNumber),
+    customerNameIdx: index('orders_customer_name_idx').on(table.customerName),
+    cancellationTokenUniqueIdx: uniqueIndex('orders_cancellation_token_unique_idx').on(
+      table.cancellationToken
+    ),
     idempotencyUniqueIdx: uniqueIndex('orders_idempotency_branch_unique_idx').on(
       table.branchId,
       table.idempotencyKey
@@ -330,6 +348,7 @@ export const orderMessages = pgTable(
       table.senderType,
       table.readAt
     ),
+    attachmentKeyIdx: index('order_messages_attachment_key_idx').on(table.attachmentKey),
   })
 );
 

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import * as branchService from '@/application/services/branchService';
 import { requireAdmin } from '@/lib/auth';
 import { DomainError, NotFoundError } from '@/domain/errors';
+import { routes } from '@/config/routes';
 
 export type BranchState = { error: string } | null;
 
@@ -23,7 +24,7 @@ export async function createBranch(
     throw error;
   }
 
-  revalidatePath('/sucursales');
+  revalidatePath(routes.sucursales);
   return null;
 }
 
@@ -45,7 +46,7 @@ export async function updateBranchAction(
     throw error;
   }
 
-  revalidatePath('/sucursales');
+  revalidatePath(routes.sucursales);
   return null;
 }
 
@@ -76,7 +77,7 @@ export async function deleteBranchAction(
     throw error;
   }
 
-  revalidatePath('/sucursales');
+  revalidatePath(routes.sucursales);
   return null;
 }
 

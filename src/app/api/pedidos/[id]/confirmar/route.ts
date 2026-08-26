@@ -2,16 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderConfirmSchema } from '@/lib/zod-schemas';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
 
 export const POST = withApiErrorHandling(
-  async (
+  withAuth(async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    { params }: { params: Promise<{ id: string }> },
+    { branchId }
   ) => {
-    const session = await requireAuth();
-    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const orderId = parseId(id);
 
@@ -33,7 +32,7 @@ export const POST = withApiErrorHandling(
     });
 
     return NextResponse.json({ sale }, { status: 201 });
-  }
+  })
 );
 
 export const runtime = 'nodejs';

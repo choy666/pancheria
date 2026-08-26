@@ -182,7 +182,7 @@ export const branchIdQueryParamSchema = z.coerce.number().int().positive();
 
 export const orderCancellationSchema = z.object({
   reason: z.string().min(3).max(500),
-  token: z.string().optional(),
+  token: z.string().min(1),
 });
 
 export const videoSchema = z.object({

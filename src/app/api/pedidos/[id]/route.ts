@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
 
 export const GET = withApiErrorHandling(
-  async (_request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    const session = await requireAuth();
-    const branchId = await getCurrentBranchId(session);
+  withAuth(async (_request: NextRequest, { params }: { params: Promise<{ id: string }> }, { branchId }) => {
     const { id } = await params;
     const orderId = parseId(id);
 
@@ -28,7 +26,7 @@ export const GET = withApiErrorHandling(
     }
 
     return NextResponse.json({ order });
-  }
+  })
 );
 
 export const runtime = 'nodejs';

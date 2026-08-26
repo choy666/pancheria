@@ -1,7 +1,6 @@
 import * as cashRegisterRepository from './cashRegisterRepository';
 import { executeInTransaction } from '@/application/transactionService';
 
-/* eslint-disable no-var */
 
 // Variables de mock asignadas desde el factory de `jest.mock` para evitar
 // problemas de hoisting con `const`.

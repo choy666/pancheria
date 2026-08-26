@@ -1,6 +1,5 @@
 import * as recipeRepository from './recipeRepository';
 
-/* eslint-disable no-var */
 
 var mockFindMany: jest.Mock;
 var mockProductFindFirst: jest.Mock;

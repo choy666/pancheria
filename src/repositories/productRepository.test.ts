@@ -1,7 +1,6 @@
 import * as productRepository from './productRepository';
 import { products } from '@/db/schema';
 
-/* eslint-disable no-var */
 
 var mockFindFirst: jest.Mock;
 var mockFindMany: jest.Mock;

@@ -4,6 +4,7 @@ import { PromoForm } from '@/components/productos/promo-form';
 import * as productService from '@/application/services/productService';
 import { auth } from '@/auth';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
+import { routes } from '@/config/routes';
 
 interface PageParams {
   params: Promise<{ id: string }>;
@@ -13,7 +14,7 @@ export default async function EditProductPage({ params }: PageParams) {
   const session = await auth();
 
   if (session?.user?.role !== 'admin') {
-    redirect('/');
+    redirect(routes.home);
   }
 
   const branchId = await getCurrentBranchIdOrRedirect(session);

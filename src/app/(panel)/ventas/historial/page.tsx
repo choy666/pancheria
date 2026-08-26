@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
 import { auth } from '@/auth';
 import * as branchService from '@/application/services/branchService';
+import { routes } from '@/config/routes';
 
 export default async function VentasHistorialPage() {
   const session = await auth();
@@ -15,13 +16,13 @@ export default async function VentasHistorialPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Historial de cajas
         </h1>
-        <Link href="/ventas/historial/eliminadas" className="w-full sm:w-auto">
+        <Link href={routes.ventasHistorialEliminadas} className="w-full sm:w-auto">
           <Button variant="outline" className="w-full sm:w-auto">Cajas eliminadas</Button>
         </Link>
       </div>
       <div data-tour="cash-history-table">
         <CajaHistory
-          detailRoute="/ventas/historial"
+          detailRoute={routes.ventasHistorial}
           statusFilter="all"
           showAutoColumn={false}
           isAdmin={isAdmin}

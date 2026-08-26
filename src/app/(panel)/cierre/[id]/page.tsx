@@ -7,6 +7,7 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import * as branchService from '@/application/services/branchService';
 import { auth } from '@/auth';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
+import { routes } from '@/config/routes';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -45,7 +46,7 @@ export default async function CashRegisterDetailPage({ params }: Props) {
             <Badge variant="secondary">Cerrada</Badge>
           )}
         </div>
-        <Link href="/ventas/historial" className="w-full sm:w-auto">
+        <Link href={routes.ventasHistorial} className="w-full sm:w-auto">
           <Button variant="outline" className="w-full sm:w-auto">
             Volver al historial
           </Button>

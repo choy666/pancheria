@@ -65,7 +65,7 @@ describe('productos /api/productos', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await GET(buildRequest());
+      const response = await GET(buildRequest(), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -80,7 +80,7 @@ describe('productos /api/productos', () => {
         >
       );
 
-      const response = await GET(buildRequest());
+      const response = await GET(buildRequest(), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown[];
 
       expect(response.status).toBe(200);
@@ -100,7 +100,7 @@ describe('productos /api/productos', () => {
         >
       );
 
-      const response = await GET(buildRequest('?includeAvailability=true'));
+      const response = await GET(buildRequest('?includeAvailability=true'), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown[];
 
       expect(response.status).toBe(200);
@@ -115,7 +115,7 @@ describe('productos /api/productos', () => {
         new NotFoundError('Producto', 1)
       );
 
-      const response = await GET(buildRequest());
+      const response = await GET(buildRequest(), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(404);
@@ -128,7 +128,7 @@ describe('productos /api/productos', () => {
       });
       mockedProductService.listActiveProducts.mockRejectedValue(dbError);
 
-      const response = await GET(buildRequest());
+      const response = await GET(buildRequest(), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -140,7 +140,7 @@ describe('productos /api/productos', () => {
         new Error('Error desconocido')
       );
 
-      const response = await GET(buildRequest());
+      const response = await GET(buildRequest(), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);
@@ -166,12 +166,10 @@ describe('productos /api/productos', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify(validBody),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -184,12 +182,10 @@ describe('productos /api/productos', () => {
       } as Awaited<ReturnType<typeof requireAuth>>;
       mockedRequireAuth.mockResolvedValue(session);
 
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify(validBody),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(403);
@@ -202,12 +198,10 @@ describe('productos /api/productos', () => {
         created as unknown as Awaited<ReturnType<typeof productService.createProduct>>
       );
 
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify(validBody),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(201);
@@ -219,12 +213,10 @@ describe('productos /api/productos', () => {
     });
 
     test('devuelve 400 cuando el cuerpo es inválido', async () => {
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify({ name: '' }),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -236,12 +228,10 @@ describe('productos /api/productos', () => {
         new ValidationError('El producto no es válido.')
       );
 
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify(validBody),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -254,12 +244,10 @@ describe('productos /api/productos', () => {
       });
       mockedProductService.createProduct.mockRejectedValue(dbError);
 
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify(validBody),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -271,12 +259,10 @@ describe('productos /api/productos', () => {
         new Error('Error desconocido')
       );
 
-      const response = await POST(
-        buildRequest('', {
+      const response = await POST(buildRequest('', {
           method: 'POST',
           body: JSON.stringify(validBody),
-        })
-      );
+        }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);

@@ -86,7 +86,7 @@ export function VideoList({
               <TableRow key={video.id}>
                 <TableCell>
                   <Link
-                    href={routes.videoDetalle.replace('[id]', String(video.id))}
+                    href={routes.videoDetalle(video.id)}
                     className="hover:underline"
                   >
                     {video.title}
@@ -109,10 +109,7 @@ export function VideoList({
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Link
-                      href={routes.videoDetalle.replace(
-                        '[id]',
-                        String(video.id)
-                      )}
+                      href={routes.videoDetalle(video.id)}
                       className={buttonVariants({ variant: 'ghost', size: 'sm' })}
                     >
                       Ver

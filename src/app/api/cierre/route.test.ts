@@ -55,7 +55,7 @@ describe('cierre /api/cierre', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -72,7 +72,7 @@ describe('cierre /api/cierre', () => {
         closure as unknown as Awaited<ReturnType<typeof closureService.getClosureByDate>>
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(200);
@@ -90,7 +90,7 @@ describe('cierre /api/cierre', () => {
     test('devuelve null cuando no hay cierre para la fecha', async () => {
       mockedClosureService.getClosureByDate.mockResolvedValue(undefined);
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(200);
@@ -102,7 +102,7 @@ describe('cierre /api/cierre', () => {
         new NotFoundError('Cierre', 1)
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(404);
@@ -115,7 +115,7 @@ describe('cierre /api/cierre', () => {
       });
       mockedClosureService.getClosureByDate.mockRejectedValue(dbError);
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -127,7 +127,7 @@ describe('cierre /api/cierre', () => {
         new Error('Error desconocido')
       );
 
-      const response = await GET(buildRequest('date=2025-01-15'));
+      const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);
@@ -143,9 +143,7 @@ describe('cierre /api/cierre', () => {
         new UnauthorizedError('Se requiere iniciar sesión.')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(401);
@@ -162,9 +160,7 @@ describe('cierre /api/cierre', () => {
         closure as unknown as Awaited<ReturnType<typeof closureService.generateClosure>>
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(201);
@@ -186,7 +182,7 @@ describe('cierre /api/cierre', () => {
         >
       );
 
-      await POST(buildRequest('', { method: 'POST', body: JSON.stringify({}) }));
+      await POST(buildRequest('', { method: 'POST', body: JSON.stringify({}) }), { params: Promise.resolve({}) });
 
       expect(mockedClosureService.generateClosure).toHaveBeenCalledWith(
         BRANCH_ID,
@@ -199,9 +195,7 @@ describe('cierre /api/cierre', () => {
         new ValidationError('No se puede generar un cierre para una fecha futura.')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(400);
@@ -216,9 +210,7 @@ describe('cierre /api/cierre', () => {
       });
       mockedClosureService.generateClosure.mockRejectedValue(dbError);
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(503);
@@ -230,9 +222,7 @@ describe('cierre /api/cierre', () => {
         new Error('Error desconocido')
       );
 
-      const response = await POST(
-        buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-      );
+      const response = await POST(buildRequest('', { method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
 
       expect(response.status).toBe(500);

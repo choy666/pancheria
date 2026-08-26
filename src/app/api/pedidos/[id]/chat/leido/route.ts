@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
 
 export const POST = withApiErrorHandling(
-  async (
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+  withAuth(async (
+    _request: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
+    { branchId }
   ) => {
-    const session = await requireAuth();
-    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const orderId = parseId(id);
 
@@ -24,7 +23,7 @@ export const POST = withApiErrorHandling(
     await chatService.markOperatorMessagesAsRead(orderId, branchId);
 
     return NextResponse.json({ ok: true });
-  }
+  })
 );
 
 export const runtime = 'nodejs';

@@ -3,6 +3,7 @@
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { routes } from '@/config/routes';
 import { Search, MessageCircle, ArrowLeft } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -121,7 +122,7 @@ export function OrderTracker() {
       <Button
         type="button"
         variant="ghost"
-        onClick={() => router.push('/pedido')}
+        onClick={() => router.push(routes.pedido)}
         className="-ml-4"
       >
         <ArrowLeft className="mr-2 size-4" />

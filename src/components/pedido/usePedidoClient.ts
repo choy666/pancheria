@@ -1,0 +1,433 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { nanoid } from 'nanoid';
+import { groupPublicProductsByType } from '@/lib/catalog';
+import { getPedidoRefetchIntervalMs } from '@/config/catalog';
+import {
+  PUBLIC_CATALOGO_API,
+  PUBLIC_DISPONIBILIDAD_API,
+  PUBLIC_PEDIDO_API,
+  PUBLIC_PEDIDO_CANCELAR_API,
+} from '@/config/api';
+import { useCart } from '@/hooks/useCart';
+import { useRecentOrders } from '@/hooks/useRecentOrders';
+import { routes } from '@/config/routes';
+import type { CartItem } from '@/hooks/useCart';
+import type { RecentOrder } from '@/lib/recent-orders';
+import type { ProductGroup } from '@/lib/product-grouping';
+import type { Branch } from '@/domain/types';
+import type { PublicCatalogProduct } from '@/application/services/catalogService';
+import type { RecipeBreakdownItem } from '@/application/services/saleService';
+import type { PublicOrderItem } from '@/lib/whatsapp';
+
+interface ShortageInfo {
+  available: number;
+  required: number;
+  supplyName: string;
+}
+
+export interface CreatedOrder {
+  id: number;
+  orderNumber: string;
+  status: string;
+  total: number;
+  customerName: string;
+  deliveryType: 'delivery' | 'pickup';
+  address: string | null;
+  notes: string | null;
+  cancellationToken: string;
+  branchName: string | null;
+  items: PublicOrderItem[];
+  createdAt: string;
+  expiresAt: string;
+  whatsappUrl: string | null;
+}
+
+export interface UsePedidoClientProps {
+  branches: Branch[];
+  activeBranch: Branch;
+  initialProducts: PublicCatalogProduct[];
+}
+
+const BRANCH_STORAGE_KEY = 'pancheria-branch-id';
+
+export interface UsePedidoClientResult {
+  products: PublicCatalogProduct[];
+  error: string | null;
+  shortageByProduct: Record<number, ShortageInfo>;
+  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
+  isCheckingAvailability: boolean;
+
+  checkoutOpen: boolean;
+  setCheckoutOpen: (value: boolean) => void;
+  customerName: string;
+  setCustomerName: (value: string) => void;
+  deliveryType: 'delivery' | 'pickup';
+  setDeliveryType: (value: 'delivery' | 'pickup') => void;
+  address: string;
+  setAddress: (value: string) => void;
+  notes: string;
+  setNotes: (value: string) => void;
+  isSubmitting: boolean;
+  checkoutError: string | null;
+
+  successDialogOpen: boolean;
+  setSuccessDialogOpen: (value: boolean) => void;
+  createdOrder: CreatedOrder | null;
+  cancellationReason: string;
+  setCancellationReason: (value: string) => void;
+  isCancelling: boolean;
+  cancellationError: string | null;
+
+  items: CartItem[];
+  total: number;
+  addItem: (product: PublicCatalogProduct) => void;
+  removeItem: (productId: number) => void;
+  updateQuantity: (productId: number, quantity: number) => void;
+  clearCart: () => void;
+
+  recentOrders: RecentOrder[];
+  removeRecentOrder: (orderId: number) => void;
+
+  groupedProducts: ProductGroup<PublicCatalogProduct>[];
+  isActiveBranchValid: boolean;
+
+  handleBranchChange: (branchId: string | null) => void;
+  handleOpenCheckout: () => void;
+  handleSubmitCheckout: () => Promise<void>;
+  handleCancelOrder: () => Promise<void>;
+  handleOpenWhatsApp: () => void;
+  handleGoToChat: () => void;
+}
+
+export function usePedidoClient({
+  branches,
+  activeBranch,
+  initialProducts,
+}: UsePedidoClientProps): UsePedidoClientResult {
+  const router = useRouter();
+  const isMountedRef = useRef(true);
+
+  const [products, setProducts] = useState<PublicCatalogProduct[]>(initialProducts);
+  const [error, setError] = useState<string | null>(null);
+  const [shortageByProduct, setShortageByProduct] = useState<
+    Record<number, ShortageInfo>
+  >({});
+  const [breakdownByProduct, setBreakdownByProduct] = useState<
+    Record<number, RecipeBreakdownItem[]>
+  >({});
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('pickup');
+  const [address, setAddress] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationError, setCancellationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const stored = localStorage.getItem(BRANCH_STORAGE_KEY);
+    const storedBranchId = stored ? Number(stored) : NaN;
+    if (
+      !stored ||
+      Number.isNaN(storedBranchId) ||
+      !branches.some((b) => b.id === storedBranchId) ||
+      storedBranchId !== activeBranch.id
+    ) {
+      localStorage.setItem(BRANCH_STORAGE_KEY, String(activeBranch.id));
+    }
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [activeBranch.id, branches]);
+
+  const getAvailability = useCallback(
+    (productId: number) => {
+      const product = products.find((p) => p.id === productId);
+      return product?.availability ?? 0;
+    },
+    [products]
+  );
+
+  const { items, total, addItem, removeItem, updateQuantity, clearCart } = useCart({
+    branchId: activeBranch.id,
+    products,
+    getAvailability,
+  });
+
+  const { orders: recentOrders, add: addRecentOrder, remove: removeRecentOrder } =
+    useRecentOrders();
+
+  useEffect(() => {
+    const intervalMs = getPedidoRefetchIntervalMs();
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true`
+        );
+        if (!response.ok) throw new Error('Error al refrescar el catálogo');
+
+        const data = (await response.json()) as {
+          branch: Branch;
+          products: PublicCatalogProduct[];
+        };
+        if (!isMountedRef.current) return;
+        setProducts(data.products);
+      } catch {
+        // No saturar la UI con errores de fondo.
+      }
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [activeBranch.id]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      queueMicrotask(() => {
+        setShortageByProduct({});
+        setBreakdownByProduct({});
+      });
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsCheckingAvailability(true);
+
+      try {
+        const response = await fetch(
+          `${PUBLIC_DISPONIBILIDAD_API}?branchId=${activeBranch.id}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: items.map((item) => ({
+                productId: item.id,
+                quantity: item.quantity,
+              })),
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string };
+          throw new Error(data.error ?? 'Error al validar disponibilidad');
+        }
+
+        const data = (await response.json()) as {
+          availabilityByProduct: Record<number, number>;
+          shortageByProduct: Record<number, ShortageInfo>;
+          breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
+        };
+
+        if (!isMountedRef.current) return;
+        setShortageByProduct(data.shortageByProduct ?? {});
+        setBreakdownByProduct(data.breakdownByProduct ?? {});
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } finally {
+        if (isMountedRef.current) setIsCheckingAvailability(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [items, products, activeBranch.id]);
+
+  const groupedProducts = groupPublicProductsByType(products);
+  const isActiveBranchValid = branches.some((b) => b.id === activeBranch.id);
+
+  function handleBranchChange(branchId: string | null) {
+    if (!branchId) return;
+    const selected = branches.find((b) => b.id === Number(branchId));
+    if (!selected || selected.id === activeBranch.id) return;
+
+    localStorage.setItem(BRANCH_STORAGE_KEY, String(selected.id));
+    clearCart();
+    router.push(`${routes.pedido}?branchId=${selected.id}`);
+  }
+
+  function handleOpenCheckout() {
+    setCheckoutOpen(true);
+    setCheckoutError(null);
+  }
+
+  async function handleSubmitCheckout() {
+    setCheckoutError(null);
+
+    if (!customerName.trim()) {
+      setCheckoutError('El nombre del cliente es obligatorio.');
+      return;
+    }
+
+    if (deliveryType === 'delivery' && !address.trim()) {
+      setCheckoutError('La dirección de envío es obligatoria.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${activeBranch.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+          })),
+          customerName: customerName.trim(),
+          deliveryType,
+          address: deliveryType === 'delivery' ? address.trim() : undefined,
+          notes: notes.trim() || undefined,
+          idempotencyKey: nanoid(),
+        }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? 'Error al crear el pedido');
+      }
+
+      const { order, whatsappUrl } = (await response.json()) as {
+        order: CreatedOrder;
+        whatsappUrl: string | null;
+      };
+
+      setCreatedOrder({ ...order, whatsappUrl });
+      addRecentOrder({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        cancellationToken: order.cancellationToken,
+        expiresAt: order.expiresAt,
+        branchId: activeBranch.id,
+        branchName: order.branchName ?? activeBranch.name,
+      });
+      setSuccessDialogOpen(true);
+      setCheckoutOpen(false);
+      clearCart();
+      setCustomerName('');
+      setDeliveryType('pickup');
+      setAddress('');
+      setNotes('');
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (!createdOrder) return;
+
+    setIsCancelling(true);
+    setCancellationError(null);
+
+    try {
+      const response = await fetch(
+        `${PUBLIC_PEDIDO_CANCELAR_API(createdOrder.id)}?branchId=${activeBranch.id}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason: cancellationReason.trim() || 'Cancelado por el cliente',
+            token: createdOrder.cancellationToken,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? 'Error al cancelar el pedido');
+      }
+
+      setSuccessDialogOpen(false);
+      setCreatedOrder(null);
+      setCancellationReason('');
+    } catch (err) {
+      setCancellationError(
+        err instanceof Error ? err.message : 'Error desconocido'
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
+  function handleOpenWhatsApp() {
+    if (!createdOrder?.whatsappUrl) return;
+
+    window.open(
+      createdOrder.whatsappUrl,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+
+  function handleGoToChat() {
+    if (!createdOrder) return;
+    router.push(
+      routes.pedidoChat(createdOrder.id, createdOrder.cancellationToken)
+    );
+  }
+
+  return {
+    products,
+    error,
+    shortageByProduct,
+    breakdownByProduct,
+    isCheckingAvailability,
+
+    checkoutOpen,
+    setCheckoutOpen,
+    customerName,
+    setCustomerName,
+    deliveryType,
+    setDeliveryType,
+    address,
+    setAddress,
+    notes,
+    setNotes,
+    isSubmitting,
+    checkoutError,
+
+    successDialogOpen,
+    setSuccessDialogOpen,
+    createdOrder,
+    cancellationReason,
+    setCancellationReason,
+    isCancelling,
+    cancellationError,
+
+    items,
+    total,
+    addItem,
+    removeItem,
+    updateQuantity,
+    clearCart,
+
+    recentOrders,
+    removeRecentOrder,
+
+    groupedProducts,
+    isActiveBranchValid,
+
+    handleBranchChange,
+    handleOpenCheckout,
+    handleSubmitCheckout,
+    handleCancelOrder,
+    handleOpenWhatsApp,
+    handleGoToChat,
+  };
+}

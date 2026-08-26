@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 
-export const GET = withApiErrorHandling(async () => {
-  const session = await requireAuth();
-  const branchId = await getCurrentBranchId(session);
-  const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
-  return NextResponse.json(cashRegister ?? { status: 'closed' });
-});
+export const GET = withApiErrorHandling(
+  withAuth(async (_request: NextRequest, _context, { branchId }) => {
+    const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
+    return NextResponse.json(cashRegister ?? { status: 'closed' });
+  })
+);

@@ -28,12 +28,13 @@ import * as saleService from '@/application/services/saleService';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
+import { routes } from '@/config/routes';
 
 export default async function ProductsPage() {
   const session = await auth();
 
   if (session?.user?.role !== 'admin') {
-    redirect('/');
+    redirect(routes.home);
   }
 
   const branchId = await getCurrentBranchIdOrRedirect(session);
@@ -54,12 +55,12 @@ export default async function ProductsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 data-tour="products-header" className="text-2xl font-semibold tracking-tight">Productos y promos</h1>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <Link data-tour="products-new-product" href="/productos/nuevo?tab=product" className="w-full sm:w-auto">
+          <Link data-tour="products-new-product" href={`${routes.productosNuevo}?tab=product`} className="w-full sm:w-auto">
             <Button variant="outline" className="w-full sm:w-auto">
               Nuevo producto
             </Button>
           </Link>
-          <Link data-tour="products-new-promo" href="/productos/nuevo?tab=promo" className="w-full sm:w-auto">
+          <Link data-tour="products-new-promo" href={`${routes.productosNuevo}?tab=promo`} className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto">Nueva promo</Button>
           </Link>
         </div>

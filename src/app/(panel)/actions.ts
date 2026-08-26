@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { requireAdmin, ACTIVE_BRANCH_COOKIE } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
 import { parseBranchId } from '@/lib/branch-resolver';
+import { routes } from '@/config/routes';
 
 export async function setActiveBranchAction(formData: FormData) {
   await requireAdmin();
@@ -35,6 +36,6 @@ export async function setActiveBranchAction(formData: FormData) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  revalidatePath('/', 'layout');
+  revalidatePath(routes.home, 'layout');
   return null;
 }

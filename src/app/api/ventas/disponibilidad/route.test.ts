@@ -58,9 +58,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
       new UnauthorizedError('Se requiere iniciar sesión.')
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(401);
@@ -79,9 +77,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
       >
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as unknown;
 
     expect(response.status).toBe(200);
@@ -94,12 +90,10 @@ describe('ventas /api/ventas/disponibilidad', () => {
   });
 
   test('devuelve 400 cuando el cuerpo es inválido', async () => {
-    const response = await POST(
-      buildRequest({
+    const response = await POST(buildRequest({
         method: 'POST',
         body: JSON.stringify({ items: [{ productId: 'invalid', quantity: -1 }] }),
-      })
-    );
+      }), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(400);
   });
@@ -109,9 +103,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
       new NotFoundError('Producto', 99)
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
@@ -123,9 +115,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
       new ValidationError('El carrito no es válido.')
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
@@ -138,9 +128,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
     });
     mockedSaleService.validateCartAvailability.mockRejectedValue(dbError);
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(503);
@@ -152,9 +140,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
       new Error('Error desconocido')
     );
 
-    const response = await POST(
-      buildRequest({ method: 'POST', body: JSON.stringify(validBody) })
-    );
+    const response = await POST(buildRequest({ method: 'POST', body: JSON.stringify(validBody) }), { params: Promise.resolve({}) });
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);

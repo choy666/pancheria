@@ -4,32 +4,32 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import { nowUTC, parseDateStringUTC } from '@/lib/date';
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
-import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
+import { withAuth } from '@/lib/with-auth';
+import { getDefaultCajaHistoryDays } from '@/config/caja';
 import type { CashRegisterStatus } from '@/domain/types';
 
-export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAuth();
-  const branchId = await getCurrentBranchId(session);
-  const { searchParams } = new URL(request.url);
-  const startParam = searchParams.get('start');
-  const endParam = searchParams.get('end');
+export const GET = withApiErrorHandling(
+  withAuth(async (request: NextRequest, _context, { branchId }) => {
+    const { searchParams } = new URL(request.url);
+    const startParam = searchParams.get('start');
+    const endParam = searchParams.get('end');
 
-  const end = endParam ? parseDateStringUTC(endParam) : nowUTC();
-  const start = startParam
-    ? parseDateStringUTC(startParam)
-    : subDays(end, DEFAULT_CAJA_HISTORY_DAYS);
-  const statusParam = searchParams.get('status');
-  const status: CashRegisterStatus | undefined =
-    statusParam === 'open' || statusParam === 'closed' ? statusParam : undefined;
+    const end = endParam ? parseDateStringUTC(endParam) : nowUTC();
+    const start = startParam
+      ? parseDateStringUTC(startParam)
+      : subDays(end, getDefaultCajaHistoryDays());
+    const statusParam = searchParams.get('status');
+    const status: CashRegisterStatus | undefined =
+      statusParam === 'open' || statusParam === 'closed' ? statusParam : undefined;
 
-  const pagination = parsePaginationParams(searchParams);
-  const cashRegisters = await cashRegisterService.listCashRegisterHistory(
-    branchId,
-    start,
-    end,
-    status,
-    pagination
-  );
-  return NextResponse.json(cashRegisters);
-});
+    const pagination = parsePaginationParams(searchParams);
+    const cashRegisters = await cashRegisterService.listCashRegisterHistory(
+      branchId,
+      start,
+      end,
+      status,
+      pagination
+    );
+    return NextResponse.json(cashRegisters);
+  })
+);

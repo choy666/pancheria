@@ -4,7 +4,7 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 
 ## Tecnologías
 
-- Next.js 16.3.2
+- Next.js 16.3.3
 - React 19
 - TypeScript
 - Tailwind CSS v4
@@ -20,7 +20,7 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 
 ## Configuración
 
-1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME` y `NEXT_PUBLIC_WHATSAPP_NUMBER` (si se quiere el fallback de WhatsApp).
+1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME` y `NEXT_PUBLIC_WHATSAPP_NUMBER` (si se quiere el fallback de WhatsApp). Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`) y `TRUSTED_PROXY_IP_HEADER` según el entorno.
 2. `AUTH_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` en NextAuth v5; usar en producción para que coincida con el dominio de Vercel.
 3. `NEXT_PUBLIC_APP_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` para construir URLs locales de videos y adjuntos de chat cuando `STORAGE_PROVIDER=local`.
 4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
@@ -70,9 +70,11 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
 - `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas)
+  - `src/config/routes.ts` centraliza las rutas de navegación de la UI.
+  - `src/config/caja.ts` expone getters para las variables de entorno de caja.
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
-- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `route-guard`, `fetch`, `whatsapp`, `auth`, `db-errors`, y helpers de productos/ventas/pedidos/stock/caja
+- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `route-guard`, `fetch`, `whatsapp`, `auth`, `db-errors`, `with-auth.ts`, y helpers de productos/ventas/pedidos/stock/caja
 
 ## Guía interactiva
 
@@ -146,8 +148,11 @@ Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se c
 ## Notas
 
 - El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).
+- `next.config.ts` define headers de seguridad incluyendo `Content-Security-Policy`.
+- El esquema de base de datos incluye constraints `CHECK (stock >= 0)` y `CHECK (min_stock >= 0)` en `products`, además de índices recientes en `orders` y `order_messages`.
+- Los insumos manuales (`manual_supply`) no se descuentan automáticamente del stock en ventas; su control es manual.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
-- Los insumos manuales son informativos en recetas.
+- Los insumos manuales son informativos en recetas y no descuentan stock automáticamente en ventas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.
 - La raíz `/` redirige a `/pedido` si no hay sesión y `/login` redirige a `/` si el usuario ya está autenticado, a través del proxy de NextAuth en `src/proxy.ts` y la lógica de `src/lib/route-guard.ts`. `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` conservan redirecciones defensivas que duplican la lógica del proxy. `next.config.ts` no contiene un redirect estático de `/` a `/pedido`.
 - El esquema incluye `order_messages`, `public_order_rate_limits` y `login_attempts`, además de las tablas de negocio principales.

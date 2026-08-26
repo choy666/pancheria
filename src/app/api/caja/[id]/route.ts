@@ -2,16 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAuth, requireAdmin, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export const GET = withApiErrorHandling(
-  async (_request: NextRequest, { params }: RouteParams) => {
-    const session = await requireAuth();
-    const branchId = await getCurrentBranchId(session);
+  withAuth(async (_request: NextRequest, { params }: RouteParams, { branchId }) => {
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -34,13 +32,11 @@ export const GET = withApiErrorHandling(
     }
 
     return NextResponse.json(cashRegister);
-  }
+  })
 );
 
 export const DELETE = withApiErrorHandling(
-  async (_request: NextRequest, { params }: RouteParams) => {
-    const session = await requireAdmin();
-    const branchId = await getCurrentBranchId(session);
+  withAuth(async (_request: NextRequest, { params }: RouteParams, { branchId }) => {
     const { id } = await params;
     const cashRegisterId = parseId(id);
     if (!cashRegisterId) {
@@ -51,5 +47,5 @@ export const DELETE = withApiErrorHandling(
     }
     await cashRegisterService.deleteCashRegister(branchId, cashRegisterId);
     return NextResponse.json({ deleted: true });
-  }
+  }, { admin: true })
 );

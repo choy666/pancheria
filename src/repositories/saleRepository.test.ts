@@ -1,6 +1,5 @@
 import * as saleRepository from './saleRepository';
 
-/* eslint-disable no-var */
 
 var mockFindFirst: jest.Mock;
 var mockFindMany: jest.Mock;

@@ -4,8 +4,8 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import { nowUTC, parseDateStringUTC } from '@/lib/date';
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { requireAdmin, getCurrentBranchId } from '@/lib/auth';
-import { DEFAULT_CAJA_HISTORY_DAYS } from '@/config/caja';
+import { withAuth } from '@/lib/with-auth';
+import { getDefaultCajaHistoryDays } from '@/config/caja';
 
 function getDateRange(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -15,32 +15,32 @@ function getDateRange(request: NextRequest) {
   const end = endParam ? parseDateStringUTC(endParam) : nowUTC();
   const start = startParam
     ? parseDateStringUTC(startParam)
-    : subDays(end, DEFAULT_CAJA_HISTORY_DAYS);
+    : subDays(end, getDefaultCajaHistoryDays());
 
   return { start, end };
 }
 
-export const GET = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAdmin();
-  const branchId = await getCurrentBranchId(session);
-  const { start, end } = getDateRange(request);
-  const { searchParams } = new URL(request.url);
-  const pagination = parsePaginationParams(searchParams);
+export const GET = withApiErrorHandling(
+  withAuth(async (request: NextRequest, _context, { branchId }) => {
+    const { start, end } = getDateRange(request);
+    const { searchParams } = new URL(request.url);
+    const pagination = parsePaginationParams(searchParams);
 
-  const cashRegisters = await cashRegisterService.listDeletedCashRegisterHistory(
-    branchId,
-    start,
-    end,
-    pagination
-  );
-  return NextResponse.json(cashRegisters);
-});
+    const cashRegisters = await cashRegisterService.listDeletedCashRegisterHistory(
+      branchId,
+      start,
+      end,
+      pagination
+    );
+    return NextResponse.json(cashRegisters);
+  }, { admin: true })
+);
 
-export const DELETE = withApiErrorHandling(async (request: NextRequest) => {
-  const session = await requireAdmin();
-  const branchId = await getCurrentBranchId(session);
-  const { start, end } = getDateRange(request);
+export const DELETE = withApiErrorHandling(
+  withAuth(async (request: NextRequest, _context, { branchId }) => {
+    const { start, end } = getDateRange(request);
 
-  const result = await cashRegisterService.emptyTrash(branchId, start, end);
-  return NextResponse.json(result);
-});
+    const result = await cashRegisterService.emptyTrash(branchId, start, end);
+    return NextResponse.json(result);
+  }, { admin: true })
+);

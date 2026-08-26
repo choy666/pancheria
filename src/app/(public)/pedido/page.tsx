@@ -10,6 +10,7 @@ import { PedidoClient } from '@/components/pedido/pedido-client';
 import { PedidoSkeleton } from '@/components/pedido/pedido-skeleton';
 import { PedidoError } from '@/components/pedido/pedido-error';
 import { logError } from '@/lib/logger';
+import { routes } from '@/config/routes';
 import type { Branch } from '@/domain/types';
 
 interface PedidoPageProps {
@@ -69,7 +70,7 @@ export default async function PedidoPage({ searchParams }: PedidoPageProps) {
   if (params.branchId) {
     const parsed = parseBranchId(params.branchId);
     if (parsed === null) {
-      redirect('/pedido');
+      redirect(routes.pedido);
     }
     branchId = parsed;
   } else {
@@ -82,7 +83,7 @@ export default async function PedidoPage({ searchParams }: PedidoPageProps) {
   }
 
   if (resolvedFromDefault) {
-    redirect(`/pedido?branchId=${branchId}`);
+    redirect(`${routes.pedido}?branchId=${branchId}`);
   }
 
   return (

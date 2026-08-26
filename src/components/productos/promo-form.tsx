@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
+import { routes } from '@/config/routes';
 import {
   criticalTypeLabels,
   productTypeLabels,
@@ -281,7 +282,7 @@ export function PromoForm({ product }: PromoFormProps) {
         throw new Error(data.error || 'Error al guardar la receta de la promo');
       }
 
-      router.push('/productos');
+      router.push(routes.productos);
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error desconocido');
@@ -492,7 +493,7 @@ export function PromoForm({ product }: PromoFormProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push('/productos')}
+          onClick={() => router.push(routes.productos)}
           className="w-full sm:w-auto"
         >
           Cancelar

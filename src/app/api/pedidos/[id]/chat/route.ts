@@ -5,18 +5,17 @@ import {
   chatMessageContentSchema,
   chatPaginationQuerySchema,
 } from '@/lib/zod-schemas';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
 
 const querySchema = chatPaginationQuerySchema;
 
 export const GET = withApiErrorHandling(
-  async (
+  withAuth(async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    { params }: { params: Promise<{ id: string }> },
+    { branchId }
   ) => {
-    const session = await requireAuth();
-    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const orderId = parseId(id);
 
@@ -45,16 +44,15 @@ export const GET = withApiErrorHandling(
       expiresAt,
       isExpired,
     });
-  }
+  })
 );
 
 export const POST = withApiErrorHandling(
-  async (
+  withAuth(async (
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    { params }: { params: Promise<{ id: string }> },
+    { session, branchId }
   ) => {
-    const session = await requireAuth();
-    const branchId = await getCurrentBranchId(session);
     const { id } = await params;
     const orderId = parseId(id);
 
@@ -76,7 +74,7 @@ export const POST = withApiErrorHandling(
     });
 
     return NextResponse.json({ message }, { status: 201 });
-  }
+  })
 );
 
 export const runtime = 'nodejs';

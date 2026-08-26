@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { routes } from '@/config/routes';
 
 const recentOrderSchema = z.object({
   id: z.number().int().positive(),
@@ -144,5 +145,5 @@ export function subscribeRecentOrders(listener: Listener): () => void {
 }
 
 export function buildChatUrl(orderId: number, token: string): string {
-  return `/pedido/${orderId}/chat?token=${encodeURIComponent(token)}`;
+  return routes.pedidoChat(orderId, token);
 }

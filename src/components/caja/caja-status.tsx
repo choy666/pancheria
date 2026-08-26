@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useClockInterval } from '@/hooks/use-clock-interval';
-import { AUTO_CLOSE_HOURS, CAJA_CLOCK_INTERVAL_MS } from '@/config/caja';
+import {
+  getAutoCloseHours,
+  getCajaClockIntervalMs,
+} from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
 
@@ -27,7 +30,7 @@ export function CajaStatus({
   error,
 }: CajaStatusProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const now = useClockInterval(CAJA_CLOCK_INTERVAL_MS);
+  const now = useClockInterval(getCajaClockIntervalMs());
 
   async function handleOpen() {
     setIsSubmitting(true);
@@ -70,7 +73,7 @@ export function CajaStatus({
   }
 
   const openedAt = new Date(cashRegister.openedAt);
-  const autoCloseAt = addHours(openedAt, AUTO_CLOSE_HOURS);
+  const autoCloseAt = addHours(openedAt, getAutoCloseHours());
   const current = now;
 
   const elapsed = intervalToDuration({ start: openedAt, end: current });

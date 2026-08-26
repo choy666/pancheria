@@ -1,14 +1,8 @@
-import dotenv from 'dotenv';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import { Pool as NeonPool } from '@neondatabase/serverless';
 import { Pool as PgPool } from 'pg';
 import * as schema from './schema';
-
-// Cargar .env.local para scripts que corren fuera de Next.js (seed, drizzle-kit).
-// En Vercel el archivo no existe, por lo que dotenv no hace nada y process.env
-// sigue viniendo de las variables configuradas en la plataforma.
-dotenv.config({ path: '.env.local' });
 
 type Db =
   | ReturnType<typeof drizzleNeon<typeof schema>>

@@ -1,6 +1,5 @@
 import { lockCashRegisterById, lockOpenCashRegister } from './cash-register-helpers';
 
-/* eslint-disable no-var */
 
 var mockFor: jest.Mock;
 var mockWhere: jest.Mock;
