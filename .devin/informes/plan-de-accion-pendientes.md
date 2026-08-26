@@ -23,11 +23,11 @@ El objetivo es dejar los pendientes con un dueño, un criterio de salida y una v
 | # | Pendiente | Estado | Riesgo | Bloqueante | Acción inmediata | Verificación |
 |---|---|---|---|---|---|---|
 | 1 | Verificar blueprint de Devin | Pendiente | Medio | Requiere `devin.exe auth login` y acceso al repositorio en GitHub | Ejecutar `devin.exe cloud drs blueprint-create` y `devin.exe cloud drs build`; corregir `.devin/environment.yaml` si falla. El uso de `uses: github.com/actions/setup-node@v4` es válido según la documentación oficial de DRS. | `devin.exe cloud drs build` finaliza exitosamente. |
-| 2 | Correr E2E en base de prueba | Pendiente | Alto (datos) | Requiere base descartable y `.env.e2e` configurado | Crear base local/rama de Neon, completar `.env.e2e` y ejecutar `npm run test:e2e`. | Suite completa pasa sin errores y sin afectar datos reales. |
+| 2 | Correr E2E en base de prueba | Completado | Alto (datos) | Ninguno | Ejecutar `npm run test:e2e` con base local descartable (`pancheria_e2e`) y `.env.e2e` configurado. | `94 passed, 1 skipped` en 12.8m; sin datos reales afectados. |
 | 3 | Revisar archivados | En revisión | Bajo | Decisión sobre valor histórico | Aplicar criterios del plan; proponer eliminación de archivos obsoletos/peligrosos. | Índices actualizados y archivos redundantes removidos con confirmación. |
 | 4 | Mantener `.devin` sincronizado | En curso | Medio | Disciplina del equipo | Usar el checklist de sincronización en `.devin/prompts/auditoria-y-documentacion.md` y `.devin/informes/lecciones-aprendidas.md`. | Cada cambio arquitectónico incluye documentación. |
 | 5 | Falsos positivos de CI | Documentado | Bajo | Validación del IDE | No modificar `.github/workflows/ci.yml`; documentar causas y opción de pin a SHA. | `npm run lint` pasa; workflow sin cambios innecesarios. |
-| 6 | Revisar `knip.json` | Revisar | Bajo | Ninguno | Verificar si `src/db/seeds.ts` es realmente redundante. `.github/workflows/ci.yml` y `package.json` no lo referencian como punto de entrada. | `npm run knip` pasa y no hay `Configuration hints` después de cualquier cambio. |
+| 6 | Revisar `knip.json` | Resuelto | Bajo | Ninguno | Se agregó `tests/e2e/helpers.ts` y `tests/e2e/**/*.spec.ts` como puntos de entrada para evitar falsos positivos por exports de helpers de E2E. | `npm run knip` pasa. |
 | 7 | Hardcodeos defensivos | Resuelto | Bajo | Ninguno | `getPublicBaseUrl()` ahora requiere `NEXT_PUBLIC_APP_URL`/`NEXTAUTH_URL` en producción y acepta `HOST`/`PORT` en desarrollo/test. `getWhatsAppMessageParts()` lee variables de entorno sin defaults; los valores sugeridos pasaron a `.env.example`. | `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. |
 
 ---

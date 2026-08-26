@@ -1,7 +1,9 @@
 {
   "entry": [
     "src/db/seeds.ts",
-    "scripts/*.ts"
+    "scripts/*.ts",
+    "tests/e2e/helpers.ts",
+    "tests/e2e/**/*.spec.ts"
   ],
   "ignore": [
     "src/components/ui/badge.tsx",

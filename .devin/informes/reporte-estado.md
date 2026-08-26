@@ -1,8 +1,8 @@
 # Reporte de estado — Auditoría de cobertura de pruebas y tests
 
-**Fecha:** 2026-08-26  
+**Fecha:** 2026-08-27  
 **Proyecto:** `pancheria`  
-**Baseline:** `HEAD` (`4f05da7`) — branch `main`  
+**Baseline:** `HEAD` (`872f3f9`) — branch `implementacion-cobertura-de-pruebas-posterior`  
 
 ---
 
@@ -10,7 +10,7 @@
 
 Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)** y **tests end-to-end (Playwright)**, cruzando la documentación vigente, las variables de entorno existentes y el código fuente. Posteriormente se implementaron los tests y mejoras de selectores E2E priorizados en el informe.
 
-**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. La suite unitaria reporta **110 suites y 1054 tests**. Playwright lista **84 tests en 22 specs**. No se ejecutó `npm run test:e2e` por requerir confirmación explícita y una base de datos descartable.
+**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip` y `npm run test:e2e` pasan. La suite unitaria reporta **118 suites y 1086 tests**. Playwright lista **95 tests en 28 specs**; la ejecución completa reportó **94 passed, 1 skipped**.
 
 **Conclusión de cobertura:**
 
@@ -18,7 +18,7 @@ Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unita
 - **Rutas API** tienen cobertura completa: 43 de 43 con test.
 - **`src/lib`** tiene 27 de 33 archivos con test; se agregó `fetch.ts` y la infraestructura crítica está cubierta.
 - **Configuración con variables de entorno** ya tiene tests para `caja`, `chat`, `orders`, `catalog` y `videos`.
-- **Tests E2E** conservan 23 specs, se reemplazaron selectores frágiles (`[data-slot]`, `td:nth-child`, `.first()`, `.last()`, `.nth()`) y se agregó un spec de confirmación/cancelación de pedidos desde el panel.
+- **Tests E2E** crecieron a 28 specs; se agregaron flujos de cambio de contraseña, búsqueda/filtro/paginación de pedidos, edición/eliminación de promos con recetas, expiración automática de pedidos, cierre automático de caja, rate limit de pedidos y confirmación/cancelación de pedidos desde el panel.
 - **Componentes y páginas** del panel siguen sin tests unitarios; la cobertura depende de E2E.
 
 ---
@@ -40,10 +40,10 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 | Métrica | Valor |
 |---------|-------|
 | Suites unitarias (Jest) | 118 |
-| Tests unitarios | 1085 |
+| Tests unitarios | 1086 |
 | Archivos de test unitario | ~118 |
-| Specs E2E | 23 |
-| Tests E2E listados | 86 |
+| Specs E2E | 28 |
+| Tests E2E listados | 95 |
 | Rutas API | 43 |
 | Rutas API con test | 43 |
 | Rutas API sin test | 0 |
@@ -63,15 +63,15 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 | Sector | Unitarios | E2E | Observación |
 |--------|-----------|-----|-------------|
-| Autenticación y autorización | Sí (`authService`, `route-guard`, `rate-limit-store`) | Sí (`login`, `roles-y-sucursales`) | `auth.config` y flujo de cambio de contraseña propio sin test dedicados. |
-| Catálogo público y pedidos | Sí (`catalogService`, `orderService`, `public/pedido/*`, `pedidos/[id]/confirmar`, `pedidos/[id]/cancelar`) | Sí (`pedido`, `pedido-sucursal-y-stock`) | La UI del panel no expone acciones de confirmar/cancelar; el API ya está cubierto. |
+| Autenticación y autorización | Sí (`authService`, `route-guard`, `rate-limit-store`) | Sí (`login`, `roles-y-sucursales`, `perfil-cambio-contrasena`) | Cubierto en ambas capas. |
+| Catálogo público y pedidos | Sí (`catalogService`, `orderService`, `public/pedido/*`, `pedidos/[id]/confirmar`, `pedidos/[id]/cancelar`) | Sí (`pedido`, `pedido-sucursal-y-stock`, `pedido-cancelacion-panel`, `pedido-busqueda-filtros`, `pedido-expiracion`) | Cubierto en ambas capas. |
 | Ventas y terminal | Sí (`saleService`, `ventas/*`) | Sí (`ventas-*`) | Cubierto en ambas capas. |
-| Productos y recetas | Sí (`productService`, `recipeService`, `productos/*`, `summaryService`) | Sí (`productos-y-recetas`) | Selectores de productos y recetas robustecidos con `data-testid`. |
+| Productos y recetas | Sí (`productService`, `recipeService`, `productos/*`, `summaryService`) | Sí (`productos-y-recetas`) | Selectores robustecidos; edición/eliminación de promos con recetas cubierta. |
 | Stock | Sí (`stockService`, `stock/*`) | Sí (`stock-y-movimientos`) | Cubierto en ambas capas. |
-| Caja y cierres | Sí (`cashRegisterService`, `cierre/*`, `caja/historial`, `caja/abrir`, `caja/cerrar`, `caja/resumen`) | Sí (`caja-*`, `validaciones-y-papelera`) | Flujo E2E de cierre automático requiere manipular `createdAt` de la caja. |
+| Caja y cierres | Sí (`cashRegisterService`, `cierre/*`, `caja/historial`, `caja/abrir`, `caja/cerrar`, `caja/resumen`) | Sí (`caja-*`, `validaciones-y-papelera`, `caja-cierre-automatico`) | Cierre automático cubierto con manipulación controlada de `openedAt` en la base E2E. |
 | Sucursales y usuarios | Sí (`branchService`, `userService`) | Sí (`roles-y-sucursales`) | Cubierto en ambas capas. |
 | Videos y almacenamiento | Sí (`videoService`, `storage.ts`, `videos/upload`, `videos/[id]/stream`) | Sí (`videos`) | Cobertura unitaria completa de storage y rutas de video. |
-| Rate limiting y seguridad | Sí (`public-order-rate-limit-store`, `rate-limit.ts`, `rate-limit-store.ts`) | No | El entorno E2E usa `NODE_ENV=test`, que desactiva rate limit en runtime. |
+| Rate limiting y seguridad | Sí (`public-order-rate-limit-store`, `rate-limit.ts`, `rate-limit-store.ts`) | Sí (`rate-limit-pedidos`) | Rate limit configurable vía `E2E_ENABLE_RATE_LIMIT=true` y `PUBLIC_ORDER_RATE_LIMIT_*` para el entorno E2E. |
 | Cron jobs y limpieza | Sí (`cron/*`) | No | Cubierto unitariamente. |
 | Utilidades transversales | Sí (`public-url.ts`, `api-handler.ts`, `summaryService.ts`, `storage.ts`) | No | Infraestructura crítica cubierta. |
 | Configuración y variables de entorno | Sí (`caja.ts`, `chat.ts`, `orders.ts`, `catalog.ts`, `videos.ts`) | No | Variables configurables principales testeadas. |
@@ -106,13 +106,7 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 #### Rutas API sin test
 
-- `src/app/api/auth/[...nextauth]/route.ts`
-- `src/app/api/caja/[id]/route.ts`
-- `src/app/api/caja/[id]/permanente/route.ts`
-- `src/app/api/caja/[id]/restaurar/route.ts`
-- `src/app/api/caja/eliminadas/route.ts`
-- `src/app/api/caja/route.ts`
-- `src/app/api/pedidos/[id]/route.ts`
+- Ninguna: todas las 43 rutas API tienen test unitario asociado.
 
 #### Componentes y páginas
 
@@ -125,29 +119,35 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 ### 6.1 Especificaciones encontradas
 
-Se encontraron **22 specs** en <ref_file file="C:/developer/paginas/pancheria/tests/e2e" />:
+Se encontraron **28 specs** en <ref_file file="C:/developer/paginas/pancheria/tests/e2e" />:
 
 | Spec | Flujo |
 |------|-------|
 | `login.spec.ts` | Login y redirecciones |
-| `productos-y-recetas.spec.ts` | Creación/edición de productos y recetas |
+| `productos-y-recetas.spec.ts` | Creación, edición y eliminación de productos, promos y recetas |
 | `roles-y-sucursales.spec.ts` | Roles, sucursales y usuarios |
 | `pedido.spec.ts` | Catálogo, carrito y creación de pedido |
 | `pedido-chat.spec.ts` | Chat de pedidos |
 | `pedido-chat-adjuntos.spec.ts` | Adjuntos en el chat |
-| `pedido-sucursal-y-stock.spec.ts` | Sucursal, carrito y confirmación de pedido |
+| `pedido-sucursal-y-stock.spec.ts` | Sucursal, carrito, stock y confirmación de pedido |
+| `pedido-cancelacion-panel.spec.ts` | Confirmación y cancelación de pedidos desde el panel |
+| `pedido-busqueda-filtros.spec.ts` | Búsqueda, filtrado y paginación de pedidos |
+| `pedido-expiracion.spec.ts` | Expiración automática de pedidos |
 | `ventas-disponibilidad.spec.ts` | Disponibilidad en terminal |
 | `ventas-historial.spec.ts` | Venta, cierre e historial |
 | `ventas-stock-compartido.spec.ts` | Promos con insumos compartidos |
 | `stock-y-movimientos.spec.ts` | Ajustes y movimientos de stock |
 | `caja-aislamiento-y-trazabilidad.spec.ts` | Aislamiento de cajas por sucursal |
 | `caja-cierre-vacios.spec.ts` | Caja sin ventas |
+| `caja-cierre-automatico.spec.ts` | Cierre automático de cajas por vencimiento |
 | `flujo-diario.spec.ts` | Flujo completo de operación |
 | `smoke.spec.ts` | Smoke de páginas protegidas |
 | `tour.spec.ts` | Recorrido interactivo |
 | `videos.spec.ts` | Videos, subida y reproducción |
 | `responsive.spec.ts` | Responsividad móvil |
 | `validaciones-y-papelera.spec.ts` | Validaciones y papelera de cajas |
+| `perfil-cambio-contrasena.spec.ts` | Cambio de contraseña del usuario actual |
+| `rate-limit-pedidos.spec.ts` | Rate limit de creación de pedidos públicos |
 | `paso3.spec.ts`, `paso4.spec.ts` | Flujos guiados de operador |
 | `prod-login-and-tour.spec.ts` | Smoke de producción |
 
@@ -172,13 +172,12 @@ Se encontraron **22 specs** en <ref_file file="C:/developer/paginas/pancheria/te
 
 ### 6.4 Flujos críticos no cubiertos por E2E
 
-- Confirmación/cancelación de pedidos desde el panel (la UI no expone botones; la API está cubierta unitariamente).
-- Edición/eliminación de recetas (solo hay creación por UI; edición no tiene UI dedicada).
-- Cambio de contraseña de usuarios (no existe la UI).
-- Rate limiting de pedidos y chat (`NODE_ENV=test` en E2E desactiva el rate limit por diseño).
-- Expiración automática de pedidos (`ORDER_EXPIRATION_MS`) requiere manipular el tiempo o `createdAt`.
-- Cierre automático de cajas (`CAJA_AUTO_CLOSE_HOURS`) requiere manipular `createdAt` de la caja.
-- Búsqueda/filtrado y paginación (no hay UI de búsqueda implementada; paginación existe en `usePaginatedData` pero no se testea E2E).
+Los flujos priorizados en la auditoría fueron implementados y cubiertos por E2E. Los gaps residuales son:
+
+- **Chat como operador/respuestas rápidas**: el chat de pedidos se cubre desde el lado cliente en `pedido-chat` y `pedido-chat-adjuntos`, pero no hay un flujo dedicado de respuestas del operador con plantillas.
+- **Rate limit de chat público**: el spec `rate-limit-pedidos` cubre pedidos; el chat comparte el mismo store y lógica, pero no tiene spec dedicado.
+- **Google Cast y reproducción de video en segundo plano**: se cubre el streaming, no la experiencia de Cast.
+- **Restauración/permanente de cajas desde la UI**: los `data-testid` existen pero no hay spec E2E que los use.
 
 ---
 
