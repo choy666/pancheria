@@ -129,6 +129,7 @@ Usar como punto de entrada para cualquier tarea futura:
 ### Prompts activos
 
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
+- [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — flujo vigente, limpieza realizada y decisiones clave.
 - [Corrección de tests E2E fallidos — caja, stock y entorno](correccion-tests-e2e-caja-y-entorno.md) — entorno, helpers y locators robustos para `npm run test:e2e`.

@@ -7,6 +7,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Prompt maestro — Proyecto Panchería](prompts/pancheria.prompt.md)
 - [Guía de escritura de prompts](prompts/README.md)
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
+- [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Recomendaciones — pedidos, sucursales y stock](prompts/recomendaciones-pedidos-sucursal-stock.md)
 - [Cobertura de auditoría — flujo de pedidos](prompts/cobertura-auditoria-flujo-pedidos.md)
 - [Corrección de tests E2E](prompts/correccion-tests-e2e-caja-y-entorno.md)
@@ -39,6 +40,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── pancheria.prompt.md       # Prompt maestro
     ├── README.md                 # Guía para escribir prompts
     ├── auditoria-y-documentacion.md
+    ├── auditoria-cobertura-de-pruebas.md
     ├── cobertura-auditoria-flujo-pedidos.md
     ├── recomendaciones-pedidos-sucursal-stock.md
     ├── correccion-tests-e2e-caja-y-entorno.md

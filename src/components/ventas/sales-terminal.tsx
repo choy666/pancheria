@@ -322,6 +322,8 @@ export function SalesTerminal() {
               return (
                 <Card
                   key={product.id}
+                  data-testid="product-card"
+                  data-product-name={product.name}
                   className={`transition-all ${
                     isOutOfStock || cartDisabled
                       ? 'opacity-50'

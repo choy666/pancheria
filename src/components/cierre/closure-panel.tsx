@@ -148,7 +148,7 @@ export function ClosurePanel() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="products-sold-card">
             <CardHeader>
               <CardTitle className="text-lg">Productos vendidos</CardTitle>
             </CardHeader>
@@ -164,7 +164,7 @@ export function ClosurePanel() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="critical-supplies-card">
             <CardHeader>
               <CardTitle className="text-lg">Consumo de insumos críticos</CardTitle>
             </CardHeader>

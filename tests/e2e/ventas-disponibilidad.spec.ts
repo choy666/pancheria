@@ -34,7 +34,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: bebida.name })
       .first();
 
@@ -87,7 +87,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: servicio.name })
       .first();
 
@@ -172,7 +172,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: promo.name })
       .first();
 
@@ -239,7 +239,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: promo.name })
       .first();
 

@@ -74,11 +74,11 @@ test.describe('Venta con stock compartido entre promos', () => {
     await page.goto('/ventas');
 
     const cardA = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: promoA.name })
       .first();
     const cardB = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: promoB.name })
       .first();
 

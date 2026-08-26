@@ -1,173 +1,131 @@
-# Reporte de estado — Auditoría de sincronización de tests, E2E y documentación
+# Reporte de estado — Auditoría de cobertura de pruebas y tests
 
 **Fecha:** 2026-08-26  
 **Proyecto:** `pancheria`  
-**Baseline:** `HEAD` (`1a4c061`) — branch `main`
+**Baseline:** `HEAD` (`4f05da7`) — branch `main`  
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se ejecutó la auditoría de sincronización solicitada sobre **tests unitarios (Jest)**, **tests end-to-end (Playwright)** y **documentación vigente** (`AGENTS.md`, `README.md`, `.env.example`, `.devin/environment.yaml`, prompts e informes). Se corrigieron desfases documentales respaldados por el código y se documentaron gaps de cobertura que requieren tareas separadas.
+Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)** y **tests end-to-end (Playwright)**, cruzando la documentación vigente, las variables de entorno existentes y el código fuente. Posteriormente se implementaron los tests y mejoras de selectores E2E priorizados en el informe.
 
-**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. La suite unitaria reporta **92 suites y 893 tests**.
+**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. La suite unitaria reporta **110 suites y 1054 tests**. Playwright lista **84 tests en 22 specs**. No se ejecutó `npm run test:e2e` por requerir confirmación explícita y una base de datos descartable.
 
-**No se ejecutaron** `npm run test:e2e`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate` ni `npx drizzle-kit check` por requerir confirmación explícita del usuario y una base de datos descartable.
+**Conclusión de cobertura:**
 
----
-
-## 2. Tabla de sincronización
-
-| Área | Estado | Evidencia | Referencias |
-|------|--------|-----------|-------------|
-| **Tests unitarios (Jest)** | Sincronizados / con gaps identificados | 92 suites, 893 tests pasan. Funcionalidades críticas (`convertOrderToSale`, rate limit, `idempotencyService`, soft delete) están cubiertas. Faltan tests para `getPublicBaseUrl`, `rate-limit.ts`, `rate-limit-store.ts` y varias rutas API de caja. | <ref_file file="C:/developer/paginas/pancheria/package.json" />, listado de `npx jest --listTests` |
-| **Tests E2E (Playwright)** | Sincronizados / con riesgos de selectores | 22 specs cubren flujos principales. Existen locators frágiles (`data-slot` de shadcn, `td:nth-child`, nombres hardcodeados del seed) y flujos no cubiertos (rate limit, expiración de pedidos, cierre automático de caja). | <ref_file file="C:/developer/paginas/pancheria/tests/e2e" />, análisis de `data-testid` en `src/` |
-| **Documentación de variables de entorno** | Corregida | `.env.example`, `AGENTS.md`, `README.md` y `.devin/environment.yaml` fueron actualizados. Se eliminaron variables no consumidas por el código, se agregaron aliases de Vercel Postgres y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`. | <ref_file file="C:/developer/paginas/pancheria/.env.example" />, <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />, <ref_file file="C:/developer/paginas/pancheria/README.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" /> |
-| **Prompts y blueprints** | Parcialmente corregida | Se actualizó la versión de Next.js de `16.3.2` a `16.3.3` en los prompts activos. `.devin/environment.yaml` ahora refleja las variables y la estructura real. | <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />, <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/correccion-tests-e2e-caja-y-entorno.md" /> |
-| **Guía de funcionamiento** | Vigente | `guia-funcionamiento-pancheria.md` refleja el estado actual del flujo de pedidos, stock y caja. | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
-| **Plan de acción** | Pendientes actualizados | Los pendientes de E2E y DRS continúan abiertos. La sincronización de `.devin` se avanzó en esta sesión. | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-de-accion-pendientes.md" /> |
+- **Repositorios y servicios de aplicación** tienen cobertura unitaria completa (repositorios 100%, servicios 100%).
+- **Rutas API** pasaron de ~67% a ~84% (36 de 43 con test); quedan 7 rutas sin test.
+- **`src/lib`** pasó de 21 a 26 archivos con test; la infraestructura crítica (`public-url`, `rate-limit`, `rate-limit-store`, `api-handler`, `storage`) ya tiene cobertura unitaria.
+- **Configuración con variables de entorno** ya tiene tests para `caja`, `chat`, `orders`, `catalog` y `videos`.
+- **Tests E2E** conservan 22 specs, pero se reemplazaron selectores frágiles: ya no quedan usos de `[data-slot]` ni `td:nth-child` en los specs.
+- **Componentes y páginas** del panel siguen sin tests unitarios; la cobertura depende de E2E.
 
 ---
 
-## 3. Hallazgos y acciones correctivas
+## 2. Alcance y metodología
 
-### Crítico
+La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-cobertura-de-pruebas.md" />.
 
-Ningún hallazgo crítico que afecte el build o la seguridad. No se encontraron credenciales expuestas.
-
-### Mayor
-
-#### 3.1 Variables de entorno documentadas pero no consumidas por el código
-
-`CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` y `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE` aparecían en `.env.example`, `AGENTS.md`, `README.md` y `.devin/environment.yaml`, pero **no se leen en ningún archivo de `src/`**. Los schedules de los cron jobs están hardcodeados en <ref_file file="C:/developer/paginas/pancheria/vercel.json" />.
-
-**Acción aplicada:**
-- Se eliminaron ambas variables de `.env.example` y se reemplazaron por un comentario que remite a `vercel.json`.
-- Se eliminaron de la lista de variables de `AGENTS.md` y se agregó una nota sobre `vercel.json`.
-- Se eliminaron de los listados de variables de `README.md` y `.devin/environment.yaml`.
-
-> Referencias: búsqueda en `src/` sin resultados para `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` ni `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE`; <ref_file file="C:/developer/paginas/pancheria/vercel.json" />.
+1. **Inventario de tests existentes** con `npx jest --listTests`, `npm test` y `npx playwright test --list`.
+2. **Inventario de código a cubrir** comparando `src/app/**/route.ts`, `src/application/services/*.ts`, `src/repositories/*.ts`, `src/lib/*.ts`, `src/components/**/*.tsx`, `src/hooks/*`, `src/app/(panel)/**/page.tsx` y `src/app/(public)/**/page.tsx` con sus tests correspondientes.
+3. **Cruce con variables de entorno** buscando `process.env.*` en `src/` y comparando con `.env.example` y `AGENTS.md`.
+4. **Evaluación de calidad de tests E2E** buscando selectores frágiles y dependencias del seed.
+5. **Implementación de brechas priorizadas** siguiendo el informe.
 
 ---
 
-### Menor
-
-#### 3.2 Faltaban aliases de Vercel Postgres en `.env.example`
-
-`src/db/index.ts` prueba `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`, y `drizzle.config.ts` prueba `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`. `AGENTS.md` ya los mencionaba en troubleshooting, pero `.env.example` no los exponía como alternativas.
-
-**Acción aplicada:** se agregaron `POSTGRES_URL`, `POSTGRES_PRISMA_URL` y `POSTGRES_URL_NON_POOLING` como alternativas comentadas en `.env.example`, y se actualizó la descripción de `DATABASE_URL` en `AGENTS.md`.
-
-> Referencias: <ref_file file="C:/developer/paginas/pancheria/src/db/index.ts" />, <ref_file file="C:/developer/paginas/pancheria/drizzle.config.ts" />, <ref_file file="C:/developer/paginas/pancheria/.env.example" />.
-
-#### 3.3 `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` no estaba documentada
-
-El componente <ref_file file="C:/developer/paginas/pancheria/src/components/conditional-analytics.tsx" /> consume `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`, pero no estaba en `AGENTS.md`, `README.md` ni `.devin/environment.yaml` (sí estaba en `.env.example`).
-
-**Acción aplicada:** se agregó la descripción en `AGENTS.md`, `README.md` (sección de videos) y `.devin/environment.yaml`.
-
-#### 3.4 Faltaban variables de caja y seed en algunos documentos
-
-`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` y `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD` no aparecían en todos los documentos principales.
-
-**Acción aplicada:** se agregaron a los listados de variables de `README.md` y `.devin/environment.yaml`.
-
-#### 3.5 Versiones desactualizadas de Next.js en prompts
-
-`pancheria.prompt.md`, `auditoria-y-documentacion.md` y `correccion-tests-e2e-caja-y-entorno.md` indicaban `Next.js 16.3.2`; `package.json` y el build usan `16.3.3`.
-
-**Acción aplicada:** se actualizaron a `Next.js 16.3.3`.
-
-> Referencia: <ref_file file="C:/developer/paginas/pancheria/package.json" />.
-
-#### 3.6 `TRUSTED_PROXY_IP_HEADER` faltaba en `.devin/environment.yaml`
-
-La variable se usa en <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> pero no se listaba en el blueprint.
-
-**Acción aplicada:** se agregó a las entradas `database`, `pedidos` y `deploy` de `.devin/environment.yaml`.
-
-#### 3.7 `HOST` / `PORT` no estaban documentados
-
-`getPublicBaseUrl()` en <ref_file file="C:/developer/paginas/pancheria/src/lib/public-url.ts" /> lee `HOST` y `PORT` como fallback de desarrollo antes de caer a `localhost:3000`.
-
-**Acción aplicada:** se agregó la descripción en `AGENTS.md`.
-
----
-
-### Informativo
-
-#### 3.8 Node.js en CI vs documentación
-
-`.github/workflows/ci.yml` usa Node.js 22 mientras `README.md` y `.devin/environment.yaml` indican 20 LTS. Esto es compatible porque la documentación dice "20 LTS o superior".
-
-**Acción aplicada:** se aclaró el nombre del paso en `.devin/environment.yaml` a "Instalar Node.js 20 LTS o superior".
-
-#### 3.9 Estructura `(public)`
-
-`.devin/environment.yaml` y los prompts listaban `src/app/(public)/` como grupo de rutas. El grupo existe (<ref_file file="C:/developer/paginas/pancheria/src/app/(public)/layout.tsx" />), pero solo contiene rutas bajo `pedido/`. Para mayor precisión, `environment.yaml` ahora dice `src/app/(public)/pedido/`.
-
----
-
-## 4. Tests unitarios — estado y gaps
-
-### 4.1 Conteos
+## 3. Conteos de tests
 
 | Métrica | Valor |
 |---------|-------|
-| Archivos `*.test.ts` | 42 |
-| Archivos `*.test.tsx` | 13 |
-| Total archivos de test | 55 |
-| Tests `.test.ts` | 793 |
-| Tests `.test.tsx` | 100 |
-| **Total tests** | **893** |
-| Suites reportadas por Jest | 92 |
-
-Los conteos coinciden con `npm test`.
-
-### 4.2 Funcionalidades clave cubiertas
-
-| Funcionalidad | Test | Estado |
-|---------------|------|--------|
-| `convertOrderToSale` | `src/application/services/orderService.test.ts` | Sincronizado. Feliz, errores, idempotencia, precios históricos y stock. |
-| Rate limit store público | `src/lib/public-order-rate-limit-store.test.ts` | Sincronizado. `memory` y `db`. |
-| `idempotencyService` | `src/application/idempotencyService.test.ts` | Parcial. `isIdempotencyKeyUsed` cubierta; `findExistingByIdempotencyKey` solo se mockea. |
-| Soft delete productos/cajas | `src/application/services/productService.test.ts`, `src/application/services/cashRegisterService.test.ts` | Sincronizado. |
-| `getWhatsAppMessageParts` | `src/lib/whatsapp.test.ts` | Parcial. No hay test directo de `getWhatsAppMessageParts`; `buildWhatsAppUrl` no está cubierta. |
-| `getPublicBaseUrl` | — | **Falta.** Usado en `src/lib/whatsapp.ts` y `src/lib/storage.ts`. |
-
-### 4.3 Archivos de producción sin test (gaps relevantes)
-
-#### `src/lib/*`
-
-- `public-url.ts` — `getPublicBaseUrl()` (alta prioridad).
-- `rate-limit.ts` — `getClientIp` y `createRateLimiter` (alta prioridad).
-- `rate-limit-store.ts` — `InMemoryRateLimitStore` y `DbRateLimitStore` para login (alta prioridad).
-- `api-handler.ts` — `withApiErrorHandling` (alta prioridad).
-- `storage.ts` — múltiples proveedores de almacenamiento (media).
-- `summaryService.ts` — cálculo de resúmenes de venta (media).
-
-#### Rutas API sin test
-
-- `src/app/api/caja/abrir/route.ts`
-- `src/app/api/caja/cerrar/route.ts`
-- `src/app/api/caja/resumen/route.ts`
-- `src/app/api/pedidos/[id]/confirmar/route.ts`
-- `src/app/api/caja/[id]/*/route.ts` (detalle, restaurar, permanente, eliminadas)
-- `src/app/api/videos/*/route.ts` (upload, stream)
-
-#### Componentes sin test
-
-Muchos componentes UI (`caja-panel.tsx`, `chat-composer.tsx`, `video-player.tsx`, etc.) no tienen test. Esto es aceptable si se cubren con E2E, pero conviene priorizar los críticos.
-
-> Ver la sección 7 para recomendaciones de tareas separadas.
+| Suites unitarias (Jest) | 110 |
+| Tests unitarios | 1054 |
+| Archivos de test unitario | ~110 |
+| Specs E2E | 22 |
+| Tests E2E listados | 84 |
+| Rutas API | 43 |
+| Rutas API con test | 36 |
+| Rutas API sin test | 7 |
+| Servicios de aplicación | 14 |
+| Servicios con test | 14 |
+| Servicios sin test | 0 |
+| Repositorios | 10 |
+| Repositorios con test | 10 |
+| Repositorios sin test | 0 |
+| Archivos `src/lib/*.ts` | 33 |
+| `src/lib/*.ts` con test | 26 |
+| `src/lib/*.ts` sin test | 7 |
 
 ---
 
-## 5. Tests E2E — estado y riesgos
+## 4. Cobertura por sector relevante
 
-### 5.1 Especificaciones encontradas
+| Sector | Unitarios | E2E | Observación |
+|--------|-----------|-----|-------------|
+| Autenticación y autorización | Sí (`authService`, `route-guard`, `rate-limit-store`) | Sí (`login`, `roles-y-sucursales`) | `auth.config` y flujo de cambio de contraseña propio sin test dedicados. |
+| Catálogo público y pedidos | Sí (`catalogService`, `orderService`, `public/pedido/*`, `pedidos/[id]/confirmar`, `pedidos/[id]/cancelar`) | Sí (`pedido`, `pedido-sucursal-y-stock`) | La UI del panel no expone acciones de confirmar/cancelar; el API ya está cubierto. |
+| Ventas y terminal | Sí (`saleService`, `ventas/*`) | Sí (`ventas-*`) | Cubierto en ambas capas. |
+| Productos y recetas | Sí (`productService`, `recipeService`, `productos/*`, `summaryService`) | Sí (`productos-y-recetas`) | Selectores de productos y recetas robustecidos con `data-testid`. |
+| Stock | Sí (`stockService`, `stock/*`) | Sí (`stock-y-movimientos`) | Cubierto en ambas capas. |
+| Caja y cierres | Sí (`cashRegisterService`, `cierre/*`, `caja/historial`, `caja/abrir`, `caja/cerrar`, `caja/resumen`) | Sí (`caja-*`, `validaciones-y-papelera`) | Flujo E2E de cierre automático requiere manipular `createdAt` de la caja. |
+| Sucursales y usuarios | Sí (`branchService`, `userService`) | Sí (`roles-y-sucursales`) | Cubierto en ambas capas. |
+| Videos y almacenamiento | Sí (`videoService`, `storage.ts`, `videos/upload`, `videos/[id]/stream`) | Sí (`videos`) | Cobertura unitaria completa de storage y rutas de video. |
+| Rate limiting y seguridad | Sí (`public-order-rate-limit-store`, `rate-limit.ts`, `rate-limit-store.ts`) | No | El entorno E2E usa `NODE_ENV=test`, que desactiva rate limit en runtime. |
+| Cron jobs y limpieza | Sí (`cron/*`) | No | Cubierto unitariamente. |
+| Utilidades transversales | Sí (`public-url.ts`, `api-handler.ts`, `summaryService.ts`, `storage.ts`) | No | Infraestructura crítica cubierta. |
+| Configuración y variables de entorno | Sí (`caja.ts`, `chat.ts`, `orders.ts`, `catalog.ts`, `videos.ts`) | No | Variables configurables principales testeadas. |
 
-Se encontraron **22 specs** en `tests/e2e/*.spec.ts`:
+---
+
+## 5. Tests unitarios — estado y gaps
+
+### 5.1 Funcionalidades clave cubiertas
+
+| Funcionalidad | Test | Estado |
+|---------------|------|--------|
+| `convertOrderToSale` | `src/application/services/orderService.test.ts` | Cubierto (feliz, errores, idempotencia, precios históricos, stock). |
+| Rate limit store público | `src/lib/public-order-rate-limit-store.test.ts` | Cubierto (`memory` y `db`). |
+| Rate limit core | `src/lib/rate-limit.test.ts` | Cubierto (`getClientIp`, `createRateLimiter`). |
+| Rate limit login | `src/lib/rate-limit-store.test.ts` | Cubierto (`InMemoryRateLimitStore`, `DbRateLimitStore`, `createRateLimitStore`). |
+| `withApiErrorHandling` | `src/lib/api-handler.test.ts` | Cubierto (401, 400, 403, 404, 409, 503, 499, 500, Zod). |
+| `getPublicBaseUrl` | `src/lib/public-url.test.ts` | Cubierto (browser/servidor, producción, `HOST`/`PORT`, fallback). |
+| Storage | `src/lib/storage.test.ts`, `src/config/videos.test.ts` | Cubierto (`local`, `vercel-blob`, `s3`, `r2`, variables de video). |
+| Resumen de caja | `src/application/services/summaryService.test.ts` | Cubierto. |
+| Soft delete productos/cajas | `src/application/services/productService.test.ts`, `src/application/services/cashRegisterService.test.ts` | Cubierto. |
+| Idempotencia de ventas | `src/application/services/saleService.test.ts` | Cubierto. |
+| Chat adjuntos y storage | `src/lib/chat-storage.test.ts` | Cubierto (local, Vercel Blob). |
+
+### 5.2 Archivos de producción sin test (gaps restantes)
+
+#### `src/lib/*`
+
+- `src/lib/logger.ts` — observabilidad (baja prioridad; en test no emite salida).
+- `src/lib/with-auth.ts` — wrapper de endpoints autenticados (media prioridad; cubierto indirectamente por tests de rutas).
+- `src/lib/pagination.ts`, `src/lib/validation-helpers.ts` — utilidades (baja prioridad).
+
+#### Rutas API sin test
+
+- `src/app/api/auth/[...nextauth]/route.ts`
+- `src/app/api/caja/[id]/route.ts`
+- `src/app/api/caja/[id]/permanente/route.ts`
+- `src/app/api/caja/[id]/restaurar/route.ts`
+- `src/app/api/caja/eliminadas/route.ts`
+- `src/app/api/caja/route.ts`
+- `src/app/api/pedidos/[id]/route.ts`
+
+#### Componentes y páginas
+
+- Ninguna página de `src/app/(panel)/**/page.tsx` tiene test unitario.
+- La mayoría de los componentes de negocio no tienen test unitario. Esto es aceptable si se cubren con E2E, pero conviene priorizar los críticos.
+
+---
+
+## 6. Tests E2E — estado y riesgos
+
+### 6.1 Especificaciones encontradas
+
+Se encontraron **22 specs** en <ref_file file="C:/developer/paginas/pancheria/tests/e2e" />:
 
 | Spec | Flujo |
 |------|-------|
@@ -193,16 +151,15 @@ Se encontraron **22 specs** en `tests/e2e/*.spec.ts`:
 | `paso3.spec.ts`, `paso4.spec.ts` | Flujos guiados de operador |
 | `prod-login-and-tour.spec.ts` | Smoke de producción |
 
-### 5.2 Riesgos identificados
+### 6.2 Riesgos identificados y acciones aplicadas
 
-| Riesgo | Gravedad | Evidencia |
-|--------|----------|-----------|
-| **Dependencia de nombres del seed** | Mayor | `productos-y-recetas.spec.ts`, `paso3.spec.ts`, `paso4.spec.ts`, `ventas-historial.spec.ts` buscan `Pan`, `Salchichas`, `Coca de 1L`, `Promo 1`, `Vaso de gaseosa`. Si el seed cambia, fallan. |
-| **Uso de `data-slot` de shadcn/ui** | Mayor | `productos-y-recetas.spec.ts`, `roles-y-sucursales.spec.ts`, `caja-cierre-vacios.spec.ts`, `flujo-diario.spec.ts`, `ventas-disponibilidad.spec.ts`, `ventas-stock-compartido.spec.ts`, `ventas-historial.spec.ts` usan `[data-slot="select-content"]`, `[data-slot="select-item"]`, `[data-slot="card"]`, `[data-slot="badge"]`, `[data-slot="dialog-close"]`. Son atributos internos que pueden cambiar. |
-| **Selectores por posición (`td:nth-child`)** | Menor | `productos-y-recetas.spec.ts` usa `td:nth-child(5) [data-slot="badge"]`. Frágil ante reordenamiento de columnas. |
-| **Uso de `.first()`, `.last()`, `.nth()` sin selectores estables** | Menor | 88 usos en specs; pueden ser frágiles si hay duplicados. |
+| Riesgo | Gravedad | Evidencia / Acción |
+|--------|----------|--------------------|
+| **Uso de `data-slot` de shadcn/ui** | Mayor | 0 usos restantes en specs. Se reemplazaron por `[data-testid="product-card"]`, `[role="listbox"]`, `[role="option"]` y `getByRole('button', { name: 'Close' })`. Se agregaron `data-testid` en `sales-terminal.tsx`, `closure-panel.tsx` y `productos/page.tsx`. |
+| **Selectores por posición (`td:nth-child`)** | Menor | 0 usos restantes en specs. Se reemplazaron por `data-testid` en filas y badges. |
+| **Uso de `.first()`, `.last()`, `.nth()` sin selectores estables** | Menor | 55 usos restantes. Se redujo desde 57; algunos son necesarios para listas dinámicas. |
 
-### 5.3 `data-testid` expuestos pero no usados en E2E
+### 6.3 `data-testid` expuestos pero no usados en E2E
 
 - `empty-trash`
 - `restore-cash-register-{id}`, `permanent-delete-cash-register-{id}`, `delete-cash-register-{id}`
@@ -210,81 +167,135 @@ Se encontraron **22 specs** en `tests/e2e/*.spec.ts`:
 - `whatsapp-icon`, `order-summary`
 - `recent-orders-banner`
 - `checkout-button`
+- `chat-file-input`, `chat-attachment-image`
+- `active-branch-name`
 
-### 5.4 Flujos críticos no cubiertos por E2E
+### 6.4 Flujos críticos no cubiertos por E2E
 
-- Edición/eliminación de recetas.
-- Cambio de precios de productos.
-- Rate limiting de pedidos y chat.
-- Expiración automática de pedidos (`ORDER_EXPIRATION_MS`).
-- Cierre automático de cajas (`CAJA_AUTO_CLOSE_HOURS`).
-- Anulación de pedidos.
-- Cambio de contraseña de usuarios.
-- Búsqueda/filtrado y paginación en listados.
-
----
-
-## 6. Discrepancias corregidas entre documentación y código
-
-| Discrepancia | Archivos afectados | Corrección aplicada |
-|--------------|-------------------|---------------------|
-| Variables de cron no consumidas por el código | `.env.example`, `AGENTS.md`, `README.md`, `.devin/environment.yaml` | Eliminadas `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` y `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE`; se agregó nota remitiendo a `vercel.json`. |
-| Faltaban aliases de Vercel Postgres en `.env.example` | `.env.example`, `AGENTS.md` | Agregados `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`. |
-| `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` no documentada | `AGENTS.md`, `README.md`, `.devin/environment.yaml` | Agregada descripción. |
-| Variables de caja y seed faltaban en docs | `README.md`, `.devin/environment.yaml` | Agregadas `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`, `NEW_BRANCH_*`. |
-| `TRUSTED_PROXY_IP_HEADER` faltaba en blueprint | `.devin/environment.yaml` | Agregada a `database`, `pedidos` y `deploy`. |
-| `HOST` / `PORT` no documentados | `AGENTS.md` | Agregados como opcionales para el fallback de desarrollo de `getPublicBaseUrl()`. |
-| Versión de Next.js desactualizada en prompts | `.devin/prompts/pancheria.prompt.md`, `auditoria-y-documentacion.md`, `correccion-tests-e2e-caja-y-entorno.md` | Actualizadas a `16.3.3`. |
-| Estructura `(public)` imprecisa | `.devin/environment.yaml` | Cambiado a `src/app/(public)/pedido/`. |
+- Confirmación/cancelación de pedidos desde el panel (la UI no expone botones; la API está cubierta unitariamente).
+- Edición/eliminación de recetas (solo hay creación por UI; edición no tiene UI dedicada).
+- Cambio de contraseña de usuarios (no existe la UI).
+- Rate limiting de pedidos y chat (`NODE_ENV=test` en E2E desactiva el rate limit por diseño).
+- Expiración automática de pedidos (`ORDER_EXPIRATION_MS`) requiere manipular el tiempo o `createdAt`.
+- Cierre automático de cajas (`CAJA_AUTO_CLOSE_HOURS`) requiere manipular `createdAt` de la caja.
+- Búsqueda/filtrado y paginación (no hay UI de búsqueda implementada; paginación existe en `usePaginatedData` pero no se testea E2E).
 
 ---
 
-## 7. Recomendaciones y tareas separadas
+## 7. Variables de entorno — cobertura
 
-### 7.1 Alta prioridad — tests unitarios
+Se identificaron **56 variables configurables** en `.env.example` y `AGENTS.md`. Del análisis de `process.env.*` en `src/`:
 
-1. **Crear `src/lib/public-url.test.ts`** para `getPublicBaseUrl()` con casos de browser, servidor, producción, `HOST`/`PORT` y fallback de desarrollo.
-2. **Crear `src/lib/rate-limit.test.ts`** para `getClientIp` (headers Vercel, `X-Forwarded-For`, `TRUSTED_PROXY_IP_HEADER`) y `createRateLimiter`.
-3. **Crear `src/lib/rate-limit-store.test.ts`** para `InMemoryRateLimitStore` y `DbRateLimitStore`.
-4. **Crear `src/lib/api-handler.test.ts`** para `withApiErrorHandling` (`DomainError` → 400, `NotFoundError` → 404, `ForbiddenError` → 403, `ECONNREFUSED` → 503, client abort → 499).
-5. **Crear tests para rutas críticas de caja y pedidos** (`caja/abrir`, `caja/cerrar`, `caja/resumen`, `pedidos/[id]/confirmar`).
-
-### 7.2 Media prioridad — tests E2E
-
-1. **Eliminar dependencia de nombres del seed** en `productos-y-recetas.spec.ts`, `paso3.spec.ts`, `paso4.spec.ts`, `ventas-historial.spec.ts`. Crear productos vía API o usar `data-testid` estables.
-2. **Reemplazar `data-slot` de shadcn/ui** por `data-testid` en los componentes afectados (select, badge, card, dialog).
-3. **Reemplazar `td:nth-child`** por `data-testid` en celdas de tablas.
-4. **Agregar tests para flujos faltantes:** edición/eliminación de recetas, rate limit, expiración de pedidos, cierre automático de caja, anulación de pedidos.
-
-### 7.3 Baja prioridad — documentación y blueprints
-
-1. Verificar `.devin/environment.yaml` con `devin.exe cloud drs build` cuando se configure `devin.exe auth login`.
-2. Revisar periódicamente prompts archivados para eliminar referencias a `sentAt` y otras funcionalidades eliminadas.
-3. Considerar agregar una sección de "selectores E2E" en `lecciones-aprendidas.md` o `AGENTS.md` para reforzar el uso de `data-testid` sobre `data-slot` y `nth-child`.
+| Variable | Uso | Test de comportamiento |
+|----------|-----|------------------------|
+| `NEXTAUTH_SECRET` / `AUTH_SECRET` | Autenticación | Sí (validación en `global-setup.ts`) |
+| `DATABASE_URL` y aliases Postgres | Conexión a DB | Sí (validación en `global-setup.ts`) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Seed y login | Sí (validación en `global-setup.ts`) |
+| `DEFAULT_BRANCH_NAME` | Sucursal por defecto | Sí (`branch-resolver.test.ts`) |
+| `CRON_SECRET` | Protección de cron | Sí (`cron/*/*.test.ts`) |
+| `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` | Límite de mensaje | Sí (`chat.test.ts`) |
+| `ORDER_EXPIRATION_MS` | Expiración de pedidos | Sí (`orders.test.ts`) |
+| `LOCAL_STORAGE_PATH` / `CHAT_LOCAL_STORAGE_PATH` | Storage local | Sí (`chat-storage.test.ts`) |
+| `STORAGE_PROVIDER` / `BLOB_READ_WRITE_TOKEN` | Storage | Sí (`storage.test.ts`, `videos.test.ts`) |
+| `NEXT_PUBLIC_APP_URL` / `NEXTAUTH_URL` | URLs públicas | Sí (`public-url.test.ts`) |
+| `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` | Cierre automático de cajas | Sí (`caja.test.ts`) |
+| `CAJA_AUTO_CLOSED_BY` | Etiqueta de cierre automático | Sí (`caja.test.ts`) |
+| `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` | Reloj de caja | Sí (`caja.test.ts`) |
+| `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` | Historial de caja | Sí (`caja.test.ts`) |
+| `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` | Refresco de panel de caja | Sí (`caja.test.ts`) |
+| `RATE_LIMIT_STORE_PROVIDER` | Store de rate limit login | Sí (`rate-limit-store.test.ts`) |
+| `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` | Store de rate limit pedidos | Sí (`public-order-rate-limit-store.test.ts`) |
+| `TRUSTED_PROXY_IP_HEADER` | Header de IP confiable | Sí (`rate-limit.test.ts`) |
+| `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` / `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` | Rate limit pedidos | Sí (`orders.test.ts`) |
+| `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` / `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` | Rate limit chat | Sí (`chat.test.ts`) |
+| `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat | Sí (`chat.test.ts`) |
+| `NEXT_PUBLIC_CHAT_PAGE_SIZE` | Paginación del chat | Sí (`chat.test.ts`) |
+| `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño de imagen en chat | Sí (`chat.test.ts`) |
+| `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` | Tipos MIME de chat | Sí (`chat.test.ts`) |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp | Sí (`catalog.test.ts`) |
+| `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` / `CLOSING` | Mensaje de WhatsApp | Sí (`catalog.test.ts`) |
+| `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo | Sí (`catalog.test.ts`) |
+| `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` | Refresco de pedidos del operador | Sí (`orders.test.ts`) |
+| `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout de API cliente | No |
+| `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` | Tamaño de video | Sí (`videos.test.ts`) |
+| `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES` | Tipos MIME de video | Sí (`videos.test.ts`) |
+| `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` / `NEXT_PUBLIC_CAST_SENDER_SDK_URL` | Google Cast | Sí (`videos.test.ts`) |
+| `HOST` / `PORT` | Fallback de desarrollo de URL pública | Sí (`public-url.test.ts`) |
+| `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` | Analytics | No |
+| Credenciales `S3_*` / `R2_*` | Storage remoto | Sí (`storage.test.ts` con mocks; no se recomienda testear con credenciales reales). |
 
 ---
 
-## 8. Comandos ejecutados y resultados
+## 8. Hallazgos y recomendaciones
+
+### Crítico
+
+Ningún hallazgo crítico que afecte build o seguridad. No se encontraron credenciales expuestas.
+
+### Mayor
+
+#### 8.1 Faltan tests de rutas API remanentes
+
+Las rutas `caja/[id]`, `caja/[id]/permanente`, `caja/[id]/restaurar`, `caja/eliminadas`, `caja/route` y `pedidos/[id]` no tienen tests unitarios. Son menos críticas que las ya cubiertas, pero deberían tener cobertura.
+
+**Recomendación:** Crear tests para estas rutas, priorizando `caja/[id]` y `pedidos/[id]`.
+
+### Menor
+
+#### 8.2 Selectores `.first()`, `.last()`, `.nth()` restantes
+
+Se redujeron a 55 usos en specs. Algunos son necesarios para listas dinámicas, pero otros pueden reemplazarse por `getByTestId` o selectores estables.
+
+**Recomendación:** Revisar los 55 usos restantes y reemplazar los que dependen de posición por selectores semánticos o `data-testid`.
+
+#### 8.3 Variables de entorno sin test
+
+`NEXT_PUBLIC_API_TIMEOUT_MS` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` no tienen tests de comportamiento.
+
+**Recomendación:**
+- Crear `src/lib/fetch.test.ts` para probar `NEXT_PUBLIC_API_TIMEOUT_MS`.
+- Crear `src/components/conditional-analytics.test.tsx` para `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`.
+
+#### 8.4 Flujos E2E no cubiertos
+
+Faltan specs para rate limit, expiración de pedidos, cierre automático de caja, anulación de pedidos desde panel, edición/eliminación de recetas, cambio de contraseña y búsqueda/filtrado/paginación.
+
+**Recomendación:** Agregar specs de media prioridad. Algunos requieren implementar UI o exponer acciones en el panel.
+
+### Informativo
+
+#### 8.5 Cobertura de componentes/páginas del panel
+
+No hay tests unitarios para páginas del panel; la cobertura se delega a E2E. Esto es aceptable en este stack si los flujos E2E son robustos.
+
+---
+
+## 9. Comandos ejecutados y resultados
 
 | Paso | Comando | Resultado |
 |------|---------|-----------|
-| 1 | `git log --oneline -30` | Baseline confirmado (`1a4c061` en `main`) |
-| 2 | `npx jest --listTests` | 92 archivos listados |
-| 3 | `npm run lint` | Pasa (exit 0) |
-| 4 | `npx tsc --noEmit` | Pasa |
-| 5 | `npm test` | 92 suites, 893 tests pasan |
+| 1 | `npx jest --listTests` | 110 archivos listados |
+| 2 | `npm test` | 110 suites, 1054 tests pasan |
+| 3 | `npx playwright test --list` | 84 tests en 22 specs |
+| 4 | `npm run lint` | Pasa (exit 0) |
+| 5 | `npx tsc --noEmit` | Pasa |
 | 6 | `npm run build` | Build exitoso (42 páginas dinámicas) |
-| 7 | `npm run knip` | Sin problemas |
-| 8 | Verificación de `data-testid` | 28 atributos en `src/`, 45 referencias en `tests/e2e/` |
-| 9 | Búsqueda de variables no consumidas (`CHAT_ATTACHMENTS_CLEANUP_SCHEDULE`, `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE`) | No usadas en `src/` |
+| 7 | `npm run knip` | Pasa |
+| 8 | `grep data-slot tests/e2e` | 0 ocurrencias |
+| 9 | `grep td:nth-child tests/e2e` | 0 ocurrencias |
+| 10 | `grep .first()/.last()/.nth( tests/e2e` | 55 ocurrencias |
+
+> **No se ejecutaron** `npm run test:e2e`, `npx playwright test`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push` ni `npx drizzle-kit generate` por requerir confirmación explícita del usuario y base de datos descartable.
 
 ---
 
-## 9. Enlaces relevantes
+## 10. Enlaces relevantes
 
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/README.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.env.example" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-cobertura-de-pruebas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-de-accion-pendientes.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />
+- <ref_file file="C:/developer/paginas/pancheria/package.json" />
+- <ref_file file="C:/developer/paginas/pancheria/jest.config.ts" />
+- <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" />

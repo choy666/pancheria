@@ -114,9 +114,9 @@ test.describe('Rol administrador', () => {
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
     await page.locator('#password').fill('123456');
     await page.locator('#branchId').click();
-    await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
+    await expect(page.locator('[role="listbox"]')).toBeVisible();
     await page
-      .locator('[data-slot="select-item"]', { hasText: defaultBranchName })
+      .locator('[role="option"]', { hasText: defaultBranchName })
       .click();
     await page
       .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
@@ -131,9 +131,9 @@ test.describe('Rol administrador', () => {
     await page.getByLabel('Nombre de usuario').fill(editedUsername);
     await page.locator('#password').fill('nueva1234');
     await page.locator('#branchId').click();
-    await expect(page.locator('[data-slot="select-content"]')).toBeVisible();
+    await expect(page.locator('[role="listbox"]')).toBeVisible();
     await page
-      .locator('[data-slot="select-item"]', { hasText: secondBranch.branchName })
+      .locator('[role="option"]', { hasText: secondBranch.branchName })
       .click();
     await page
       .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })

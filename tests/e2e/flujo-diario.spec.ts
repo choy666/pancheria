@@ -102,11 +102,11 @@ test.describe('Flujo completo de un día de operación', () => {
     ).toBeVisible({ timeout: 10000 });
 
     const cardCombo = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: combo.name })
       .first();
     const cardBebida = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: bebida.name })
       .first();
 

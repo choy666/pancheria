@@ -19,7 +19,7 @@ test.describe('Historial de cajas con ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-slot="card"]')
+      .locator('[data-testid="product-card"]')
       .filter({ hasText: 'Vaso de gaseosa' })
       .first();
     await expect(card).toBeVisible({ timeout: 10000 });

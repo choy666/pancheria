@@ -77,8 +77,11 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 
-    const updatedRow = page.locator('tr').filter({ hasText: new RegExp(manual.name) });
-    await expect(updatedRow.locator('td:nth-child(5) [data-slot="badge"]')).toHaveText('X');
+    const updatedRow = page.locator('[data-testid="product-row"]').filter({
+      hasText: new RegExp(manual.name),
+    });
+    const badge = updatedRow.locator('[data-testid="sellable-badge"][data-sellable="false"]');
+    await expect(badge).toHaveText('X');
 
     const productRes = await page.request.get(`/api/productos/${manual.id}`);
     expect(productRes.status()).toBe(200);
@@ -122,10 +125,12 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto('/productos');
-    const row = page.locator('tr').filter({ hasText: new RegExp(promoName) });
+    const row = page.locator('[data-testid="product-row"]').filter({
+      hasText: new RegExp(promoName),
+    });
     await expect(row).toBeVisible();
     await expect(
-      row.locator('td:nth-child(2) [data-slot="badge"]')
+      row.locator('[data-testid="product-type-badge"]')
     ).toHaveText('Promo');
   });
 
@@ -234,7 +239,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
       )
     ).toBeVisible({ timeout: 10000 });
 
-    await errorDialog.locator('[data-slot="dialog-close"]').first().click();
+    await errorDialog.getByRole('button', { name: 'Close' }).first().click();
     await expect(errorDialog).not.toBeVisible();
   });
 

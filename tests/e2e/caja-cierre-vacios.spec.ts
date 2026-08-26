@@ -60,9 +60,7 @@ test.describe('Caja y cierre con estados vacíos', () => {
     await expect(page.getByText('Total: $0.00')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Ventas: 0')).toBeVisible();
 
-    const suppliesSection = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: 'Consumo de insumos críticos' });
+    const suppliesSection = page.locator('[data-testid="critical-supplies-card"]');
     await expect(suppliesSection).toBeVisible();
 
     for (const supply of criticalSupplies) {

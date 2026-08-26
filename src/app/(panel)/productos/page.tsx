@@ -101,7 +101,11 @@ export default async function ProductsPage() {
                   </TableHead>
                 </TableRow>
                 {group.items.map((product) => (
-                  <TableRow key={product.id}>
+                  <TableRow
+                    key={product.id}
+                    data-testid="product-row"
+                    data-product-name={product.name}
+                  >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <span
@@ -119,6 +123,7 @@ export default async function ProductsPage() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <Badge
+                        data-testid="product-type-badge"
                         variant="outline"
                         className={productTypeBadgeClasses[product.type]}
                       >
@@ -159,6 +164,8 @@ export default async function ProductsPage() {
                           (sellableById[product.id]?.availability ?? 0) > 0;
                         return isSellable ? (
                           <Badge
+                            data-testid="sellable-badge"
+                            data-sellable="true"
                             variant="outline"
                             className="h-8 w-8 justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 p-0 font-mono text-sm font-bold text-emerald-400"
                           >
@@ -166,6 +173,8 @@ export default async function ProductsPage() {
                           </Badge>
                         ) : (
                           <Badge
+                            data-testid="sellable-badge"
+                            data-sellable="false"
                             variant="outline"
                             className="h-8 w-8 justify-center rounded-full border border-red-500/30 bg-red-500/10 p-0 font-mono text-sm font-bold text-red-400"
                           >
