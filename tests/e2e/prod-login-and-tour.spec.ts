@@ -20,7 +20,7 @@ test.describe('Smoke de login y tour en producción', () => {
     await page.getByLabel('Contraseña').fill(password!);
     await page.getByRole('button', { name: 'Ingresar' }).click();
 
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await expect(page).toHaveURL('/', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Guía' }).click();
 
     const popover = page.locator('.driver-popover');
@@ -45,7 +45,7 @@ test.describe('Smoke de login y tour en producción', () => {
     await page.getByLabel('Contraseña').fill(password!);
     await page.getByRole('button', { name: 'Ingresar' }).click();
 
-    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await expect(page).toHaveURL('/', { timeout: 30_000 });
 
     const menuButton = page.getByRole('button', {
       name: /abrir menú|cerrar menú/i,

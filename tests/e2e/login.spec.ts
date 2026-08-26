@@ -25,5 +25,5 @@ test('login exitoso redirige al dashboard', async ({ page }) => {
   await page.getByLabel('Contraseña').fill(password!);
   await page.getByRole('button', { name: 'Ingresar' }).click();
 
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/', { timeout: 30_000 });
 });

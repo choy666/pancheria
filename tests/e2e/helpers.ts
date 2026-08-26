@@ -27,15 +27,45 @@ export function unique(prefix: string) {
   return `${prefix} ${Date.now()}`;
 }
 
+const LOGIN_REDIRECT_TIMEOUT = 30_000;
+
 /**
  * Inicia sesión con credenciales genéricas.
+ *
+ * El timeout de redirección es generoso (30 s) porque el primer envío del
+ * formulario bajo `next dev` + Turbopack debe compilar la Server Action de
+ * login; en CI o equipos lentos ese primer intento puede superar los 15 s
+ * anteriores y dejar a Playwright en `/login`, lo que se confunde con un
+ * error de credenciales.
  */
-export async function loginAs(page: Page, username: string, password: string): Promise<void> {
+export async function loginAs(
+  page: Page,
+  username: string,
+  password: string
+): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('Usuario').fill(username);
   await page.getByLabel('Contraseña').fill(password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
-  await expect(page).toHaveURL('/', { timeout: 15000 });
+
+  try {
+    await expect(page).toHaveURL('/', { timeout: LOGIN_REDIRECT_TIMEOUT });
+  } catch (error) {
+    const url = page.url();
+    if (url.includes('/login')) {
+      const alertText = await page
+        .locator('[role="alert"]')
+        .textContent()
+        .catch(() => undefined);
+      throw new Error(
+        `El login de "${username}" no redirigió a / dentro de ${LOGIN_REDIRECT_TIMEOUT} ms. ` +
+          `URL actual: ${url}. ` +
+          (alertText ? `Mensaje del formulario: "${alertText.trim()}". ` : '') +
+          'Revisá que el secreto de autenticación, la base de datos y las credenciales estén configurados.'
+      );
+    }
+    throw error;
+  }
 }
 
 /**
@@ -228,24 +258,34 @@ export async function login(page: Page) {
     );
   }
 
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  const resumen = await page.request.get('/api/caja/resumen');
+  const contentType = resumen.headers()['content-type'] ?? '';
 
-  const currentUrl = page.url();
-  const alreadyLoggedIn =
-    currentUrl.endsWith('/') && !currentUrl.endsWith('/login');
+  if (!contentType.includes('application/json')) {
+    const text = await resumen.text();
+    throw new Error(
+      `GET /api/caja/resumen devolvió status ${resumen.status()} con content-type ${contentType}. Body: ${text.slice(0, 500)}`
+    );
+  }
 
-  if (alreadyLoggedIn) {
+  if (resumen.status() === 200) {
     return;
+  }
+
+  if (resumen.status() !== 401) {
+    const data = (await resumen.json()) as { error?: string };
+    throw new Error(
+      `GET /api/caja/resumen devolvió status ${resumen.status()}: ${data.error ?? 'sin error'}`
+    );
   }
 
   await loginAs(page, adminUsername, adminPassword);
 }
 
 export async function ensureLoggedIn(page: Page) {
-  const resumen = await page.request.get('/api/caja/resumen');
-  if (resumen.status() === 401) {
-    await login(page);
-  }
+  // `login` ya verifica el estado vía /api/caja/resumen y solo navega si es
+  // necesario; así unificamos el manejo de 503/errores inesperados.
+  await login(page);
 }
 
 export async function getCashRegister(page: Page) {

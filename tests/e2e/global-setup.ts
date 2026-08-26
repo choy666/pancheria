@@ -192,6 +192,7 @@ async function preheatDevServer(): Promise<void> {
   // Turbopack. Se usan peticiones reales; el cuerpo vacío/inválido hace que
   // algunas devuelvan 400/401, pero ya fuerzan la compilación del handler.
   const requests = [
+    { path: '/login' },
     { path: '/api/caja/resumen' },
     { path: '/pedido?branchId=1' },
     { path: '/api/public/catalogo?branchId=1' },

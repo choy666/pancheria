@@ -16,12 +16,23 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  timeout: process.env.CI ? 60_000 : 30_000,
+  // 60 s para todos los entornos: en local, con Turbopack compilando bajo
+  // demanda, 30 s se queda corto para el primer login + navegación a páginas
+  // protegidas como /stock o /ventas.
+  timeout: 60_000,
   workers: 1,
   reporter: process.env.CI ? 'line' : 'html',
   use: {
     baseURL,
     trace: 'on-first-retry',
+    // El primer goto a rutas protegidas puede superar los 30 s por defecto
+    // mientras el dev server compila el layout y la página.
+    navigationTimeout: 60_000,
+  },
+  expect: {
+    // Subimos el default de `expect` para que aserciones como `toHaveURL`
+    // no fallen por la primera compilación de una ruta.
+    timeout: 15_000,
   },
   projects: [
     {
