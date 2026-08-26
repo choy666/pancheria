@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const [dismissed, setDismissed] = useState<DeleteProductState>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isDeletePending, startDeleteTransition] = useTransition();
   const isDialogOpen = !!state?.error && state !== dismissed;
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -52,9 +53,12 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
 
   function handleConfirmDelete() {
     setShowConfirm(false);
-    hasSubmittedRef.current = true;
-    if (formRef.current) {
-      formAction(new FormData(formRef.current));
+    const form = formRef.current;
+    if (form) {
+      startDeleteTransition(() => {
+        hasSubmittedRef.current = true;
+        formAction(new FormData(form));
+      });
     }
   }
 
@@ -72,10 +76,10 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
           type="submit"
           variant="ghost"
           size="sm"
-          disabled={isPending}
+          disabled={isPending || isDeletePending}
           className="w-full sm:w-auto text-destructive hover:text-destructive"
         >
-          {isPending ? 'Eliminando...' : 'Eliminar'}
+          {isPending || isDeletePending ? 'Eliminando...' : 'Eliminar'}
         </Button>
       </form>
 
