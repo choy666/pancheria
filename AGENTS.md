@@ -37,11 +37,13 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:
 
-- `DATABASE_URL` — URL de conexión a PostgreSQL (Neon). En Vercel Postgres equivale a `POSTGRES_URL` (pooled).
+- `DATABASE_URL` — URL de conexión a PostgreSQL (Neon). En Vercel Postgres equivale a `POSTGRES_URL` (pooled). El runtime también acepta `POSTGRES_URL` y `POSTGRES_PRISMA_URL` como fallback.
 - `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
+- `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING` — aliases de Vercel Postgres; el código los prueba en orden si `DATABASE_URL`/`DATABASE_URL_UNPOOLED` no están definidos.
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida. En NextAuth v5, si existe `AUTH_URL`, tiene prioridad sobre `NEXTAUTH_URL`; en ese caso `AUTH_URL` también debe coincidir con el dominio de producción.
 - `AUTH_URL` (opcional) — URL de autenticación para NextAuth v5. Si se define, tiene prioridad sobre `NEXTAUTH_URL`. Debe coincidir con el dominio de producción; en desarrollo/tests suele ser `http://localhost:3000`.
 - `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos y adjuntos de chat (`STORAGE_PROVIDER=local`).
+- `HOST` / `PORT` (opcionales) — host y puerto para el fallback de desarrollo de `getPublicBaseUrl()` cuando no hay `NEXT_PUBLIC_APP_URL` ni `NEXTAUTH_URL`. Por defecto `localhost:3000`.
 - `AUTH_SECRET` (opcional) — secreto preferido por NextAuth v5 para firmar sesiones. Si no se define, se usa `NEXTAUTH_SECRET` como compatibilidad. Debe tener al menos 32 bytes.
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth (compatibilidad; Auth.js v5 prefiere `AUTH_SECRET`).
 - `ADMIN_USERNAME` — usuario administrador inicial.
@@ -72,9 +74,9 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos y del chat público: `memory` o `db` (PostgreSQL). En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`. `db` es recomendado para producción con múltiples instancias. Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
-- `PUBLIC_ORDER_RATE_LIMIT_CLEANUP_SCHEDULE` (opcional) — expresión `cron` para la limpieza de entradas vencidas de `public_order_rate_limits`. Por defecto `0 0 * * *` (una vez por día). Vercel Cron Jobs no lee variables de entorno para el `schedule`, así que este valor debe reflejarse en `vercel.json` o en la configuración de cron externo que llame a `GET /api/cron/rate-limit-cleanup`. En el plan Hobby de Vercel los cron jobs deben ser diarios; para una frecuencia mayor es necesario un plan Pro o un cron externo.
 - `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup` y `GET /api/cron/chat-attachments-cleanup`. Si no se define, los endpoints rechazan todas las llamadas.
-- `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` (opcional) — expresión `cron` para la limpieza de adjuntos huérfanos del chat. Por defecto `0 0 * * *` (una vez por día). Vercel Cron Jobs no lee variables de entorno para el `schedule`; este valor debe reflejarse en `vercel.json`.
+
+> Los schedules de los cron jobs (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`) están definidos en `vercel.json` (`0 0 * * *` por defecto). Vercel Cron Jobs no leen variables de entorno para el `schedule`; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente).
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).
@@ -89,6 +91,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_REGION` — credenciales de Cloudflare R2, requeridas si `STORAGE_PROVIDER=r2`.
 - `LOCAL_STORAGE_PATH` (opcional) — ruta local base para almacenar videos y adjuntos de chat cuando `STORAGE_PROVIDER=local` (por defecto `tmp/videos`).
 - `CHAT_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para los adjuntos del chat; si no se define, usa `LOCAL_STORAGE_PATH` como fallback.
+- `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` (opcional) — si se define como `true`, se inyecta el script de Vercel Web Analytics en todas las páginas. En desarrollo no envía datos aunque esté habilitado; también es necesario activar Web Analytics en el dashboard de Vercel.
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
 
