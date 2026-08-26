@@ -97,7 +97,10 @@ export function CashRegisterSummary({
               </>
             )}
           </p>
-          <p className="font-mono text-2xl font-bold text-primary">
+          <p
+            data-testid="cash-register-total"
+            className="font-mono text-2xl font-bold text-primary"
+          >
             Total: ${cashRegister.total.toFixed(2)}
           </p>
           <div className="grid grid-cols-2 gap-3 text-base">
@@ -123,7 +126,7 @@ export function CashRegisterSummary({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-testid="products-sold-card">
         <CardHeader>
           <CardTitle className="text-lg">Productos vendidos</CardTitle>
         </CardHeader>
@@ -132,6 +135,8 @@ export function CashRegisterSummary({
             {Object.entries(productsSummary).map(([name, quantity]) => (
               <li
                 key={name}
+                data-testid="cash-register-product-item"
+                data-product-name={name}
                 className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
               >
                 <span>{name}</span>
@@ -142,7 +147,7 @@ export function CashRegisterSummary({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-testid="critical-supplies-card">
         <CardHeader>
           <CardTitle className="text-lg">Consumo de insumos críticos</CardTitle>
         </CardHeader>
@@ -151,6 +156,8 @@ export function CashRegisterSummary({
             {Object.entries(criticalSuppliesSummary).map(([name, quantity]) => (
               <li
                 key={name}
+                data-testid="cash-register-supply-item"
+                data-supply-name={name}
                 className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
               >
                 <span>{name}</span>

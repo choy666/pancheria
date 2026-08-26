@@ -16,12 +16,25 @@ test.describe('Historial de cajas con ventas', () => {
   }) => {
     await ensureCashRegisterOpen(page);
 
+    const productsResponse = await page.request.get(
+      '/api/productos?includeAvailability=true'
+    );
+    const products = (await productsResponse.json()) as {
+      id: number;
+      name: string;
+      price: number;
+      type: string;
+    }[];
+    const product = products.find(
+      (p) => p.type === 'service' && p.price === 500
+    );
+    if (!product) throw new Error('No se encontró producto de prueba de $500');
+
     await page.goto('/ventas');
 
-    const card = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: 'Vaso de gaseosa' })
-      .first();
+    const card = page.locator(
+      `[data-testid="product-card"][data-product-name="${product.name}"]`
+    );
     await expect(card).toBeVisible({ timeout: 10000 });
     await card.click();
 
@@ -38,20 +51,20 @@ test.describe('Historial de cajas con ventas', () => {
 
     await page.goto('/ventas/historial');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('$500.00').first()).toBeVisible({
+    await expect(
+      page.getByTestId(`cash-register-total-${caja.id}`)
+    ).toBeVisible({
       timeout: 10000,
     });
 
-    await page
-      .getByRole('row')
-      .filter({ hasText: '$500.00' })
-      .first()
-      .click();
+    await page.getByTestId(`cash-register-row-${caja.id}`).click();
 
     await expect(page.getByText('Ventas de la caja')).toBeVisible({
       timeout: 10000,
     });
-    await expect(page.getByText('Vaso de gaseosa x1')).toBeVisible({
+    await expect(
+      page.getByTestId('sale-products').filter({ hasText: product.name })
+    ).toBeVisible({
       timeout: 10000,
     });
 

@@ -102,18 +102,14 @@ test.describe('Flujo completo de un día de operación', () => {
     ).toBeVisible({ timeout: 10000 });
 
     const cardCombo = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: combo.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + combo.name + '"]');
     const cardBebida = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: bebida.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + bebida.name + '"]');
 
     await cardCombo.click();
     await cardCombo.click();
     await expect(
-      page.getByRole('listitem').filter({ hasText: combo.name }).getByText('2', { exact: true })
+      page.locator('[data-testid="cart-item"][data-product-name="' + combo.name + '"]').getByText('2', { exact: true })
     ).toBeVisible({ timeout: 10000 });
 
     await cardBebida.click();
@@ -131,7 +127,7 @@ test.describe('Flujo completo de un día de operación', () => {
 
     await page.goto('/cierre');
 
-    await page.getByRole('button', { name: 'Cerrar caja' }).first().click();
+    await page.getByTestId('close-cash-register').click();
     await expect(page.getByText('No hay una caja abierta.')).toBeVisible({
       timeout: 10000,
     });
@@ -142,12 +138,22 @@ test.describe('Flujo completo de un día de operación', () => {
 
     await page.getByRole('button', { name: 'Generar cierre' }).click();
 
-    await expect(page.getByText('Total:').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('closure-total')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByTestId('closure-total')).toHaveText(
+      `Total: $${(1500 * 2 + 800).toFixed(2)}`
+    );
     await expect(
-      page.getByText(`Total: $${(1500 * 2 + 800).toFixed(2)}`).first()
+      page
+        .getByTestId('closure-product-item')
+        .filter({ hasText: combo.name })
     ).toBeVisible();
-    await expect(page.getByText(combo.name).first()).toBeVisible();
-    await expect(page.getByText(bebida.name).first()).toBeVisible();
+    await expect(
+      page
+        .getByTestId('closure-supply-item')
+        .filter({ hasText: bebida.name })
+    ).toBeVisible();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -170,8 +176,16 @@ test.describe('Flujo completo de un día de operación', () => {
     expect(body.items.some((c) => c.total === 3800)).toBe(true);
 
     await page.goto(`/ventas/historial/${caja.id}`);
-    await expect(page.getByText(combo.name).first()).toBeVisible();
-    await expect(page.getByText(bebida.name).first()).toBeVisible();
+    await expect(
+      page
+        .getByTestId('cash-register-product-item')
+        .filter({ hasText: combo.name })
+    ).toBeVisible();
+    await expect(
+      page
+        .getByTestId('cash-register-supply-item')
+        .filter({ hasText: bebida.name })
+    ).toBeVisible();
 
     await ensureCashRegisterClosed(page);
   });

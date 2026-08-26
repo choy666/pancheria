@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { authenticatedFetch } from '@/lib/fetch';
+import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/date';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -101,9 +102,57 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
     error,
     setPage,
     setLimit,
+    refresh,
   } = usePaginatedData(load, {
     refreshIntervalMs: getPedidosRefreshIntervalMs(),
   });
+
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+
+  async function handleConfirm(orderId: number) {
+    setLoadingId(orderId);
+    try {
+      const response = await authenticatedFetch(
+        `/api/pedidos/${orderId}/confirmar`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentMethod: 'cash',
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        }
+      );
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al confirmar el pedido');
+      }
+      await refresh();
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function handleCancel(orderId: number) {
+    setLoadingId(orderId);
+    try {
+      const response = await authenticatedFetch(
+        `/api/pedidos/${orderId}/cancelar`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'Cancelado desde el panel' }),
+        }
+      );
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al cancelar el pedido');
+      }
+      await refresh();
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -141,7 +190,9 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                 <TableCell className="font-medium">
                   #{order.orderNumber}
                 </TableCell>
-                <TableCell>{order.customerName}</TableCell>
+                <TableCell data-testid="order-customer-name">
+                  {order.customerName}
+                </TableCell>
                 <TableCell>{order.branch?.name ?? '—'}</TableCell>
                 <TableCell>{deliveryLabels[order.deliveryType]}</TableCell>
                 <TableCell className="font-mono">
@@ -168,12 +219,35 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                     )}
                     <Link
                       href={routes.pedidoDetalle(order.id)}
+                      data-testid={`view-order-${order.id}`}
                       className={cn(
                         buttonVariants({ variant: 'outline', size: 'sm' })
                       )}
                     >
                       Ver
                     </Link>
+                    {order.status === 'pending' && (
+                      <>
+                        <Button
+                          data-testid={`confirm-order-${order.id}`}
+                          variant="secondary"
+                          size="sm"
+                          disabled={loadingId === order.id}
+                          onClick={() => handleConfirm(order.id)}
+                        >
+                          Confirmar
+                        </Button>
+                        <Button
+                          data-testid={`cancel-order-${order.id}`}
+                          variant="destructive"
+                          size="sm"
+                          disabled={loadingId === order.id}
+                          onClick={() => handleCancel(order.id)}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

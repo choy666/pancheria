@@ -51,19 +51,22 @@ test.describe('Chat con adjuntos', () => {
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
     await expect(
-      page.getByTestId('chat-attachment-image').first()
+      page.locator('[data-testid="chat-attachment-image"][data-sender-type="client"]')
     ).toBeVisible({ timeout: 15_000 });
 
     // Operador: inicia sesión y abre el pedido.
     await login(page);
     await page.goto('/pedidos');
 
-    await expect(page.getByText(customerName).first()).toBeVisible();
-    await page.getByRole('link', { name: 'Ver' }).first().click();
+    const orderRow = page
+      .locator('[data-testid^="row-order-"]')
+      .filter({ hasText: customerName });
+    await expect(orderRow).toBeVisible();
+    await orderRow.getByRole('link', { name: 'Ver' }).click();
 
     await expect(page.getByText('Chat con el cliente')).toBeVisible();
     await expect(
-      page.getByTestId('chat-attachment-image').first()
+      page.locator('[data-testid="chat-attachment-image"][data-sender-type="client"]')
     ).toBeVisible({ timeout: 15_000 });
 
     // Operador responde con una imagen.
@@ -75,11 +78,13 @@ test.describe('Chat con adjuntos', () => {
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
     await expect(
-      page.getByTestId('chat-attachment-image').nth(1)
+      page.locator('[data-testid="chat-attachment-image"][data-sender-type="operator"]')
     ).toBeVisible({ timeout: 15_000 });
 
     // Cliente ve la respuesta recargando la URL del chat.
     await page.goto(clientChatUrl);
-    await expect(page.getByTestId('chat-attachment-image').nth(1)).toBeVisible();
+    await expect(
+      page.locator('[data-testid="chat-attachment-image"][data-sender-type="operator"]')
+    ).toBeVisible();
   });
 });

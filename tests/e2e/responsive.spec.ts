@@ -5,6 +5,7 @@ import {
   ensureCashRegisterClosed,
   getCashRegister,
   createProductViaApi,
+  getTestSecondBranch,
 } from './helpers';
 
 test.use({ viewport: { width: 375, height: 667 } });
@@ -101,13 +102,15 @@ test.describe('Responsividad en móvil', () => {
       await menuButton.click();
       const mobileNav = page.locator('[data-tour="mobile-nav"] nav');
       await expect(
-        mobileNav.getByRole('link').first(),
+        mobileNav.getByRole('link', { name: 'Panel' }),
         `menú hamburguesa desplegado en ${route}`
       ).toBeVisible();
 
       // Cerrar el menú para continuar con la siguiente ruta.
       await menuButton.click();
-      await expect(mobileNav.getByRole('link').first()).not.toBeVisible();
+      await expect(
+        mobileNav.getByRole('link', { name: 'Panel' })
+      ).not.toBeVisible();
     }
   });
 
@@ -219,11 +222,14 @@ test.describe('Responsividad en móvil', () => {
   });
 
   test('diálogo de confirmación se adapta a 375px sin scroll horizontal', async ({ page }) => {
+    const secondBranch = await getTestSecondBranch();
     await ensureLoggedIn(page);
     await page.goto('/sucursales');
 
     // Abrir el diálogo de eliminación de la sucursal de test (segunda sucursal).
-    const deleteButton = page.getByRole('button', { name: 'Eliminar' }).last();
+    const deleteButton = page.getByTestId(
+      `delete-branch-${secondBranch.branchId}`
+    );
     await expect(deleteButton).toBeVisible();
     await deleteButton.click();
 

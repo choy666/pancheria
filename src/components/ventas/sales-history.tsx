@@ -180,7 +180,10 @@ export function SalesHistory({
             {sales.map((sale) => (
               <TableRow key={sale.id} data-testid={`row-sale-${sale.id}`}>
                 <TableCell>{formatTime(sale.createdAt)}</TableCell>
-                <TableCell className="hidden sm:table-cell max-w-[260px] truncate">
+                <TableCell
+                  data-testid="sale-products"
+                  className="hidden sm:table-cell max-w-[260px] truncate"
+                >
                   {sale.items
                     .map((item) => `${item.product.name} x${item.quantity}`)
                     .join(', ')}

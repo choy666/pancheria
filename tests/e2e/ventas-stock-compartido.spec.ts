@@ -74,13 +74,9 @@ test.describe('Venta con stock compartido entre promos', () => {
     await page.goto('/ventas');
 
     const cardA = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: promoA.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + promoA.name + '"]');
     const cardB = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: promoB.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + promoB.name + '"]');
 
     await expect(cardA.getByText('Disponible: 6 unidad')).toBeVisible({
       timeout: 10000,
@@ -98,14 +94,8 @@ test.describe('Venta con stock compartido entre promos', () => {
       timeout: 10000,
     });
 
-    const cartItemA = page
-      .getByRole('listitem')
-      .filter({ hasText: promoA.name })
-      .first();
-    const cartItemB = page
-      .getByRole('listitem')
-      .filter({ hasText: promoB.name })
-      .first();
+    const cartItemA = page.locator('[data-testid="cart-item"][data-product-name="' + promoA.name + '"]');
+    const cartItemB = page.locator('[data-testid="cart-item"][data-product-name="' + promoB.name + '"]');
 
     await cardB.click();
     await page.waitForTimeout(400);

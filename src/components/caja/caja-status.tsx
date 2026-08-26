@@ -61,6 +61,7 @@ export function CajaStatus({
           </p>
           <Button
             type="button"
+            data-testid="open-cash-register"
             className="w-full sm:w-auto"
             onClick={handleOpen}
             disabled={isSubmitting || loading}
@@ -106,6 +107,7 @@ export function CajaStatus({
         </p>
         <Button
           type="button"
+          data-testid="close-cash-register"
           variant="outline"
           onClick={handleClose}
           disabled={isSubmitting || loading}

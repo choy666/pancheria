@@ -32,6 +32,7 @@ export function ChatAttachment({ message, token }: ChatAttachmentProps) {
           unoptimized
           className="max-h-40 w-auto rounded-lg object-cover"
           data-testid="chat-attachment-image"
+          data-sender-type={message.senderType}
         />
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-white/10 p-2 text-sm">

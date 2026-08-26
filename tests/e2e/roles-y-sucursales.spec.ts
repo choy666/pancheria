@@ -53,8 +53,12 @@ test.describe('Rol administrador', () => {
     await expect(table).toBeVisible({ timeout: 10000 });
 
     const adminUsername = process.env.ADMIN_USERNAME ?? 'admin';
-    await expect(page.getByText(adminUsername).first()).toBeVisible();
-    await expect(page.getByText(secondBranch.username).first()).toBeVisible();
+    await expect(
+      page.getByTestId('user-username').filter({ hasText: adminUsername })
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('user-username').filter({ hasText: secondBranch.username })
+    ).toBeVisible();
 
     const adminRow = page.locator('tr').filter({ hasText: adminUsername });
     await expect(adminRow).toContainText('Todas las sucursales');
@@ -122,7 +126,9 @@ test.describe('Rol administrador', () => {
       .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
       .click();
 
-    await expect(page.getByText(operatorUsername).first()).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByTestId('user-username').filter({ hasText: operatorUsername })
+    ).toBeVisible({ timeout: 10000 });
 
     const operatorRow = page.locator('tr').filter({ hasText: operatorUsername });
 
@@ -139,14 +145,23 @@ test.describe('Rol administrador', () => {
       .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
       .click();
 
-    await expect(page.getByText(editedUsername).first()).toBeVisible({ timeout: 10000 });
-    const editedRow = page.locator('tr').filter({ hasText: editedUsername });
+    await expect(
+      page.getByTestId('user-username').filter({ hasText: editedUsername })
+    ).toBeVisible({ timeout: 10000 });
+    const editedRow = page
+      .getByTestId('user-row')
+      .filter({ hasText: editedUsername });
     await expect(editedRow).toContainText(secondBranch.branchName);
 
     // Eliminar el operador.
     await editedRow.getByRole('button', { name: 'Eliminar' }).click();
-    await expect(page.getByRole('dialog', { name: 'Confirmar eliminación' })).toBeVisible();
-    await page.getByRole('button', { name: 'Eliminar' }).last().click();
+    await expect(
+      page.getByRole('dialog', { name: 'Confirmar eliminación' })
+    ).toBeVisible();
+    await page
+      .getByRole('dialog', { name: 'Confirmar eliminación' })
+      .getByRole('button', { name: 'Eliminar' })
+      .click();
     await expect(editedRow).toHaveCount(0, { timeout: 10000 });
   });
 });
@@ -207,7 +222,7 @@ test.describe('Rol operador', () => {
   test('ve el nombre de su sucursal asignada en la navbar', async ({ page }) => {
     const defaultBranchName = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
     await page.goto('/');
-    await expect(page.getByTestId('active-branch-name').first()).toHaveText(
+    await expect(page.getByTestId('active-branch-name')).toHaveText(
       defaultBranchName,
       { timeout: 10000 }
     );

@@ -41,27 +41,38 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
     await expect(page.getByPlaceholder('Escribí un mensaje...')).toHaveValue('');
-    await expect(page.getByText(clientMessage).first()).toBeVisible();
+    await expect(
+      page.getByTestId('chat-message-text').filter({ hasText: clientMessage })
+    ).toBeVisible();
 
     // Operador: inicia sesión y abre el pedido.
     await login(page);
     await page.goto('/pedidos');
 
-    await expect(page.getByText(customerName).first()).toBeVisible({ timeout: 10000 });
-    await page.getByRole('link', { name: 'Ver' }).first().click();
+    const orderRow = page
+      .locator('[data-testid^="row-order-"]')
+      .filter({ hasText: customerName });
+    await expect(orderRow).toBeVisible({ timeout: 10000 });
+    await orderRow.getByRole('link', { name: 'Ver' }).click();
 
     await expect(page.getByText('Chat con el cliente')).toBeVisible();
-    await expect(page.getByText(clientMessage).first()).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByTestId('chat-message-text').filter({ hasText: clientMessage })
+    ).toBeVisible({ timeout: 15000 });
 
     const operatorMessage = 'En 20 minutos.';
     await page.getByPlaceholder('Escribí un mensaje...').fill(operatorMessage);
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
 
     await expect(page.getByPlaceholder('Escribí un mensaje...')).toHaveValue('');
-    await expect(page.getByText(operatorMessage).first()).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByTestId('chat-message-text').filter({ hasText: operatorMessage })
+    ).toBeVisible({ timeout: 10000 });
 
     // Cliente ve la respuesta recargando la URL del chat.
     await page.goto(clientChatUrl);
-    await expect(page.getByText(operatorMessage).first()).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByTestId('chat-message-text').filter({ hasText: operatorMessage })
+    ).toBeVisible({ timeout: 15000 });
   });
 });

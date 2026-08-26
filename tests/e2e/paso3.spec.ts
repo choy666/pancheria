@@ -44,17 +44,44 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   });
 
   test('registra una venta', async ({ page }) => {
+    const productsResponse = await page.request.get('/api/productos');
+    const products = (await productsResponse.json()) as {
+      id: number;
+      name: string;
+      type: string;
+      price: number;
+    }[];
+    const promo = products.find(
+      (p) => p.type === 'compound' && p.price === 1000
+    );
+    if (!promo) throw new Error('No se encontró la promo de prueba');
+
     await ensureCashRegisterOpen(page);
     await page.goto('/ventas');
-    await page.getByText('Promo 1').click();
+    await page
+      .locator(`[data-testid="product-card"][data-product-name="${promo.name}"]`)
+      .click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page).toHaveURL('/ventas', { timeout: 10000 });
   });
 
   test('ajusta stock', async ({ page }) => {
+    const productsResponse = await page.request.get(
+      '/api/productos?includeAvailability=false'
+    );
+    const products = (await productsResponse.json()) as {
+      id: number;
+      name: string;
+      type: string;
+      criticalSupplyType: string | null;
+    }[];
+    const pan = products.find(
+      (p) => p.type === 'critical_supply' && p.criticalSupplyType === 'bread'
+    );
+    if (!pan) throw new Error('No se encontró el insumo Pan');
+
     await page.goto('/stock');
-    const row = page.getByRole('row', { name: /Pan/ });
-    await row.getByRole('button', { name: 'Ajustar' }).first().click();
+    await page.getByTestId(`adjust-stock-${pan.id}`).click();
     await page.getByLabel(/Cantidad/).fill('10');
     await page.getByLabel('Motivo').fill('Ajuste de prueba');
     await page.getByRole('button', { name: 'Guardar ajuste' }).click();
@@ -64,9 +91,9 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   test('cierra la caja y cierra sesion', async ({ page }) => {
     await ensureCashRegisterOpen(page);
     await page.goto('/cierre');
-    await expect(page.getByText('Total:').first()).toBeVisible();
+    await expect(page.getByTestId('cash-register-total')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Cerrar caja' }).click();
+    await page.getByTestId('close-cash-register').click();
     await expect(page.getByText('No hay una caja abierta.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();

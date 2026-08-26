@@ -235,6 +235,8 @@ export function CajaHistory({
               return (
                 <TableRow
                   key={cashRegister.id}
+                  data-testid={`cash-register-row-${cashRegister.id}`}
+                  data-cash-register-id={cashRegister.id}
                   className="cursor-pointer"
                   onClick={() =>
                     router.push(
@@ -264,7 +266,10 @@ export function CajaHistory({
                   <TableCell className="hidden sm:table-cell font-mono">
                     {cashRegister.totalSales}
                   </TableCell>
-                  <TableCell className="font-mono font-medium text-primary">
+                  <TableCell
+                    data-testid={`cash-register-total-${cashRegister.id}`}
+                    className="font-mono font-medium text-primary"
+                  >
                     ${cashRegister.total.toFixed(2)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell font-mono">

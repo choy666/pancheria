@@ -15,10 +15,10 @@ Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unita
 **Conclusión de cobertura:**
 
 - **Repositorios y servicios de aplicación** tienen cobertura unitaria completa (repositorios 100%, servicios 100%).
-- **Rutas API** pasaron de ~67% a ~84% (36 de 43 con test); quedan 7 rutas sin test.
-- **`src/lib`** pasó de 21 a 26 archivos con test; la infraestructura crítica (`public-url`, `rate-limit`, `rate-limit-store`, `api-handler`, `storage`) ya tiene cobertura unitaria.
+- **Rutas API** tienen cobertura completa: 43 de 43 con test.
+- **`src/lib`** tiene 27 de 33 archivos con test; se agregó `fetch.ts` y la infraestructura crítica está cubierta.
 - **Configuración con variables de entorno** ya tiene tests para `caja`, `chat`, `orders`, `catalog` y `videos`.
-- **Tests E2E** conservan 22 specs, pero se reemplazaron selectores frágiles: ya no quedan usos de `[data-slot]` ni `td:nth-child` en los specs.
+- **Tests E2E** conservan 23 specs, se reemplazaron selectores frágiles (`[data-slot]`, `td:nth-child`, `.first()`, `.last()`, `.nth()`) y se agregó un spec de confirmación/cancelación de pedidos desde el panel.
 - **Componentes y páginas** del panel siguen sin tests unitarios; la cobertura depende de E2E.
 
 ---
@@ -39,14 +39,14 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 | Métrica | Valor |
 |---------|-------|
-| Suites unitarias (Jest) | 110 |
-| Tests unitarios | 1054 |
-| Archivos de test unitario | ~110 |
-| Specs E2E | 22 |
-| Tests E2E listados | 84 |
+| Suites unitarias (Jest) | 118 |
+| Tests unitarios | 1085 |
+| Archivos de test unitario | ~118 |
+| Specs E2E | 23 |
+| Tests E2E listados | 86 |
 | Rutas API | 43 |
-| Rutas API con test | 36 |
-| Rutas API sin test | 7 |
+| Rutas API con test | 43 |
+| Rutas API sin test | 0 |
 | Servicios de aplicación | 14 |
 | Servicios con test | 14 |
 | Servicios sin test | 0 |
@@ -54,8 +54,8 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 | Repositorios con test | 10 |
 | Repositorios sin test | 0 |
 | Archivos `src/lib/*.ts` | 33 |
-| `src/lib/*.ts` con test | 26 |
-| `src/lib/*.ts` sin test | 7 |
+| `src/lib/*.ts` con test | 27 |
+| `src/lib/*.ts` sin test | 6 |
 
 ---
 

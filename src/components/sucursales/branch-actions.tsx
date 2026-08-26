@@ -108,6 +108,7 @@ export function BranchActions({
       <Button
         ref={deleteButtonRef}
         type="button"
+        data-testid={`delete-branch-${branchId}`}
         variant="ghost"
         size="sm"
         disabled={isLoadingSummary}

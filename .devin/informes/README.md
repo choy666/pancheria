@@ -6,6 +6,7 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente,
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
 - [Plan de acción — cierre de pendientes](plan-de-accion-pendientes.md) — pasos para resolver las recomendaciones del reporte de estado y otras deudas documentales.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
+- [Informe estratégico — franquicia/SaaS](informe-estrategico-franquicia-saas.md) — análisis del modelo de negocio y recomendaciones para pasar de proyecto propio a plataforma para comercios.
 - [Archivo de informes históricos](archivados/) — reportes anteriores (`reporte-estado-YYYY-MM-DD.md`) y planes resueltos (`plan-implementacion-chat-2026-08-23.md`, `informe-pro-contras-recomendaciones-2026-08-23.md`, etc.).
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 

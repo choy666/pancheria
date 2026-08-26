@@ -185,7 +185,12 @@ export function StockList() {
                   </TableHead>
                 </TableRow>
                 {group.items.map((product) => (
-                  <TableRow key={product.id}>
+                  <TableRow
+                    key={product.id}
+                    data-testid="stock-row"
+                    data-product-id={product.id}
+                    data-product-name={product.name}
+                  >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <span
@@ -214,7 +219,10 @@ export function StockList() {
                           : ''}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell font-mono">
+                    <TableCell
+                      data-testid="stock-quantity"
+                      className="hidden md:table-cell font-mono"
+                    >
                       {product.stock} {product.unit}
                       {product.isLow && (
                         <Badge variant="destructive" className="ml-2">
@@ -226,6 +234,7 @@ export function StockList() {
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button
                           data-tour="stock-adjust"
+                          data-testid={`adjust-stock-${product.id}`}
                           variant="ghost"
                           size="sm"
                           className="w-full sm:w-auto"
@@ -241,6 +250,7 @@ export function StockList() {
                           Ajustar
                         </Button>
                         <Button
+                          data-testid={`stock-history-${product.id}`}
                           variant="ghost"
                           size="sm"
                           className="w-full sm:w-auto"

@@ -378,6 +378,8 @@ export function SalesTerminal() {
                   {cart.map((item) => (
                     <li
                       key={item.product.id}
+                      data-testid="cart-item"
+                      data-product-name={item.product.name}
                       className="flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0 flex-1">

@@ -51,8 +51,13 @@ export function BranchList({ branches }: BranchListProps) {
           </TableHeader>
           <TableBody>
             {branches.map((branch) => (
-              <TableRow key={branch.id}>
-                <TableCell>{branch.name}</TableCell>
+              <TableRow
+                key={branch.id}
+                data-testid="branch-row"
+                data-branch-id={branch.id}
+                data-branch-name={branch.name}
+              >
+                <TableCell data-testid="branch-name">{branch.name}</TableCell>
                 <TableCell className="text-right font-mono">
                   {branch.id}
                 </TableCell>

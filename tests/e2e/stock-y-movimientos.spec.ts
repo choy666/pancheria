@@ -37,13 +37,13 @@ test.describe('Stock, ajustes y movimientos', () => {
     expect(stockInicial.status()).toBe(200);
 
     await page.goto('/stock');
-    const row = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
+    const row = page
+      .getByTestId('stock-row')
+      .filter({ hasText: new RegExp(producto.name) });
     await expect(row).toBeVisible();
-    await expect(
-      row.locator('td', { hasText: /^2 unidad$/ }).first()
-    ).toBeVisible();
+    await expect(row.getByTestId('stock-quantity')).toHaveText(/^2 unidad$/);
 
-    await row.getByRole('button', { name: 'Ajustar' }).first().click();
+    await page.getByTestId(`adjust-stock-${producto.id}`).click();
     await page.getByLabel(/Cantidad/).fill('-10');
     await page.getByLabel('Motivo').fill('Ajuste negativo de prueba');
     await page.getByRole('button', { name: 'Guardar ajuste' }).click();
@@ -60,14 +60,20 @@ test.describe('Stock, ajustes y movimientos', () => {
     expect(ajuste.status()).toBe(200);
 
     await page.goto('/stock');
-    const updatedRow = page.locator('tr').filter({ hasText: new RegExp(producto.name) });
+    const updatedRow = page
+      .getByTestId('stock-row')
+      .filter({ hasText: new RegExp(producto.name) });
     await expect(updatedRow).toBeVisible();
-    await expect(
-      updatedRow.locator('td', { hasText: /^6 unidad$/ }).first()
-    ).toBeVisible();
+    await expect(updatedRow.getByTestId('stock-quantity')).toHaveText(
+      /^6 unidad$/
+    );
 
-    await updatedRow.getByRole('button', { name: 'Historial' }).first().click();
-    await expect(page.getByText('Ajuste positivo de prueba')).toBeVisible();
+    await page.getByTestId(`stock-history-${producto.id}`).click();
+    await expect(
+      page
+        .getByTestId('stock-movement-reason')
+        .filter({ hasText: 'Ajuste positivo de prueba' })
+    ).toBeVisible();
   });
 
   test('la venta y la anulación generan movimientos del tipo correcto', async ({

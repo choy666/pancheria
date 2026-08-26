@@ -31,7 +31,9 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     ).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
     await expect(
-      page.locator('tr').filter({ hasText: secondBranch.username }).first()
+      page
+        .locator('[data-testid^="cash-register-row-"]')
+        .filter({ hasText: secondBranch.username })
     ).toBeVisible();
   });
 

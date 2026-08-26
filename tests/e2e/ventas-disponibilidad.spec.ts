@@ -34,9 +34,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: bebida.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + bebida.name + '"]');
 
     await expect(card.getByText('Disponible: 2 unidad')).toBeVisible({
       timeout: 10000,
@@ -47,10 +45,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await card.click();
     await card.click();
 
-    const cartItem = page
-      .getByRole('listitem')
-      .filter({ hasText: bebida.name })
-      .first();
+    const cartItem = page.locator('[data-testid="cart-item"][data-product-name="' + bebida.name + '"]');
 
     await expect(
       cartItem.getByText('2', { exact: true })
@@ -87,9 +82,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: servicio.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + servicio.name + '"]');
 
     await expect(card.getByText('Disponible: sin límite')).toBeVisible({
       timeout: 10000,
@@ -99,10 +92,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await card.click();
     await card.click();
 
-    const cartItem = page
-      .getByRole('listitem')
-      .filter({ hasText: servicio.name })
-      .first();
+    const cartItem = page.locator('[data-testid="cart-item"][data-product-name="' + servicio.name + '"]');
 
     await expect(
       cartItem.getByText('3', { exact: true })
@@ -172,9 +162,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: promo.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + promo.name + '"]');
 
     await expect(card.getByText('Disponible: 4 unidad')).toBeVisible({
       timeout: 10000,
@@ -239,9 +227,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page.goto('/ventas');
 
     const card = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: promo.name })
-      .first();
+      .locator('[data-testid="product-card"][data-product-name="' + promo.name + '"]');
 
     await expect(card.getByText('Disponible: 1 unidad')).toBeVisible({
       timeout: 10000,

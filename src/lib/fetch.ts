@@ -19,7 +19,7 @@ export class FetchAbortError extends Error {
   }
 }
 
-function getDefaultTimeoutMs(): number {
+export function getDefaultTimeoutMs(): number {
   const env = process.env.NEXT_PUBLIC_API_TIMEOUT_MS;
   if (!env) return 30_000;
 

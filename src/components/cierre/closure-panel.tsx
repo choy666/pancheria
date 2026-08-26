@@ -133,7 +133,10 @@ export function ClosurePanel() {
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="font-mono text-2xl font-bold text-primary">
+              <p
+                data-testid="closure-total"
+                className="font-mono text-2xl font-bold text-primary"
+              >
                 Total: ${closure.total.toFixed(2)}
               </p>
               <div className="grid grid-cols-2 gap-3 text-base">
@@ -148,14 +151,19 @@ export function ClosurePanel() {
             </CardContent>
           </Card>
 
-          <Card data-testid="products-sold-card">
+          <Card data-testid="closure-products-sold-card">
             <CardHeader>
               <CardTitle className="text-lg">Productos vendidos</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
                 {Object.entries(productsSummary).map(([name, quantity]) => (
-                  <li key={name} className="flex items-center justify-between rounded-lg bg-muted/20 p-2">
+                  <li
+                    key={name}
+                    data-testid="closure-product-item"
+                    data-product-name={name}
+                    className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+                  >
                     <span>{name}</span>
                     <span className="font-mono font-medium">{quantity}</span>
                   </li>
@@ -164,14 +172,19 @@ export function ClosurePanel() {
             </CardContent>
           </Card>
 
-          <Card data-testid="critical-supplies-card">
+          <Card data-testid="closure-critical-supplies-card">
             <CardHeader>
               <CardTitle className="text-lg">Consumo de insumos críticos</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
                 {Object.entries(criticalSuppliesSummary).map(([name, quantity]) => (
-                  <li key={name} className="flex items-center justify-between rounded-lg bg-muted/20 p-2">
+                  <li
+                    key={name}
+                    data-testid="closure-supply-item"
+                    data-supply-name={name}
+                    className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+                  >
                     <span>{name}</span>
                     <span className="font-mono font-medium">{quantity}</span>
                   </li>

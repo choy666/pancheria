@@ -10,8 +10,15 @@ test.describe('Paso 4 - Flujos avanzados', () => {
     await ensureCashRegisterOpen(page);
 
     const productsResponse = await page.request.get('/api/productos');
-    const products = await productsResponse.json() as { id: number; name: string }[];
-    const product = products.find((p) => p.name === 'Promo 1');
+    const products = (await productsResponse.json()) as {
+      id: number;
+      name: string;
+      type: string;
+      price: number;
+    }[];
+    const product = products.find(
+      (p) => p.type === 'compound' && p.price === 1000
+    );
     if (!product) throw new Error('Producto no encontrado');
 
     const saleResponse = await page.request.post('/api/ventas', {
@@ -37,18 +44,34 @@ test.describe('Paso 4 - Flujos avanzados', () => {
   });
 
   test('muestra historial de stock tras un ajuste', async ({ page }) => {
+    const productsResponse = await page.request.get(
+      '/api/productos?includeAvailability=false'
+    );
+    const products = (await productsResponse.json()) as {
+      id: number;
+      name: string;
+      type: string;
+      criticalSupplyType: string | null;
+    }[];
+    const pan = products.find(
+      (p) => p.type === 'critical_supply' && p.criticalSupplyType === 'bread'
+    );
+    if (!pan) throw new Error('No se encontró el insumo Pan');
+
     await page.goto('/stock');
-    const row = page.getByRole('row', { name: /Pan/ });
-    await row.getByRole('button', { name: 'Ajustar' }).first().click();
+    await page.getByTestId(`adjust-stock-${pan.id}`).click();
     await page.getByLabel(/Cantidad/).fill('5');
     await page.getByLabel('Motivo').fill('Ajuste de prueba historial');
     await page.getByRole('button', { name: 'Guardar ajuste' }).click();
     await expect(page).toHaveURL('/stock', { timeout: 10000 });
 
     await page.goto('/stock');
-    const historyRow = page.getByRole('row', { name: /Pan/ });
-    await historyRow.getByRole('button', { name: 'Historial' }).first().click();
-    await expect(page.getByText('Ajuste de prueba historial').first()).toBeVisible();
+    await page.getByTestId(`stock-history-${pan.id}`).click();
+    await expect(
+      page
+        .getByTestId('stock-movement-reason')
+        .filter({ hasText: 'Ajuste de prueba historial' })
+    ).toBeVisible();
   });
 
   test('elimina un producto y desaparece del listado', async ({ page }) => {

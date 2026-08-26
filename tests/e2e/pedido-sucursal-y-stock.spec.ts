@@ -204,7 +204,11 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
 
     // Confirmar el pedido desde el panel.
     await page.goto('/pedidos');
-    await page.locator('[data-testid^="row-order-"]').first().getByRole('link', { name: 'Ver' }).click();
+    await page
+      .locator('[data-testid^="row-order-"]')
+      .filter({ hasText: customerName })
+      .getByRole('link', { name: 'Ver' })
+      .click();
 
     await ensureCashRegisterOpen(page);
 

@@ -77,8 +77,13 @@ export function UserList({
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.username}</TableCell>
+              <TableRow
+                key={user.id}
+                data-testid="user-row"
+                data-user-id={user.id}
+                data-username={user.username}
+              >
+                <TableCell data-testid="user-username">{user.username}</TableCell>
                 <TableCell>
                   <Badge
                     variant={user.role === 'admin' ? 'default' : 'secondary'}

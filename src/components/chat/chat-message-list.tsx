@@ -66,11 +66,15 @@ export function ChatMessageList({
         {messages.map((message) => (
           <div
             key={message.id}
+            data-testid="chat-message"
+            data-sender-type={message.senderType}
             className={`flex ${
               isOwnMessage(message.senderType) ? 'justify-end' : 'justify-start'
             }`}
           >
             <div
+              data-testid="chat-message-bubble"
+              data-sender-type={message.senderType}
               className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                 isOwnMessage(message.senderType)
                   ? 'bg-primary text-primary-foreground'
@@ -81,7 +85,7 @@ export function ChatMessageList({
                 <p className="mb-1 text-xs opacity-80">{message.senderName}</p>
               )}
               {message.content && (
-                <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                <p data-testid="chat-message-text" className="whitespace-pre-wrap text-sm">{message.content}</p>
               )}
               {message.attachmentUrl && (
                 <ChatAttachment message={message} token={token} />

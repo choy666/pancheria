@@ -55,6 +55,7 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
         </p>
         <Button
           data-tour="caja-action"
+          data-testid="open-cash-register"
           type="button"
           onClick={handleOpen}
           disabled={isSubmitting}
@@ -81,6 +82,7 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
         </div>
         <Button
           data-tour="caja-action"
+          data-testid="close-cash-register"
           type="button"
           onClick={handleClose}
           disabled={isSubmitting}

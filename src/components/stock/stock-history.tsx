@@ -95,7 +95,11 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
           </TableHeader>
           <TableBody>
             {items.map((movement) => (
-              <TableRow key={movement.id}>
+              <TableRow
+                key={movement.id}
+                data-testid="stock-movement-row"
+                data-movement-type={movement.type}
+              >
                 <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
                 <TableCell className="hidden sm:table-cell">
                   {typeLabels[movement.type]}
@@ -108,7 +112,10 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
                   {movement.quantity > 0 ? '+' : ''}
                   {movement.quantity}
                 </TableCell>
-                <TableCell className="hidden md:table-cell max-w-[200px] truncate">
+                <TableCell
+                  data-testid="stock-movement-reason"
+                  className="hidden md:table-cell max-w-[200px] truncate"
+                >
                   {movement.reason || '-'}
                 </TableCell>
               </TableRow>

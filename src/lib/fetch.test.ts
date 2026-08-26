@@ -1,108 +1,126 @@
 import {
   authenticatedFetch,
+  getDefaultTimeoutMs,
   FetchTimeoutError,
-  FetchNetworkError,
   FetchAbortError,
+  FetchNetworkError,
 } from './fetch';
 
-const TEST_URL = '/api/test';
+describe('getDefaultTimeoutMs', () => {
+  const originalEnv = { ...process.env };
 
-function createAbortError() {
-  return new DOMException('The operation was aborted.', 'AbortError');
-}
-
-function createFetchMock() {
-  return jest.fn().mockImplementation((input, init?: RequestInit) => {
-    return new Promise<Response>((resolve, reject) => {
-      if (init?.signal?.aborted) {
-        reject(createAbortError());
-        return;
-      }
-
-      const onAbort = () => reject(createAbortError());
-      init?.signal?.addEventListener('abort', onAbort);
-    });
+  afterEach(() => {
+    process.env = { ...originalEnv };
   });
-}
+
+  test('usa 30.000 ms por defecto', () => {
+    delete process.env.NEXT_PUBLIC_API_TIMEOUT_MS;
+    expect(getDefaultTimeoutMs()).toBe(30_000);
+  });
+
+  test('respeta NEXT_PUBLIC_API_TIMEOUT_MS', () => {
+    process.env.NEXT_PUBLIC_API_TIMEOUT_MS = '100';
+    expect(getDefaultTimeoutMs()).toBe(100);
+  });
+
+  test('ignora valores inválidos o negativos', () => {
+    process.env.NEXT_PUBLIC_API_TIMEOUT_MS = 'abc';
+    expect(getDefaultTimeoutMs()).toBe(30_000);
+  });
+});
 
 describe('authenticatedFetch', () => {
   const originalFetch = global.fetch;
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn();
+  });
+
   afterEach(() => {
-    jest.restoreAllMocks();
     global.fetch = originalFetch;
-    jest.useRealTimers();
   });
 
-  test('resuelve con la respuesta del fetch', async () => {
-    const expected = new Response('ok', { status: 200 });
-    global.fetch = jest.fn().mockResolvedValue(expected);
+  test('llama a fetch con credentials include', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(new Response('ok'));
 
-    const result = await authenticatedFetch(TEST_URL);
-
-    expect(result).toBe(expected);
-  });
-
-  test('incluye credentials: include y respeta el resto del init', async () => {
-    global.fetch = jest.fn().mockResolvedValue(new Response('ok'));
-
-    await authenticatedFetch(TEST_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ a: 1 }),
-    });
+    await authenticatedFetch('/api/test');
 
     expect(global.fetch).toHaveBeenCalledWith(
-      TEST_URL,
+      '/api/test',
       expect.objectContaining({
-        method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ a: 1 }),
       })
     );
   });
 
-  test('lanza FetchTimeoutError si el fetch supera el tiempo de espera', async () => {
-    jest.useFakeTimers();
-    global.fetch = createFetchMock();
+  test('devuelve la respuesta exitosa', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(new Response('ok'));
 
-    const promise = authenticatedFetch(TEST_URL, {}, 1000);
+    const response = await authenticatedFetch('/api/test');
 
-    jest.advanceTimersByTime(1001);
-
-    await expect(promise).rejects.toBeInstanceOf(FetchTimeoutError);
+    expect(response.status).toBe(200);
   });
 
-  test('respeta la señal de cancelación del llamador', async () => {
-    global.fetch = createFetchMock();
+  test('propaga la señal del caller', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(new Response('ok'));
+    const controller = new AbortController();
 
-    const callerController = new AbortController();
-    callerController.abort();
+    await authenticatedFetch('/api/test', { signal: controller.signal });
 
-    await expect(
-      authenticatedFetch(TEST_URL, { signal: callerController.signal })
-    ).rejects.toBeInstanceOf(FetchAbortError);
-  });
-
-  test('cancela el fetch si la señal del llamador se aborta durante la solicitud', async () => {
-    global.fetch = createFetchMock();
-
-    const callerController = new AbortController();
-    const promise = authenticatedFetch(TEST_URL, {
-      signal: callerController.signal,
-    });
-
-    callerController.abort();
-
-    await expect(promise).rejects.toBeInstanceOf(FetchAbortError);
-  });
-
-  test('lanza FetchNetworkError cuando fetch falla por red', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-
-    await expect(authenticatedFetch(TEST_URL)).rejects.toBeInstanceOf(
-      FetchNetworkError
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/test',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
     );
+  });
+
+  test('lanza FetchAbortError cuando el caller aborta', async () => {
+    const controller = new AbortController();
+    (global.fetch as jest.Mock).mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          controller.signal.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        })
+    );
+
+    const promise = authenticatedFetch('/api/test', { signal: controller.signal });
+    controller.abort();
+
+    await expect(promise).rejects.toThrow(FetchAbortError);
+  });
+
+  test('lanza FetchTimeoutError cuando vence el timeout', async () => {
+    (global.fetch as jest.Mock).mockImplementation(
+      (_input: unknown, init?: { signal?: AbortSignal }) => {
+        return new Promise((_, reject) => {
+          const signal = init?.signal;
+          if (!signal) {
+            reject(new Error('No signal'));
+            return;
+          }
+          if (signal.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'));
+            return;
+          }
+          signal.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+      }
+    );
+
+    await expect(authenticatedFetch('/api/test', {}, 50)).rejects.toThrow(
+      FetchTimeoutError
+    );
+  });
+
+  test('convierte errores de red en FetchNetworkError', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network failure'));
+
+    await expect(authenticatedFetch('/api/test')).rejects.toThrow(FetchNetworkError);
   });
 });

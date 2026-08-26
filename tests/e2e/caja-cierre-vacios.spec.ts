@@ -15,9 +15,7 @@ test.describe('Caja y cierre con estados vacíos', () => {
     await expect(
       page.getByText('No hay una caja abierta. Abrí una caja para comenzar a vender.')
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Abrir caja' }).first()
-    ).toBeVisible();
+    await expect(page.getByTestId('open-cash-register')).toBeVisible();
   });
 
   test('la página de cierre muestra la caja actual sin caja abierta', async ({
@@ -65,9 +63,8 @@ test.describe('Caja y cierre con estados vacíos', () => {
 
     for (const supply of criticalSupplies) {
       const row = suppliesSection
-        .getByRole('listitem')
-        .filter({ hasText: supply.name })
-        .first();
+        .getByTestId('cash-register-supply-item')
+        .filter({ hasText: supply.name });
       await expect(row).toBeVisible();
       await expect(row).toContainText('0');
     }
