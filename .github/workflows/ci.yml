@@ -87,32 +87,12 @@ jobs:
     name: Tests end-to-end
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          # Fallbacks locales para que el contenedor arranque y pueda reportar un
-          # error claro si faltan las variables del repositorio. La URL real se
-          # construye en el step "Verificar secretos y exportar DATABASE_URL".
-          POSTGRES_USER: ${{ vars.E2E_DB_USER || 'postgres' }}
-          POSTGRES_PASSWORD: ${{ secrets.E2E_DB_PASSWORD || 'postgres' }}
-          POSTGRES_DB: ${{ vars.E2E_DB_NAME || 'pancheria_e2e' }}
-          # pg_isready por defecto intenta conectarse con el usuario del sistema
-          # (root), generando "FATAL: role \"root\" does not exist". Con PGUSER
-          # se fuerza el usuario correcto para el health check.
-          PGUSER: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      # Valores requeridos, se validan en el step de verificación.
-      E2E_DB_USER: ${{ vars.E2E_DB_USER }}
-      E2E_DB_PASSWORD: ${{ secrets.E2E_DB_PASSWORD }}
-      E2E_DB_NAME: ${{ vars.E2E_DB_NAME }}
+      # La base de datos para E2E ahora es una base remota de Neon descartable,
+      # configurada a través de repository secrets. El nombre de la base termina
+      # en _e2e para cumplir la validación de tests/e2e/global-setup.ts.
+      DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.E2E_DATABASE_URL_UNPOOLED }}
       NEXTAUTH_URL: http://localhost:3000
       AUTH_URL: http://localhost:3000
       BASE_URL: http://localhost:3000
@@ -133,18 +113,15 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Verificar secretos y exportar DATABASE_URL
+      - name: Verificar secretos de E2E
         run: |
           node -e "
-          const fs = require('fs');
-
           const required = [
             { key: 'NEXTAUTH_SECRET', label: 'NEXTAUTH_SECRET', type: 'secret' },
             { key: 'ADMIN_USERNAME', label: 'ADMIN_USERNAME', type: 'secret o variable' },
             { key: 'ADMIN_PASSWORD', label: 'ADMIN_PASSWORD', type: 'secret' },
-            { key: 'E2E_DB_USER', label: 'E2E_DB_USER', type: 'variable' },
-            { key: 'E2E_DB_PASSWORD', label: 'E2E_DB_PASSWORD', type: 'secret' },
-            { key: 'E2E_DB_NAME', label: 'E2E_DB_NAME', type: 'variable' },
+            { key: 'DATABASE_URL', label: 'E2E_DATABASE_URL', type: 'secret' },
+            { key: 'DATABASE_URL_UNPOOLED', label: 'E2E_DATABASE_URL_UNPOOLED', type: 'secret' },
           ];
 
           let missing = false;
@@ -160,14 +137,7 @@ jobs:
             process.exit(1);
           }
 
-          const user = encodeURIComponent(process.env.E2E_DB_USER);
-          const password = encodeURIComponent(process.env.E2E_DB_PASSWORD);
-          const dbName = encodeURIComponent(process.env.E2E_DB_NAME);
-          const url = \`postgresql://\${user}:\${password}@localhost:5432/\${dbName}\`;
-
-          fs.appendFileSync(process.env.GITHUB_ENV, \`DATABASE_URL=\${url}\\n\`);
-          fs.appendFileSync(process.env.GITHUB_ENV, \`DATABASE_URL_UNPOOLED=\${url}\\n\`);
-          console.log('DATABASE_URL exportada para E2E.');
+          console.log('DATABASE_URL configurada para E2E.');
           "
 
       - run: npx drizzle-kit push --force
