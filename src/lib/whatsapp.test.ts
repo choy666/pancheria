@@ -6,13 +6,14 @@ import {
 } from '@/lib/whatsapp';
 
 describe('buildWhatsAppMessage', () => {
-  test('genera el mensaje con líneas, total, cliente, entrega y notas', () => {
+  test('genera el mensaje con líneas, total, cliente, teléfono, entrega y notas', () => {
     const order: PublicOrder = {
       items: [
         { productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 2 },
         { productId: 2, name: 'Gaseosa', price: 500, unit: 'unidad', quantity: 1 },
       ],
       customerName: 'Juan Pérez',
+      customerPhone: ' 341 555 5555 ',
       deliveryType: 'delivery',
       address: 'Av. Siempre Viva 742',
       notes: 'Sin mostaza',
@@ -20,6 +21,8 @@ describe('buildWhatsAppMessage', () => {
     };
 
     const message = buildWhatsAppMessage(order);
+
+    expect(message).toContain('Teléfono: 3415555555');
 
     expect(message).toContain('Panchuque');
     expect(message).toContain('Gaseosa');
@@ -111,6 +114,22 @@ describe('buildWhatsAppMessage', () => {
 
     expect(message).toContain('Seguí tu pedido y chateá con la sucursal:');
     expect(message).toContain('/pedido/123/chat?token=abc123');
+  });
+
+  test('omite la línea de teléfono cuando no está definido', () => {
+    const order: PublicOrder = {
+      items: [
+        { productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 },
+      ],
+      customerName: 'Carlos',
+      deliveryType: 'pickup',
+      total: 1200,
+    };
+
+    const message = buildWhatsAppMessage(order);
+
+    expect(message).not.toContain('Teléfono:');
+    expect(message).toContain('Entrega: Retiro en sucursal');
   });
 
   test('omite el enlace al chat cuando no tiene id o token', () => {

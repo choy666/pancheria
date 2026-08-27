@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Check, CheckCheck } from 'lucide-react';
 import { ChatAttachment } from './chat-attachment';
 import { formatTime } from '@/lib/date';
 import type { OrderMessage, OrderMessageSenderType } from '@/domain/types';
@@ -15,6 +16,51 @@ interface ChatMessageListProps {
   title: string;
   displayedUnreadCount: number;
   isPolling: boolean;
+}
+
+function MessageStatusIcon({
+  deliveredAt,
+  readAt,
+}: {
+  deliveredAt: Date | null;
+  readAt: Date | null;
+}) {
+  if (readAt) {
+    return (
+      <span
+        data-testid="message-status-read"
+        className="inline-flex"
+        title={`Leído ${formatTime(readAt)}`}
+        aria-label="Leído"
+      >
+        <CheckCheck className="size-3 shrink-0 text-blue-400" />
+      </span>
+    );
+  }
+
+  if (deliveredAt) {
+    return (
+      <span
+        data-testid="message-status-delivered"
+        className="inline-flex"
+        title={`Entregado ${formatTime(deliveredAt)}`}
+        aria-label="Entregado"
+      >
+        <CheckCheck className="size-3 shrink-0 opacity-70" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      data-testid="message-status-sent"
+      className="inline-flex"
+      title="Enviado"
+      aria-label="Enviado"
+    >
+      <Check className="size-3 shrink-0 opacity-70" />
+    </span>
+  );
 }
 
 export function ChatMessageList({
@@ -63,45 +109,57 @@ export function ChatMessageList({
           </div>
         )}
 
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            data-testid="chat-message"
-            data-sender-type={message.senderType}
-            className={`flex ${
-              isOwnMessage(message.senderType) ? 'justify-end' : 'justify-start'
-            }`}
-          >
+        {messages.map((message) => {
+          const own = isOwnMessage(message.senderType);
+
+          return (
             <div
-              data-testid="chat-message-bubble"
+              key={message.id}
+              data-testid="chat-message"
               data-sender-type={message.senderType}
-              className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                isOwnMessage(message.senderType)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
+              className={`flex ${own ? 'justify-end' : 'justify-start'}`}
             >
-              {message.senderName && (
-                <p className="mb-1 text-xs opacity-80">{message.senderName}</p>
-              )}
-              {message.content && (
-                <p data-testid="chat-message-text" className="whitespace-pre-wrap text-sm">{message.content}</p>
-              )}
-              {message.attachmentUrl && (
-                <ChatAttachment message={message} token={token} />
-              )}
-              <p
-                className={`mt-1 text-right text-xs ${
-                  isOwnMessage(message.senderType)
-                    ? 'text-primary-foreground/70'
-                    : 'text-muted-foreground'
+              <div
+                data-testid="chat-message-bubble"
+                data-sender-type={message.senderType}
+                className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                  own
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground'
                 }`}
               >
-                {formatTime(message.createdAt)}
-              </p>
+                {message.senderName && (
+                  <p className="mb-1 text-xs opacity-80">{message.senderName}</p>
+                )}
+                {message.content && (
+                  <p data-testid="chat-message-text" className="whitespace-pre-wrap text-sm">
+                    {message.content}
+                  </p>
+                )}
+                {message.attachmentUrl && (
+                  <ChatAttachment message={message} token={token} />
+                )}
+                <div
+                  className={`mt-1 flex items-center justify-end gap-1 text-xs ${
+                    own
+                      ? 'text-primary-foreground/70'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <span title={`Enviado ${formatTime(message.createdAt)}`}>
+                    {formatTime(message.createdAt)}
+                  </span>
+                  {own && (
+                    <MessageStatusIcon
+                      deliveredAt={message.deliveredAt}
+                      readAt={message.readAt}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {messages.length === 0 && (
           <p className="text-center text-sm text-muted-foreground">

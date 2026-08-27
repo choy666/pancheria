@@ -88,6 +88,25 @@ export async function markAllAsReadByOrderAndSender(
   return result.length;
 }
 
+export async function markAllAsDeliveredByOrderAndSender(
+  orderId: number,
+  senderType: OrderMessageSenderType
+): Promise<number> {
+  const result = await db
+    .update(orderMessages)
+    .set({ deliveredAt: nowUTC() })
+    .where(
+      and(
+        eq(orderMessages.orderId, orderId),
+        eq(orderMessages.senderType, senderType),
+        isNull(orderMessages.deliveredAt)
+      )
+    )
+    .returning({ id: orderMessages.id });
+
+  return result.length;
+}
+
 export async function countUnreadByOrderAndSender(
   orderId: number,
   senderType: OrderMessageSenderType

@@ -121,30 +121,19 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ## Prompts guardados
 
-### Prompt maestro
-
-Usar como punto de entrada para cualquier tarea futura:
-
-- [Prompt maestro — Proyecto Panchería](pancheria.prompt.md)
-
 ### Prompts activos
 
+- [Prompt maestro — Proyecto Panchería](pancheria.prompt.md) — punto de entrada para cualquier tarea futura.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
-- [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
-- [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — flujo vigente, limpieza realizada y decisiones clave.
-- [Corrección de tests E2E fallidos — caja, stock y entorno](correccion-tests-e2e-caja-y-entorno.md) — entorno, helpers y locators robustos para `npm run test:e2e`.
-- [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — guía técnica para transformar el sistema en una plataforma SaaS con múltiples tenants.
+- [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
 
 ### Prompts archivados
 
+- [Corrección de tests E2E fallidos — caja, stock y entorno](archivados/correccion-tests-e2e-caja-y-entorno.md) — resuelto: entorno, helpers y locators robustos para `npm run test:e2e`.
 - [Errores de deploy en Vercel](archivados/errores-deploy-vercel-forbidden-react-441.md) — resuelto: todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`; las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`.
-- [Confirmación de envío de pedido por WhatsApp](archivados/confirmacion-envio-pedido-whatsapp.md) — flujo anterior con `sentAt` y confirmación del cliente; eliminado del flujo vigente.
-- [Chat mínimo por pedido (Opción A)](archivados/chat-pedido-opcion-a.md) — propuesta anterior de implementación en dos etapas; reemplazada por el plan de mitigación de riesgos.
-- [Plan definitivo: chat anclado a pedidos](archivados/chat-pedido-plan-definitivo.md) — propuesta inicial de implementación del chat; reemplazada por los prompts y el código vigente.
-- [Plan de mitigación de riesgos del chat de pedidos](archivados/plan-mitigacion-riesgos-chat-pedido.md) — todas sus fases (A, B y C) implementadas: status en endpoints, polling, rate limit, storage, `attachmentKey` y limpieza de adjuntos huérfanos.
 - [Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes](archivados/auditoria-chat-workaround-y-mejoras.md) — resuelto: JSON body, compresión en test, `disablePollingOnMount` y `force-dynamic`.
-- [Plan de mejoras del chat de pedidos](archivados/plan-mejoras-chat-pedido.md) — resuelto: banner de pedidos recientes, `customerName` en seguimiento y paginación del chat.
+- [Auditoría de rate limit 429](archivados/auditoria-rate-limit-429.md) — resuelto: ajustes en rate limit de pedidos y chat.
 
 ## Véase también
 

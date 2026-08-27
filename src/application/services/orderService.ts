@@ -1,4 +1,6 @@
-import { sales } from '@/db/schema';
+import { inArray } from 'drizzle-orm';
+import { db } from '@/db';
+import { sales, products, stockMovements } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
@@ -33,7 +35,11 @@ import {
   buildOrderValues,
   buildOrderItemValues,
 } from '@/lib/order-helpers';
-import { iterRecipeConsumptions } from '@/lib/stock-helpers';
+import {
+  collectStockProductIdsToLock,
+  iterRecipeConsumptions,
+  buildStockMovementReason,
+} from '@/lib/stock-helpers';
 import {
   insertSaleAndUpdateCashRegister,
   cancelSale,
@@ -79,6 +85,30 @@ async function getOrderByIdempotencyKey(
   key: string
 ): Promise<OrderWithItems | null> {
   return orderRepository.findByIdempotencyKey(branchId, key);
+}
+
+async function insertStockReserveMovements(
+  tx: typeof db,
+  branchId: number,
+  orderId: number,
+  reservations: ReservationInput[],
+  type: 'reserve' | 'reserve_release'
+) {
+  if (reservations.length === 0) return;
+
+  const reason = buildStockMovementReason(type, undefined, orderId);
+
+  await tx.insert(stockMovements).values(
+    reservations.map((reservation) => ({
+      branchId,
+      productId: reservation.productId,
+      type,
+      quantity: type === 'reserve' ? -reservation.quantity : reservation.quantity,
+      saleId: null as number | null,
+      reason,
+      createdAt: nowUTC(),
+    }))
+  );
 }
 
 function buildReservationsForItems(
@@ -252,7 +282,16 @@ export async function cancelOrder(
     }
 
     if (locked.status === 'in_process') {
+      const reservationsToRelease =
+        await orderStockReservationRepository.findByOrderId(tx, id);
       await orderStockReservationRepository.deleteByOrderId(tx, id);
+      await insertStockReserveMovements(
+        tx,
+        branchId,
+        id,
+        reservationsToRelease,
+        'reserve_release'
+      );
     } else if (locked.status === 'paid' && locked.convertedSaleId) {
       await cancelSale(branchId, locked.convertedSaleId, reason);
     }
@@ -334,7 +373,16 @@ export async function convertOrderToSale(
     validateProductsForOperation(order.items, productById, branchId, 'venta');
 
     if (lockedOrder.status === 'in_process') {
+      const reservationsToRelease =
+        await orderStockReservationRepository.findByOrderId(tx, orderId);
       await orderStockReservationRepository.deleteByOrderId(tx, orderId);
+      await insertStockReserveMovements(
+        tx,
+        branchId,
+        orderId,
+        reservationsToRelease,
+        'reserve_release'
+      );
     }
 
     const { shortageByProduct } = await validateCartAvailability(
@@ -424,6 +472,20 @@ export async function receiveOrder(
 
     validateProductsForOperation(order.items, productById, branchId, 'pedido');
 
+    const productIdsToLock = collectStockProductIdsToLock(
+      order.items,
+      productById,
+      recipesByProduct
+    );
+
+    if (productIdsToLock.length > 0) {
+      await tx
+        .select()
+        .from(products)
+        .where(inArray(products.id, productIdsToLock))
+        .for('update');
+    }
+
     const { shortageByProduct } = await validateCartAvailability(
       branchId,
       order.items,
@@ -445,6 +507,13 @@ export async function receiveOrder(
         recipesByProduct
       );
       await orderStockReservationRepository.insertReservations(tx, reservations);
+      await insertStockReserveMovements(
+        tx,
+        branchId,
+        orderId,
+        reservations,
+        'reserve'
+      );
     }
 
     const updated = await orderRepository.updateStatus(tx, branchId, orderId, {

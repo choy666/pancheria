@@ -324,6 +324,11 @@ export async function ensureCashRegisterClosed(page: Page) {
     if (!cerrar.ok()) {
       throw new Error('No se pudo cerrar la caja para los tests.');
     }
+
+    const after = await getCashRegister(page);
+    if (after && after.status !== 'closed') {
+      throw new Error('La caja sigue abierta tras intentar cerrarla.');
+    }
   }
 }
 

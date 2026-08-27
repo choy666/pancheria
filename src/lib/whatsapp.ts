@@ -17,6 +17,7 @@ export interface PublicOrder {
   cancellationToken?: string;
   items: PublicOrderItem[];
   customerName: string;
+  customerPhone?: string;
   deliveryType: 'delivery' | 'pickup';
   address?: string;
   notes?: string;
@@ -50,7 +51,13 @@ export function buildWhatsAppMessage(order: PublicOrder): string {
     parts.push(`Pedido #${order.orderNumber}`);
   }
 
-  parts.push(...lines, `Total: $${total.toFixed(2)}`, `Cliente: ${order.customerName}`, `Entrega: ${deliveryLabel}`);
+  parts.push(...lines, `Total: $${total.toFixed(2)}`, `Cliente: ${order.customerName}`);
+
+  if (order.customerPhone) {
+    parts.push(`Teléfono: ${order.customerPhone.trim().replace(/\s/g, '')}`);
+  }
+
+  parts.push(`Entrega: ${deliveryLabel}`);
 
   if (order.branchName) {
     parts.push(`Sucursal: ${order.branchName}`);

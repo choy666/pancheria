@@ -8,12 +8,19 @@
 
 ## 1. Resumen ejecutivo
 
-Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)** y documentación vigente, cruzando variables de entorno, prompts e informes. Se completaron los tests E2E en una corrida anterior (ver `.devin/informes/archivados/reporte-estado-sincronizacion-2026-08-26.md`); en esta sesión no se requirió ejecutar `npm run test:e2e`.
+Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)**, **tests E2E (Playwright)** y documentación vigente, cruzando variables de entorno, prompts e informes. El suite E2E se corrió contra una base de datos descartable remota configurada en `.env.e2e`, reportando **2/2 tests de chat** pasados en la verificación de Fase 4.
 
-**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. La suite unitaria reporta **119 suites y 1102 tests**.
+**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test` (120 suites, 1127 tests), `npm run build`, `npm run knip`, `npx drizzle-kit check` en desarrollo, E2E y producción pasan; suite E2E completo: 96 pasados, 1 omitido, 0 fallidos; migración `0020` aplicada en los tres entornos.
 
 **Conclusión de cobertura:**
 
+- **Fase 4 completada (chat con estados de mensaje y tildes):**
+  - Columna `delivered_at` en `order_messages` con migración `drizzle/0019_hard_morbius.sql`.
+  - `orderMessageRepository.markAllAsDeliveredByOrderAndSender` marca entregados los mensajes del remitente opuesto.
+  - `chatService.listClientMessages` y `listOperatorMessages` marcan mensajes como entregados al listar.
+  - `chat-message-list.tsx` muestra tildes simple (enviado), doble (entregado) y doble azul (leído) con tooltips de accesibilidad.
+  - Tests unitarios de `orderMessageRepository`, `chatService` y `order-chat` ajustados y E2E de chat pasados.
+  - Migración `drizzle/0019_hard_morbius.sql` aplicada en desarrollo y E2E.
 - **Fase 3 completada (nuevos estados de pedido, reserva transaccional de stock y flujo recibir-pagar-finalizar):**
   - Nuevos estados `pending`, `in_process`, `paid`, `finished`, `cancelled` en `order_status` y en `OrderStatus` de dominio.
   - Nueva tabla `order_stock_reservations` con migración `drizzle/0018_black_vin_gonzales.sql`.
@@ -36,6 +43,14 @@ Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unita
   - `pedido-client.tsx` muestra advertencia de caja cerrada en el checkout sin bloquear el armado del carrito.
   - Tests unitarios y E2E ajustados; nuevo spec `pedido-caja-cerrada.spec.ts`.
   - Migración `drizzle/0017_unknown_energizer.sql` aplicada en desarrollo y producción; verificado que `opening_hours` existe con default `[]` en la base productiva.
+- **Fase 5 completada (gaps de integración y pulido):**
+  - `customerPhone` incluido en el mensaje de WhatsApp (`src/lib/whatsapp.ts`).
+  - Último teléfono del cliente persistido en `localStorage` (`src/lib/last-customer-phone.ts`, `order-tracker.tsx`).
+  - Horarios por defecto en `src/db/seeds.ts`.
+  - Test unitario de `chat-message-list.tsx` cubriendo tildes enviado/entregado/leído.
+  - `receiveOrder` protegido con `FOR UPDATE` sobre productos/insumos.
+  - `npx drizzle-kit check` verificado limpio en desarrollo, E2E y producción.
+  - Tipos `reserve` y `reserve_release` agregados a `stock_movement_type`; movimientos registrados al recibir, pagar, cancelar y anular pedidos; historial de stock muestra reservas y liberaciones.
 - **Repositorios y servicios de aplicación** tienen cobertura unitaria completa (repositorios 100%, servicios 100%).
 - **Rutas API** tienen cobertura completa: 43 de 43 con test.
 - **`src/lib`** tiene 27 de 33 archivos con test; la infraestructura crítica está cubierta.
@@ -61,9 +76,9 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 | Métrica | Valor |
 |---------|-------|
-| Suites unitarias (Jest) | 119 |
-| Tests unitarios | 1102 |
-| Archivos de test unitario | ~119 |
+| Suites unitarias (Jest) | 120 |
+| Tests unitarios | 1127 |
+| Archivos de test unitario | ~120 |
 | Specs E2E | 29 |
 | Tests E2E listados | 95 |
 | Rutas API | 43 |
@@ -191,8 +206,8 @@ Se encontraron **29 specs** en <ref_file file="C:/developer/paginas/pancheria/te
 - `whatsapp-icon`, `order-summary`
 - `recent-orders-banner`
 - `checkout-button`
-- `chat-file-input`, `chat-attachment-image`
-- `active-branch-name`
+
+> Nota: `chat-file-input`, `chat-attachment-image` y `active-branch-name` sí se usan en tests E2E (`pedido-chat-adjuntos.spec.ts`, `roles-y-sucursales.spec.ts`).
 
 ### 6.4 Flujos críticos no cubiertos por E2E
 
@@ -292,6 +307,8 @@ Acciones aplicadas en esta sesión:
 - Se actualizó `.devin/informes/guia-funcionamiento-pancheria.md` para eliminar `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` y aclarar el polling manual de `/pedidos`.
 - Se actualizó `.devin/informes/lecciones-aprendidas.md` con las lecciones de polling y rate limit en desarrollo.
 - Se actualizó `.devin/environment.yaml` con `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV` y el polling deshabilitado por defecto.
+- Se actualizó `.devin/informes/entornos.md` con el paso a paso para identificar y usar las URLs de base de datos de desarrollo, producción y E2E, incluyendo tablas de variables, comandos de Playwright y reglas de seguridad.
+- Se actualizó `AGENTS.md` con una sección resumen de bases de datos y entornos que remite a `entornos.md`.
 - Se actualizó el presente `reporte-estado.md` con el baseline, conteos y comandos vigentes.
 
 ---
@@ -302,22 +319,123 @@ Acciones aplicadas en esta sesión:
 |------|---------|-----------|
 | 1 | `npm run lint` | Pasa (exit 0) |
 | 2 | `npx tsc --noEmit` | Pasa |
-| 3 | `npm test` | 118 suites, 1089 tests pasan |
+| 3 | `npm test` | 120 suites, 1127 tests pasan |
 | 4 | `npm run build` | Build exitoso (42 páginas dinámicas) |
 | 5 | `npm run knip` | Pasa |
 
-> **No se ejecutaron** `npx jest --listTests`, `npm run test:e2e`, `npx playwright test`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push` ni `npx drizzle-kit generate` por requerir confirmación explícita del usuario y/o base de datos descartable.
+|| 6 | `npm run test:e2e` | 96 passed, 1 skipped, 0 failed (con `--retries=2` y base `pancheria_e2e`) |
+
+> `npx drizzle-kit push` / `npx drizzle-kit generate` y `npx tsx src/db/seeds.ts` no fueron necesarios porque `tests/e2e/global-setup.ts` maneja el esquema y el seed de forma automática en la base E2E.
 
 ---
 
-## 11. Enlaces relevantes
+## 12. Fase 5 — Gaps menores y recomendaciones
+
+Tras completar las Fases 1 a 4, se resolvieron los 7 gaps del orden recomendado. La Fase 5 queda completada.
+
+| # | Gap | Riesgo | Contexto técnico | Recomendación | Verificación propuesta |
+|---|-----|--------|-------------------|---------------|------------------------|
+| 1 | `src/db/seeds.ts` define horarios por defecto. | Bajo | Resuelto. El seed ahora inserta franjas horarias de lunes a sábado 10:00-22:00 y domingo 18:00-23:00. | Ninguna. | Ejecutar `npx tsx src/db/seeds.ts` en base limpia y confirmar `branches.opening_hours`. |
+| 2 | Persistencia del último teléfono del cliente. | Medio | Resuelto. Se creó `src/lib/last-customer-phone.ts` y se integró en `order-tracker.tsx`. | Ninguna. | Tests unitarios de `order-tracker.test.tsx` pasan. |
+| 3 | El mensaje de WhatsApp incluye `customerPhone`. | Bajo | Resuelto. `src/lib/whatsapp.ts` agrega `Teléfono:` cuando el campo está presente. | Ninguna. | `src/lib/whatsapp.test.ts` pasa. |
+| 4 | El enum `order_status` de PostgreSQL podría conservar el valor legacy `converted`. | Medio | Verificado: `drizzle-kit check` está limpio en desarrollo, E2E y producción. El enum no conserva `converted`. | Ninguna. | `npx drizzle-kit check` limpio contra la base productiva. |
+| 5 | Trazabilidad de reservas como movimientos de stock. | Bajo | Resuelto. `receiveOrder` inserta movimientos `reserve`; `convertOrderToSale` y `cancelOrder` insertan `reserve_release`; `stock-history.tsx` muestra los nuevos tipos. | Ninguna. | `stock_movements` contiene movimientos `reserve`/`reserve_release`; tests de `orderService.test.tsx` pasan; migración `0020` aplicada. |
+| 6 | Posible condición de carrera en `receiveOrder`. | Medio | Resuelto. `receiveOrder` bloquea los insumos con `FOR UPDATE` antes de `validateCartAvailability` e `insertReservations`. | Ninguna. | Tests de `orderService.test.ts` y build pasan. |
+| 7 | Test unitario de `chat-message-list.tsx`. | Bajo | Resuelto. Se creó `src/components/chat/chat-message-list.test.tsx` cubriendo estados enviado, entregado y leído. | Ninguna. | `npm test -- chat-message-list.test.tsx` pasa. |
+
+---
+
+## 13. Análisis de impacto/riesgo detallado — gaps de Fase 5
+
+A continuación se profundiza en cada gap menor documentado, ordenado por el criterio de esfuerzo/beneficio y riesgo técnico solicitado.
+
+### 13.1. Gap 3 — Incluir `customerPhone` en el mensaje de WhatsApp (`whatsapp.ts`)
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/lib/whatsapp.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/lib/whatsapp.test.ts" />.
+- **Riesgo**: Bajo.
+- **Impacto de negocio**: El operador recibe el mensaje de WhatsApp con cliente, entrega, dirección, total y enlace al chat, pero no el teléfono. Debe abrir el panel para contactar al cliente, lo que agrega fricción operativa.
+- **Impacto técnico**: Nulo. No hay cambios de esquema ni estructuras.
+- **Viabilidad de solución**: Muy alta. Se agrega `customerPhone?: string` a `PublicOrder` y una línea condicional en `buildWhatsAppMessage`.
+- **Consecuencias de no corregir**: Pequeña fricción operativa; el chat del pedido compensa parcialmente.
+- **Recomendación**: Implementar de inmediato. Es el gap con mejor relación esfuerzo/beneficio.
+- **Verificación**: Test unitario que contenga `Teléfono:` en el mensaje cuando se provee.
+
+### 13.2. Gap 2 — Persistir el último teléfono del cliente en `order-tracker.tsx`
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/lib/last-customer-name.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/order-tracker.tsx" />.
+- **Riesgo**: Medio.
+- **Impacto de negocio**: El tracker ya recuerda el nombre con `useSyncExternalStore` y `localStorage`, pero no el teléfono. El cliente debe reingresar ambos campos en cada consulta, lo que empeora la experiencia móvil y aumenta el riesgo de errores de tipeo.
+- **Impacto técnico**: Bajo. Requiere un nuevo helper análogo y un hook en el componente.
+- **Viabilidad de solución**: Alta. Patrón ya establecido en `last-customer-name.ts`.
+- **Consecuencias de no corregir**: UX repetitiva; consultas de seguimiento menos fluidas.
+- **Recomendación**: Implementar junto con el Gap 3, ya que ambos reutilizan helpers de `localStorage`.
+- **Verificación**: Test E2E o unitario que recargue `/pedido/seguimiento` y mantenga el teléfono.
+
+### 13.3. Gap 1 — `seeds.ts` sin horarios por defecto
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/db/seeds.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/lib/branch-helpers.ts" />.
+- **Riesgo**: Bajo.
+- **Impacto de negocio**: En desarrollo y E2E, la sucursal creada por seed tiene `openingHours = []`, por lo que `isBranchOpen` devuelve `false` siempre. Esto puede mostrar mensajes de "sucursal cerrada" en el catálogo público aunque la caja esté abierta, confundiendo a quien prueba localmente.
+- **Impacto técnico**: Bajo. El seed deja la sucursal en estado funcional pero sin horarios. No afecta producción si allí se configuran franjas manualmente.
+- **Viabilidad de solución**: Alta. Agregar `openingHours` al `insert` de `seedDefaultBranch` (y `seedOptionalBranch`) con un horario comercial por defecto, o una variable de entorno.
+- **Consecuencias de no corregir**: Frustración en dev/E2E; posibles tests frágiles si dependen de `isBranchOpen`.
+- **Recomendación**: Implementar con un horario conservador (por ejemplo, lunes a sábado 10:00-22:00, domingo 18:00-23:00) o permitir sobreescribirlo por variable.
+- **Verificación**: Ejecutar `npx tsx src/db/seeds.ts` en base limpia y confirmar que `isBranchOpen` devuelve `true` dentro del horario.
+
+### 13.4. Gap 7 — Test unitario de `chat-message-list.tsx`
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/components/chat/chat-message-list.tsx" />, <ref_file file="C:/developer/paginas/pancheria/src/components/chat/order-chat.test.tsx" />.
+- **Riesgo**: Bajo.
+- **Impacto de negocio**: Nulo. Es cobertura de regresión.
+- **Impacto técnico**: Bajo. `order-chat.test.tsx` cubre la integración, pero no los estados visuales (tildes enviado/entregado/leído).
+- **Viabilidad de solución**: Alta. Renderizar mensajes con distintos `deliveredAt`/`readAt` y verificar iconos/títulos.
+- **Consecuencias de no corregir**: Riesgo de regresión visual silenciosa si se modifica `MessageStatusIcon`.
+- **Recomendación**: Implementar como cobertura complementaria de Fase 4.
+- **Verificación**: `npm test -- src/components/chat/chat-message-list.test.tsx` pasa.
+
+### 13.5. Gap 6 — `receiveOrder` sin `FOR UPDATE` sobre insumos
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="380-456" />, <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderStockReservationRepository.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/repositories/productRepository.ts" lines="87-109" />.
+- **Riesgo**: Medio.
+- **Impacto de negocio**: Bajo concurrencia, dos pedidos `pending` que comparten insumos críticos podrían reservar más stock del disponible. Al intentar pagar uno de ellos, `convertOrderToSale` fallaría por falta de stock, generando una mala experiencia y pérdida de venta.
+- **Impacto técnico**: Alto en integridad. `receiveOrder` usa `executeInTransaction`, bloquea los productos del pedido con `buildProductContext(..., { dbOrTx: tx })`, pero no bloquea los **insumos** de las recetas. `validateCartAvailability` calcula disponibilidad con reservas ajenas, pero entre el cálculo y la inserción de `order_stock_reservations`, otro pedido puede insertar reservas concurrentes.
+- **Viabilidad de solución**: Media. Se requiere calcular todos los `productId` e `insumos` a bloquear y ejecutar `SELECT ... FOR UPDATE` antes de `validateCartAvailability`. Hay que cuidar no romper el flujo de venta (`convertOrderToSale`) que también necesita bloqueos.
+- **Consecuencias de no corregir**: Sobrereservas, pedidos que luego no se pueden pagar, inconsistencias de stock difíciles de reproducir y depurar.
+- **Recomendación**: Priorizar junto con Gap 4. Es el riesgo operativo más importante de Fase 5.
+- **Verificación**: Test de concurrencia con dos `receiveOrder` simultáneos sobre stock crítico justo.
+
+### 13.6. Gap 4 — Limpiar el enum `order_status` de PostgreSQL (`converted` legacy)
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="47-54" />, <ref_file file="C:/developer/paginas/pancheria/drizzle/0018_black_vin_gonzales.sql" />.
+- **Riesgo**: Medio.
+- **Impacto de negocio**: Nulo directo; `converted` ya no se usa. El problema es la salud del esquema y la capacidad de futuras migraciones.
+- **Impacto técnico**: Medio. `drizzle-kit check` en producción puede reportar divergencia si el enum de la base productiva aún conserva `converted`. En desarrollo y E2E actualmente pasa limpio (`Everything's fine`), lo que indica que esas bases ya están alineadas.
+- **Viabilidad de solución**: Media a compleja. PostgreSQL no soporta `ALTER TYPE ... DROP VALUE`. Para eliminar `converted` hay que recrear el enum: crear uno nuevo sin `converted`, alterar las columnas `orders.status` (y otras que usen el enum) al nuevo tipo, borrar el viejo y renombrar. Requiere una migración manual cuidadosa.
+- **Consecuencias de no corregir**: `drizzle-kit check` puede fallar en producción; generación de migraciones futuras más compleja.
+- **Recomendación**: Ejecutar `npx drizzle-kit check` contra la base productiva. Si es limpio, no hacer nada. Si falla, planificar migración `0020` de limpieza de enum en ventana de mantenimiento.
+- **Verificación**: `npx drizzle-kit check` limpio contra producción.
+
+### 13.7. Gap 5 — Trazabilidad de reservas en `stock_movements`
+
+- **Archivos**: <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="62-68" />, <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" />.
+- **Riesgo**: Bajo.
+- **Impacto de negocio**: No afecta la operación diaria. Afecta la capacidad de auditar por qué un pedido `in_process` disminuye la disponibilidad de un insumo sin descontar stock físico.
+- **Impacto técnico**: Medio. Requiere extender `stock_movement_type` (por ejemplo, agregar `reserve` y `reserve_release`) e insertar movimientos al reservar, pagar y cancelar. También hay que revisar resúmenes y reportes de stock para que no traten las reservas como descontes reales.
+- **Viabilidad de solución**: Media. No es complejo en código, pero es una decisión de producto/auditoría.
+- **Consecuencias de no corregir**: Menor trazabilidad. Depuración de disponibilidad más difícil.
+- **Recomendación**: Decidir con el equipo si se necesita auditoría formal. Si no, documentar en `AGENTS.md` que la reserva se traza en `order_stock_reservations` y no en `stock_movements`.
+- **Verificación**: Si se implementa, test que verifique `stock_movements.type = 'reserve'` tras `receiveOrder`.
+
+---
+
+## 14. Enlaces relevantes
 
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/README.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.env.example" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/entornos.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-cobertura-de-pruebas.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-de-accion-pendientes.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/plan-de-accion-2026-08-27.md" />
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />
 - <ref_file file="C:/developer/paginas/pancheria/jest.config.ts" />
 - <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" />

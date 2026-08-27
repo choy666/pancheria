@@ -172,6 +172,8 @@ describe('stock-helpers', () => {
         'cancellation',
         'manual_adjustment',
         'restock',
+        'reserve',
+        'reserve_release',
       ]);
     });
   });
@@ -191,6 +193,28 @@ describe('stock-helpers', () => {
 
     it('devuelve razon de anulacion generica sin saleId', () => {
       expect(buildStockMovementReason('cancellation')).toBe('Anulación de venta');
+    });
+
+    it('devuelve razon de reserva con orderId', () => {
+      expect(buildStockMovementReason('reserve', undefined, 42)).toBe(
+        'Reservado para pedido #42'
+      );
+    });
+
+    it('devuelve razon de reserva generica sin orderId', () => {
+      expect(buildStockMovementReason('reserve')).toBe('Reservado');
+    });
+
+    it('devuelve razon de liberacion de reserva con orderId', () => {
+      expect(buildStockMovementReason('reserve_release', undefined, 42)).toBe(
+        'Reserva liberada del pedido #42'
+      );
+    });
+
+    it('devuelve razon de liberacion de reserva generica sin orderId', () => {
+      expect(buildStockMovementReason('reserve_release')).toBe(
+        'Reserva liberada'
+      );
     });
 
     it('devuelve null para otros tipos', () => {

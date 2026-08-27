@@ -30,7 +30,7 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 8. Empujar migraciones en desarrollo: `npx drizzle-kit push`
 9. Para producción, ver `.devin/informes/entornos.md`
 10. Ejecutar seed: `npx tsx src/db/seeds.ts`
-9. Iniciar en desarrollo: `npm run dev`
+11. Iniciar en desarrollo: `npm run dev`
 
 Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`. Si `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
 
@@ -116,10 +116,14 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
 - Ver el catálogo de productos vendibles de una sucursal.
 - Armar un carrito con validación de disponibilidad en tiempo real.
 - Hacer el pedido desde la app; si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un enlace de WhatsApp como fallback.
-- El pedido valida disponibilidad, pero **no reserva ni descuenta stock**. El stock se descuenta únicamente al confirmar el pedido desde el panel.
+- El pedido valida disponibilidad al crearlo, pero **no reserva ni descuenta stock**. El flujo del operador es:
+  - **Recibir y reservar**: pasa de `pending` a `in_process` y reserva stock de insumos críticos.
+  - **Confirmar pago**: pasa de `pending` o `in_process` a `paid`, convierte la reserva en descuento definitivo y genera la venta.
+  - **Finalizar pedido**: pasa de `paid` a `finished` para marcar entrega/retiro.
+  - **Cancelar**: libera la reserva si estaba en `in_process` y anula la venta si ya estaba `paid`.
 - Al crear el pedido, el cliente puede ir al chat `/pedido/[id]/chat?token=...` para coordinar con la sucursal. El chat soporta texto e imágenes.
-- El listado de pedidos del operador (`/pedidos`) puede hacer polling automático si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (deshabilitado por defecto; definir un valor en milisegundos para habilitar) e incluye un botón de actualización manual. Muestra la cantidad de mensajes no leídos (`unreadCount`) por pedido.
-- Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado. La expiración no libera stock porque el pedido nunca reservó.
+- El listado de pedidos del operador (`/pedidos`) puede hacer polling automático si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0 (deshabilitado por defecto) e incluye un botón de actualización manual. Muestra la cantidad de mensajes no leídos (`unreadCount`) por pedido.
+- Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado. La expiración no libera stock porque un pedido `pending` nunca reservó.
 
 Variables de entorno relacionadas (ver `.env.example` para el listado completo):
 `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_API_TIMEOUT_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `TRUSTED_PROXY_IP_HEADER`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`, `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD`.

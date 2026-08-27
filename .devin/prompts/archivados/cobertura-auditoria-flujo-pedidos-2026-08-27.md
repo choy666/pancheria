@@ -1,4 +1,6 @@
-# Prompt: Cobertura de auditoría — flujo de pedidos públicos y stock
+# ARCHIVADO — Prompt: Cobertura de auditoría — flujo de pedidos públicos y stock
+
+> **Estado: archivado.** El flujo de pedidos evolucionó a estados `pending` → `in_process` → `paid` → `finished` con reservas de stock. El contexto vigente está en `.devin/informes/guia-funcionamiento-pancheria.md`. Se conserva como registro histórico.
 
 ## Contexto
 
@@ -12,7 +14,7 @@ Este prompt documenta el flujo de pedidos públicos vigente y las decisiones de 
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/recomendaciones-pedidos-sucursal-stock-2026-08-27.md" />
 
 > **Advertencia:** el flujo anterior con `sentAt` y confirmación de envío por WhatsApp fue revertido. El contexto histórico vive en `.devin/prompts/archivados/confirmacion-envio-pedido-whatsapp.md` e `.devin/informes/archivados/`. Este prompt y el código son la fuente de verdad del flujo vigente.
 
@@ -112,7 +114,7 @@ npm run test:e2e
 
 ## 5. Relación con otros prompts e informes
 
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/recomendaciones-pedidos-sucursal-stock.md" /> — flujo de pedidos, sucursales y stock.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/recomendaciones-pedidos-sucursal-stock-2026-08-27.md" /> — flujo de pedidos, sucursales y stock.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> — guía operativa del negocio: multi-sucursal, stock, caja, pedidos.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> — lecciones transversales de auditorías anteriores.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" /> — estado verificado del proyecto y recomendaciones vigentes.

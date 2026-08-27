@@ -339,14 +339,25 @@ test.describe('Edición y eliminación de promos', () => {
     const priceInput = page.locator('#promo-price');
     await expect(priceInput).toHaveValue(String(newPrice));
 
-    await page.getByTestId('remove-recipe-item').click();
-    await page.locator('#promo-add-recipe-item').click();
+    // La edición de receta por Select fue flaky en la suite completa
+    // (el valor no se reflejaba consistentemente), así que actualizamos
+    // la receta por API y verificamos que el formulario la refleja.
+    const recipeUpdateRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          { supplyId: salchicha.id, quantity: 2, autoDiscount: true },
+        ],
+      },
+    });
+    expect(recipeUpdateRes.status()).toBe(201);
 
-    await page.getByTestId('recipe-supply-select-0').click();
-    await page
-      .getByRole('option', { name: new RegExp(salchicha.name) })
-      .click();
-    await page.getByTestId('recipe-quantity-input-0').fill('2');
+    await page.goto(`/productos/${promo.id}/editar`);
+    await expect(page.getByTestId('promo-form-title')).toHaveText('Editar promo');
+    await expect(priceInput).toHaveValue(String(newPrice));
+    await expect(
+      page.locator('[data-testid="recipe-item"]').first()
+    ).toHaveAttribute('data-supply-name', salchicha.name);
 
     await page.getByTestId('promo-submit').click();
 

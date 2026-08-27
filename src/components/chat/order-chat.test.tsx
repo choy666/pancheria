@@ -33,6 +33,7 @@ describe('OrderChat', () => {
       senderType,
       senderName: null,
       content,
+      deliveredAt: null,
       readAt: null,
       createdAt: new Date(),
       attachmentUrl: null,

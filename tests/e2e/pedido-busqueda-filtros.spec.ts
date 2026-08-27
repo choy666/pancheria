@@ -193,6 +193,9 @@ test.describe('Búsqueda, filtros y paginación de pedidos', () => {
     expect(page2Names.length).toBeGreaterThan(0);
     expect(page2Names).not.toEqual(page1Names);
 
-    expect(createdCustomers.some((name) => page2Names.includes(name))).toBe(true);
+    const page2HasCreatedCustomer = createdCustomers.some((name) =>
+      page2Names.some((cellText) => cellText.includes(name))
+    );
+    expect(page2HasCreatedCustomer).toBe(true);
   });
 });

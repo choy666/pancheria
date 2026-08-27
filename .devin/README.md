@@ -8,18 +8,17 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Guía de escritura de prompts](prompts/README.md)
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
-- [Recomendaciones — pedidos, sucursales y stock](prompts/recomendaciones-pedidos-sucursal-stock.md)
-- [Cobertura de auditoría — flujo de pedidos](prompts/cobertura-auditoria-flujo-pedidos.md)
-- [Plan de mejoras — flujo de pedidos, chat, caja y sucursales](prompts/plan-mejoras-flujo-pedidos-chat-caja-sucursales.md)
+- [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
 
 ## Estado del proyecto
 
 - [Reporte de estado vigente](informes/reporte-estado.md)
 - [Entornos y credenciales](informes/entornos.md)
-- [Plan de acción — cierre de pendientes](informes/plan-de-accion-pendientes.md)
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
 - [Índice de informes](informes/README.md)
+
+> **Plan de acción cerrado:** el plan de acción de 2026-08-27 fue resuelto y se archivó en `informes/archivados/plan-de-accion-2026-08-27.md`.
 
 ## Configuración del entorno
 
@@ -34,7 +33,6 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 ├── informes/
 │   ├── reporte-estado.md         # Informe de estado vigente (único)
 │   ├── entornos.md               # Entornos, credenciales y pasos de migración
-│   ├── plan-de-accion-pendientes.md  # Pasos para cerrar deudas documentales
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── README.md                 # Índice de informes
@@ -44,9 +42,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── README.md                 # Guía para escribir prompts
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
-    ├── cobertura-auditoria-flujo-pedidos.md
-    ├── recomendaciones-pedidos-sucursal-stock.md
-    ├── plan-mejoras-flujo-pedidos-chat-caja-sucursales.md
+    ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos
 ```
 

@@ -13,7 +13,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/.env.example" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/environment.yaml" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-de-accion-pendientes.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/plan-de-accion-2026-08-27.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />

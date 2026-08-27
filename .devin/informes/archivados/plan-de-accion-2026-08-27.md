@@ -1,4 +1,6 @@
-# Plan de acción — Cierre de pendientes post-auditoría `.devin`
+# ARCHIVADO — Plan de acción — Cierre de pendientes post-auditoría `.devin`
+
+> **Estado: archivado.** Este plan fue ejecutado y resuelto. El estado vigente del proyecto se encuentra en `.devin/informes/reporte-estado.md` y `.devin/informes/guia-funcionamiento-pancheria.md`. Se conserva como registro histórico.
 
 **Fecha:** 2026-08-27 (actualizado con Fase 3)  
 **Proyecto:** `pancheria`
@@ -31,6 +33,7 @@ El objetivo es dejar los pendientes con un dueño, un criterio de salida y una v
 | 7 | Hardcodeos defensivos | Resuelto | Bajo | Ninguno | `getPublicBaseUrl()` ahora requiere `NEXT_PUBLIC_APP_URL`/`NEXTAUTH_URL` en producción y acepta `HOST`/`PORT` en desarrollo/test. `getWhatsAppMessageParts()` lee variables de entorno sin defaults; los valores sugeridos pasaron a `.env.example`. | `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. |
 || 8 | Aplicar migración Fase 2 a producción | Completado | Alto (datos) | Ninguno | Aplicado `drizzle/0017_unknown_energizer.sql` en producción con `DATABASE_URL_UNPOOLED`; verificado que `opening_hours` existe con default `[]` y la sucursal por defecto conserva `opening_hours = []`. | `npx drizzle-kit push --force` finalizó sin errores; pedidos y sucursales siguen operativos. |
 || 9 | Fase 3: estados, reserva de stock y flujo completo | Completado | Alto (datos/negocio) | Ninguno | Implementar nuevos estados, `order_stock_reservations`, `receiveOrder`, `finishOrder`, ajustar `convertOrderToSale` y cancelación; crear endpoints, actualizar UI y tests; generar y aplicar `drizzle/0018_black_vin_gonzales.sql` en dev y prod. | `npm run lint`, `npx tsc --noEmit`, `npm test` (1102 tests), `npm run build`, `npm run knip`, `npx drizzle-kit check` pasan; migración aplicada en producción. |
+|| 10 | Fase 4: chat con estados de mensaje | Completado | Medio (datos/UX) | Ninguno | Agregar `deliveredAt` a `order_messages`; implementar `markAllAsDeliveredByOrderAndSender`; actualizar `chatService.listClientMessages`/`listOperatorMessages`; renderizar tildes en `chat-message-list.tsx`; ajustar tests; generar y aplicar `drizzle/0019_hard_morbius.sql` en dev y E2E. | `npm run lint`, `npx tsc --noEmit`, `npm test` (1112 tests), `npm run build`, `npm run knip` pasan; E2E de chat 2/2 pasaron. |
 
 ---
 
@@ -182,7 +185,7 @@ El checklist también vive en `.devin/prompts/auditoria-y-documentacion.md`.
 |---|---|
 | `npm run lint` | Pasa |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | 119 suites, 1102 tests pasan |
+| `npm test` | 120 suites, 1127 tests pasan |
 | `npm run build` | Build de producción exitoso (42 páginas dinámicas) |
 | `npm run knip` | Pasa |
 
@@ -265,6 +268,27 @@ Una vez que se ejecuten los comandos pendientes (E2E y DRS), completar la tabla 
 > **Atención:** no ejecutar `npm run test:e2e` si `DATABASE_URL` apunta a producción o a una base con datos reales. `global-setup.ts` trunca todas las tablas de negocio.
 
 ---
+
+## 14. Fase 5 — Acciones recomendadas
+
+Estas acciones cierran los gaps menores detectados en el plan de mejoras. Ninguna es crítica para la operación, pero mejoran la robustez, la UX y la trazabilidad.
+
+| # | Acción | Prioridad | Esfuerzo estimado | Responsable sugerido | Criterio de salida | Estado |
+|---|--------|-----------|-------------------|----------------------|--------------------|--------|
+| 1 | Definir horarios por defecto en `src/db/seeds.ts` para la sucursal creada. | Baja | 15 min | Backend | Seed crea `opening_hours` no vacío; `isBranchOpen` devuelve `true` en horario comercial. | ✅ Completado |
+| 2 | Implementar `src/lib/last-customer-phone.ts` y persistir el último teléfono en `order-tracker.tsx`. | Media | 30 min | Frontend | El tracker muestra el último teléfono usado sin reingresarlo; test unitario/E2E asociado. | ✅ Completado |
+| 3 | Incluir `customerPhone` en el mensaje generado por `src/lib/whatsapp.ts`. | Baja | 15 min | Backend/UX | Test de `whatsapp.ts` contiene el teléfono cuando se provee. | ✅ Completado |
+| 4 | Verificar y, si aplica, limpiar el enum `order_status` eliminando el valor legacy `converted` en producción. | Media | 1 h | DBA/DevOps | `npx drizzle-kit check` limpio contra la base productiva. | ✅ Completado — sin divergencia |
+| 5 | Agregar tipos `reserve`/`reserve_release` en `stock_movements` para auditoría de reservas. | Baja | 2-4 h | Backend/Producto | Movimientos de reserva/liberación insertados en `receiveOrder`, `convertOrderToSale` y `cancelOrder`; UI `stock-history.tsx` muestra los nuevos tipos; tests pasan; migración `0020` aplicada. | ✅ Completado |
+| 6 | Proteger `receiveOrder` de condición de carrera con `SELECT ... FOR UPDATE` sobre productos/insumos. | Media | 1-2 h | Backend | Test de concurrencia con dos pedidos sobre stock justo no excede disponibilidad. | ✅ Completado |
+| 7 | Crear `src/components/chat/chat-message-list.test.tsx` para validar tildes y estados. | Baja | 30 min | Frontend | Test renderiza mensaje enviado, entregado y leído con los iconos correctos. | ✅ Completado |
+
+### Consejos transversales
+
+- Antes de tocar stock o enums, siempre correr `npx tsc --noEmit`, `npm test` y `npm run build` en local.
+- Para migraciones de enums en PostgreSQL, preferir recrear el tipo en una transacción que también altere las columnas dependientes, evitando dejar el entorno en estado inconsistente.
+- No ejecutar `npm run test:e2e` contra bases con datos reales; `global-setup.ts` trunca tablas de negocio.
+- Documentar cualquier cambio en `AGENTS.md`, `.env.example` o `.devin/environment.yaml` si se agrega una nueva variable o convención.
 
 ## 13. Enlaces relevantes
 

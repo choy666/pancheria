@@ -62,7 +62,8 @@ export function* iterRecipeConsumptions(
 
 export function buildStockMovementReason(
   movementType: string,
-  saleId?: number
+  saleId?: number,
+  orderId?: number
 ): string | null {
   if (movementType === 'sale') {
     return saleId !== undefined ? `Venta #${saleId}` : 'Venta';
@@ -74,6 +75,18 @@ export function buildStockMovementReason(
       : 'Anulación de venta';
   }
 
+  if (movementType === 'reserve') {
+    return orderId !== undefined
+      ? `Reservado para pedido #${orderId}`
+      : 'Reservado';
+  }
+
+  if (movementType === 'reserve_release') {
+    return orderId !== undefined
+      ? `Reserva liberada del pedido #${orderId}`
+      : 'Reserva liberada';
+  }
+
   return null;
 }
 
@@ -82,4 +95,6 @@ export const STOCK_MOVEMENT_TYPES: readonly StockMovementType[] = [
   'cancellation',
   'manual_adjustment',
   'restock',
+  'reserve',
+  'reserve_release',
 ];

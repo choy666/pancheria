@@ -19,7 +19,7 @@ import type { PaginatedResult } from '@/domain/types';
 
 interface StockMovement {
   id: number;
-  type: 'sale' | 'cancellation' | 'manual_adjustment' | 'restock';
+  type: 'sale' | 'cancellation' | 'manual_adjustment' | 'restock' | 'reserve' | 'reserve_release';
   quantity: number;
   reason: string | null;
   createdAt: string;
@@ -35,6 +35,8 @@ const typeLabels: Record<string, string> = {
   cancellation: 'Anulación',
   manual_adjustment: 'Ajuste manual',
   restock: 'Reposición',
+  reserve: 'Reservado',
+  reserve_release: 'Reserva liberada',
 };
 
 export function StockHistory({ productId, productName }: StockHistoryProps) {

@@ -48,6 +48,7 @@ function buildMessage(
     senderType: 'client',
     senderName: null,
     content: 'Hola',
+    deliveredAt: null,
     readAt: null,
     createdAt: new Date(),
     attachmentUrl: null,
@@ -182,6 +183,23 @@ describe('orderMessageRepository', () => {
 
       expect(result).toBe(2);
       expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({ readAt: expect.any(Date) }));
+    });
+  });
+
+  describe('markAllAsDeliveredByOrderAndSender', () => {
+    test('marca mensajes como entregados y devuelve la cantidad', async () => {
+      mockReturning.mockResolvedValue([{ id: 1 }]);
+
+      const result =
+        await orderMessageRepository.markAllAsDeliveredByOrderAndSender(
+          ORDER_ID,
+          'operator'
+        );
+
+      expect(result).toBe(1);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ deliveredAt: expect.any(Date) })
+      );
     });
   });
 });

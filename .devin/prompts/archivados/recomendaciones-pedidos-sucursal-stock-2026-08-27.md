@@ -1,4 +1,6 @@
-# Prompt: Arquitectura y buenas prácticas del flujo de pedidos, sucursales y stock
+# ARCHIVADO — Prompt: Arquitectura y buenas prácticas del flujo de pedidos, sucursales y stock
+
+> **Estado: archivado.** El flujo de pedidos implementa reservas transaccionales (`in_process`) y conversión a venta (`paid`). El contexto vigente está en `.devin/informes/guia-funcionamiento-pancheria.md`. Se conserva como registro histórico.
 
 ## Contexto
 
@@ -13,7 +15,7 @@ Este prompt documenta las decisiones arquitectónicas, las buenas prácticas y l
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/cobertura-auditoria-flujo-pedidos.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/cobertura-auditoria-flujo-pedidos-2026-08-27.md" />
 
 > **Nota:** este prompt es una guía activa. Si detectás discrepancias con el código, seguir <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" /> para actualizar la documentación o el código según corresponda.
 
@@ -236,7 +238,7 @@ npx playwright test tests/e2e/pedido-sucursal-y-stock.spec.ts
 
 ### Antes de modificar
 
-1. Consultar `AGENTS.md`, `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md`, `cobertura-auditoria-flujo-pedidos.md` y este prompt.
+1. Consultar `AGENTS.md`, `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md`, `rchivados/cobertura-auditoria-flujo-pedidos-2026-08-27.md (archivado)` y este prompt.
 2. Identificar si la lógica afectada está duplicada entre `orderService` y `saleService`.
 3. Revisar si `validateCartAvailability`, `buildSaleItemValues`, `buildProductContext` o `buildOrderValues` cambian de firma; de ser así, actualizar consumidores y tests.
 4. Considerar el impacto en el chat y en los adjuntos si se tocan endpoints de pedidos.
@@ -278,7 +280,7 @@ npx playwright test tests/e2e/pedido-sucursal-y-stock.spec.ts
 
 ## Relación con otros prompts e informes
 
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/cobertura-auditoria-flujo-pedidos.md" /> — flujo vigente, limpieza realizada, pendientes y decisiones que no deben revertirse.
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/cobertura-auditoria-flujo-pedidos-2026-08-27.md" /> — flujo vigente, limpieza realizada, pendientes y decisiones que no deben revertirse.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> — guía operativa del negocio: multi-sucursal, stock, caja, pedidos.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> — lecciones transversales de auditorías anteriores.
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" /> — estado verificado del proyecto y recomendaciones vigentes.
@@ -293,6 +295,6 @@ La arquitectura de pedidos quedó cohesionada al:
 - Preservar precios históricos al convertir un pedido en venta.
 - No descontar stock hasta la confirmación; no reintegrar stock al cancelar un pedido.
 - Agregar `data-testid` estables para E2E.
-- Documentar decisiones en `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md` y `cobertura-auditoria-flujo-pedidos.md`.
+- Documentar decisiones en `lecciones-aprendidas.md`, `guia-funcionamiento-pancheria.md` y `rchivados/cobertura-auditoria-flujo-pedidos-2026-08-27.md (archivado)`.
 
 El próximo paso recomendado es mantener este prompt sincronizado con el código y ejecutar las verificaciones mínimas antes de cualquier cambio en el flujo de pedidos.

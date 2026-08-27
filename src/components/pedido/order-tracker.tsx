@@ -23,6 +23,10 @@ import {
   getLastCustomerName,
   setLastCustomerName,
 } from '@/lib/last-customer-name';
+import {
+  getLastCustomerPhone,
+  setLastCustomerPhone,
+} from '@/lib/last-customer-phone';
 
 interface TrackedOrder {
   id: number;
@@ -54,12 +58,30 @@ function useLastCustomerNameSnapshot(): string | null {
   return useSyncExternalStore(subscribe, getSnapshot, () => null);
 }
 
+function useLastCustomerPhoneSnapshot(): string | null {
+  const subscribe = useCallback((callback: () => void) => {
+    const handle = (event: StorageEvent) => {
+      if (event.key === 'pancheria-last-customer-phone') callback();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handle);
+      return () => window.removeEventListener('storage', handle);
+    }
+    return () => {};
+  }, []);
+
+  const getSnapshot = useCallback(() => getLastCustomerPhone(), []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, () => null);
+}
+
 export function OrderTracker() {
   const router = useRouter();
   const [orderNumber, setOrderNumber] = useState('');
   const storedCustomerName = useLastCustomerNameSnapshot();
+  const storedCustomerPhone = useLastCustomerPhoneSnapshot();
   const [customerName, setCustomerName] = useState(storedCustomerName ?? '');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerPhone, setCustomerPhone] = useState(storedCustomerPhone ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<TrackedOrder | null>(null);
@@ -97,8 +119,10 @@ export function OrderTracker() {
       const tracked = data.order;
       setOrder(tracked);
       setLastCustomerName(customerName.trim());
+      setLastCustomerPhone(customerPhone.trim());
       if (tracked.customerPhone) {
         setCustomerPhone(tracked.customerPhone);
+        setLastCustomerPhone(tracked.customerPhone);
       }
 
       if (tracked.status === 'pending' && tracked.cancellationToken && tracked.expiresAt) {

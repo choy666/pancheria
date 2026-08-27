@@ -3,6 +3,7 @@ import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as branchService from '@/application/services/branchService';
 import { orderMessages } from '@/db/schema';
+import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import {
@@ -185,6 +186,32 @@ async function listMessages(
   return { rows, hasMore: options.after !== undefined ? rows.length === pageSize : false };
 }
 
+async function markMessagesAsDelivered(
+  orderId: number,
+  senderType: OrderMessageSenderType,
+  messages: OrderMessage[]
+): Promise<OrderMessage[]> {
+  const hasUndelivered = messages.some(
+    (message) => message.senderType === senderType && !message.deliveredAt
+  );
+
+  if (!hasUndelivered) {
+    return messages;
+  }
+
+  await orderMessageRepository.markAllAsDeliveredByOrderAndSender(
+    orderId,
+    senderType
+  );
+
+  const now = nowUTC();
+  return messages.map((message) =>
+    message.senderType === senderType && !message.deliveredAt
+      ? { ...message, deliveredAt: now }
+      : message
+  );
+}
+
 export async function listClientMessages(
   orderId: number,
   token: string,
@@ -201,16 +228,17 @@ export async function listClientMessages(
     orderMessageRepository.countByOrderId(orderId),
   ]);
 
+  const updatedMessages = await markMessagesAsDelivered(
+    orderId,
+    'operator',
+    messages
+  );
+
   return {
-    messages,
+    messages: updatedMessages,
     status: order.status,
     total,
-    hasMore:
-      options.before !== undefined
-        ? hasMore
-        : options.after !== undefined
-          ? hasMore
-          : messages.length < total,
+    hasMore,
     expiresAt: getOrderExpiresAt(order),
     isExpired: isOrderExpired(order),
   };
@@ -232,16 +260,17 @@ export async function listOperatorMessages(
     orderMessageRepository.countByOrderId(orderId),
   ]);
 
+  const updatedMessages = await markMessagesAsDelivered(
+    orderId,
+    'client',
+    messages
+  );
+
   return {
-    messages,
+    messages: updatedMessages,
     status: order.status,
     total,
-    hasMore:
-      options.before !== undefined
-        ? hasMore
-        : options.after !== undefined
-          ? hasMore
-          : messages.length < total,
+    hasMore,
     expiresAt: getOrderExpiresAt(order),
     isExpired: isOrderExpired(order),
   };

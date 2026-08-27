@@ -1,13 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
 
 /**
  * Confirma y cancela pedidos desde el panel de operador.
  */
 test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
-  test('confirma un pedido público como venta desde el panel', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await login(page);
+    await ensureCashRegisterOpen(page);
+  });
 
+  test('confirma un pedido público como venta desde el panel', async ({ page }) => {
     const product = await createProductViaApi(page, {
       name: unique('Producto confirmable'),
       type: 'service',
@@ -44,8 +47,6 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
   });
 
   test('cancela un pedido público desde el panel', async ({ page }) => {
-    await login(page);
-
     const product = await createProductViaApi(page, {
       name: unique('Producto cancelable'),
       type: 'service',

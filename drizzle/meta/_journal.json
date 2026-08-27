@@ -134,6 +134,20 @@
       "when": 1787803647098,
       "tag": "0018_black_vin_gonzales",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787837957765,
+      "tag": "0019_hard_morbius",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787841759071,
+      "tag": "0020_minor_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

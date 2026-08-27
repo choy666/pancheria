@@ -3,6 +3,7 @@ import {
   isBranchOpen,
   getCurrentOrNextOpening,
   formatOpeningHours,
+  parseOpeningHoursForm,
 } from './branch-helpers';
 import type { Branch } from '@/domain/types';
 
@@ -47,6 +48,63 @@ describe('branch-helpers', () => {
         { dayOfWeek: 1, open: '20:00', close: '23:00' },
       ];
       expect(() => validateOpeningHours(hours)).toThrow();
+    });
+
+    test('acepta múltiples franjas no solapadas para el mismo día', () => {
+      const hours = [
+        { dayOfWeek: 1, open: '08:00', close: '12:00' },
+        { dayOfWeek: 1, open: '17:00', close: '22:00' },
+      ];
+      expect(() => validateOpeningHours(hours)).not.toThrow();
+    });
+
+    test('rechaza franjas solapadas para el mismo día', () => {
+      const hours = [
+        { dayOfWeek: 1, open: '08:00', close: '14:00' },
+        { dayOfWeek: 1, open: '12:00', close: '18:00' },
+      ];
+      expect(() => validateOpeningHours(hours)).toThrow();
+    });
+
+    test('acepta franjas consecutivas sin solapamiento', () => {
+      const hours = [
+        { dayOfWeek: 1, open: '08:00', close: '12:00' },
+        { dayOfWeek: 1, open: '12:00', close: '18:00' },
+      ];
+      expect(() => validateOpeningHours(hours)).not.toThrow();
+    });
+  });
+
+  describe('parseOpeningHoursForm', () => {
+    test('parsea una franja por día', () => {
+      const formData = new FormData();
+      formData.append('openingHours[1][0][open]', '08:00');
+      formData.append('openingHours[1][0][close]', '18:00');
+
+      const hours = parseOpeningHoursForm(formData);
+      expect(hours).toEqual([{ dayOfWeek: 1, open: '08:00', close: '18:00' }]);
+    });
+
+    test('parsea múltiples franjas por día', () => {
+      const formData = new FormData();
+      formData.append('openingHours[1][0][open]', '08:00');
+      formData.append('openingHours[1][0][close]', '12:00');
+      formData.append('openingHours[1][1][open]', '17:00');
+      formData.append('openingHours[1][1][close]', '22:00');
+
+      const hours = parseOpeningHoursForm(formData);
+      expect(hours).toEqual([
+        { dayOfWeek: 1, open: '08:00', close: '12:00' },
+        { dayOfWeek: 1, open: '17:00', close: '22:00' },
+      ]);
+    });
+
+    test('ignora franjas incompletas', () => {
+      const formData = new FormData();
+      formData.append('openingHours[1][0][open]', '08:00');
+
+      const hours = parseOpeningHoursForm(formData);
+      expect(hours).toEqual([]);
     });
   });
 

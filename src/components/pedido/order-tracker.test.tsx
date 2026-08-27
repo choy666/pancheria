@@ -32,11 +32,29 @@ describe('OrderTracker', () => {
     const getItem = window.localStorage.getItem as jest.MockedFunction<
       typeof window.localStorage.getItem
     >;
-    getItem.mockReturnValue('Juan Pérez');
+    getItem.mockImplementation((key: string) =>
+      key === 'pancheria-last-customer-name' ? 'Juan Pérez' : null
+    );
 
     render(<OrderTracker />);
 
     expect(screen.getByDisplayValue('Juan Pérez')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/Teléfono/i).value
+    ).toBe('');
+  });
+
+  test('prellena el teléfono del cliente desde localStorage', () => {
+    const getItem = window.localStorage.getItem as jest.MockedFunction<
+      typeof window.localStorage.getItem
+    >;
+    getItem.mockImplementation((key: string) =>
+      key === 'pancheria-last-customer-phone' ? '3415555555' : null
+    );
+
+    render(<OrderTracker />);
+
+    expect(screen.getByDisplayValue('3415555555')).toBeInTheDocument();
   });
 
   test('guarda el nombre en localStorage al buscar con éxito', async () => {

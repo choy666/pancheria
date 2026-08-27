@@ -64,6 +64,7 @@ function buildMessage(overrides: Partial<OrderMessage> = {}): OrderMessage {
     senderType: 'client',
     senderName: null,
     content: 'Hola',
+    deliveredAt: null,
     readAt: null,
     createdAt: new Date(),
     ...overrides,
@@ -178,6 +179,10 @@ describe('chatService', () => {
   });
 
   describe('listClientMessages', () => {
+    beforeEach(() => {
+      mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender.mockResolvedValue(0);
+    });
+
     test('devuelve mensajes, estado, total, hasMore y expiresAt del cliente autenticado', async () => {
       mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
       mockedOrderMessageRepository.findByOrderId.mockResolvedValue([buildMessage()]);
@@ -223,6 +228,34 @@ describe('chatService', () => {
         expect.objectContaining({ before: 5, limit: 21 })
       );
     });
+
+    test('marca como entregados los mensajes del operador no entregados', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([
+        buildMessage({ id: 1, senderType: 'operator', deliveredAt: null }),
+      ]);
+
+      const result = await listClientMessages(ORDER_ID, TOKEN);
+
+      expect(result.messages[0].deliveredAt).not.toBeNull();
+      expect(
+        mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender
+      ).toHaveBeenCalledWith(ORDER_ID, 'operator');
+    });
+
+    test('no marca como entregados los mensajes propios del cliente', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([
+        buildMessage({ id: 1, senderType: 'client', deliveredAt: null }),
+      ]);
+
+      const result = await listClientMessages(ORDER_ID, TOKEN);
+
+      expect(result.messages[0].deliveredAt).toBeNull();
+      expect(
+        mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender
+      ).not.toHaveBeenCalled();
+    });
   });
 
   describe('listOperatorMessages', () => {
@@ -243,6 +276,20 @@ describe('chatService', () => {
         BRANCH_ID,
         ORDER_ID
       );
+    });
+
+    test('marca como entregados los mensajes del cliente no entregados', async () => {
+      mockedOrderRepository.findById.mockResolvedValue(buildOrder() as any);
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([
+        buildMessage({ id: 1, senderType: 'client', deliveredAt: null }),
+      ]);
+
+      const result = await listOperatorMessages(ORDER_ID, BRANCH_ID);
+
+      expect(result.messages[0].deliveredAt).not.toBeNull();
+      expect(
+        mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender
+      ).toHaveBeenCalledWith(ORDER_ID, 'client');
     });
   });
 

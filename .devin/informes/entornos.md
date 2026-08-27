@@ -2,11 +2,11 @@
 
 ## Resumen rápido
 
-| Entorno | ¿Dónde está la URL? | Comando de migración |
-|---------|---------------------|----------------------|
-| Desarrollo | `.env.local` → `DATABASE_URL_UNPOOLED` | `npx drizzle-kit push` |
-| Producción | Vercel → `DATABASE_URL_UNPOOLED` | Ver sección [Producción](#producción) |
-| E2E / staging | `.env.e2e` → `DATABASE_URL` | `npm run dev:e2e` y `npm run test:e2e` |
+| Entorno | ¿Dónde está la URL? | Variables obligatorias adicionales | Comando de migración | Comando para levantar / testear |
+|---------|---------------------|------------------------------------|----------------------|---------------------------------|
+| Desarrollo | `.env.local` → `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) | `DATABASE_URL`, `NEXTAUTH_SECRET` o `AUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `npx drizzle-kit push` | `npm run dev` |
+| Producción | Vercel → `DATABASE_URL_UNPOOLED` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Ver [Producción](#producción) | `npm run build && npm run start` |
+| E2E / Playwright | `.env.e2e` → `DATABASE_URL` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | No aplica (`global-setup.ts` maneja el esquema) | `npm run test:e2e` |
 
 ---
 
@@ -24,9 +24,23 @@
 
 ## Desarrollo
 
-- Local: `DATABASE_URL` y `DATABASE_URL_UNPOOLED` en `.env.local`.
-- Suelen apuntar a un branch o base de desarrollo de **Neon**.
-- `drizzle.config.ts` usa `DATABASE_URL_UNPOOLED` (sin pooler) para migraciones.
+### Variables a definir
+
+En `.env.local`:
+
+- `DATABASE_URL` — URL del pooler de PostgreSQL (Neon) para la aplicación.
+- `DATABASE_URL_UNPOOLED` — URL sin pooler para migraciones (`drizzle.config.ts`).
+- Fallbacks: `POSTGRES_URL` y `POSTGRES_PRISMA_URL` para runtime; `POSTGRES_URL_NON_POOLING` para migraciones.
+- `NEXTAUTH_SECRET` o `AUTH_SECRET` — secreto de autenticación de al menos 32 bytes.
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales del administrador inicial.
+
+### Cómo encontrarlas
+
+```powershell
+Get-Content .env.local
+```
+
+Si no existe, copiar `.env.example` a `.env.local` y completar con los datos de la base de desarrollo.
 
 ### Aplicar migración en desarrollo
 
@@ -52,7 +66,15 @@ npx vercel env pull .env.production.local --environment=production
 
 Esto descarga **todos** los secretos de producción. Tratalo como un archivo sensible.
 
-### 2. Aplicar la migración
+### 2. Identificar la URL de base de datos
+
+La migración requiere `DATABASE_URL_UNPOOLED`. Buscala en el archivo descargado:
+
+```powershell
+Get-Content .env.production.local | Where-Object { $_ -match 'DATABASE_URL_UNPOOLED' }
+```
+
+### 3. Aplicar la migración
 
 El archivo que genera Vercel envuelve los valores en comillas dobles y puede incluir saltos de línea. Se usa así:
 
@@ -68,7 +90,7 @@ npx drizzle-kit push --force
 
 > **Por qué `.Trim().Trim('"')`**: el `env pull` de Vercel agrega `"` al inicio y al final de cada valor. Si no se quitan, `pg` no conecta.
 
-### 3. Verificar que se aplicó
+### 4. Verificar que se aplicó
 
 ```powershell
 $env:DATABASE_URL_UNPOOLED = (
@@ -84,16 +106,61 @@ await client.connect();
 const result = await client.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'customer_phone'\");
 console.log(result.rows.length > 0 ? 'OK: columna customer_phone aplicada.' : 'PENDIENTE: columna customer_phone no existe.');
 
-const result2 = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'branches' AND column_name = 'opening_hours'");
+const result2 = await client.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'branches' AND column_name = 'opening_hours'\");
 console.log(result2.rows.length > 0 ? 'OK: columna opening_hours aplicada.' : 'PENDIENTE: columna opening_hours no existe.');
 await client.end();
 "
 ```
 
-### 4. Borrar el archivo inmediatamente
+### 5. Borrar el archivo inmediatamente
 
 ```powershell
 Remove-Item .env.production.local
+```
+
+---
+
+## E2E / Playwright
+
+### Base de datos
+
+- Usar una base **descartable** cuyo nombre termine en `test`, `e2e`, `testing`, `qa` o `staging`.
+- Configurar `DATABASE_URL` en `.env.e2e`.
+- `tests/e2e/global-setup.ts` trunca las tablas de aplicación y re-ejecuta `src/db/seeds.ts` antes de cada run.
+- **Nunca** ejecutar `npm run test:e2e` ni `npx drizzle-kit push` contra una base con datos reales.
+
+### Variables obligatorias en `.env.e2e`
+
+- `DATABASE_URL` — URL de la base descartable (puede usarse la misma del pooler de Neon o local).
+- `AUTH_URL` y `NEXTAUTH_URL` — deben apuntar a `http://localhost:3000`.
+- `AUTH_SECRET` o `NEXTAUTH_SECRET` — secreto de al menos 32 bytes.
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales consistentes con `src/db/seeds.ts`.
+- `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (opcional, el seed lo define).
+
+### Cómo levantar y correr
+
+```powershell
+# Levantar servidor de pruebas
+npm run dev:e2e
+
+# En otra consola, correr Playwright
+npm run test:e2e
+```
+
+También se puede levantar manualmente y correr con `NO_WEB_SERVER=1`:
+
+```powershell
+npm run dev:e2e
+$env:NO_WEB_SERVER = 1
+npx playwright test
+```
+
+Playwright lee `.env.local` primero y luego `.env.e2e` con prioridad, tanto en `playwright.config.ts` como en `scripts/dev-e2e.ts`.
+
+### Cómo encontrar la URL de E2E
+
+```powershell
+Get-Content .env.e2e | Where-Object { $_ -match 'DATABASE_URL' }
 ```
 
 ---
@@ -106,14 +173,19 @@ Remove-Item .env.production.local
 4. Termina en `test`, `e2e`, `testing`, `qa`, `staging`: descartable.
 5. `localhost` o `127.0.0.1`: solo si hay PostgreSQL local corriendo.
 
----
+Para confirmar, abrir una conexión directa con `pg` y consultar `current_database()`:
 
-## E2E / staging
-
-- Base aparte cuyo nombre termine en `test`, `e2e`, `testing`, `qa` o `staging`.
-- Configurar en `.env.e2e` y usar `npm run dev:e2e`.
-- `tests/e2e/global-setup.ts` trunca tablas y ejecuta `src/db/seeds.ts` al inicio.
-- **Nunca** ejecutar `npm run test:e2e` ni `npx drizzle-kit push` contra una base con datos reales.
+```powershell
+$env:DATABASE_URL_UNPOOLED = (Get-Content .env.local | Where-Object { $_ -match '^DATABASE_URL_UNPOOLED=' } | ForEach-Object { ($_ -split '=', 2)[1].Trim().Trim('"') })
+npx tsx -e "
+import { Client } from 'pg';
+const client = new Client({ connectionString: process.env.DATABASE_URL_UNPOOLED, ssl: { rejectUnauthorized: false } });
+await client.connect();
+const result = await client.query('SELECT current_database() AS db');
+console.log('Base conectada:', result.rows[0].db);
+await client.end();
+"
+```
 
 ---
 
@@ -135,3 +207,4 @@ npm run test:e2e
 - No commitear `.env.local`, `.env.production.local` ni `.env.e2e`.
 - Si se expone una credencial por accidente, rotarla inmediatamente en Neon/Vercel.
 - El `npx vercel env pull` descarga secretos en texto plano. Usarlo solo cuando sea necesario y borrar el archivo al terminar.
+- Ejecutar E2E solo en bases cuyo nombre termine en uno de los sufijos aceptados. El `global-setup.ts` aborta si no se cumple, salvo que se defina explícitamente `E2E_ALLOW_REMOTE_DB=true`.

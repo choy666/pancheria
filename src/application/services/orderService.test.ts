@@ -1,5 +1,6 @@
 import {
   createOrder,
+  receiveOrder,
   cancelOrder,
   convertOrderToSale,
   getOrderById,
@@ -13,6 +14,7 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import * as idempotencyService from '@/application/idempotencyService';
 import * as productRepository from '@/repositories/productRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
+import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
 import {
@@ -246,6 +248,12 @@ jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/orderMessageRepository', () => ({
   countUnreadByOrderAndSender: jest.fn(),
 }));
+jest.mock('@/repositories/orderStockReservationRepository', () => ({
+  findByOrderId: jest.fn(),
+  insertReservations: jest.fn(),
+  deleteByOrderId: jest.fn(),
+  findActiveReservationsByProductIds: jest.fn(),
+}));
 jest.mock('@/application/services/branchService', () => ({
   getBranchById: jest.fn(),
 }));
@@ -261,6 +269,10 @@ jest.mock('@/application/transactionService', () => ({
 }));
 jest.mock('@/db', () => ({ db: createMockDb() }));
 
+const mockedOrderStockReservationRepository =
+  orderStockReservationRepository as jest.Mocked<
+    typeof orderStockReservationRepository
+  >;
 const mockedProductRepository = productRepository as jest.Mocked<
   typeof productRepository
 >;
@@ -306,6 +318,10 @@ describe('orderService', () => {
     capturedInserts.length = 0;
     capturedUpdates.length = 0;
     mockedExecuteInTransaction.mockImplementation(async (fn) => fn(db));
+    mockedOrderStockReservationRepository.findByOrderId.mockResolvedValue([]);
+    mockedOrderStockReservationRepository.findActiveReservationsByProductIds.mockResolvedValue(
+      []
+    );
     mockedBranchService.getBranchById.mockResolvedValue({
       id: BRANCH_ID,
       name: 'Sucursal Test',
@@ -560,6 +576,116 @@ describe('orderService', () => {
     });
   });
 
+  describe('receiveOrder', () => {
+    test('reserva stock y registra movimiento reserve al recibir un pedido', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        items: [createOrderItemRow({ productId: 1, quantity: 2 })],
+      });
+
+      const result = await receiveOrder({ branchId: BRANCH_ID, orderId: 1 });
+
+      expect(result.status).toBe('in_process');
+      expect(
+        mockedOrderStockReservationRepository.insertReservations
+      ).toHaveBeenCalled();
+
+      const reserveInserts = findCapturedInsert(stockMovements);
+      expect(reserveInserts).toHaveLength(1);
+
+      const reserveData = reserveInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
+      expect(reserveData).toHaveLength(1);
+      expect(reserveData[0]).toMatchObject({
+        productId: 1,
+        type: 'reserve',
+        quantity: -2,
+        reason: 'Reservado para pedido #1',
+      });
+    });
+
+    test('reserva insumos de promos y registra movimientos reserve', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Promo',
+          type: 'compound',
+          stock: 0,
+          price: 2000,
+        },
+        {
+          id: 2,
+          name: 'Pan',
+          type: 'critical_supply',
+          criticalSupplyType: 'bread',
+          stock: 10,
+          price: 0,
+        },
+        {
+          id: 3,
+          name: 'Salchicha',
+          type: 'critical_supply',
+          criticalSupplyType: 'sausage',
+          stock: 10,
+          price: 0,
+        },
+      ]);
+      setRecipes([
+        createRecipeWithSupply({
+          compoundProductId: 1,
+          supplyId: 2,
+          quantity: 1,
+          supply: { id: 2, name: 'Pan', stock: 10 },
+        }),
+        createRecipeWithSupply({
+          compoundProductId: 1,
+          supplyId: 3,
+          quantity: 2,
+          supply: { id: 3, name: 'Salchicha', stock: 10 },
+        }),
+      ]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        items: [
+          createOrderItemRow({
+            productId: 1,
+            quantity: 2,
+            unitPrice: 1000,
+            subtotal: 2000,
+          }),
+        ],
+      });
+
+      const result = await receiveOrder({ branchId: BRANCH_ID, orderId: 1 });
+
+      expect(result.status).toBe('in_process');
+
+      const reserveInserts = findCapturedInsert(stockMovements);
+      expect(reserveInserts).toHaveLength(1);
+
+      const reserveData = reserveInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
+      expect(reserveData).toHaveLength(2);
+      expect(reserveData).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ productId: 2, type: 'reserve', quantity: -2 }),
+          expect.objectContaining({ productId: 3, type: 'reserve', quantity: -4 }),
+        ])
+      );
+    });
+  });
+
   describe('cancelOrder', () => {
     test('cancela un pedido pendiente sin modificar stock', async () => {
       setProducts([
@@ -620,6 +746,53 @@ describe('orderService', () => {
       await expect(
         cancelOrder(BRANCH_ID, 999, 'Motivo')
       ).rejects.toThrow(NotFoundError);
+    });
+
+    test('libera reserva al cancelar un pedido recibido', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'in_process' }),
+        items: [createOrderItemRow({ productId: 1, quantity: 2 })],
+      });
+
+      mockedOrderStockReservationRepository.findByOrderId.mockResolvedValue([
+        { branchId: BRANCH_ID, orderId: 1, productId: 1, quantity: 2 },
+      ]);
+
+      const result = await cancelOrder(
+        BRANCH_ID,
+        1,
+        'Cancelado por el cliente',
+        'token'
+      );
+
+      expect(result.status).toBe('cancelled');
+      expect(
+        mockedOrderStockReservationRepository.deleteByOrderId
+      ).toHaveBeenCalledWith(db, 1);
+
+      const stockMovementInserts = findCapturedInsert(stockMovements);
+      expect(stockMovementInserts).toHaveLength(1);
+
+      const reserveReleaseData = stockMovementInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
+      expect(reserveReleaseData).toHaveLength(1);
+      expect(reserveReleaseData[0]).toMatchObject({
+        productId: 1,
+        type: 'reserve_release',
+        quantity: 2,
+        reason: 'Reserva liberada del pedido #1',
+      });
     });
 
     test('es idempotente cuando el pedido ya fue cancelado', async () => {
@@ -742,6 +915,68 @@ describe('orderService', () => {
       expect(stockMovement.type).toBe('sale');
       expect(stockMovement.quantity).toBe(-2);
       expect(stockMovement.saleId).toBe(1);
+    });
+
+    test('libera reserva y descuenta stock al confirmar un pedido recibido', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'in_process', total: 2000 }),
+        items: [
+          createOrderItemRow({
+            productId: 1,
+            quantity: 2,
+            unitPrice: 1000,
+            subtotal: 2000,
+          }),
+        ],
+      });
+
+      mockedOrderStockReservationRepository.findByOrderId.mockResolvedValue([
+        { branchId: BRANCH_ID, orderId: 1, productId: 1, quantity: 2 },
+      ]);
+
+      const result = await convertOrderToSale({
+        branchId: BRANCH_ID,
+        orderId: 1,
+        paymentMethod: 'cash',
+        idempotencyKey: 'key-convert-in-process',
+      });
+
+      expect(result.total).toBe(2000);
+
+      expect(
+        mockedOrderStockReservationRepository.deleteByOrderId
+      ).toHaveBeenCalledWith(db, 1);
+
+      const stockMovementInserts = findCapturedInsert(stockMovements);
+      expect(stockMovementInserts).toHaveLength(2);
+
+      const reserveReleaseData = stockMovementInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
+      expect(reserveReleaseData).toHaveLength(1);
+      expect(reserveReleaseData[0]).toMatchObject({
+        productId: 1,
+        type: 'reserve_release',
+        quantity: 2,
+        reason: 'Reserva liberada del pedido #1',
+      });
+
+      const saleData = stockMovementInserts[1]?.data as typeof stockMovements.$inferInsert;
+      expect(saleData).toMatchObject({
+        productId: 1,
+        type: 'sale',
+        quantity: -2,
+      });
     });
 
     test('es idempotente cuando la venta ya fue procesada', async () => {

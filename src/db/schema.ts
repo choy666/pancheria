@@ -64,6 +64,8 @@ export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
   'cancellation',
   'manual_adjustment',
   'restock',
+  'reserve',
+  'reserve_release',
 ]);
 
 export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
@@ -374,6 +376,7 @@ export const orderMessages = pgTable(
     attachmentMimeType: varchar('attachment_mime_type', { length: 100 }),
     attachmentSize: integer('attachment_size'),
     attachmentName: varchar('attachment_name', { length: 255 }),
+    deliveredAt: timestamp('delivered_at'),
     readAt: timestamp('read_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },

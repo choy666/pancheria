@@ -5,9 +5,8 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente,
 - [Lecciones aprendidas](lecciones-aprendidas.md) — resumen transversal para prompts y auditorías futuras.
 - [Entornos y credenciales](entornos.md) — cómo identificar y usar las URLs de base de datos de desarrollo, producción y E2E; pasos para migraciones.
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
-- [Plan de acción — cierre de pendientes](plan-de-accion-pendientes.md) — pasos para resolver las recomendaciones del reporte de estado y otras deudas documentales.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
-- [Archivo de informes históricos](archivados/) — reportes anteriores (`reporte-estado-YYYY-MM-DD.md`) y planes resueltos.
+- [Archivo de informes históricos](archivados/) — reportes anteriores (`reporte-estado-YYYY-MM-DD.md`) y planes resueltos (incluye el plan de acción de 2026-08-27).
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 
 ## Cómo usar este directorio

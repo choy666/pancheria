@@ -2,6 +2,7 @@ import { InsufficientStockError, NotFoundError, ValidationError } from '@/domain
 import { validateBranchOwnership } from '@/lib/validation-helpers';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import type { ProductRow, SaleItemInput } from '@/domain/types';
+import { db } from '@/db';
 import * as productRepository from '@/repositories/productRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { collectStockProductIdsToLock } from '@/lib/stock-helpers';
@@ -194,6 +195,39 @@ export async function calculateAvailabilityForProductIds(
   const { productById, recipesByProduct, supplyStockById, supplyNameById } =
     await buildAvailabilityContext(branchId, productIds);
 
+  const idsToLockSet = new Set<number>();
+  for (const productId of productIds) {
+    const product = productById.get(productId);
+    if (!product || product.type === 'service') continue;
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        if (recipeItem.autoDiscount) idsToLockSet.add(recipeItem.supplyId);
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      idsToLockSet.add(product.id);
+    }
+  }
+
+  const idsToLock = Array.from(idsToLockSet);
+  if (idsToLock.length > 0) {
+    const reservations =
+      await orderStockReservationRepository.findActiveReservationsByProductIds(
+        db,
+        branchId,
+        idsToLock
+      );
+    for (const reservation of reservations) {
+      if (supplyStockById[reservation.productId] !== undefined) {
+        supplyStockById[reservation.productId] -= reservation.quantity;
+      }
+    }
+  }
+
   const resultById: Record<number, ProductAvailability> = {};
 
   for (const productId of productIds) {
@@ -215,7 +249,8 @@ export async function calculateAvailabilityForProductIds(
 
       resultById[product.id] = {
         availability: calculateCompoundAvailability(
-          recipesByProduct.get(product.id) ?? []
+          recipesByProduct.get(product.id) ?? [],
+          supplyStockById
         ),
         breakdown,
       };
@@ -224,7 +259,7 @@ export async function calculateAvailabilityForProductIds(
       product.criticalSupplyType === 'beverage'
     ) {
       resultById[product.id] = {
-        availability: product.stock,
+        availability: supplyStockById[product.id] ?? 0,
         breakdown: [],
       };
     } else if (product.type === 'service') {
@@ -297,13 +332,34 @@ export async function validateCartAvailability(
     productById,
     recipesByProduct
   );
+  const idsToLockSet = new Set(idsToLock);
+  const productIdsToConsider = productIds ?? itemProductIds;
 
-  if (idsToLock.length > 0 && dbOrTx) {
+  for (const productId of productIdsToConsider) {
+    const product = productById.get(productId);
+    if (!product || product.type === 'service') continue;
+
+    if (product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        if (recipeItem.autoDiscount) idsToLockSet.add(recipeItem.supplyId);
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      idsToLockSet.add(product.id);
+    }
+  }
+
+  const idsToLockArray = Array.from(idsToLockSet);
+
+  if (idsToLockArray.length > 0 && dbOrTx) {
     const reservations =
       await orderStockReservationRepository.findActiveReservationsByProductIds(
         dbOrTx,
         branchId,
-        idsToLock,
+        idsToLockArray,
         excludeOrderId
       );
     for (const reservation of reservations) {

@@ -104,6 +104,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
           quantity: item.quantity,
         })),
         customerName: order.customerName,
+        customerPhone: order.customerPhone ?? undefined,
         deliveryType: order.deliveryType,
         address: order.address ?? undefined,
         notes: order.notes ?? undefined,

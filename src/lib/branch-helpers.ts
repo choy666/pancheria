@@ -53,6 +53,24 @@ export function validateOpeningHours(
     }
     seen.add(key);
   }
+
+  const sorted = [...hours].sort((a, b) => {
+    if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+    return minutesOf(a.open) - minutesOf(b.open);
+  });
+
+  for (let i = 1; i < sorted.length; i += 1) {
+    const prev = sorted[i - 1];
+    const current = sorted[i];
+    if (
+      prev.dayOfWeek === current.dayOfWeek &&
+      minutesOf(prev.close) > minutesOf(current.open)
+    ) {
+      throw new Error(
+        `Los horarios del ${DAYS[current.dayOfWeek]} se solapan (${prev.open} - ${prev.close} y ${current.open} - ${current.close}).`
+      );
+    }
+  }
 }
 
 export function parseOpeningHoursForm(
@@ -67,11 +85,12 @@ export function parseOpeningHoursForm(
     .sort();
 
   for (const openKey of openKeys) {
-    const match = openKey.match(/^openingHours\[(\d+)\]\[(\w+)\]$/);
+    const match = openKey.match(/^openingHours\[(\d+)\]\[(\d+)\]\[(\w+)\]$/);
     if (!match) continue;
     const dayOfWeek = Number(match[1]);
+    const slotIndex = Number(match[2]);
     const open = formData.get(openKey)?.toString() ?? '';
-    const closeKey = `openingHours[${dayOfWeek}][close]`;
+    const closeKey = `openingHours[${dayOfWeek}][${slotIndex}][close]`;
     const close = formData.get(closeKey)?.toString() ?? '';
 
     if (open && close) {

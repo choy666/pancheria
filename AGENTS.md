@@ -169,7 +169,7 @@ El sistema permite subir, listar, reproducir y transmitir videos desde el panel 
    vercel --prod --yes
    ```
    - El CLI detectará Next.js automáticamente y conectará el repositorio de GitHub si existe.
-   - Anotá el dominio de producción asignado. Para este proyecto, el dominio oficial es `https://pancheria-alpha.vercel.app`; ese mismo valor debe usarse para `NEXTAUTH_URL` en producción.
+   - Anotá el dominio de producción asignado. Ese mismo valor debe usarse para `NEXTAUTH_URL` (o `AUTH_URL`, que tiene prioridad en NextAuth v5) en producción. No hardcodear el dominio en el código ni en la documentación; siempre obtenerlo de la configuración de Vercel.
 4. Subir las variables de entorno a Vercel:
    ```bash
    $db = (Get-Content .env.local | Select-String '^DATABASE_URL=(.*)').Matches.Groups[1].Value; $db | vercel env add DATABASE_URL production
@@ -352,3 +352,51 @@ Para evitar duplicación de código al agregar nuevos canales de chat o extender
 - El rate limit de pedidos públicos (`POST /api/public/pedido`) y del chat público soporta `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` para usar PostgreSQL como store compartida en producción con múltiples instancias. Ver la tabla `public_order_rate_limits` en `src/db/schema.ts`.
 - Los adjuntos del chat almacenan `attachmentKey` en `order_messages`, lo que permite la limpieza periódica de archivos huérfanos mediante `GET /api/cron/chat-attachments-cleanup`. El cron debe reflejarse en `vercel.json` y protegerse con `CRON_SECRET`.
 - `cashRegisters.closedBy` permanece como `varchar` y no como FK a `users`. El cierre automático usa el valor simbólico que devuelve `getAutoClosedBy()` en `src/config/caja.ts`. Si en el futuro se requiere trazabilidad estricta del usuario que cierra, se evaluará agregar un campo `closedByUserId` nullable manteniendo `closedBy` como label legible.
+
+## Bases de datos y entornos
+
+Para operar con bases de datos seguir las reglas de `.devin/informes/entornos.md`. A continuación el resumen operativo para agentes:
+
+### 1. Identificar la URL de cada entorno
+
+| Entorno | Archivo / Origen | Variable clave | Cómo leerla |
+|---|---|---|---|
+| Desarrollo local | `.env.local` | `DATABASE_URL_UNPOOLED` | `Get-Content .env.local \| Where-Object { $_ -match '^DATABASE_URL_UNPOOLED=' }` |
+| Producción | Vercel (descarga temporal) | `DATABASE_URL_UNPOOLED` | `npx vercel env pull .env.production.local --environment=production` |
+| E2E / Playwright | `.env.e2e` | `DATABASE_URL` | `Get-Content .env.e2e \| Where-Object { $_ -match '^DATABASE_URL=' }` |
+
+> El runtime acepta como fallback `POSTGRES_URL`, `POSTGRES_PRISMA_URL` y `POSTGRES_URL_NON_POOLING`. El nombre de la base para E2E **debe terminar en `test`, `e2e`, `testing`, `qa` o `staging`**.
+
+### 2. Aplicar migraciones
+
+- Desarrollo: `npx drizzle-kit push` (usar `--force` si pide confirmación por `data-loss`).
+- Producción: ver el paso a paso en `.devin/informes/entornos.md` usando `npx vercel env pull`.
+- E2E: `tests/e2e/global-setup.ts` maneja el esquema; no usar `npx drizzle-kit push` manualmente salvo que se esté preparando la base por primera vez.
+
+### 3. Correr Playwright
+
+```powershell
+npm run test:e2e
+```
+
+Para depurar sin levantar el servidor desde Playwright:
+
+```powershell
+npm run dev:e2e
+$env:NO_WEB_SERVER = 1
+npx playwright test
+```
+
+Playwright y `dev-e2e` cargan `.env.local` primero y luego `.env.e2e` con prioridad.
+
+### 4. Variables obligatorias por entorno
+
+- Desarrollo y producción: `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (o sus alias de Vercel), `AUTH_SECRET` o `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`.
+- E2E: `DATABASE_URL` (base descartable), `AUTH_SECRET` o `NEXTAUTH_SECRET`, `AUTH_URL` y `NEXTAUTH_URL`=`http://localhost:3000`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`.
+
+### 5. Reglas de seguridad
+
+- Nunca correr `npm run test:e2e` contra producción, desarrollo o cualquier base con datos reales.
+- Nunca hardcodear URLs de base de datos, credenciales ni secretos.
+- `npx vercel env pull` descarga secretos en texto plano: borrar `.env.production.local` inmediatamente después de usarlo.
+- Si una credencial se expone, rotarla en Neon/Vercel de inmediato.

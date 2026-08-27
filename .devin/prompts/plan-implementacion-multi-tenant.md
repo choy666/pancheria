@@ -10,7 +10,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/informe-estrategico-franquicia-saas.md" />
+- *(El informe estratégico de franquicia/SaaS aún no existe; este prompt actúa como punto de partida para definirlo si se avanza con el modelo multi-tenant.)*
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />
 
 ## Estado actual relevante

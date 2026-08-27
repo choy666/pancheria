@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
 
 const PNG_PIXEL_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -9,8 +9,12 @@ function pngBuffer(): Buffer {
 }
 
 test.describe('Chat con adjuntos', () => {
-  test('cliente y operador intercambian imágenes', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await login(page);
+    await ensureCashRegisterOpen(page);
+  });
+
+  test('cliente y operador intercambian imágenes', async ({ page }) => {
 
     const product = await createProductViaApi(page, {
       name: unique('Chat Adjuntos'),

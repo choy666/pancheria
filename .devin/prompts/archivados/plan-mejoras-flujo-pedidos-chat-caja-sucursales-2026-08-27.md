@@ -1,4 +1,6 @@
-# Prompt: Plan de mejoras — flujo de pedidos, chat, caja y sucursales
+# ARCHIVADO — Prompt: Plan de mejoras — flujo de pedidos, chat, caja y sucursales
+
+> **Estado: archivado.** Las fases de este plan fueron implementadas y verificadas. El flujo vigente de pedidos se documenta en `.devin/informes/guia-funcionamiento-pancheria.md` y `.devin/informes/reporte-estado.md`. Se conserva como registro histórico.
 
 ## Contexto
 
@@ -10,7 +12,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-de-accion-pendientes.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/plan-de-accion-2026-08-27.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />
 
 ## Estado actual relevante
@@ -181,43 +183,50 @@ Implementar un plan por fases que resuelva los siguientes escenarios identificad
 ### Fase 4 — Chat con estados de mensaje (tildes WhatsApp-style)
 
 #### Base de datos
-- Agregar a `orderMessages` en <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="322-353" />:
+- [x] Agregar a `orderMessages` en <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="322-353" />:
   - `deliveredAt: timestamp('delivered_at')`.
   - Ajustar semántica de `readAt` para que sea por mensaje individual (ya existe; cambiar lógica de lectura).
-- Opcional: agregar campo `status` de tipo enum (`sent`, `delivered`, `read`) si se prefiere sobre timestamps.
+- [ ] Opcional: agregar campo `status` de tipo enum (`sent`, `delivered`, `read`) si se prefiere sobre timestamps.
 
 #### Backend
-- `orderMessageRepository`:
-  - `markAsReadByOrderAndSender` debe marcar mensajes individuales del remitente opuesto como leídos.
-  - Agregar `markMessagesAsDelivered(orderId, senderType, messageIds)`.
-- `chatService`:
-  - Al listar mensajes, el receptor puede marcar como entregados los mensajes que ve por primera vez.
-  - `markClientMessagesAsRead` y `markOperatorMessagesAsRead` deben seguir marcando como leídos los mensajes del remitente opuesto.
-- API:
+- [x] `orderMessageRepository`:
+  - `markAllAsReadByOrderAndSender` marca mensajes individuales del remitente opuesto como leídos.
+  - Agregar `markAllAsDeliveredByOrderAndSender(orderId, senderType)`.
+- [x] `chatService`:
+  - Al listar mensajes, el receptor marca como entregados los mensajes del remitente opuesto que ve por primera vez.
+  - `markClientMessagesAsRead` y `markOperatorMessagesAsRead` siguen marcando como leídos los mensajes del remitente opuesto.
+- [x] API:
   - `POST /api/pedidos/[id]/chat/leido` y `POST /api/public/pedido/[id]/chat/leido` marcan como leídos.
-  - Considerar un endpoint para marcar como entregado, o inferirlo en el `GET`/`POST` de listado.
+  - El entregado se infiere en el `GET` de listado (no se agregó endpoint dedicado).
 
 #### Frontend
-- `chat-message-list.tsx`:
-  - Mostrar íconos de tildes simple (enviado), doble (recibido) o doble azul/acentuado (leído) en cada burbuja propia.
-  - Mostrar hora de envío y, al hacer hover, estado de entrega.
-- `useOrderChat.ts`:
-  - Al recibir mensajes del otro lado, marcarlos como entregados.
-  - Al abrir el chat, marcar como leídos los mensajes del otro.
+- [x] `chat-message-list.tsx`:
+  - Mostrar íconos de tildes simple (enviado), doble (entregado) o doble azul (leído) en cada burbuja propia.
+  - Mostrar hora de envío y tooltip con estado al hacer hover.
+- [x] `useOrderChat.ts`:
+  - Al recibir mensajes del otro lado, el backend los marca como entregados.
+  - Al abrir el chat, marca como leídos los mensajes del otro.
 
 #### Tests
-- Tests unitarios para `chatService` y `orderMessageRepository`.
-- Tests de componente para `chat-message-list.tsx`.
+- [x] Tests unitarios para `chatService` y `orderMessageRepository`.
+- [x] Tests de componente para `chat-message-list.tsx` (verificados a través de `order-chat.test.tsx`).
 
 ---
 
 ### Fase 5 — Integración, ajustes finales y validación
 
-1. Revisar y actualizar `src/db/seeds.ts` si se agregan datos iniciales de horario.
-2. Revisar `.env.example` si se agregan variables (no parece necesario para estas fases).
-3. Actualizar `AGENTS.md` si cambian variables de entorno, comandos o convenciones nuevas.
-4. Actualizar `.devin/informes/reporte-estado.md` y `.devin/informes/plan-de-accion-pendientes.md`.
-5. Ejecutar verificaciones en cada fase (ver tabla).
+1. [ ] Revisar y actualizar `src/db/seeds.ts` si se agregan datos iniciales de horario.
+2. [x] Revisar `.env.example`; no se agregaron variables nuevas para estas fases.
+3. [x] Actualizar `AGENTS.md` con variables y convenciones vigentes.
+4. [x] Actualizar `.devin/informes/reporte-estado.md` y `.devin/informes/archivados/plan-de-accion-2026-08-27.md` con Fase 4 y Fase 5.
+5. [x] Ejecutar verificaciones en cada fase.
+6. [ ] Resolver gaps menores documentados:
+   - Horarios por defecto en el seed.
+   - Persistencia del último teléfono en `order-tracker.tsx`.
+   - Incluir `customerPhone` en el mensaje de WhatsApp.
+   - Limpiar el enum `order_status` de PostgreSQL si aún conserva `converted`.
+   - Evaluar trazabilidad de reservas en `stock_movements`.
+   - Proteger `receiveOrder` contra condiciones de carrera.
 
 ## Consideraciones de seguridad y entorno
 
@@ -277,3 +286,62 @@ Verificaciones ejecutadas:
 
 Pendiente:
 - Continuar con la Fase 2 (horarios de sucursal y bloqueo por caja cerrada).
+
+---
+
+### 2026-08-27 — Fase 4 completada
+
+Se implementaron los estados de mensaje en el chat (enviado, entregado y leído) con tildes estilo WhatsApp. La entrega se infiere en el `GET` de listado de mensajes y la lectura sigue usando los endpoints `/chat/leido` existentes.
+
+Archivos modificados principales:
+- <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="376-380" /> — agrega `deliveredAt`.
+- <ref_file file="C:/developer/paginas/pancheria/drizzle/0019_hard_morbius.sql" /> — migración que agrega `delivered_at`.
+- <ref_snippet file="C:/developer/paginas/pancheria/src/domain/types.ts" lines="111-125" /> — agrega `deliveredAt` al dominio.
+- <ref_snippet file="C:/developer/paginas/pancheria/src/repositories/orderMessageRepository.ts" lines="72-92" /> — `markAllAsDeliveredByOrderAndSender`.
+- <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/chatService.ts" lines="188-240" /> — `markMessagesAsDelivered` usado en listados.
+- <ref_file file="C:/developer/paginas/pancheria/src/components/chat/chat-message-list.tsx" /> — tildes simple, doble y doble azul con tooltips.
+- <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderMessageRepository.test.ts" /> — tests de entrega.
+- <ref_file file="C:/developer/paginas/pancheria/src/application/services/chatService.test.ts" /> — tests de listado con entrega.
+- <ref_file file="C:/developer/paginas/pancheria/src/components/chat/order-chat.test.tsx" /> — ajuste de fixtures.
+
+Verificaciones ejecutadas:
+- `npx tsc --noEmit`: exitoso.
+- `npm run lint`: exitoso.
+- `npm run build`: exitoso.
+- `npm test`: 119 suites, 1112 tests, exitoso.
+- `npm run knip`: exitoso.
+- Tests E2E de chat (`pedido-chat.spec.ts` y `pedido-chat-adjuntos.spec.ts`): 2/2 pasaron.
+- `npx drizzle-kit push --force` (desarrollo y E2E): aplicó `0019_hard_morbius.sql` sin errores.
+
+Pendiente:
+- Continuar con la Fase 5: resolver gaps menores documentados.
+
+---
+
+## Registro de auditoría — 2026-08-27
+
+Estado actual del plan tras auditoría, depuración y verificación del código:
+
+| Fase | Estado | Notas |
+| ---- | ------ | ----- |
+| Fase 1 — Número de celular y filtro por teléfono | Implementada | Columna `customer_phone`, índice, validación, UI, seguimiento y tests E2E funcionando. |
+| Fase 2 — Horarios de sucursal y bloqueo por caja cerrada | Implementada | Backend, migración, API pública de estado de caja, bloqueo en `createOrder` y formulario con múltiples franjas por día. |
+| Fase 3 — Nuevos estados y reserva de stock | Implementada | Estados `in_process`, `paid`, `finished`; reservas en `order_stock_reservations`; conversión de reservas sin doble descuento. |
+| Fase 4 — Chat con estados de mensaje (tildes WhatsApp-style) | Implementada | Columna `delivered_at`, repositorio `markAllAsDeliveredByOrderAndSender`, `chatService` marca entregados al listar y tildes simple, doble y doble azul en `chat-message-list.tsx`. |
+| Fase 5 — Integración y ajustes finales | Parcial | Build, tests y documentación verificados. Quedan gaps menores documentados en `.devin/informes/reporte-estado.md` y `plan-de-accion-pendientes.md`: horarios en seed, persistencia de teléfono, mensaje de WhatsApp, limpieza de enum `order_status`, trazabilidad de reservas y concurrencia en `receiveOrder`. |
+
+Verificaciones ejecutadas en esta auditoría:
+- `npx tsc --noEmit`: exitoso.
+- `npm run lint`: exitoso.
+- `npm run build`: exitoso.
+- `npm test`: 119 suites, 1112 tests, exitoso.
+- Tests E2E de chat (`pedido-chat.spec.ts` y `pedido-chat-adjuntos.spec.ts`): 2/2 pasaron.
+
+Riesgos y gaps detectados:
+1. ✅ El helper `last-customer-phone.ts` fue creado; `order-tracker.tsx` ahora persiste el teléfono en localStorage.
+2. ✅ `whatsapp.ts` ahora incluye el `customerPhone` en el mensaje generado cuando está disponible.
+3. ✅ `src/db/seeds.ts` define horarios por defecto para la sucursal creada.
+4. ✅ Se agregó `src/components/chat/chat-message-list.test.tsx` con cobertura de estados enviado, entregado y leído.
+5. ✅ `receiveOrder` bloquea los productos/insumos con `FOR UPDATE` antes de validar e insertar reservas.
+6. ✅ Verificado con `npx drizzle-kit check` en desarrollo, E2E y producción: el enum `order_status` no conserva el valor legacy `converted`; no requiere migración adicional.
+7. ✅ Se agregaron los tipos `reserve` y `reserve_release` a `stock_movement_type`; `receiveOrder` registra movimientos `reserve` al reservar stock, `convertOrderToSale` registra `reserve_release` al pagar, y `cancelOrder` registra `reserve_release` al cancelar un pedido `in_process`; `stock-history.tsx` muestra los nuevos tipos; se generó y aplicó `drizzle/0020_minor_bloodstorm.sql`.

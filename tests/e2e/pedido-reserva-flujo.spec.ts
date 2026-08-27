@@ -1,5 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { login, unique, createProductViaApi, restockProductViaApi, ensureCashRegisterOpen } from './helpers';
+
+async function selectOrderStatus(page: Page, label: string) {
+  await page.getByTestId('orders-status-filter').click();
+  await page.getByRole('option', { name: label }).click();
+}
 
 test.describe('Flujo completo de reserva, pago y finalización', () => {
   test.beforeEach(async ({ page }) => {
@@ -61,6 +66,7 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
 
     // Confirmar el pago: no debe volver a descontar stock.
     await page.goto('/pedidos');
+    await selectOrderStatus(page, 'En proceso');
     await page
       .locator('[data-testid^="row-order-"]')
       .filter({ hasText: customerName })
@@ -81,6 +87,7 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
 
     // Finalizar el pedido.
     await page.goto('/pedidos');
+    await selectOrderStatus(page, 'Pagado');
     await page
       .locator('[data-testid^="row-order-"]')
       .filter({ hasText: customerName })

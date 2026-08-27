@@ -33,7 +33,9 @@ export type StockMovementType =
   | 'sale'
   | 'cancellation'
   | 'manual_adjustment'
-  | 'restock';
+  | 'restock'
+  | 'reserve'
+  | 'reserve_release';
 
 export type BranchOpeningHours = {
   dayOfWeek: number;
@@ -119,6 +121,7 @@ export type OrderMessage = {
   attachmentMimeType: string | null;
   attachmentSize: number | null;
   attachmentName: string | null;
+  deliveredAt: Date | null;
   readAt: Date | null;
   createdAt: Date;
 };

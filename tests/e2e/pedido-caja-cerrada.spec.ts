@@ -38,9 +38,8 @@ test.describe('Bloqueo de pedido con caja cerrada', () => {
     await page.getByLabel('Teléfono').fill('3415555555');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(
-      page.getByText('La caja de la sucursal está cerrada')
-    ).toBeVisible();
-    await expect(page.getByText('Horario de apertura')).toBeVisible();
+    const errorMessage = page.getByText('La caja de la sucursal está cerrada');
+    await expect(errorMessage).toBeVisible();
+    await expect(errorMessage).toContainText('Horario de apertura');
   });
 });

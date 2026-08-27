@@ -8,11 +8,22 @@ dotenv.config({ path: '.env.local' });
 import { products, recipes, users, branches } from './schema';
 import { copyCatalogToBranch } from './catalog-copy';
 import * as stockService from '@/application/services/stockService';
+import type { BranchOpeningHours } from '@/domain/types';
 
 const DEFAULT_BRANCH_NAME = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
 const NEW_BRANCH_NAME = process.env.NEW_BRANCH_NAME;
 const NEW_BRANCH_USERNAME = process.env.NEW_BRANCH_USERNAME;
 const NEW_BRANCH_PASSWORD = process.env.NEW_BRANCH_PASSWORD;
+
+const DEFAULT_OPENING_HOURS: BranchOpeningHours[] = [
+  { dayOfWeek: 1, open: '10:00', close: '22:00' },
+  { dayOfWeek: 2, open: '10:00', close: '22:00' },
+  { dayOfWeek: 3, open: '10:00', close: '22:00' },
+  { dayOfWeek: 4, open: '10:00', close: '22:00' },
+  { dayOfWeek: 5, open: '10:00', close: '22:00' },
+  { dayOfWeek: 6, open: '10:00', close: '22:00' },
+  { dayOfWeek: 0, open: '18:00', close: '23:00' },
+];
 
 async function seedDefaultBranch(): Promise<number> {
   const existing = await db.query.branches.findFirst({
@@ -26,7 +37,7 @@ async function seedDefaultBranch(): Promise<number> {
 
   const [branch] = await db
     .insert(branches)
-    .values({ name: DEFAULT_BRANCH_NAME })
+    .values({ name: DEFAULT_BRANCH_NAME, openingHours: DEFAULT_OPENING_HOURS })
     .returning({ id: branches.id });
 
   console.log('Sucursal por defecto creada.');
@@ -98,7 +109,7 @@ async function seedOptionalBranch(defaultBranchId: number) {
 
   const [branch] = await db
     .insert(branches)
-    .values({ name: NEW_BRANCH_NAME })
+    .values({ name: NEW_BRANCH_NAME, openingHours: DEFAULT_OPENING_HOURS })
     .returning({ id: branches.id });
 
   const existingUser = await db.query.users.findFirst({
