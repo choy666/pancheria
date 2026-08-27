@@ -23,7 +23,9 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
 
     const customerName = unique('Cliente confirmable');
+    const customerPhone = '3415555555';
     await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
     await page.getByRole('button', { name: 'Cerrar' }).click();
@@ -59,7 +61,9 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
 
     const customerName = unique('Cliente cancelable');
+    const customerPhone = '3416666666';
     await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
     await page.getByRole('button', { name: 'Cerrar' }).click();

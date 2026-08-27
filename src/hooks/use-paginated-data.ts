@@ -10,6 +10,7 @@ export interface UsePaginatedDataResult<T> {
   page: number;
   limit: number;
   isLoading: boolean;
+  isRefreshing: boolean;
   error: string | null;
   setPage: (page: number) => void;
   setLimit: (limit: number) => void;
@@ -27,6 +28,7 @@ export function usePaginatedData<T>(
   options: UsePaginatedDataOptions = {}
 ): UsePaginatedDataResult<T> {
   const isMountedRef = useRef(true);
+  const isRefreshRef = useRef(false);
   const [page, setPage] = useState(options.initialPage ?? DEFAULT_PAGE);
   const [limit, setLimitState] = useState(options.initialLimit ?? DEFAULT_LIMIT);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -37,15 +39,18 @@ export function usePaginatedData<T>(
     limit: DEFAULT_LIMIT,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const setPageSafe = useCallback((nextPage: number) => {
+    isRefreshRef.current = false;
     setIsLoading(true);
     setError(null);
     setPage(nextPage);
   }, []);
 
   const setLimit = useCallback((nextLimit: number) => {
+    isRefreshRef.current = false;
     setIsLoading(true);
     setError(null);
     setLimitState(nextLimit);
@@ -53,13 +58,16 @@ export function usePaginatedData<T>(
   }, []);
 
   const refresh = useCallback(() => {
-    setIsLoading(true);
+    isRefreshRef.current = true;
+    setIsRefreshing(true);
     setError(null);
     setRefreshKey((prev) => prev + 1);
   }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
+    const isRefresh = isRefreshRef.current;
+    isRefreshRef.current = false;
     const abortController = new AbortController();
 
     load(page, limit, abortController.signal)
@@ -76,14 +84,24 @@ export function usePaginatedData<T>(
         }
 
         setResult(data);
-        setIsLoading(false);
+        if (isRefresh) {
+          setIsRefreshing(false);
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
+        }
       })
       .catch((err) => {
         if (abortController.signal.aborted) return;
         if (!isMountedRef.current) return;
         if (err instanceof Error && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Error desconocido');
-        setIsLoading(false);
+        if (isRefresh) {
+          setIsRefreshing(false);
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
+        }
       });
 
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -113,6 +131,7 @@ export function usePaginatedData<T>(
     page: result.page,
     limit: result.limit,
     isLoading,
+    isRefreshing,
     error,
     setPage: setPageSafe,
     setLimit,

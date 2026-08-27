@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, getTestSecondBranch } from './helpers';
+import { login, unique, createProductViaApi, getTestSecondBranch, ensureCashRegisterOpen } from './helpers';
 
 test.describe('Pedido público con chat', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await ensureCashRegisterOpen(page);
+  });
+
   test('muestra el catálogo, permite armar el carrito y abrir el chat del pedido', async ({
     page,
   }) => {
-    await login(page);
-
     const product = await createProductViaApi(page, {
       name: unique('Pedido E2E'),
       type: 'service',
@@ -28,6 +31,7 @@ test.describe('Pedido público con chat', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     await page.getByLabel('Nombre').fill('Juan Pérez');
+    await page.getByLabel('Teléfono').fill('3415555555');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();
@@ -41,7 +45,6 @@ test.describe('Pedido público con chat', () => {
     page,
   }) => {
     const second = await getTestSecondBranch();
-    await login(page);
 
     await page.context().addCookies([
       {
@@ -75,6 +78,7 @@ test.describe('Pedido público con chat', () => {
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await page.getByLabel('Nombre').fill('Ana García');
+    await page.getByLabel('Teléfono').fill('3416666666');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();

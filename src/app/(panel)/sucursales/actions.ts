@@ -5,6 +5,7 @@ import * as branchService from '@/application/services/branchService';
 import { requireAdmin } from '@/lib/auth';
 import { DomainError, NotFoundError } from '@/domain/errors';
 import { routes } from '@/config/routes';
+import { parseOpeningHoursForm } from '@/lib/branch-helpers';
 
 export type BranchState = { error: string } | null;
 
@@ -14,14 +15,15 @@ export async function createBranch(
 ): Promise<BranchState> {
   await requireAdmin();
   const name = formData.get('name')?.toString() ?? '';
+  const openingHours = parseOpeningHoursForm(formData);
 
   try {
-    await branchService.createBranch(name);
+    await branchService.createBranch(name, openingHours);
   } catch (error) {
     if (error instanceof DomainError) {
       return { error: error.message };
     }
-    throw error;
+    return { error: error instanceof Error ? error.message : 'Error al crear la sucursal.' };
   }
 
   revalidatePath(routes.sucursales);
@@ -36,14 +38,15 @@ export async function updateBranchAction(
 
   const id = Number(formData.get('id'));
   const name = formData.get('name')?.toString() ?? '';
+  const openingHours = parseOpeningHoursForm(formData);
 
   try {
-    await branchService.updateBranch(id, name);
+    await branchService.updateBranch(id, name, openingHours);
   } catch (error) {
     if (error instanceof DomainError) {
       return { error: error.message };
     }
-    throw error;
+    return { error: error instanceof Error ? error.message : 'Error al actualizar la sucursal.' };
   }
 
   revalidatePath(routes.sucursales);

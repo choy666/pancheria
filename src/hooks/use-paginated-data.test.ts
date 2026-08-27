@@ -163,6 +163,32 @@ describe('usePaginatedData', () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  test('recarga los datos en segundo plano sin reiniciar isLoading', async () => {
+    const load = jest.fn().mockResolvedValue({
+      items: ['a'],
+      total: 1,
+      page: 1,
+      limit: 10,
+    });
+
+    const { result } = renderHook(() => usePaginatedData(load as unknown as TestLoad));
+
+    await act(async () => {});
+
+    act(() => {
+      result.current.refresh();
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isRefreshing).toBe(true);
+
+    await act(async () => {});
+
+    expect(result.current.isRefreshing).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   test('refresca automáticamente según refreshIntervalMs', async () => {
     jest.useFakeTimers();
     const load = jest.fn().mockResolvedValue({

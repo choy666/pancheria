@@ -127,6 +127,7 @@ function createOrderRow(overrides: Partial<OrderRow> = {}): OrderRow {
     total: 1000,
     status: 'pending',
     customerName: 'Juan Pérez',
+    customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
     notes: null,
@@ -308,6 +309,7 @@ describe('orderService', () => {
     mockedBranchService.getBranchById.mockResolvedValue({
       id: BRANCH_ID,
       name: 'Sucursal Test',
+      openingHours: [],
       createdAt: new Date(),
     });
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
@@ -342,6 +344,7 @@ describe('orderService', () => {
         branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 2 }],
         customerName: 'Juan Pérez',
+        customerPhone: '3415555555',
         deliveryType: 'pickup',
         idempotencyKey: 'key-1',
       });
@@ -396,6 +399,7 @@ describe('orderService', () => {
           { productId: 2, quantity: 1 },
         ],
         customerName: 'Ana',
+        customerPhone: '3416666666',
         deliveryType: 'pickup',
         idempotencyKey: 'key-shared',
       });
@@ -423,6 +427,7 @@ describe('orderService', () => {
           branchId: BRANCH_ID,
           items: [{ productId: 1, quantity: 5 }],
           customerName: 'Juan',
+          customerPhone: '3415555555',
           deliveryType: 'pickup',
           idempotencyKey: 'key-insufficient',
         })
@@ -450,6 +455,7 @@ describe('orderService', () => {
           branchId: BRANCH_ID,
           items: [{ productId: 1, quantity: 1 }],
           customerName: 'Juan',
+          customerPhone: '3415555555',
           deliveryType: 'pickup',
           idempotencyKey: 'key-inactive',
         })
@@ -473,6 +479,7 @@ describe('orderService', () => {
           branchId: BRANCH_ID,
           items: [{ productId: 1, quantity: 1 }],
           customerName: 'Juan',
+          customerPhone: '3415555555',
           deliveryType: 'pickup',
           idempotencyKey: 'key-manual',
         })
@@ -498,6 +505,7 @@ describe('orderService', () => {
           branchId: BRANCH_ID,
           items: [{ productId: 99, quantity: 1 }],
           customerName: 'Juan',
+          customerPhone: '3415555555',
           deliveryType: 'pickup',
           idempotencyKey: 'key-external',
         })
@@ -512,6 +520,7 @@ describe('orderService', () => {
           branchId: BRANCH_ID,
           items: [{ productId: 1, quantity: 1 }],
           customerName: 'Juan',
+          customerPhone: '3415555555',
           deliveryType: 'pickup',
           idempotencyKey: 'key-missing-product',
         })
@@ -526,6 +535,7 @@ describe('orderService', () => {
           branchId: 999,
           items: [{ productId: 1, quantity: 1 }],
           customerName: 'Juan',
+          customerPhone: '3415555555',
           deliveryType: 'pickup',
           idempotencyKey: 'key-branch',
         })
@@ -540,6 +550,7 @@ describe('orderService', () => {
         branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 1 }],
         customerName: 'Juan',
+        customerPhone: '3415555555',
         deliveryType: 'pickup',
         idempotencyKey: 'key-duplicate',
       });
@@ -1011,7 +1022,7 @@ describe('orderService', () => {
     test('devuelve el pedido con token y expiresAt cuando está pending', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow(),
-        branch: { id: BRANCH_ID, name: 'Sucursal Test', createdAt: new Date() },
+        branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
         items: [createOrderItemRow()],
       });
 
@@ -1030,7 +1041,7 @@ describe('orderService', () => {
     test('no incluye token ni expiresAt cuando el pedido no está pending', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({ status: 'converted' }),
-        branch: { id: BRANCH_ID, name: 'Sucursal Test', createdAt: new Date() },
+        branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
         items: [createOrderItemRow()],
       });
 

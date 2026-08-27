@@ -207,6 +207,7 @@ async function preheatDevServer(): Promise<void> {
       body: JSON.stringify({
         items: [cartItem],
         customerName: 'Pre Heat',
+        customerPhone: '3415555555',
         deliveryType: 'pickup',
         idempotencyKey: 'preheat-1',
       }),

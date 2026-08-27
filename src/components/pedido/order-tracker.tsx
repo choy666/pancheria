@@ -29,6 +29,7 @@ interface TrackedOrder {
   status: 'pending' | 'converted' | 'cancelled';
   total: number;
   customerName: string;
+  customerPhone: string;
   branchId: number;
   branchName: string | null;
   cancellationToken?: string;
@@ -57,6 +58,7 @@ export function OrderTracker() {
   const [orderNumber, setOrderNumber] = useState('');
   const storedCustomerName = useLastCustomerNameSnapshot();
   const [customerName, setCustomerName] = useState(storedCustomerName ?? '');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<TrackedOrder | null>(null);
@@ -73,7 +75,8 @@ export function OrderTracker() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNumber: orderNumber.trim(),
-          customerName: customerName.trim(),
+          customerName: customerName.trim() || undefined,
+          customerPhone: customerPhone.trim().replace(/\s/g, '') || undefined,
         }),
       });
 
@@ -93,6 +96,9 @@ export function OrderTracker() {
       const tracked = data.order;
       setOrder(tracked);
       setLastCustomerName(customerName.trim());
+      if (tracked.customerPhone) {
+        setCustomerPhone(tracked.customerPhone);
+      }
 
       if (tracked.status === 'pending' && tracked.cancellationToken && tracked.expiresAt) {
         addRecentOrder({
@@ -134,7 +140,7 @@ export function OrderTracker() {
           Seguimiento de pedido
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ingresá el número de pedido y tu nombre para consultar el estado.
+          Ingresá el número de pedido y tu nombre o teléfono para consultar el estado.
         </p>
       </div>
 
@@ -164,7 +170,16 @@ export function OrderTracker() {
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Tu nombre"
-                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerPhone">Teléfono</Label>
+              <Input
+                id="customerPhone"
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Ej: 3415555555"
               />
             </div>
             {error && (
@@ -213,6 +228,9 @@ export function OrderTracker() {
               <div>
                 <p className="text-muted-foreground">Cliente</p>
                 <p className="font-medium">{order.customerName}</p>
+                {order.customerPhone && (
+                  <p className="font-mono text-xs">{order.customerPhone}</p>
+                )}
               </div>
             </div>
 

@@ -23,7 +23,7 @@ function restoreDefaultBranchName() {
 }
 
 function makeBranch(id: number, name: string): Branch {
-  return { id, name, createdAt: new Date() };
+  return { id, name, openingHours: [], createdAt: new Date() };
 }
 
 describe('branch-resolver', () => {

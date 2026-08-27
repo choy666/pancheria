@@ -1,4 +1,6 @@
-# Prompt: Auditoría y corrección del rate limit de pedidos públicos (429)
+# Prompt: Auditoría y corrección del rate limit de pedidos públicos (429) — Archivado
+
+> **Resuelto.** Las correcciones propuestas en este prompt ya están aplicadas en `src/lib/rate-limit.ts`: `getClientIp` lee `x-vercel-forwarded-for`, `TRUSTED_PROXY_IP_HEADER` y `x-forwarded-for` en desarrollo; `createRateLimiter` desactiva el rate limit en `NODE_ENV=development` salvo que `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV=true`. Se conserva este archivo como contexto histórico.
 
 ## Contexto
 

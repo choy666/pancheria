@@ -79,8 +79,8 @@ describe('branchService', () => {
   describe('listBranches', () => {
     test('devuelve todas las sucursales ordenadas por createdAt descendente', async () => {
       const expected = [
-        { id: 2, name: 'Sucursal B', createdAt: new Date() },
-        { id: 1, name: 'Sucursal A', createdAt: new Date() },
+        { id: 2, name: 'Sucursal B', openingHours: [], createdAt: new Date() },
+        { id: 1, name: 'Sucursal A', openingHours: [], createdAt: new Date() },
       ];
       mockedDb.query.branches.findMany.mockResolvedValue(expected);
 
@@ -93,7 +93,7 @@ describe('branchService', () => {
 
   describe('getBranchById', () => {
     test('devuelve la sucursal por id', async () => {
-      const expected = { id: 1, name: 'Sucursal A' };
+      const expected = { id: 1, name: 'Sucursal A', openingHours: [] };
       mockedDb.query.branches.findFirst.mockResolvedValue(expected);
 
       const result = await getBranchById(1);
@@ -113,12 +113,12 @@ describe('branchService', () => {
 
   describe('createBranch', () => {
     test('crea una sucursal nueva', async () => {
-      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva' }]);
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva', openingHours: [] }]);
       mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
 
       const result = await createBranch('Sucursal Nueva');
 
-      expect(result).toEqual({ id: 1, name: 'Sucursal Nueva' });
+      expect(result).toEqual({ id: 1, name: 'Sucursal Nueva', openingHours: [] });
     });
 
     test('rechaza un nombre vacío', async () => {
@@ -132,6 +132,7 @@ describe('branchService', () => {
       mockedDb.query.branches.findFirst.mockResolvedValue({
         id: 2,
         name: 'Existente',
+        openingHours: [],
       });
 
       await expect(createBranch('Existente')).rejects.toThrow(ValidationError);
@@ -144,13 +145,13 @@ describe('branchService', () => {
   describe('updateBranch', () => {
     test('actualiza una sucursal existente', async () => {
       mockedDb.query.branches.findFirst
-        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A' })
+        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A', openingHours: [] })
         .mockResolvedValueOnce(undefined);
-      mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva' }]);
+      mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva', openingHours: [] }]);
 
       const result = await updateBranch(1, 'Sucursal Nueva');
 
-      expect(result).toEqual({ id: 1, name: 'Sucursal Nueva' });
+      expect(result).toEqual({ id: 1, name: 'Sucursal Nueva', openingHours: [] });
       expect(mockedDb.query.branches.findFirst).toHaveBeenCalledTimes(2);
       expect(mockedDb.update).toHaveBeenCalled();
     });
@@ -164,8 +165,8 @@ describe('branchService', () => {
 
     test('rechaza un nombre duplicado con otra sucursal', async () => {
       mockedDb.query.branches.findFirst
-        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A' })
-        .mockResolvedValueOnce({ id: 2, name: 'Sucursal B' });
+        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A', openingHours: [] })
+        .mockResolvedValueOnce({ id: 2, name: 'Sucursal B', openingHours: [] });
 
       await expect(updateBranch(1, 'Sucursal B')).rejects.toThrow(
         ValidationError
@@ -177,13 +178,13 @@ describe('branchService', () => {
 
     test('permite guardar el mismo nombre de la sucursal que se está editando', async () => {
       mockedDb.query.branches.findFirst
-        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A' })
+        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A', openingHours: [] })
         .mockResolvedValueOnce(undefined);
-      mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal A' }]);
+      mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal A', openingHours: [] }]);
 
       const result = await updateBranch(1, 'Sucursal A');
 
-      expect(result).toEqual({ id: 1, name: 'Sucursal A' });
+      expect(result).toEqual({ id: 1, name: 'Sucursal A', openingHours: [] });
       expect(mockedDb.query.branches.findFirst).toHaveBeenCalledTimes(2);
     });
 
@@ -204,11 +205,12 @@ describe('branchService', () => {
       mockedDb.query.branches.findFirst.mockResolvedValue({
         id: 1,
         name: 'Sucursal A',
+        openingHours: [],
       });
 
       const result = await getBranchDeletionSummary(1);
 
-      expect(result.branch).toEqual({ id: 1, name: 'Sucursal A' });
+      expect(result.branch).toEqual({ id: 1, name: 'Sucursal A', openingHours: [] });
       expect(result.counts).toMatchObject({
         products: 0,
         sales: 0,
@@ -236,11 +238,12 @@ describe('branchService', () => {
       mockedDb.query.branches.findFirst.mockResolvedValue({
         id: 1,
         name: 'Sucursal A',
+        openingHours: [],
       });
 
       const result = await deleteBranch(1);
 
-      expect(result).toEqual({ id: 1, name: 'Sucursal A' });
+      expect(result).toEqual({ id: 1, name: 'Sucursal A', openingHours: [] });
       expect(mockedDb.query.branches.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),

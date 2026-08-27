@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
 
 type CreatedOrder = {
   id: number;
   customerName: string;
+  customerPhone: string;
   status: string;
 };
 
@@ -12,6 +13,7 @@ async function createPublicOrderViaApi(
   productId: number,
   customerName: string
 ): Promise<CreatedOrder> {
+  const customerPhone = `3415${Math.floor(100000 + Math.random() * 899999)}`;
   // Se usa un IP único por pedido para evitar el rate limit por IP
   // cuando el servidor corre con NODE_ENV=development.
   const clientIp = `10.0.0.${Math.floor(Math.random() * 1000000) % 254}`;
@@ -20,6 +22,7 @@ async function createPublicOrderViaApi(
     data: {
       items: [{ productId, quantity: 1 }],
       customerName,
+      customerPhone,
       deliveryType: 'pickup',
       idempotencyKey: `${customerName}-${Date.now()}-${Math.random()}`,
     },
@@ -31,7 +34,7 @@ async function createPublicOrderViaApi(
   expect(response.status()).toBe(201);
 
   const body = (await response.json()) as {
-    order: { id: number; customerName: string; status: string };
+    order: { id: number; customerName: string; customerPhone: string; status: string };
   };
 
   return body.order;
@@ -40,6 +43,7 @@ async function createPublicOrderViaApi(
 test.describe('Búsqueda, filtros y paginación de pedidos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
+    await ensureCashRegisterOpen(page);
   });
 
   test('busca pedidos por nombre de cliente y permite limpiar la búsqueda', async ({

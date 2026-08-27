@@ -8,6 +8,7 @@ import { getPedidoRefetchIntervalMs } from '@/config/catalog';
 import {
   PUBLIC_CATALOGO_API,
   PUBLIC_DISPONIBILIDAD_API,
+  PUBLIC_CAJA_ESTADO_API,
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
 } from '@/config/api';
@@ -34,6 +35,7 @@ export interface CreatedOrder {
   status: string;
   total: number;
   customerName: string;
+  customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address: string | null;
   notes: string | null;
@@ -62,8 +64,11 @@ export interface UsePedidoClientResult {
 
   checkoutOpen: boolean;
   setCheckoutOpen: (value: boolean) => void;
+  cashStatus: { status: 'open' | 'closed'; message: string } | null;
   customerName: string;
   setCustomerName: (value: string) => void;
+  customerPhone: string;
+  setCustomerPhone: (value: string) => void;
   deliveryType: 'delivery' | 'pickup';
   setDeliveryType: (value: 'delivery' | 'pickup') => void;
   address: string;
@@ -121,7 +126,12 @@ export function usePedidoClient({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [cashStatus, setCashStatus] = useState<{
+    status: 'open' | 'closed';
+    message: string;
+  } | null>(null);
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('pickup');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -259,9 +269,28 @@ export function usePedidoClient({
     router.push(`${routes.pedido}?branchId=${selected.id}`);
   }
 
-  function handleOpenCheckout() {
+  async function handleOpenCheckout() {
     setCheckoutOpen(true);
     setCheckoutError(null);
+    setCashStatus(null);
+
+    try {
+      const response = await fetch(
+        `${PUBLIC_CAJA_ESTADO_API}?branchId=${activeBranch.id}`
+      );
+      if (response.ok) {
+        const data = (await response.json()) as {
+          status: 'open' | 'closed';
+          message: string;
+        };
+        if (isMountedRef.current) {
+          setCashStatus(data);
+        }
+      }
+    } catch {
+      // Si no se puede consultar, no bloqueamos el flujo;
+      // la validación final ocurre al enviar el pedido.
+    }
   }
 
   async function handleSubmitCheckout() {
@@ -269,6 +298,15 @@ export function usePedidoClient({
 
     if (!customerName.trim()) {
       setCheckoutError('El nombre del cliente es obligatorio.');
+      return;
+    }
+
+    const phoneRegex = /^\+?\d{8,15}$/;
+    const phoneCleaned = customerPhone.replace(/\s/g, '');
+    if (!phoneRegex.test(phoneCleaned)) {
+      setCheckoutError(
+        'El teléfono es obligatorio y debe contener entre 8 y 15 dígitos.'
+      );
       return;
     }
 
@@ -289,6 +327,7 @@ export function usePedidoClient({
             quantity: item.quantity,
           })),
           customerName: customerName.trim(),
+          customerPhone: phoneCleaned,
           deliveryType,
           address: deliveryType === 'delivery' ? address.trim() : undefined,
           notes: notes.trim() || undefined,
@@ -319,6 +358,7 @@ export function usePedidoClient({
       setCheckoutOpen(false);
       clearCart();
       setCustomerName('');
+      setCustomerPhone('');
       setDeliveryType('pickup');
       setAddress('');
       setNotes('');
@@ -391,8 +431,11 @@ export function usePedidoClient({
 
     checkoutOpen,
     setCheckoutOpen,
+    cashStatus,
     customerName,
     setCustomerName,
+    customerPhone,
+    setCustomerPhone,
     deliveryType,
     setDeliveryType,
     address,

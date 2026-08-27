@@ -10,6 +10,7 @@ test.describe.skip('Rate limit de pedidos públicos', () => {
   test.skip('bloquea la tercera solicitud con 429', async ({ page }) => {
     const body = {
       customerName: 'Cliente rate limit',
+      customerPhone: '3415555555',
       deliveryType: 'pickup',
       branchId: 1,
       items: [{ productId: 0, quantity: 1 }],

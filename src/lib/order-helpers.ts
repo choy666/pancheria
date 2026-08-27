@@ -15,6 +15,7 @@ export function buildOrderValues(input: {
   orderNumber: string;
   total: number;
   customerName: string;
+  customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address?: string | null;
   notes?: string | null;
@@ -26,6 +27,7 @@ export function buildOrderValues(input: {
   total: number;
   status: 'pending';
   customerName: string;
+  customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address: string | null;
   notes: string | null;
@@ -39,6 +41,7 @@ export function buildOrderValues(input: {
     total: input.total,
     status: 'pending',
     customerName: input.customerName.trim(),
+    customerPhone: input.customerPhone.replace(/\s/g, ''),
     deliveryType: input.deliveryType,
     address: input.address?.trim() || null,
     notes: input.notes?.trim() || null,

@@ -1,23 +1,32 @@
 # Reporte de estado — Auditoría de cobertura de pruebas y tests
 
-**Fecha:** 2026-08-27  
+**Fecha:** 2026-08-26 (actualizado con Fase 2)  
 **Proyecto:** `pancheria`  
-**Baseline:** `HEAD` (`872f3f9`) — branch `implementacion-cobertura-de-pruebas-posterior`  
+**Baseline:** `HEAD` — branch `main`  
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)** y **tests end-to-end (Playwright)**, cruzando la documentación vigente, las variables de entorno existentes y el código fuente. Posteriormente se implementaron los tests y mejoras de selectores E2E priorizados en el informe.
+Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)** y documentación vigente, cruzando variables de entorno, prompts e informes. Se completaron los tests E2E en una corrida anterior (ver `.devin/informes/archivados/reporte-estado-sincronizacion-2026-08-26.md`); en esta sesión no se requirió ejecutar `npm run test:e2e`.
 
-**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip` y `npm run test:e2e` pasan. La suite unitaria reporta **118 suites y 1086 tests**. Playwright lista **95 tests en 28 specs**; la ejecución completa reportó **94 passed, 1 skipped**.
+**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. La suite unitaria reporta **119 suites y 1102 tests**.
 
 **Conclusión de cobertura:**
 
+- **Fase 2 completada (horarios de sucursal y bloqueo de pedidos con caja cerrada):**
+  - Nueva columna `opening_hours` JSONB en `branches` con migración `drizzle/0017_unknown_energizer.sql`.
+  - Helpers de zona horaria en `src/lib/branch-helpers.ts` (`isBranchOpen`, `getCurrentOrNextOpening`, `validateOpeningHours`).
+  - `branchService` y UI de sucursales permiten crear/editar horarios.
+  - `orderService.createOrder` rechaza pedidos si la caja de la sucursal está cerrada, devolviendo el horario de apertura.
+  - Nuevo endpoint `GET /api/public/caja/estado?branchId={id}` para consulta pública de estado de caja.
+  - `pedido-client.tsx` muestra advertencia de caja cerrada en el checkout sin bloquear el armado del carrito.
+  - Tests unitarios y E2E ajustados; nuevo spec `pedido-caja-cerrada.spec.ts`.
+  - Migración `drizzle/0017_unknown_energizer.sql` aplicada en desarrollo y producción; verificado que `opening_hours` existe con default `[]` en la base productiva.
 - **Repositorios y servicios de aplicación** tienen cobertura unitaria completa (repositorios 100%, servicios 100%).
 - **Rutas API** tienen cobertura completa: 43 de 43 con test.
-- **`src/lib`** tiene 27 de 33 archivos con test; se agregó `fetch.ts` y la infraestructura crítica está cubierta.
-- **Configuración con variables de entorno** ya tiene tests para `caja`, `chat`, `orders`, `catalog` y `videos`.
+- **`src/lib`** tiene 27 de 33 archivos con test; la infraestructura crítica está cubierta.
+- **Configuración con variables de entorno** tiene tests para `caja`, `chat`, `orders`, `catalog` y `videos`.
 - **Tests E2E** crecieron a 28 specs; se agregaron flujos de cambio de contraseña, búsqueda/filtro/paginación de pedidos, edición/eliminación de promos con recetas, expiración automática de pedidos, cierre automático de caja, rate limit de pedidos y confirmación/cancelación de pedidos desde el panel.
 - **Componentes y páginas** del panel siguen sin tests unitarios; la cobertura depende de E2E.
 
@@ -31,7 +40,7 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 2. **Inventario de código a cubrir** comparando `src/app/**/route.ts`, `src/application/services/*.ts`, `src/repositories/*.ts`, `src/lib/*.ts`, `src/components/**/*.tsx`, `src/hooks/*`, `src/app/(panel)/**/page.tsx` y `src/app/(public)/**/page.tsx` con sus tests correspondientes.
 3. **Cruce con variables de entorno** buscando `process.env.*` en `src/` y comparando con `.env.example` y `AGENTS.md`.
 4. **Evaluación de calidad de tests E2E** buscando selectores frágiles y dependencias del seed.
-5. **Implementación de brechas priorizadas** siguiendo el informe.
+5. **Sincronización de `.devin`** — prompts, informes, `environment.yaml` e índices.
 
 ---
 
@@ -39,10 +48,10 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 | Métrica | Valor |
 |---------|-------|
-| Suites unitarias (Jest) | 118 |
-| Tests unitarios | 1086 |
-| Archivos de test unitario | ~118 |
-| Specs E2E | 28 |
+| Suites unitarias (Jest) | 119 |
+| Tests unitarios | 1102 |
+| Archivos de test unitario | ~119 |
+| Specs E2E | 29 |
 | Tests E2E listados | 95 |
 | Rutas API | 43 |
 | Rutas API con test | 43 |
@@ -86,7 +95,7 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 |---------------|------|--------|
 | `convertOrderToSale` | `src/application/services/orderService.test.ts` | Cubierto (feliz, errores, idempotencia, precios históricos, stock). |
 | Rate limit store público | `src/lib/public-order-rate-limit-store.test.ts` | Cubierto (`memory` y `db`). |
-| Rate limit core | `src/lib/rate-limit.test.ts` | Cubierto (`getClientIp`, `createRateLimiter`). |
+| Rate limit core | `src/lib/rate-limit.test.ts` | Cubierto (`getClientIp`, `createRateLimiter`, `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV`). |
 | Rate limit login | `src/lib/rate-limit-store.test.ts` | Cubierto (`InMemoryRateLimitStore`, `DbRateLimitStore`, `createRateLimitStore`). |
 | `withApiErrorHandling` | `src/lib/api-handler.test.ts` | Cubierto (401, 400, 403, 404, 409, 503, 499, 500, Zod). |
 | `getPublicBaseUrl` | `src/lib/public-url.test.ts` | Cubierto (browser/servidor, producción, `HOST`/`PORT`, fallback). |
@@ -95,6 +104,7 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 | Soft delete productos/cajas | `src/application/services/productService.test.ts`, `src/application/services/cashRegisterService.test.ts` | Cubierto. |
 | Idempotencia de ventas | `src/application/services/saleService.test.ts` | Cubierto. |
 | Chat adjuntos y storage | `src/lib/chat-storage.test.ts` | Cubierto (local, Vercel Blob). |
+| Refresco de pedidos | `src/config/orders.test.ts` | Cubierto (`NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`: deshabilitado por defecto, forzar a 10000 ms si es < 1000, deshabilitar con 0). |
 
 ### 5.2 Archivos de producción sin test (gaps restantes)
 
@@ -119,7 +129,7 @@ La auditoría siguió el prompt <ref_file file="C:/developer/paginas/pancheria/.
 
 ### 6.1 Especificaciones encontradas
 
-Se encontraron **28 specs** en <ref_file file="C:/developer/paginas/pancheria/tests/e2e" />:
+Se encontraron **29 specs** en <ref_file file="C:/developer/paginas/pancheria/tests/e2e" />:
 
 | Spec | Flujo |
 |------|-------|
@@ -133,6 +143,7 @@ Se encontraron **28 specs** en <ref_file file="C:/developer/paginas/pancheria/te
 | `pedido-cancelacion-panel.spec.ts` | Confirmación y cancelación de pedidos desde el panel |
 | `pedido-busqueda-filtros.spec.ts` | Búsqueda, filtrado y paginación de pedidos |
 | `pedido-expiracion.spec.ts` | Expiración automática de pedidos |
+| `pedido-caja-cerrada.spec.ts` | Bloqueo de pedido y mensaje con horario cuando la caja está cerrada |
 | `ventas-disponibilidad.spec.ts` | Disponibilidad en terminal |
 | `ventas-historial.spec.ts` | Venta, cierre e historial |
 | `ventas-stock-compartido.spec.ts` | Promos con insumos compartidos |
@@ -206,21 +217,23 @@ Se identificaron **56 variables configurables** en `.env.example` y `AGENTS.md`.
 | `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` | Store de rate limit pedidos | Sí (`public-order-rate-limit-store.test.ts`) |
 | `TRUSTED_PROXY_IP_HEADER` | Header de IP confiable | Sí (`rate-limit.test.ts`) |
 | `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` / `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` | Rate limit pedidos | Sí (`orders.test.ts`) |
+| `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV` | Activa rate limit en desarrollo | Sí (`rate-limit.test.ts`) |
 | `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` / `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` | Rate limit chat | Sí (`chat.test.ts`) |
 | `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat | Sí (`chat.test.ts`) |
 | `NEXT_PUBLIC_CHAT_PAGE_SIZE` | Paginación del chat | Sí (`chat.test.ts`) |
 | `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño de imagen en chat | Sí (`chat.test.ts`) |
 | `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` | Tipos MIME de chat | Sí (`chat.test.ts`) |
+| `NEXT_PUBLIC_BRANCH_TIMEZONE` | Zona horaria para horarios de apertura | Sí (`branch-helpers.test.ts`) |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp | Sí (`catalog.test.ts`) |
 | `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` / `CLOSING` | Mensaje de WhatsApp | Sí (`catalog.test.ts`) |
 | `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo | Sí (`catalog.test.ts`) |
 | `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` | Refresco de pedidos del operador | Sí (`orders.test.ts`) |
-| `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout de API cliente | No |
+| `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout de API cliente | Sí (`fetch.test.ts`) |
 | `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` | Tamaño de video | Sí (`videos.test.ts`) |
 | `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES` | Tipos MIME de video | Sí (`videos.test.ts`) |
 | `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` / `NEXT_PUBLIC_CAST_SENDER_SDK_URL` | Google Cast | Sí (`videos.test.ts`) |
 | `HOST` / `PORT` | Fallback de desarrollo de URL pública | Sí (`public-url.test.ts`) |
-| `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` | Analytics | No |
+| `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` | Analytics | Sí (`conditional-analytics.test.tsx`) |
 | Credenciales `S3_*` / `R2_*` | Storage remoto | Sí (`storage.test.ts` con mocks; no se recomienda testear con credenciales reales). |
 
 ---
@@ -235,9 +248,9 @@ Ningún hallazgo crítico que afecte build o seguridad. No se encontraron creden
 
 #### 8.1 Faltan tests de rutas API remanentes
 
-Las rutas `caja/[id]`, `caja/[id]/permanente`, `caja/[id]/restaurar`, `caja/eliminadas`, `caja/route` y `pedidos/[id]` no tienen tests unitarios. Son menos críticas que las ya cubiertas, pero deberían tener cobertura.
+Las rutas `caja/[id]` (detalle de caja) y `pedidos/[id]` (detalle de pedido) no tienen tests unitarios. Son menos críticas que las ya cubiertas, pero deberían tener cobertura.
 
-**Recomendación:** Crear tests para estas rutas, priorizando `caja/[id]` y `pedidos/[id]`.
+**Recomendación:** Crear tests para estas rutas, priorizando `pedidos/[id]`.
 
 ### Menor
 
@@ -247,52 +260,49 @@ Se redujeron a 55 usos en specs. Algunos son necesarios para listas dinámicas, 
 
 **Recomendación:** Revisar los 55 usos restantes y reemplazar los que dependen de posición por selectores semánticos o `data-testid`.
 
-#### 8.3 Variables de entorno sin test
-
-`NEXT_PUBLIC_API_TIMEOUT_MS` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` no tienen tests de comportamiento.
-
-**Recomendación:**
-- Crear `src/lib/fetch.test.ts` para probar `NEXT_PUBLIC_API_TIMEOUT_MS`.
-- Crear `src/components/conditional-analytics.test.tsx` para `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`.
-
-#### 8.4 Flujos E2E no cubiertos
-
-Faltan specs para rate limit, expiración de pedidos, cierre automático de caja, anulación de pedidos desde panel, edición/eliminación de recetas, cambio de contraseña y búsqueda/filtrado/paginación.
-
-**Recomendación:** Agregar specs de media prioridad. Algunos requieren implementar UI o exponer acciones en el panel.
-
 ### Informativo
 
-#### 8.5 Cobertura de componentes/páginas del panel
+#### 8.3 Cobertura de componentes/páginas del panel
 
 No hay tests unitarios para páginas del panel; la cobertura se delega a E2E. Esto es aceptable en este stack si los flujos E2E son robustos.
 
 ---
 
-## 9. Comandos ejecutados y resultados
+## 9. Sincronización de `.devin`
 
-| Paso | Comando | Resultado |
-|------|---------|-----------|
-| 1 | `npx jest --listTests` | 110 archivos listados |
-| 2 | `npm test` | 110 suites, 1054 tests pasan |
-| 3 | `npx playwright test --list` | 84 tests en 22 specs |
-| 4 | `npm run lint` | Pasa (exit 0) |
-| 5 | `npx tsc --noEmit` | Pasa |
-| 6 | `npm run build` | Build exitoso (42 páginas dinámicas) |
-| 7 | `npm run knip` | Pasa |
-| 8 | `grep data-slot tests/e2e` | 0 ocurrencias |
-| 9 | `grep td:nth-child tests/e2e` | 0 ocurrencias |
-| 10 | `grep .first()/.last()/.nth( tests/e2e` | 55 ocurrencias |
+Acciones aplicadas en esta sesión:
 
-> **No se ejecutaron** `npm run test:e2e`, `npx playwright test`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push` ni `npx drizzle-kit generate` por requerir confirmación explícita del usuario y base de datos descartable.
+- Se actualizó `.devin/prompts/README.md` para reflejar los prompts activos y archivados existentes.
+- Se archivó `auditoria-rate-limit-429.md` y se actualizó su descripción.
+- Se eliminó del índice de informes la referencia a `informe-estrategico-franquicia-saas.md` (no existe).
+- Se actualizó `AGENTS.md` para eliminar `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` y documentar `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV`.
+- Se actualizó `.devin/informes/guia-funcionamiento-pancheria.md` para eliminar `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` y aclarar el polling manual de `/pedidos`.
+- Se actualizó `.devin/informes/lecciones-aprendidas.md` con las lecciones de polling y rate limit en desarrollo.
+- Se actualizó `.devin/environment.yaml` con `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV` y el polling deshabilitado por defecto.
+- Se actualizó el presente `reporte-estado.md` con el baseline, conteos y comandos vigentes.
 
 ---
 
-## 10. Enlaces relevantes
+## 10. Comandos ejecutados y resultados
+
+| Paso | Comando | Resultado |
+|------|---------|-----------|
+| 1 | `npm run lint` | Pasa (exit 0) |
+| 2 | `npx tsc --noEmit` | Pasa |
+| 3 | `npm test` | 118 suites, 1089 tests pasan |
+| 4 | `npm run build` | Build exitoso (42 páginas dinámicas) |
+| 5 | `npm run knip` | Pasa |
+
+> **No se ejecutaron** `npx jest --listTests`, `npm run test:e2e`, `npx playwright test`, `npx tsx src/db/seeds.ts`, `npx drizzle-kit push` ni `npx drizzle-kit generate` por requerir confirmación explícita del usuario y/o base de datos descartable.
+
+---
+
+## 11. Enlaces relevantes
 
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/README.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.env.example" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/entornos.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-cobertura-de-pruebas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/plan-de-accion-pendientes.md" />
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />

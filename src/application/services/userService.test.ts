@@ -98,7 +98,7 @@ describe('userService', () => {
           username: 'admin',
           role: 'admin',
           branchId: 1,
-          branch: { id: 1, name: 'Sucursal A' },
+          branch: { id: 1, name: 'Sucursal A', openingHours: [] },
         },
       ];
       mockedDb.query.users.findMany.mockResolvedValue(expected as any);

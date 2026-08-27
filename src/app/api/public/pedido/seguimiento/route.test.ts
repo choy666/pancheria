@@ -28,6 +28,7 @@ describe('POST /api/public/pedido/seguimiento', () => {
       status: 'pending',
       total: 1200,
       customerName: 'Juan Pérez',
+      customerPhone: '3415555555',
       branchId: 1,
       branchName: 'Sucursal A',
       cancellationToken: 'token',
@@ -35,7 +36,10 @@ describe('POST /api/public/pedido/seguimiento', () => {
     });
 
     const response = await POST(
-      buildRequest({ orderNumber: 'PED-1-1234567890-abc', customerName: 'Juan Pérez' })
+      buildRequest({
+        orderNumber: 'PED-1-1234567890-abc',
+        customerPhone: '3415555555',
+      })
     );
     const body = (await response.json()) as { order: object };
 
@@ -51,7 +55,7 @@ describe('POST /api/public/pedido/seguimiento', () => {
     mockedOrderService.trackOrder.mockResolvedValue(null);
 
     const response = await POST(
-      buildRequest({ orderNumber: 'PED-999', customerName: 'Juan Pérez' })
+      buildRequest({ orderNumber: 'PED-999', customerPhone: '3415555555' })
     );
     const body = (await response.json()) as { error: string };
 

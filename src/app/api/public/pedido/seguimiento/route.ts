@@ -28,7 +28,8 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
 
   const order = await orderService.trackOrder(
     data.orderNumber.trim(),
-    data.customerName.trim()
+    data.customerName?.trim(),
+    data.customerPhone?.trim()
   );
 
   if (!order) {

@@ -46,6 +46,7 @@ Stack: Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM
 Documentación de referencia:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md`
+- `.devin/informes/entornos.md` (si aplica migraciones o variables)
 - `.devin/informes/guia-funcionamiento-pancheria.md` (si aplica)
 - {informe específico si aplica}
 
@@ -133,6 +134,7 @@ Usar como punto de entrada para cualquier tarea futura:
 - [Recomendaciones — pedidos, sucursales y stock](recomendaciones-pedidos-sucursal-stock.md) — decisiones arquitectónicas y buenas prácticas del flujo de pedidos.
 - [Cobertura de auditoría — flujo de pedidos](cobertura-auditoria-flujo-pedidos.md) — flujo vigente, limpieza realizada y decisiones clave.
 - [Corrección de tests E2E fallidos — caja, stock y entorno](correccion-tests-e2e-caja-y-entorno.md) — entorno, helpers y locators robustos para `npm run test:e2e`.
+- [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — guía técnica para transformar el sistema en una plataforma SaaS con múltiples tenants.
 
 ### Prompts archivados
 
@@ -148,6 +150,7 @@ Usar como punto de entrada para cualquier tarea futura:
 
 - [Índice general de `.devin`](../README.md)
 - [Índice de informes](../informes/README.md)
+- [Entornos y credenciales](../informes/entornos.md)
 - [Lecciones aprendidas](../informes/lecciones-aprendidas.md)
 - [Guía de funcionamiento](../informes/guia-funcionamiento-pancheria.md)
 - [AGENTS.md](../../AGENTS.md)

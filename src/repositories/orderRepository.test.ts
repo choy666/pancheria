@@ -52,6 +52,7 @@ function buildOrder(overrides: Partial<typeof orders.$inferSelect> = {}): typeof
     total: 5000,
     status: 'pending',
     customerName: 'Juan',
+    customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
     notes: null,

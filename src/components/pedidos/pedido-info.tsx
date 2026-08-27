@@ -3,6 +3,7 @@ import type { DeliveryType } from '@/domain/types';
 
 interface OrderInfo {
   customerName: string;
+  customerPhone: string;
   deliveryType: DeliveryType;
   address: string | null;
   notes: string | null;
@@ -27,6 +28,9 @@ export function PedidoInfo({ order }: PedidoInfoProps) {
       <div>
         <p className="text-sm text-muted-foreground">Cliente</p>
         <p className="text-base font-medium">{order.customerName}</p>
+        {order.customerPhone && (
+          <p className="text-sm text-muted-foreground">{order.customerPhone}</p>
+        )}
       </div>
       <div>
         <p className="text-sm text-muted-foreground">Sucursal</p>

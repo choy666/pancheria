@@ -37,8 +37,11 @@ export function PedidoClient({
     isCheckingAvailability,
     checkoutOpen,
     setCheckoutOpen,
+    cashStatus,
     customerName,
     setCustomerName,
+    customerPhone,
+    setCustomerPhone,
     deliveryType,
     setDeliveryType,
     address,
@@ -135,9 +138,20 @@ export function PedidoClient({
             </DialogDescription>
           </DialogHeader>
 
+          {cashStatus?.status === 'closed' && (
+            <div
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200"
+              role="alert"
+            >
+              {cashStatus.message}
+            </div>
+          )}
+
           <PedidoCustomerForm
             customerName={customerName}
             setCustomerName={setCustomerName}
+            customerPhone={customerPhone}
+            setCustomerPhone={setCustomerPhone}
             deliveryType={deliveryType}
             setDeliveryType={setDeliveryType}
             address={address}

@@ -17,7 +17,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/correccion-tests-e2e-caja-y-entorno.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/correccion-tests-e2e-caja-y-entorno.md" />
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />
 - <ref_file file="C:/developer/paginas/pancheria/jest.config.ts" />
 - <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" />

@@ -7,6 +7,7 @@ export const VENTAS_API = '/api/ventas';
 export const VENTAS_DISPONIBILIDAD_API = '/api/ventas/disponibilidad';
 export const PUBLIC_CATALOGO_API = '/api/public/catalogo';
 export const PUBLIC_DISPONIBILIDAD_API = '/api/public/disponibilidad';
+export const PUBLIC_CAJA_ESTADO_API = '/api/public/caja/estado';
 export const PUBLIC_PEDIDO_API = '/api/public/pedido';
 export const PUBLIC_PEDIDO_SEGUIMIENTO_API = '/api/public/pedido/seguimiento';
 export const PUBLIC_PEDIDO_CANCELAR_API = (orderId: number | string) =>

@@ -63,11 +63,12 @@ function createMockOrder() {
     status: 'pending',
     total: 2000,
     customerName: 'Juan Pérez',
+    customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
     notes: null,
     cancellationToken: 'token',
-    branch: { id: BRANCH_ID, name: 'Sucursal Test', createdAt: new Date() },
+    branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
     items: [
       {
         productId: 1,
@@ -100,6 +101,7 @@ describe('POST /api/public/pedido', () => {
   const validBody = {
     items: [{ productId: 1, quantity: 2 }],
     customerName: 'Juan Pérez',
+    customerPhone: '3415555555',
     deliveryType: 'pickup',
     idempotencyKey: 'key-1',
   };
@@ -168,7 +170,7 @@ describe('POST /api/public/pedido', () => {
     const response = await POST(
       buildRequest('', {
         method: 'POST',
-        body: JSON.stringify({ items: [], customerName: '' }),
+        body: JSON.stringify({ items: [], customerName: '', customerPhone: '' }),
       })
     );
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { authenticatedFetch } from '@/lib/fetch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ interface OrderListItem {
   id: number;
   orderNumber: string;
   customerName: string;
+  customerPhone: string;
   deliveryType: DeliveryType;
   total: number;
   status: OrderStatus;
@@ -118,6 +120,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
     page,
     limit,
     isLoading,
+    isRefreshing,
     error,
     setPage,
     setLimit,
@@ -265,12 +268,28 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
               id="orders-search"
               data-testid="orders-search"
               type="search"
-              placeholder="Nombre del cliente..."
+              placeholder="Nombre o teléfono..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full sm:w-[260px]"
             />
           </div>
+          <Button
+            data-testid="orders-refresh"
+            type="button"
+            variant="outline"
+            onClick={refresh}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 sm:mr-2" />
+            )}
+            <span className="hidden sm:inline">
+              {isRefreshing ? 'Actualizando' : 'Actualizar'}
+            </span>
+          </Button>
           <Button
             data-testid="orders-search-clear"
             type="button"
@@ -282,6 +301,16 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
           </Button>
         </div>
       </div>
+
+      {isRefreshing && (
+        <div
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+          data-testid="orders-refreshing"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Actualizando pedidos...
+        </div>
+      )}
 
       <div className="rounded-2xl border border-white/8">
         <Table>
@@ -305,6 +334,11 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                 </TableCell>
                 <TableCell data-testid="order-customer-name">
                   {order.customerName}
+                  {order.customerPhone && (
+                    <p className="text-xs text-muted-foreground">
+                      {order.customerPhone}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell>{order.branch?.name ?? '—'}</TableCell>
                 <TableCell>{deliveryLabels[order.deliveryType]}</TableCell>

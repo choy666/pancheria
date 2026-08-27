@@ -71,9 +71,19 @@ export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'operator']);
 
+export type BranchOpeningHours = {
+  dayOfWeek: number;
+  open: string;
+  close: string;
+};
+
 export const branches = pgTable('branches', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(),
+  openingHours: jsonb('opening_hours')
+    .$type<BranchOpeningHours[]>()
+    .default([])
+    .notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -262,6 +272,7 @@ export const orders = pgTable(
     total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     status: orderStatusEnum('status').default('pending').notNull(),
     customerName: varchar('customer_name', { length: 255 }).notNull(),
+    customerPhone: varchar('customer_phone', { length: 50 }).notNull(),
     deliveryType: deliveryTypeEnum('delivery_type').notNull(),
     address: text('address'),
     notes: text('notes'),
@@ -290,6 +301,7 @@ export const orders = pgTable(
     ),
     orderNumberIdx: index('orders_order_number_idx').on(table.orderNumber),
     customerNameIdx: index('orders_customer_name_idx').on(table.customerName),
+    customerPhoneIdx: index('orders_customer_phone_idx').on(table.customerPhone),
     cancellationTokenUniqueIdx: uniqueIndex('orders_cancellation_token_unique_idx').on(
       table.cancellationToken
     ),

@@ -26,6 +26,7 @@ interface OrderDetail {
   id: number;
   orderNumber: string;
   customerName: string;
+  customerPhone: string;
   deliveryType: DeliveryType;
   address: string | null;
   notes: string | null;

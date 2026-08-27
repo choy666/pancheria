@@ -95,6 +95,12 @@ export function PedidoSuccessDialog({
                   <span className="text-foreground">
                     {createdOrder.customerName}
                   </span>
+                  {createdOrder.customerPhone && (
+                    <span className="font-mono text-foreground">
+                      {' '}
+                      ({createdOrder.customerPhone})
+                    </span>
+                  )}
                 </p>
                 <p>
                   Sucursal:{' '}

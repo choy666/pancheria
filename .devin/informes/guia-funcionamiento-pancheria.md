@@ -19,7 +19,8 @@ Los hallazgos restantes son de deuda técnica, documentación, escalabilidad y c
 ### 2.1 Multi-sucursal
 
 - Todo dato de negocio (productos, usuarios, ventas, pedidos, cajas, movimientos, cierres, videos) está aislado por `branchId`.
-- La tabla `branches` tiene las sucursales.
+- La tabla `branches` tiene las sucursales, incluyendo `opening_hours` (horarios de apertura en formato JSON).
+- Los horarios se crean/editan desde `/sucursales` y se usan para mostrar el próximo horario de atención cuando la caja está cerrada.
 - Los usuarios pertenecen a una única sucursal (`users.branchId`).
 - El `admin` puede cambiar de sucursal activa desde el panel; la selección se guarda en la cookie `activeBranchId`.
 - El `operator` siempre opera en su sucursal asignada.
@@ -105,7 +106,9 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
    - Se insertan movimientos `sale`.
 
 2. **Pedido público (`/pedido`)**
-   - El cliente arma el carrito y envía el pedido por WhatsApp.
+   - El cliente puede armar el carrito en cualquier momento, incluso si la caja está cerrada.
+   - Al enviar (`POST /api/public/pedido`) se valida que la caja de la sucursal esté abierta (`cashRegisterService.getOpenCashRegister`).
+   - Si la caja está cerrada, el sistema responde con `400` y el mensaje incluye el horario de apertura correspondiente; el carrito permanece editable.
    - Se valida disponibilidad de stock en el momento (`validateCartAvailability`) pero **no se reserva ni descuenta stock**.
    - El pedido queda `pending` y el stock sigue disponible para otras ventas hasta que el operador confirme.
 
@@ -244,7 +247,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 ### 7.2 Flujo del operador
 
-1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado hace polling según `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` y muestra `unreadCount` de mensajes sin leer.
+1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado muestra `unreadCount` de mensajes sin leer. Si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0, el listado hace polling automático; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
 2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback) y las acciones de confirmar o cancelar.
 3. **Confirmar como venta**
    - Requiere caja abierta.
@@ -402,7 +405,6 @@ No son vendibles al público, por lo que no aparecen en catálogo ni terminal de
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp para pedidos (fallback) | — |
 | `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
-| `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` | Cron de limpieza de adjuntos de chat | `0 0 * * *` |
 | `CRON_SECRET` | Protección de endpoints de cron | — |
 
 ---

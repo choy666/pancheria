@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { BranchOpeningHours } from '@/domain/types';
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import {
 interface Branch {
   id: number;
   name: string;
+  openingHours: BranchOpeningHours[];
 }
 
 interface BranchListProps {

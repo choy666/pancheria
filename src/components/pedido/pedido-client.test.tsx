@@ -35,6 +35,7 @@ interface CreatedOrder {
   status: string;
   total: number;
   customerName: string;
+  customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address: string | null;
   notes: string | null;
@@ -53,6 +54,7 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
     status: 'pending',
     total: 1200,
     customerName: 'Juan Pérez',
+    customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
     notes: null,
@@ -67,7 +69,7 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
 }
 
 function makeBranch(id: number, name: string): Branch {
-  return { id, name, createdAt: new Date() };
+  return { id, name, openingHours: [], createdAt: new Date() };
 }
 
 function makeProduct(overrides: Partial<PublicCatalogProduct> = {}): PublicCatalogProduct {
@@ -310,6 +312,14 @@ describe('PedidoClient', () => {
           });
         }
 
+        if (urlString.includes('/api/public/caja/estado')) {
+          return createFetchResponse({
+            status: 'open',
+            openingHours: 'Hoy: de 08:00 a 18:00',
+            message: 'La caja está abierta.',
+          });
+        }
+
         if (urlString.includes('/api/public/pedido/') && urlString.includes('/estado')) {
           return createFetchResponse({
             status: 'pending',
@@ -379,6 +389,12 @@ describe('PedidoClient', () => {
       const nameInput = screen.getByPlaceholderText('Tu nombre');
       await act(async () => {
         fireEvent.change(nameInput, { target: { value: 'Juan Pérez' } });
+        await Promise.resolve();
+      });
+
+      const phoneInput = screen.getByPlaceholderText('Ej: 3415555555');
+      await act(async () => {
+        fireEvent.change(phoneInput, { target: { value: '3415555555' } });
         await Promise.resolve();
       });
 

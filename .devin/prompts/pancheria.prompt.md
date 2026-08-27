@@ -10,6 +10,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/entornos.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.env.example" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" />

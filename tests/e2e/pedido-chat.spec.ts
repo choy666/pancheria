@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
 
 test.describe('Chat anclado a pedidos', () => {
-  test('cliente y operador intercambian mensajes', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await login(page);
+    await ensureCashRegisterOpen(page);
+  });
 
+  test('cliente y operador intercambian mensajes', async ({ page }) => {
     const product = await createProductViaApi(page, {
       name: unique('Chat E2E'),
       type: 'service',
@@ -26,7 +29,9 @@ test.describe('Chat anclado a pedidos', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     const customerName = unique('Juan Pérez');
+    const customerPhone = '3415555555';
     await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();

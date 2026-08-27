@@ -37,9 +37,9 @@ describe('orders config', () => {
     expect(getOrderRateLimitMaxRequests()).toBe(10);
   });
 
-  test('getPedidosRefreshIntervalMs usa el valor por defecto', () => {
+  test('getPedidosRefreshIntervalMs está deshabilitado por defecto', () => {
     delete process.env.NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS;
-    expect(getPedidosRefreshIntervalMs()).toBe(10000);
+    expect(getPedidosRefreshIntervalMs()).toBe(0);
   });
 
   test('getPedidosRefreshIntervalMs respeta la variable', () => {
@@ -50,5 +50,10 @@ describe('orders config', () => {
   test('getPedidosRefreshIntervalMs aplica un mínimo de 1000 ms', () => {
     process.env.NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS = '500';
     expect(getPedidosRefreshIntervalMs()).toBe(10000);
+  });
+
+  test('getPedidosRefreshIntervalMs permite deshabilitar con 0', () => {
+    process.env.NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS = '0';
+    expect(getPedidosRefreshIntervalMs()).toBe(0);
   });
 });

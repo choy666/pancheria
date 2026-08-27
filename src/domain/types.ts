@@ -30,9 +30,16 @@ export type StockMovementType =
   | 'manual_adjustment'
   | 'restock';
 
+export type BranchOpeningHours = {
+  dayOfWeek: number;
+  open: string;
+  close: string;
+};
+
 export type Branch = {
   id: number;
   name: string;
+  openingHours: BranchOpeningHours[];
   createdAt: Date;
 };
 
@@ -65,6 +72,7 @@ export type Order = {
   total: number;
   status: OrderStatus;
   customerName: string;
+  customerPhone: string;
   deliveryType: DeliveryType;
   address: string | null;
   notes: string | null;

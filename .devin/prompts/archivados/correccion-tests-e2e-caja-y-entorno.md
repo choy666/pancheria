@@ -1,4 +1,6 @@
-# Prompt: Corrección de tests E2E fallidos — caja, stock y entorno
+# Prompt: Corrección de tests E2E fallidos — caja, stock y entorno — Archivado
+
+> **Resuelto.** Las correcciones de este prompt ya están aplicadas: `playwright.config.ts` levanta `npm run dev:e2e` y espera `/api/caja/resumen`; `scripts/dev-e2e.ts` carga `.env.e2e`; los helpers E2E manejan respuestas no JSON; los locators usan `.first()` para nombres parcialmente coincidentes. La suite E2E reporta **94 passed, 1 skipped**. Se conserva como contexto histórico.
 
 ## Contexto
 
@@ -18,8 +20,8 @@ Documentación de referencia obligatoria:
 ## Estado actual relevante
 
 La auditoría más reciente dejó el suite E2E en:
-- `npm run test:e2e` — **84 passed, 0 failed**.
-- `npm test` — 92 suites, 890 tests passed.
+- `npm run test:e2e` — **94 passed, 1 skipped**.
+- `npm test` — 118 suites, 1089 tests passed.
 - `npm run build`, `npx tsc --noEmit` y `npm run lint` — OK.
 
 La causa raíz de los fallos anteriores fue doble:
@@ -120,7 +122,7 @@ Antes de declarar terminada la tarea, ejecutar en este orden:
 
 ## Criterio de aceptación
 
-- `npm run test:e2e` debe reportar **84 passed, 0 failed**.
+- `npm run test:e2e` debe reportar **94 passed, 1 skipped**.
 - `GET /api/caja/resumen` debe devolver JSON en todas las condiciones: sesión inválida (401), sesión sin sucursal (403), caja cerrada (`{ status: 'closed' }`) y caja abierta (objeto de resumen).
 - `POST /api/stock/ajustar` debe devolver 200 en el flujo de `restockProductViaApi` cuando el usuario está autenticado.
 - Los flujos de pedidos deben mostrar confirmación de creación sin depender de un número de WhatsApp real.

@@ -1,0 +1,1 @@
+ALTER TABLE "branches" ADD COLUMN "opening_hours" jsonb DEFAULT '[]'::jsonb NOT NULL;

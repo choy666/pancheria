@@ -13,6 +13,8 @@ import {
 } from '@/db/schema';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { validateNonEmptyString } from '@/lib/validation-helpers';
+import { validateOpeningHours } from '@/lib/branch-helpers';
+import type { Branch, BranchOpeningHours } from '@/domain/types';
 
 export async function listBranches() {
   return db.query.branches.findMany({
@@ -26,8 +28,12 @@ export async function getBranchById(id: number) {
   });
 }
 
-export async function createBranch(name: string) {
+export async function createBranch(
+  name: string,
+  openingHours: BranchOpeningHours[] = []
+) {
   const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
+  validateOpeningHours(openingHours);
 
   const existing = await db.query.branches.findFirst({
     where: eq(branches.name, trimmed),
@@ -39,18 +45,23 @@ export async function createBranch(name: string) {
 
   const [branch] = await db
     .insert(branches)
-    .values({ name: trimmed })
+    .values({ name: trimmed, openingHours })
     .returning();
 
   if (!branch) {
     throw new Error('No se pudo crear la sucursal.');
   }
 
-  return branch;
+  return branch as Branch;
 }
 
-export async function updateBranch(id: number, name: string) {
+export async function updateBranch(
+  id: number,
+  name: string,
+  openingHours: BranchOpeningHours[] = []
+) {
   const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
+  validateOpeningHours(openingHours);
 
   const branch = await db.query.branches.findFirst({
     where: eq(branches.id, id),
@@ -76,7 +87,7 @@ export async function updateBranch(id: number, name: string) {
 
   const [updated] = await db
     .update(branches)
-    .set({ name: trimmed })
+    .set({ name: trimmed, openingHours })
     .where(eq(branches.id, id))
     .returning();
 
@@ -84,7 +95,7 @@ export async function updateBranch(id: number, name: string) {
     throw new Error('No se pudo actualizar la sucursal.');
   }
 
-  return updated;
+  return updated as Branch;
 }
 
 export async function getBranchDeletionSummary(id: number) {

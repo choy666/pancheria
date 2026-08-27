@@ -113,6 +113,20 @@
       "when": 1787705818231,
       "tag": "0015_magical_sebastian_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1787793946757,
+      "tag": "0016_tranquil_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787799451795,
+      "tag": "0017_unknown_energizer",
+      "breakpoints": true
     }
   ]
 }

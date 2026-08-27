@@ -13,6 +13,8 @@ import type { Branch } from '@/domain/types';
 interface PedidoCustomerFormProps {
   customerName: string;
   setCustomerName: (value: string) => void;
+  customerPhone: string;
+  setCustomerPhone: (value: string) => void;
   deliveryType: 'delivery' | 'pickup';
   setDeliveryType: (value: 'delivery' | 'pickup') => void;
   address: string;
@@ -27,6 +29,8 @@ interface PedidoCustomerFormProps {
 export function PedidoCustomerForm({
   customerName,
   setCustomerName,
+  customerPhone,
+  setCustomerPhone,
   deliveryType,
   setDeliveryType,
   address,
@@ -52,6 +56,17 @@ export function PedidoCustomerForm({
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
           placeholder="Tu nombre"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="customerPhone">Teléfono</Label>
+        <Input
+          id="customerPhone"
+          type="tel"
+          value={customerPhone}
+          onChange={(e) => setCustomerPhone(e.target.value)}
+          placeholder="Ej: 3415555555"
         />
       </div>
 

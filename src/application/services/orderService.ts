@@ -9,6 +9,7 @@ import * as idempotencyService from '@/application/idempotencyService';
 import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
 import type {
   OrderWithItems,
   OrderWithUnreadCount,
@@ -35,6 +36,7 @@ export interface CreateOrderInput {
   branchId: number;
   items: SaleItemInput[];
   customerName: string;
+  customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address?: string | null;
   notes?: string | null;
@@ -58,11 +60,19 @@ async function getOrderByIdempotencyKey(
 export async function createOrder(
   input: CreateOrderInput
 ): Promise<OrderWithItems> {
-  const { branchId, items, customerName, deliveryType, address, notes, idempotencyKey } = input;
+  const { branchId, items, customerName, customerPhone, deliveryType, address, notes, idempotencyKey } = input;
 
   const branch = await branchService.getBranchById(branchId);
   if (!branch) {
     throw new NotFoundError('Sucursal', branchId);
+  }
+
+  const openCashRegister = await cashRegisterService.getOpenCashRegister(branchId);
+  if (!openCashRegister) {
+    const opening = getCurrentOrNextOpening(branch);
+    throw new ValidationError(
+      `La caja de la sucursal está cerrada. Horario de apertura: ${opening}.`
+    );
   }
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
@@ -100,6 +110,7 @@ export async function createOrder(
       orderNumber,
       total: orderTotal,
       customerName,
+      customerPhone,
       deliveryType,
       address,
       notes,
@@ -355,6 +366,7 @@ export interface TrackOrderResult {
   status: OrderStatus;
   total: number;
   customerName: string;
+  customerPhone: string;
   branchId: number;
   branchName: string | null;
   cancellationToken?: string;
@@ -363,13 +375,14 @@ export interface TrackOrderResult {
 
 export async function trackOrder(
   orderNumber: string,
-  customerName: string
+  customerName?: string,
+  customerPhone?: string
 ): Promise<TrackOrderResult | null> {
-  const order =
-    await orderRepository.findByOrderNumberAndCustomerName(
-      orderNumber,
-      customerName
-    );
+  const order = await orderRepository.findByOrderNumberAndCustomer(
+    orderNumber,
+    customerName,
+    customerPhone
+  );
 
   if (!order) {
     return null;
@@ -381,6 +394,7 @@ export async function trackOrder(
     status: order.status,
     total: order.total,
     customerName: order.customerName,
+    customerPhone: order.customerPhone,
     branchId: order.branchId,
     branchName: order.branch?.name ?? null,
   };

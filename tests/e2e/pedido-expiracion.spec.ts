@@ -3,7 +3,7 @@ import {
   login,
   unique,
   createProductViaApi,
-  ensureCashRegisterClosed,
+  ensureCashRegisterOpen,
   setOrderCreatedAt,
 } from './helpers';
 import { getOrderExpirationMs } from '../../src/config/orders';
@@ -16,7 +16,7 @@ import { getOrderExpirationMs } from '../../src/config/orders';
 test.describe('Expiración automática de pedidos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await ensureCashRegisterClosed(page);
+    await ensureCashRegisterOpen(page);
   });
 
   test('cancela pedidos pending vencidos y refleja el estado en el chat', async ({
@@ -43,7 +43,9 @@ test.describe('Expiración automática de pedidos', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     const customerName = unique('Cliente expiración');
+    const customerPhone = '3415555555';
     await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText('Pedido creado')).toBeVisible();

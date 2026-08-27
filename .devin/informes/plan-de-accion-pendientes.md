@@ -1,6 +1,6 @@
 # Plan de acción — Cierre de pendientes post-auditoría `.devin`
 
-**Fecha:** 2026-08-25  
+**Fecha:** 2026-08-26 (actualizado con Fase 2)  
 **Proyecto:** `pancheria`
 
 ---
@@ -9,7 +9,7 @@
 
 Este plan detalla las acciones necesarias para resolver las recomendaciones de `.devin/informes/reporte-estado.md` y otras deudas documentales/configuración detectadas. Se divide en:
 
-- **Acciones ya aplicadas en esta sesión:** correcciones en `AGENTS.md`, `lecciones-aprendidas.md`, `environment.yaml` (lista de tablas E2E) y `reporte-estado.md`.
+- **Acciones ya aplicadas en esta sesión:** correcciones en `AGENTS.md`, `lecciones-aprendidas.md`, `environment.yaml`, `.devin/prompts/README.md`, `.devin/informes/README.md`, `guia-funcionamiento-pancheria.md` y `reporte-estado.md`.
 - **Acciones que requieren autenticación externa:** verificación del blueprint de Devin (`devin.exe auth login`).
 - **Acciones que requieren base de datos de prueba:** ejecución completa de `npm run test:e2e`.
 - **Acciones de mantenimiento continuo:** revisión de archivados y sincronización de `.devin` con cada cambio arquitectónico.
@@ -23,12 +23,13 @@ El objetivo es dejar los pendientes con un dueño, un criterio de salida y una v
 | # | Pendiente | Estado | Riesgo | Bloqueante | Acción inmediata | Verificación |
 |---|---|---|---|---|---|---|
 | 1 | Verificar blueprint de Devin | Pendiente | Medio | Requiere `devin.exe auth login` y acceso al repositorio en GitHub | Ejecutar `devin.exe cloud drs blueprint-create` y `devin.exe cloud drs build`; corregir `.devin/environment.yaml` si falla. El uso de `uses: github.com/actions/setup-node@v4` es válido según la documentación oficial de DRS. | `devin.exe cloud drs build` finaliza exitosamente. |
-| 2 | Correr E2E en base de prueba | Completado | Alto (datos) | Ninguno | Ejecutar `npm run test:e2e` con base local descartable (`pancheria_e2e`) y `.env.e2e` configurado. | `94 passed, 1 skipped` en 12.8m; sin datos reales afectados. |
+| 2 | Correr E2E en base de prueba | Completado previamente | Alto (datos) | Ninguno | Ejecutar `npm run test:e2e` con base local descartable (`pancheria_e2e`) y `.env.e2e` configurado. | `94 passed, 1 skipped` en 12.8m; sin datos reales afectados. |
 | 3 | Revisar archivados | En revisión | Bajo | Decisión sobre valor histórico | Aplicar criterios del plan; proponer eliminación de archivos obsoletos/peligrosos. | Índices actualizados y archivos redundantes removidos con confirmación. |
 | 4 | Mantener `.devin` sincronizado | En curso | Medio | Disciplina del equipo | Usar el checklist de sincronización en `.devin/prompts/auditoria-y-documentacion.md` y `.devin/informes/lecciones-aprendidas.md`. | Cada cambio arquitectónico incluye documentación. |
 | 5 | Falsos positivos de CI | Documentado | Bajo | Validación del IDE | No modificar `.github/workflows/ci.yml`; documentar causas y opción de pin a SHA. | `npm run lint` pasa; workflow sin cambios innecesarios. |
 | 6 | Revisar `knip.json` | Resuelto | Bajo | Ninguno | Se agregó `tests/e2e/helpers.ts` y `tests/e2e/**/*.spec.ts` como puntos de entrada para evitar falsos positivos por exports de helpers de E2E. | `npm run knip` pasa. |
 | 7 | Hardcodeos defensivos | Resuelto | Bajo | Ninguno | `getPublicBaseUrl()` ahora requiere `NEXT_PUBLIC_APP_URL`/`NEXTAUTH_URL` en producción y acepta `HOST`/`PORT` en desarrollo/test. `getWhatsAppMessageParts()` lee variables de entorno sin defaults; los valores sugeridos pasaron a `.env.example`. | `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. |
+|| 8 | Aplicar migración Fase 2 a producción | Completado | Alto (datos) | Ninguno | Aplicado `drizzle/0017_unknown_energizer.sql` en producción con `DATABASE_URL_UNPOOLED`; verificado que `opening_hours` existe con default `[]` y la sucursal por defecto conserva `opening_hours = []`. | `npx drizzle-kit push --force` finalizó sin errores; pedidos y sucursales siguen operativos. |
 
 ---
 
@@ -37,7 +38,7 @@ El objetivo es dejar los pendientes con un dueño, un criterio de salida y una v
 ### Requisitos
 
 - `devin.exe auth login` configurado en la máquina local.
-- Acceso al repositorio en GitHub (sustituir `<owner/repo>` por el valor real, por ejemplo `choy666/pancheria`).
+- Acceso al repositorio en GitHub (sustituir `<owner/repo>` por el valor real).
 - Archivo `.devin/environment.yaml` vigente.
 
 ### Pasos
@@ -118,7 +119,8 @@ El objetivo es dejar los pendientes con un dueño, un criterio de salida y una v
 
 ### Estado actual
 
-- La propuesta de eliminar `.devin/informes/archivados/plan-implementacion-chat-2026-08-23.md` quedó obsoleta: el archivo no existe en el directorio `archivados`.
+- Los índices de `.devin/prompts/README.md` y `.devin/informes/README.md` fueron depurados para eliminar referencias a archivos inexistentes.
+- Se archivó `auditoria-rate-limit-429.md` tras confirmar que las correcciones (deshabilitar rate limit en desarrollo, mejorar `getClientIp` y documentar `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV`) ya están en `src/lib/rate-limit.ts`.
 - Revisar periódicamente los reportes históricos en `.devin/informes/archivados/` y los prompts archivados en `.devin/prompts/archivados/` para decidir si conservan valor histórico.
 
 > **Decisión pendiente:** confirmar con el responsable del proyecto antes de eliminar archivos archivados. La eliminación es reversible mediante git, pero debe ser intencional.
@@ -179,7 +181,7 @@ El checklist también vive en `.devin/prompts/auditoria-y-documentacion.md`.
 |---|---|
 | `npm run lint` | Pasa |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | 92 suites, 890 tests pasan |
+| `npm test` | 119 suites, 1102 tests pasan |
 | `npm run build` | Build de producción exitoso (42 páginas dinámicas) |
 | `npm run knip` | Pasa |
 
@@ -187,7 +189,7 @@ Una vez que se ejecuten los comandos pendientes (E2E y DRS), completar la tabla 
 
 ---
 
-## 12. Rotación de secretos (si `.env.local` se expuso)
+## 11. Rotación de secretos (si `.env.local` se expuso)
 
 > No modificar `.env.local` en el repositorio; este archivo no debe commitearse. Los pasos asumen que `.env.local` fue expuesto en logs, chat o cualquier medio no seguro.
 
@@ -216,7 +218,7 @@ Una vez que se ejecuten los comandos pendientes (E2E y DRS), completar la tabla 
 
 ---
 
-## 13. Plan de implementación de tests E2E
+## 12. Plan de implementación de tests E2E
 
 ### Requisitos previos
 
@@ -263,9 +265,10 @@ Una vez que se ejecuten los comandos pendientes (E2E y DRS), completar la tabla 
 
 ---
 
-## 11. Enlaces relevantes
+## 13. Enlaces relevantes
 
 - `.devin/informes/reporte-estado.md` — informe vigente.
+- `.devin/informes/entornos.md` — entornos, credenciales y pasos de migración.
 - `.devin/informes/lecciones-aprendidas.md` — lecciones transversales.
 - `.devin/prompts/auditoria-y-documentacion.md` — checklist de sincronización y guía de auditoría.
 - `.devin/environment.yaml` — blueprint de Devin.

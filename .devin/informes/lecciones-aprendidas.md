@@ -14,10 +14,14 @@
 - **No usar `DATABASE_URL` apuntando a `localhost` salvo que haya un PostgreSQL local corriendo.** En desarrollo se recomienda apuntar a la misma base de Neon usada en producción para garantizar comportamiento idéntico.
 - **Soportar la jerarquía de variables de Vercel Postgres.** El runtime debe probar `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`. Las migraciones deben probar `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.
 - **Nunca hardcodear credenciales, secretos ni URLs de API en el código.** Todos los valores sensibles deben venir de variables de entorno o configuraciones dinámicas.
+- **Para migraciones en producción, usar `npx vercel env pull .env.production.local --environment=production`.** El archivo generado envuelve los valores en comillas dobles e incluye saltos de línea; al usar la URL hay que quitarlas con `.Trim().Trim('"')`. Borrar `.env.production.local` inmediatamente después. Ver el paso a paso en `.devin/informes/entornos.md`.
 - **Verificar `NEXTAUTH_URL` y `AUTH_URL` en Vercel tras cada deploy.** Si `NEXTAUTH_URL` (o `AUTH_URL`, que en NextAuth v5 tiene prioridad) apunta a `http://localhost:3000`, las redirecciones de autenticación (ya sea por middleware o por Server Components) pueden enviar a `localhost` en lugar del dominio de producción.
 - **No usar `STORAGE_PROVIDER=local` en producción si se almacenan videos.** El filesystem de Vercel es efímero; usar `vercel-blob`, `s3` o `r2` con sus credenciales. También se recomienda `vercel-blob` en desarrollo para no depender del filesystem local.
 - **Ejecutar tests E2E solo en bases de datos de prueba.** `tests/e2e/global-setup.ts` trunca tablas de negocio y re-seedea. No usar en producción ni contra datos reales.
+- **Los horarios de sucursal se almacenan como JSONB en `branches.opening_hours` y el cálculo de apertura usa `Intl.DateTimeFormat` con `NEXT_PUBLIC_BRANCH_TIMEZONE` para evitar suponer la zona horaria del servidor. La validación del envío de pedidos siempre ocurre en el servidor (`orderService.createOrder` consulta `getOpenCashRegister`); la UI solo mejora la UX mostrando el horario de apertura cuando la caja está cerrada.**
 - **Configurar Playwright para que el `webServer` cargue `.env.e2e` y espere una ruta API, no la raíz.** Next.js 16 con Turbopack compila las rutas bajo demanda. Si Playwright inicia los tests tan pronto `http://localhost:3000` responde, las primeras requests a rutas API pueden recibir HTML/404 mientras se compilan. Usar `command: 'npm run dev:e2e'` (que cargue `.env.e2e`) y `url: 'http://localhost:3000/api/caja/resumen'` fuerza la compilación de una API antes de empezar. También se puede levantar manualmente con `npm run dev:e2e` y correr con `NO_WEB_SERVER=1`.
+- **Los schedules de cron jobs no son variables de entorno.** `vercel.json` define los horarios de `rate-limit-cleanup` y `chat-attachments-cleanup`. No agregar `CHAT_ATTACHMENTS_CLEANUP_SCHEDULE` ni similares a `.env.example` o `AGENTS.md` si el código no las consume.
+- **El rate limit de pedidos públicos está deshabilitado en desarrollo por defecto.** Para activarlo en `NODE_ENV=development`, definir `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV=true`.
 
 ## 2. Calidad de código y arquitectura
 
@@ -65,6 +69,7 @@
 - **`setState` dentro de `useEffect` está permitido en dos casos:** (a) carga asíncrona con flag de montaje (`isMountedRef` / `cancelled`) y cleanup; (b) persistencia derivada (`localStorage`). No usar para sincronizar props con estado; preferir cálculo en render, levantar estado al padre o `key` para forzar remonte.
 - **`useCart` debe invalidar el carrito si `branchId` cambia en tiempo de ejecución**, no solo al montar, usando una referencia a la sucursal previa.
 - **`PedidoClient` usa `activeBranch` como única fuente de verdad de la sucursal** y fuerza el remonte con `key={branchId}`; el selector expone `data-testid="branch-select-trigger"`.
+- **El listado de pedidos (`/pedidos`) no hace polling automático por defecto.** `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` debe configurarse con un valor mayor a 0 para habilitarlo; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
 
 ## 8. Verificaciones estándar
 

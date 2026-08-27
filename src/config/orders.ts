@@ -39,10 +39,11 @@ export function getOrderRateLimitMaxRequests(): number {
 
 export function getPedidosRefreshIntervalMs(): number {
   const raw = process.env.NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS;
-  if (!raw) return 10_000;
+  if (!raw) return 0; // deshabilitado por defecto
 
   const parsed = Number(raw);
-  if (Number.isNaN(parsed) || parsed < 1_000) return 10_000;
+  if (Number.isNaN(parsed) || parsed <= 0) return 0;
+  if (parsed < 1_000) return 10_000;
 
   return parsed;
 }

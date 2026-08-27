@@ -31,6 +31,7 @@ export async function listPublicBranches(): Promise<Branch[]> {
   return branches.map((b) => ({
     id: b.id,
     name: b.name,
+    openingHours: b.openingHours ?? [],
     createdAt: b.createdAt,
   }));
 }

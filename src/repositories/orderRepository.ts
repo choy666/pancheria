@@ -1,4 +1,4 @@
-import { eq, and, isNull, count, lt, inArray, ilike } from 'drizzle-orm';
+import { eq, and, isNull, count, lt, inArray, ilike, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders, orderItems, orderMessages } from '@/db/schema';
 import type { OrderStatus, OrderWithItems, OrderWithUnreadCount } from '@/domain/types';
@@ -133,7 +133,13 @@ export async function findOrders(
   }
 
   if (options.search?.trim()) {
-    conditions.push(ilike(orders.customerName, `%${options.search.trim()}%`));
+    const search = options.search.trim();
+    conditions.push(
+      or(
+        ilike(orders.customerName, `%${search}%`),
+        ilike(orders.customerPhone, `%${search}%`)
+      )!
+    );
   }
 
   const [{ count: total }] = await db
@@ -261,16 +267,26 @@ export async function cancel(
   return updated;
 }
 
-export async function findByOrderNumberAndCustomerName(
+export async function findByOrderNumberAndCustomer(
   orderNumber: string,
-  customerName: string
+  customerName?: string,
+  customerPhone?: string
 ): Promise<OrderWithItems | undefined> {
+  const conditions: ReturnType<typeof and>[] = [
+    eq(orders.orderNumber, orderNumber),
+    isNull(orders.deletedAt),
+  ];
+
+  if (customerName?.trim()) {
+    conditions.push(eq(orders.customerName, customerName.trim()));
+  }
+
+  if (customerPhone?.trim()) {
+    conditions.push(eq(orders.customerPhone, customerPhone.trim().replace(/\s/g, '')));
+  }
+
   return (await db.query.orders.findFirst({
-    where: and(
-      eq(orders.orderNumber, orderNumber),
-      eq(orders.customerName, customerName),
-      isNull(orders.deletedAt)
-    ),
+    where: and(...conditions),
     with: { branch: true, items: { with: { product: true } } },
   })) as OrderWithItems | undefined;
 }

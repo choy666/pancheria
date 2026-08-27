@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test';
 import { login, unique, createProductViaApi, getTestSecondBranch, restockProductViaApi, ensureCashRegisterOpen } from './helpers';
 
 test.describe('Pedido público con sucursal y stock aislado', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await ensureCashRegisterOpen(page);
+  });
+
   test('redirige a /pedido cuando branchId no es un entero positivo', async ({
     page,
   }) => {
@@ -20,8 +25,6 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
   test('muestra la sucursal por defecto y permite crear un pedido de pickup', async ({
     page,
   }) => {
-    await login(page);
-
     const product = await createProductViaApi(page, {
       name: unique('Pedido Sucursal Default'),
       type: 'service',
@@ -44,7 +47,9 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     const customerName = unique('Juan Pérez');
+    const customerPhone = '3415555555';
     await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? '';
@@ -64,8 +69,6 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     page,
   }) => {
     const second = await getTestSecondBranch();
-    await login(page);
-
     const productDefault = await createProductViaApi(page, {
       name: unique('Solo Default'),
       type: 'service',
@@ -133,8 +136,6 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     page,
   }) => {
     const second = await getTestSecondBranch();
-    await login(page);
-
     const productDefault = await createProductViaApi(page, {
       name: unique('Carrito Default'),
       type: 'service',
@@ -162,8 +163,6 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
   test('no descuenta stock al crear el pedido y sí al confirmarlo desde el panel', async ({
     page,
   }) => {
-    await login(page);
-
     const product = await createProductViaApi(page, {
       name: unique('Bebida Stock E2E'),
       type: 'critical_supply',
@@ -187,7 +186,9 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
 
     const customerName = unique('Juan Pérez');
+    const customerPhone = '3415555555';
     await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();

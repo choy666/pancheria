@@ -41,6 +41,7 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     orderNumber: 'PED-1-TEST',
     status: 'pending',
     customerName: 'Juan',
+    customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
     notes: null,

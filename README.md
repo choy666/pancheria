@@ -26,8 +26,10 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
 5. Para migraciones (`drizzle-kit`) usar una URL sin pooler: `DATABASE_URL_UNPOOLED` o `POSTGRES_URL_NON_POOLING`.
 6. Instalar dependencias: `npm install`
-7. Generar y empujar migraciones: `npx drizzle-kit push`
-8. Ejecutar seed: `npx tsx src/db/seeds.ts`
+7. Generar migraciones: `npx drizzle-kit generate`
+8. Empujar migraciones en desarrollo: `npx drizzle-kit push`
+9. Para producción, ver `.devin/informes/entornos.md`
+10. Ejecutar seed: `npx tsx src/db/seeds.ts`
 9. Iniciar en desarrollo: `npm run dev`
 
 Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`. Si `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
@@ -116,7 +118,7 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
 - Hacer el pedido desde la app; si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un enlace de WhatsApp como fallback.
 - El pedido valida disponibilidad, pero **no reserva ni descuenta stock**. El stock se descuenta únicamente al confirmar el pedido desde el panel.
 - Al crear el pedido, el cliente puede ir al chat `/pedido/[id]/chat?token=...` para coordinar con la sucursal. El chat soporta texto e imágenes.
-- El listado de pedidos del operador (`/pedidos`) hace polling según `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (por defecto 10000 ms; 0 lo deshabilita) y muestra la cantidad de mensajes no leídos (`unreadCount`) por pedido.
+- El listado de pedidos del operador (`/pedidos`) puede hacer polling automático si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (deshabilitado por defecto; definir un valor en milisegundos para habilitar) e incluye un botón de actualización manual. Muestra la cantidad de mensajes no leídos (`unreadCount`) por pedido.
 - Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado. La expiración no libera stock porque el pedido nunca reservó.
 
 Variables de entorno relacionadas (ver `.env.example` para el listado completo):

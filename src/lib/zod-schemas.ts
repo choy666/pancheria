@@ -152,10 +152,20 @@ export const cancellationSchema = z.object({
   reason: z.string().min(3).max(500),
 });
 
+const phoneRegex = /^\+?\d{8,15}$/;
+
 export const orderSchema = z
   .object({
     items: z.array(saleItemSchema).min(1),
     customerName: z.string().min(1).max(255),
+    customerPhone: z
+      .string()
+      .min(1)
+      .max(20)
+      .refine((value) => phoneRegex.test(value.replace(/\s/g, '')), {
+        message:
+          'El teléfono debe contener entre 8 y 15 dígitos, opcionalmente con un signo + al inicio.',
+      }),
     deliveryType: z.enum(['delivery', 'pickup']),
     address: z.string().max(500).optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
@@ -217,5 +227,18 @@ export const chatPaginationQuerySchema = z
 
 export const orderTrackingSchema = z.object({
   orderNumber: z.string().min(1),
-  customerName: z.string().min(1),
+  customerName: z.string().optional(),
+  customerPhone: z
+    .string()
+    .optional()
+    .refine(
+      (value) =>
+        value === undefined ||
+        value === '' ||
+        phoneRegex.test(value.replace(/\s/g, '')),
+      {
+        message:
+          'El teléfono debe contener entre 8 y 15 dígitos, opcionalmente con un signo + al inicio.',
+      }
+    ),
 });

@@ -52,6 +52,7 @@ describe('GET /api/pedidos', () => {
     mockedBranchService.getBranchById.mockResolvedValue({
       id: BRANCH_ID,
       name: 'Sucursal Test',
+      openingHours: [],
       createdAt: new Date(),
     });
     mockedOrderService.expirePendingOrders.mockResolvedValue(0);
