@@ -58,7 +58,11 @@ export function RecentOrdersBanner({
           }
 
           const data = (await response.json()) as OrderStatusResult;
-          if (data.status !== 'pending' || data.isExpired) {
+          if (
+            data.status === 'finished' ||
+            data.status === 'cancelled' ||
+            data.isExpired
+          ) {
             onDismiss(order.id);
           }
         } catch {

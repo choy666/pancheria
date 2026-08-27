@@ -169,6 +169,12 @@ function createMockDb(): MockDb {
 }
 
 jest.mock('@/repositories/productRepository');
+jest.mock('@/repositories/orderStockReservationRepository', () => ({
+  findActiveReservationsByProductIds: jest.fn().mockResolvedValue([]),
+  insertReservations: jest.fn().mockResolvedValue(undefined),
+  deleteByOrderId: jest.fn().mockResolvedValue(undefined),
+  findByOrderId: jest.fn().mockResolvedValue([]),
+}));
 jest.mock('@/application/services/cashRegisterService', () => ({
   getOpenCashRegister: jest.fn(),
 }));

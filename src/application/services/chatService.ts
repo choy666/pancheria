@@ -280,9 +280,9 @@ export async function sendClientMessage(
       throw new NotFoundError('Pedido', orderId);
     }
 
-    if (order.status !== 'pending') {
+    if (order.status === 'finished' || order.status === 'cancelled') {
       throw new ValidationError(
-        'El pedido no está pendiente, no se pueden enviar mensajes.'
+        'El pedido está finalizado o cancelado, no se pueden enviar mensajes.'
       );
     }
 
@@ -311,9 +311,9 @@ export async function sendOperatorMessage(
       throw new NotFoundError('Pedido', orderId);
     }
 
-    if (order.status !== 'pending') {
+    if (order.status === 'finished' || order.status === 'cancelled') {
       throw new ValidationError(
-        'El pedido no está pendiente, no se pueden enviar mensajes.'
+        'El pedido está finalizado o cancelado, no se pueden enviar mensajes.'
       );
     }
 

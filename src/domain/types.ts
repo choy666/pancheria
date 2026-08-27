@@ -18,7 +18,12 @@ export type PaymentMethod = 'cash' | 'transfer';
 
 export type SaleStatus = 'active' | 'cancelled';
 
-export type OrderStatus = 'pending' | 'converted' | 'cancelled';
+export type OrderStatus =
+  | 'pending'
+  | 'in_process'
+  | 'paid'
+  | 'finished'
+  | 'cancelled';
 
 export type DeliveryType = 'delivery' | 'pickup';
 

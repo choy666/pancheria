@@ -1,5 +1,6 @@
 'use client';
 
+import type { OrderStatus } from '@/domain/types';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,7 +27,7 @@ import {
 interface TrackedOrder {
   id: number;
   orderNumber: string;
-  status: 'pending' | 'converted' | 'cancelled';
+  status: OrderStatus;
   total: number;
   customerName: string;
   customerPhone: string;
@@ -117,9 +118,11 @@ export function OrderTracker() {
     }
   }
 
-  const statusLabel: Record<string, string> = {
+  const statusLabel: Record<OrderStatus, string> = {
     pending: 'Pendiente',
-    converted: 'Confirmado',
+    in_process: 'En proceso',
+    paid: 'Pagado',
+    finished: 'Finalizado',
     cancelled: 'Cancelado',
   };
 
@@ -234,19 +237,21 @@ export function OrderTracker() {
               </div>
             </div>
 
-            {order.status === 'pending' && order.cancellationToken && (
-              <Link
-                href={buildChatUrl(order.id, order.cancellationToken)}
-                className={cn(buttonVariants(), 'w-full')}
-              >
-                <MessageCircle className="mr-2 size-4" />
-                Ir al chat del pedido
-              </Link>
-            )}
+            {order.status !== 'finished' &&
+              order.status !== 'cancelled' &&
+              order.cancellationToken && (
+                <Link
+                  href={buildChatUrl(order.id, order.cancellationToken)}
+                  className={cn(buttonVariants(), 'w-full')}
+                >
+                  <MessageCircle className="mr-2 size-4" />
+                  Ir al chat del pedido
+                </Link>
+              )}
 
-            {order.status !== 'pending' && (
+            {(order.status === 'finished' || order.status === 'cancelled') && (
               <p className="text-sm text-muted-foreground">
-                Este pedido ya fue {order.status === 'converted' ? 'confirmado' : 'cancelado'} y el chat está cerrado.
+                Este pedido ya fue {order.status === 'finished' ? 'finalizado' : 'cancelado'} y el chat está cerrado.
               </p>
             )}
           </CardContent>

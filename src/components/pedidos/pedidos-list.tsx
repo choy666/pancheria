@@ -55,13 +55,20 @@ interface OrderListItem {
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Pendiente',
-  converted: 'Confirmado',
+  in_process: 'En proceso',
+  paid: 'Pagado',
+  finished: 'Finalizado',
   cancelled: 'Cancelado',
 };
 
-const statusVariants: Record<OrderStatus, 'default' | 'secondary' | 'destructive'> = {
+const statusVariants: Record<
+  OrderStatus,
+  'default' | 'secondary' | 'outline' | 'destructive'
+> = {
   pending: 'default',
-  converted: 'secondary',
+  in_process: 'secondary',
+  paid: 'secondary',
+  finished: 'outline',
   cancelled: 'destructive',
 };
 
@@ -170,6 +177,26 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
         throw new Error(data.error || 'Error al confirmar el pedido');
+      }
+      await refresh();
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function handleFinish(orderId: number) {
+    setLoadingId(orderId);
+    try {
+      const response = await authenticatedFetch(
+        `/api/pedidos/${orderId}/finalizar`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al finalizar el pedido');
       }
       await refresh();
     } finally {
@@ -373,7 +400,8 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                     >
                       Ver
                     </Link>
-                    {order.status === 'pending' && (
+                    {(order.status === 'pending' ||
+                      order.status === 'in_process') && (
                       <>
                         <Button
                           data-testid={`confirm-order-${order.id}`}
@@ -382,7 +410,29 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                           disabled={loadingId === order.id}
                           onClick={() => handleConfirm(order.id)}
                         >
-                          Confirmar
+                          Confirmar pago
+                        </Button>
+                        <Button
+                          data-testid={`cancel-order-${order.id}`}
+                          variant="destructive"
+                          size="sm"
+                          disabled={loadingId === order.id}
+                          onClick={() => handleCancel(order.id)}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+                    {order.status === 'paid' && (
+                      <>
+                        <Button
+                          data-testid={`finish-order-${order.id}`}
+                          variant="secondary"
+                          size="sm"
+                          disabled={loadingId === order.id}
+                          onClick={() => handleFinish(order.id)}
+                        >
+                          Finalizar
                         </Button>
                         <Button
                           data-testid={`cancel-order-${order.id}`}

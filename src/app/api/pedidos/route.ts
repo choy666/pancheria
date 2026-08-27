@@ -11,7 +11,7 @@ import { ForbiddenError, NotFoundError } from '@/domain/errors';
 import type { OrderStatus } from '@/domain/types';
 
 const querySchema = z.object({
-  status: z.enum(['pending', 'converted', 'cancelled']).optional(),
+  status: z.enum(['pending', 'in_process', 'paid', 'finished', 'cancelled']).optional(),
   branchId: branchIdQueryParamSchema.optional(),
   search: z.string().max(255).optional(),
 });

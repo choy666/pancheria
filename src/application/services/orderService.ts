@@ -1,6 +1,7 @@
 import { sales } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
+import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -16,7 +17,9 @@ import type {
   OrderStatus,
   PaymentMethod,
   SaleItemInput,
+  ProductRow,
 } from '@/domain/types';
+import type { RecipeWithSupply } from '@/application/services/summaryService';
 import {
   buildProductContext,
   validateProductsForOperation,
@@ -30,7 +33,11 @@ import {
   buildOrderValues,
   buildOrderItemValues,
 } from '@/lib/order-helpers';
-import { insertSaleAndUpdateCashRegister } from '@/application/services/saleService';
+import { iterRecipeConsumptions } from '@/lib/stock-helpers';
+import {
+  insertSaleAndUpdateCashRegister,
+  cancelSale,
+} from '@/application/services/saleService';
 
 export interface CreateOrderInput {
   branchId: number;
@@ -50,11 +57,73 @@ export interface ConvertOrderInput {
   idempotencyKey: string;
 }
 
+export interface ReceiveOrderInput {
+  branchId: number;
+  orderId: number;
+}
+
+export interface FinishOrderInput {
+  branchId: number;
+  orderId: number;
+}
+
+interface ReservationInput {
+  branchId: number;
+  orderId: number;
+  productId: number;
+  quantity: number;
+}
+
 async function getOrderByIdempotencyKey(
   branchId: number,
   key: string
 ): Promise<OrderWithItems | null> {
   return orderRepository.findByIdempotencyKey(branchId, key);
+}
+
+function buildReservationsForItems(
+  branchId: number,
+  orderId: number,
+  items: { productId: number; quantity: number }[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>
+): ReservationInput[] {
+  const quantityByProduct = new Map<number, number>();
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product) continue;
+
+    if (product.type === 'compound') {
+      for (const { supplyId, consumed } of iterRecipeConsumptions(
+        product,
+        item.quantity,
+        recipesByProduct
+      )) {
+        quantityByProduct.set(
+          supplyId,
+          (quantityByProduct.get(supplyId) ?? 0) + consumed
+        );
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      quantityByProduct.set(
+        product.id,
+        (quantityByProduct.get(product.id) ?? 0) + item.quantity
+      );
+    }
+  }
+
+  return Array.from(quantityByProduct.entries()).map(
+    ([productId, quantity]) => ({
+      branchId,
+      orderId,
+      productId,
+      quantity,
+    })
+  );
 }
 
 export async function createOrder(
@@ -151,9 +220,9 @@ export async function cancelOrder(
     return order as OrderWithItems;
   }
 
-  if (order.status !== 'pending') {
+  if (order.status === 'finished') {
     throw new ValidationError(
-      'El pedido no puede cancelarse porque ya fue confirmado.'
+      'El pedido ya fue finalizado y no puede cancelarse.'
     );
   }
 
@@ -172,14 +241,20 @@ export async function cancelOrder(
       return order as OrderWithItems;
     }
 
-    if (locked.status !== 'pending') {
+    if (locked.status === 'finished') {
       throw new ValidationError(
-        'El pedido no puede cancelarse porque ya fue confirmado.'
+        'El pedido ya fue finalizado y no puede cancelarse.'
       );
     }
 
     if (token !== undefined && locked.cancellationToken !== token) {
       throw new ValidationError('El token de cancelación no es válido.');
+    }
+
+    if (locked.status === 'in_process') {
+      await orderStockReservationRepository.deleteByOrderId(tx, id);
+    } else if (locked.status === 'paid' && locked.convertedSaleId) {
+      await cancelSale(branchId, locked.convertedSaleId, reason);
     }
 
     const updated = await orderRepository.cancel(tx, branchId, id, {
@@ -212,8 +287,12 @@ export async function convertOrderToSale(
     throw new NotFoundError('Pedido', orderId);
   }
 
-  if (order.status !== 'pending') {
-    throw new ValidationError('El pedido no está pendiente de confirmación.');
+  if (order.status === 'paid' || order.status === 'finished') {
+    throw new ValidationError('El pedido ya fue pagado o finalizado.');
+  }
+
+  if (order.status === 'cancelled') {
+    throw new ValidationError('El pedido fue cancelado.');
   }
 
   return executeInTransaction(async (tx) => {
@@ -237,8 +316,12 @@ export async function convertOrderToSale(
       throw new NotFoundError('Pedido', orderId);
     }
 
-    if (lockedOrder.status !== 'pending') {
-      throw new ValidationError('El pedido no está pendiente de confirmación.');
+    if (
+      lockedOrder.status === 'paid' ||
+      lockedOrder.status === 'finished' ||
+      lockedOrder.status === 'cancelled'
+    ) {
+      throw new ValidationError('El pedido ya no puede confirmarse como venta.');
     }
 
     const productIds = order.items.map((item) => item.productId);
@@ -249,6 +332,10 @@ export async function convertOrderToSale(
     );
 
     validateProductsForOperation(order.items, productById, branchId, 'venta');
+
+    if (lockedOrder.status === 'in_process') {
+      await orderStockReservationRepository.deleteByOrderId(tx, orderId);
+    }
 
     const { shortageByProduct } = await validateCartAvailability(
       branchId,
@@ -282,11 +369,135 @@ export async function convertOrderToSale(
     );
 
     await orderRepository.updateStatus(tx, branchId, orderId, {
-      status: 'converted',
+      status: 'paid',
       convertedSaleId: sale.id,
     });
 
     return sale;
+  });
+}
+
+export async function receiveOrder(
+  input: ReceiveOrderInput
+): Promise<OrderWithItems> {
+  const { branchId, orderId } = input;
+
+  const order = await orderRepository.findById(branchId, orderId);
+
+  if (!order) {
+    throw new NotFoundError('Pedido', orderId);
+  }
+
+  if (order.status === 'in_process') {
+    return order as OrderWithItems;
+  }
+
+  if (order.status !== 'pending') {
+    throw new ValidationError(
+      'El pedido no puede recibirse porque ya fue pagado, finalizado o cancelado.'
+    );
+  }
+
+  return executeInTransaction(async (tx) => {
+    const locked = await orderRepository.findByIdForUpdate(tx, branchId, orderId);
+
+    if (!locked) {
+      throw new NotFoundError('Pedido', orderId);
+    }
+
+    if (locked.status === 'in_process') {
+      return { ...locked, branch: order.branch, items: order.items } as OrderWithItems;
+    }
+
+    if (locked.status !== 'pending') {
+      throw new ValidationError(
+        'El pedido no puede recibirse porque ya fue pagado, finalizado o cancelado.'
+      );
+    }
+
+    const productIds = order.items.map((item) => item.productId);
+    const { productById, recipesByProduct } = await buildProductContext(
+      branchId,
+      productIds,
+      { dbOrTx: tx }
+    );
+
+    validateProductsForOperation(order.items, productById, branchId, 'pedido');
+
+    const { shortageByProduct } = await validateCartAvailability(
+      branchId,
+      order.items,
+      undefined,
+      tx
+    );
+
+    assertNoStockShortage(shortageByProduct, productById);
+
+    const existingReservations =
+      await orderStockReservationRepository.findByOrderId(tx, orderId);
+
+    if (existingReservations.length === 0) {
+      const reservations = buildReservationsForItems(
+        branchId,
+        orderId,
+        order.items,
+        productById,
+        recipesByProduct
+      );
+      await orderStockReservationRepository.insertReservations(tx, reservations);
+    }
+
+    const updated = await orderRepository.updateStatus(tx, branchId, orderId, {
+      status: 'in_process',
+    });
+
+    return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
+  });
+}
+
+export async function finishOrder(
+  input: FinishOrderInput
+): Promise<OrderWithItems> {
+  const { branchId, orderId } = input;
+
+  const order = await orderRepository.findById(branchId, orderId);
+
+  if (!order) {
+    throw new NotFoundError('Pedido', orderId);
+  }
+
+  if (order.status === 'finished') {
+    return order as OrderWithItems;
+  }
+
+  if (order.status !== 'paid') {
+    throw new ValidationError(
+      'Solo se puede finalizar un pedido que ya fue pagado.'
+    );
+  }
+
+  return executeInTransaction(async (tx) => {
+    const locked = await orderRepository.findByIdForUpdate(tx, branchId, orderId);
+
+    if (!locked) {
+      throw new NotFoundError('Pedido', orderId);
+    }
+
+    if (locked.status === 'finished') {
+      return { ...locked, branch: order.branch, items: order.items } as OrderWithItems;
+    }
+
+    if (locked.status !== 'paid') {
+      throw new ValidationError(
+        'Solo se puede finalizar un pedido que ya fue pagado.'
+      );
+    }
+
+    const updated = await orderRepository.updateStatus(tx, branchId, orderId, {
+      status: 'finished',
+    });
+
+    return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
   });
 }
 

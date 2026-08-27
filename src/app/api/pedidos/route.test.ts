@@ -100,12 +100,12 @@ describe('GET /api/pedidos', () => {
   test('permite filtrar por estado', async () => {
     mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
 
-    const response = await GET(buildRequest('status=converted'), { params: Promise.resolve({}) });
+    const response = await GET(buildRequest('status=paid'), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(200);
     expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
       BRANCH_ID,
-      expect.objectContaining({ status: 'converted' })
+      expect.objectContaining({ status: 'paid' })
     );
   });
 

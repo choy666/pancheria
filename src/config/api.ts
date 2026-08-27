@@ -23,6 +23,10 @@ export const PUBLIC_PEDIDO_CHAT_UPLOAD_API = (orderId: number | string) =>
 export const PEDIDOS_API = '/api/pedidos';
 export const PEDIDOS_CONFIRMAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/confirmar`;
+export const PEDIDOS_RECIBIR_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/recibir`;
+export const PEDIDOS_FINALIZAR_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/finalizar`;
 export const PEDIDOS_CANCELAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/cancelar`;
 export const PEDIDOS_CHAT_API = (orderId: number | string) =>

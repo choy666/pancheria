@@ -32,7 +32,9 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
     cashRegister,
     cashRegisterLoading,
     whatsappUrl,
+    handleReceive,
     handleConfirm,
+    handleFinish,
     handleCancel,
   } = usePedidoDetail(orderId);
 
@@ -68,7 +70,9 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
           </CardContent>
         </Card>
 
-        {order.status === 'pending' && (
+        {(order.status === 'pending' ||
+          order.status === 'in_process' ||
+          order.status === 'paid') && (
           <PedidoActions
             status={order.status}
             cashRegister={cashRegister}
@@ -79,7 +83,9 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
             actionError={actionError}
             isSubmitting={isSubmitting}
             whatsappUrl={whatsappUrl}
+            onReceive={handleReceive}
             onConfirm={handleConfirm}
+            onFinish={handleFinish}
             onCancel={handleCancel}
           />
         )}

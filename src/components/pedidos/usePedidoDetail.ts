@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { authenticatedFetch } from '@/lib/fetch';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
-import { PEDIDOS_CONFIRMAR_API, PEDIDOS_CANCELAR_API } from '@/config/api';
+import {
+  PEDIDOS_CONFIRMAR_API,
+  PEDIDOS_RECIBIR_API,
+  PEDIDOS_FINALIZAR_API,
+  PEDIDOS_CANCELAR_API,
+} from '@/config/api';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus, DeliveryType, PaymentMethod, OrderMessage } from '@/domain/types';
@@ -57,7 +62,9 @@ export interface UsePedidoDetailResult {
   cashRegisterLoading: boolean;
   whatsappUrl: string | null;
   loadOrder: () => Promise<void>;
+  handleReceive: () => Promise<void>;
   handleConfirm: () => Promise<void>;
+  handleFinish: () => Promise<void>;
   handleCancel: () => Promise<void>;
 }
 
@@ -163,6 +170,30 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     };
   }, [loadOrder]);
 
+  async function handleReceive() {
+    setActionError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await authenticatedFetch(PEDIDOS_RECIBIR_API(orderId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al recibir el pedido');
+      }
+
+      await loadOrder();
+      router.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleConfirm() {
     setActionError(null);
     setIsSubmitting(true);
@@ -186,6 +217,33 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       }
 
       await refreshCashRegister();
+      await loadOrder();
+      router.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleFinish() {
+    setActionError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await authenticatedFetch(
+        PEDIDOS_FINALIZAR_API(orderId),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || 'Error al finalizar el pedido');
+      }
+
       await loadOrder();
       router.refresh();
     } catch (err) {
@@ -249,7 +307,9 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     cashRegisterLoading,
     whatsappUrl,
     loadOrder,
+    handleReceive,
     handleConfirm,
+    handleFinish,
     handleCancel,
   };
 }

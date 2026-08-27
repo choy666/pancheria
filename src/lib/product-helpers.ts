@@ -3,6 +3,8 @@ import { validateBranchOwnership } from '@/lib/validation-helpers';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import type { ProductRow, SaleItemInput } from '@/domain/types';
 import * as productRepository from '@/repositories/productRepository';
+import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
+import { collectStockProductIdsToLock } from '@/lib/stock-helpers';
 import {
   calculateCompoundAvailability,
   findRecipesForProducts,
@@ -269,7 +271,8 @@ export async function validateCartAvailability(
   branchId: number,
   items: SaleItemInput[],
   productIds?: number[],
-  dbOrTx?: typeof import('@/db').db
+  dbOrTx?: typeof import('@/db').db,
+  excludeOrderId?: number
 ): Promise<{
   availabilityByProduct: Record<number, number>;
   consumedBySupply: Record<number, number>;
@@ -288,6 +291,27 @@ export async function validateCartAvailability(
     supplyStockById,
     supplyNameById,
   } = await buildAvailabilityContext(branchId, allProductIds, dbOrTx);
+
+  const idsToLock = collectStockProductIdsToLock(
+    items,
+    productById,
+    recipesByProduct
+  );
+
+  if (idsToLock.length > 0 && dbOrTx) {
+    const reservations =
+      await orderStockReservationRepository.findActiveReservationsByProductIds(
+        dbOrTx,
+        branchId,
+        idsToLock,
+        excludeOrderId
+      );
+    for (const reservation of reservations) {
+      if (supplyStockById[reservation.productId] !== undefined) {
+        supplyStockById[reservation.productId] -= reservation.quantity;
+      }
+    }
+  }
 
   for (const item of items) {
     if (!productById.has(item.productId)) {

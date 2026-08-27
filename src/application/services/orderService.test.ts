@@ -603,15 +603,15 @@ describe('orderService', () => {
       ).rejects.toThrow('El token de cancelación no es válido.');
     });
 
-    test('rechaza cancelación de un pedido ya confirmado', async () => {
+    test('rechaza cancelación de un pedido finalizado', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
-        ...createOrderRow({ status: 'converted' }),
+        ...createOrderRow({ status: 'finished' }),
         items: [],
       });
 
       await expect(
         cancelOrder(BRANCH_ID, 1, 'Motivo')
-      ).rejects.toThrow('El pedido no puede cancelarse porque ya fue confirmado.');
+      ).rejects.toThrow('El pedido ya fue finalizado y no puede cancelarse.');
     });
 
     test('lanza NotFoundError si el pedido no existe', async () => {
@@ -735,7 +735,7 @@ describe('orderService', () => {
 
       const orderUpdate = findCapturedUpdate(orders)[0]
         ?.data as Partial<OrderRow>;
-      expect(orderUpdate.status).toBe('converted');
+      expect(orderUpdate.status).toBe('paid');
 
       const stockMovement = findCapturedInsert(stockMovements)[0]
         ?.data as typeof stockMovements.$inferInsert;
@@ -796,7 +796,7 @@ describe('orderService', () => {
           paymentMethod: 'cash',
           idempotencyKey: 'key-not-pending',
         })
-      ).rejects.toThrow('El pedido no está pendiente de confirmación.');
+      ).rejects.toThrow('El pedido fue cancelado.');
     });
 
     test('rechaza la conversión si el pedido no existe', async () => {
@@ -1040,7 +1040,7 @@ describe('orderService', () => {
 
     test('no incluye token ni expiresAt cuando el pedido no está pending', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
-        ...createOrderRow({ status: 'converted' }),
+        ...createOrderRow({ status: 'paid' }),
         branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
         items: [createOrderItemRow()],
       });
@@ -1051,7 +1051,7 @@ describe('orderService', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result?.status).toBe('converted');
+      expect(result?.status).toBe('paid');
       expect(result?.cancellationToken).toBeUndefined();
       expect(result?.expiresAt).toBeUndefined();
     });

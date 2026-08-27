@@ -3,13 +3,20 @@ import type { OrderStatus } from '@/domain/types';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Pendiente',
-  converted: 'Confirmado',
+  in_process: 'En proceso',
+  paid: 'Pagado',
+  finished: 'Finalizado',
   cancelled: 'Cancelado',
 };
 
-const statusVariants: Record<OrderStatus, 'default' | 'secondary' | 'destructive'> = {
+const statusVariants: Record<
+  OrderStatus,
+  'default' | 'secondary' | 'outline' | 'destructive'
+> = {
   pending: 'default',
-  converted: 'secondary',
+  in_process: 'secondary',
+  paid: 'secondary',
+  finished: 'outline',
   cancelled: 'destructive',
 };
 

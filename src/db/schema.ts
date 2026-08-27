@@ -46,7 +46,9 @@ export const saleStatusEnum = pgEnum('sale_status', ['active', 'cancelled']);
 
 export const orderStatusEnum = pgEnum('order_status', [
   'pending',
-  'converted',
+  'in_process',
+  'paid',
+  'finished',
   'cancelled',
 ]);
 
@@ -331,6 +333,32 @@ export const orderItems = pgTable(
   })
 );
 
+export const orderStockReservations = pgTable(
+  'order_stock_reservations',
+  {
+    id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
+    orderId: integer('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    productId: integer('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    quantity: integer('quantity').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    orderIdIdx: index('order_stock_reservations_order_id_idx').on(table.orderId),
+    productIdIdx: index('order_stock_reservations_product_id_idx').on(table.productId),
+    branchProductIdx: index('order_stock_reservations_branch_product_idx').on(
+      table.branchId,
+      table.productId
+    ),
+  })
+);
+
 export const orderMessages = pgTable(
   'order_messages',
   {
@@ -539,6 +567,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
   items: many(orderItems),
   messages: many(orderMessages),
+  stockReservations: many(orderStockReservations),
   stockMovements: many(stockMovements),
 }));
 

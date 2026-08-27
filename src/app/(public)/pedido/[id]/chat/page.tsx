@@ -49,7 +49,7 @@ export default async function PedidoChatPage({
         initialTotal={context.total}
         initialHasMore={context.hasMore}
         initialIsExpired={context.isExpired}
-        readOnly={context.status !== 'pending'}
+        readOnly={context.status === 'finished' || context.status === 'cancelled'}
         isClient
         chatApiUrl={PUBLIC_PEDIDO_CHAT_API(orderId)}
         readApiUrl={PUBLIC_PEDIDO_CHAT_LEIDO_API(orderId)}

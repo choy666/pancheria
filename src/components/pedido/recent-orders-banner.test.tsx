@@ -44,7 +44,7 @@ describe('RecentOrdersBanner', () => {
       ok: true,
       status: 200,
       json: async () => ({
-        status: 'converted',
+        status: 'finished',
         expiresAt: new Date().toISOString(),
         isExpired: false,
       }),

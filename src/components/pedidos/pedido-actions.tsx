@@ -22,7 +22,9 @@ interface PedidoActionsProps {
   actionError: string | null;
   isSubmitting: boolean;
   whatsappUrl: string | null;
+  onReceive: () => Promise<void>;
   onConfirm: () => Promise<void>;
+  onFinish: () => Promise<void>;
   onCancel: () => Promise<void>;
 }
 
@@ -36,11 +38,19 @@ export function PedidoActions({
   actionError,
   isSubmitting,
   whatsappUrl,
+  onReceive,
   onConfirm,
+  onFinish,
   onCancel,
 }: PedidoActionsProps) {
-  const canConfirm = status === 'pending' && !!cashRegister;
-  const canCancel = status === 'pending';
+  const canReceive = status === 'pending';
+  const canConfirm =
+    (status === 'pending' || status === 'in_process') && !!cashRegister;
+  const canFinish = status === 'paid';
+  const canCancel =
+    status === 'pending' ||
+    status === 'in_process' ||
+    status === 'paid';
 
   return (
     <div className="space-y-5">
@@ -55,10 +65,20 @@ export function PedidoActions({
             </div>
           )}
 
-          {!cashRegister && (
+          {!cashRegister && (status === 'pending' || status === 'in_process') && (
             <div className="rounded-lg bg-amber-500/15 p-3 text-sm text-amber-500">
-              No hay una caja abierta. Abrí la caja para confirmar el pedido.
+              No hay una caja abierta. Abrí la caja para confirmar el pago.
             </div>
+          )}
+
+          {canReceive && (
+            <Button
+              className="w-full"
+              onClick={onReceive}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Recibiendo...' : 'Recibir y reservar'}
+            </Button>
           )}
 
           <div className="space-y-2">
@@ -96,8 +116,19 @@ export function PedidoActions({
             onClick={onConfirm}
             disabled={!canConfirm || isSubmitting}
           >
-            {isSubmitting ? 'Confirmando...' : 'Confirmar como venta'}
+            {isSubmitting ? 'Confirmando...' : 'Confirmar pago'}
           </Button>
+
+          {canFinish && (
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={onFinish}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Finalizando...' : 'Finalizar pedido'}
+            </Button>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="cancelReason">Motivo de cancelación</Label>

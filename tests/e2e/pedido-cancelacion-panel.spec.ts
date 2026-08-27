@@ -37,10 +37,10 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
 
     await page.getByLabel('Medio de pago').click();
     await page.getByRole('option', { name: 'Efectivo' }).click();
-    await page.getByRole('button', { name: 'Confirmar como venta' }).click();
+    await page.getByRole('button', { name: 'Confirmar pago' }).click();
 
     await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Confirmado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Pagado')).toBeVisible({ timeout: 10000 });
   });
 
   test('cancela un pedido público desde el panel', async ({ page }) => {

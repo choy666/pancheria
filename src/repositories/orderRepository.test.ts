@@ -178,10 +178,10 @@ describe('orderRepository', () => {
     });
 
     test('filtra por status', async () => {
-      mockFindMany.mockResolvedValue([buildOrder({ status: 'converted' })]);
+      mockFindMany.mockResolvedValue([buildOrder({ status: 'paid' })]);
       mockReturning.mockResolvedValue([{ count: '0' }]);
 
-      await orderRepository.findOrders(BRANCH_ID, { status: 'converted' });
+      await orderRepository.findOrders(BRANCH_ID, { status: 'paid' });
 
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -262,17 +262,17 @@ describe('orderRepository', () => {
 
   describe('updateStatus', () => {
     test('actualiza el estado y devuelve el pedido', async () => {
-      const expected = buildOrder({ status: 'converted', convertedSaleId: 5 });
+      const expected = buildOrder({ status: 'paid', convertedSaleId: 5 });
       mockReturning.mockResolvedValue([expected]);
 
       const tx: any = { update: mockUpdate };
       const result = await orderRepository.updateStatus(tx, BRANCH_ID, ORDER_ID, {
-        status: 'converted',
+        status: 'paid',
         convertedSaleId: 5,
       });
 
       expect(result).toEqual(expected);
-      expect(mockSet).toHaveBeenCalledWith({ status: 'converted', convertedSaleId: 5 });
+      expect(mockSet).toHaveBeenCalledWith({ status: 'paid', convertedSaleId: 5 });
     });
 
     test('lanza error si no encuentra el pedido', async () => {
@@ -281,7 +281,7 @@ describe('orderRepository', () => {
       const tx: any = { update: mockUpdate };
 
       await expect(
-        orderRepository.updateStatus(tx, BRANCH_ID, ORDER_ID, { status: 'converted' })
+        orderRepository.updateStatus(tx, BRANCH_ID, ORDER_ID, { status: 'paid' })
       ).rejects.toThrow('No se pudo actualizar el pedido.');
     });
   });

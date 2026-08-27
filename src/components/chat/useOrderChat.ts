@@ -125,7 +125,9 @@ export function useOrderChat({
 
   const isReadOnly =
     orderStatus !== null
-      ? orderStatus !== 'pending' || isExpired
+      ? orderStatus === 'finished' ||
+        orderStatus === 'cancelled' ||
+        isExpired
       : readOnly || isExpired;
 
   const otherSenderType: OrderMessageSenderType = isClient

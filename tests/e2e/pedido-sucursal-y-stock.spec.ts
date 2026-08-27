@@ -216,7 +216,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByLabel('Medio de pago').click();
     await page.getByRole('option', { name: 'Efectivo' }).click();
 
-    await page.getByRole('button', { name: 'Confirmar como venta' }).click();
+    await page.getByRole('button', { name: 'Confirmar pago' }).click();
     await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });
 
     // El stock se descontó: ahora quedan 4 unidades.
