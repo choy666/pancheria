@@ -1,6 +1,6 @@
 # Reporte de estado — Auditoría de cobertura de pruebas y tests
 
-**Fecha:** 2026-08-26 (actualizado con Fase 2)  
+**Fecha:** 2026-08-27 (actualizado con Fase 3)  
 **Proyecto:** `pancheria`  
 **Baseline:** `HEAD` — branch `main`  
 
@@ -14,6 +14,19 @@ Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unita
 
 **Conclusión de cobertura:**
 
+- **Fase 3 completada (nuevos estados de pedido, reserva transaccional de stock y flujo recibir-pagar-finalizar):**
+  - Nuevos estados `pending`, `in_process`, `paid`, `finished`, `cancelled` en `order_status` y en `OrderStatus` de dominio.
+  - Nueva tabla `order_stock_reservations` con migración `drizzle/0018_black_vin_gonzales.sql`.
+  - `orderService.receiveOrder` (`pending` → `in_process`) reserva stock de insumos críticos y bebidas sin descontarlos físicamente.
+  - `orderService.convertOrderToSale` (`pending`/`in_process` → `paid`) valida disponibilidad considerando reservas ajenas, borra la reserva del pedido y descuenta el stock exactamente una vez.
+  - `orderService.finishOrder` (`paid` → `finished`) finaliza el pedido.
+  - `orderService.cancelOrder` libera reservas de pedidos `in_process`, anula la venta de pedidos `paid` y rechaza cancelar pedidos `finished`.
+  - `validateCartAvailability` en `src/lib/product-helpers.ts` descuenta reservas activas de otros pedidos `in_process` del stock disponible.
+  - Nuevos endpoints `POST /api/pedidos/[id]/recibir` y `POST /api/pedidos/[id]/finalizar`; `/api/pedidos/[id]/confirmar` adaptado al flujo de pago.
+  - UI de pedidos con botones "Recibir y reservar", "Confirmar pago" y "Finalizar pedido", y badges de estado actualizados.
+  - Chat habilitado mientras el pedido no esté `finished` o `cancelled`.
+  - Tests unitarios y E2E ajustados; nuevo spec `pedido-reserva-flujo.spec.ts`.
+  - Migración `drizzle/0018_black_vin_gonzales.sql` aplicada en desarrollo y producción.
 - **Fase 2 completada (horarios de sucursal y bloqueo de pedidos con caja cerrada):**
   - Nueva columna `opening_hours` JSONB en `branches` con migración `drizzle/0017_unknown_energizer.sql`.
   - Helpers de zona horaria en `src/lib/branch-helpers.ts` (`isBranchOpen`, `getCurrentOrNextOpening`, `validateOpeningHours`).

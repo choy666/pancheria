@@ -1,6 +1,6 @@
 # Plan de acción — Cierre de pendientes post-auditoría `.devin`
 
-**Fecha:** 2026-08-26 (actualizado con Fase 2)  
+**Fecha:** 2026-08-27 (actualizado con Fase 3)  
 **Proyecto:** `pancheria`
 
 ---
@@ -30,6 +30,7 @@ El objetivo es dejar los pendientes con un dueño, un criterio de salida y una v
 | 6 | Revisar `knip.json` | Resuelto | Bajo | Ninguno | Se agregó `tests/e2e/helpers.ts` y `tests/e2e/**/*.spec.ts` como puntos de entrada para evitar falsos positivos por exports de helpers de E2E. | `npm run knip` pasa. |
 | 7 | Hardcodeos defensivos | Resuelto | Bajo | Ninguno | `getPublicBaseUrl()` ahora requiere `NEXT_PUBLIC_APP_URL`/`NEXTAUTH_URL` en producción y acepta `HOST`/`PORT` en desarrollo/test. `getWhatsAppMessageParts()` lee variables de entorno sin defaults; los valores sugeridos pasaron a `.env.example`. | `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run knip` pasan. |
 || 8 | Aplicar migración Fase 2 a producción | Completado | Alto (datos) | Ninguno | Aplicado `drizzle/0017_unknown_energizer.sql` en producción con `DATABASE_URL_UNPOOLED`; verificado que `opening_hours` existe con default `[]` y la sucursal por defecto conserva `opening_hours = []`. | `npx drizzle-kit push --force` finalizó sin errores; pedidos y sucursales siguen operativos. |
+|| 9 | Fase 3: estados, reserva de stock y flujo completo | Completado | Alto (datos/negocio) | Ninguno | Implementar nuevos estados, `order_stock_reservations`, `receiveOrder`, `finishOrder`, ajustar `convertOrderToSale` y cancelación; crear endpoints, actualizar UI y tests; generar y aplicar `drizzle/0018_black_vin_gonzales.sql` en dev y prod. | `npm run lint`, `npx tsc --noEmit`, `npm test` (1102 tests), `npm run build`, `npm run knip`, `npx drizzle-kit check` pasan; migración aplicada en producción. |
 
 ---
 
