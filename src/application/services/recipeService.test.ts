@@ -51,6 +51,10 @@ function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
     stock: 0,
     minStock: 0,
     isActive: true,
+    imageUrl: null,
+    imageKey: null,
+    imageMimeType: null,
+    imageSize: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -65,6 +69,8 @@ function createRecipeRow(overrides: Partial<RecipeRow> = {}): RecipeRow {
     supplyId: 2,
     quantity: 1,
     autoDiscount: true,
+    isOptional: false,
+    selectedByDefault: false,
     createdAt: new Date(),
     ...overrides,
   };
@@ -133,7 +139,9 @@ describe('recipeService', () => {
         }),
       ];
       mockedRecipeRepository.findByCompoundProductId.mockResolvedValue(
-        expectedRecipe
+        expectedRecipe as unknown as Awaited<
+          ReturnType<typeof recipeRepository.findByCompoundProductId>
+        >
       );
 
       const result = await getRecipeByProductId(BRANCH_ID, 1);
@@ -202,7 +210,7 @@ describe('recipeService', () => {
       expect(result).toEqual(returning);
       expect(mockTx.deleteWhere).toHaveBeenCalled();
       expect(mockTx.insertValues).toHaveBeenCalledWith([
-        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true },
+        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
       ]);
     });
 
@@ -365,7 +373,7 @@ describe('recipeService', () => {
       );
     });
 
-    test('rechaza un insumo no crítico aunque tenga auto descuento false', async () => {
+    test('permite insumos manuales y servicios sin descuento automático', async () => {
       mockedProductRepository.findById.mockResolvedValue(
         createProductRow({
           id: 1,
@@ -381,17 +389,28 @@ describe('recipeService', () => {
           name: 'Ketchup',
           type: 'manual_supply',
         }),
+        createProductRow({
+          id: 4,
+          name: 'Envío',
+          type: 'service',
+        }),
       ]);
+
+      mockTx.insertReturning.mockResolvedValue([]);
 
       const items: RecipeItemInsert[] = [
         { supplyId: 2, quantity: 1, autoDiscount: true },
         { supplyId: 3, quantity: 1, autoDiscount: false },
+        { supplyId: 4, quantity: 1, autoDiscount: false },
       ];
 
-      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
-      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
-        'El insumo Ketchup no es crítico y no puede usarse en recetas.'
-      );
+      const result = await saveRecipe(BRANCH_ID, 1, items);
+      expect(result).toEqual([]);
+      expect(mockTx.insertValues).toHaveBeenCalledWith([
+        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
+        { compoundProductId: 1, supplyId: 3, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false },
+        { compoundProductId: 1, supplyId: 4, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false },
+      ]);
     });
 
     test('permite varios insumos críticos con descuento automático', async () => {
@@ -423,8 +442,8 @@ describe('recipeService', () => {
       const result = await saveRecipe(BRANCH_ID, 1, items);
       expect(result).toEqual([]);
       expect(mockTx.insertValues).toHaveBeenCalledWith([
-        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true },
-        { compoundProductId: 1, supplyId: 3, quantity: 2, autoDiscount: true },
+        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
+        { compoundProductId: 1, supplyId: 3, quantity: 2, autoDiscount: true, isOptional: false, selectedByDefault: false },
       ]);
     });
   });

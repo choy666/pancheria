@@ -132,6 +132,7 @@ describe('dailyClosureRepository', () => {
         totalSales: 25,
         productsSummary: {},
         criticalSuppliesSummary: {},
+        recipeSuppliesSummary: {},
       };
       const expected = { id: 1, ...data };
       mockReturning.mockResolvedValue([expected]);
@@ -155,6 +156,7 @@ describe('dailyClosureRepository', () => {
         totalSales: 0,
         productsSummary: {},
         criticalSuppliesSummary: {},
+        recipeSuppliesSummary: {},
       });
 
       expect(result).toBeUndefined();

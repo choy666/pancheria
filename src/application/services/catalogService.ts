@@ -2,7 +2,8 @@ import * as catalogRepository from '@/repositories/catalogRepository';
 import * as branchService from '@/application/services/branchService';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError } from '@/domain/errors';
-import type { Branch, ProductRow, SaleItemInput } from '@/domain/types';
+import { resolveProductImage } from '@/lib/product-image-storage';
+import type { Branch, ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
 export type PublicCatalogProduct = Pick<
@@ -14,9 +15,11 @@ export type PublicCatalogProduct = Pick<
   | 'criticalSupplyType'
   | 'price'
   | 'unit'
+  | 'imageUrl'
 > & {
   availability: number;
   breakdown: RecipeBreakdownItem[];
+  recipe?: RecipeItemConfig[];
 };
 
 export type PublicCatalogResponse = {
@@ -27,7 +30,8 @@ export type PublicCatalogResponse = {
 function toPublicCatalogProduct(
   product: ProductRow,
   availability: number,
-  breakdown: RecipeBreakdownItem[]
+  breakdown: RecipeBreakdownItem[],
+  recipe?: RecipeItemConfig[]
 ): PublicCatalogProduct {
   return {
     id: product.id,
@@ -37,8 +41,10 @@ function toPublicCatalogProduct(
     criticalSupplyType: product.criticalSupplyType,
     price: product.price,
     unit: product.unit,
+    imageUrl: resolveProductImage(product),
     availability,
     breakdown,
+    recipe,
   };
 }
 
@@ -55,7 +61,7 @@ export async function listPublicCatalog(branchId: number): Promise<PublicCatalog
   const products = await catalogRepository.findPublicProducts(branchId);
   return {
     branch,
-    products: products.map((product) => toPublicCatalogProduct(product, 0, [])),
+    products: products.map((product) => toPublicCatalogProduct(product, 0, [], undefined)),
   };
 }
 
@@ -81,7 +87,8 @@ export async function listPublicCatalogWithAvailability(
       return toPublicCatalogProduct(
         product,
         entry.availability,
-        entry.breakdown
+        entry.breakdown,
+        entry.recipe
       );
     }),
   };

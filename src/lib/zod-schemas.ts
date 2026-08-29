@@ -20,6 +20,10 @@ const productBaseSchema = z.object({
   stock: z.coerce.number().int().nonnegative().default(0),
   minStock: z.coerce.number().int().nonnegative().default(0),
   isActive: z.coerce.boolean().default(true),
+  imageUrl: z.string().url().max(2048).optional().nullable(),
+  imageKey: z.string().max(255).optional().nullable(),
+  imageMimeType: z.string().max(100).optional().nullable(),
+  imageSize: z.coerce.number().int().nonnegative().optional().nullable(),
 });
 
 export const productSchema = productBaseSchema
@@ -74,22 +78,63 @@ export const recipeItemSchema = z
     supplyId: z.number().int().positive(),
     quantity: z.number().int().positive(),
     autoDiscount: z.boolean(),
+    isOptional: z.boolean().optional(),
+    selectedByDefault: z.boolean().optional(),
     supplyType: productTypeSchema.optional(),
   })
   .superRefine((data, ctx) => {
-    if (!data.supplyType || data.supplyType === 'critical_supply') {
+    if (!data.supplyType) {
       return;
     }
 
-    const message = data.autoDiscount
-      ? 'Solo los insumos críticos pueden tener descuento automático.'
-      : 'La receta solo puede incluir insumos críticos.';
+    if (data.supplyType === 'critical_supply') {
+      if (data.isOptional === true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Los insumos críticos no pueden ser opcionales.',
+          path: ['isOptional'],
+        });
+      }
+      if (data.autoDiscount !== true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Los insumos críticos deben tener descuento automático.',
+          path: ['autoDiscount'],
+        });
+      }
+      if (data.selectedByDefault === true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'selectedByDefault no aplica a insumos críticos.',
+          path: ['selectedByDefault'],
+        });
+      }
+      return;
+    }
 
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message,
-      path: ['supplyType'],
-    });
+    if (data.autoDiscount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Solo los insumos críticos pueden tener descuento automático.',
+        path: ['autoDiscount'],
+      });
+    }
+
+    if (data.isOptional === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Los insumos manuales y servicios son siempre opcionales.',
+        path: ['isOptional'],
+      });
+    }
+
+    if (data.selectedByDefault === true && data.isOptional === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'selectedByDefault solo puede ser true si isOptional es true.',
+        path: ['selectedByDefault'],
+      });
+    }
   });
 
 export const recipeSchema = z
@@ -116,16 +161,51 @@ export const recipeSchema = z
         path: ['items'],
       });
     }
+
+    const hasTypedCritical = data.items.some(
+      (item) => item.supplyType === 'critical_supply' && item.autoDiscount
+    );
+
+    if (hasTypedCritical || data.items.every((item) => item.supplyType)) {
+      if (!hasTypedCritical) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'La receta debe incluir al menos un insumo crítico con descuento automático.',
+          path: ['items'],
+        });
+      }
+    }
   });
 
 const saleItemSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int().positive(),
+  selectedRecipeItemIds: z.array(z.number().int().positive()).optional().default([]),
 });
+
+const paymentPartSchema = z.object({
+  method: z.enum(['cash', 'transfer']),
+  amount: z.number().positive(),
+});
+
+const paymentPartsSchema = z
+  .array(paymentPartSchema)
+  .min(1)
+  .superRefine((parts, ctx) => {
+    const methods = new Set(parts.map((part) => part.method));
+    if (methods.size !== parts.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'No puede haber más de una parte por medio de pago.',
+        path: ['payments'],
+      });
+    }
+  });
 
 export const saleSchema = z.object({
   items: z.array(saleItemSchema).min(1),
-  paymentMethod: z.enum(['cash', 'transfer']),
+  payments: paymentPartsSchema,
   idempotencyKey: z.string().min(1),
 });
 
@@ -186,7 +266,7 @@ export const orderSchema = z
   );
 
 export const orderConfirmSchema = z.object({
-  paymentMethod: z.enum(['cash', 'transfer']),
+  payments: paymentPartsSchema,
   idempotencyKey: z.string().min(1),
 });
 

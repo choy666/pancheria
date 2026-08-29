@@ -6,7 +6,7 @@
 |---------|---------------------|------------------------------------|----------------------|---------------------------------|
 | Desarrollo | `.env.local` → `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) | `DATABASE_URL`, `NEXTAUTH_SECRET` o `AUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `npx drizzle-kit push` | `npm run dev` |
 | Producción | Vercel → `DATABASE_URL_UNPOOLED` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Ver [Producción](#producción) | `npm run build && npm run start` |
-| E2E / Playwright | `.env.e2e` → `DATABASE_URL` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | No aplica (`global-setup.ts` maneja el esquema) | `npm run test:e2e` |
+| E2E / Playwright | `.env.e2e` → `DATABASE_URL` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | No aplica (`global-setup.ts` maneja el esquema) | `npm run test:e2e` (asegurarse de que no haya otro servidor en `localhost:3000` usando `.env.local`) |
 
 ---
 
@@ -156,6 +156,8 @@ npx playwright test
 ```
 
 Playwright lee `.env.local` primero y luego `.env.e2e` con prioridad, tanto en `playwright.config.ts` como en `scripts/dev-e2e.ts`.
+
+> **Atención:** asegurate de que no haya otro proceso de Next.js en `localhost:3000` levantado con `.env.local` (por ejemplo `npm run dev` en otra consola). `playwright.config.ts` usa `reuseExistingServer: true`, por lo que un servidor previo con otra base puede hacer fallar el login de E2E.
 
 ### Cómo encontrar la URL de E2E
 

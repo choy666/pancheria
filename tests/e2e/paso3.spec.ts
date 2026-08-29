@@ -1,5 +1,5 @@
 ﻿import { test, expect } from '@playwright/test';
-import { ensureCashRegisterOpen, login } from './helpers';
+import { ensureCashRegisterOpen, login, closeCashRegisterFromUI } from './helpers';
 
 test.describe('Paso 3 - Login y navegacion completa', () => {
   test.beforeEach(async ({ page }) => {
@@ -61,6 +61,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await page
       .locator(`[data-testid="product-card"][data-product-name="${promo.name}"]`)
       .click();
+    await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page).toHaveURL('/ventas', { timeout: 10000 });
   });
@@ -93,8 +94,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await page.goto('/cierre');
     await expect(page.getByTestId('cash-register-total')).toBeVisible();
 
-    await page.getByTestId('close-cash-register').click();
-    await expect(page.getByText('No hay una caja abierta.')).toBeVisible();
+    await closeCashRegisterFromUI(page);
 
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
     await expect(page).toHaveURL('/login', { timeout: 10000 });

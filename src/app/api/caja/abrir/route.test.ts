@@ -30,9 +30,10 @@ const mockedGetCurrentBranchId = getCurrentBranchId as jest.MockedFunction<
 
 const BRANCH_ID = 1;
 
-function buildRequest(): NextRequest {
+function buildRequest(body?: unknown): NextRequest {
   return new NextRequest('http://localhost:3000/api/caja/abrir', {
     method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
   });
 }
 
@@ -64,6 +65,7 @@ describe('POST /api/caja/abrir', () => {
       branchId: BRANCH_ID,
       openedBy: 'operador',
       status: 'open',
+      initialAmount: 0,
     };
     mockedCashRegisterService.openCashRegister.mockResolvedValue(
       cashRegister as any
@@ -77,6 +79,31 @@ describe('POST /api/caja/abrir', () => {
     expect(mockedCashRegisterService.openCashRegister).toHaveBeenCalledWith({
       branchId: BRANCH_ID,
       openedBy: 'operador',
+      initialAmount: undefined,
+    });
+  });
+
+  test('abre una caja con monto inicial', async () => {
+    const cashRegister = {
+      id: 1,
+      branchId: BRANCH_ID,
+      openedBy: 'operador',
+      status: 'open',
+      initialAmount: 1000,
+    };
+    mockedCashRegisterService.openCashRegister.mockResolvedValue(
+      cashRegister as any
+    );
+
+    const response = await POST(buildRequest({ initialAmount: 1000 }), { params: Promise.resolve({}) });
+    const body = (await response.json()) as unknown;
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual(cashRegister);
+    expect(mockedCashRegisterService.openCashRegister).toHaveBeenCalledWith({
+      branchId: BRANCH_ID,
+      openedBy: 'operador',
+      initialAmount: 1000,
     });
   });
 

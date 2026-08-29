@@ -22,6 +22,7 @@ import {
   orderItems,
   sales,
   saleItems,
+  salePayments,
   products,
   stockMovements,
   cashRegisters,
@@ -51,6 +52,7 @@ interface MockDb {
   insert: jest.Mock;
   update: jest.Mock;
   select: jest.Mock;
+  delete: jest.Mock;
 }
 
 const capturedInserts: { table: unknown; data: unknown }[] = [];
@@ -71,6 +73,10 @@ function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
     stock: 0,
     minStock: 0,
     isActive: true,
+    imageUrl: null,
+    imageKey: null,
+    imageMimeType: null,
+    imageSize: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -91,6 +97,8 @@ function createRecipeWithSupply(
     supplyId: 2,
     quantity: 1,
     autoDiscount: true,
+    isOptional: false,
+    selectedByDefault: false,
     createdAt: new Date(),
     supply,
     ...rest,
@@ -109,12 +117,17 @@ function createOpenCashRegister(
     closedBy: null,
     status: 'open',
     autoClosed: false,
+    initialAmount: 0,
     total: 0,
     cashTotal: 0,
     transferTotal: 0,
     totalSales: 0,
     productsSummary: {},
     criticalSuppliesSummary: {},
+    recipeSuppliesSummary: {},
+    closingCashCount: null,
+    closingDifference: null,
+    closingNotes: null,
     deletedAt: null,
     createdAt: new Date(),
     ...overrides,
@@ -195,6 +208,10 @@ function createMockDb(): MockDb {
     })),
   }));
 
+  const deleteOp = jest.fn().mockImplementation(() => ({
+    where: jest.fn().mockResolvedValue(undefined),
+  }));
+
   const select = jest.fn().mockImplementation((columns: unknown) => {
     const thenValue =
       columns && typeof columns === 'object' && 'count' in columns
@@ -233,7 +250,7 @@ function createMockDb(): MockDb {
     return builder;
   });
 
-  return { query, insert, update, select };
+  return { query, insert, update, select, delete: deleteOp };
 }
 
 function findCapturedInsert(table: unknown) {
@@ -837,7 +854,7 @@ describe('orderService', () => {
       const result = await convertOrderToSale({
         branchId: BRANCH_ID,
         orderId: 1,
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 2000 }],
         idempotencyKey: 'key-historical',
       });
 
@@ -845,6 +862,7 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(sales)).toHaveLength(1);
       expect(findCapturedInsert(saleItems)).toHaveLength(1);
+      expect(findCapturedInsert(salePayments)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(1);
 
       const sale = findCapturedInsert(sales)[0]?.data as typeof sales.$inferInsert;
@@ -888,7 +906,7 @@ describe('orderService', () => {
       const result = await convertOrderToSale({
         branchId: BRANCH_ID,
         orderId: 1,
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 2000 }],
         idempotencyKey: 'key-convert',
       });
 
@@ -896,6 +914,7 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(sales)).toHaveLength(1);
       expect(findCapturedInsert(saleItems)).toHaveLength(1);
+      expect(findCapturedInsert(salePayments)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(1);
       expect(findCapturedInsert(stockMovements)).toHaveLength(1);
       expect(findCapturedUpdate(cashRegisters)).toHaveLength(1);
@@ -949,7 +968,7 @@ describe('orderService', () => {
       const result = await convertOrderToSale({
         branchId: BRANCH_ID,
         orderId: 1,
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 2000 }],
         idempotencyKey: 'key-convert-in-process',
       });
 
@@ -993,7 +1012,7 @@ describe('orderService', () => {
       const result = await convertOrderToSale({
         branchId: BRANCH_ID,
         orderId: 1,
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 2000 }],
         idempotencyKey: 'key-convert',
       });
 
@@ -1012,7 +1031,7 @@ describe('orderService', () => {
         convertOrderToSale({
           branchId: BRANCH_ID,
           orderId: 1,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-no-cash',
         })
       ).rejects.toThrow('No hay una caja abierta. Abrí la caja para confirmar el pedido.');
@@ -1028,10 +1047,61 @@ describe('orderService', () => {
         convertOrderToSale({
           branchId: BRANCH_ID,
           orderId: 1,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-not-pending',
         })
       ).rejects.toThrow('El pedido fue cancelado.');
+    });
+
+    test('convierte un pedido con pago mixto y separa efectivo de transferencia', async () => {
+      mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+        createOpenCashRegister()
+      );
+
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 50,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+
+      const result = await convertOrderToSale({
+        branchId: BRANCH_ID,
+        orderId: 1,
+        payments: [
+          { method: 'cash', amount: 400 },
+          { method: 'transfer', amount: 600 },
+        ],
+        idempotencyKey: 'mixed-convert',
+      });
+
+      expect(result.total).toBe(1000);
+      expect(findCapturedInsert(salePayments)).toHaveLength(1);
+
+      const salePaymentsData = findCapturedInsert(salePayments)[0]
+        ?.data as (typeof salePayments.$inferInsert)[];
+      expect(salePaymentsData).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ method: 'cash', amount: 400 }),
+          expect.objectContaining({ method: 'transfer', amount: 600 }),
+        ])
+      );
+
+      const cashRegisterUpdate = findCapturedUpdate(cashRegisters)[0]
+        ?.data as Partial<CashRegisterRow>;
+      expect(cashRegisterUpdate.cashTotal).toBe(400);
+      expect(cashRegisterUpdate.transferTotal).toBe(600);
+      expect(cashRegisterUpdate.total).toBe(1000);
     });
 
     test('rechaza la conversión si el pedido no existe', async () => {
@@ -1041,7 +1111,7 @@ describe('orderService', () => {
         convertOrderToSale({
           branchId: BRANCH_ID,
           orderId: 999,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-not-found',
         })
       ).rejects.toThrow(NotFoundError);
@@ -1068,7 +1138,7 @@ describe('orderService', () => {
         convertOrderToSale({
           branchId: BRANCH_ID,
           orderId: 1,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-not-sellable',
         })
       ).rejects.toThrow('El producto Ketchup no está disponible para la venta.');
@@ -1097,7 +1167,7 @@ describe('orderService', () => {
         convertOrderToSale({
           branchId: BRANCH_ID,
           orderId: 1,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-external-convert',
         })
       ).rejects.toThrow(ValidationError);
@@ -1126,7 +1196,7 @@ describe('orderService', () => {
         convertOrderToSale({
           branchId: BRANCH_ID,
           orderId: 1,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-inactive-convert',
         })
       ).rejects.toThrow('El producto Gaseosa no está activo.');

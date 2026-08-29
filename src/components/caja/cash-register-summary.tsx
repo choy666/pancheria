@@ -13,10 +13,15 @@ interface CashRegisterSummaryData {
   closedBy: string | null;
   status: 'open' | 'closed';
   autoClosed: boolean;
+  initialAmount: number;
   total: number;
   cashTotal: number;
   transferTotal: number;
   totalSales: number;
+  cashInDrawer?: number | null;
+  closingCashCount?: number | null;
+  closingDifference?: number | null;
+  closingNotes?: string | null;
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
 }
@@ -52,6 +57,13 @@ export function CashRegisterSummary({
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
+
+  const cashInDrawer =
+    cashRegister.cashInDrawer ??
+    cashRegister.cashTotal + cashRegister.initialAmount;
+
+  const difference = cashRegister.closingDifference;
+  const hasDifference = difference !== undefined && difference !== null;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -108,7 +120,7 @@ export function CashRegisterSummary({
           </p>
           <div className="grid grid-cols-2 gap-3 text-base">
             <p className="rounded-lg bg-muted/30 p-3">
-              Efectivo:{' '}
+              Efectivo en ventas:{' '}
               <span className="font-mono font-medium">
                 ${cashRegister.cashTotal.toFixed(2)}
               </span>
@@ -119,7 +131,49 @@ export function CashRegisterSummary({
                 ${cashRegister.transferTotal.toFixed(2)}
               </span>
             </p>
+            <p className="rounded-lg bg-muted/30 p-3">
+              Monto inicial:{' '}
+              <span className="font-mono font-medium">
+                ${cashRegister.initialAmount.toFixed(2)}
+              </span>
+            </p>
+            <p className="rounded-lg bg-muted/30 p-3">
+              Efectivo en caja:{' '}
+              <span className="font-mono font-medium">
+                ${cashInDrawer.toFixed(2)}
+              </span>
+            </p>
           </div>
+          {hasDifference && (
+            <p
+              className={`rounded-lg p-3 text-base font-medium ${
+                difference > 0
+                  ? 'bg-green-100 text-green-800'
+                  : difference < 0
+                    ? 'bg-destructive/15 text-destructive'
+                    : 'bg-muted/30'
+              }`}
+            >
+              Diferencia:{' '}
+              <span className="font-mono">
+                {difference > 0 ? '+' : ''}${difference.toFixed(2)}
+              </span>
+              {difference > 0 ? ' (sobrante)' : difference < 0 ? ' (faltante)' : ' (cuadrado)'}
+            </p>
+          )}
+          {cashRegister.closingCashCount !== undefined && cashRegister.closingCashCount !== null && (
+            <p className="text-base">
+              Efectivo contado:{' '}
+              <span className="font-mono font-semibold">
+                ${cashRegister.closingCashCount.toFixed(2)}
+              </span>
+            </p>
+          )}
+          {cashRegister.closingNotes && (
+            <p className="text-sm text-muted-foreground">
+              Notas: {cashRegister.closingNotes}
+            </p>
+          )}
           <p className="text-base">
             Ventas:{' '}
             <span className="font-mono font-semibold">

@@ -1,6 +1,6 @@
 import { inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { sales, products, stockMovements } from '@/db/schema';
+import { sales, products, stockMovements, orderItems, orderItemRecipes, orderMessages } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
@@ -17,9 +17,11 @@ import type {
   OrderWithItems,
   OrderWithUnreadCount,
   OrderStatus,
-  PaymentMethod,
+  PaymentPart,
   SaleItemInput,
   ProductRow,
+  RecipeItemConfig,
+  OrderItem,
 } from '@/domain/types';
 import type { RecipeWithSupply } from '@/application/services/summaryService';
 import {
@@ -27,6 +29,7 @@ import {
   validateProductsForOperation,
   validateCartAvailability,
   assertNoStockShortage,
+  buildRecipeSnapshot,
 } from '@/lib/product-helpers';
 import { buildSaleItemValues } from '@/lib/sale-helpers';
 import {
@@ -34,12 +37,14 @@ import {
   generateCancellationToken,
   buildOrderValues,
   buildOrderItemValues,
+  buildRecipeSnapshotMessageContent,
 } from '@/lib/order-helpers';
 import {
   collectStockProductIdsToLock,
   iterRecipeConsumptions,
   buildStockMovementReason,
 } from '@/lib/stock-helpers';
+import { validatePaymentParts } from '@/lib/payment-helpers';
 import {
   insertSaleAndUpdateCashRegister,
   cancelSale,
@@ -59,7 +64,7 @@ export interface CreateOrderInput {
 export interface ConvertOrderInput {
   branchId: number;
   orderId: number;
-  paymentMethod: PaymentMethod;
+  payments: PaymentPart[];
   idempotencyKey: string;
 }
 
@@ -78,6 +83,33 @@ interface ReservationInput {
   orderId: number;
   productId: number;
   quantity: number;
+}
+
+function recomputeOrderRecipeSnapshots(
+  items: OrderItem[],
+  recipesByProduct: Map<number, RecipeWithSupply[]>
+): OrderItem[] {
+  return items.map((item) => {
+    const recipeList = recipesByProduct.get(item.productId) ?? [];
+    if (recipeList.length === 0) return item;
+
+    const selectedIds =
+      item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [];
+    const newSnapshot = buildRecipeSnapshot(recipeList, selectedIds);
+
+    return { ...item, recipeSnapshot: newSnapshot };
+  });
+}
+
+function toSaleItemInputWithSelection(
+  items: OrderItem[]
+): SaleItemInput[] {
+  return items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    selectedRecipeItemIds:
+      item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [],
+  }));
 }
 
 async function getOrderByIdempotencyKey(
@@ -114,7 +146,7 @@ async function insertStockReserveMovements(
 function buildReservationsForItems(
   branchId: number,
   orderId: number,
-  items: { productId: number; quantity: number }[],
+  items: { productId: number; quantity: number; recipeSnapshot?: RecipeItemConfig[] }[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>
 ): ReservationInput[] {
@@ -125,10 +157,12 @@ function buildReservationsForItems(
     if (!product) continue;
 
     if (product.type === 'compound') {
+      const recipeSnapshot = item.recipeSnapshot;
       for (const { supplyId, consumed } of iterRecipeConsumptions(
         product,
         item.quantity,
-        recipesByProduct
+        recipesByProduct,
+        recipeSnapshot
       )) {
         quantityByProduct.set(
           supplyId,
@@ -183,9 +217,11 @@ export async function createOrder(
 
   return executeInTransaction(async (tx) => {
     const productIds = items.map((item) => item.productId);
-    const { productById } = await buildProductContext(branchId, productIds, {
-      dbOrTx: tx,
-    });
+    const { productById, recipesByProduct } = await buildProductContext(
+      branchId,
+      productIds,
+      { dbOrTx: tx }
+    );
 
     validateProductsForOperation(items, productById, branchId, 'pedido');
 
@@ -199,7 +235,7 @@ export async function createOrder(
     assertNoStockShortage(shortageByProduct, productById);
 
     const { saleItemValues: orderItemValues, total: orderTotal } =
-      buildSaleItemValues(productById, items);
+      buildSaleItemValues(productById, items, recipesByProduct);
 
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
@@ -221,14 +257,52 @@ export async function createOrder(
 
     const orderItemsToInsert = buildOrderItemValues(orderItemValues, order.id);
 
-    await orderRepository.insertOrderItems(tx, orderItemsToInsert);
+    const insertedOrderItems = await tx
+      .insert(orderItems)
+      .values(orderItemsToInsert)
+      .returning();
 
-    const resultItems: OrderWithItems['items'] = orderItemValues.map((item) => ({
-      ...item,
-      id: 0,
-      orderId: order.id,
-      product: productById.get(item.productId)!,
-    }));
+    const recipeRows: (typeof orderItemRecipes.$inferInsert)[] = [];
+    for (let i = 0; i < insertedOrderItems.length; i++) {
+      const orderItem = insertedOrderItems[i];
+      const snapshot = orderItemValues[i].recipeSnapshot ?? [];
+      for (const config of snapshot) {
+        recipeRows.push({
+          orderItemId: orderItem.id,
+          supplyId: config.supplyId,
+          supplyName: config.supplyName,
+          supplyType: config.supplyType,
+          quantity: config.quantity,
+          autoDiscount: config.autoDiscount,
+          isOptional: config.isOptional,
+          selected: config.selected,
+          selectedByDefault: config.selectedByDefault,
+        });
+      }
+    }
+
+    if (recipeRows.length > 0) {
+      await tx.insert(orderItemRecipes).values(recipeRows);
+    }
+
+    const recipeMessage = buildRecipeSnapshotMessageContent(orderItemValues);
+    if (recipeMessage) {
+      await tx.insert(orderMessages).values({
+        orderId: order.id,
+        senderType: 'operator',
+        senderName: 'Sistema',
+        content: recipeMessage,
+      });
+    }
+
+    const resultItems: OrderWithItems['items'] = orderItemValues.map(
+      (item, index) => ({
+        ...item,
+        id: insertedOrderItems[index]?.id ?? 0,
+        orderId: order.id,
+        product: productById.get(item.productId)!,
+      })
+    );
 
     return { ...order, branch, items: resultItems } as OrderWithItems;
   });
@@ -309,7 +383,7 @@ export async function cancelOrder(
 export async function convertOrderToSale(
   input: ConvertOrderInput
 ): Promise<typeof sales.$inferSelect> {
-  const { branchId, orderId, paymentMethod, idempotencyKey } = input;
+  const { branchId, orderId, payments, idempotencyKey } = input;
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
 
@@ -332,6 +406,11 @@ export async function convertOrderToSale(
 
   if (order.status === 'cancelled') {
     throw new ValidationError('El pedido fue cancelado.');
+  }
+
+  const paymentValidation = validatePaymentParts(payments, order.total);
+  if (!paymentValidation.valid) {
+    throw new ValidationError(paymentValidation.error ?? 'Pago inválido.');
   }
 
   return executeInTransaction(async (tx) => {
@@ -385,9 +464,11 @@ export async function convertOrderToSale(
       );
     }
 
+    const itemsForValidation = toSaleItemInputWithSelection(order.items);
+
     const { shortageByProduct } = await validateCartAvailability(
       branchId,
-      order.items,
+      itemsForValidation,
       undefined,
       tx
     );
@@ -401,16 +482,23 @@ export async function convertOrderToSale(
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
+        recipeSnapshot: item.recipeSnapshot,
       }))
     );
+
+    const paymentTotalValidation = validatePaymentParts(payments, saleTotal);
+    if (!paymentTotalValidation.valid) {
+      throw new ValidationError(
+        paymentTotalValidation.error ?? 'Pago inválido.'
+      );
+    }
 
     const sale = await insertSaleAndUpdateCashRegister(
       tx,
       branchId,
       cashRegister,
       branchIdempotencyKey,
-      paymentMethod,
-      saleTotal,
+      payments,
       saleItemValues,
       productById,
       recipesByProduct
@@ -472,8 +560,43 @@ export async function receiveOrder(
 
     validateProductsForOperation(order.items, productById, branchId, 'pedido');
 
-    const productIdsToLock = collectStockProductIdsToLock(
+    const orderItemsWithSnapshot = recomputeOrderRecipeSnapshots(
       order.items,
+      recipesByProduct
+    );
+
+    const orderItemIds = orderItemsWithSnapshot.map((item) => item.id);
+
+    if (orderItemIds.length > 0) {
+      await tx
+        .delete(orderItemRecipes)
+        .where(inArray(orderItemRecipes.orderItemId, orderItemIds));
+    }
+
+    const recipeRows: (typeof orderItemRecipes.$inferInsert)[] = [];
+    for (const item of orderItemsWithSnapshot) {
+      const snapshot = item.recipeSnapshot ?? [];
+      for (const config of snapshot) {
+        recipeRows.push({
+          orderItemId: item.id,
+          supplyId: config.supplyId,
+          supplyName: config.supplyName,
+          supplyType: config.supplyType,
+          quantity: config.quantity,
+          autoDiscount: config.autoDiscount,
+          isOptional: config.isOptional,
+          selected: config.selected,
+          selectedByDefault: config.selectedByDefault,
+        });
+      }
+    }
+
+    if (recipeRows.length > 0) {
+      await tx.insert(orderItemRecipes).values(recipeRows);
+    }
+
+    const productIdsToLock = collectStockProductIdsToLock(
+      orderItemsWithSnapshot,
       productById,
       recipesByProduct
     );
@@ -486,9 +609,13 @@ export async function receiveOrder(
         .for('update');
     }
 
+    const itemsForValidation = toSaleItemInputWithSelection(
+      orderItemsWithSnapshot
+    );
+
     const { shortageByProduct } = await validateCartAvailability(
       branchId,
-      order.items,
+      itemsForValidation,
       undefined,
       tx
     );
@@ -502,7 +629,7 @@ export async function receiveOrder(
       const reservations = buildReservationsForItems(
         branchId,
         orderId,
-        order.items,
+        orderItemsWithSnapshot,
         productById,
         recipesByProduct
       );
@@ -520,7 +647,7 @@ export async function receiveOrder(
       status: 'in_process',
     });
 
-    return { ...updated, branch: order.branch, items: order.items } as OrderWithItems;
+    return { ...updated, branch: order.branch, items: orderItemsWithSnapshot } as OrderWithItems;
   });
 }
 

@@ -53,6 +53,7 @@ describe('ClosureHistory', () => {
         totalSales: 5,
         productsSummary: {},
         criticalSuppliesSummary: {},
+        recipeSuppliesSummary: {},
       },
     ];
 

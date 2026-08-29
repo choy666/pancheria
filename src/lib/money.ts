@@ -2,6 +2,7 @@ import {
   dinero,
   toDecimal,
   add,
+  subtract,
   multiply,
   type Dinero,
 } from 'dinero.js';
@@ -34,6 +35,10 @@ export function addMoney(a: Money, b: Money): Money {
 
 export function multiplyMoney(money: Money, factor: number): Money {
   return multiply(money, { amount: Math.round(factor * 100), scale: 2 });
+}
+
+export function subtractMoney(a: Money, b: Money): Money {
+  return subtract(a, b);
 }
 
 

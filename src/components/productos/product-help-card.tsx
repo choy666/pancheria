@@ -17,19 +17,29 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
         <CardHeader>
           <CardTitle className="text-base">Cómo armar una promo</CardTitle>
           <CardDescription>
-            Las promos son productos con precio fijo que descontarán stock de los
-            insumos que incluyas.
+            Las promos tienen un precio fijo y descontarán stock automáticamente
+            de los insumos críticos que incluyas.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-base text-muted-foreground">
-          <p>
-            Agregá los insumos críticos (Pan, Salchicha o Bebida) y la cantidad
-            que consume cada unidad de la promo.
-          </p>
-          <p>
-            Solo se permiten insumos críticos en la receta. El sistema calcula
-            cuántas unidades de la promo podés vender según el insumo con menor
-            disponibilidad.
+        <CardContent className="space-y-4 text-base text-muted-foreground">
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>
+              <strong className="text-foreground">Insumos críticos:</strong>{' '}
+              agregá al menos uno (Pan, Salchicha o Bebida). Sin esto el
+              descuento de stock no es automático.
+            </li>
+            <li>
+              <strong className="text-foreground">Insumos manuales y servicios:</strong>{' '}
+              podés incluirlos como opcionales o preseleccionados.
+            </li>
+            <li>
+              <strong className="text-foreground">Cantidades:</strong> indicá
+              cuántas unidades de cada insumo consume cada promo.
+            </li>
+          </ol>
+          <p className="text-sm">
+            El sistema calculará cuántas unidades de la promo podés vender
+            según el insumo crítico con menor disponibilidad.
           </p>
         </CardContent>
       </Card>

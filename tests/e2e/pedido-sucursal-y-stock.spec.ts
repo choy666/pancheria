@@ -213,8 +213,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
 
     await ensureCashRegisterOpen(page);
 
-    await page.getByLabel('Medio de pago').click();
-    await page.getByRole('option', { name: 'Efectivo' }).click();
+    await page.getByTestId('payment-cash-full').click();
 
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
     await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });

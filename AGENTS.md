@@ -92,8 +92,13 @@ Copiar `.env.example` a `.env.local` y completar:
 - `BLOB_READ_WRITE_TOKEN` — token de Vercel Blob, requerido si `STORAGE_PROVIDER=vercel-blob`.
 - `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` — credenciales de AWS S3, requeridas si `STORAGE_PROVIDER=s3`.
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_REGION` — credenciales de Cloudflare R2, requeridas si `STORAGE_PROVIDER=r2`.
-- `LOCAL_STORAGE_PATH` (opcional) — ruta local base para almacenar videos y adjuntos de chat cuando `STORAGE_PROVIDER=local` (por defecto `tmp/videos`).
+- `LOCAL_STORAGE_PATH` (opcional) — ruta local base para almacenar videos, adjuntos de chat e imágenes de productos cuando `STORAGE_PROVIDER=local` (por defecto `tmp/videos`).
 - `CHAT_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para los adjuntos del chat; si no se define, usa `LOCAL_STORAGE_PATH` como fallback.
+- `NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen de producto/promo en MB (por defecto 5).
+- `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos separados por coma (por defecto `image/jpeg,image/png,image/webp`).
+- `PRODUCT_IMAGE_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para imágenes de productos; si no se define, usa `LOCAL_STORAGE_PATH` como fallback (por defecto `tmp/videos/product-images`).
+- `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `next.config.ts` para extender `img-src` en la CSP.
+- `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH` / `PRODUCT_IMAGE_URL_MAX_LENGTH` (opcional) — longitud máxima de una URL externa de imagen (por defecto 2048); la variable pública tiene prioridad.
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` (opcional) — si se define como `true`, se inyecta el script de Vercel Web Analytics en todas las páginas. En desarrollo no envía datos aunque esté habilitado; también es necesario activar Web Analytics en el dashboard de Vercel.
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
@@ -108,18 +113,20 @@ Copiar `.env.example` a `.env.local` y completar:
 ## Estructura del proyecto
 
 - `src/app/` — páginas y rutas API
-- `src/application/` — servicios de aplicación (casos de uso y coordinación)
+- `src/application/` — servicios de aplicación (casos de uso y coordinación), incluyendo `recipeService` para validación y gestión de recetas de promos.
 - `src/repositories/` — capa de repositorios (`productRepository`, `saleRepository`, `cashRegisterRepository`, `orderRepository`, etc.)
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
-- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas). En particular:
+- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, imágenes de productos, rutas). En particular:
   - `src/config/routes.ts` centraliza las rutas de navegación de la UI.
   - `src/config/caja.ts` expone getters para las variables de entorno de caja.
+  - `src/config/product-images.ts` expone getters para las variables de entorno de imágenes de productos.
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
 - `src/lib/` — utilidades y helpers transversales:
   - `money`, `date`, `catalog`, `product-grouping`, `product-style`, etc.
   - `storage` — almacenamiento de videos: `local`, `vercel-blob`, `s3`, `r2`.
+  - `product-image-storage` y `product-image-upload-client` — subida, validación y resolución de imágenes de productos/promos usando el proveedor configurado en `STORAGE_PROVIDER`.
   - `chat-storage` — almacenamiento de adjuntos del chat, con `getChatLocalStorageBasePath()` y lectura segura vía `GET /api/chat/attachment/[key]`.
   - `rate-limit` y `public-order-rate-limit-store` — rate limiting de pedidos públicos y chat (`PUBLIC_ORDER_RATE_LIMIT_*`, `PUBLIC_CHAT_RATE_LIMIT_*`).
   - `rate-limit-store` — almacenamiento de intentos fallidos de login (`RATE_LIMIT_STORE_PROVIDER`: `memory`/`db`).
@@ -134,12 +141,23 @@ Copiar `.env.example` a `.env.local` y completar:
   - `stock-helpers` — locks, iteración de recetas y razones de movimientos de stock.
   - `cash-register-helpers` — selección y bloqueo pesimista de cajas.
   - `product-helpers` — contexto de productos, disponibilidad y validaciones.
-  - `sale-helpers` — construcción de ítems y totales de venta.
-  - `order-helpers` — generación de números/tokens y construcción de pedidos.
+  - `sale-helpers` — construcción de ítems y totales de venta, incluyendo `recipeSnapshot` por ítem.
+  - `order-helpers` — generación de números/tokens y construcción de pedidos, incluyendo snapshots de receta.
   - `validation-helpers` — validaciones reutilizables.
 
 ## Tecnologías
 - Next.js 16.3.3, React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2, PostgreSQL, NextAuth v5.
+
+## Promos, recetas y snapshots
+
+- El proyecto soporta promos (`compound`) con insumos críticos, manuales y servicios.
+- Las recetas (`recipes`) definen qué insumos incluye cada promo, sus cantidades, si son opcionales y si vienen preseleccionados.
+- Los insumos críticos con `autoDiscount: true` son obligatorios y son los únicos que descuentan stock.
+- Los insumos manuales y servicios pueden ser opcionales; su precio y el de la promo no cambian al quitarlos.
+- Cada venta y pedido persiste un snapshot de receta en `sale_item_recipes` y `order_item_recipes` para garantizar que futuras ediciones de recetas no afecten transacciones históricas.
+- `PromoOptionsDialog` permite seleccionar complementos en el catálogo público y en el terminal de ventas.
+- `orderService.createOrder` inserta un mensaje automático en el chat del pedido con el detalle de preparación de cada promo.
+- El canal oficial de confirmación y detalle es el chat del pedido; WhatsApp no debe extenderse con nueva funcionalidad.
 
 ## Videos, reproducción y Cast
 
@@ -152,6 +170,17 @@ El sistema permite subir, listar, reproducir y transmitir videos desde el panel 
 - En desarrollo, `STORAGE_PROVIDER=local` guarda los archivos en `LOCAL_STORAGE_PATH` (por defecto `tmp/videos`) y los sirve a través de `GET /api/videos/[id]/stream`.
 - En producción se recomienda `vercel-blob`, `s3` o `r2`, configurando las credenciales correspondientes en variables de entorno.
 - La tabla `videos` en `src/db/schema.ts` almacena metadatos, URL pública, tipo MIME, tamaño y soft delete.
+
+## Imágenes de productos y promos
+
+El sistema permite asociar una imagen ilustrativa a cada producto/promo (`products.imageUrl`, `imageKey`, `imageMimeType`, `imageSize`). Las imágenes son opcionales, no afectan stock, precio ni disponibilidad, y se muestran en el catálogo público (`/pedido`) y en el panel de productos.
+
+- El administrador puede subir un archivo o ingresar una URL externa desde el formulario de promo (`src/components/productos/promo-form.tsx` / `product-image-uploader.tsx`).
+- Endpoints de API: `POST /api/productos/imagen/preparar` (devuelve instrucciones de subida), `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]` (lectura pública).
+- La lógica de almacenamiento y validación está en `src/lib/product-image-storage.ts` y `src/lib/product-image-upload-client.ts`, reutilizando el proveedor configurado en `STORAGE_PROVIDER` (`local`, `vercel-blob`, `s3`, `r2`).
+- La configuración de tamaño, MIME, dominios permitidos y URL máxima vive en `src/config/product-images.ts`.
+- La CSP de `next.config.ts` extiende `img-src` con los dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y con los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor.
+- En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
 
 ## Despliegue en Vercel
 

@@ -161,6 +161,9 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
   const [loadingId, setLoadingId] = useState<number | null>(null);
 
   async function handleConfirm(orderId: number) {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+
     setLoadingId(orderId);
     try {
       const response = await authenticatedFetch(
@@ -169,7 +172,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paymentMethod: 'cash',
+            payments: [{ method: 'cash', amount: order.total }],
             idempotencyKey: crypto.randomUUID(),
           }),
         }

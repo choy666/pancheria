@@ -1,4 +1,4 @@
-import type { StockMovementType } from '@/domain/types';
+import type { RecipeItemConfig, StockMovementType } from '@/domain/types';
 
 type ProductLike = {
   id: number;
@@ -13,8 +13,20 @@ type RecipeLike = {
   supply?: { name: string } | null;
 };
 
+type ItemWithRecipeSnapshot = {
+  productId: number;
+  quantity: number;
+  recipeSnapshot?: RecipeItemConfig[];
+};
+
+function hasSupplyName(
+  recipe: RecipeItemConfig | RecipeLike
+): recipe is RecipeItemConfig {
+  return 'supplyName' in recipe;
+}
+
 export function collectStockProductIdsToLock(
-  items: { productId: number; quantity: number }[],
+  items: ItemWithRecipeSnapshot[],
   productById: Map<number, ProductLike>,
   recipesByProduct: Map<number, RecipeLike[]>
 ): number[] {
@@ -25,9 +37,13 @@ export function collectStockProductIdsToLock(
     if (!product) continue;
 
     if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
+      const recipeList =
+        item.recipeSnapshot?.length
+          ? item.recipeSnapshot
+          : (recipesByProduct.get(product.id) ?? []);
       for (const recipeItem of recipeList) {
         if (!recipeItem.autoDiscount) continue;
+        if (hasSupplyName(recipeItem) && !recipeItem.selected) continue;
         productIdsToLock.add(recipeItem.supplyId);
       }
     } else if (
@@ -44,18 +60,27 @@ export function collectStockProductIdsToLock(
 export function* iterRecipeConsumptions(
   product: ProductLike,
   quantity: number,
-  recipesByProduct: Map<number, RecipeLike[]>
+  recipesByProduct: Map<number, RecipeLike[]>,
+  recipeSnapshot?: RecipeItemConfig[]
 ): Generator<{ supplyId: number; consumed: number; supplyName: string }> {
   if (product.type !== 'compound') return;
 
-  const recipeList = recipesByProduct.get(product.id) ?? [];
+  const recipeList =
+    recipeSnapshot?.length
+      ? recipeSnapshot
+      : (recipesByProduct.get(product.id) ?? []);
   for (const recipeItem of recipeList) {
     if (!recipeItem.autoDiscount) continue;
+    if (hasSupplyName(recipeItem) && !recipeItem.selected) continue;
+
+    const supplyName = hasSupplyName(recipeItem)
+      ? recipeItem.supplyName
+      : recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
 
     yield {
       supplyId: recipeItem.supplyId,
       consumed: recipeItem.quantity * quantity,
-      supplyName: recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`,
+      supplyName,
     };
   }
 }

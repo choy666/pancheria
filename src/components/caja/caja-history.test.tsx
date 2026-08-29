@@ -73,6 +73,7 @@ describe('CajaHistory', () => {
             closedBy: 'admin',
             status: 'closed',
             autoClosed: false,
+            initialAmount: 0,
             total: 1500,
             cashTotal: 1000,
             transferTotal: 500,

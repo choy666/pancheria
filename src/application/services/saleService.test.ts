@@ -16,6 +16,7 @@ import {
   recipes,
   sales,
   saleItems,
+  salePayments,
   stockMovements,
   cashRegisters,
 } from '@/db/schema';
@@ -61,6 +62,10 @@ function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
     stock: 0,
     minStock: 0,
     isActive: true,
+    imageUrl: null,
+    imageKey: null,
+    imageMimeType: null,
+    imageSize: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -81,6 +86,8 @@ function createRecipeWithSupply(
     supplyId: 2,
     quantity: 1,
     autoDiscount: true,
+    isOptional: false,
+    selectedByDefault: false,
     createdAt: new Date(),
     supply,
     ...rest,
@@ -99,12 +106,17 @@ function createOpenCashRegister(
     closedBy: null,
     status: 'open',
     autoClosed: false,
+    initialAmount: 0,
     total: 0,
     cashTotal: 0,
     transferTotal: 0,
     totalSales: 0,
     productsSummary: {},
     criticalSuppliesSummary: {},
+    recipeSuppliesSummary: {},
+    closingCashCount: null,
+    closingDifference: null,
+    closingNotes: null,
     deletedAt: null,
     createdAt: new Date(),
     ...overrides,
@@ -159,6 +171,7 @@ function createMockDb(): MockDb {
             totalSales: 0,
             productsSummary: {},
             criticalSuppliesSummary: {},
+            recipeSuppliesSummary: {},
           },
         ]),
       })),
@@ -631,7 +644,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: 'repeated-key',
       })
     ).rejects.toThrow(ValidationError);
@@ -658,7 +671,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: 'abc',
       })
     ).rejects.toThrow(
@@ -687,7 +700,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 3, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 500 }],
         idempotencyKey: 'manual-sale',
       })
     ).rejects.toThrow(
@@ -716,7 +729,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 4, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1200 }],
         idempotencyKey: 'sausage-sale',
       })
     ).rejects.toThrow(
@@ -747,7 +760,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 5, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 2000 }],
         idempotencyKey: 'inactive-sale',
       })
     ).rejects.toThrow('El producto Promo off no está activo.');
@@ -775,7 +788,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 99, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: 'external-product',
       })
     ).rejects.toThrow(ValidationError);
@@ -802,7 +815,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 2, quantity: 6 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 4800 }],
         idempotencyKey: 'insufficient-beverage',
       })
     ).rejects.toThrow(InsufficientStockError);
@@ -810,7 +823,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 2, quantity: 6 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 4800 }],
         idempotencyKey: 'insufficient-beverage',
       })
     ).rejects.toThrow(
@@ -849,7 +862,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 3 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 4500 }],
         idempotencyKey: 'insufficient-compound',
       })
     ).rejects.toThrow(InsufficientStockError);
@@ -857,7 +870,7 @@ describe('confirmSale', () => {
       confirmSale({
         branchId: BRANCH_ID,
         items: [{ productId: 1, quantity: 3 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 4500 }],
         idempotencyKey: 'insufficient-compound',
       })
     ).rejects.toThrow(
@@ -887,7 +900,7 @@ describe('confirmSale', () => {
     const result = (await confirmSale({
       branchId: BRANCH_ID,
       items: [{ productId: 2, quantity: 5 }],
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 4000 }],
       idempotencyKey: 'exact-stock',
     })) as SaleRow;
 
@@ -897,6 +910,7 @@ describe('confirmSale', () => {
 
     expect(findCapturedInsert(sales).length).toBe(1);
     expect(findCapturedInsert(saleItems).length).toBe(1);
+    expect(findCapturedInsert(salePayments).length).toBe(1);
     expect(findCapturedInsert(stockMovements).length).toBe(1);
     expect(findCapturedUpdate(products).length).toBe(1);
 
@@ -926,11 +940,12 @@ describe('confirmSale', () => {
     const result = await confirmSale({
       branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 1 }],
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 1000 }],
       idempotencyKey: 'abc',
     }) as { cashRegisterId: number | null };
 
     expect(result.cashRegisterId).toBe(1);
+    expect(findCapturedInsert(salePayments).length).toBe(1);
   });
 
   test('confirma una venta con pago por transferencia', async () => {
@@ -955,13 +970,64 @@ describe('confirmSale', () => {
     const result = (await confirmSale({
       branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 2 }],
-      paymentMethod: 'transfer',
+      payments: [{ method: 'transfer', amount: 2000 }],
       idempotencyKey: 'transfer-sale',
     })) as SaleRow;
 
     expect(result.paymentMethod).toBe('transfer');
     expect(result.total).toBe(2000);
     expect(result.cashRegisterId).toBe(1);
+    expect(findCapturedInsert(salePayments).length).toBe(1);
+  });
+
+  test('confirma una venta con pago mixto y separa efectivo y transferencia', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
+
+    setProducts([
+      {
+        id: 1,
+        name: 'Gaseosa',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        stock: 50,
+        price: 1000,
+      },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
+
+    const result = (await confirmSale({
+      branchId: BRANCH_ID,
+      items: [{ productId: 1, quantity: 2 }],
+      payments: [
+        { method: 'cash', amount: 500 },
+        { method: 'transfer', amount: 1500 },
+      ],
+      idempotencyKey: 'mixed-sale',
+    })) as SaleRow;
+
+    expect(result.total).toBe(2000);
+    expect(result.paymentMethod).toBe('cash');
+    expect(findCapturedInsert(salePayments).length).toBe(1);
+
+    const salePaymentsData = findCapturedInsert(salePayments)[0]
+      ?.data as (typeof salePayments.$inferInsert)[];
+    expect(salePaymentsData).toHaveLength(2);
+    expect(salePaymentsData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: 'cash', amount: 500 }),
+        expect.objectContaining({ method: 'transfer', amount: 1500 }),
+      ])
+    );
+
+    const cashRegisterUpdate = findCapturedUpdate(cashRegisters)[0]
+      ?.data as Partial<CashRegisterRow>;
+    expect(cashRegisterUpdate.total).toBe(2000);
+    expect(cashRegisterUpdate.cashTotal).toBe(500);
+    expect(cashRegisterUpdate.transferTotal).toBe(1500);
   });
 
   test('permite vender un servicio sin descontar stock', async () => {
@@ -986,11 +1052,12 @@ describe('confirmSale', () => {
     const result = (await confirmSale({
       branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 3 }],
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 1500 }],
       idempotencyKey: 'service-sale',
     })) as SaleRow;
 
     expect(result.total).toBe(1500);
+    expect(findCapturedInsert(salePayments).length).toBe(1);
     expect(findCapturedUpdate(products).length).toBe(0);
     expect(findCapturedInsert(stockMovements).length).toBe(0);
   });
@@ -1032,11 +1099,13 @@ describe('confirmSale', () => {
     const result = (await confirmSale({
       branchId: BRANCH_ID,
       items: [{ productId: 1, quantity: 1 }],
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 11000 }],
       idempotencyKey: 'combo-multiple',
     })) as SaleRow;
 
     expect(result.total).toBe(11000);
+
+    expect(findCapturedInsert(salePayments).length).toBe(1);
 
     const productUpdates = findCapturedUpdate(products);
     expect(productUpdates.length).toBe(2);
@@ -1097,11 +1166,13 @@ describe('confirmSale', () => {
         { productId: 1, quantity: 2 },
         { productId: 2, quantity: 3 },
       ],
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 6500 }],
       idempotencyKey: 'combo-beverage',
     })) as SaleRow;
 
     expect(result.total).toBe(6500);
+
+    expect(findCapturedInsert(salePayments).length).toBe(1);
 
     const productUpdates = findCapturedUpdate(products);
     expect(productUpdates.length).toBe(2);
@@ -1139,6 +1210,7 @@ describe('cancelSale', () => {
       status: 'active',
       total: 1500,
       paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 1500 }],
       items: [{ id: 1, productId: 1, quantity: 2 }],
       cashRegister: {
         id: 1,
@@ -1264,6 +1336,7 @@ describe('cancelSale', () => {
       status: 'active',
       total: 500,
       paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 500 }],
       items: [{ id: 1, productId: 1, quantity: 1 }],
       cashRegister: {
         id: 1,

@@ -23,7 +23,9 @@ export const POST = withApiErrorHandling(
       const cashRegister = await cashRegisterService.closeCashRegister(
         branchId,
         currentCashRegister.id,
-        userName
+        userName,
+        body.closingCashCount,
+        body.closingNotes
       );
       return NextResponse.json(cashRegister);
     }
@@ -32,7 +34,9 @@ export const POST = withApiErrorHandling(
     const cashRegister = await cashRegisterService.closeCashRegister(
       branchId,
       id,
-      userName
+      userName,
+      body.closingCashCount,
+      body.closingNotes
     );
     return NextResponse.json(cashRegister);
   })

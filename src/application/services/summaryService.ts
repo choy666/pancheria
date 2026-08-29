@@ -6,7 +6,12 @@ import {
   addItemToSummary,
   fillMissingCriticalSupplies,
 } from '@/lib/summary-helpers';
-import type { CriticalSupplyType, ProductRow } from '@/domain/types';
+import type {
+  CriticalSupplyType,
+  PaymentPart,
+  ProductRow,
+  RecipeItemConfig,
+} from '@/domain/types';
 
 export async function findRecipesForProducts(
   branchId: number,
@@ -35,11 +40,13 @@ type SaleItemWithProduct = {
     type: string;
     criticalSupplyType: CriticalSupplyType | null;
   } | null;
+  recipeSnapshot?: RecipeItemConfig[];
 };
 
 export type SaleWithItems = {
   total: number;
-  paymentMethod: 'cash' | 'transfer';
+  paymentMethod?: 'cash' | 'transfer';
+  payments?: PaymentPart[];
   items: SaleItemWithProduct[];
 };
 
@@ -82,6 +89,7 @@ export async function calculateSummaryFromSales(
   let transferTotal = parseMoney(0);
   const productsSummary: Record<string, number> = {};
   const criticalSuppliesSummary: Record<string, number> = {};
+  const recipeSuppliesSummary: Record<string, number> = {};
 
   const compoundProductIds = new Set<number>();
   for (const sale of activeSales) {
@@ -106,11 +114,23 @@ export async function calculateSummaryFromSales(
   }
 
   for (const sale of activeSales) {
-    const saleTotal = parseMoney(sale.total);
-    if (sale.paymentMethod === 'cash') {
-      cashTotal = addMoney(cashTotal, saleTotal);
-    } else {
-      transferTotal = addMoney(transferTotal, saleTotal);
+    const payments = sale.payments;
+    if (payments && payments.length > 0) {
+      for (const payment of payments) {
+        const amount = parseMoney(payment.amount);
+        if (payment.method === 'cash') {
+          cashTotal = addMoney(cashTotal, amount);
+        } else {
+          transferTotal = addMoney(transferTotal, amount);
+        }
+      }
+    } else if (sale.paymentMethod) {
+      const saleTotal = parseMoney(sale.total);
+      if (sale.paymentMethod === 'cash') {
+        cashTotal = addMoney(cashTotal, saleTotal);
+      } else {
+        transferTotal = addMoney(transferTotal, saleTotal);
+      }
     }
 
     for (const item of sale.items ?? []) {
@@ -120,9 +140,11 @@ export async function calculateSummaryFromSales(
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
+        recipeSuppliesSummary,
         product,
         item.quantity,
-        recipesByProduct
+        recipesByProduct,
+        item.recipeSnapshot
       );
     }
   }
@@ -147,5 +169,6 @@ export async function calculateSummaryFromSales(
     totalSales: activeSales.length,
     productsSummary,
     criticalSuppliesSummary,
+    recipeSuppliesSummary,
   };
 }

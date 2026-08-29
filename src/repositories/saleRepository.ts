@@ -1,8 +1,8 @@
 import { eq, and, gte, lt, count } from 'drizzle-orm';
 import { db } from '@/db';
-import { sales, saleItems } from '@/db/schema';
+import { sales, saleItems, salePayments } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
-import type { PaginatedResult, PaginationParams, PaymentMethod, SaleStatus } from '@/domain/types';
+import type { PaginatedResult, PaginationParams, PaymentPart, SaleStatus } from '@/domain/types';
 
 export async function findById(branchId: number, id: number) {
   const result = await db.query.sales.findFirst({
@@ -11,8 +11,10 @@ export async function findById(branchId: number, id: number) {
       items: {
         with: {
           product: true,
+          recipeSnapshots: true,
         },
       },
+      payments: true,
     },
   });
   return result ?? null;
@@ -52,8 +54,10 @@ export async function findByDateRange(
       items: {
         with: {
           product: true,
+          recipeSnapshots: true,
         },
       },
+      payments: true,
     },
   });
 
@@ -97,8 +101,10 @@ export async function findByCashRegisterId(
       items: {
         with: {
           product: true,
+          recipeSnapshots: true,
         },
       },
+      payments: true,
     },
   });
 
@@ -113,7 +119,7 @@ export async function findByCashRegisterId(
 export async function create(params: {
   branchId: number;
   total: number;
-  paymentMethod: PaymentMethod;
+  payments: PaymentPart[];
   cashRegisterId?: number | null;
   idempotencyKey: string;
   items: {
@@ -123,14 +129,16 @@ export async function create(params: {
     subtotal: number;
   }[];
 }) {
-  const { branchId, total, paymentMethod, cashRegisterId, idempotencyKey, items } = params;
+  const { branchId, total, payments, cashRegisterId, idempotencyKey, items } = params;
+
+  const primaryPaymentMethod = payments[0]?.method ?? 'cash';
 
   const [sale] = await db
     .insert(sales)
     .values({
       branchId,
       total,
-      paymentMethod,
+      paymentMethod: primaryPaymentMethod,
       cashRegisterId,
       idempotencyKey,
     })
@@ -147,6 +155,16 @@ export async function create(params: {
       subtotal: item.subtotal,
     }))
   );
+
+  if (payments.length > 0) {
+    await db.insert(salePayments).values(
+      payments.map((payment) => ({
+        saleId: sale.id,
+        method: payment.method,
+        amount: payment.amount,
+      }))
+    );
+  }
 
   return sale;
 }

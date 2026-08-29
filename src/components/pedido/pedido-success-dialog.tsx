@@ -12,6 +12,25 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { CreatedOrder } from './usePedidoClient';
+import type { PublicOrderItem } from '@/lib/whatsapp';
+
+function OrderItemRecipeDetails({ item }: { item: PublicOrderItem }) {
+  if (!item.recipeSnapshot || item.recipeSnapshot.length === 0) return null;
+
+  const selected = item.recipeSnapshot.filter(
+    (r) => !r.isOptional || r.selected
+  );
+  const removed = item.recipeSnapshot.filter(
+    (r) => r.isOptional && !r.selected
+  );
+
+  return (
+    <p className="text-xs text-muted-foreground">
+      {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
+      {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
+    </p>
+  );
+}
 
 interface WhatsAppIconProps {
   className?: string;
@@ -129,6 +148,7 @@ export function PedidoSuccessDialog({
                         <p className="text-xs text-muted-foreground">
                           ${item.price.toFixed(2)} c/u
                         </p>
+                        <OrderItemRecipeDetails item={item} />
                       </div>
                       <span className="font-mono text-foreground">
                         ${(item.price * item.quantity).toFixed(2)}

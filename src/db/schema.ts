@@ -124,6 +124,10 @@ export const products = pgTable(
     stock: integer('stock').default(0).notNull(),
     minStock: integer('min_stock').default(0).notNull(),
     isActive: boolean('is_active').default(true).notNull(),
+    imageUrl: text('image_url'),
+    imageKey: text('image_key'),
+    imageMimeType: varchar('image_mime_type', { length: 100 }),
+    imageSize: integer('image_size'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     deletedAt: timestamp('deleted_at'),
@@ -159,6 +163,8 @@ export const recipes = pgTable(
       .references(() => products.id, { onDelete: 'cascade' }),
     quantity: integer('quantity').notNull(),
     autoDiscount: boolean('auto_discount').notNull(),
+    isOptional: boolean('is_optional').default(false).notNull(),
+    selectedByDefault: boolean('selected_by_default').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -181,15 +187,23 @@ export const cashRegisters = pgTable(
     closedBy: varchar('closed_by', { length: 255 }),
     status: cashRegisterStatusEnum('status').default('open').notNull(),
     autoClosed: boolean('auto_closed').default(false).notNull(),
+    initialAmount: numeric('initial_amount', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
     totalSales: integer('total_sales').default(0).notNull(),
+    closingCashCount: numeric('closing_cash_count', { precision: 10, scale: 2, mode: 'number' }),
+    closingDifference: numeric('closing_difference', { precision: 10, scale: 2, mode: 'number' }),
+    closingNotes: text('closing_notes'),
     productsSummary: jsonb('products_summary')
       .$type<Record<string, number>>()
       .default({})
       .notNull(),
     criticalSuppliesSummary: jsonb('critical_supplies_summary')
+      .$type<Record<string, number>>()
+      .default({})
+      .notNull(),
+    recipeSuppliesSummary: jsonb('recipe_supplies_summary')
       .$type<Record<string, number>>()
       .default({})
       .notNull(),
@@ -243,6 +257,22 @@ export const sales = pgTable(
       table.branchId,
       table.idempotencyKey
     ),
+  })
+);
+
+export const salePayments = pgTable(
+  'sale_payments',
+  {
+    id: serial('id').primaryKey(),
+    saleId: integer('sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'cascade' }),
+    method: paymentMethodEnum('method').notNull(),
+    amount: numeric('amount', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    saleIdIdx: index('sale_payments_sale_id_idx').on(table.saleId),
   })
 );
 
@@ -332,6 +362,54 @@ export const orderItems = pgTable(
   },
   (table) => ({
     orderIdx: index('order_items_order_idx').on(table.orderId),
+  })
+);
+
+export const saleItemRecipes = pgTable(
+  'sale_item_recipes',
+  {
+    id: serial('id').primaryKey(),
+    saleItemId: integer('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'cascade' }),
+    supplyId: integer('supply_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    supplyName: varchar('supply_name', { length: 255 }).notNull(),
+    supplyType: productTypeEnum('supply_type').notNull(),
+    quantity: integer('quantity').notNull(),
+    autoDiscount: boolean('auto_discount').notNull(),
+    isOptional: boolean('is_optional').notNull(),
+    selected: boolean('selected').notNull(),
+    selectedByDefault: boolean('selected_by_default').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    saleItemIdx: index('sale_item_recipes_sale_item_id_idx').on(table.saleItemId),
+  })
+);
+
+export const orderItemRecipes = pgTable(
+  'order_item_recipes',
+  {
+    id: serial('id').primaryKey(),
+    orderItemId: integer('order_item_id')
+      .notNull()
+      .references(() => orderItems.id, { onDelete: 'cascade' }),
+    supplyId: integer('supply_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    supplyName: varchar('supply_name', { length: 255 }).notNull(),
+    supplyType: productTypeEnum('supply_type').notNull(),
+    quantity: integer('quantity').notNull(),
+    autoDiscount: boolean('auto_discount').notNull(),
+    isOptional: boolean('is_optional').notNull(),
+    selected: boolean('selected').notNull(),
+    selectedByDefault: boolean('selected_by_default').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    orderItemIdx: index('order_item_recipes_order_item_id_idx').on(table.orderItemId),
   })
 );
 
@@ -443,6 +521,10 @@ export const dailyClosures = pgTable(
     criticalSuppliesSummary: jsonb('critical_supplies_summary')
       .$type<Record<string, number>>()
       .notNull(),
+    recipeSuppliesSummary: jsonb('recipe_supplies_summary')
+      .$type<Record<string, number>>()
+      .default({})
+      .notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -545,10 +627,11 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
     references: [cashRegisters.id],
   }),
   items: many(saleItems),
+  payments: many(salePayments),
   stockMovements: many(stockMovements),
 }));
 
-export const saleItemsRelations = relations(saleItems, ({ one }) => ({
+export const saleItemsRelations = relations(saleItems, ({ one, many }) => ({
   sale: one(sales, {
     fields: [saleItems.saleId],
     references: [sales.id],
@@ -556,6 +639,14 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   product: one(products, {
     fields: [saleItems.productId],
     references: [products.id],
+  }),
+  recipeSnapshots: many(saleItemRecipes),
+}));
+
+export const salePaymentsRelations = relations(salePayments, ({ one }) => ({
+  sale: one(sales, {
+    fields: [salePayments.saleId],
+    references: [sales.id],
   }),
 }));
 
@@ -581,13 +672,36 @@ export const orderMessagesRelations = relations(orderMessages, ({ one }) => ({
   }),
 }));
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
   }),
   product: one(products, {
     fields: [orderItems.productId],
+    references: [products.id],
+  }),
+  recipeSnapshots: many(orderItemRecipes),
+}));
+
+export const saleItemRecipesRelations = relations(saleItemRecipes, ({ one }) => ({
+  saleItem: one(saleItems, {
+    fields: [saleItemRecipes.saleItemId],
+    references: [saleItems.id],
+  }),
+  supply: one(products, {
+    fields: [saleItemRecipes.supplyId],
+    references: [products.id],
+  }),
+}));
+
+export const orderItemRecipesRelations = relations(orderItemRecipes, ({ one }) => ({
+  orderItem: one(orderItems, {
+    fields: [orderItemRecipes.orderItemId],
+    references: [orderItems.id],
+  }),
+  supply: one(products, {
+    fields: [orderItemRecipes.supplyId],
     references: [products.id],
   }),
 }));

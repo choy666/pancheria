@@ -1,3 +1,5 @@
+import type { RecipeItemConfig } from '@/domain/types';
+
 interface OrderDetailItem {
   id: number;
   productId: number;
@@ -8,10 +10,31 @@ interface OrderDetailItem {
     name: string;
     unit: string;
   } | null;
+  recipeSnapshot?: RecipeItemConfig[];
 }
 
 interface PedidoItemsListProps {
   items: OrderDetailItem[];
+}
+
+function ItemRecipeDetails({
+  recipeSnapshot,
+}: {
+  recipeSnapshot?: RecipeItemConfig[];
+}) {
+  if (!recipeSnapshot || recipeSnapshot.length === 0) return null;
+
+  const selected = recipeSnapshot.filter((r) => !r.isOptional || r.selected);
+  const removed = recipeSnapshot.filter((r) => r.isOptional && !r.selected);
+
+  return (
+    <p className="text-xs text-muted-foreground">
+      {selected.length > 0 &&
+        `Incluye: ${selected.map((r) => `${r.supplyName} (${r.quantity})`).join(', ')}.`}
+      {removed.length > 0 &&
+        ` Sin: ${removed.map((r) => `${r.supplyName} (${r.quantity})`).join(', ')}.`}
+    </p>
+  );
 }
 
 export function PedidoItemsList({ items }: PedidoItemsListProps) {
@@ -28,9 +51,15 @@ export function PedidoItemsList({ items }: PedidoItemsListProps) {
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.id} className="border-b border-white/8 last:border-0">
+            <tr
+              key={item.id}
+              className="border-b border-white/8 last:border-0"
+            >
               <td className="p-3">
-                {item.product?.name ?? `Producto ${item.productId}`}
+                <div>
+                  {item.product?.name ?? `Producto ${item.productId}`}
+                  <ItemRecipeDetails recipeSnapshot={item.recipeSnapshot} />
+                </div>
               </td>
               <td className="p-3 text-right">{item.quantity}</td>
               <td className="p-3 text-right">

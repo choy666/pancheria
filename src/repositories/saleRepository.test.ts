@@ -202,19 +202,20 @@ describe('saleRepository', () => {
       const items = [
         { productId: 1, quantity: 2, unitPrice: 500, subtotal: 1000 },
       ];
+      const payments = [{ method: 'cash' as const, amount: 1000 }];
       mockReturning.mockResolvedValue([sale]);
 
       const result = await saleRepository.create({
         branchId: BRANCH_ID,
         total: 1000,
-        paymentMethod: 'cash',
+        payments,
         cashRegisterId: 1,
         idempotencyKey: 'abc',
         items,
       });
 
       expect(result).toEqual(sale);
-      expect(mockInsert).toHaveBeenCalledTimes(2);
+      expect(mockInsert).toHaveBeenCalledTimes(3);
       expect(mockValues).toHaveBeenNthCalledWith(1, {
         branchId: BRANCH_ID,
         total: 1000,
@@ -243,7 +244,7 @@ describe('saleRepository', () => {
         saleRepository.create({
           branchId: BRANCH_ID,
           total: 1000,
-          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           cashRegisterId: 1,
           idempotencyKey: 'abc',
           items: [

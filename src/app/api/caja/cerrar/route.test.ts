@@ -81,7 +81,9 @@ describe('POST /api/caja/cerrar', () => {
     expect(mockedCashRegisterService.closeCashRegister).toHaveBeenCalledWith(
       BRANCH_ID,
       1,
-      'operador'
+      'operador',
+      undefined,
+      undefined
     );
   });
 
@@ -100,7 +102,33 @@ describe('POST /api/caja/cerrar', () => {
     expect(mockedCashRegisterService.closeCashRegister).toHaveBeenCalledWith(
       BRANCH_ID,
       5,
-      'operador'
+      'operador',
+      undefined,
+      undefined
+    );
+  });
+
+  test('cierra la caja con conteo real de efectivo y notas', async () => {
+    const cashRegister = { id: 1, branchId: BRANCH_ID, status: 'closed' };
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
+      id: 1,
+    } as any);
+    mockedCashRegisterService.closeCashRegister.mockResolvedValue(
+      cashRegister as any
+    );
+
+    const response = await POST(
+      buildRequest({ closingCashCount: 1050, closingNotes: 'sobrante' }),
+      { params: Promise.resolve({}) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedCashRegisterService.closeCashRegister).toHaveBeenCalledWith(
+      BRANCH_ID,
+      1,
+      'operador',
+      1050,
+      'sobrante'
     );
   });
 

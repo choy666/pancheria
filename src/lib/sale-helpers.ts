@@ -1,11 +1,15 @@
 import { addMoney, moneyToNumber, multiplyMoney, parseMoney } from '@/lib/money';
-import type { ProductRow } from '@/domain/types';
+import { buildRecipeSnapshot } from '@/lib/product-helpers';
+import type { ProductRow, RecipeItemConfig } from '@/domain/types';
+import type { RecipeWithSupply } from '@/application/services/summaryService';
 
 export type SaleItemValue = {
   productId: number;
+  productName: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  recipeSnapshot?: RecipeItemConfig[];
 };
 
 export function buildSaleItemValues(
@@ -15,7 +19,10 @@ export function buildSaleItemValues(
     quantity: number;
     unitPrice?: number;
     subtotal?: number;
-  }[]
+    selectedRecipeItemIds?: number[];
+    recipeSnapshot?: RecipeItemConfig[];
+  }[],
+  recipesByProduct?: Map<number, RecipeWithSupply[]>
 ): {
   saleItemValues: SaleItemValue[];
   total: number;
@@ -32,11 +39,24 @@ export function buildSaleItemValues(
         : multiplyMoney(unitPrice, item.quantity);
     total = addMoney(total, subtotal);
 
+    let recipeSnapshot: RecipeItemConfig[] | undefined;
+    if (item.recipeSnapshot) {
+      recipeSnapshot = item.recipeSnapshot;
+    } else if (recipesByProduct && product.type === 'compound') {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      recipeSnapshot = buildRecipeSnapshot(
+        recipeList,
+        item.selectedRecipeItemIds ?? []
+      );
+    }
+
     saleItemValues.push({
       productId: item.productId,
+      productName: product.name,
       quantity: item.quantity,
       unitPrice: moneyToNumber(unitPrice),
       subtotal: moneyToNumber(subtotal),
+      recipeSnapshot,
     });
   }
 

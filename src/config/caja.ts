@@ -41,12 +41,18 @@ export interface CashRegister {
   closedBy: string | null;
   status: 'open' | 'closed';
   autoClosed: boolean;
+  initialAmount: number;
   total: number;
   cashTotal: number;
   transferTotal: number;
   totalSales: number;
+  cashInDrawer?: number;
+  closingCashCount?: number | null;
+  closingDifference?: number | null;
+  closingNotes?: string | null;
   productsSummary?: Record<string, number>;
   criticalSuppliesSummary?: Record<string, number>;
+  recipeSuppliesSummary?: Record<string, number>;
   createdAt: string;
   deletedAt?: string | null;
 }

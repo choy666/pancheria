@@ -10,7 +10,7 @@
 
 Se ejecutó la auditoría de cobertura de pruebas solicitada sobre **tests unitarios (Jest)**, **tests E2E (Playwright)** y documentación vigente, cruzando variables de entorno, prompts e informes. El suite E2E se corrió contra una base de datos descartable remota configurada en `.env.e2e`, reportando **2/2 tests de chat** pasados en la verificación de Fase 4.
 
-**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test` (120 suites, 1127 tests), `npm run build`, `npm run knip`, `npx drizzle-kit check` en desarrollo, E2E y producción pasan; suite E2E completo: 96 pasados, 1 omitido, 0 fallidos; migración `0020` aplicada en los tres entornos.
+**Verificaciones automáticas:** `npm run lint`, `npx tsc --noEmit`, `npm test` (121 suites, 1145 tests), `npm run build`, `npm run knip`, `npx drizzle-kit check` en desarrollo, E2E y producción pasan; suite E2E completo: 96 pasados, 1 omitido, 0 fallidos; migración `0020` aplicada en los tres entornos.
 
 **Conclusión de cobertura:**
 
@@ -313,14 +313,38 @@ Acciones aplicadas en esta sesión:
 
 ---
 
-## 10. Comandos ejecutados y resultados
+## 10. Fase 6 — Promos con servicios, manuales y snapshots de receta
+
+Se implementó el prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/promos-con-servicios-y-manuales.md" />:
+
+- **Esquema:** tablas `recipes`, `sale_item_recipes`, `order_item_recipes`, y migraciones aplicadas en desarrollo, E2E y producción.
+- **Reglas de negocio:**
+  - Las promos (`compound`) requieren al menos un insumo crítico con `autoDiscount: true`.
+  - Los insumos críticos son obligatorios (`isOptional: false`).
+  - Los manuales y servicios son siempre `autoDiscount: false`; pueden ser opcionales y preseleccionados por defecto.
+  - El precio de la promo es fijo e independiente de los complementos quitados.
+- **Persistencia:** cada `sale_item` y `order_item` guarda un snapshot de la receta seleccionada (`sale_item_recipes`/`order_item_recipes`) para stock, reintegros, reservas y cierres históricos.
+- **Frontend:**
+  - `PromoOptionsDialog` para elegir complementos en el catálogo y en el terminal de ventas.
+  - `useCart` persiste `selectedRecipeItemIds` en `localStorage`.
+  - `pedido-success-dialog.tsx`, `pedido-items-list.tsx` y `sales-terminal.tsx` muestran el detalle de preparación.
+- **Chat del pedido:** `orderService.createOrder` inserta un mensaje automático del sistema con el detalle de cada promo (insumos incluidos y quitados).
+- **Resúmenes:** caja y cierres diarios incluyen `recipeSuppliesSummary` (tarjeta "Insumos de recetas" y CSV).
+- **Tests:** suite Jest 121 suites / 1145 tests pasan; E2E 96 passed, 1 skipped.
+- **Migración:** `drizzle-kit check` limpio; builds de producción exitosos.
+
+> Nota: WhatsApp sigue sin ser extendido. El canal oficial de confirmación es el chat del pedido.
+
+---
+
+## 11. Comandos ejecutados y resultados
 
 | Paso | Comando | Resultado |
 |------|---------|-----------|
 | 1 | `npm run lint` | Pasa (exit 0) |
 | 2 | `npx tsc --noEmit` | Pasa |
-| 3 | `npm test` | 120 suites, 1127 tests pasan |
-| 4 | `npm run build` | Build exitoso (42 páginas dinámicas) |
+| 3 | `npm test` | 121 suites, 1145 tests pasan |
+| 4 | `npm run build` | Build exitoso (44 páginas dinámicas) |
 | 5 | `npm run knip` | Pasa |
 
 || 6 | `npm run test:e2e` | 96 passed, 1 skipped, 0 failed (con `--retries=2` y base `pancheria_e2e`) |
@@ -439,3 +463,102 @@ A continuación se profundiza en cada gap menor documentado, ordenado por el cri
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />
 - <ref_file file="C:/developer/paginas/pancheria/jest.config.ts" />
 - <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" />
+
+---
+
+## 15. Implementación de pagos mixtos
+
+**Fecha:** 2026-08-28
+
+### Alcance
+
+Implementación del soporte para pagos mixtos (efectivo + transferencia) en ventas y pedidos, siguiendo el prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pago-mixto-ventas-y-pedidos.md" />.
+
+### Hallazgos
+
+#### Crítico
+
+Ningún hallazgo crítico.
+
+#### Mayor
+
+1. **El prompt original omitía el impacto en `summaryService.ts` y `closureService.ts`.** `calculateSummaryFromSales` y `closureService.generateClosure` recalculan `cashTotal`/`transferTotal` a partir de `paymentMethod`. Si `sales.paymentMethod` se elimina o se ignora, el cierre diario y el resumen de caja se romperán.
+   - **Acción:** se agregó a la sección de implementación la actualización de `summaryService.ts`, `closureService.ts` y `cashRegisterService.ts`.
+
+2. **El prompt no mencionaba `saleRepository.ts` ni la serialización de `payments`.** `findByDateRange`, `findByCashRegisterId` y `findById` deben incluir `with: { payments: true }`; la función `create` debe insertar partes.
+   - **Acción:** se incluyó `src/repositories/saleRepository.ts` en el plan.
+
+3. **El prompt no detallaba la idempotencia de `sale_payments`.** Al usar `insert(sales).onConflictDoNothing()` y luego insertar partes, si la venta ya existe se pueden duplicar pagos.
+   - **Acción:** se agregó nota de idempotencia y búsqueda con `payments`.
+
+4. **El prompt no definía el destino de `sales.paymentMethod`.** Dejarlo sin plan puede llevar a inconsistencias o a mantener una columna engañosa.
+   - **Acción:** se agregó supuesto de diseño para deprecar `sales.paymentMethod` y mantener compatibilidad en la migración.
+
+#### Menor
+
+5. **El prompt usaba `<ref_snippet ... lines="..."/>` para rangos que cambiarán con la implementación.** Esto desfasará el prompt tras cualquier refactor.
+   - **Acción:** se reemplazaron la mayoría de `<ref_snippet>` por `<ref_file>` y nombres de función/exportación.
+
+6. **El prompt no incluía referencias a `pancheria.prompt.md`, `auditoria-y-documentacion.md` ni `lecciones-aprendidas.md`.**
+   - **Acción:** se agregaron las referencias obligatorias del proyecto.
+
+#### Informativo
+
+7. **`npm run knip` reporta exports no usados en `src/config/product-images.ts` y `src/lib/product-image-storage.ts`.** No están relacionados con el pago mixto, pero indican una feature de imágenes de productos en progreso.
+
+### Acciones aplicadas
+
+- Se creó la tabla `sale_payments` en `src/db/schema.ts` con relaciones e índices, y se generó la migración `drizzle/0022_jittery_grandmaster.sql`.
+- Se agregó el tipo `PaymentPart` en `src/domain/types.ts` y el esquema `paymentPartSchema` en `src/lib/zod-schemas.ts`.
+- Se crearon los helpers `sumPaymentParts`, `amountByPaymentMethod` y `validatePaymentParts` en `src/lib/payment-helpers.ts`.
+- Se actualizaron `saleService.ts` y `orderService.ts` para recibir `payments`, validar que la suma coincida con el total y actualizar `cashTotal`/`transferTotal` de forma separada.
+- Se actualizaron `summaryService.ts`, `closureService.ts` y `cashRegisterService.ts` para leer el desglose de `sale_payments` con fallback al `paymentMethod` histórico.
+- Se actualizó `saleRepository.ts` para incluir `payments` en consultas e inserciones atómicas.
+- Se actualizaron las rutas `POST /api/ventas` y `POST /api/pedidos/[id]/confirmar` para recibir `payments`.
+- Se creó `src/components/pagos/payment-parts-input.tsx` y se integró en `sales-terminal.tsx`, `pedido-actions.tsx` y `usePedidoDetail.ts`.
+- Se actualizaron `sales-history.tsx` y `pedidos-list.tsx` para manejar el desglose de pagos.
+- Se actualizaron los tests de servicios, repositorios, rutas y esquemas Zod.
+- Se aplicó la migración en una rama descartable de Neon (`test-mixed-payments`) con `npx drizzle-kit generate` y `npx drizzle-kit push`, y `npx drizzle-kit check` pasó limpio.
+
+### Comandos ejecutados y resultados
+
+| Paso | Comando | Resultado |
+| ---- | ------- | --------- |
+| 1 | `npm run lint` | Pasa (exit 0) |
+| 2 | `npx tsc --noEmit` | Pasa |
+| 3 | `npm test` | 121 suites, 1145 tests pasan |
+| 4 | `npm run build` | Build exitoso |
+| 5 | `npm run knip` | Pasa (sin exports no usados) |
+| 6 | `npx drizzle-kit generate` | Migración `0022_jittery_grandmaster` generada |
+| 7 | `npx drizzle-kit push` | Aplicada en rama `test-mixed-payments` de Neon |
+| 8 | `npx drizzle-kit push --force` | Aplicada en base E2E `neondb_e2e` |
+| 9 | `npx drizzle-kit check` | Limpio contra la rama de prueba |
+| 10 | `npm run test:e2e` | 96 passed, 1 skipped |
+
+`npx drizzle-kit check`, `npx drizzle-kit generate` y `npx drizzle-kit push` se ejecutaron en una rama descartable de Neon (`test-mixed-payments`) y luego en la base E2E `neondb_e2e`. `npm run test:e2e` pasó 96 de 97 tests (1 skipped). El test `pedido-sucursal-y-stock.spec.ts:163` era flaky: pasaba aislado pero fallaba en la suite completa porque `useCart` cargaba `localStorage` después de una interacción rápida y pisaba el ítem recién agregado. Se corrigió en `src/hooks/useCart.ts` agregando un flag de interacción de usuario que evita la carga inicial cuando ya se modificó el carrito.
+
+### Recomendaciones
+
+- Validar la migración `0022_jittery_grandmaster` en un entorno de staging antes de aplicarla en producción.
+- Considerar una migración posterior para eliminar `sales.paymentMethod` una vez que todas las lecturas usen `sale_payments`.
+- El test E2E `pedido-sucursal-y-stock.spec.ts:163` ya fue estabilizado ajustando `useCart` para que no pise el carrito recién modificado por una carga tardía de `localStorage`.
+- La rama `test-mixed-payments` de Neon ya fue eliminada.
+
+## 16. Imágenes ilustrativas de productos y promos
+
+La funcionalidad de imágenes de productos/promos está implementada en `main`:
+
+- Esquema: la tabla `products` incluye `imageUrl`, `imageKey`, `imageMimeType` e `imageSize` (migración `0021_ambiguous_mandarin.sql`).
+- Configuración: `src/config/product-images.ts` expone getters para `NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES`, `PRODUCT_IMAGE_LOCAL_STORAGE_PATH`, `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH`.
+- Almacenamiento: `src/lib/product-image-storage.ts` y `src/lib/product-image-upload-client.ts` soportan `local`, `vercel-blob`, `s3` y `r2` a través de `STORAGE_PROVIDER`.
+- Endpoints: `POST /api/productos/imagen/preparar`, `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]`.
+- UI: `src/components/productos/product-image-uploader.tsx` se integra en `promo-form.tsx`; `product-card.tsx` muestra `product.imageUrl` en el catálogo público.
+- CSP: `next.config.ts` extiende `img-src` con dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor.
+
+### Sincronización documental aplicada
+
+- Se actualizó `AGENTS.md` con variables de entorno, estructura del proyecto y sección dedicada a imágenes de productos.
+- Se actualizó `README.md` del proyecto con sección de imágenes y variables relacionadas.
+- Se actualizó `.devin/environment.yaml` con variables, endpoints y notas de imágenes.
+- Se actualizó `.devin/prompts/README.md` y `.devin/README.md` para archivar `pago-mixto-ventas-y-pedidos.md`, `promos-con-servicios-y-manuales.md` y `plan-imagenes-promos.md`.
+- Se actualizó `.devin/informes/guia-funcionamiento-pancheria.md` con la nota de imágenes en productos.

@@ -4,6 +4,8 @@ import {
   login,
   unique,
   createProductViaApi,
+  openCashRegisterFromUI,
+  closeCashRegisterFromUI,
 } from './helpers';
 
 async function createRecipe(
@@ -96,10 +98,7 @@ test.describe('Flujo completo de un día de operación', () => {
     await page.goto('/ventas');
     await expect(page.getByText('No hay una caja abierta.')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Abrir caja' }).click();
-    await expect(
-      page.getByRole('button', { name: 'Cerrar caja' })
-    ).toBeVisible({ timeout: 10000 });
+    await openCashRegisterFromUI(page);
 
     const cardCombo = page
       .locator('[data-testid="product-card"][data-product-name="' + combo.name + '"]');
@@ -114,7 +113,7 @@ test.describe('Flujo completo de un día de operación', () => {
 
     await cardBebida.click();
 
-    await page.getByRole('button', { name: 'Transferencia' }).click();
+    await page.getByTestId('payment-transfer-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
 
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
@@ -127,10 +126,7 @@ test.describe('Flujo completo de un día de operación', () => {
 
     await page.goto('/cierre');
 
-    await page.getByTestId('close-cash-register').click();
-    await expect(page.getByText('No hay una caja abierta.')).toBeVisible({
-      timeout: 10000,
-    });
+    await closeCashRegisterFromUI(page);
 
     const cierreDate = new Date().toISOString().split('T')[0];
 

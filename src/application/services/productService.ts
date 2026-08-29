@@ -7,6 +7,10 @@ import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
+import {
+  validateProductImageUrl,
+  deleteProductImage,
+} from '@/lib/product-image-storage';
 import { ZodError } from 'zod';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
 
@@ -38,20 +42,47 @@ export async function listActiveProductsWithAvailability(branchId: number) {
   return active.map((product) => ({
     ...product,
     availability: availability[product.id]?.availability ?? 0,
+    recipe: availability[product.id]?.recipe ?? [],
   }));
+}
+
+function normalizeImageFields(
+  data: ProductInsert
+): ProductInsert {
+  if (data.imageUrl === '' || data.imageUrl === undefined) {
+    data.imageUrl = null;
+  }
+  if (data.imageKey === '' || data.imageKey === undefined) {
+    data.imageKey = null;
+  }
+  if (data.imageMimeType === '' || data.imageMimeType === undefined) {
+    data.imageMimeType = null;
+  }
+  if (data.imageSize === undefined) {
+    data.imageSize = null;
+  }
+  return data;
+}
+
+function validateImageUrl(product: ProductInsert): void {
+  if (product.imageUrl && !product.imageKey) {
+    validateProductImageUrl(product.imageUrl);
+  }
 }
 
 export async function createProduct(branchId: number, data: ProductInsert) {
   let product;
 
   try {
-    product = productSchema.parse(data);
+    product = productSchema.parse(normalizeImageFields({ ...data }));
   } catch (error) {
     if (error instanceof ZodError) {
       throw new ValidationError(error.issues.map((e) => e.message).join('. '));
     }
     throw error;
   }
+
+  validateImageUrl(product);
 
   product.stock = 0;
   if (product.type === 'compound' || product.type === 'service') {
@@ -74,12 +105,40 @@ export async function updateProduct(
     if (!current) throw new NotFoundError('Producto', id);
 
     try {
-      productUpdateSchema.parse({ ...current, ...data });
+      productUpdateSchema.parse({
+        ...current,
+        ...updateData,
+        imageUrl:
+          updateData.imageUrl === '' || updateData.imageUrl === undefined
+            ? null
+            : updateData.imageUrl,
+        imageKey:
+          updateData.imageKey === '' || updateData.imageKey === undefined
+            ? null
+            : updateData.imageKey,
+        imageMimeType:
+          updateData.imageMimeType === '' || updateData.imageMimeType === undefined
+            ? null
+            : updateData.imageMimeType,
+        imageSize:
+          updateData.imageSize === undefined ? null : updateData.imageSize,
+      });
     } catch (error) {
       if (error instanceof ZodError) {
         throw new ValidationError(error.issues.map((e) => e.message).join('. '));
       }
       throw error;
+    }
+
+    if (updateData.imageUrl && !updateData.imageKey) {
+      validateProductImageUrl(updateData.imageUrl);
+    }
+
+    if (
+      current.imageKey &&
+      updateData.imageKey !== current.imageKey
+    ) {
+      await deleteProductImage(current.imageKey);
     }
 
     const effectiveType = updateData.type ?? current.type;
@@ -116,6 +175,10 @@ export async function updateProduct(
 
 export async function deleteProduct(branchId: number, id: number) {
   const product = await getProductById(branchId, id);
+
+  if (product.imageKey) {
+    await deleteProductImage(product.imageKey);
+  }
 
   if (product.type === 'compound') {
     await recipeRepository.deleteByCompoundProductId(branchId, id);

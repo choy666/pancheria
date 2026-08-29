@@ -35,10 +35,10 @@ Los hallazgos restantes son de deuda técnica, documentación, escalabilidad y c
 
 Cada producto en `products` tiene uno de estos tipos:
 
-- `critical_supply`: insumo crítico. Tiene un `criticalSupplyType`: `bread` (pan), `sausage` (salchicha) o `beverage` (bebida). Los críticos con `autoDiscount: true` en una receta son los únicos que descuentan stock automáticamente al vender una promo.
-- `manual_supply`: insumo manual (salsas, condimentas, cajas, etc.). Se usa como referencia informativa en recetas, **no descuenta stock automáticamente**.
-- `compound`: producto compuesto/promo. Tiene una receta (`recipes`) que indica qué insumos críticos y en qué cantidad se consumen.
-- `service`: servicio adicional (toppings, vasos de gaseosa, etc.). No tiene stock ni receta; es ilimitado.
+- `critical_supply`: insumo crítico. Tiene un `criticalSupplyType`: `bread` (pan), `sausage` (salchicha) o `beverage` (bebida). Los críticos con `autoDiscount: true` en una receta son los únicos que descuentan stock automáticamente al vender una promo. Son obligatorios y nunca opcionales.
+- `manual_supply`: insumo manual (salsas, condimentos, cajas, etc.). Puede incluirse en la receta de una promo como complemento opcional. **No descuenta stock automáticamente**. El cliente u operador puede quitarlo antes de confirmar y el precio de la promo no cambia.
+- `compound`: producto compuesto/promo. Tiene una receta (`recipes`) que indica qué insumos incluye (críticos, manuales y/o servicios), sus cantidades, si son opcionales y si vienen preseleccionados por defecto.
+- `service`: servicio adicional (toppings, vasos de gaseosa, etc.). Puede incluirse en la receta de una promo como complemento opcional. No tiene stock ni receta; es ilimitado.
 
 Solo los productos `compound`, `service` o `critical_supply` con `criticalSupplyType === 'beverage'` son **vendibles al público**.
 
@@ -54,21 +54,24 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 - El stock inicial se carga con un movimiento de tipo `restock` a través de `/stock/ajustar` o el seed.
 - Los productos `manual_supply` no pueden tener precio (`price` debe ser `0`). Los demás sí.
 - Los productos `critical_supply` deben tener un `criticalSupplyType`.
+- Los productos (en especial las promos `compound`) pueden tener una imagen ilustrativa (`imageUrl`, `imageKey`, `imageMimeType`, `imageSize`). El administrador la sube o ingresa una URL externa (`https://`) desde el formulario de promo; la imagen se muestra en el catálogo público (`/pedido`). El almacenamiento, validación de tamaño/MIME y dominios permitidos usan `src/config/product-images.ts` y `src/lib/product-image-storage.ts`, con el mismo `STORAGE_PROVIDER` de videos/chat.
 - El soft delete evita perder el historial de ventas y pedidos.
 
 ### 3.2 Recetas
 
-- Una receta vincula un producto `compound` con varios insumos (`critical_supply` o `manual_supply`).
+- Una receta vincula un producto `compound` con varios insumos (`critical_supply`, `manual_supply` o `service`).
 - Solo los insumos críticos pueden tener `autoDiscount: true`. Eso indica que al vender/comprometer una promo, se descuenta stock del insumo automáticamente.
-- Un insumo manual puede estar en la receta, pero nunca con `autoDiscount: true`.
+- Los insumos manuales y servicios son siempre `autoDiscount: false`. Pueden configurarse como opcionales (`isOptional: true`) y preseleccionados (`selectedByDefault: true`).
+- Los insumos críticos son siempre obligatorios (`isOptional: false`).
 - No puede haber insumos duplicados ni un compuesto usándose a sí mismo.
+- Una promo debe tener al menos un insumo crítico con `autoDiscount: true`.
 - Si se elimina un insumo crítico usado en una promo activa, no se permite; hay que eliminar o inactivar la promo primero.
 
 ### 3.3 Disponibilidad de un producto
 
 - Para `service`: disponibilidad infinita.
 - Para `critical_supply` tipo `beverage`: `stock` del producto.
-- Para `compound`: la mínima cantidad de veces que se puede armar considerando el stock de todos sus insumos críticos con `autoDiscount`.
+- Para `compound`: la mínima cantidad de veces que se puede armar considerando el stock de todos sus insumos críticos con `autoDiscount`. Los insumos manuales y servicios opcionales no afectan la disponibilidad.
 - Ejemplo: si una promo "Promo 1" requiere `1 Pan` y `2 Salchichas`, y hay `32 Pan` y `10 Salchichas`, la disponibilidad es `min(32/1, 10/2) = 5`.
 
 <ref_file file="C:/developer/paginas/pancheria/src/application/services/summaryService.ts" /> (función `calculateCompoundAvailability`).
@@ -100,9 +103,11 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 1. **Venta directa (`/ventas`)**
    - El operador arma el carrito y confirma.
+   - Si la promo tiene insumos opcionales, se abre `PromoOptionsDialog` para elegir qué complementos incluir.
    - Se valida caja abierta y disponibilidad.
    - Se inserta la venta (`sales` + `sale_items`).
-   - Se descuenta stock de los insumos críticos con `autoDiscount` de las promos y de las bebidas (`critical_supply` tipo `beverage`) vendidas.
+   - Se persiste el snapshot de receta en `sale_item_recipes` (`selected`/`selectedByDefault`/`isOptional` de cada insumo).
+   - Se descuenta stock solo de los insumos críticos con `autoDiscount` que estén seleccionados en el snapshot, y de las bebidas (`critical_supply` tipo `beverage`) vendidas.
    - Se insertan movimientos `sale`.
 
 2. **Pedido público (`/pedido`)**
@@ -134,7 +139,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 1. **Anulación de venta (`/ventas/[id]/anular`)**
    - La venta debe ser de una caja abierta.
-   - Se reintegra stock de los insumos críticos (`reintegrateStockForItems` con `movementType: 'cancellation'`).
+   - Se reintegra stock de los insumos críticos a partir del snapshot guardado en `sale_item_recipes` (`reintegrateStockForItems` con `movementType: 'cancellation'`).
    - Se resta la venta del resumen de caja.
    - La venta pasa a `cancelled`.
 
@@ -182,6 +187,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
    - Cada venta confirmada incrementa `totalSales`, `total`, `cashTotal` o `transferTotal` según medio de pago.
    - `productsSummary` cuenta unidades vendidas por nombre de producto.
    - `criticalSuppliesSummary` cuenta unidades de bebidas y, para promos, las cantidades de insumos críticos consumidos.
+   - `recipeSuppliesSummary` cuenta, para cada insumo incluido en promos, la cantidad consumida considerando los snapshots (`Insumos de recetas` en el cierre).
 
 3. **Cierre manual**
    - El operador/cierra la caja.
@@ -246,14 +252,16 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 2. Si no hay `?branchId`, se redirige a la sucursal por defecto (`DEFAULT_BRANCH_NAME`).
 3. Si hay más de una sucursal, puede elegir otra desde un selector.
 4. Al cambiar de sucursal se limpia el carrito y se recarga el catálogo de esa sucursal.
-5. El cliente agrega productos al carrito.
-6. El carrito se guarda en `localStorage` (`pancheria-cart-v1`) vinculado a la `branchId`.
+5. El cliente agrega productos al carrito. Si el producto es una promo con complementos opcionales, se abre `PromoOptionsDialog` para elegir qué insumos incluir.
+6. El carrito se guarda en `localStorage` (`pancheria-cart-v1`) vinculado a la `branchId`, incluyendo los `selectedRecipeItemIds` de cada promo.
 7. El cliente completa nombre, tipo de entrega (`delivery`/`pickup`) y notas.
 8. Al confirmar:
    - Se valida disponibilidad.
    - Se crea el pedido con estado `pending`.
+   - Se persiste el snapshot de receta en `order_item_recipes` (`selected`/`isOptional`/`selectedByDefault`).
    - **No se reserva ni descuenta stock**.
-   - El sistema muestra un resumen del pedido y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
+   - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
+   - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo.
    - Si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}` como fallback.
 9. El cliente coordina con la sucursal por el chat (texto e imágenes). El pedido queda `pending` hasta que el operador actúe.
 10. Si prefiere, el cliente puede abrir WhatsApp y enviar el mensaje. El navegador no puede verificar la entrega.
@@ -262,7 +270,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 ### 7.2 Flujo del operador
 
 1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado muestra `unreadCount` de mensajes sin leer. Si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0, el listado hace polling automático; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
-2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback) y las acciones de confirmar o cancelar.
+2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
 3. **Recibir y reservar**
    - No requiere caja abierta.
    - Valida disponibilidad considerando reservas ajenas.
@@ -349,9 +357,9 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 | Reposición manual | Sí | `restock` | `products`, `stock_movements` | Operador desde `/stock` |
 | Ajuste manual positivo | Sí | `manual_adjustment` | `products`, `stock_movements` | Operador desde `/stock` |
 | Ajuste manual negativo | Sí | `manual_adjustment` | `products`, `stock_movements` | No permite stock negativo |
-| Confirmar venta | Sí | `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `cashRegisters` | Descuenta insumos críticos y bebidas |
-| Anular venta | Sí | `cancellation` | `products`, `sales`, `stock_movements`, `cashRegisters` | Reintegra stock; requiere caja abierta |
-| Crear pedido público | No | — | `order_items`, `orders` | Valida stock; estado `pending` (no reserva) |
+| Confirmar venta | Sí | `sale` | `products`, `sale_items`, `sale_item_recipes`, `sales`, `stock_movements`, `cashRegisters` | Descuenta insumos críticos con `autoDiscount` seleccionados en el snapshot |
+| Anular venta | Sí | `cancellation` | `products`, `sales`, `sale_items`, `sale_item_recipes`, `stock_movements`, `cashRegisters` | Reintegra insumos críticos seleccionados en el snapshot; requiere caja abierta |
+| Crear pedido público | No | — | `order_items`, `order_item_recipes`, `orders` | Valida stock; persiste snapshot de receta; estado `pending` (no reserva) |
 | Recibir y reservar pedido | No | `reserve` | `order_stock_reservations`, `stock_movements` | Reserva stock lógico; pedido pasa a `in_process` |
 | Confirmar pago de pedido | Sí | `reserve_release`, `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `orders`, `cashRegisters`, `order_stock_reservations` | Libera reserva propia, descuenta stock y crea venta |
 | Finalizar pedido | No | — | `orders` | Pedido pasa a `finished`; no modifica stock |
@@ -371,8 +379,8 @@ Tanto `confirmSale` como `createOrder` usan los mismos helpers compartidos:
 - `buildProductContext(branchId, productIds)` (`src/lib/product-helpers.ts`): carga productos y recetas.
 - `validateProductsForOperation(...)` (`src/lib/product-helpers.ts`): valida que los productos sean vendibles, activos y de la sucursal.
 - `validateCartAvailability(...)` (`src/lib/product-helpers.ts`): calcula disponibilidad y shortage.
-- `buildSaleItemValues(productById, items)` (`src/lib/sale-helpers.ts`): calcula `unitPrice` y `subtotal`.
-- `buildOrderValues(...)` y `buildOrderItemValues(...)` (`src/lib/order-helpers.ts`): construyen los registros de `orders` y `order_items`.
+- `buildSaleItemValues(productById, items)` (`src/lib/sale-helpers.ts`): calcula `unitPrice`, `subtotal` y `recipeSnapshot` para cada ítem.
+- `buildOrderValues(...)` y `buildOrderItemValues(...)` (`src/lib/order-helpers.ts`): construyen los registros de `orders` y `order_items`, incluyendo el snapshot de receta.
 - `deductStockForItems(...)` (`src/application/services/saleService.ts`): descuenta stock con lock pesimista (`SELECT ... FOR UPDATE`).
 - `lockOpenCashRegister(...)` y `lockCashRegisterById(...)` (`src/lib/cash-register-helpers.ts`): lockean la caja abierta para actualizarla.
 
@@ -409,9 +417,11 @@ Disponibilidad = `stock` del producto `critical_supply` tipo `beverage`.
 
 Disponibilidad = infinita.
 
-### 12.4 Manual y otros críticos
+### 12.4 Manual, servicios y otros críticos
 
-No son vendibles al público, por lo que no aparecen en catálogo ni terminal de ventas.
+- Los insumos manuales y los servicios no son vendibles por sí solos, por lo que no aparecen en catálogo ni terminal de ventas como productos independientes.
+- Sí pueden aparecer como complementos opcionales dentro de la promo (`PromoOptionsDialog`).
+- Su selección no afecta la disponibilidad ni el precio de la promo.
 
 ---
 

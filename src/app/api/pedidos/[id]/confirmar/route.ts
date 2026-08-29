@@ -27,7 +27,7 @@ export const POST = withApiErrorHandling(
     const sale = await orderService.convertOrderToSale({
       branchId,
       orderId,
-      paymentMethod: data.paymentMethod,
+      payments: data.payments,
       idempotencyKey: data.idempotencyKey,
     });
 

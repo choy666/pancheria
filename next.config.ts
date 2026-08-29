@@ -12,11 +12,42 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', 'date-fns'],
   },
   async headers() {
+    const storageProvider = (process.env.STORAGE_PROVIDER ?? 'local').trim();
+    const allowedImageDomains = (
+      process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS ?? ''
+    )
+      .split(',')
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => (d.startsWith('http://') || d.startsWith('https://') ? d : `https://${d}`));
+
+    const imageSources = ["'self'", 'data:', 'blob:'];
+
+    if (storageProvider === 'vercel-blob') {
+      imageSources.push('https://blob.vercel-storage.com');
+    }
+
+    if (storageProvider === 's3' && process.env.S3_ENDPOINT) {
+      const origin = new URL(process.env.S3_ENDPOINT).origin;
+      imageSources.push(origin);
+    }
+
+    if (
+      storageProvider === 'r2' &&
+      process.env.R2_ACCOUNT_ID
+    ) {
+      imageSources.push(
+        `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+      );
+    }
+
+    imageSources.push(...allowedImageDomains);
+
     const cspDirectives = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      `img-src ${imageSources.join(' ')}`,
       "media-src 'self' blob:",
       "connect-src 'self'",
       "font-src 'self'",

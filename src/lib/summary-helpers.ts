@@ -1,3 +1,5 @@
+import type { RecipeItemConfig } from '@/domain/types';
+
 type SummaryProduct = {
   id: number;
   name: string;
@@ -15,23 +17,48 @@ type RecipeLike = {
 export function addItemToSummary(
   productsSummary: Record<string, number>,
   criticalSuppliesSummary: Record<string, number>,
+  recipeSuppliesSummary: Record<string, number>,
   product: SummaryProduct,
   quantity: number,
   recipesByProduct: Map<number, RecipeLike[]>,
+  recipeSnapshot?: RecipeItemConfig[],
   sign: 1 | -1 = 1
 ): void {
   productsSummary[product.name] =
     (productsSummary[product.name] ?? 0) + sign * quantity;
 
-  if (product.type === 'compound') {
-    const recipeList = recipesByProduct.get(product.id) ?? [];
-    for (const recipeItem of recipeList) {
-      if (!recipeItem.autoDiscount) continue;
+  const effectiveSnapshot = recipeSnapshot ?? [];
+  const hasSnapshot = effectiveSnapshot.length > 0;
 
-      const consumed = recipeItem.quantity * quantity;
-      const supplyName = recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
-      criticalSuppliesSummary[supplyName] =
-        (criticalSuppliesSummary[supplyName] ?? 0) + sign * consumed;
+  if (product.type === 'compound') {
+    if (hasSnapshot) {
+      for (const config of effectiveSnapshot) {
+        if (!config.selected) continue;
+
+        const consumed = config.quantity * quantity;
+        recipeSuppliesSummary[config.supplyName] =
+          (recipeSuppliesSummary[config.supplyName] ?? 0) + sign * consumed;
+
+        if (config.autoDiscount) {
+          criticalSuppliesSummary[config.supplyName] =
+            (criticalSuppliesSummary[config.supplyName] ?? 0) + sign * consumed;
+        }
+      }
+    } else {
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      for (const recipeItem of recipeList) {
+        const consumed = recipeItem.quantity * quantity;
+        const supplyName =
+          recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
+
+        recipeSuppliesSummary[supplyName] =
+          (recipeSuppliesSummary[supplyName] ?? 0) + sign * consumed;
+
+        if (recipeItem.autoDiscount) {
+          criticalSuppliesSummary[supplyName] =
+            (criticalSuppliesSummary[supplyName] ?? 0) + sign * consumed;
+        }
+      }
     }
   } else if (
     product.type === 'critical_supply' &&

@@ -223,6 +223,7 @@ describe('cashRegisterService', () => {
         totalSales: 0,
         productsSummary: {},
         criticalSuppliesSummary: {},
+        recipeSuppliesSummary: {},
       } as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
@@ -303,6 +304,7 @@ describe('cashRegisterService', () => {
           openedAt: new Date(),
           openedBy: 'operador',
           status: 'open',
+          initialAmount: 0,
         },
       ];
 
@@ -310,6 +312,30 @@ describe('cashRegisterService', () => {
 
       expect(result?.branchId).toBe(BRANCH_ID);
       expect(result?.openedBy).toBe('operador');
+    });
+
+    test('guarda el monto inicial al abrir caja', async () => {
+      mockSelectResult = [];
+      mockInsertResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'operador',
+          status: 'open',
+          initialAmount: 500,
+        },
+      ];
+
+      const result = await openCashRegister({ branchId: BRANCH_ID, openedBy: 'operador', initialAmount: 500 });
+
+      expect(result?.initialAmount).toBe(500);
+    });
+
+    test('rechaza un monto inicial negativo', async () => {
+      mockSelectResult = [];
+
+      await expect(openCashRegister({ branchId: BRANCH_ID, openedBy: 'operador', initialAmount: -100 })).rejects.toThrow(ValidationError);
     });
   });
 
@@ -334,6 +360,7 @@ describe('cashRegisterService', () => {
           branchId: BRANCH_ID,
           total: 1000,
           paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1000 }],
           status: 'active',
           items: [
             {
@@ -422,6 +449,83 @@ describe('cashRegisterService', () => {
 
       expect(result?.branchId).toBe(BRANCH_ID);
       expect(result?.closedBy).toBe('operador');
+    });
+
+    test('registra el conteo de cierre y la diferencia con el efectivo esperado', async () => {
+      mockUpdate.mockResolvedValue([
+        {
+          ...createMockCashRegister(),
+          initialAmount: 200,
+          cashTotal: 800,
+          closingCashCount: 1050,
+          closingDifference: 50,
+          closingNotes: 'sobrante de vuelto',
+          closedBy: 'operador',
+        },
+      ]);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+          initialAmount: 200,
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          total: 800,
+          paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 800 }],
+          status: 'active',
+          items: [
+            {
+              quantity: 1,
+              product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
+            },
+          ],
+        },
+      ] as any);
+
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          compoundProductId: 1,
+          supplyId: 2,
+          quantity: 1,
+          autoDiscount: true,
+          supply: { id: 2, branchId: BRANCH_ID, name: 'Pan' },
+        },
+      ] as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = await closeCashRegister(BRANCH_ID, 1, 'operador', 1050, 'sobrante de vuelto');
+
+      expect(result?.closingCashCount).toBe(1050);
+      expect(result?.closingDifference).toBe(50);
+      expect(result?.closingNotes).toBe('sobrante de vuelto');
+    });
+
+    test('rechaza un monto contado negativo al cerrar', async () => {
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          status: 'open',
+          deletedAt: null,
+        },
+      ];
+
+      await expect(closeCashRegister(BRANCH_ID, 1, 'operador', -100)).rejects.toThrow(ValidationError);
     });
   });
 
@@ -770,6 +874,7 @@ describe('cashRegisterService', () => {
           branchId: BRANCH_ID,
           total: 1500,
           paymentMethod: 'cash',
+          payments: [{ method: 'cash', amount: 1500 }],
           status: 'active',
           items: [
             {
@@ -783,6 +888,7 @@ describe('cashRegisterService', () => {
           branchId: BRANCH_ID,
           total: 800,
           paymentMethod: 'transfer',
+          payments: [{ method: 'transfer', amount: 800 }],
           status: 'active',
           items: [
             {
@@ -831,6 +937,50 @@ describe('cashRegisterService', () => {
         Gaseosa: 2,
         Salchicha: 0,
       });
+    });
+
+    test('separa efectivo y transferencia cuando una venta tiene pago mixto', async () => {
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          total: 2000,
+          paymentMethod: 'cash',
+          payments: [
+            { method: 'cash', amount: 500 },
+            { method: 'transfer', amount: 1500 },
+          ],
+          status: 'active',
+          items: [
+            {
+              quantity: 1,
+              product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
+            },
+          ],
+        },
+      ] as any);
+
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          compoundProductId: 1,
+          supplyId: 2,
+          quantity: 1,
+          autoDiscount: true,
+          supply: { id: 2, branchId: BRANCH_ID, name: 'Pan' },
+        },
+      ] as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = await calculateCashRegisterSummary(BRANCH_ID, 1);
+
+      expect(result.total).toBe(2000);
+      expect(result.cashTotal).toBe(500);
+      expect(result.transferTotal).toBe(1500);
+      expect(result.totalSales).toBe(1);
     });
 
     test('incluye todos los insumos críticos activos con cantidad cero cuando no hay ventas', async () => {

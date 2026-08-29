@@ -6,7 +6,7 @@ import * as dailyClosureRepository from '@/repositories/dailyClosureRepository';
 import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
 import { startOfDayUTC, endOfDayUTC, nowUTC } from '@/lib/date';
 import { ValidationError } from '@/domain/errors';
-import type { PaginationParams } from '@/domain/types';
+import type { PaginationParams, RecipeItemConfig } from '@/domain/types';
 
 export async function generateClosure(branchId: number, date: Date) {
   const start = startOfDayUTC(date);
@@ -63,23 +63,33 @@ export async function generateClosure(branchId: number, date: Date) {
         items: {
           with: {
             product: true,
+            recipeSnapshots: true,
           },
         },
+        payments: true,
         cashRegister: true,
       },
     })) as {
       total: number;
-      paymentMethod: 'cash' | 'transfer';
+      paymentMethod?: 'cash' | 'transfer';
+      payments?: { method: 'cash' | 'transfer'; amount: number }[];
       cashRegister: { deletedAt: Date | null } | null;
       items: {
         quantity: number;
         product: typeof products.$inferSelect | null;
+        recipeSnapshots: RecipeItemConfig[];
       }[];
     }[];
 
-    const activeSales = salesInRange.filter(
-      (sale) => sale.cashRegister?.deletedAt === null
-    ) as SaleWithItems[];
+    const activeSales: SaleWithItems[] = salesInRange
+      .filter((sale) => sale.cashRegister?.deletedAt === null)
+      .map((sale) => ({
+        ...sale,
+        items: sale.items.map((item) => ({
+          ...item,
+          recipeSnapshot: item.recipeSnapshots as unknown as RecipeItemConfig[],
+        })),
+      }));
 
     const summary = await calculateSummaryFromSales(branchId, activeSales, tx);
 

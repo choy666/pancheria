@@ -138,6 +138,7 @@ export async function create(params: {
   branchId: number;
   openedAt: Date;
   openedBy: string;
+  initialAmount?: number;
 }) {
   const [result] = await db
     .insert(cashRegisters)
@@ -145,6 +146,7 @@ export async function create(params: {
       branchId: params.branchId,
       openedAt: params.openedAt,
       openedBy: params.openedBy,
+      initialAmount: params.initialAmount ?? 0,
       status: 'open',
     })
     .returning();

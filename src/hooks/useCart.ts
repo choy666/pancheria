@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
-import type { CriticalSupplyType, ProductType } from '@/domain/types';
+import type {
+  CriticalSupplyType,
+  ProductType,
+  RecipeItemConfig,
+} from '@/domain/types';
 
 export interface CartProduct {
   id: number;
@@ -9,10 +13,12 @@ export interface CartProduct {
   unit: string;
   type: ProductType;
   criticalSupplyType?: CriticalSupplyType | null;
+  recipe?: RecipeItemConfig[];
 }
 
 export interface CartItem extends CartProduct {
   quantity: number;
+  selectedRecipeItemIds: number[];
 }
 
 const cartItemSchema = z.object({
@@ -26,6 +32,7 @@ const cartItemSchema = z.object({
     .nullable()
     .optional(),
   quantity: z.number().int().positive(),
+  selectedRecipeItemIds: z.array(z.number().int().positive()).default([]),
 });
 
 const storedCartSchema = z.object({
@@ -33,6 +40,16 @@ const storedCartSchema = z.object({
   branchId: z.number().int().positive(),
   items: z.array(cartItemSchema),
 });
+
+function getDefaultSelectedRecipeItemIds(
+  product: CartProduct
+): number[] {
+  return (
+    product.recipe
+      ?.filter((item) => item.isOptional && item.selectedByDefault)
+      .map((item) => item.supplyId) ?? []
+  );
+}
 
 const STORAGE_KEY = 'pancheria-cart-v1';
 
@@ -80,7 +97,11 @@ function getInitialItems(
 
         if (!isService && quantity <= 0) return null;
 
-        return { ...product, quantity };
+        return {
+          ...product,
+          quantity,
+          selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+        };
       })
       .filter((item): item is CartItem => item !== null);
   } catch {
@@ -104,13 +125,23 @@ export function useCart({
   // se persiste en localStorage y se restaura en el cliente.
   const [items, setItems] = useState<CartItem[]>([]);
   const previousBranchIdRef = useRef<number | null>(null);
+  const userInteractedRef = useRef(false);
 
   // Carga inicial y reinicialización al cambiar de sucursal. Se ejecuta en
   // un efecto porque localStorage no está disponible durante el render del
   // servidor y no queremos que el HTML inicial dependa de él.
+  // Si el usuario ya interactuó antes de que este efecto corra (por ejemplo,
+  // un click muy rápido en E2E), no pise el carrito que ya armó.
   useEffect(() => {
     if (previousBranchIdRef.current === branchId) return;
+
+    const isInitialLoad = previousBranchIdRef.current === null;
     previousBranchIdRef.current = branchId;
+
+    if (isInitialLoad && userInteractedRef.current) {
+      return;
+    }
+
     setItems(getInitialItems(branchId, products, getAvailability));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
@@ -134,11 +165,15 @@ export function useCart({
   }, [items]);
 
   const addItem = useCallback(
-    (product: CartProduct) => {
+    (product: CartProduct, selectedRecipeItemIds?: number[]) => {
+      userInteractedRef.current = true;
       const isService = product.type === 'service';
       const availability = getAvailability(product.id);
 
       if (!isService && availability <= 0) return;
+
+      const resolvedSelected =
+        selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
 
       setItems((prev) => {
         const existing = prev.find((item) => item.id === product.id);
@@ -156,18 +191,41 @@ export function useCart({
           );
         }
 
-        return [...prev, { ...product, quantity: 1 }];
+        return [
+          ...prev,
+          {
+            ...product,
+            quantity: 1,
+            selectedRecipeItemIds: resolvedSelected,
+          },
+        ];
       });
     },
     [getAvailability]
   );
 
+  const updateSelectedRecipeItemIds = useCallback(
+    (productId: number, selectedRecipeItemIds: number[]) => {
+      userInteractedRef.current = true;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === productId
+            ? { ...item, selectedRecipeItemIds }
+            : item
+        )
+      );
+    },
+    []
+  );
+
   const removeItem = useCallback((productId: number) => {
+    userInteractedRef.current = true;
     setItems((prev) => prev.filter((item) => item.id !== productId));
   }, []);
 
   const updateQuantity = useCallback(
     (productId: number, quantity: number) => {
+      userInteractedRef.current = true;
       if (quantity <= 0) {
         removeItem(productId);
         return;
@@ -197,6 +255,7 @@ export function useCart({
   );
 
   const clearCart = useCallback(() => {
+    userInteractedRef.current = true;
     setItems([]);
   }, []);
 
@@ -211,6 +270,7 @@ export function useCart({
     addItem,
     removeItem,
     updateQuantity,
+    updateSelectedRecipeItemIds,
     clearCart,
   };
 }

@@ -43,4 +43,18 @@ export function validateBranchOwnership<T extends { branchId: number; name?: str
   }
 }
 
+export function validateNonNegativeMoney(
+  value: unknown,
+  fieldName: string
+): number {
+  const asNumber = typeof value === 'string' ? Number(value) : Number(value);
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+  if (Number.isNaN(asNumber) || asNumber < 0) {
+    throw new ValidationError(`${fieldName} debe ser un monto mayor o igual a 0.`);
+  }
+  return Math.round(asNumber * 100) / 100;
+}
+
 

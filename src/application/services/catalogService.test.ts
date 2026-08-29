@@ -60,7 +60,8 @@ function makePublicProduct(
   name: string,
   type: ProductRow['type'],
   criticalSupplyType?: ProductRow['criticalSupplyType'],
-  availability = 0
+  availability = 0,
+  imageUrl: string | null = null
 ) {
   return {
     id,
@@ -70,6 +71,7 @@ function makePublicProduct(
     criticalSupplyType: criticalSupplyType ?? null,
     price: 100,
     unit: 'unidad',
+    imageUrl,
     availability,
     breakdown: [],
   };

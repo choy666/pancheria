@@ -134,6 +134,9 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Errores de deploy en Vercel](archivados/errores-deploy-vercel-forbidden-react-441.md) — resuelto: todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`; las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`.
 - [Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes](archivados/auditoria-chat-workaround-y-mejoras.md) — resuelto: JSON body, compresión en test, `disablePollingOnMount` y `force-dynamic`.
 - [Auditoría de rate limit 429](archivados/auditoria-rate-limit-429.md) — resuelto: ajustes en rate limit de pedidos y chat.
+- [Soporte de pagos mixtos en ventas y pedidos](archivados/pago-mixto-ventas-y-pedidos.md) — resuelto: tabla `sale_payments`, pagos mixtos en ventas y confirmación de pedidos; migración `0022_jittery_grandmaster.sql`.
+- [Personalizar promos permitiendo quitar insumos manuales y servicios](archivados/promos-con-servicios-y-manuales.md) — resuelto: promos con insumos críticos, manuales y servicios, snapshots de receta en `sale_item_recipes`/`order_item_recipes`; migraciones `0018_black_vin_gonzales.sql`, `0021_ambiguous_mandarin.sql` y `0023_chubby_sersi.sql`.
+- [Imágenes ilustrativas para promos y catálogo público](archivados/plan-imagenes-promos.md) — resuelto: imágenes de productos/promos en catálogo público; migración `0021_ambiguous_mandarin.sql`.
 
 ## Véase también
 

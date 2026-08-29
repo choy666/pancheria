@@ -30,6 +30,7 @@ const mockClosure = {
   totalSales: 1,
   productsSummary: { Pancho: 1 },
   criticalSuppliesSummary: {},
+  recipeSuppliesSummary: {},
 };
 
 function createResponse(body: unknown, ok = true): Response {

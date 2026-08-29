@@ -88,9 +88,10 @@ export interface UsePedidoClientResult {
 
   items: CartItem[];
   total: number;
-  addItem: (product: PublicCatalogProduct) => void;
+  addItem: (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
+  updateSelectedRecipeItemIds: (productId: number, selectedRecipeItemIds: number[]) => void;
   clearCart: () => void;
 
   recentOrders: RecentOrder[];
@@ -171,7 +172,15 @@ export function usePedidoClient({
     [products]
   );
 
-  const { items, total, addItem, removeItem, updateQuantity, clearCart } = useCart({
+  const {
+    items,
+    total,
+    addItem: cartAddItem,
+    removeItem,
+    updateQuantity,
+    updateSelectedRecipeItemIds,
+    clearCart,
+  } = useCart({
     branchId: activeBranch.id,
     products,
     getAvailability,
@@ -226,6 +235,7 @@ export function usePedidoClient({
               items: items.map((item) => ({
                 productId: item.id,
                 quantity: item.quantity,
+                selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
               })),
             }),
           }
@@ -258,6 +268,13 @@ export function usePedidoClient({
 
   const groupedProducts = groupPublicProductsByType(products);
   const isActiveBranchValid = branches.some((b) => b.id === activeBranch.id);
+
+  const addItem = useCallback(
+    (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => {
+      cartAddItem(product, selectedRecipeItemIds);
+    },
+    [cartAddItem]
+  );
 
   function handleBranchChange(branchId: string | null) {
     if (!branchId) return;
@@ -325,6 +342,7 @@ export function usePedidoClient({
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
+            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
           })),
           customerName: customerName.trim(),
           customerPhone: phoneCleaned,
@@ -458,6 +476,7 @@ export function usePedidoClient({
     addItem,
     removeItem,
     updateQuantity,
+    updateSelectedRecipeItemIds,
     clearCart,
 
     recentOrders,

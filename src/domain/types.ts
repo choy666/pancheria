@@ -16,6 +16,11 @@ export type CriticalSupplyType = 'bread' | 'sausage' | 'beverage';
 
 export type PaymentMethod = 'cash' | 'transfer';
 
+export type PaymentPart = {
+  method: PaymentMethod;
+  amount: number;
+};
+
 export type SaleStatus = 'active' | 'cancelled';
 
 export type OrderStatus =
@@ -62,14 +67,30 @@ export type ProductRow = {
   stock: number;
   minStock: number;
   isActive: boolean;
+  imageUrl?: string | null;
+  imageKey?: string | null;
+  imageMimeType?: string | null;
+  imageSize?: number | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
 };
 
+export type RecipeItemConfig = {
+  supplyId: number;
+  supplyName: string;
+  supplyType: ProductType;
+  quantity: number;
+  autoDiscount: boolean;
+  isOptional: boolean;
+  selected: boolean;
+  selectedByDefault: boolean;
+};
+
 export type SaleItemInput = {
   productId: number;
   quantity: number;
+  selectedRecipeItemIds?: number[];
 };
 
 export type Order = {
@@ -93,7 +114,7 @@ export type Order = {
   items?: OrderItem[];
 };
 
-type OrderItem = {
+export type OrderItem = {
   id: number;
   orderId: number;
   productId: number;
@@ -101,6 +122,7 @@ type OrderItem = {
   unitPrice: number;
   subtotal: number;
   product?: ProductRow;
+  recipeSnapshot?: RecipeItemConfig[];
 };
 
 export type OrderWithItems = Order & {

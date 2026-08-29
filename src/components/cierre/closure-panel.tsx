@@ -19,6 +19,7 @@ interface Closure {
   totalSales: number;
   productsSummary: Record<string, number>;
   criticalSuppliesSummary: Record<string, number>;
+  recipeSuppliesSummary: Record<string, number>;
 }
 
 export function ClosurePanel() {
@@ -62,6 +63,8 @@ export function ClosurePanel() {
     closure?.productsSummary ?? {};
   const criticalSuppliesSummary: Record<string, number> =
     closure?.criticalSuppliesSummary ?? {};
+  const recipeSuppliesSummary: Record<string, number> =
+    closure?.recipeSuppliesSummary ?? {};
 
   function downloadCsv() {
     if (!closure) return;
@@ -80,6 +83,11 @@ export function ClosurePanel() {
     lines.push('');
     lines.push('Insumo crítico,Cantidad');
     Object.entries(criticalSuppliesSummary).forEach(([name, quantity]) => {
+      lines.push(`${name},${quantity}`);
+    });
+    lines.push('');
+    lines.push('Insumos de recetas,Cantidad');
+    Object.entries(recipeSuppliesSummary).forEach(([name, quantity]) => {
       lines.push(`${name},${quantity}`);
     });
 
@@ -182,6 +190,27 @@ export function ClosurePanel() {
                   <li
                     key={name}
                     data-testid="closure-supply-item"
+                    data-supply-name={name}
+                    className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+                  >
+                    <span>{name}</span>
+                    <span className="font-mono font-medium">{quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="closure-recipe-supplies-card">
+            <CardHeader>
+              <CardTitle className="text-lg">Insumos de recetas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {Object.entries(recipeSuppliesSummary).map(([name, quantity]) => (
+                  <li
+                    key={name}
+                    data-testid="closure-recipe-supply-item"
                     data-supply-name={name}
                     className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
                   >

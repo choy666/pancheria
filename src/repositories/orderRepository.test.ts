@@ -74,7 +74,7 @@ describe('orderRepository', () => {
 
   describe('findById', () => {
     test('devuelve un pedido con items y sucursal', async () => {
-      const expected = buildOrder();
+      const expected = { ...buildOrder(), items: [] };
       mockFindFirst.mockResolvedValue(expected);
 
       const result = await orderRepository.findById(BRANCH_ID, ORDER_ID);
@@ -85,7 +85,7 @@ describe('orderRepository', () => {
           where: expect.anything(),
           with: {
             branch: true,
-            items: { with: { product: true } },
+            items: { with: { product: true, recipeSnapshots: true } },
           },
         })
       );
@@ -124,7 +124,7 @@ describe('orderRepository', () => {
 
   describe('findByIdempotencyKey', () => {
     test('devuelve el pedido existente', async () => {
-      const expected = buildOrder();
+      const expected = { ...buildOrder(), items: [] };
       mockFindFirst.mockResolvedValue(expected);
 
       const result = await orderRepository.findByIdempotencyKey(BRANCH_ID, 'key-1');
@@ -133,6 +133,10 @@ describe('orderRepository', () => {
       expect(mockFindFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
+          with: {
+            branch: true,
+            items: { with: { product: true, recipeSnapshots: true } },
+          },
         })
       );
     });
@@ -201,7 +205,7 @@ describe('orderRepository', () => {
       expect(result).toHaveLength(1);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          with: { items: true },
+          with: { items: { with: { recipeSnapshots: true } } },
         })
       );
     });
@@ -218,7 +222,7 @@ describe('orderRepository', () => {
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
-          with: { items: true },
+          with: { items: { with: { recipeSnapshots: true } } },
         })
       );
     });

@@ -175,23 +175,38 @@ describe('saleSchema', () => {
   test('acepta una venta válida en efectivo', () => {
     const data = {
       items: [{ productId: 1, quantity: 2 }],
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 100 }],
       idempotencyKey: 'abc123',
     };
 
     const result = saleSchema.parse(data);
-    expect(result.paymentMethod).toBe('cash');
+    expect(result.payments[0].method).toBe('cash');
     expect(result.items[0].quantity).toBe(2);
   });
 
   test('rechaza un medio de pago inválido', () => {
     const data = {
       items: [{ productId: 1, quantity: 1 }],
-      paymentMethod: 'tarjeta',
+      payments: [{ method: 'tarjeta', amount: 100 }],
       idempotencyKey: 'abc123',
     };
 
     expect(() => saleSchema.parse(data)).toThrow();
+  });
+
+  test('rechaza pagos duplicados del mismo medio', () => {
+    const data = {
+      items: [{ productId: 1, quantity: 1 }],
+      payments: [
+        { method: 'cash', amount: 50 },
+        { method: 'cash', amount: 50 },
+      ],
+      idempotencyKey: 'abc123',
+    };
+
+    expect(() => saleSchema.parse(data)).toThrow(
+      'No puede haber más de una parte por medio de pago.'
+    );
   });
 });
 

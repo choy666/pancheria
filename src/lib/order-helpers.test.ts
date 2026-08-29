@@ -80,8 +80,8 @@ describe('order-helpers', () => {
     it('agrega orderId a cada item', () => {
       const result = buildOrderItemValues(
         [
-          { productId: 1, quantity: 2, unitPrice: 1000, subtotal: 2000 },
-          { productId: 2, quantity: 1, unitPrice: 1500, subtotal: 1500 },
+          { productId: 1, productName: 'Pan', quantity: 2, unitPrice: 1000, subtotal: 2000 },
+          { productId: 2, productName: 'Panchuque', quantity: 1, unitPrice: 1500, subtotal: 1500 },
         ],
         10
       );

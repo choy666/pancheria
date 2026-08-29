@@ -1,7 +1,7 @@
 import { InsufficientStockError, NotFoundError, ValidationError } from '@/domain/errors';
 import { validateBranchOwnership } from '@/lib/validation-helpers';
 import { isPublicSellableProduct } from '@/lib/catalog';
-import type { ProductRow, SaleItemInput } from '@/domain/types';
+import type { ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
 import { db } from '@/db';
 import * as productRepository from '@/repositories/productRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
@@ -13,6 +13,42 @@ import {
   type RecipeWithSupply,
 } from '@/application/services/summaryService';
 
+function recipeItemToConfig(
+  recipe: RecipeWithSupply,
+  selected: boolean
+): RecipeItemConfig {
+  return {
+    supplyId: recipe.supplyId,
+    supplyName: recipe.supply?.name ?? `Insumo ${recipe.supplyId}`,
+    supplyType: recipe.supply?.type ?? 'critical_supply',
+    quantity: recipe.quantity,
+    autoDiscount: recipe.autoDiscount,
+    isOptional: recipe.isOptional,
+    selected,
+    selectedByDefault: recipe.selectedByDefault,
+  };
+}
+
+function isRecipeItemSelected(
+  recipe: RecipeWithSupply,
+  selectedRecipeItemIds: number[]
+): boolean {
+  if (!recipe.isOptional) return true;
+  return selectedRecipeItemIds.includes(recipe.supplyId);
+}
+
+export function buildRecipeSnapshot(
+  recipeItems: RecipeWithSupply[],
+  selectedRecipeItemIds: number[]
+): RecipeItemConfig[] {
+  return recipeItems.map((recipe) =>
+    recipeItemToConfig(
+      recipe,
+      isRecipeItemSelected(recipe, selectedRecipeItemIds)
+    )
+  );
+}
+
 export interface RecipeBreakdownItem {
   supplyName: string;
   available: number;
@@ -23,6 +59,7 @@ export interface RecipeBreakdownItem {
 export interface ProductAvailability {
   availability: number;
   breakdown: RecipeBreakdownItem[];
+  recipe?: RecipeItemConfig[];
 }
 
 export async function buildProductContext(
@@ -238,21 +275,25 @@ export async function calculateAvailabilityForProductIds(
     }
 
     if (product.type === 'compound') {
-      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
-        (r) => r.autoDiscount
-      );
+      const recipeList = recipesByProduct.get(product.id) ?? [];
+      const criticalItems = recipeList.filter((r) => r.autoDiscount);
       const breakdown = buildBreakdown(
         criticalItems,
         supplyStockById,
         supplyNameById
       );
 
+      const defaultSelectedIds = recipeList
+        .filter((r) => r.isOptional && r.selectedByDefault)
+        .map((r) => r.supplyId);
+
       resultById[product.id] = {
         availability: calculateCompoundAvailability(
-          recipesByProduct.get(product.id) ?? [],
+          recipeList,
           supplyStockById
         ),
         breakdown,
+        recipe: buildRecipeSnapshot(recipeList, defaultSelectedIds),
       };
     } else if (
       product.type === 'critical_supply' &&
@@ -381,8 +422,10 @@ export async function validateCartAvailability(
     const product = productById.get(item.productId)!;
     if (product.type === 'compound') {
       const recipeList = recipesByProduct.get(product.id) ?? [];
+      const selectedIds = item.selectedRecipeItemIds ?? [];
       for (const recipeItem of recipeList) {
         if (!recipeItem.autoDiscount) continue;
+        if (!isRecipeItemSelected(recipeItem, selectedIds)) continue;
         consumedBySupply[recipeItem.supplyId] =
           (consumedBySupply[recipeItem.supplyId] ?? 0) +
           item.quantity * recipeItem.quantity;

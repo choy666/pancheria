@@ -23,8 +23,8 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
     unreadCount,
     loading,
     error,
-    paymentMethod,
-    setPaymentMethod,
+    payments,
+    setPayments,
     cancelReason,
     setCancelReason,
     actionError,
@@ -75,9 +75,10 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
           order.status === 'paid') && (
           <PedidoActions
             status={order.status}
+            total={order.total}
             cashRegister={cashRegister}
-            paymentMethod={paymentMethod}
-            setPaymentMethod={setPaymentMethod}
+            payments={payments}
+            setPayments={setPayments}
             cancelReason={cancelReason}
             setCancelReason={setCancelReason}
             actionError={actionError}

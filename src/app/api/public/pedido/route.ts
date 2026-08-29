@@ -55,6 +55,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     price: item.product?.price ?? item.unitPrice,
     unit: item.product?.unit ?? 'unidad',
     quantity: item.quantity,
+    recipeSnapshot: item.recipeSnapshot,
   }));
 
   const expiresAt = new Date(

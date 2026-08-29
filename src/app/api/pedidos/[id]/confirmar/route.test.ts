@@ -74,7 +74,7 @@ describe('POST /api/pedidos/[id]/confirmar', () => {
 
     const response = await POST(
       buildRequest('1', {
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1500 }],
         idempotencyKey: 'key-1',
       }),
       { params: Promise.resolve({ id: '1' }) }
@@ -86,7 +86,7 @@ describe('POST /api/pedidos/[id]/confirmar', () => {
     expect(mockedOrderService.convertOrderToSale).toHaveBeenCalledWith({
       branchId: BRANCH_ID,
       orderId: 1,
-      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 1500 }],
       idempotencyKey: 'key-1',
     });
   });
@@ -103,7 +103,10 @@ describe('POST /api/pedidos/[id]/confirmar', () => {
 
   test('devuelve 400 cuando el cuerpo es inválido', async () => {
     const response = await POST(
-      buildRequest('1', { paymentMethod: 'crypto' }),
+      buildRequest('1', {
+        payments: [{ method: 'crypto', amount: 100 }],
+        idempotencyKey: 'key-1',
+      }),
       { params: Promise.resolve({ id: '1' }) }
     );
 
@@ -117,7 +120,7 @@ describe('POST /api/pedidos/[id]/confirmar', () => {
 
     const response = await POST(
       buildRequest('99', {
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: 'key-99',
       }),
       { params: Promise.resolve({ id: '99' }) }
@@ -135,7 +138,7 @@ describe('POST /api/pedidos/[id]/confirmar', () => {
 
     const response = await POST(
       buildRequest('1', {
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: 'key-1',
       }),
       { params: Promise.resolve({ id: '1' }) }
@@ -153,7 +156,7 @@ describe('POST /api/pedidos/[id]/confirmar', () => {
 
     const response = await POST(
       buildRequest('1', {
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: 'key-1',
       }),
       { params: Promise.resolve({ id: '1' }) }

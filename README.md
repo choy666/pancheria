@@ -46,8 +46,8 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 ## Notas de seguridad y producción
 
 - No commitear `.env.local` ni `.env.e2e`; `.env.e2e.example` es el template seguro para compartir.
-- En producción definir `NEXT_PUBLIC_APP_URL` y `NEXTAUTH_URL` con el dominio real. De lo contrario, las URLs de videos, chat y WhatsApp caerán en `http://localhost:3000`.
-- En producción usar `STORAGE_PROVIDER=vercel-blob`, `s3` o `r2`. `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
+- En producción definir `NEXT_PUBLIC_APP_URL` y `NEXTAUTH_URL` con el dominio real. De lo contrario, las URLs de videos, chat, imágenes de productos y WhatsApp caerán en `http://localhost:3000`.
+- En producción usar `STORAGE_PROVIDER=vercel-blob`, `s3` o `r2` para videos, adjuntos de chat e imágenes de productos. `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
 - Si `.env.local` fue expuesto, rotar `NEXTAUTH_SECRET`, `ADMIN_PASSWORD`, `BLOB_READ_WRITE_TOKEN` y las credenciales de Neon.
 
 ## Comandos
@@ -97,6 +97,15 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 - Los administradores pueden cambiar la sucursal activa desde el selector del panel; la selección se guarda en la cookie `activeBranchId`.
 - Productos, recetas, stock, cajas, ventas, movimientos y cierres diarios se filtran por la sucursal activa (`branchId`).
 - Las páginas `/sucursales` y `/usuarios` permiten a los administradores crear nuevas sucursales y usuarios operador.
+
+## Promos, recetas y snapshots
+
+- Las promos (`compound`) pueden incluir insumos críticos, manuales y servicios.
+- Los insumos críticos son obligatorios y descuentan stock automáticamente (`autoDiscount: true`).
+- Los insumos manuales y servicios pueden configurarse como opcionales y preseleccionados por defecto; su precio y el de la promo no cambian al quitarlos.
+- El cliente y el operador eligen los complementos desde `PromoOptionsDialog` en `/pedido` y `/ventas`.
+- Cada venta y pedido persiste un snapshot de receta (`sale_item_recipes` / `order_item_recipes`) para descuentos, reintegros, reservas y resúmenes históricos.
+- `orderService.createOrder` inserta un mensaje automático en el chat del pedido con el detalle de preparación.
 - El seed usa `DEFAULT_BRANCH_NAME` para crear la sucursal inicial y asignarle el administrador (`ADMIN_USERNAME`).
 
 ## Roles y permisos
@@ -141,6 +150,18 @@ El almacenamiento es configurable a través de `STORAGE_PROVIDER`: `local` (desa
 
 Variables de entorno relacionadas:
 `NEXT_PUBLIC_APP_URL` (opcional, prioridad sobre `NEXTAUTH_URL` para URLs de videos en modo local), `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`.
+
+## Imágenes de productos y promos
+
+El panel permite agregar, cambiar o quitar una imagen ilustrativa al crear/editar una promo. La imagen se muestra en el catálogo público (`/pedido`) y en el panel de productos.
+
+- El administrador sube un archivo o ingresa una URL externa desde el formulario de promo.
+- Endpoints: `POST /api/productos/imagen/preparar`, `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]`.
+- El almacenamiento usa el mismo `STORAGE_PROVIDER` de videos/chat: `local`, `vercel-blob`, `s3` o `r2`.
+- En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` pierde archivos en Vercel.
+
+Variables de entorno relacionadas:
+`NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES`, `PRODUCT_IMAGE_LOCAL_STORAGE_PATH`, `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS`, `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH`.
 
 ## Cron jobs
 

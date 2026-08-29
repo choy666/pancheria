@@ -44,7 +44,7 @@ test.describe('Validaciones y casos límite', () => {
     const venta = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: bebida.id, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 500 }],
         idempotencyKey: `sin-caja-${Date.now()}`,
       },
     });
@@ -72,7 +72,7 @@ test.describe('Validaciones y casos límite', () => {
     const venta = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: bebida.id, quantity: 2 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 500 * 2 }],
         idempotencyKey: `stock-bajo-${Date.now()}`,
       },
     });
@@ -104,7 +104,7 @@ test.describe('Validaciones y casos límite', () => {
     const venta1 = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: bebida.id, quantity: 1 }],
-        paymentMethod: 'transfer',
+        payments: [{ method: 'transfer', amount: 500 }],
         idempotencyKey: key,
       },
     });
@@ -113,7 +113,7 @@ test.describe('Validaciones y casos límite', () => {
     const venta2 = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: bebida.id, quantity: 1 }],
-        paymentMethod: 'transfer',
+        payments: [{ method: 'transfer', amount: 500 }],
         idempotencyKey: key,
       },
     });
@@ -174,7 +174,7 @@ test.describe('Validaciones y casos límite', () => {
     const venta = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: bebida.id, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 500 }],
         idempotencyKey: `caja-eliminada-${Date.now()}`,
       },
     });

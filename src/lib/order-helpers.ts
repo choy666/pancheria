@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'crypto';
 import { nowUTC } from '@/lib/date';
 import type { SaleItemValue } from '@/lib/sale-helpers';
+import type { RecipeItemConfig } from '@/domain/types';
 
 export function generateOrderNumber(branchId: number): string {
   return `PED-${branchId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -62,7 +63,42 @@ export function buildOrderItemValues(
   subtotal: number;
 }[] {
   return saleItemValues.map((item) => ({
-    ...item,
     orderId,
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    subtotal: item.subtotal,
   }));
+}
+
+function formatRecipeItemLine(recipe: RecipeItemConfig[]): string {
+  const selected = recipe.filter((r) => !r.isOptional || r.selected);
+  const removed = recipe.filter((r) => r.isOptional && !r.selected);
+
+  const selectedText =
+    selected.length > 0
+      ? `Incluye: ${selected.map((r) => r.supplyName).join(', ')}`
+      : '';
+  const removedText =
+    removed.length > 0
+      ? `Sin: ${removed.map((r) => r.supplyName).join(', ')}`
+      : '';
+
+  return [selectedText, removedText].filter(Boolean).join(' — ');
+}
+
+export function buildRecipeSnapshotMessageContent(
+  saleItemValues: SaleItemValue[]
+): string | null {
+  const lines = saleItemValues
+    .filter((item) => item.recipeSnapshot && item.recipeSnapshot.length > 0)
+    .map((item) =>
+      `${item.productName} x${item.quantity}: ${formatRecipeItemLine(
+        item.recipeSnapshot ?? []
+      )}`
+    );
+
+  if (lines.length === 0) return null;
+
+  return `Detalle de preparación:\n${lines.join('\n')}`;
 }

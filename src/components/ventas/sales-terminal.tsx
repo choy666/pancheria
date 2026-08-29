@@ -1,29 +1,33 @@
 'use client';
 
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
+import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import {
   PRODUCTOS_API,
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
-import type { ProductRow } from '@/domain/types';
+import type { PaymentPart, ProductRow, RecipeItemConfig } from '@/domain/types';
 
 interface Product extends ProductRow {
   availability: number;
+  recipe?: RecipeItemConfig[];
 }
 
 interface CartItem {
   product: Product;
   quantity: number;
+  selectedRecipeItemIds?: number[];
 }
 
 
@@ -37,6 +41,36 @@ function sellablePriority(product: Product): number {
   }
   if (product.type === 'service') return 3;
   return 4;
+}
+
+function SalesCartItemRecipeDetails({ item }: { item: CartItem }) {
+  const recipe = item.product.recipe;
+  if (!recipe || recipe.length === 0) return null;
+
+  const selectedIds = new Set(item.selectedRecipeItemIds ?? []);
+  const selected = recipe.filter(
+    (r) => !r.isOptional || selectedIds.has(r.supplyId)
+  );
+  const removed = recipe.filter(
+    (r) => r.isOptional && !selectedIds.has(r.supplyId)
+  );
+
+  return (
+    <span>
+      {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
+      {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
+    </span>
+  );
+}
+
+function getDefaultSelectedRecipeItemIds(
+  product: Product
+): number[] {
+  return (
+    product.recipe
+      ?.filter((item) => item.isOptional && item.selectedByDefault)
+      .map((item) => item.supplyId) ?? []
+  );
 }
 
 function sortSellableProducts(products: Product[]): Product[] {
@@ -53,7 +87,8 @@ export function SalesTerminal() {
   const isMountedRef = useRef(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [paymentOverrides, setPaymentOverrides] = useState<PaymentPart[] | null>(null);
+  const [promoDialogProduct, setPromoDialogProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -115,6 +150,7 @@ export function SalesTerminal() {
             items: cart.map((item) => ({
               productId: item.product.id,
               quantity: item.quantity,
+              selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
             })),
             productIds: products.map((p) => p.id),
           }),
@@ -151,7 +187,7 @@ export function SalesTerminal() {
     };
   }, [cart, products]);
 
-  function addToCart(product: Product) {
+  function addToCart(product: Product, selectedRecipeItemIds?: number[]) {
     if (!cashRegister || cashRegister.status !== 'open') return;
 
     const existing = cart.find((item) => item.product.id === product.id);
@@ -161,6 +197,16 @@ export function SalesTerminal() {
       Math.max((product.availability ?? 0) - currentQuantity, 0);
 
     if (product.type !== 'service' && additional <= 0) return;
+
+    const optionalItems =
+      product.recipe?.filter((item) => item.isOptional) ?? [];
+    if (optionalItems.length > 0 && selectedRecipeItemIds === undefined) {
+      setPromoDialogProduct(product);
+      return;
+    }
+
+    const resolvedSelected =
+      selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
 
     setIsCheckingAvailability(true);
     setCart((prev) => {
@@ -172,7 +218,10 @@ export function SalesTerminal() {
             : i
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [
+        ...prev,
+        { product, quantity: 1, selectedRecipeItemIds: resolvedSelected },
+      ];
     });
   }
 
@@ -206,6 +255,16 @@ export function SalesTerminal() {
     0
   );
 
+  const paymentParts = useMemo<PaymentPart[]>(() => {
+    if (paymentOverrides) {
+      const paid = paymentOverrides.reduce((sum, part) => sum + part.amount, 0);
+      if (Math.abs(paid - total) < 0.005) {
+        return paymentOverrides;
+      }
+    }
+    return [{ method: 'cash', amount: total }];
+  }, [paymentOverrides, total]);
+
   async function confirmSale() {
     if (cart.length === 0) {
       setError('El carrito está vacío.');
@@ -215,6 +274,16 @@ export function SalesTerminal() {
     if (!cashRegister || cashRegister.status !== 'open') {
       setError('No hay una caja abierta. Abrí la caja para comenzar a vender.');
       await refresh();
+      return;
+    }
+
+    const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
+    if (Math.abs(paid - total) >= 0.005) {
+      setError(
+        `El pago no cubre el total. Faltan $${Math.max(0, total - paid).toFixed(
+          2
+        )} o sobran $${Math.max(0, paid - total).toFixed(2)}.`
+      );
       return;
     }
 
@@ -228,8 +297,9 @@ export function SalesTerminal() {
           items: cart.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
+            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
           })),
-          paymentMethod,
+          payments: paymentParts,
           idempotencyKey: nanoid(),
         }),
       });
@@ -348,6 +418,14 @@ export function SalesTerminal() {
                         ? 'Disponible: sin límite'
                         : `Disponible: ${product.availability} ${product.unit}`}
                     </p>
+                    {product.type === 'compound' && product.recipe && product.recipe.length > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        Incluye: {product.recipe
+                          .filter((item) => !item.isOptional || item.selectedByDefault)
+                          .map((item) => item.supplyName)
+                          .join(', ')}
+                      </p>
+                    )}
                     {product.type !== 'service' && (
                       <p className="text-sm text-muted-foreground">
                         En este pedido:{' '}
@@ -387,6 +465,11 @@ export function SalesTerminal() {
                         <p className="font-mono text-sm text-muted-foreground">
                           ${item.product.price.toFixed(2)} x {item.quantity}
                         </p>
+                        {item.product.type === 'compound' && item.product.recipe && item.product.recipe.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            <SalesCartItemRecipeDetails item={item} />
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -433,24 +516,12 @@ export function SalesTerminal() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                onClick={() => setPaymentMethod('cash')}
-                disabled={cartDisabled}
-              >
-                Efectivo
-              </Button>
-              <Button
-                type="button"
-                variant={paymentMethod === 'transfer' ? 'default' : 'outline'}
-                onClick={() => setPaymentMethod('transfer')}
-                disabled={cartDisabled}
-              >
-                Transferencia
-              </Button>
-            </div>
+              <PaymentPartsInput
+                total={total}
+                payments={paymentParts}
+                onChange={setPaymentOverrides}
+                disabled={cartDisabled || isSubmitting}
+              />
 
             <Button
               type="button"
@@ -474,6 +545,22 @@ export function SalesTerminal() {
         </Card>
       </div>
     </div>
+
+      {promoDialogProduct && (
+        <PromoOptionsDialog
+          open={promoDialogProduct !== null}
+          onOpenChange={(open) => {
+            if (!open) setPromoDialogProduct(null);
+          }}
+          productName={promoDialogProduct.name}
+          productPrice={promoDialogProduct.price}
+          recipe={promoDialogProduct.recipe ?? []}
+          onConfirm={(selected) => {
+            addToCart(promoDialogProduct, selected);
+            setPromoDialogProduct(null);
+          }}
+        />
+      )}
     </div>
   );
 }

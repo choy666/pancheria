@@ -57,6 +57,8 @@
 ## 6. Documentación del proyecto
 
 - **Mantener `AGENTS.md`, `README.md` y `.devin/environment.yaml` actualizados** cuando cambia la arquitectura, la conexión a base de datos o los comandos de verificación.
+- **Incluir en `AGENTS.md`/`README.md` toda variable de entorno que esté en `.env.example`.** Si una feature agrega `process.env.*` nuevos (como las variables de imágenes de productos `NEXT_PUBLIC_PRODUCT_IMAGE_*`), deben documentarse en `AGENTS.md`, `README.md` y `.devin/environment.yaml` para evitar que operadores o futuros agentes ignoren la configuración.
+- **Archivar los prompts resueltos y actualizar los índices.** Los prompts de funcionalidades ya implementadas (por ejemplo, pagos mixtos, promos con insumos opcionales, imágenes de productos) deben moverse a `.devin/prompts/archivados/` y reflejarse en `.devin/prompts/README.md` y `.devin/README.md` para no confundir al equipo.
 
 ## 7. Pedidos públicos y panel de pedidos
 
@@ -68,6 +70,7 @@
 - **La expiración de pedidos debe tolerar carreras con la confirmación.** `expirePendingOrders` debe capturar el error si un pedido ya no está `pending` (por ejemplo, fue confirmado mientras se limpiaban pedidos viejos) y continuar con el resto, devolviendo la cantidad realmente expirada.
 - **`setState` dentro de `useEffect` está permitido en dos casos:** (a) carga asíncrona con flag de montaje (`isMountedRef` / `cancelled`) y cleanup; (b) persistencia derivada (`localStorage`). No usar para sincronizar props con estado; preferir cálculo en render, levantar estado al padre o `key` para forzar remonte.
 - **`useCart` debe invalidar el carrito si `branchId` cambia en tiempo de ejecución**, no solo al montar, usando una referencia a la sucursal previa.
+- **`useCart` no debe pisar el carrito con `localStorage` si el usuario ya interactuó.** En tests E2E un click rápido puede ejecutarse antes del `useEffect` de carga inicial; se agrega un flag de interacción para saltar la carga inicial solo en ese primer montaje y seguir cargando al cambiar de sucursal.
 - **`PedidoClient` usa `activeBranch` como única fuente de verdad de la sucursal** y fuerza el remonte con `key={branchId}`; el selector expone `data-testid="branch-select-trigger"`.
 - **El listado de pedidos (`/pedidos`) no hace polling automático por defecto.** `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` debe configurarse con un valor mayor a 0 para habilitarlo; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
 
@@ -106,3 +109,22 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 
 - **No duplicar en `knip.json` entradas que Knip ya detecta automáticamente.** Si un workflow de GitHub Actions o un script de `package.json` referencia un archivo (por ejemplo, `npx tsx src/db/seeds.ts` en `.github/workflows/ci.yml`), Knip puede considerarlo un punto de entrada por sí solo. Incluirlo explícitamente en `entry` genera un `Configuration hint` redundante. Eliminar la entrada duplicada, ejecutar `npm run knip` y confirmar que no quedan hints.
 - **Los avisos del IDE sobre `actions/checkout@v4` y `actions/setup-node@v4` son falsos positivos.** Esas son acciones oficiales de GitHub y el workflow es válido. El validador del IDE no las resuelve porque no puede consultar la API de GitHub o carece de acceso de red. No modificar `.github/workflows/ci.yml`; si se quiere silenciar el IDE, fijar las acciones a un SHA específico, aceptando el costo de mantenimiento.
+
+## 12. Deprecación de WhatsApp y prioridad del chat propio
+
+- **WhatsApp ya no es el canal prioritario de comunicación con el cliente.** El proyecto cuenta con un sistema de chat propio integrado en cada pedido. Nuevas funcionalidades deben mostrar la información en el chat, en el panel de pedidos y en el detalle del pedido, no depender de `src/lib/whatsapp.ts`.
+- **No agregar nuevas dependencias ni tests basados en WhatsApp.** `buildWhatsAppMessage` y `buildWhatsAppUrl` se consideran en deprecación. Si una mejora requiere mostrar un resumen al cliente, usar el chat del pedido o el diálogo de confirmación (`pedido-success-dialog.tsx`).
+- **El detalle de preparación de promos personalizadas debe estar en el chat y en el panel del operador.** El operador y el cliente deben ver el mismo detalle (insumos incluidos y quitados) sin salir de la aplicación.
+- **La remoción completa de WhatsApp se hará en una tarea aparte.** Hasta entonces, se puede conservar el código existente, pero no se debe extender.
+
+## 13. Promos con servicios, manuales y snapshots de receta
+
+- **Una promo (`compound`) puede incluir insumos críticos, manuales y servicios.** Los críticos son obligatorios y tienen `autoDiscount: true`; los manuales y servicios son opcionales (`isOptional: true`) con `selectedByDefault` configurable. El precio de la promo es fijo y no cambia si se quitan complementos.
+- **Los snapshots de receta persisten en `sale_item_recipes` y `order_item_recipes`.** Cada venta o pedido guarda la receta exacta seleccionada (`selected`, `isOptional`, `selectedByDefault`, cantidad, etc.), garantizando que futuras ediciones de la receta no modifiquen transacciones históricas.
+- **El stock solo se descuenta/reintegra con los insumos `autoDiscount` seleccionados del snapshot.** Si un complemento opcional se quitó, no se descuenta ni se reintegra. La disponibilidad de una promo depende solo de los insumos críticos con `autoDiscount`.
+- **`buildSaleItemValues` ahora retorna `productName` en cada ítem.** Esto permite construir mensajes y resúmenes sin volver a consultar el producto, pero obligó a actualizar `sale-helpers.test.ts` y `order-helpers.test.ts`.
+- **`orderService.createOrder` inserta un mensaje automático en el chat con el detalle de preparación.** El mensaje se crea como remitente `'Sistema'` (`senderType: 'operator'`) e incluye los insumos incluidos y quitados para cada promo.
+- **`PromoOptionsDialog` se usa en el catálogo público (`/pedido`) y en el terminal de ventas (`/ventas`).** Carga la receta desde el catálogo, inicializa los opcionales según `selectedByDefault`, bloquea los insumos críticos y devuelve los `selectedRecipeItemIds` al carrito.
+- **Los resúmenes de caja y cierres incluyen `recipeSuppliesSummary`.** En la UI se muestra una nueva tarjeta "Insumos de recetas" en el panel de cierre (`closure-panel.tsx`) y en el CSV descargable.
+- **El historial de ventas (`sales-history.tsx`) y el detalle de pedidos (`pedido-items-list.tsx`) muestran el detalle de preparación.** Se renderizan los insumos incluidos (`Incluye: ...`) y los opcionales quitados (`Sin: ...`).
+- **`promo-form.tsx` permite configurar complementos opcionales.** La interfaz de administración carga todos los productos activos (no solo críticos), valida que haya al menos un insumo crítico con descuento automático y permite marcar manuales/servicios como opcionales y preseleccionados.

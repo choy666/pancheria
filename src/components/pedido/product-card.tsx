@@ -1,13 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ImageOff } from 'lucide-react';
 import {
   productTypeLabels,
   criticalTypeLabels,
   productTypeBadgeClasses,
 } from '@/lib/product-style';
+import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
@@ -15,7 +18,7 @@ interface ProductCardProps {
   product: PublicCatalogProduct;
   inCart: boolean;
   breakdown: RecipeBreakdownItem[];
-  onAdd: () => void;
+  onAdd: (selectedRecipeItemIds?: number[]) => void;
   disabled?: boolean;
   showBreakdown?: boolean;
 }
@@ -28,21 +31,40 @@ export function ProductCard({
   disabled = false,
   showBreakdown = true,
 }: ProductCardProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
   const isOutOfStock = product.type !== 'service' && product.availability <= 0;
   const typeLabel = product.criticalSupplyType
     ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
     : productTypeLabels[product.type];
 
+  const recipe = product.recipe ?? [];
+  const optionalItems = recipe.filter((item) => item.isOptional);
+  const hasOptions = product.type === 'compound' && optionalItems.length > 0;
+
   const buttonLabel = isOutOfStock
     ? 'Agotado'
-    : inCart
-      ? 'Agregar otro'
-      : 'Agregar';
+    : hasOptions
+      ? 'Personalizar'
+      : inCart
+        ? 'Agregar otro'
+        : 'Agregar';
 
   const availabilityLabel =
     product.type === 'service'
       ? 'Disponible: sin límite'
       : `Disponible: ${product.availability} unidades`;
+
+  const includedItems = recipe
+    .filter((item) => !item.isOptional || item.selectedByDefault)
+    .map((item) => item.supplyName);
+
+  const handleAdd = () => {
+    if (hasOptions) {
+      setDialogOpen(true);
+      return;
+    }
+    onAdd();
+  };
 
   return (
     <Card
@@ -68,6 +90,25 @@ export function ProductCard({
       </CardHeader>
 
       <CardContent className="space-y-4 p-5 pt-0">
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
+          {product.imageUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={product.imageUrl}
+              alt={`Imagen de ${product.name}`}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={(event) => {
+                (event.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+              <ImageOff className="h-10 w-10" />
+            </div>
+          )}
+        </div>
+
         {product.description && (
           <p className="text-sm text-muted-foreground">{product.description}</p>
         )}
@@ -77,6 +118,13 @@ export function ProductCard({
         </p>
 
         <p className="text-sm text-muted-foreground">{availabilityLabel}</p>
+
+        {product.type === 'compound' && includedItems.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Incluye: {includedItems.join(', ')}
+            {optionalItems.length > 0 && ' (se puede quitar)'}
+          </p>
+        )}
 
         {showBreakdown && product.type === 'compound' && breakdown.length > 0 && (
           <details className="text-sm text-muted-foreground">
@@ -102,11 +150,22 @@ export function ProductCard({
           data-testid={`add-product-${product.id}`}
           className="w-full"
           disabled={isOutOfStock || disabled}
-          onClick={onAdd}
+          onClick={handleAdd}
         >
           {buttonLabel}
         </Button>
       </CardContent>
+
+      {hasOptions && (
+        <PromoOptionsDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          productName={product.name}
+          productPrice={product.price}
+          recipe={recipe}
+          onConfirm={onAdd}
+        />
+      )}
     </Card>
   );
 }

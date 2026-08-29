@@ -1,28 +1,50 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, orders } from '@/db/schema';
+import type { PaymentPart } from '@/domain/types';
 
 type IdempotencyScope = 'sale' | 'order';
 
 type SaleRow = typeof sales.$inferSelect;
 type OrderRow = typeof orders.$inferSelect;
 
-export async function findExistingByIdempotencyKey<
-  T extends IdempotencyScope
->(
-  scope: T,
+type SaleWithPayments = SaleRow & { payments: PaymentPart[] };
+
+export async function findExistingByIdempotencyKey(
+  scope: 'sale',
+  branchId: number,
+  key: string,
+  client?: typeof db
+): Promise<SaleWithPayments | null>;
+export async function findExistingByIdempotencyKey(
+  scope: 'order',
+  branchId: number,
+  key: string,
+  client?: typeof db
+): Promise<OrderRow | null>;
+export async function findExistingByIdempotencyKey(
+  scope: IdempotencyScope,
+  branchId: number,
+  key: string,
+  client?: typeof db
+): Promise<SaleWithPayments | OrderRow | null>;
+export async function findExistingByIdempotencyKey(
+  scope: IdempotencyScope,
   branchId: number,
   key: string,
   client: typeof db = db
-): Promise<(T extends 'sale' ? SaleRow : OrderRow) | null> {
+): Promise<SaleWithPayments | OrderRow | null> {
   if (scope === 'sale') {
     const existing = await client.query.sales.findFirst({
       where: and(
         eq(sales.branchId, branchId),
         eq(sales.idempotencyKey, key)
       ),
+      with: {
+        payments: true,
+      },
     });
-    return (existing ?? null) as (T extends 'sale' ? SaleRow : OrderRow) | null;
+    return (existing as SaleWithPayments | undefined) ?? null;
   }
 
   const existing = await client.query.orders.findFirst({
@@ -31,7 +53,7 @@ export async function findExistingByIdempotencyKey<
       eq(orders.idempotencyKey, key)
     ),
   });
-  return (existing ?? null) as (T extends 'sale' ? SaleRow : OrderRow) | null;
+  return (existing as OrderRow | undefined) ?? null;
 }
 
 export async function isIdempotencyKeyUsed(

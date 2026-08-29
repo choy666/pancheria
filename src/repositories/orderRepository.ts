@@ -1,7 +1,39 @@
 import { eq, and, isNull, count, lt, inArray, ilike, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders, orderItems, orderMessages } from '@/db/schema';
-import type { OrderStatus, OrderWithItems, OrderWithUnreadCount } from '@/domain/types';
+import type { OrderStatus, OrderWithItems, OrderWithUnreadCount, OrderItem, RecipeItemConfig } from '@/domain/types';
+
+function normalizeOrder(
+  order: (typeof orders.$inferSelect & {
+    branch?: unknown;
+    items?: (typeof orderItems.$inferSelect & {
+      product?: unknown;
+      recipeSnapshots?: unknown[];
+    })[];
+  })
+): OrderWithItems {
+  return {
+    ...order,
+    items: (order.items ?? []).map((item) =>
+      normalizeOrderItem(item)
+    ),
+  } as OrderWithItems;
+}
+
+function normalizeOrderItem(
+  item: (typeof orderItems.$inferSelect & {
+    product?: unknown;
+    recipeSnapshots?: unknown[];
+  })
+): OrderItem {
+  const { recipeSnapshots, ...rest } = item;
+  return {
+    ...rest,
+    recipeSnapshot: recipeSnapshots
+      ? (recipeSnapshots as unknown as RecipeItemConfig[])
+      : undefined,
+  } as OrderItem;
+}
 
 export async function findByIdWithToken(
   orderId: number,
@@ -56,7 +88,7 @@ export async function findById(
   branchId: number,
   id: number
 ): Promise<OrderWithItems | undefined> {
-  return (await db.query.orders.findFirst({
+  const order = await db.query.orders.findFirst({
     where: and(
       eq(orders.id, id),
       eq(orders.branchId, branchId),
@@ -64,9 +96,13 @@ export async function findById(
     ),
     with: {
       branch: true,
-      items: { with: { product: true } },
+      items: { with: { product: true, recipeSnapshots: true } },
     },
-  })) as OrderWithItems | undefined;
+  });
+
+  if (!order) return undefined;
+
+  return normalizeOrder(order);
 }
 
 export async function findByIdForCancel(
@@ -83,7 +119,7 @@ export async function findByIdempotencyKey(
   branchId: number,
   key: string
 ): Promise<OrderWithItems | null> {
-  const order = (await db.query.orders.findFirst({
+  const order = await db.query.orders.findFirst({
     where: and(
       eq(orders.branchId, branchId),
       eq(orders.idempotencyKey, key),
@@ -91,23 +127,25 @@ export async function findByIdempotencyKey(
     ),
     with: {
       branch: true,
-      items: { with: { product: true } },
+      items: { with: { product: true, recipeSnapshots: true } },
     },
-  })) as OrderWithItems | undefined;
+  });
 
-  return order ?? null;
+  return order ? normalizeOrder(order) : null;
 }
 
 export async function findPending(branchId: number): Promise<OrderWithItems[]> {
-  return (await db.query.orders.findMany({
+  const ordersList = await db.query.orders.findMany({
     where: and(
       eq(orders.branchId, branchId),
       eq(orders.status, 'pending'),
       isNull(orders.deletedAt)
     ),
     orderBy: (orders, { desc }) => [desc(orders.createdAt)],
-    with: { branch: true, items: { with: { product: true } } },
-  })) as OrderWithItems[];
+    with: { branch: true, items: { with: { product: true, recipeSnapshots: true } } },
+  });
+
+  return ordersList.map((order) => normalizeOrder(order));
 }
 
 export async function findOrders(
@@ -147,13 +185,15 @@ export async function findOrders(
     .from(orders)
     .where(and(...conditions));
 
-  const items = (await db.query.orders.findMany({
+  const rawItems = (await db.query.orders.findMany({
     where: and(...conditions),
     orderBy: (orders, { desc }) => [desc(orders.createdAt)],
     limit,
     offset,
-    with: { branch: true, items: { with: { product: true } } },
-  })) as OrderWithItems[];
+    with: { branch: true, items: { with: { product: true, recipeSnapshots: true } } },
+  })) as (typeof orders.$inferSelect & { branch: unknown; items: (typeof orderItems.$inferSelect & { product?: unknown; recipeSnapshots?: unknown[] })[] })[];
+
+  const items = rawItems.map((order) => normalizeOrder(order));
 
   const orderIds = items.map((item) => item.id);
   const unreadRows = orderIds.length
@@ -189,28 +229,32 @@ export async function findExpiredPending(
   branchId: number,
   expirationDate: Date
 ): Promise<OrderWithItems[]> {
-  return (await db.query.orders.findMany({
+  const ordersList = await db.query.orders.findMany({
     where: and(
       eq(orders.branchId, branchId),
       eq(orders.status, 'pending'),
       isNull(orders.deletedAt),
       lt(orders.createdAt, expirationDate)
     ),
-    with: { items: true },
-  })) as OrderWithItems[];
+    with: { items: { with: { recipeSnapshots: true } } },
+  });
+
+  return ordersList.map((order) => normalizeOrder(order));
 }
 
 export async function findExpiredPendingAll(
   expirationDate: Date
 ): Promise<OrderWithItems[]> {
-  return (await db.query.orders.findMany({
+  const ordersList = await db.query.orders.findMany({
     where: and(
       eq(orders.status, 'pending'),
       isNull(orders.deletedAt),
       lt(orders.createdAt, expirationDate)
     ),
-    with: { items: true },
-  })) as OrderWithItems[];
+    with: { items: { with: { recipeSnapshots: true } } },
+  });
+
+  return ordersList.map((order) => normalizeOrder(order));
 }
 
 export async function insertOrder(
@@ -285,8 +329,10 @@ export async function findByOrderNumberAndCustomer(
     conditions.push(eq(orders.customerPhone, customerPhone.trim().replace(/\s/g, '')));
   }
 
-  return (await db.query.orders.findFirst({
+  const order = await db.query.orders.findFirst({
     where: and(...conditions),
-    with: { branch: true, items: { with: { product: true } } },
-  })) as OrderWithItems | undefined;
+    with: { branch: true, items: { with: { product: true, recipeSnapshots: true } } },
+  });
+
+  return order ? normalizeOrder(order) : undefined;
 }

@@ -86,12 +86,14 @@ function mockCashRegister(open: boolean) {
           closedBy: null,
           status: 'open' as const,
           autoClosed: false,
+          initialAmount: 0,
           total: 0,
           cashTotal: 0,
           transferTotal: 0,
           totalSales: 0,
           productsSummary: {},
           criticalSuppliesSummary: {},
+          recipeSuppliesSummary: {},
           createdAt: new Date().toISOString(),
         }
       : null,
@@ -460,7 +462,7 @@ describe('SalesTerminal', () => {
         VENTAS_DISPONIBILIDAD_API,
         expect.objectContaining({
           body: JSON.stringify({
-            items: [{ productId: 1, quantity: 4 }],
+            items: [{ productId: 1, quantity: 4, selectedRecipeItemIds: [] }],
             productIds: [1, 2],
           }),
         })

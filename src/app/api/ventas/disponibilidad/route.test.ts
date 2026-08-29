@@ -49,7 +49,7 @@ describe('ventas /api/ventas/disponibilidad', () => {
   }
 
   const validBody = {
-    items: [{ productId: 1, quantity: 2 }],
+    items: [{ productId: 1, quantity: 2, selectedRecipeItemIds: [] }],
     productIds: [1],
   };
 

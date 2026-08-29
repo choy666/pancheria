@@ -24,7 +24,7 @@ test.describe('Paso 4 - Flujos avanzados', () => {
     const saleResponse = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: product.id, quantity: 1 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: product.price }],
         idempotencyKey: `test-${Date.now()}`,
       },
     });

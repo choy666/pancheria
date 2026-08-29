@@ -13,7 +13,7 @@ import {
 } from '@/config/api';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import type { CashRegister } from '@/config/caja';
-import type { OrderStatus, DeliveryType, PaymentMethod, OrderMessage } from '@/domain/types';
+import type { OrderStatus, DeliveryType, PaymentPart, OrderMessage } from '@/domain/types';
 
 interface OrderDetailItem {
   id: number;
@@ -52,8 +52,8 @@ export interface UsePedidoDetailResult {
   unreadCount: number;
   loading: boolean;
   error: string | null;
-  paymentMethod: PaymentMethod;
-  setPaymentMethod: (value: PaymentMethod) => void;
+  payments: PaymentPart[];
+  setPayments: (value: PaymentPart[]) => void;
   cancelReason: string;
   setCancelReason: (value: string) => void;
   actionError: string | null;
@@ -80,7 +80,17 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentOverrides, setPaymentOverrides] = useState<PaymentPart[] | null>(null);
+  const paymentParts = useMemo<PaymentPart[]>(() => {
+    if (!order) return [];
+    if (paymentOverrides) {
+      const paid = paymentOverrides.reduce((sum, part) => sum + part.amount, 0);
+      if (Math.abs(paid - order.total) < 0.005) {
+        return paymentOverrides;
+      }
+    }
+    return [{ method: 'cash', amount: order.total }];
+  }, [paymentOverrides, order]);
   const [cancelReason, setCancelReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -197,6 +207,22 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
 
   async function handleConfirm() {
     setActionError(null);
+
+    if (!order) {
+      setActionError('El pedido no está cargado.');
+      return;
+    }
+
+    const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
+    if (Math.abs(paid - order.total) >= 0.005) {
+      setActionError(
+        `El pago no cubre el total. Faltan $${Math.max(0, order.total - paid).toFixed(
+          2
+        )} o sobran $${Math.max(0, paid - order.total).toFixed(2)}.`
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -206,7 +232,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paymentMethod,
+            payments: paymentParts,
             idempotencyKey: nanoid(),
           }),
         }
@@ -298,8 +324,8 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     unreadCount,
     loading,
     error,
-    paymentMethod,
-    setPaymentMethod,
+    payments: paymentParts,
+    setPayments: setPaymentOverrides,
     cancelReason,
     setCancelReason,
     actionError,

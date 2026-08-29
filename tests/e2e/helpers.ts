@@ -332,6 +332,18 @@ export async function ensureCashRegisterClosed(page: Page) {
   }
 }
 
+export async function openCashRegisterFromUI(page: Page) {
+  await page.getByTestId('open-cash-register').click();
+  await page.getByTestId('confirm-open-cash-register').click();
+  await expect(page.getByTestId('close-cash-register')).toBeVisible({ timeout: 10000 });
+}
+
+export async function closeCashRegisterFromUI(page: Page) {
+  await page.getByTestId('close-cash-register').click();
+  await page.getByTestId('confirm-close-cash-register').click();
+  await expect(page.getByText('No hay una caja abierta.')).toBeVisible({ timeout: 10000 });
+}
+
 export async function createProductViaApi(page: Page, data: Record<string, unknown>) {
   const productData = { ...data, stock: 0, minStock: 0 };
   const response = await page.request.post('/api/productos', { data: productData });

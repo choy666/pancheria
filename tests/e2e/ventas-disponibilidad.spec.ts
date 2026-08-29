@@ -51,6 +51,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       cartItem.getByText('2', { exact: true })
     ).toBeVisible({ timeout: 10000 });
 
+    await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
       timeout: 10000,
@@ -98,6 +99,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       cartItem.getByText('3', { exact: true })
     ).toBeVisible({ timeout: 10000 });
 
+    await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
       timeout: 10000,
@@ -170,6 +172,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await card.click();
 
+    await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
       timeout: 10000,
@@ -246,6 +249,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await expect(button).toBeEnabled({ timeout: 10000 });
 
+    await page.getByTestId('payment-cash-full').click();
     await button.click();
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
       timeout: 10000,

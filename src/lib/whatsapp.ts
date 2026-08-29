@@ -3,6 +3,7 @@ import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import { routes } from '@/config/routes';
 import { ValidationError } from '@/domain/errors';
+import type { RecipeItemConfig } from '@/domain/types';
 
 export interface PublicOrderItem {
   productId: number;
@@ -10,6 +11,7 @@ export interface PublicOrderItem {
   price: number;
   unit: string;
   quantity: number;
+  recipeSnapshot?: RecipeItemConfig[];
 }
 
 export interface PublicOrder {

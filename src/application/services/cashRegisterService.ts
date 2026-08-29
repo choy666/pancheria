@@ -6,6 +6,7 @@ import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
+import { parseMoney, moneyToNumber, addMoney, subtractMoney } from '@/lib/money';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { getAutoCloseHours, getAutoClosedBy } from '@/config/caja';
 
@@ -22,10 +23,15 @@ import { getAutoCloseHours, getAutoClosedBy } from '@/config/caja';
  * Si en el futuro se requiere trazabilidad estricta de usuario, se evaluara
  * agregar `closedByUserId` nullable junto con `closedBy` como label.
  */
-import type { CashRegisterStatus, PaginationParams } from '@/domain/types';
+import type {
+  CashRegisterStatus,
+  PaginationParams,
+  RecipeItemConfig,
+} from '@/domain/types';
 import {
   validatePositiveInteger,
   validateNonEmptyString,
+  validateNonNegativeMoney,
 } from '@/lib/validation-helpers';
 import { fillMissingCriticalSupplies } from '@/lib/summary-helpers';
 import {
@@ -85,13 +91,15 @@ function isUniqueViolationError(error: unknown): boolean {
 export async function openCashRegister(params: {
   branchId: number;
   openedBy: string;
+  initialAmount?: unknown;
 }) {
-  const { branchId, openedBy } = params;
+  const { branchId, openedBy, initialAmount } = params;
 
   validatePositiveInteger(branchId, 'La sucursal');
   const openedByTrimmed = validateNonEmptyString(openedBy, 'El usuario que abre la caja');
+  const initialAmountValue = validateNonNegativeMoney(initialAmount, 'El monto inicial');
 
-  const finalParams = { branchId, openedBy: openedByTrimmed };
+  const finalParams = { branchId, openedBy: openedByTrimmed, initialAmount: initialAmountValue };
 
   try {
     return await executeInTransaction(async (tx) => {
@@ -107,6 +115,7 @@ export async function openCashRegister(params: {
           branchId: finalParams.branchId,
           openedAt: nowUTC(),
           openedBy: finalParams.openedBy,
+          initialAmount: finalParams.initialAmount,
           status: 'open',
         })
         .returning();
@@ -136,17 +145,27 @@ export async function calculateCashRegisterSummary(
       items: {
         with: {
           product: true,
+          recipeSnapshots: true,
         },
       },
+      payments: true,
     },
   })) as SaleWithItems[];
 
-  return calculateSummaryFromSales(branchId, activeSales, dbOrTx);
+  const salesWithSnapshot: SaleWithItems[] = activeSales.map((sale) => ({
+    ...sale,
+    items: sale.items.map((item) => ({
+      ...item,
+      recipeSnapshot: (item as { recipeSnapshots?: RecipeItemConfig[] }).recipeSnapshots,
+    })),
+  }));
+
+  return calculateSummaryFromSales(branchId, salesWithSnapshot, dbOrTx);
 }
 
 type CashRegisterSummaryInput = Pick<
   typeof cashRegisters.$inferSelect,
-  'productsSummary' | 'criticalSuppliesSummary'
+  'productsSummary' | 'criticalSuppliesSummary' | 'recipeSuppliesSummary'
 >;
 
 export async function parseCashRegisterSummary(
@@ -158,6 +177,8 @@ export async function parseCashRegisterSummary(
     cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary: Record<string, number> =
     cashRegister.criticalSuppliesSummary ?? {};
+  const recipeSuppliesSummary: Record<string, number> =
+    cashRegister.recipeSuppliesSummary ?? {};
 
   if (shouldFillMissingCriticalSupplies) {
     const activeCriticalSupplies = await db.query.products.findMany({
@@ -172,7 +193,7 @@ export async function parseCashRegisterSummary(
     fillMissingCriticalSupplies(criticalSuppliesSummary, activeCriticalSupplies);
   }
 
-  return { productsSummary, criticalSuppliesSummary };
+  return { productsSummary, criticalSuppliesSummary, recipeSuppliesSummary };
 }
 
 export async function getOpenCashRegisterSummary(branchId: number) {
@@ -182,16 +203,23 @@ export async function getOpenCashRegisterSummary(branchId: number) {
 
   const summary = await parseCashRegisterSummary(branchId, cashRegister, true);
 
+  const cashInDrawer = moneyToNumber(
+    addMoney(parseMoney(cashRegister.initialAmount ?? 0), parseMoney(cashRegister.cashTotal ?? 0))
+  );
+
   return {
     ...cashRegister,
     ...summary,
+    cashInDrawer,
   };
 }
 
 export async function closeCashRegister(
   branchId: number,
   id: number,
-  closedBy: string
+  closedBy: string,
+  closingCashCount?: unknown,
+  closingNotes?: unknown
 ) {
   validatePositiveInteger(branchId, 'La sucursal');
   const closedByTrimmed = validateNonEmptyString(closedBy, 'El usuario que cierra la caja');
@@ -211,14 +239,30 @@ export async function closeCashRegister(
 
     const summary = await calculateCashRegisterSummary(branchId, id, tx);
 
+    const closeData: Record<string, unknown> = {
+      status: 'closed',
+      closedAt: nowUTC(),
+      closedBy: closedByTrimmed,
+      ...summary,
+    };
+
+    const rawNotes = typeof closingNotes === 'string' ? closingNotes.trim() : '';
+    if (rawNotes) {
+      closeData.closingNotes = rawNotes;
+    }
+
+    const countValue = validateNonNegativeMoney(closingCashCount, 'El monto contado al cerrar');
+    if (closingCashCount !== undefined && closingCashCount !== null && closingCashCount !== '') {
+      closeData.closingCashCount = countValue;
+      const expected = addMoney(parseMoney(cashRegister.initialAmount ?? 0), parseMoney(summary.cashTotal));
+      const counted = parseMoney(countValue);
+      const difference = moneyToNumber(subtractMoney(counted, expected));
+      closeData.closingDifference = difference;
+    }
+
     const [updated] = await tx
       .update(cashRegisters)
-      .set({
-        status: 'closed',
-        closedAt: nowUTC(),
-        closedBy: closedByTrimmed,
-        ...summary,
-      })
+      .set(closeData)
       .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
       .returning();
 

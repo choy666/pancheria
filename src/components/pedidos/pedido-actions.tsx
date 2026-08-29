@@ -1,22 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
 import type { CashRegister } from '@/config/caja';
-import type { OrderStatus, PaymentMethod } from '@/domain/types';
+import type { OrderStatus, PaymentPart } from '@/domain/types';
 
 interface PedidoActionsProps {
   status: OrderStatus;
+  total: number;
   cashRegister: CashRegister | null;
-  paymentMethod: PaymentMethod;
-  setPaymentMethod: (value: PaymentMethod) => void;
+  payments: PaymentPart[];
+  setPayments: (value: PaymentPart[]) => void;
   cancelReason: string;
   setCancelReason: (value: string) => void;
   actionError: string | null;
@@ -30,9 +25,10 @@ interface PedidoActionsProps {
 
 export function PedidoActions({
   status,
+  total,
   cashRegister,
-  paymentMethod,
-  setPaymentMethod,
+  payments,
+  setPayments,
   cancelReason,
   setCancelReason,
   actionError,
@@ -83,21 +79,12 @@ export function PedidoActions({
 
           <div className="space-y-2">
             <Label htmlFor="paymentMethod">Medio de pago</Label>
-            <Select
-              value={paymentMethod}
-              onValueChange={(value) =>
-                setPaymentMethod(value as PaymentMethod)
-              }
+            <PaymentPartsInput
+              total={total}
+              payments={payments}
+              onChange={setPayments}
               disabled={!canConfirm || isSubmitting}
-            >
-              <SelectTrigger id="paymentMethod">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Efectivo</SelectItem>
-                <SelectItem value="transfer">Transferencia</SelectItem>
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           {whatsappUrl && (

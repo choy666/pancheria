@@ -28,8 +28,8 @@ export async function saveRecipe(
 
   validateBranchOwnership(product, branchId, 'Producto compuesto');
 
-  const hasCritical = items.some((item) => item.autoDiscount);
-  if (!hasCritical) {
+  const criticalItems = items.filter((item) => item.autoDiscount);
+  if (criticalItems.length === 0) {
     throw new ValidationError(
       'La receta debe incluir al menos un insumo crítico con descuento automático.'
     );
@@ -62,22 +62,24 @@ export async function saveRecipe(
 
     validateBranchOwnership(supply, branchId, 'Insumo');
 
-    if (supply.type !== 'critical_supply') {
+    if (supply.deletedAt) {
+      throw new ValidationError(
+        `El insumo ${supply.name} está eliminado y no puede usarse en recetas.`
+      );
+    }
+
+    if (supply.type === 'critical_supply') {
+      if (!item.autoDiscount) {
+        throw new ValidationError(
+          `El insumo crítico ${supply.name} debe tener descuento automático.`
+        );
+      }
+    } else {
       if (item.autoDiscount) {
         throw new ValidationError(
           `El insumo ${supply.name} no es crítico y no puede tener descuento automático.`
         );
       }
-
-      throw new ValidationError(
-        `El insumo ${supply.name} no es crítico y no puede usarse en recetas.`
-      );
-    }
-
-    if (supply.deletedAt) {
-      throw new ValidationError(
-        `El insumo ${supply.name} está eliminado y no puede usarse en recetas.`
-      );
     }
   }
 
@@ -91,6 +93,9 @@ export async function saveRecipe(
       supplyId: item.supplyId,
       quantity: item.quantity,
       autoDiscount: item.autoDiscount,
+      isOptional:
+        item.isOptional ?? (item.autoDiscount ? false : true),
+      selectedByDefault: item.selectedByDefault ?? false,
     }));
 
     return tx.insert(recipes).values(values).returning();

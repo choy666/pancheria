@@ -5,6 +5,8 @@ import {
   products,
   sales,
   saleItems,
+  saleItemRecipes,
+  salePayments,
   stockMovements,
 } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
@@ -13,7 +15,14 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { nowUTC } from '@/lib/date';
 import { InsufficientStockError, NotFoundError, ValidationError } from '@/domain/errors';
-import type { PaymentMethod, ProductRow, SaleItemInput, StockMovementType } from '@/domain/types';
+import type {
+  PaymentPart,
+  ProductRow,
+  ProductType,
+  SaleItemInput,
+  StockMovementType,
+} from '@/domain/types';
+
 import { type RecipeWithSupply } from '@/application/services/summaryService';
 import { addItemToSummary } from '@/lib/summary-helpers';
 import {
@@ -24,12 +33,16 @@ import {
 import { lockCashRegisterById } from '@/lib/cash-register-helpers';
 import {
   buildProductContext,
-  buildReintegrationContext as buildReintegrationProductContext,
   validateProductsForOperation,
   validateCartAvailability,
   assertNoStockShortage,
 } from '@/lib/product-helpers';
-import { buildSaleItemValues } from '@/lib/sale-helpers';
+import { buildSaleItemValues, type SaleItemValue } from '@/lib/sale-helpers';
+import {
+  sumPaymentParts,
+  amountByPaymentMethod,
+  validatePaymentParts,
+} from '@/lib/payment-helpers';
 
 export { validateCartAvailability } from '@/lib/product-helpers';
 
@@ -45,10 +58,10 @@ export type { ProductAvailability, RecipeBreakdownItem } from '@/lib/product-hel
 async function updateCashRegisterSummary(
   tx: typeof db,
   cashRegister: (typeof cashRegisters.$inferSelect) | null,
-  saleItems: { productId: number; quantity: number }[],
+  saleItems: SaleItemValue[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
-  paymentMethod: PaymentMethod,
+  payments: PaymentPart[],
   saleTotal: number,
   operation: 'add' | 'subtract'
 ) {
@@ -56,22 +69,25 @@ async function updateCashRegisterSummary(
 
   const sign = operation === 'add' ? 1 : -1;
   const saleMoney = parseMoney(sign * saleTotal);
+  const amounts = amountByPaymentMethod(payments);
+  const cashMoney = parseMoney(sign * amounts.cash);
+  const transferMoney = parseMoney(sign * amounts.transfer);
 
   const total = moneyToNumber(addMoney(parseMoney(cashRegister.total), saleMoney));
-  const cashTotal =
-    paymentMethod === 'cash'
-      ? moneyToNumber(addMoney(parseMoney(cashRegister.cashTotal), saleMoney))
-      : cashRegister.cashTotal;
-  const transferTotal =
-    paymentMethod === 'transfer'
-      ? moneyToNumber(addMoney(parseMoney(cashRegister.transferTotal), saleMoney))
-      : cashRegister.transferTotal;
+  const cashTotal = moneyToNumber(
+    addMoney(parseMoney(cashRegister.cashTotal), cashMoney)
+  );
+  const transferTotal = moneyToNumber(
+    addMoney(parseMoney(cashRegister.transferTotal), transferMoney)
+  );
   const totalSales = cashRegister.totalSales + sign;
 
   const productsSummary: Record<string, number> =
     cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary: Record<string, number> =
     cashRegister.criticalSuppliesSummary ?? {};
+  const recipeSuppliesSummary: Record<string, number> =
+    cashRegister.recipeSuppliesSummary ?? {};
 
   for (const item of saleItems) {
     const product = productById.get(item.productId);
@@ -80,9 +96,11 @@ async function updateCashRegisterSummary(
     addItemToSummary(
       productsSummary,
       criticalSuppliesSummary,
+      recipeSuppliesSummary,
       product,
       item.quantity,
       recipesByProduct,
+      item.recipeSnapshot,
       sign as 1 | -1
     );
   }
@@ -96,6 +114,7 @@ async function updateCashRegisterSummary(
       totalSales,
       productsSummary,
       criticalSuppliesSummary,
+      recipeSuppliesSummary,
     })
     .where(
       and(
@@ -108,7 +127,7 @@ async function updateCashRegisterSummary(
 async function deductStockForItems(
   tx: typeof db,
   branchId: number,
-  items: { productId: number; quantity: number }[],
+  items: SaleItemValue[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
   source: { saleId?: number },
@@ -134,10 +153,12 @@ async function deductStockForItems(
     const product = productById.get(item.productId)!;
 
     if (product.type === 'compound') {
+      const recipeSnapshot = item.recipeSnapshot ?? [];
       for (const { supplyId, consumed, supplyName } of iterRecipeConsumptions(
         product,
         item.quantity,
-        recipesByProduct
+        recipesByProduct,
+        recipeSnapshot
       )) {
         const [updated] = await tx
           .update(products)
@@ -205,28 +226,16 @@ async function deductStockForItems(
   }
 }
 
-async function buildReintegrationContext(
-  tx: typeof db,
-  branchId: number,
-  items: { productId: number }[],
-  includeDeleted = false
-): Promise<{
-  productById: Map<number, ProductRow>;
-  recipesByProduct: Map<number, RecipeWithSupply[]>;
-}> {
-  return buildReintegrationProductContext(tx, branchId, items, includeDeleted);
-}
-
 async function reintegrateStockAndUpdateCashRegister(
   tx: typeof db,
   branchId: number,
   cashRegister: { id: number; branchId: number } | null,
-  items: { productId: number; quantity: number }[],
+  items: SaleItemValue[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
   source: { saleId?: number },
   movementType: StockMovementType,
-  paymentMethod?: PaymentMethod,
+  payments?: PaymentPart[],
   total?: number,
   operation: 'add' | 'subtract' = 'subtract'
 ) {
@@ -242,9 +251,9 @@ async function reintegrateStockAndUpdateCashRegister(
 
   if (!cashRegister) return;
 
-  if (paymentMethod === undefined || total === undefined) {
+  if (payments === undefined || payments.length === 0 || total === undefined) {
     throw new ValidationError(
-      'Se requiere el método de pago y el total para actualizar la caja.'
+      'Se requiere el desglose de pagos y el total para actualizar la caja.'
     );
   }
 
@@ -270,7 +279,7 @@ async function reintegrateStockAndUpdateCashRegister(
     items,
     productById,
     recipesByProduct,
-    paymentMethod,
+    payments,
     total,
     operation
   );
@@ -279,7 +288,7 @@ async function reintegrateStockAndUpdateCashRegister(
 async function reintegrateStockForItems(
   tx: typeof db,
   branchId: number,
-  items: { productId: number; quantity: number }[],
+  items: SaleItemValue[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
   source: { saleId?: number },
@@ -306,10 +315,12 @@ async function reintegrateStockForItems(
     if (!product) continue;
 
     if (product.type === 'compound') {
+      const recipeSnapshot = item.recipeSnapshot ?? [];
       for (const { supplyId, consumed: reintegrated } of iterRecipeConsumptions(
         product,
         item.quantity,
-        recipesByProduct
+        recipesByProduct,
+        recipeSnapshot
       )) {
         await tx
           .update(products)
@@ -355,23 +366,20 @@ export async function insertSaleAndUpdateCashRegister(
   branchId: number,
   cashRegister: (typeof cashRegisters.$inferSelect) | null,
   idempotencyKey: string,
-  paymentMethod: PaymentMethod,
-  total: number,
-  saleItemValues: {
-    productId: number;
-    quantity: number;
-    unitPrice: number;
-    subtotal: number;
-  }[],
+  payments: PaymentPart[],
+  saleItemValues: SaleItemValue[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>
 ) {
+  const total = sumPaymentParts(payments);
+  const primaryPaymentMethod = payments[0]?.method ?? 'cash';
+
   const [sale] = await tx
     .insert(sales)
     .values({
       branchId,
       total,
-      paymentMethod,
+      paymentMethod: primaryPaymentMethod,
       cashRegisterId: cashRegister?.id ?? null,
       idempotencyKey,
       createdAt: nowUTC(),
@@ -392,12 +400,49 @@ export async function insertSaleAndUpdateCashRegister(
     return existing;
   }
 
-  await tx.insert(saleItems).values(
-    saleItemValues.map((item) => ({
-      ...item,
-      saleId: sale.id,
-    }))
-  );
+  const insertedSaleItems = await tx
+    .insert(saleItems)
+    .values(
+      saleItemValues.map((item) => ({
+        ...item,
+        saleId: sale.id,
+      }))
+    )
+    .returning();
+
+  const recipeRows: (typeof saleItemRecipes.$inferInsert)[] = [];
+  for (let i = 0; i < insertedSaleItems.length; i++) {
+    const saleItem = insertedSaleItems[i];
+    const snapshot = saleItemValues[i].recipeSnapshot ?? [];
+    for (const config of snapshot) {
+      recipeRows.push({
+        saleItemId: saleItem.id,
+        supplyId: config.supplyId,
+        supplyName: config.supplyName,
+        supplyType: config.supplyType,
+        quantity: config.quantity,
+        autoDiscount: config.autoDiscount,
+        isOptional: config.isOptional,
+        selected: config.selected,
+        selectedByDefault: config.selectedByDefault,
+      });
+    }
+  }
+
+  if (recipeRows.length > 0) {
+    await tx.insert(saleItemRecipes).values(recipeRows);
+  }
+
+  if (payments.length > 0) {
+    await tx.insert(salePayments).values(
+      payments.map((payment) => ({
+        saleId: sale.id,
+        method: payment.method,
+        amount: payment.amount,
+        createdAt: nowUTC(),
+      }))
+    );
+  }
 
   await deductStockForItems(
     tx,
@@ -431,7 +476,7 @@ export async function insertSaleAndUpdateCashRegister(
     saleItemValues,
     productById,
     recipesByProduct,
-    paymentMethod,
+    payments,
     total,
     'add'
   );
@@ -442,10 +487,10 @@ export async function insertSaleAndUpdateCashRegister(
 export async function confirmSale(params: {
   branchId: number;
   items: SaleItemInput[];
-  paymentMethod: PaymentMethod;
+  payments: PaymentPart[];
   idempotencyKey: string;
 }) {
-  const { branchId, items, paymentMethod, idempotencyKey } = params;
+  const { branchId, items, payments, idempotencyKey } = params;
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
 
@@ -492,16 +537,21 @@ export async function confirmSale(params: {
 
     const { saleItemValues, total: saleTotal } = buildSaleItemValues(
       productById,
-      items
+      items,
+      recipesByProduct
     );
+
+    const paymentValidation = validatePaymentParts(payments, saleTotal);
+    if (!paymentValidation.valid) {
+      throw new ValidationError(paymentValidation.error ?? 'Pago inválido.');
+    }
 
     return insertSaleAndUpdateCashRegister(
       tx,
       branchId,
       cashRegister,
       branchIdempotencyKey,
-      paymentMethod,
-      saleTotal,
+      payments,
       saleItemValues,
       productById,
       recipesByProduct
@@ -517,17 +567,35 @@ export async function cancelSale(
   const sale = (await db.query.sales.findFirst({
     where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
     with: {
-      items: true,
+      items: { with: { product: true, recipeSnapshots: true } },
+      payments: true,
       cashRegister: true,
     },
   })) as {
     id: number;
     branchId: number;
     total: number;
-    paymentMethod: PaymentMethod;
+    paymentMethod: 'cash' | 'transfer';
     status: 'active' | 'cancelled';
     cashRegisterId: number | null;
-    items: { productId: number; quantity: number }[];
+    items: {
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+      subtotal: number;
+      product: { name: string } | null;
+      recipeSnapshots: {
+        supplyId: number;
+        supplyName: string;
+        supplyType: ProductType;
+        quantity: number;
+        autoDiscount: boolean;
+        isOptional: boolean;
+        selected: boolean;
+        selectedByDefault: boolean;
+      }[];
+    }[];
+    payments: PaymentPart[];
     cashRegister: {
       id: number;
       branchId: number;
@@ -556,24 +624,45 @@ export async function cancelSale(
     );
   }
 
+  const payments = sale.payments ?? [];
+
+  const saleItemValues: SaleItemValue[] = sale.items.map((item) => ({
+    productId: item.productId,
+    productName: item.product?.name ?? `Producto ${item.productId}`,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    subtotal: item.subtotal,
+    recipeSnapshot: item.recipeSnapshots
+      ? item.recipeSnapshots.map((s) => ({
+          supplyId: s.supplyId,
+          supplyName: s.supplyName,
+          supplyType: s.supplyType,
+          quantity: s.quantity,
+          autoDiscount: s.autoDiscount,
+          isOptional: s.isOptional,
+          selected: s.selected,
+          selectedByDefault: s.selectedByDefault,
+        }))
+      : undefined,
+  }));
+
   return executeInTransaction(async (tx) => {
-    const { productById, recipesByProduct } = await buildReintegrationContext(
-      tx,
+    const { productById, recipesByProduct } = await buildProductContext(
       branchId,
-      sale.items ?? [],
-      false
+      saleItemValues.map((item) => item.productId),
+      { dbOrTx: tx }
     );
 
     await reintegrateStockAndUpdateCashRegister(
       tx,
       branchId,
       sale.cashRegister,
-      sale.items ?? [],
+      saleItemValues,
       productById,
       recipesByProduct,
       { saleId: sale.id },
       'cancellation',
-      sale.paymentMethod,
+      payments,
       sale.total,
       'subtract'
     );

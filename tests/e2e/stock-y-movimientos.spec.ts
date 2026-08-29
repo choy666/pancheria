@@ -105,7 +105,7 @@ test.describe('Stock, ajustes y movimientos', () => {
     const venta = await page.request.post('/api/ventas', {
       data: {
         items: [{ productId: bebida.id, quantity: 2 }],
-        paymentMethod: 'cash',
+        payments: [{ method: 'cash', amount: 1000 }],
         idempotencyKey: `movimientos-${Date.now()}`,
       },
     });

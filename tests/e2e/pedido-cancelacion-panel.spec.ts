@@ -38,8 +38,7 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     const row = page.locator('[data-testid^="row-order-"]').filter({ hasText: customerName });
     await row.getByRole('link', { name: 'Ver' }).click();
 
-    await page.getByLabel('Medio de pago').click();
-    await page.getByRole('option', { name: 'Efectivo' }).click();
+    await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
 
     await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });

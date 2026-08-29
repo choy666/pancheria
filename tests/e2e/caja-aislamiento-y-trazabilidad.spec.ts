@@ -5,6 +5,7 @@ import {
   getTestSecondBranch,
   unique,
   createProductViaApi,
+  openCashRegisterFromUI,
 } from './helpers';
 
 test.describe('Trazabilidad de caja por sucursal y operador', () => {
@@ -19,9 +20,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
       page.getByRole('heading', { name: 'Cierre de caja' })
     ).toBeVisible();
 
-    const openButton = page.getByRole('button', { name: 'Abrir caja' });
-    await expect(openButton).toBeVisible();
-    await openButton.click();
+    await openCashRegisterFromUI(page);
 
     await expect(page.getByText(`Abierta por: ${secondBranch.username}`)).toBeVisible();
 
@@ -45,7 +44,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     await loginAsAdmin(page);
 
     await page.goto('/cierre');
-    await page.getByRole('button', { name: 'Abrir caja' }).click();
+    await openCashRegisterFromUI(page);
     await expect(page.getByText('Abierta por:')).toBeVisible();
 
     const heading = page.getByRole('heading', { name: /Caja #\d+/ });

@@ -181,8 +181,8 @@ describe('ventas /api/ventas', () => {
 
   describe('POST /api/ventas', () => {
     const validBody = {
-      items: [{ productId: 1, quantity: 2 }],
-      paymentMethod: 'cash',
+      items: [{ productId: 1, quantity: 2, selectedRecipeItemIds: [] }],
+      payments: [{ method: 'cash', amount: 1000 }],
       idempotencyKey: 'key-1',
     };
 

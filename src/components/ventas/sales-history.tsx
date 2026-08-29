@@ -26,12 +26,13 @@ import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VENTAS_API } from '@/config/api';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
-import type { PaginatedResult, PaymentMethod, SaleStatus } from '@/domain/types';
+import type { PaginatedResult, PaymentMethod, PaymentPart, RecipeItemConfig, SaleStatus } from '@/domain/types';
 
 interface Sale {
   id: number;
   total: number;
   paymentMethod: PaymentMethod;
+  payments?: PaymentPart[];
   status: SaleStatus;
   createdAt: string;
   items: {
@@ -39,6 +40,7 @@ interface Sale {
     product: {
       name: string;
     };
+    recipeSnapshot?: RecipeItemConfig[];
   }[];
 }
 
@@ -51,6 +53,23 @@ const paymentLabels: Record<string, string> = {
   cash: 'Efectivo',
   transfer: 'Transferencia',
 };
+
+function formatItemRecipeDetails(recipeSnapshot?: RecipeItemConfig[]): string {
+  if (!recipeSnapshot || recipeSnapshot.length === 0) return '';
+
+  const selected = recipeSnapshot.filter((r) => !r.isOptional || r.selected);
+  const removed = recipeSnapshot.filter((r) => r.isOptional && !r.selected);
+
+  const parts: string[] = [];
+  if (selected.length > 0) {
+    parts.push(`Incluye: ${selected.map((r) => r.supplyName).join(', ')}`);
+  }
+  if (removed.length > 0) {
+    parts.push(`Sin: ${removed.map((r) => r.supplyName).join(', ')}`);
+  }
+
+  return parts.join('. ');
+}
 
 export function SalesHistory({
   cashRegisterId,
@@ -182,15 +201,29 @@ export function SalesHistory({
                 <TableCell>{formatTime(sale.createdAt)}</TableCell>
                 <TableCell
                   data-testid="sale-products"
-                  className="hidden sm:table-cell max-w-[260px] truncate"
+                  className="hidden sm:table-cell max-w-[260px]"
                 >
-                  {sale.items
-                    .map((item) => `${item.product.name} x${item.quantity}`)
-                    .join(', ')}
+                  {sale.items.map((item, index) => (
+                    <div key={index}>
+                      <span>{item.product.name} x{item.quantity}</span>
+                      {item.recipeSnapshot && item.recipeSnapshot.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatItemRecipeDetails(item.recipeSnapshot)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </TableCell>
                 <TableCell className="font-mono">${sale.total.toFixed(2)}</TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {paymentLabels[sale.paymentMethod]}
+                  {sale.payments && sale.payments.length > 0
+                    ? sale.payments
+                        .map(
+                          (p) =>
+                            `${paymentLabels[p.method]} $${p.amount.toFixed(2)}`
+                        )
+                        .join(' + ')
+                    : paymentLabels[sale.paymentMethod]}
                 </TableCell>
                 <TableCell>
                   {sale.status === 'active' ? (
@@ -233,12 +266,20 @@ export function SalesHistory({
           </DialogHeader>
           {selectedSale && (
             <div className="space-y-5 pt-4">
-              <p className="text-base leading-relaxed text-muted-foreground">
-                Productos:{' '}
-                {selectedSale.items
-                  .map((item) => `${item.product.name} x${item.quantity}`)
-                  .join(', ')}
-              </p>
+              <div className="text-base leading-relaxed text-muted-foreground">
+                <p>Productos:</p>
+                {selectedSale.items.map((item, index) => (
+                  <p key={index}>
+                    {item.product.name} x{item.quantity}
+                    {item.recipeSnapshot && item.recipeSnapshot.length > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        {' '}
+                        ({formatItemRecipeDetails(item.recipeSnapshot)})
+                      </span>
+                    )}
+                  </p>
+                ))}
+              </div>
               <p className="font-mono text-lg font-semibold text-foreground">
                 Total: ${selectedSale.total.toFixed(2)}
               </p>

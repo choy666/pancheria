@@ -217,8 +217,10 @@ export function CajaHistory({
               <TableHead>Estado</TableHead>
               <TableHead className="hidden sm:table-cell">Ventas</TableHead>
               <TableHead>Total</TableHead>
+              <TableHead className="hidden md:table-cell">Inicial</TableHead>
               <TableHead className="hidden md:table-cell">Efectivo</TableHead>
               <TableHead className="hidden lg:table-cell">Transferencia</TableHead>
+              <TableHead className="hidden lg:table-cell">Diferencia</TableHead>
               {showAutoColumn && (
                 <TableHead className="hidden sm:table-cell">Auto</TableHead>
               )}
@@ -273,10 +275,28 @@ export function CajaHistory({
                     ${cashRegister.total.toFixed(2)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell font-mono">
+                    ${cashRegister.initialAmount.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell font-mono">
                     ${cashRegister.cashTotal.toFixed(2)}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell font-mono">
                     ${cashRegister.transferTotal.toFixed(2)}
+                  </TableCell>
+                  <TableCell
+                    className={`hidden lg:table-cell font-mono ${
+                      cashRegister.closingDifference !== undefined && cashRegister.closingDifference !== null
+                        ? cashRegister.closingDifference > 0
+                          ? 'text-green-600'
+                          : cashRegister.closingDifference < 0
+                            ? 'text-destructive'
+                            : ''
+                        : ''
+                    }`}
+                  >
+                    {cashRegister.closingDifference !== undefined && cashRegister.closingDifference !== null
+                      ? `${cashRegister.closingDifference >= 0 ? '+' : ''}${cashRegister.closingDifference.toFixed(2)}`
+                      : '-'}
                   </TableCell>
                   {showAutoColumn && (
                     <TableCell className="hidden sm:table-cell">

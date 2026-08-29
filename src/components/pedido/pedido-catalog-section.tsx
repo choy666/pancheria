@@ -31,7 +31,7 @@ interface PedidoCatalogSectionProps {
   breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
   isCheckingAvailability: boolean;
   onBranchChange: (branchId: string | null) => void;
-  onAdd: (product: PublicCatalogProduct) => void;
+  onAdd: (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => void;
   cart: ReactNode;
 }
 
@@ -133,7 +133,7 @@ export function PedidoCatalogSection({
                     breakdown={
                       breakdownByProduct[product.id] ?? product.breakdown ?? []
                     }
-                    onAdd={() => onAdd(product)}
+                    onAdd={(selected) => onAdd(product, selected)}
                     disabled={isCheckingAvailability}
                     showBreakdown={false}
                   />

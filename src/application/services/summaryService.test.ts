@@ -135,7 +135,7 @@ describe('summaryService', () => {
       const activeSales = [
         {
           total: 1500,
-          paymentMethod: 'cash' as const,
+          payments: [{ method: 'cash' as const, amount: 1500 }],
           items: [
             {
               quantity: 1,
@@ -150,7 +150,7 @@ describe('summaryService', () => {
         },
         {
           total: 800,
-          paymentMethod: 'transfer' as const,
+          payments: [{ method: 'transfer' as const, amount: 800 }],
           items: [
             {
               quantity: 2,
@@ -220,9 +220,36 @@ describe('summaryService', () => {
       });
     });
 
+    test('calcula totales con pago mixto en una sola venta', async () => {
+      const activeSales = [
+        {
+          total: 2000,
+          payments: [
+            { method: 'cash' as const, amount: 500 },
+            { method: 'transfer' as const, amount: 1500 },
+          ],
+          items: [],
+        },
+      ];
+
+      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedDb.query.products.findMany.mockResolvedValue([]);
+
+      const result = await calculateSummaryFromSales(
+        BRANCH_ID,
+        activeSales as any,
+        db
+      );
+
+      expect(result.totalSales).toBe(1);
+      expect(result.total).toBe(2000);
+      expect(result.cashTotal).toBe(500);
+      expect(result.transferTotal).toBe(1500);
+    });
+
     test('maneja ventas sin items', async () => {
       const activeSales = [
-        { total: 500, paymentMethod: 'cash' as const, items: [] },
+        { total: 500, payments: [{ method: 'cash' as const, amount: 500 }], items: [] },
       ];
 
       mockedDb.query.recipes.findMany.mockResolvedValue([]);

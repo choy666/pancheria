@@ -51,7 +51,7 @@ describe('POST /api/public/disponibilidad', () => {
       buildRequest(`branchId=${BRANCH_ID}`, {
         method: 'POST',
         body: JSON.stringify({
-          items: [{ productId: 1, quantity: 2 }],
+          items: [{ productId: 1, quantity: 2, selectedRecipeItemIds: [] }],
         }),
       })
     );
@@ -65,7 +65,7 @@ describe('POST /api/public/disponibilidad', () => {
     expect(body.availabilityByProduct).toEqual({ 1: 5 });
     expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
       BRANCH_ID,
-      [{ productId: 1, quantity: 2 }]
+      [{ productId: 1, quantity: 2, selectedRecipeItemIds: [] }]
     );
   });
 

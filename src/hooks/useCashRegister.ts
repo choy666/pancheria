@@ -16,8 +16,8 @@ export interface UseCashRegisterResult {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
-  open: () => Promise<void>;
-  close: () => Promise<void>;
+  open: (initialAmount?: number) => Promise<void>;
+  close: (closingCashCount?: number, closingNotes?: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -98,12 +98,14 @@ export function useCashRegister(): UseCashRegisterResult {
     };
   }, [fetchCaja]);
 
-  const open = useCallback(async () => {
+  const open = useCallback(async (initialAmount?: number) => {
     setError(null);
 
     try {
       const response = await authenticatedFetch(CAJA_OPEN_API, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initialAmount }),
       });
 
       if (!response.ok) {
@@ -118,7 +120,7 @@ export function useCashRegister(): UseCashRegisterResult {
     }
   }, [fetchCaja, router]);
 
-  const close = useCallback(async () => {
+  const close = useCallback(async (closingCashCount?: number, closingNotes?: string) => {
     if (!cashRegister) return;
 
     setError(null);
@@ -127,7 +129,11 @@ export function useCashRegister(): UseCashRegisterResult {
       const response = await authenticatedFetch(CAJA_CLOSE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: cashRegister.id }),
+        body: JSON.stringify({
+          id: cashRegister.id,
+          closingCashCount,
+          closingNotes,
+        }),
       });
 
       if (!response.ok) {
