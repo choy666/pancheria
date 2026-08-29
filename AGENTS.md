@@ -310,6 +310,15 @@ useEffect(() => {
 
 ## Troubleshooting
 
+### El botón de Cast no se habilita en `/videos/[id]`
+
+- Síntoma: en la página de detalle de un video el botón "Enviar a Cast" aparece deshabilitado o no detecta dispositivos.
+- Causas comunes:
+  - El Web Sender SDK de Google Cast requiere inicialización a través de `window.__onGCastApiAvailable` y los estados correctos de `cast.framework.CastState` y `cast.framework.SessionState`. Usar nombres de enum inexistentes (por ejemplo `CastState.AVAILABLE` o `SessionState.CONNECTED`) hace que el botón nunca se habilite.
+  - Cast solo funciona en orígenes seguros: `localhost` o `https://`. Si se accede por IP local (`http://192.168.x.x:3000`) o sin HTTPS en producción, el navegador no expone la API de Cast.
+  - Si no hay dispositivos Cast en la red, el SDK reporta `NO_DEVICES_AVAILABLE` y el botón se mantiene deshabilitado. Verificar que el dispositivo esté en la misma red y activo.
+- Solución: mantener `src/hooks/useCast.ts` alineado con la documentación oficial: definir `window.__onGCastApiAvailable` antes de cargar el script, usar `CastState.NO_DEVICES_AVAILABLE` para decidir si hay dispositivos, y `SessionState.SESSION_STARTED`/`SESSION_RESUMED` para detectar sesión activa. En desarrollo usar `http://localhost:3000` o exponer el servidor con HTTPS (por ejemplo `ngrok`).
+
 ### Los videos subidos no se reproducen o desaparecen en producción
 
 - Síntoma: un video o adjunto de chat se sube correctamente pero al intentar reproducirlo/descargarlo da `404`, o desaparece tras un nuevo deploy.
