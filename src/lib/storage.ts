@@ -2,7 +2,10 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
-import type { StorageProviderName } from '@/config/videos';
+import {
+  getVideoAllowedMimeTypes,
+  type StorageProviderName,
+} from '@/config/videos';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 
@@ -11,22 +14,47 @@ const mimeTypesByExtension: Record<string, string> = {
   '.webm': 'video/webm',
   '.ogg': 'video/ogg',
   '.ogv': 'video/ogg',
+  '.avi': 'video/x-msvideo',
+  '.mkv': 'video/x-matroska',
+  '.mov': 'video/quicktime',
 };
+
+const extensionByMimeType: Record<string, string> = Object.fromEntries(
+  Object.entries(mimeTypesByExtension).map(([ext, mime]) => [mime, ext])
+);
 
 export function guessMimeType(filename: string): string {
   const extension = path.extname(filename).toLowerCase();
   return mimeTypesByExtension[extension] ?? 'video/mp4';
 }
 
+function getExtensionFromMimeType(mimeType: string): string {
+  return extensionByMimeType[mimeType] ?? '';
+}
+
+function getAllowedLocalVideoExtensions(): string[] {
+  const allowedTypes = getVideoAllowedMimeTypes();
+  const extensions = new Set<string>();
+  for (const type of allowedTypes) {
+    const ext = getExtensionFromMimeType(type);
+    if (ext) extensions.add(ext);
+  }
+  // Siempre mantener las extensiones clásicas como fallback.
+  extensions.add('.mp4');
+  extensions.add('.webm');
+  extensions.add('.ogg');
+  extensions.add('.ogv');
+  return Array.from(extensions);
+}
+
 const SAFE_LOCAL_VIDEO_KEY_PATTERN = /^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)?$/;
-const SAFE_LOCAL_VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.ogg', '.ogv']);
 
 export function isValidLocalVideoKey(key: string): boolean {
   if (typeof key !== 'string' || key.length === 0) return false;
   if (!SAFE_LOCAL_VIDEO_KEY_PATTERN.test(key)) return false;
   const ext = path.extname(key).toLowerCase();
   if (ext === '') return false;
-  return SAFE_LOCAL_VIDEO_EXTENSIONS.has(ext);
+  return getAllowedLocalVideoExtensions().includes(ext);
 }
 
 export function resolveLocalVideoPath(key: string, baseDir?: string): string {
@@ -74,7 +102,11 @@ function getLocalStorageDir(): string {
 class LocalStorageProvider implements StorageProvider {
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
-    const extension = path.extname(file.name) || '';
+    const nameExtension = path.extname(file.name).toLowerCase();
+    const allowedExtensions = getAllowedLocalVideoExtensions();
+    const extension = allowedExtensions.includes(nameExtension)
+      ? nameExtension
+      : getExtensionFromMimeType(file.type) || '.mp4';
     const key = `${nanoid()}${extension}`;
     const url = `${getPublicBaseUrl()}/api/videos/upload`;
     const publicUrl = `${getPublicBaseUrl()}/api/videos/${encodeURIComponent(key)}/stream`;
