@@ -1,98 +1,49 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
-import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
+import { authenticatedFetch } from '@/lib/fetch';
+import {
+  getDefaultSelectedRecipeItemIds,
+  getProductAdditional,
+  isProductOutOfStock,
+  sortSellableProducts,
+  type CartItem,
+  type SellableProduct,
+} from '@/lib/ventas-helpers';
+import { SalesProductCard } from '@/components/ventas/sales-product-card';
+import { SalesCart } from '@/components/ventas/sales-cart';
 import {
   PRODUCTOS_API,
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
-import type { PaymentPart, ProductRow, RecipeItemConfig } from '@/domain/types';
-
-interface Product extends ProductRow {
-  availability: number;
-  recipe?: RecipeItemConfig[];
-}
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-  selectedRecipeItemIds?: number[];
-}
-
-
-function sellablePriority(product: Product): number {
-  if (product.type === 'compound') return 1;
-  if (
-    product.type === 'critical_supply' &&
-    product.criticalSupplyType === 'beverage'
-  ) {
-    return 2;
-  }
-  if (product.type === 'service') return 3;
-  return 4;
-}
-
-function SalesCartItemRecipeDetails({ item }: { item: CartItem }) {
-  const recipe = item.product.recipe;
-  if (!recipe || recipe.length === 0) return null;
-
-  const selectedIds = new Set(item.selectedRecipeItemIds ?? []);
-  const selected = recipe.filter(
-    (r) => !r.isOptional || selectedIds.has(r.supplyId)
-  );
-  const removed = recipe.filter(
-    (r) => r.isOptional && !selectedIds.has(r.supplyId)
-  );
-
-  return (
-    <span>
-      {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
-      {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
-    </span>
-  );
-}
-
-function getDefaultSelectedRecipeItemIds(
-  product: Product
-): number[] {
-  return (
-    product.recipe
-      ?.filter((item) => item.isOptional && item.selectedByDefault)
-      .map((item) => item.supplyId) ?? []
-  );
-}
-
-function sortSellableProducts(products: Product[]): Product[] {
-  return [...products].sort((a, b) => {
-    const priorityA = sellablePriority(a);
-    const priorityB = sellablePriority(b);
-    if (priorityA !== priorityB) return priorityA - priorityB;
-    return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
-  });
-}
+import type { PaymentPart } from '@/domain/types';
 
 export function SalesTerminal() {
   const router = useRouter();
   const isMountedRef = useRef(true);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<SellableProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentOverrides, setPaymentOverrides] = useState<PaymentPart[] | null>(null);
-  const [promoDialogProduct, setPromoDialogProduct] = useState<Product | null>(null);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
+  const [customPayments, setCustomPayments] = useState<PaymentPart[] | null>(
+    null
+  );
+  const [promoDialogProduct, setPromoDialogProduct] =
+    useState<SellableProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cartAvailability, setCartAvailability] = useState<Record<number, number>>({});
+  const [cartAvailability, setCartAvailability] = useState<
+    Record<number, number>
+  >({});
   const [cartShortage, setCartShortage] = useState<
     Record<number, { available: number; required: number; supplyName: string }>
   >({});
@@ -108,13 +59,27 @@ export function SalesTerminal() {
     refresh,
   } = useCashRegister();
 
+  const displayProducts = useMemo(() => {
+    if (showOutOfStock) return products;
+    return products.filter((product) => {
+      if (product.type === 'service') return true;
+      const additional = cartAvailability[product.id] ?? product.availability;
+      return additional > 0;
+    });
+  }, [products, showOutOfStock, cartAvailability]);
+
   async function fetchProducts() {
     try {
-      const response = await authenticatedFetch(`${PRODUCTOS_API}?includeAvailability=true`, {});
+      const response = await authenticatedFetch(
+        `${PRODUCTOS_API}?includeAvailability=true`,
+        {}
+      );
       if (!response.ok) throw new Error('Error al cargar productos');
 
-      const allProducts = (await response.json()) as Product[];
-      const sellable = sortSellableProducts(allProducts.filter(isPublicSellableProduct));
+      const allProducts = (await response.json()) as SellableProduct[];
+      const sellable = sortSellableProducts(
+        allProducts.filter(isPublicSellableProduct)
+      );
 
       if (!isMountedRef.current) return;
       setProducts(sellable);
@@ -146,7 +111,8 @@ export function SalesTerminal() {
       try {
         const response = await authenticatedFetch(VENTAS_DISPONIBILIDAD_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             items: cart.map((item) => ({
               productId: item.product.id,
               quantity: item.quantity,
@@ -187,16 +153,16 @@ export function SalesTerminal() {
     };
   }, [cart, products]);
 
-  function addToCart(product: Product, selectedRecipeItemIds?: number[]) {
+  function addToCart(
+    product: SellableProduct,
+    selectedRecipeItemIds?: number[]
+  ) {
     if (!cashRegister || cashRegister.status !== 'open') return;
 
     const existing = cart.find((item) => item.product.id === product.id);
     const currentQuantity = existing?.quantity ?? 0;
-    const additional =
-      cartAvailability[product.id] ??
-      Math.max((product.availability ?? 0) - currentQuantity, 0);
 
-    if (product.type !== 'service' && additional <= 0) return;
+    if (isProductOutOfStock(product, cartAvailability, currentQuantity)) return;
 
     const optionalItems =
       product.recipe?.filter((item) => item.isOptional) ?? [];
@@ -240,8 +206,11 @@ export function SalesTerminal() {
     setCart((prev) =>
       prev.map((item) => {
         if (item.product.id !== productId) return item;
-        const additional =
-          cartAvailability[productId] ?? item.product.availability;
+        const additional = getProductAdditional(
+          item.product,
+          cartAvailability,
+          item.quantity
+        );
         const max = item.quantity + additional;
         const nextQuantity =
           quantity > item.quantity ? Math.min(quantity, max) : quantity;
@@ -256,14 +225,11 @@ export function SalesTerminal() {
   );
 
   const paymentParts = useMemo<PaymentPart[]>(() => {
-    if (paymentOverrides) {
-      const paid = paymentOverrides.reduce((sum, part) => sum + part.amount, 0);
-      if (Math.abs(paid - total) < 0.005) {
-        return paymentOverrides;
-      }
+    if (customPayments && customPayments.length > 0) {
+      return customPayments;
     }
     return [{ method: 'cash', amount: total }];
-  }, [paymentOverrides, total]);
+  }, [customPayments, total]);
 
   async function confirmSale() {
     if (cart.length === 0) {
@@ -272,7 +238,9 @@ export function SalesTerminal() {
     }
 
     if (!cashRegister || cashRegister.status !== 'open') {
-      setError('No hay una caja abierta. Abrí la caja para comenzar a vender.');
+      setError(
+        'No hay una caja abierta. Abrí la caja para comenzar a vender.'
+      );
       await refresh();
       return;
     }
@@ -280,9 +248,10 @@ export function SalesTerminal() {
     const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
     if (Math.abs(paid - total) >= 0.005) {
       setError(
-        `El pago no cubre el total. Faltan $${Math.max(0, total - paid).toFixed(
-          2
-        )} o sobran $${Math.max(0, paid - total).toFixed(2)}.`
+        `El pago no cubre el total. Faltan $${Math.max(
+          0,
+          total - paid
+        ).toFixed(2)} o sobran $${Math.max(0, paid - total).toFixed(2)}.`
       );
       return;
     }
@@ -293,7 +262,8 @@ export function SalesTerminal() {
     try {
       const response = await authenticatedFetch(VENTAS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           items: cart.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
@@ -310,6 +280,7 @@ export function SalesTerminal() {
       }
 
       setCart([]);
+      setCustomPayments(null);
       router.refresh();
       await refresh();
       await fetchProducts();
@@ -343,7 +314,11 @@ export function SalesTerminal() {
 
   return (
     <div className="space-y-5">
-      <div data-tour="caja-status">
+      <div
+        data-tour="caja-status"
+        data-loading={cashLoading ? 'true' : undefined}
+        className="min-h-[120px]"
+      >
         <CajaStatus
           cashRegister={cashRegister}
           onOpen={open}
@@ -362,7 +337,7 @@ export function SalesTerminal() {
           )}
 
           {Object.keys(cartShortage).length > 0 && (
-            <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
+            <div className="rounded-lg border border-amber-600/20 bg-amber-600/10 p-4 text-base text-amber-700">
               {Object.entries(cartShortage).map(([productId, shortage]) => {
                 const product =
                   products.find((p) => p.id === Number(productId)) ??
@@ -378,173 +353,57 @@ export function SalesTerminal() {
             </div>
           )}
 
-          <div data-tour="sales-products" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => {
-              const additional =
-                cartAvailability[product.id] ?? product.availability;
-              const maxAdditional =
-                product.type === 'service'
-                  ? Number.MAX_SAFE_INTEGER
-                  : additional;
-              const isOutOfStock =
-                product.type !== 'service' && maxAdditional <= 0;
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold">Catálogo</h2>
+            <Button
+              type="button"
+              variant={showOutOfStock ? 'default' : 'outline'}
+              size="sm"
+              aria-pressed={showOutOfStock}
+              onClick={() => setShowOutOfStock((prev) => !prev)}
+              data-testid="toggle-show-out-of-stock"
+            >
+              {showOutOfStock ? 'Ocultar agotados' : 'Mostrar agotados'}
+            </Button>
+          </div>
+
+          <div
+            data-tour="sales-products"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {displayProducts.map((product) => {
+              const inCartQuantity =
+                cart.find((item) => item.product.id === product.id)?.quantity ??
+                0;
 
               return (
-                <Card
+                <SalesProductCard
                   key={product.id}
-                  data-testid="product-card"
-                  data-product-name={product.name}
-                  className={`transition-all ${
-                    isOutOfStock || cartDisabled
-                      ? 'opacity-50'
-                      : 'cursor-pointer touch-manipulation hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98]'
-                  }`}
-                  onClick={() => {
-                    if (isOutOfStock || cartDisabled) return;
-                    addToCart(product);
-                  }}
-                >
-                  <CardHeader className="p-5">
-                    <CardTitle className="text-lg font-semibold leading-tight">
-                      {product.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-5 pt-0">
-                    <p className="font-mono text-2xl font-bold text-primary">
-                      ${product.price.toFixed(2)}
-                    </p>
-                    <p className="mt-1 text-base text-muted-foreground">
-                      {product.type === 'service'
-                        ? 'Disponible: sin límite'
-                        : `Disponible: ${product.availability} ${product.unit}`}
-                    </p>
-                    {product.type === 'compound' && product.recipe && product.recipe.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        Incluye: {product.recipe
-                          .filter((item) => !item.isOptional || item.selectedByDefault)
-                          .map((item) => item.supplyName)
-                          .join(', ')}
-                      </p>
-                    )}
-                    {product.type !== 'service' && (
-                      <p className="text-sm text-muted-foreground">
-                        En este pedido:{' '}
-                        {maxAdditional === Number.MAX_SAFE_INTEGER
-                          ? 'sin límite'
-                          : `${maxAdditional} más`}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+                  product={product}
+                  cartAvailability={cartAvailability}
+                  inCartQuantity={inCartQuantity}
+                  cartDisabled={cartDisabled}
+                  onAdd={addToCart}
+                />
               );
             })}
           </div>
         </div>
 
-        <div data-tour="sales-cart" className="space-y-4">
-          <Card className="lg:sticky lg:top-24">
-            <CardHeader>
-              <CardTitle className="text-lg">Pedido</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {cart.length === 0 ? (
-                <p className="text-base text-muted-foreground">
-                  El carrito está vacío.
-                </p>
-              ) : (
-                <ul className="space-y-3">
-                  {cart.map((item) => (
-                    <li
-                      key={item.product.id}
-                      data-testid="cart-item"
-                      data-product-name={item.product.name}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{item.product.name}</p>
-                        <p className="font-mono text-sm text-muted-foreground">
-                          ${item.product.price.toFixed(2)} x {item.quantity}
-                        </p>
-                        {item.product.type === 'compound' && item.product.recipe && item.product.recipe.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            <SalesCartItemRecipeDetails item={item} />
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          aria-label="Disminuir cantidad"
-                          onClick={() =>
-                            updateQuantity(item.product.id, item.quantity - 1)
-                          }
-                          disabled={cartDisabled}
-                        >
-                          -
-                        </Button>
-                        <span className="min-w-8 text-center font-mono text-base">
-                          {item.quantity}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          aria-label="Aumentar cantidad"
-                          onClick={() =>
-                            updateQuantity(item.product.id, item.quantity + 1)
-                          }
-                          disabled={
-                            cartDisabled ||
-                            (item.product.type !== 'service' &&
-                              (cartAvailability[item.product.id] ??
-                                item.product.availability) <= 0)
-                          }
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="border-t border-white/10 pt-4">
-                <p className="font-mono text-2xl font-bold">
-                  Total: ${total.toFixed(2)}
-                </p>
-              </div>
-
-              <PaymentPartsInput
-                total={total}
-                payments={paymentParts}
-                onChange={setPaymentOverrides}
-                disabled={cartDisabled || isSubmitting}
-              />
-
-            <Button
-              type="button"
-              className="w-full"
-              disabled={
-                cart.length === 0 ||
-                isSubmitting ||
-                cartDisabled ||
-                Object.keys(cartShortage).length > 0 ||
-                isCheckingAvailability
-              }
-              onClick={confirmSale}
-            >
-              {isSubmitting
-                ? 'Procesando...'
-                : isCheckingAvailability
-                  ? 'Calculando disponibilidad...'
-                  : 'Confirmar venta'}
-            </Button>
-          </CardContent>
-        </Card>
+        <SalesCart
+          cart={cart}
+          cartAvailability={cartAvailability}
+          cartDisabled={cartDisabled}
+          isSubmitting={isSubmitting}
+          isCheckingAvailability={isCheckingAvailability}
+          hasShortage={Object.keys(cartShortage).length > 0}
+          total={total}
+          paymentParts={paymentParts}
+          onPaymentChange={setCustomPayments}
+          onUpdateQuantity={updateQuantity}
+          onConfirm={confirmSale}
+        />
       </div>
-    </div>
 
       {promoDialogProduct && (
         <PromoOptionsDialog

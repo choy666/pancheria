@@ -1,42 +1,49 @@
 import { test, expect } from '@playwright/test';
+import { login, ensureCashRegisterOpen } from './helpers';
 
-/**
- * Valida rate limiting de creación de pedidos públicos.
- *
- * Requiere E2E_ENABLE_RATE_LIMIT=true y un PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS
- * bajo (por ejemplo 2) en .env.e2e para que el límite se alcance rápidamente.
- */
-test.describe.skip('Rate limit de pedidos públicos', () => {
-  test.skip('bloquea la tercera solicitud con 429', async ({ page }) => {
-    const body = {
-      customerName: 'Cliente rate limit',
-      customerPhone: '3415555555',
-      deliveryType: 'pickup',
-      branchId: 1,
-      items: [{ productId: 0, quantity: 1 }],
-    };
+test.describe('Rate limit de pedidos públicos', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await ensureCashRegisterOpen(page);
+  });
 
-    const first = await page.request.post('/api/public/pedido?branchId=1', {
-      data: body,
-    });
-    expect([400, 429]).toContain(first.status());
+  test('bloquea la tercera solicitud con 429', async ({ page }) => {
+    const catalog = await page.request.get('/api/public/catalogo?branchId=1');
+    expect(catalog.status()).toBe(200);
+    const catalogData = (await catalog.json()) as { products: { id: number; name: string }[] };
+    const product = catalogData.products.find((p) => p.id > 0);
+    expect(product).toBeDefined();
+
+    const clientIp = '203.0.113.10';
+    const makeRequest = () =>
+      page.request.post('/api/public/pedido?branchId=1', {
+        data: {
+          items: [{ productId: product!.id, quantity: 1 }],
+          customerName: 'Cliente rate limit',
+          customerPhone: '3415555555',
+          deliveryType: 'pickup',
+          idempotencyKey: `rate-limit-${Date.now()}-${Math.random()}`,
+        },
+        headers: {
+          'X-Forwarded-For': clientIp,
+        },
+      });
+
+    const first = await makeRequest();
+    expect([201, 429]).toContain(first.status());
 
     if (first.status() === 429) {
       return;
     }
 
-    const second = await page.request.post('/api/public/pedido?branchId=1', {
-      data: body,
-    });
-    expect([400, 429]).toContain(second.status());
+    const second = await makeRequest();
+    expect([201, 429]).toContain(second.status());
 
     if (second.status() === 429) {
       return;
     }
 
-    const third = await page.request.post('/api/public/pedido?branchId=1', {
-      data: body,
-    });
+    const third = await makeRequest();
     expect(third.status()).toBe(429);
 
     const thirdBody = (await third.json()) as { error?: string };

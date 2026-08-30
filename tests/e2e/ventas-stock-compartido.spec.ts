@@ -73,6 +73,9 @@ test.describe('Venta con stock compartido entre promos', () => {
 
     await page.goto('/ventas');
 
+    // Mantener agotados visibles porque el stock compartido deja a B en 0.
+    await page.getByTestId('toggle-show-out-of-stock').click();
+
     const cardA = page
       .locator('[data-testid="product-card"][data-product-name="' + promoA.name + '"]');
     const cardB = page
@@ -104,12 +107,13 @@ test.describe('Venta con stock compartido entre promos', () => {
       timeout: 10000,
     });
 
-    await expect(cardB.getByText('En este pedido: 0 más')).toBeVisible({
+    await expect(cardB.getByText('Sin stock')).toBeVisible({
       timeout: 10000,
     });
 
-    await cardB.click();
-    await page.waitForTimeout(400);
+    // La tarjeta B se deshabilita al quedar sin stock; no permite otro click.
+    await expect(cardB).toHaveAttribute('data-out-of-stock', 'true');
+    await expect(cardB).toHaveAttribute('aria-disabled', 'true');
 
     await expect(cartItemB.getByText('1', { exact: true })).toBeVisible({
       timeout: 10000,

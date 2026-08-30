@@ -60,6 +60,7 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `npx tsc --noEmit` — verificación de tipos
 - `npm test` — tests unitarios
 - `npm run test:e2e` (o `npx playwright test`) — tests end-to-end
+- `npm run knip` — detectar exports, dependencias y archivos no usados
 - `npx drizzle-kit generate` — generar migraciones
 - `npx drizzle-kit push` — empujar migraciones
 - `npx tsx src/db/seeds.ts` — ejecutar seed
@@ -71,21 +72,40 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `src/repositories/` — capa de repositorios
 - `src/db/` — esquema, conexión y seeds de Drizzle
 - `src/components/` — componentes React
-- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, rutas)
+- `src/config/` — constantes de configuración (APIs, caja, catálogo, chat, pedidos, paginación, videos, imágenes de productos, rutas)
   - `src/config/routes.ts` centraliza las rutas de navegación de la UI.
   - `src/config/caja.ts` expone getters para las variables de entorno de caja.
+  - `src/config/product-images.ts` expone getters para las variables de entorno de imágenes de productos.
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
-- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `route-guard`, `fetch`, `whatsapp`, `auth`, `db-errors`, `with-auth.ts`, y helpers de productos/ventas/pedidos/stock/caja
+- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `product-image-storage`, `product-image-upload-client`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `branch-helpers`, `route-guard`, `fetch`, `whatsapp`, `auth`, `db-errors`, `with-auth.ts`, `public-url`, `api-handler`, `logger`, `pagination`, `validation-helpers`, `last-customer-name`, `last-customer-phone`, `recent-orders`, y helpers de productos/ventas/pedidos/stock/caja/pagos
+
+## Panel de control
+
+La raíz autenticada `/` es el panel de control. Muestra un resumen operativo de la sucursal activa:
+
+- Estado de la caja (abierta/cerrada, total, efectivo, transferencia, cantidad de ventas).
+- Pedidos por estado (`pending`, `in_process`, `paid`, `finished`, `cancelled`).
+- Alertas de stock bajo.
+- Nombre de la sucursal activa y usuario logueado.
+- Accesos rápidos a las secciones principales, filtrados por rol.
+
+Los datos se obtienen de `GET /api/panel/resumen` y se refrescan automáticamente cada 30 segundos. El archivo `src/components/panel/dashboard-client.tsx` contiene la interfaz y `src/hooks/useDashboard.ts` el hook de carga.
+
+La navegación superior distingue ahora:
+
+- **Historial de cajas** (`/ventas/historial`): historial de ventas por caja.
+- **Caja y cierre** (`/cierre`): apertura, cierre y resumen de la caja.
+- **Cierres diarios** (`/cierre/historial`): cierres diarios históricos.
 
 ## Guía interactiva
 
-La app incluye un recorrido interactivo con `driver.js` que se adapta al rol del usuario. El tour se inicia manualmente desde el botón **Guía** del header (también disponible en el menú móvil). Una vez iniciado, continúa automáticamente al navegar entre las secciones habilitadas para cada rol:
+La app incluye un recorrido interactivo con `driver.js` que se adapta al rol del usuario. El tour se inicia manualmente desde el botón **Guía** del header (también disponible en el menú móvil). Una vez iniciado, continúa automáticamente al navegar entre las secciones habilitadas para cada rol y resalta `data-tour` en cada pantalla:
 
-- **Administrador (`admin`)**: Panel, Ventas, Productos, Stock, Caja, Historial de cierres, Sucursales y Usuarios. También se destaca el selector de sucursal.
-- **Operador (`operator`)**: Panel, Ventas, Stock, Caja e Historial de cierres, siempre dentro de su sucursal asignada.
+- **Administrador (`admin`)**: Panel, Ventas, Productos, Stock, Caja y cierre, Cierres diarios, Pedidos, Videos, Sucursales, Usuarios, Perfil y selector de sucursal.
+- **Operador (`operator`)**: Panel, Ventas, Stock, Caja y cierre, Cierres diarios, Pedidos, Perfil y Catálogo, siempre dentro de su sucursal asignada.
 
-El recorrido se puede cerrar en cualquier momento con la cruz, la tecla `Escape`, el botón **Finalizar** o volviendo a presionar **Guía**.
+El recorrido explica pagos mixtos, el flujo de pedidos (`pending` → `in_process` → `paid` → `finished` o `cancelled`), reservas, chat del pedido, imágenes de promos y videos. Se puede cerrar en cualquier momento con la cruz, la tecla `Escape`, el botón **Finalizar** o volviendo a presionar **Guía**.
 
 ## Multi-sucursal
 
@@ -112,9 +132,9 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 
 El sistema distingue dos roles: `admin` y `operator`.
 
-- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial`, `Productos`, `Stock`, `Caja`, `Pedidos`, `Sucursales`, `Usuarios`, `Videos` y `Catálogo`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
+- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial de cajas`, `Productos`, `Stock`, `Caja y cierre`, `Cierres diarios`, `Pedidos`, `Sucursales`, `Usuarios`, `Videos`, `Catálogo` y `Perfil`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
 
-- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Puede acceder a `Panel`, `Ventas`, `Historial`, `Stock`, `Caja`, `Pedidos` y `Catálogo`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja` puede abrir, cerrar y consultar historial, así como generar cierres diarios de su sucursal. El nombre de su sucursal asignada se muestra en la navbar.
+- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Puede acceder a `Panel`, `Ventas`, `Historial de cajas`, `Stock`, `Caja y cierre`, `Cierres diarios`, `Pedidos`, `Catálogo` y `Perfil`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja y cierre` puede abrir, cerrar y consultar historial, así como generar cierres diarios de su sucursal. El nombre de su sucursal asignada se muestra en la navbar.
 
 La página `/usuarios` lista siempre **todos** los usuarios del sistema para el administrador, mostrando la sucursal asignada de cada uno. No es posible crear más administradores desde la interfaz.
 
@@ -177,9 +197,8 @@ Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se c
 - El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).
 - `next.config.ts` define headers de seguridad incluyendo `Content-Security-Policy`.
 - El esquema de base de datos incluye constraints `CHECK (stock >= 0)` y `CHECK (min_stock >= 0)` en `products`, además de índices recientes en `orders` y `order_messages`.
-- Los insumos manuales (`manual_supply`) no se descuentan automáticamente del stock en ventas; su control es manual.
+- Los insumos manuales (`manual_supply`) son informativos en recetas y no se descuentan automáticamente del stock en ventas.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.
-- Los insumos manuales son informativos en recetas y no descuentan stock automáticamente en ventas.
 - `src/db/index.ts` elige el driver correcto (Neon serverless o `pg`) según el host de la URL.
 - La raíz `/` redirige a `/pedido` si no hay sesión y `/login` redirige a `/` si el usuario ya está autenticado, a través del proxy de NextAuth en `src/proxy.ts` y la lógica de `src/lib/route-guard.ts`. `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` conservan redirecciones defensivas que duplican la lógica del proxy. `next.config.ts` no contiene un redirect estático de `/` a `/pedido`.
 - El esquema incluye `order_messages`, `public_order_rate_limits` y `login_attempts`, además de las tablas de negocio principales.

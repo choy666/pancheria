@@ -50,6 +50,14 @@ export default defineConfig({
         url: 'http://localhost:3000/api/caja/resumen',
         reuseExistingServer: true,
         timeout: 180 * 1000,
+        env: {
+          E2E_ENABLE_RATE_LIMIT: process.env.E2E_ENABLE_RATE_LIMIT ?? '',
+          PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV:
+            process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV ?? '',
+          PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS:
+            process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS ?? '',
+          TRUSTED_PROXY_IP_HEADER: process.env.TRUSTED_PROXY_IP_HEADER ?? '',
+        },
       }
     : undefined,
 });

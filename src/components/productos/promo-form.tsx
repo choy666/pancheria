@@ -1,7 +1,7 @@
 'use client';
 
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useMemo, useRef, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,21 +19,17 @@ import { uploadProductImage } from '@/lib/product-image-upload-client';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
 import { routes } from '@/config/routes';
 import {
-  criticalTypeLabels,
-  productTypeLabels,
   productTypeBadgeClasses,
   productTypeDotClasses,
 } from '@/lib/product-style';
-import type { CriticalSupplyType, ProductType } from '@/domain/types';
-import { Check, ChevronDown, Plus, Search, Trash2 } from 'lucide-react';
 
-interface Supply {
-  id: number;
-  name: string;
-  type: ProductType;
-  criticalSupplyType: CriticalSupplyType | null;
-  unit: string;
-}
+import { Plus, Trash2 } from 'lucide-react';
+import {
+  getSupplyGroupKey,
+  SupplySearchableSelect,
+  type Supply,
+  type SupplyGroupKey,
+} from './supply-searchable-select';
 
 interface RecipeItem {
   supplyId: number;
@@ -73,8 +69,6 @@ interface PromoFormProps {
   product?: PromoProduct;
 }
 
-type SupplyGroupKey = CriticalSupplyType | 'manual_supply' | 'service' | 'compound';
-
 const emptyForm: PromoFormData = {
   name: '',
   price: '',
@@ -88,43 +82,6 @@ const emptyRecipeItem: PromoRecipeItem = {
   selectedByDefault: true,
 };
 
-const groupPriorityDefault: Record<SupplyGroupKey, number> = {
-  bread: 1,
-  sausage: 2,
-  beverage: 3,
-  manual_supply: 4,
-  service: 5,
-  compound: 6,
-};
-
-function getSupplyGroupKey(supply: Supply): SupplyGroupKey {
-  if (supply.type === 'critical_supply' && supply.criticalSupplyType) {
-    return supply.criticalSupplyType;
-  }
-  if (
-    supply.type === 'manual_supply' ||
-    supply.type === 'service' ||
-    supply.type === 'compound'
-  ) {
-    return supply.type;
-  }
-  return 'manual_supply';
-}
-
-function getGroupLabel(key: SupplyGroupKey): string {
-  if (['bread', 'sausage', 'beverage'].includes(key)) {
-    return `Insumos críticos — ${criticalTypeLabels[key as CriticalSupplyType]}`;
-  }
-  return productTypeLabels[key as ProductType];
-}
-
-function formatSupplyLabel(supply: Supply) {
-  if (supply.type === 'critical_supply' && supply.criticalSupplyType) {
-    return `${supply.name} (${supply.unit}) — ${criticalTypeLabels[supply.criticalSupplyType]}`;
-  }
-  return `${supply.name} (${supply.unit}) — ${productTypeLabels[supply.type]}`;
-}
-
 function getPreferredGroupKey(
   items: PromoRecipeItem[],
   supplies: Supply[]
@@ -134,195 +91,6 @@ function getPreferredGroupKey(
     if (supply) return getSupplyGroupKey(supply);
   }
   return undefined;
-}
-
-interface SupplySearchableSelectProps {
-  id?: string;
-  'data-testid'?: string;
-  supplies: Supply[];
-  value: number;
-  onChange: (value: number) => void;
-  preferredGroupKey?: SupplyGroupKey;
-}
-
-function SupplySearchableSelect({
-  id,
-  'data-testid': testId,
-  supplies,
-  value,
-  onChange,
-  preferredGroupKey,
-}: SupplySearchableSelectProps) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selectedSupply = useMemo(
-    () => supplies.find((s) => s.id === value),
-    [supplies, value]
-  );
-
-  const normalizedQuery = query.trim().toLowerCase();
-
-  const groupedOptions = useMemo(() => {
-    const filtered = supplies.filter((s) => {
-      const haystack = [
-        s.name,
-        productTypeLabels[s.type],
-        s.criticalSupplyType ? criticalTypeLabels[s.criticalSupplyType] : '',
-        s.unit,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(normalizedQuery);
-    });
-
-    const groups = new Map<SupplyGroupKey, Supply[]>();
-    for (const s of filtered) {
-      const key = getSupplyGroupKey(s);
-      const arr = groups.get(key) ?? [];
-      arr.push(s);
-      groups.set(key, arr);
-    }
-
-    const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-      const priorityA = (groupPriorityDefault[a] ?? 99) + (a === preferredGroupKey ? -100 : 0);
-      const priorityB = (groupPriorityDefault[b] ?? 99) + (b === preferredGroupKey ? -100 : 0);
-      return priorityA - priorityB || a.localeCompare(b);
-    });
-
-    return sortedKeys.map((key) => ({
-      key,
-      label: getGroupLabel(key),
-      items:
-        groups
-          .get(key)
-          ?.sort((a, b) => a.name.localeCompare(b.name)) ?? [],
-    }));
-  }, [supplies, normalizedQuery, preferredGroupKey]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [open]);
-
-  function handleSelect(supply: Supply) {
-    onChange(supply.id);
-    setOpen(false);
-    setQuery('');
-  }
-
-  function handleToggle() {
-    const nextOpen = !open;
-    if (nextOpen) setQuery('');
-    setOpen(nextOpen);
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        id={id}
-        data-testid={testId}
-        onClick={handleToggle}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={cn(
-          'flex w-full min-h-11 items-center justify-between gap-1.5 rounded-lg border border-input bg-input/50 px-3 py-2 text-base transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
-          !selectedSupply && 'text-muted-foreground'
-        )}
-      >
-        <span className="flex-1 truncate text-left">
-          {selectedSupply ? formatSupplyLabel(selectedSupply) : 'Seleccionar insumo'}
-        </span>
-        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-      </button>
-
-      {open && (
-        <div
-          className="absolute z-50 mt-1 w-full rounded-xl border border-white/10 bg-popover p-1.5 text-popover-foreground shadow-xl ring-1 ring-white/10"
-          role="listbox"
-        >
-          <div className="sticky top-0 mb-1 p-1">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por nombre, tipo o unidad"
-                autoFocus
-                className="min-h-11 w-full rounded-lg border border-input bg-input/50 px-3 py-2 pl-9 pr-3 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9 md:min-h-9 md:px-2.5 md:pl-9 md:pr-2.5 md:text-sm"
-              />
-            </div>
-          </div>
-          <div className="max-h-72 overflow-y-auto">
-            {groupedOptions.length === 0 ? (
-              <div className="px-2 py-3 text-sm text-muted-foreground">
-                No se encontraron insumos.
-              </div>
-            ) : (
-              groupedOptions.map((group) => (
-                <div key={group.key} role="group" aria-label={group.label}>
-                  <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                    {group.label}
-                  </div>
-                  {group.items.map((supply) => {
-                    const isSelected = supply.id === value;
-                    return (
-                      <button
-                        key={supply.id}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        onClick={() => handleSelect(supply)}
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors',
-                          isSelected
-                            ? 'bg-accent text-accent-foreground'
-                            : 'hover:bg-accent/80 hover:text-accent-foreground'
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'inline-block h-2 w-2 shrink-0 rounded-full',
-                            productTypeDotClasses[supply.type]
-                          )}
-                        />
-                        <span className="flex-1 truncate">
-                          {formatSupplyLabel(supply)}
-                        </span>
-                        {isSelected && <Check className="size-4 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function PromoForm({ product }: PromoFormProps) {

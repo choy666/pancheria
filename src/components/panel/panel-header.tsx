@@ -27,9 +27,10 @@ interface PanelHeaderProps {
 const operatorNavItems = [
   { href: routes.home, label: 'Panel' },
   { href: routes.ventas, label: 'Ventas' },
-  { href: routes.ventasHistorial, label: 'Historial' },
+  { href: routes.ventasHistorial, label: 'Historial de cajas' },
   { href: routes.stock, label: 'Stock' },
-  { href: routes.cierre, label: 'Caja' },
+  { href: routes.cierre, label: 'Caja y cierre' },
+  { href: routes.cierreHistorial, label: 'Cierres diarios' },
   { href: routes.pedidos, label: 'Pedidos' },
   { href: routes.pedido, label: 'Catálogo' },
 ];
@@ -37,10 +38,11 @@ const operatorNavItems = [
 const adminNavItems = [
   { href: routes.home, label: 'Panel' },
   { href: routes.ventas, label: 'Ventas' },
-  { href: routes.ventasHistorial, label: 'Historial' },
+  { href: routes.ventasHistorial, label: 'Historial de cajas' },
   { href: routes.productos, label: 'Productos' },
   { href: routes.stock, label: 'Stock' },
-  { href: routes.cierre, label: 'Caja' },
+  { href: routes.cierre, label: 'Caja y cierre' },
+  { href: routes.cierreHistorial, label: 'Cierres diarios' },
   { href: routes.pedidos, label: 'Pedidos' },
   { href: routes.sucursales, label: 'Sucursales' },
   { href: routes.usuarios, label: 'Usuarios' },

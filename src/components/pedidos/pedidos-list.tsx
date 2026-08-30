@@ -263,7 +263,10 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
       )}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
+        <div
+          data-tour="pedidos-status-filter"
+          className="flex w-full flex-col gap-1.5 sm:w-auto"
+        >
           <Label htmlFor="orders-status-filter" className="text-sm text-muted-foreground">
             Estado
           </Label>
@@ -342,7 +345,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/8">
+      <div data-tour="pedidos-table" className="rounded-2xl border border-white/8">
         <Table>
           <TableHeader>
             <TableRow>

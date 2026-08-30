@@ -24,6 +24,7 @@ interface CashRegisterSummaryData {
   closingNotes?: string | null;
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
+  recipeSuppliesSummary?: Record<string, number> | null;
 }
 
 interface CashRegisterSummaryProps {
@@ -57,6 +58,7 @@ export function CashRegisterSummary({
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
+  const recipeSuppliesSummary = cashRegister.recipeSuppliesSummary ?? {};
 
   const cashInDrawer =
     cashRegister.cashInDrawer ??
@@ -214,6 +216,33 @@ export function CashRegisterSummary({
               <li
                 key={name}
                 data-testid="cash-register-supply-item"
+                data-supply-name={name}
+                className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+              >
+                <span>{name}</span>
+                <span className="font-mono font-medium">{quantity}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card
+        data-testid="recipe-supplies-card"
+        role="region"
+        aria-labelledby="recipe-supplies-title"
+      >
+        <CardHeader>
+          <CardTitle id="recipe-supplies-title" className="text-lg">
+            Insumos de recetas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2" aria-labelledby="recipe-supplies-title">
+            {Object.entries(recipeSuppliesSummary).map(([name, quantity]) => (
+              <li
+                key={name}
+                data-testid="cash-register-recipe-supply-item"
                 data-supply-name={name}
                 className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
               >

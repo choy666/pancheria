@@ -44,9 +44,6 @@ async function clickTourNext(page: Page) {
   await page.locator('.driver-popover-next-btn').click();
 }
 
-async function clickTourPrev(page: Page) {
-  await page.locator('.driver-popover-prev-btn').click();
-}
 
 test.describe('Guía interactiva', () => {
   test.beforeEach(async ({ page }) => {
@@ -76,9 +73,9 @@ test.describe('Guía interactiva', () => {
     expect(seen).toBe('true');
 
     // Simula la reanudación en el paso final para probar el botón Finalizar.
-    // El paso final del flujo admin es el índice 16.
+    // El paso final del flujo admin es el índice 25.
     await setTourStorageValue(page, 'active', 'true');
-    await setTourStorageValue(page, 'step', '16');
+    await setTourStorageValue(page, 'step', '25');
 
     await page.goto('/cierre/historial');
     await expect(page.locator('.driver-popover-title')).toBeVisible();
@@ -107,66 +104,94 @@ test.describe('Guía interactiva', () => {
     await page.waitForURL('/');
     await waitForTourStep(page, 'Bienvenido a Panchería');
 
+    // Esperar a que el dashboard renderice los elementos del tour.
+    await page.waitForSelector('[data-tour="dashboard-header"]', { timeout: 10000 });
+    await page.waitForSelector('[data-tour="dashboard-ventas"]', { timeout: 10000 });
+
     // Avanzar hasta el paso "Ventas".
     await clickTourNext(page); // 0 -> 1
     await waitForTourStep(page, 'Panel de control');
     await clickTourNext(page); // 1 -> 2
-    await waitForTourStep(page, 'Menú superior');
+    await waitForTourStep(page, 'Accesos rápidos');
     await clickTourNext(page); // 2 -> 3
+    await waitForTourStep(page, 'Menú superior');
+    // En desktop el paso "Menú" (móvil) se salta por no estar visible.
+    await clickTourNext(page); // 3 -> 5
     await waitForTourStep(page, 'Ventas');
 
     // Avanzar al siguiente paso navega a /ventas.
-    await clickTourNext(page); // 3 -> 4
+    await clickTourNext(page); // 5 -> 6
     await page.waitForURL('/ventas');
+    await page.waitForSelector('[data-tour="sales-products"]', { timeout: 10000 });
+    await page.waitForSelector('[data-tour="sales-cart"]', { timeout: 10000 });
     await waitForTourStep(page, 'Estado de la caja');
-
-    // Retroceder vuelve a / en el paso "Ventas".
-    await clickTourPrev(page); // 4 -> 3
-    await page.waitForURL('/');
-    await waitForTourStep(page, 'Ventas');
 
     // Continuar y completar el recorrido.
-    await clickTourNext(page); // 3 -> 4
-    await page.waitForURL('/ventas');
-    await waitForTourStep(page, 'Estado de la caja');
-
-    await clickTourNext(page); // 4 -> 5
+    await clickTourNext(page); // 6 -> 7
     await waitForTourStep(page, 'Productos disponibles');
 
-    await clickTourNext(page); // 5 -> 6
+    await clickTourNext(page); // 7 -> 8
     await waitForTourStep(page, 'Pedido actual');
 
-    await clickTourNext(page); // 6 -> 7
+    await clickTourNext(page); // 8 -> 9
+    await waitForTourStep(page, 'Pagos mixtos');
+
+    await clickTourNext(page); // 9 -> 10
     await page.waitForURL('/productos');
     await waitForTourStep(page, 'Productos y promos');
 
-    await clickTourNext(page); // 7 -> 8
-    await waitForTourStep(page, 'Nuevos productos');
+    await clickTourNext(page); // 10 -> 11
+    await waitForTourStep(page, 'Nuevos productos y promos');
 
-    await clickTourNext(page); // 8 -> 9
+    await clickTourNext(page); // 11 -> 12
+    await page.waitForURL(/productos\/nuevo\?tab=promo/);
+    await waitForTourStep(page, 'Imagen de la promo');
+
+    await clickTourNext(page); // 12 -> 13
     await page.waitForURL('/stock');
     await waitForTourStep(page, 'Stock');
 
-    await clickTourNext(page); // 9 -> 10
+    await clickTourNext(page); // 13 -> 14
     await page.waitForURL('/cierre');
     await waitForTourStep(page, 'Cierre de caja');
 
-    await clickTourNext(page); // 10 -> 11
+    await clickTourNext(page); // 14 -> 15
     await page.waitForURL('/cierre/historial');
     await waitForTourStep(page, 'Historial de cierres');
 
-    await clickTourNext(page); // 11 -> 12
+    await clickTourNext(page); // 15 -> 16
+    await page.waitForURL('/pedidos');
+    await waitForTourStep(page, 'Pedidos');
+
+    await clickTourNext(page); // 16 -> 17
+    await waitForTourStep(page, 'Estado del pedido');
+
+    await clickTourNext(page); // 17 -> 18
+    await waitForTourStep(page, 'Listado de pedidos');
+
+    await clickTourNext(page); // 18 -> 19
+    await page.waitForURL('/videos');
+    await waitForTourStep(page, 'Videos');
+
+    await clickTourNext(page); // 19 -> 20
+    await waitForTourStep(page, 'Listado y reproducción');
+
+    await clickTourNext(page); // 20 -> 21
     await page.waitForURL('/sucursales');
     await waitForTourStep(page, 'Sucursales');
 
-    await clickTourNext(page); // 12 -> 13
+    await clickTourNext(page); // 21 -> 22
     await page.waitForURL('/usuarios');
     await waitForTourStep(page, 'Usuarios');
 
-    await clickTourNext(page); // 13 -> 14
+    await clickTourNext(page); // 22 -> 23
     await waitForTourStep(page, 'Selector de sucursal');
 
-    await clickTourNext(page); // 14 -> 15
+    await clickTourNext(page); // 23 -> 24
+    await page.waitForURL('/perfil');
+    await waitForTourStep(page, 'Perfil');
+
+    await clickTourNext(page); // 24 -> 25
     await waitForTourStep(page, 'Fin del recorrido');
 
     const doneButton = page.locator(
@@ -201,48 +226,69 @@ test.describe('Tour como operador', () => {
     await page.getByRole('button', { name: 'Guía' }).click();
     await waitForTourStep(page, 'Bienvenido a Panchería');
 
+    // Esperar a que el dashboard renderice los elementos del tour.
+    await page.waitForSelector('[data-tour="dashboard-header"]', { timeout: 10000 });
+    await page.waitForSelector('[data-tour="dashboard-ventas"]', { timeout: 10000 });
+
     // El paso del panel describe solo las secciones permitidas.
     await clickTourNext(page); // 0 -> 1
     await waitForTourStep(page, 'Panel de control');
     await expect(page.locator('.driver-popover-description')).toContainText(
-      'Ventas, Stock y Caja'
-    );
-    await expect(page.locator('.driver-popover-description')).toContainText(
-      'No tenés acceso a Productos, Sucursales ni Usuarios'
+      'Ventas, Stock, Caja'
     );
 
     // Avanzar hasta Ventas.
     await clickTourNext(page); // 1 -> 2
-    await waitForTourStep(page, 'Menú superior');
+    await waitForTourStep(page, 'Accesos rápidos');
     await clickTourNext(page); // 2 -> 3
+    await waitForTourStep(page, 'Menú superior');
+    // En desktop el paso "Menú" (móvil) se salta por no estar visible.
+    await clickTourNext(page); // 3 -> 5
     await waitForTourStep(page, 'Ventas');
 
     // Navega a /ventas.
-    await clickTourNext(page); // 3 -> 4
+    await clickTourNext(page); // 5 -> 6
     await page.waitForURL('/ventas');
+    await page.waitForSelector('[data-tour="sales-products"]', { timeout: 10000 });
+    await page.waitForSelector('[data-tour="sales-cart"]', { timeout: 10000 });
     await waitForTourStep(page, 'Estado de la caja');
 
-    await clickTourNext(page); // 4 -> 5
-    await waitForTourStep(page, 'Productos disponibles');
+    await clickTourNext(page); // 6 -> 7
 
-    await clickTourNext(page); // 5 -> 6
+    await clickTourNext(page); // 7 -> 8
     await waitForTourStep(page, 'Pedido actual');
 
+    await clickTourNext(page); // 8 -> 9
+    await waitForTourStep(page, 'Pagos mixtos');
+
     // El recorrido del operador va de Ventas directamente a Stock.
-    await clickTourNext(page); // 6 -> 7
+    await clickTourNext(page); // 9 -> 10
     await page.waitForURL('/stock');
     await waitForTourStep(page, 'Stock');
 
-    await clickTourNext(page); // 7 -> 8
+    await clickTourNext(page); // 10 -> 11
     await page.waitForURL('/cierre');
     await waitForTourStep(page, 'Cierre de caja');
 
-    await clickTourNext(page); // 8 -> 9
+    await clickTourNext(page); // 11 -> 12
     await page.waitForURL('/cierre/historial');
     await waitForTourStep(page, 'Historial de cierres');
 
-    // El recorrido finaliza sin pasar por Productos, Sucursales ni Usuarios.
-    await clickTourNext(page); // 9 -> 10
+    await clickTourNext(page); // 12 -> 13
+    await page.waitForURL('/pedidos');
+    await waitForTourStep(page, 'Pedidos');
+
+    await clickTourNext(page); // 13 -> 14
+    await waitForTourStep(page, 'Estado del pedido');
+
+    await clickTourNext(page); // 14 -> 15
+    await waitForTourStep(page, 'Listado de pedidos');
+
+    await clickTourNext(page); // 15 -> 16
+    await page.waitForURL('/perfil');
+    await waitForTourStep(page, 'Perfil');
+
+    await clickTourNext(page); // 16 -> 17
     await waitForTourStep(page, 'Fin del recorrido');
 
     const doneButton = page.locator(

@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
 
 test.describe('Chat anclado a pedidos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);
+    await setUniqueClientIp(page);
   });
 
   test('cliente y operador intercambian mensajes', async ({ page }) => {

@@ -13,7 +13,7 @@ export default async function PerfilPage() {
   const userName = session?.user?.name ?? '';
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div data-tour="perfil-page" className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
         <p className="text-base text-muted-foreground">

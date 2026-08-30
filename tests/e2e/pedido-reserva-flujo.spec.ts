@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, unique, createProductViaApi, restockProductViaApi, ensureCashRegisterOpen } from './helpers';
+import { login, unique, createProductViaApi, restockProductViaApi, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
 
 async function selectOrderStatus(page: Page, label: string) {
   await page.getByTestId('orders-status-filter').click();
@@ -10,6 +10,7 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);
+    await setUniqueClientIp(page);
   });
 
   test('recibe, confirma pago y finaliza un pedido sin doble descuento', async ({

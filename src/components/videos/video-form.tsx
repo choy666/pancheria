@@ -296,7 +296,7 @@ export function VideoForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Archivo de video</Label>
+            <Label htmlFor="video-file-input">Archivo de video</Label>
             <div
               key={fileInputKey}
               onDragOver={handleDragOver}

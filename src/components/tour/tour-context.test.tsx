@@ -184,7 +184,7 @@ describe('TourProvider y TourButton', () => {
 
   test('retoma el tour desde el paso guardado cuando está activo', () => {
     window.localStorage.setItem('pancheria-tour-active', 'true');
-    window.localStorage.setItem('pancheria-tour-step', '4');
+    window.localStorage.setItem('pancheria-tour-step', '6');
     usePathnameMock.mockReturnValue('/ventas');
 
     const mockDriver = createMockDriver();
@@ -196,7 +196,7 @@ describe('TourProvider y TourButton', () => {
     );
 
     expect(driver).toHaveBeenCalledTimes(1);
-    expect(mockDriver.drive).toHaveBeenCalledWith(4);
+    expect(mockDriver.drive).toHaveBeenCalledWith(6);
     expect(window.localStorage.getItem('pancheria-tour-step')).toBeNull();
   });
 
@@ -281,9 +281,11 @@ describe('TourProvider y TourButton', () => {
     });
 
     const steps = lastConfigSteps();
-    const ventasStep = steps.find(
+    const ventasIndex = steps.findIndex(
       (s) => s.popover?.title === 'Ventas'
-    ) as DriveStep;
+    );
+    const ventasStep = steps[ventasIndex] as DriveStep;
+    const nextStepIndex = ventasIndex + 1;
 
     act(() => {
       ventasStep.popover?.onNextClick?.(
@@ -294,7 +296,9 @@ describe('TourProvider y TourButton', () => {
     });
 
     expect(routerPush).toHaveBeenCalledWith('/ventas');
-    expect(window.localStorage.getItem('pancheria-tour-step')).toBe('5');
+    expect(window.localStorage.getItem('pancheria-tour-step')).toBe(
+      String(nextStepIndex)
+    );
     expect(window.localStorage.getItem('pancheria-tour-active')).toBe('true');
     expect(mockDriver.destroy).toHaveBeenCalled();
   });
@@ -353,6 +357,10 @@ describe('TourProvider y TourButton', () => {
     expect(titles).toContain('Productos y promos');
     expect(titles).toContain('Sucursales');
     expect(titles).toContain('Usuarios');
+    expect(titles).toContain('Pedidos');
+    expect(titles).toContain('Videos');
+    expect(titles).toContain('Perfil');
+    expect(titles).toContain('Pagos mixtos');
 
     const navUrls: string[] = [];
     steps.forEach((step) => {
@@ -371,6 +379,9 @@ describe('TourProvider y TourButton', () => {
     expect(navUrls).toContain('/productos');
     expect(navUrls).toContain('/sucursales');
     expect(navUrls).toContain('/usuarios');
+    expect(navUrls).toContain('/pedidos');
+    expect(navUrls).toContain('/videos');
+    expect(navUrls).toContain('/perfil');
   });
 
   test('el flujo operator no incluye productos, sucursales ni usuarios', () => {

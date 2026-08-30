@@ -8,9 +8,9 @@
 
 ## 1. ¿Se puede pasar a producción con el estado actual?
 
-**Respuesta corta:** la aplicación es funcional, los tests unitarios y E2E pasan, y el build de producción es exitoso. Los riesgos críticos del flujo de pedidos (`convertOrderToSale` con precios históricos, `branchId` explícito, expiración automática de pedidos `pending`) ya están resueltos.
+**Respuesta corta:** la aplicación es funcional, el build de producción es exitoso y el suite de tests unitarios está verde. Los flujos críticos de ventas, pedidos, reservas, pagos mixtos, imágenes de productos y panel de control están implementados y documentados.
 
-Los hallazgos restantes son de deuda técnica, documentación, escalabilidad y configuración de producción. No bloquean por completo la operación, pero conviene resolverlos antes de escalar, en especial el rate limit en memoria y la configuración de variables de entorno en Vercel.
+Antes de pasar a producción conviene completar el checklist de configuración manual (URLs, secretos, base de datos, storage) y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` y `RATE_LIMIT_STORE_PROVIDER=db`.
 
 ---
 
@@ -43,6 +43,26 @@ Cada producto en `products` tiene uno de estos tipos:
 Solo los productos `compound`, `service` o `critical_supply` con `criticalSupplyType === 'beverage'` son **vendibles al público**.
 
 <ref_file file="C:/developer/paginas/pancheria/src/lib/catalog.ts" />
+
+### 2.4 Panel de control
+
+La raíz autenticada `/` (`<ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/page.tsx" />`) es el panel de control. Muestra un resumen operativo de la sucursal activa en tiempo real:
+
+- **Estado de la caja**: abierta o cerrada, monto total, desglose de efectivo y transferencia, cantidad de ventas y tiempo restante antes del cierre automático.
+- **Pedidos**: cantidad de pedidos por estado (`pending`, `in_process`, `paid`, `finished`, `cancelled`), destacando los activos.
+- **Alertas de stock**: cantidad de insumos con stock bajo.
+- **Contexto de sucursal**: nombre de la sucursal activa y usuario logueado.
+- **Accesos rápidos**: tarjetas con atajos a Ventas, Productos, Stock, Caja y cierre, Pedidos, Videos, Sucursales, Usuarios, Catálogo y Perfil, filtrados por rol.
+
+Los datos se cargan desde `<ref_file file="C:/developer/paginas/pancheria/src/app/api/panel/resumen/route.ts" />` a través del hook `<ref_file file="C:/developer/paginas/pancheria/src/hooks/useDashboard.ts" />` y se refrescan automáticamente cada 30 segundos (configurable en el cliente). El componente visual es `<ref_file file="C:/developer/paginas/pancheria/src/components/panel/dashboard-client.tsx" />`.
+
+La navegación superior refleja ahora la distinción entre caja y cierres:
+
+- **Historial de cajas** (`/ventas/historial`): historial de ventas por caja.
+- **Caja y cierre** (`/cierre`): apertura, cierre y resumen de la caja actual.
+- **Cierres diarios** (`/cierre/historial`): cierres diarios históricos.
+
+El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/components/tour/tour-context.tsx" />`) cubre el panel, pagos mixtos, pedidos con sus estados, reservas, chat, imágenes de promos, videos, perfil y selector de sucursal.
 
 ---
 
@@ -174,7 +194,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
 
 - Una caja (`cashRegisters`) representa un turno de ventas en una sucursal.
 - Solo puede haber una caja abierta por sucursal.
-- La caja lleva un resumen de ventas: `total`, `cashTotal`, `transferTotal`, `totalSales`, `productsSummary`, `criticalSuppliesSummary`.
+- La caja lleva un resumen de ventas: `total`, `cashTotal`, `transferTotal`, `totalSales`, `productsSummary`, `criticalSuppliesSummary`, `recipeSuppliesSummary`.
 
 ### 5.2 Ciclo de vida
 
@@ -194,7 +214,7 @@ Solo los productos `compound`, `service` o `critical_supply` con `criticalSupply
    - Se calcula el resumen final y se graba en el registro (`status = 'closed'`, `closedAt`, `closedBy`).
 
 4. **Cierre automático**
-   - Si la caja lleva abierta más de `AUTO_CLOSE_HOURS` (12 horas por defecto, configurable en <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" />), al consultarla se cierra automáticamente (`autoClosed = true`, `closedBy = 'Sistema'`).
+   - Si la caja lleva abierta más de `CAJA_AUTO_CLOSE_HOURS` (12 horas por defecto, configurable en <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" />), al consultarla se cierra automáticamente (`autoClosed = true`, `closedBy = 'Sistema'`).
 
 5. **Papelera**
    - Las cajas cerradas pueden eliminarse (soft delete).
@@ -431,8 +451,8 @@ Disponibilidad = infinita.
 | ----------------- | ------------ | ----------------- |
 | `DEFAULT_BRANCH_NAME` | Seed y resolución de sucursal por defecto | `Sucursal por defecto` |
 | `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` | Refresco del estado de caja en panel | `5000` ms |
-| `AUTO_CLOSE_HOURS` | Cierre automático de caja | `12` h |
-| `AUTO_CLOSED_BY` | Label de cierre automático de caja | `'Sistema'` |
+| `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` | Cierre automático de caja | `12` h |
+| `CAJA_AUTO_CLOSED_BY` | Label de cierre automático de caja | `'Sistema'` |
 | `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo público | `30000` ms |
 | `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` | Refresco del listado de pedidos del operador | `0` (deshabilitado; definir > 0 para habilitar) |
 | `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat del pedido | `5000` ms |

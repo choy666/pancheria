@@ -27,6 +27,18 @@ export function unique(prefix: string) {
   return `${prefix} ${Date.now()}`;
 }
 
+let clientIpCounter = 1;
+
+/**
+ * Asigna un IP de cliente único a la página para aislar el rate limit
+ * entre tests de pedidos públicos.
+ */
+export async function setUniqueClientIp(page: Page): Promise<void> {
+  const ip = `203.0.113.${clientIpCounter % 254}`;
+  clientIpCounter += 1;
+  await page.setExtraHTTPHeaders({ 'X-Forwarded-For': ip });
+}
+
 const LOGIN_REDIRECT_TIMEOUT = 30_000;
 
 /**

@@ -43,7 +43,6 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     // El carrito no permite agregar más unidades de las disponibles.
     await card.click();
     await card.click();
-    await card.click();
 
     const cartItem = page.locator('[data-testid="cart-item"][data-product-name="' + bebida.name + '"]');
 
@@ -51,11 +50,18 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       cartItem.getByText('2', { exact: true })
     ).toBeVisible({ timeout: 10000 });
 
+    // La tarjeta se deshabilita al quedar sin stock.
+    await expect(card).toHaveAttribute('data-out-of-stock', 'true');
+    await expect(card).toHaveAttribute('aria-disabled', 'true');
+
     await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByText('El carrito está vacío.')).toBeVisible({
       timeout: 10000,
     });
+
+    // La bebida quedó agotada y se oculta por defecto; mostrarla para validar.
+    await page.getByTestId('toggle-show-out-of-stock').click();
 
     await expect(card.getByText('Disponible: 0 unidad')).toBeVisible({
       timeout: 10000,

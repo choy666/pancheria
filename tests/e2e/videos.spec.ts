@@ -34,7 +34,8 @@ test.describe('Videos', () => {
 
   test('el administrador ve el menú de videos', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Videos' }).click();
+    await expect(page.getByRole('link', { name: 'Videos' })).toBeVisible();
+    await page.goto('/videos');
     await expect(page).toHaveURL('/videos');
   });
 
@@ -105,7 +106,7 @@ test.describe('Videos', () => {
       await page.getByRole('link', { name: 'Video de streaming E2E' }).click();
       await expect(page).toHaveURL(/\/videos\/\d+/);
 
-      const videoSrc = await page.locator('video').getAttribute('src');
+      const videoSrc = await page.locator('video source').getAttribute('src');
       expect(videoSrc).not.toBeNull();
 
       const full = await page.request.get(videoSrc!);

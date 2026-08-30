@@ -5,7 +5,7 @@ export default async function PedidosPage() {
   const branchId = await getCurrentBranchIdOrRedirect();
 
   return (
-    <div className="space-y-5">
+    <div data-tour="pedidos-page" className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
         <p className="text-base text-muted-foreground">

@@ -43,7 +43,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── plan-implementacion-multi-tenant.md
-    └── archivados/               # Prompts resueltos
+    └── archivados/               # Prompts resueltos (incluye auditoria-y-mejoras-ventas.md)
 ```
 
 ## Reglas de uso

@@ -5,9 +5,9 @@
 ## Uso recomendado
 
 - Incluir este archivo como referencia en prompts de **consolidación de calidad**, **configuración o conexión a base de datos**, **eliminación, soft delete o integridad de datos**, y cualquier otra tarea de auditoría.
-- Para crear prompts nuevos, seguir la [guía de escritura de prompts](file:///C%3A/developer/paginas/pancheria/.devin/prompts/README.md).
-- Índice del directorio de informes: [README.md](file:///C%3A/developer/paginas/pancheria/.devin/informes/README.md).
-- Reglas y comandos del proyecto: <file:///C%3A/developer/paginas/pancheria/AGENTS.md>.
+- Para crear prompts nuevos, seguir la [guía de escritura de prompts](../prompts/README.md).
+- Índice del directorio de informes: [README.md](README.md).
+- Reglas y comandos del proyecto: <ref_file file="../../AGENTS.md" />.
 
 ## 1. Configuración de entorno y base de datos
 
@@ -73,6 +73,7 @@
 - **`useCart` no debe pisar el carrito con `localStorage` si el usuario ya interactuó.** En tests E2E un click rápido puede ejecutarse antes del `useEffect` de carga inicial; se agrega un flag de interacción para saltar la carga inicial solo en ese primer montaje y seguir cargando al cambiar de sucursal.
 - **`PedidoClient` usa `activeBranch` como única fuente de verdad de la sucursal** y fuerza el remonte con `key={branchId}`; el selector expone `data-testid="branch-select-trigger"`.
 - **El listado de pedidos (`/pedidos`) no hace polling automático por defecto.** `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` debe configurarse con un valor mayor a 0 para habilitarlo; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
+- **El intervalo de refresco del dashboard debería ser configurable.** `useDashboard.ts` usa `DASHBOARD_REFRESH_INTERVAL_MS = 30000` como constante interna. Si se requiere ajustarlo sin deploy, exponerlo como `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` con el mismo default.
 
 ## 8. Verificaciones estándar
 
@@ -95,6 +96,7 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **Usar `data-tour` en las secciones exclusivas de cada rol.** Las páginas administrativas (`/productos`, `/sucursales`, `/usuarios`) y el selector de sucursal deben tener sus propios atributos `data-tour` para que el tour las pueda resaltar.
 - **Nunca hardcodear rutas de navegación del tour.** Las URLs deben obtenerse de `src/config/routes.ts` para mantener consistencia con el resto de la aplicación.
 - **Usar `skipMissingElement: true` en pasos que resaltan elementos asíncronos.** El panel, las tablas y los selectores pueden no estar renderizados inmediatamente; `skipMissingElement` permite que el tour continúe sin romperse.
+- **Integrar el componente cliente del dashboard en la página servidor.** Si `src/app/(panel)/page.tsx` no importa el componente cliente, el panel sigue mostrando accesos directos estáticos aunque el hook y el endpoint estén implementados. Verificar que la página pase `role`, `branchName` y `userName` al cliente y que el cliente haga el fetch autenticado.
 
 ## 10. Chat de pedidos
 
@@ -128,3 +130,12 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **Los resúmenes de caja y cierres incluyen `recipeSuppliesSummary`.** En la UI se muestra una nueva tarjeta "Insumos de recetas" en el panel de cierre (`closure-panel.tsx`) y en el CSV descargable.
 - **El historial de ventas (`sales-history.tsx`) y el detalle de pedidos (`pedido-items-list.tsx`) muestran el detalle de preparación.** Se renderizan los insumos incluidos (`Incluye: ...`) y los opcionales quitados (`Sin: ...`).
 - **`promo-form.tsx` permite configurar complementos opcionales.** La interfaz de administración carga todos los productos activos (no solo críticos), valida que haya al menos un insumo crítico con descuento automático y permite marcar manuales/servicios como opcionales y preseleccionados.
+
+## 14. Módulo de ventas (`/ventas`)
+
+- **Los productos agotados se ocultan por defecto en el catálogo del terminal.** Los servicios (`type === 'service'`) siempre se muestran porque no tienen límite de stock. Se agregó un toggle "Mostrar agotados" para casos excepcionales.
+- **`POST /api/ventas/disponibilidad` sigue recibiendo el listado completo de IDs del catálogo cargado**, no solo los productos visibles en ese momento. Así, cuando el operador muestra los agotados, la disponibilidad ya está calculada y no queda desactualizada.
+- **La lógica común del terminal se extrajo a helpers y subcomponentes.** `src/lib/ventas-helpers.ts` centraliza ordenamiento, selección de recetas y cálculo de disponibilidad adicional; `SalesProductCard` y `SalesCart` descomponen `SalesTerminal`.
+- **El método de pago activo se distingue visualmente con `aria-pressed`, iconos y badge "Mixto".** El historial de ventas muestra los pagos como chips/badges separados en lugar de texto concatenado.
+- **`updateQuantity` ahora usa la misma lógica de disponibilidad adicional que `addToCart`** (`getProductAdditional`), evitando el límite inconsistente cuando el cálculo de disponibilidad aún no regresó.
+- **`SalesTerminal` conserva los pagos editados en `PaymentPartsInput` mientras el operador ajusta los montos.** La validación de que la suma coincida con el total queda en `confirmSale`, evitando que el componente resetee los inputs durante la edición de pagos mixtos.

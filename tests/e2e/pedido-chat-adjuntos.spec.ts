@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
 
 const PNG_PIXEL_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -12,6 +12,7 @@ test.describe('Chat con adjuntos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);
+    await setUniqueClientIp(page);
   });
 
   test('cliente y operador intercambian imágenes', async ({ page }) => {

@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
+import { Banknote, Landmark } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,9 +15,13 @@ interface PaymentPartsInputProps {
   disabled?: boolean;
 }
 
-const METHODS: { method: PaymentMethod; label: string }[] = [
-  { method: 'cash', label: 'Efectivo' },
-  { method: 'transfer', label: 'Transferencia' },
+const METHODS: {
+  method: PaymentMethod;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { method: 'cash', label: 'Efectivo', icon: Banknote },
+  { method: 'transfer', label: 'Transferencia', icon: Landmark },
 ];
 
 export function PaymentPartsInput({
@@ -38,6 +44,12 @@ export function PaymentPartsInput({
 
   const remaining = total - paid;
 
+  function isOnly(method: PaymentMethod) {
+    return payments.length === 1 && payments[0].method === method;
+  }
+
+  const isMixed = payments.length === 2;
+
   function updatePayment(method: PaymentMethod, raw: string) {
     const value = raw === '' ? 0 : Number(raw);
     if (Number.isNaN(value) || value < 0) return;
@@ -45,9 +57,7 @@ export function PaymentPartsInput({
     const next: PaymentPart[] = [];
     for (const config of METHODS) {
       const amount =
-        config.method === method
-          ? value
-          : (byMethod.get(config.method) ?? 0);
+        config.method === method ? value : (byMethod.get(config.method) ?? 0);
       if (amount > 0) {
         next.push({ method: config.method, amount });
       }
@@ -67,21 +77,27 @@ export function PaymentPartsInput({
         : 'Pago completo';
 
   return (
-    <div className="space-y-3">
+    <div data-tour="payment-parts-input" className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        {METHODS.map(({ method, label }) => (
-          <Button
-            key={method}
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => setFull(method)}
-            data-testid={`payment-${method}-full`}
-          >
-            Todo {label.toLowerCase()}
-          </Button>
-        ))}
+        {METHODS.map(({ method, label, icon: Icon }) => {
+          const active = isOnly(method);
+          return (
+            <Button
+              key={method}
+              type="button"
+              variant={active ? 'default' : 'outline'}
+              size="sm"
+              disabled={disabled}
+              aria-pressed={active}
+              onClick={() => setFull(method)}
+              data-testid={`payment-${method}-full`}
+              className="gap-2"
+            >
+              <Icon className="h-4 w-4" />
+              Todo {label.toLowerCase()}
+            </Button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -106,13 +122,19 @@ export function PaymentPartsInput({
         })}
       </div>
 
-      <p
-        className={`text-sm font-medium ${
-          remaining === 0 ? 'text-green-600' : 'text-amber-600'
-        }`}
-      >
-        {remainingText}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        {isMixed && (
+          <Badge variant="default" data-testid="payment-mixed-badge">
+            Mixto
+          </Badge>
+        )}
+        <Badge
+          variant={remaining === 0 ? 'default' : 'secondary'}
+          data-testid="payment-remaining-badge"
+        >
+          {remainingText}
+        </Badge>
+      </div>
     </div>
   );
 }

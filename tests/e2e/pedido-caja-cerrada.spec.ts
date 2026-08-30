@@ -4,12 +4,14 @@ import {
   unique,
   createProductViaApi,
   ensureCashRegisterClosed,
+  setUniqueClientIp,
 } from './helpers';
 
 test.describe('Bloqueo de pedido con caja cerrada', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterClosed(page);
+    await setUniqueClientIp(page);
   });
 
   test('permite armar el carrito pero bloquea el envío y muestra el horario de apertura', async ({

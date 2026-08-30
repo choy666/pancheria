@@ -26,18 +26,20 @@ export function PedidoChatSection({
   unreadCount,
 }: PedidoChatSectionProps) {
   return (
-    <OrderChat
-      orderId={orderId}
-      initialMessages={initialMessages}
-      initialTotal={chatTotal}
-      initialHasMore={chatHasMore}
-      initialIsExpired={chatIsExpired}
-      readOnly={status === 'finished' || status === 'cancelled'}
-      chatApiUrl={PEDIDOS_CHAT_API(orderId)}
-      readApiUrl={PEDIDOS_CHAT_LEIDO_API(orderId)}
-      uploadApiUrl={PEDIDOS_CHAT_UPLOAD_API(orderId)}
-      unreadCount={unreadCount}
-      title="Chat con el cliente"
-    />
+    <div data-tour="pedidos-chat">
+      <OrderChat
+        orderId={orderId}
+        initialMessages={initialMessages}
+        initialTotal={chatTotal}
+        initialHasMore={chatHasMore}
+        initialIsExpired={chatIsExpired}
+        readOnly={status === 'finished' || status === 'cancelled'}
+        chatApiUrl={PEDIDOS_CHAT_API(orderId)}
+        readApiUrl={PEDIDOS_CHAT_LEIDO_API(orderId)}
+        uploadApiUrl={PEDIDOS_CHAT_UPLOAD_API(orderId)}
+        unreadCount={unreadCount}
+        title="Chat con el cliente"
+      />
+    </div>
   );
 }

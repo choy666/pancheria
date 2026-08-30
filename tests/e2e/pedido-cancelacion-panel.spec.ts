@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, ensureCashRegisterOpen } from './helpers';
+import { login, unique, createProductViaApi, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
 
 /**
  * Confirma y cancela pedidos desde el panel de operador.
@@ -8,6 +8,7 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);
+    await setUniqueClientIp(page);
   });
 
   test('confirma un pedido público como venta desde el panel', async ({ page }) => {

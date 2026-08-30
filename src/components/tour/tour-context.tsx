@@ -213,51 +213,50 @@ export function TourProvider({
   const buildSteps = useCallback(
     (currentRole: 'admin' | 'operator'): DriveStep[] => {
       const isAdmin = currentRole === 'admin';
+      const promoNuevoRoute = `${routes.productosNuevo}?tab=promo`;
 
-      const nextOn =
-        (url: string, nextStep: number) =>
-        () => {
-          navigateAndContinue(url, nextStep);
-        };
-
-      const prevOn =
-        (url: string, prevStep: number) =>
-        () => {
-          goBackAndContinue(url, prevStep);
-        };
-
-      const steps: DriveStep[] = [
+      const stepDefinitions: (DriveStep & { route?: string })[] = [
         {
           popover: {
             title: 'Bienvenido a Panchería',
             description: isAdmin
-              ? 'Como administrador podés gestionar sucursales, usuarios y productos. Vamos a recorrer las secciones principales del sistema.'
-              : 'Como operador tu rol está limitado a las operaciones de tu sucursal asignada: ventas, stock y caja.',
+              ? 'Como administrador podés gestionar sucursales, usuarios, productos, videos y pedidos. Vamos a recorrer las secciones principales del sistema.'
+              : 'Como operador tu rol está limitado a las operaciones de tu sucursal asignada: ventas, stock, caja, pedidos y perfil.',
           },
         },
         {
           element: '[data-tour="dashboard-header"]',
-          skipMissingElement: true,
+          route: routes.home,
           popover: {
             title: 'Panel de control',
             description: isAdmin
-              ? 'Este es el panel principal. Desde acá accedés rápidamente a Ventas, Productos, Stock y Caja.'
-              : 'Este es el panel principal. Desde acá accedés a Ventas, Stock y Caja. No tenés acceso a Productos, Sucursales ni Usuarios.',
+              ? 'Este es el panel principal. Desde acá accedés rápidamente a Ventas, Productos, Stock, Caja, Pedidos, Videos, Sucursales, Usuarios y Perfil.'
+              : 'Este es el panel principal. Desde acá accedés a Ventas, Stock, Caja, Pedidos y Perfil.',
+          },
+        },
+        {
+          element: '[data-tour="dashboard-actions"]',
+          route: routes.home,
+          popover: {
+            title: 'Accesos rápidos',
+            description: isAdmin
+              ? 'Cada tarjeta es un acceso directo a una sección. También podés usar el menú superior.'
+              : 'Cada tarjeta es un acceso directo. Se ocultan las secciones reservadas a administradores.',
           },
         },
         {
           element: visibleElement('[data-tour="main-nav"]'),
-          skipMissingElement: true,
+          route: routes.home,
           popover: {
             title: 'Menú superior',
             description: isAdmin
-              ? 'Estos son los accesos directos a cada sección. Además de Panel, Ventas, Historial, Productos, Stock y Caja, también podés ir a Sucursales y Usuarios.'
-              : 'Estos son los accesos directos. Vos ves solo Panel, Ventas, Historial, Stock y Caja, porque tu rol es operador.',
+              ? 'Estos son los accesos directos a cada sección. Además de Panel, Ventas, Historial, Productos, Stock, Caja, Pedidos, Videos, Sucursales, Usuarios y Perfil, también podés ir al catálogo público.'
+              : 'Estos son los accesos directos. Vos ves Panel, Ventas, Historial, Stock, Caja, Pedidos, Perfil y Catálogo, porque tu rol es operador.',
           },
         },
         {
           element: visibleElement('[data-tour="mobile-menu-button"]'),
-          skipMissingElement: true,
+          route: routes.home,
           popover: {
             title: 'Menú',
             description:
@@ -266,28 +265,26 @@ export function TourProvider({
         },
         {
           element: '[data-tour="dashboard-ventas"]',
-          skipMissingElement: true,
+          route: routes.home,
           popover: {
             title: 'Ventas',
             description:
               'La terminal de ventas permite registrar pedidos de forma rápida. Vamos a verla en detalle.',
-            onNextClick: nextOn(routes.ventas, 5),
           },
         },
         {
-          element: '[data-tour="caja-status"]',
-          skipMissingElement: true,
-          waitForElement: 5000,
+          element: '[data-tour="caja-status"]:not([data-loading="true"])',
+          route: routes.ventas,
+          waitForElement: 10000,
           popover: {
             title: 'Estado de la caja',
             description:
               'Antes de vender tenés que abrir la caja. Acá ves si está abierta, quién la abrió y el tiempo transcurrido.',
-            onPrevClick: prevOn(routes.home, 4),
           },
         },
         {
           element: '[data-tour="sales-products"]',
-          skipMissingElement: true,
+          route: routes.ventas,
           waitForElement: 5000,
           popover: {
             title: 'Productos disponibles',
@@ -297,116 +294,168 @@ export function TourProvider({
         },
         {
           element: '[data-tour="sales-cart"]',
-          skipMissingElement: true,
+          route: routes.ventas,
           waitForElement: 5000,
           popover: {
             title: 'Pedido actual',
             description:
-              'Al tocar un producto se agrega al pedido. Elegís el medio de pago (efectivo o transferencia) y confirmás la venta.',
-            onNextClick: isAdmin
-              ? nextOn(routes.productos, 8)
-              : nextOn(routes.stock, 8),
+              'Al tocar un producto se agrega al pedido. Podés registrar pagos mixtos (efectivo + transferencia) y confirmar la venta.',
+          },
+        },
+        {
+          element: '[data-tour="payment-parts-input"]',
+          route: routes.ventas,
+          waitForElement: 5000,
+          popover: {
+            title: 'Pagos mixtos',
+            description:
+              'Indicá cuánto se abona en efectivo y cuánto por transferencia. El total debe coincidir con el importe de la venta.',
           },
         },
       ];
 
       if (isAdmin) {
-        steps.push(
+        stepDefinitions.push(
           {
             element: '[data-tour="products-table"]',
-            skipMissingElement: true,
+            route: routes.productos,
             waitForElement: 5000,
             popover: {
               title: 'Productos y promos',
               description:
                 'Acá se administran todos los productos. Se agrupan por tipo: insumo crítico, insumo manual, servicio y promo.',
-              onPrevClick: prevOn(routes.ventas, 7),
             },
           },
           {
-            element: '[data-tour="products-new-product"]',
-            skipMissingElement: true,
+            element: '[data-tour="products-new-promo"]',
+            route: routes.productos,
             popover: {
-              title: 'Nuevos productos',
+              title: 'Nuevos productos y promos',
               description:
-                'Podés crear productos individuales o promos que descontarán automáticamente el stock de sus insumos.',
-              onNextClick: nextOn(routes.stock, 10),
+                'Podés crear productos individuales o promos que descontarán automáticamente el stock de sus insumos. Las promos pueden incluir una imagen ilustrativa.',
+            },
+          },
+          {
+            element: '[data-tour="promo-image-uploader"]',
+            route: promoNuevoRoute,
+            waitForElement: 5000,
+            popover: {
+              title: 'Imagen de la promo',
+              description:
+                'Subí una imagen desde tu dispositivo o usá una URL pública. Se mostrará en el catálogo de pedidos.',
             },
           }
         );
       }
 
-      steps.push(
+      stepDefinitions.push(
         {
           element: '[data-tour="stock-table"]',
-          skipMissingElement: true,
+          route: routes.stock,
           waitForElement: 5000,
           popover: {
             title: 'Stock',
             description:
               'Controlás el inventario de cada insumo. Podés ajustar cantidades y consultar el historial de movimientos. El sistema marca con “Bajo” cuando un insumo está por debajo del mínimo.',
-            onPrevClick: isAdmin
-              ? prevOn(routes.productos, 9)
-              : prevOn(routes.ventas, 7),
-            onNextClick: nextOn(routes.cierre, isAdmin ? 11 : 9),
           },
         },
         {
           element: '[data-tour="caja-panel"]',
-          skipMissingElement: true,
+          route: routes.cierre,
           waitForElement: 5000,
           popover: {
             title: 'Cierre de caja',
             description:
               'Acá cerrás la caja del día y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
-            onPrevClick: prevOn(routes.stock, isAdmin ? 10 : 8),
-            onNextClick: nextOn(routes.cierreHistorial, isAdmin ? 12 : 10),
           },
         },
         {
           element: '[data-tour="closure-history-table"]',
-          skipMissingElement: true,
+          route: routes.cierreHistorial,
           waitForElement: 5000,
           popover: {
             title: 'Historial de cierres',
             description:
               'En esta tabla se guardan todos los cierres diarios, con el total desglosado por fecha, cantidad de ventas, efectivo y transferencia.',
-            onPrevClick: prevOn(routes.cierre, isAdmin ? 11 : 9),
-            onNextClick: isAdmin
-              ? nextOn(routes.sucursales, 13)
-              : undefined,
+          },
+        },
+        {
+          element: '[data-tour="pedidos-page"]',
+          route: routes.pedidos,
+          waitForElement: 5000,
+          popover: {
+            title: 'Pedidos',
+            description:
+              'Acá se reciben los pedidos realizados desde el catálogo público. Vamos a ver el flujo de estados y el chat con el cliente.',
+          },
+        },
+        {
+          element: '[data-tour="pedidos-status-filter"]',
+          route: routes.pedidos,
+          waitForElement: 5000,
+          popover: {
+            title: 'Estado del pedido',
+            description:
+              'Filtrá por estado: Pendiente → En proceso → Pagado → Finalizado o Cancelado. Así controlás el ciclo completo de cada pedido.',
+          },
+        },
+        {
+          element: '[data-tour="pedidos-table"]',
+          route: routes.pedidos,
+          waitForElement: 5000,
+          popover: {
+            title: 'Listado de pedidos',
+            description:
+              'Cada fila muestra el cliente, el total, el estado y los mensajes sin leer. Desde acá también ingresás al chat para responder al cliente.',
           },
         }
       );
 
       if (isAdmin) {
-        steps.push(
+        stepDefinitions.push(
+          {
+            element: '[data-tour="videos-page"]',
+            route: routes.videos,
+            waitForElement: 5000,
+            popover: {
+              title: 'Videos',
+              description:
+                'Subí y administrá videos para reproducir en la pantalla del local.',
+            },
+          },
+          {
+            element: '[data-tour="videos-table"]',
+            route: routes.videos,
+            waitForElement: 5000,
+            popover: {
+              title: 'Listado y reproducción',
+              description:
+                'En la tabla ves título, tipo y estado. Tocá el título de un video para abrir el reproductor.',
+            },
+          },
           {
             element: '[data-tour="branches-header"]',
-            skipMissingElement: true,
+            route: routes.sucursales,
             waitForElement: 5000,
             popover: {
               title: 'Sucursales',
               description:
                 'Acá administrás las sucursales del sistema. Podés crear nuevas y editar las existentes.',
-              onPrevClick: prevOn(routes.cierreHistorial, 12),
-              onNextClick: nextOn(routes.usuarios, 14),
             },
           },
           {
             element: '[data-tour="users-header"]',
-            skipMissingElement: true,
+            route: routes.usuarios,
             waitForElement: 5000,
             popover: {
               title: 'Usuarios',
               description:
                 'Acá creás, editás y eliminás usuarios operador. Les asignás una sucursal y una contraseña.',
-              onPrevClick: prevOn(routes.sucursales, 13),
             },
           },
           {
-            element: '[data-tour="branch-selector"]',
-            skipMissingElement: true,
+            element: visibleElement('[data-tour="branch-selector"]'),
+            route: routes.usuarios,
             waitForElement: 5000,
             popover: {
               title: 'Selector de sucursal',
@@ -417,15 +466,61 @@ export function TourProvider({
         );
       }
 
-      steps.push({
-        popover: {
-          title: 'Fin del recorrido',
-          description:
-            'Eso es todo. Ya conocés las funciones principales de Panchería. Podés repetir esta guía cuando quieras desde el botón “Guía”.',
+      stepDefinitions.push(
+        {
+          element: '[data-tour="perfil-page"]',
+          route: routes.perfil,
+          waitForElement: 5000,
+          popover: {
+            title: 'Perfil',
+            description:
+              'Acá podés ver tu nombre de usuario y cambiar la contraseña de acceso.',
+          },
         },
+        {
+          popover: {
+            title: 'Fin del recorrido',
+            description:
+              'Eso es todo. Ya conocés las funciones principales de Panchería. Podés repetir esta guía cuando quieras desde el botón “Guía”.',
+          },
+        }
+      );
+
+      stepDefinitions.forEach((step, index, arr) => {
+        if (step.element) {
+          step.skipMissingElement = true;
+        }
+
+        if (!step.popover) {
+          return;
+        }
+
+        const nextStep = arr[index + 1];
+        if (
+          nextStep &&
+          step.route &&
+          nextStep.route &&
+          step.route !== nextStep.route
+        ) {
+          step.popover.onNextClick = () => {
+            navigateAndContinue(nextStep.route!, index + 1);
+          };
+        }
+
+        const prevStep = arr[index - 1];
+        if (
+          prevStep &&
+          step.route &&
+          prevStep.route &&
+          step.route !== prevStep.route
+        ) {
+          step.popover.onPrevClick = () => {
+            goBackAndContinue(prevStep.route!, index - 1);
+          };
+        }
       });
 
-      return steps;
+      return stepDefinitions as DriveStep[];
     },
     [navigateAndContinue, goBackAndContinue]
   );

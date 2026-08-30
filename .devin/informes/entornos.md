@@ -132,7 +132,9 @@ Remove-Item .env.production.local
 ### Variables obligatorias en `.env.e2e`
 
 - `DATABASE_URL` — URL de la base descartable (puede usarse la misma del pooler de Neon o local).
+- `DATABASE_URL_UNPOOLED` — URL sin pooler si se usan migraciones manuales en E2E (opcional; `drizzle.config.ts` hace fallback a `DATABASE_URL`).
 - `AUTH_URL` y `NEXTAUTH_URL` — deben apuntar a `http://localhost:3000`.
+- `BASE_URL` — URL base para Playwright (opcional; por defecto `http://localhost:3000`).
 - `AUTH_SECRET` o `NEXTAUTH_SECRET` — secreto de al menos 32 bytes.
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales consistentes con `src/db/seeds.ts`.
 - `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (opcional, el seed lo define).

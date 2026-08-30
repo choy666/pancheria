@@ -20,6 +20,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Tests unitarios          | `npm test`                                        |
 | Verificación de tipos    | `npx tsc --noEmit`                                |
 | Tests E2E                | `npm run test:e2e`                                |
+| Código muerto            | `npm run knip`                                    |
 | Generar migraciones      | `npx drizzle-kit generate`                        |
 | Empujar migraciones      | `npx drizzle-kit push`                            |
 | Empujar migraciones en producción | Ver `.devin/informes/entornos.md`        |
@@ -124,13 +125,17 @@ Copiar `.env.example` a `.env.local` y completar:
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
 - `src/lib/` — utilidades y helpers transversales:
-  - `money`, `date`, `catalog`, `product-grouping`, `product-style`, etc.
+  - `cn`, `json`, `money`, `date`, `catalog`, `product-grouping`, `product-style`, etc.
   - `storage` — almacenamiento de videos: `local`, `vercel-blob`, `s3`, `r2`.
   - `product-image-storage` y `product-image-upload-client` — subida, validación y resolución de imágenes de productos/promos usando el proveedor configurado en `STORAGE_PROVIDER`.
   - `chat-storage` — almacenamiento de adjuntos del chat, con `getChatLocalStorageBasePath()` y lectura segura vía `GET /api/chat/attachment/[key]`.
+  - `public-url` — resolución de URLs públicas (`NEXT_PUBLIC_APP_URL`, `NEXTAUTH_URL`, `HOST`/`PORT`).
+  - `api-handler` — wrapper `withApiErrorHandling` para rutas API.
+  - `logger` — utilidad de logging.
   - `rate-limit` y `public-order-rate-limit-store` — rate limiting de pedidos públicos y chat (`PUBLIC_ORDER_RATE_LIMIT_*`, `PUBLIC_CHAT_RATE_LIMIT_*`).
   - `rate-limit-store` — almacenamiento de intentos fallidos de login (`RATE_LIMIT_STORE_PROVIDER`: `memory`/`db`).
   - `branch-resolver` — resolución de la sucursal activa para Server y Client Components.
+  - `branch-helpers` — validación y cálculo de horarios de apertura (`NEXT_PUBLIC_BRANCH_TIMEZONE`).
   - `route-guard` — redirecciones de autenticación (`/` → `/pedido` sin sesión, `/login` → `/` con sesión).
   - `fetch` — wrapper `authenticatedFetch` y timeout configurable (`NEXT_PUBLIC_API_TIMEOUT_MS`).
   - `whatsapp` — generación del mensaje y enlace de WhatsApp.
@@ -365,7 +370,7 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
 - Adjuntos: soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`. La key interna se guarda en `order_messages.attachmentKey`; las URLs públicas locales usan `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` como base y se sirven por `GET /api/chat/attachment/[key]`, sin exponer paths físicos.
 - Refresco: `OrderChat` hace polling cada `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (por defecto 5000 ms), pausa el polling durante el envío de un mensaje para evitar condiciones de carrera, y dispara un poll inmediato al montar, en `pageshow` y en `visibilitychange`. En tests se puede pasar la prop `disablePollingOnMount` para evitar el poll inmediato sin ramificar el código por `NODE_ENV`.
 - Paginación: el historial se carga por páginas de `NEXT_PUBLIC_CHAT_PAGE_SIZE` mensajes (por defecto 50; máximo 100) usando `before` y `after` como cursores. El botón "Cargar mensajes anteriores" trae mensajes previos preservando la posición del scroll.
-- Body en POST: el cliente envía el contenido como JSON body. El upgrade a Next.js 16.3.3 resolvió el bug de `request.body === null` bajo `next dev` con Turbopack. Los handlers aún aceptan el contenido por query param (`?content=...`) como fallback defensivo, pero el flujo normal usa JSON. Ver <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/[id]/chat/route.ts" />.
+- Body en POST: el cliente envía el contenido como JSON body. El upgrade a Next.js 16.3.3 resolvió el bug de `request.body === null` bajo `next dev` con Turbopack. Los handlers usan `request.json()` y no aceptan query params: si el body no es JSON válido, se parsea como objeto vacío y el mensaje se envía vacío. Ver <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/[id]/chat/route.ts" />.
 - Backoff de errores: si un poll de mensajes nuevos falla, `OrderChat` duplica el tiempo de espera hasta un máximo de 8 veces el intervalo base (`NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`) para evitar saturar al servidor. El polling se retoma en el momento cuando el usuario vuelve a la pestaña (`visibilitychange` o `pageshow`).
 - SSR de `/pedido/[id]/chat`: `dynamic = 'force-dynamic'` es suficiente para evitar cacheos de la página; no se requieren `unstable_noStore`, `revalidate = 0` ni `fetchCache = 'force-no-store'` adicionales.
 - Rate limit del chat: `createRateLimiter` en `src/lib/rate-limit.ts` comparte el mismo store que el rate limit de pedidos públicos (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`). La ventana y el máximo se configuran con `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.

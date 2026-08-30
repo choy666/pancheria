@@ -287,6 +287,12 @@ describe('SalesTerminal', () => {
       );
     });
 
+    // Pritty está agotada y se oculta por defecto; mostrar agotados para validar.
+    fireEvent.click(screen.getByTestId('toggle-show-out-of-stock'));
+    await waitFor(() =>
+      expect(screen.getByText('Pritty')).toBeInTheDocument()
+    );
+
     const panchuqueCard = screen.getByText('Panchuque').closest('[data-slot="card"]');
     const prittyCard = screen.getByText('Pritty').closest('[data-slot="card"]');
 
@@ -363,6 +369,12 @@ describe('SalesTerminal', () => {
 
     render(<SalesTerminal />);
 
+    await waitFor(() =>
+      expect(screen.getByText('Servicio libre')).toBeInTheDocument()
+    );
+
+    // La bebida agotada se oculta por defecto; mostrar agotados para validar.
+    fireEvent.click(screen.getByTestId('toggle-show-out-of-stock'));
     await waitFor(() =>
       expect(screen.getByText('Bebida agotada')).toBeInTheDocument()
     );
@@ -441,6 +453,9 @@ describe('SalesTerminal', () => {
     await waitFor(() =>
       expect(screen.getByText('Promo A')).toBeInTheDocument()
     );
+
+    // Mantener agotados visibles porque el stock compartido las deja en 0.
+    fireEvent.click(screen.getByTestId('toggle-show-out-of-stock'));
     await waitFor(() =>
       expect(screen.getAllByText(/4 más/)).toHaveLength(2)
     );
@@ -629,5 +644,175 @@ describe('SalesTerminal', () => {
     expect(
       screen.getByText(/Faltan insumos para Panchuque/)
     ).toBeInTheDocument();
+  });
+
+  test('oculta los productos agotados por defecto', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+      {
+        id: 2,
+        name: 'Pritty',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 800,
+        unit: 'lata',
+        availability: 0,
+      },
+    ];
+
+    mockFetch(products, { 1: 5, 2: 0 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    expect(screen.queryByText('Pritty')).not.toBeInTheDocument();
+  });
+
+  test('el toggle Mostrar agotados muestra y oculta productos agotados', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+      {
+        id: 2,
+        name: 'Pritty',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 800,
+        unit: 'lata',
+        availability: 0,
+      },
+    ];
+
+    mockFetch(products, { 1: 5, 2: 0 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const toggle = screen.getByTestId('toggle-show-out-of-stock');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByText('Pritty')).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(screen.getByText('Pritty')).toBeInTheDocument()
+    );
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(screen.queryByText('Pritty')).not.toBeInTheDocument()
+    );
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('muestra la cantidad en el pedido como badge en la tarjeta', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('product-card-cart-quantity-1')
+      ).toHaveTextContent('1 en pedido')
+    );
+  });
+
+  test('permite dividir el pago entre efectivo y transferencia', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-cart-quantity-1')).toBeInTheDocument()
+    );
+
+    fireEvent.change(screen.getByTestId('payment-cash-input'), {
+      target: { value: '1000' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('payment-cash-input')).toHaveValue(1000)
+    );
+
+    fireEvent.change(screen.getByTestId('payment-transfer-input'), {
+      target: { value: '500' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('payment-transfer-input')).toHaveValue(500);
+      expect(
+        screen.getByTestId('payment-remaining-badge')
+      ).toHaveTextContent('Pago completo');
+      expect(
+        screen.getByTestId('payment-mixed-badge')
+      ).toHaveTextContent('Mixto');
+    });
   });
 });

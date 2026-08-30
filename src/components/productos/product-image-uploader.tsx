@@ -156,7 +156,7 @@ export function ProductImageUploader({
   const maxBytes = getProductImageMaxSizeBytes();
 
   return (
-    <div className="space-y-4">
+    <div data-tour="promo-image-uploader" className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

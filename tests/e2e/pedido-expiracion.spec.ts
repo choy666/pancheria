@@ -5,6 +5,7 @@ import {
   createProductViaApi,
   ensureCashRegisterOpen,
   setOrderCreatedAt,
+  setUniqueClientIp,
 } from './helpers';
 import { getOrderExpirationMs } from '../../src/config/orders';
 
@@ -17,6 +18,7 @@ test.describe('Expiración automática de pedidos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);
+    await setUniqueClientIp(page);
   });
 
   test('cancela pedidos pending vencidos y refleja el estado en el chat', async ({

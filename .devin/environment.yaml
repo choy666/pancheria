@@ -73,8 +73,8 @@ knowledge:
       14. Variables de videos, imágenes de productos y almacenamiento: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`, `NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES`, `PRODUCT_IMAGE_LOCAL_STORAGE_PATH`, `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS`, `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH`.
       15. Los productos/promos pueden tener una imagen ilustrativa (`products.image_url`, `image_key`, `image_mime_type`, `image_size`) que se muestra en el catálogo público. La subida se hace por `POST /api/productos/imagen/preparar` (instrucciones) y `POST /api/productos/imagen/upload` (solo `local`), y se sirve por `GET /api/productos/imagen/[key]`.
       16. Los cron jobs (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`) se configuran en `vercel.json` (`0 0 * * *` por defecto); Vercel Cron Jobs no leen variables de entorno para el `schedule`.
-      15. Los cron jobs (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`) se configuran en `vercel.json` (`0 0 * * *` por defecto); Vercel Cron Jobs no leen variables de entorno para el `schedule`.
-      16. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      17. Los valores sensibles deben provenir de variables de entorno, nunca hardcodeados.
+      18. Variables adicionales: `BASE_URL` (URL base para Playwright; por defecto `http://localhost:3000`), `E2E_ENABLE_RATE_LIMIT` (activa rate limit en tests E2E), `NO_WEB_SERVER` y `NO_GLOBAL_SETUP` (para correr Playwright manualmente), `ANALYZE` (habilita el analizador de bundle en `npm run analyze`).
 
   - name: pedidos
     contents: |
@@ -96,6 +96,15 @@ knowledge:
       - `src/config/videos.ts` define tamaño máximo, tipos MIME, Cast receiver/sender y selector de proveedor.
       - `STORAGE_PROVIDER` también se usa para los adjuntos de chat e imágenes de productos; `LOCAL_STORAGE_PATH` es la ruta base, `CHAT_LOCAL_STORAGE_PATH` (opcional) la específica para chat y `PRODUCT_IMAGE_LOCAL_STORAGE_PATH` (opcional) la específica para imágenes de productos.
       - Variables de entorno: `NEXT_PUBLIC_APP_URL`, `STORAGE_PROVIDER`, `BLOB_READ_WRITE_TOKEN`, `S3_*`, `R2_*`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB`, `NEXT_PUBLIC_VIDEO_ALLOWED_MIME_TYPES`, `NEXT_PUBLIC_CAST_RECEIVER_APP_ID`, `NEXT_PUBLIC_CAST_SENDER_SDK_URL`, `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`.
+
+  - name: panel
+    contents: |
+      Panel de control (`/` autenticado):
+      - `src/app/(panel)/page.tsx` renderiza `src/components/panel/dashboard-client.tsx`.
+      - El dashboard carga `GET /api/panel/resumen` a través de `src/hooks/useDashboard.ts` (refresco automático cada 30 segundos).
+      - Muestra estado de caja, pedidos por estado, alertas de stock bajo, contexto de sucursal y accesos rápidos filtrados por rol.
+      - La navegación distingue `Historial de cajas`, `Caja y cierre` y `Cierres diarios`.
+      - El tour (`src/components/tour/tour-context.tsx`) cubre panel, pagos mixtos, pedidos, reservas, chat, imágenes de promos, videos, perfil y selector de sucursal.
 
   - name: deploy
     contents: |

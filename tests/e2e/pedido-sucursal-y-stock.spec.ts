@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, getTestSecondBranch, restockProductViaApi, ensureCashRegisterOpen } from './helpers';
+import { login, unique, createProductViaApi, getTestSecondBranch, restockProductViaApi, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
 
 test.describe('Pedido público con sucursal y stock aislado', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);
+    await setUniqueClientIp(page);
   });
 
   test('redirige a /pedido cuando branchId no es un entero positivo', async ({

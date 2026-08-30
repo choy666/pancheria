@@ -216,14 +216,26 @@ export function SalesHistory({
                 </TableCell>
                 <TableCell className="font-mono">${sale.total.toFixed(2)}</TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {sale.payments && sale.payments.length > 0
-                    ? sale.payments
-                        .map(
-                          (p) =>
-                            `${paymentLabels[p.method]} $${p.amount.toFixed(2)}`
-                        )
-                        .join(' + ')
-                    : paymentLabels[sale.paymentMethod]}
+                  <div
+                    className="flex flex-wrap gap-1"
+                    data-testid="sale-payments"
+                  >
+                    {sale.payments && sale.payments.length > 0 ? (
+                      sale.payments.map((p) => (
+                        <Badge
+                          key={p.method}
+                          variant="outline"
+                          data-testid={`sale-payment-${p.method}`}
+                        >
+                          {paymentLabels[p.method]} ${p.amount.toFixed(2)}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant="outline" data-testid="sale-payment">
+                        {paymentLabels[sale.paymentMethod]}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {sale.status === 'active' ? (
@@ -233,7 +245,7 @@ export function SalesHistory({
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  {sale.status === 'active' && allowCancel && (
+                  {sale.status === 'active' && allowCancel ? (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -243,6 +255,13 @@ export function SalesHistory({
                     >
                       Anular
                     </Button>
+                  ) : (
+                    <span
+                      className="text-sm text-muted-foreground"
+                      data-testid={`no-action-sale-${sale.id}`}
+                    >
+                      —
+                    </span>
                   )}
                 </TableCell>
               </TableRow>
