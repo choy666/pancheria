@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, getTestSecondBranch, restockProductViaApi, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
+import { login, unique, createProductViaApi, getTestSecondBranch, restockProductViaApi, ensureCashRegisterOpen, setUniqueClientIp, clearSession } from './helpers';
 
 test.describe('Pedido público con sucursal y stock aislado', () => {
   test.beforeEach(async ({ page }) => {
@@ -101,7 +101,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     });
 
     // Volver a la sucursal por defecto para navegar como cliente anónimo.
-    await page.context().clearCookies();
+    await clearSession(page);
     await page.goto('/pedido');
 
     await expect(page.getByTestId(`product-card-${productDefault.id}`)).toBeVisible();

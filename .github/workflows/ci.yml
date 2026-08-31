@@ -104,6 +104,10 @@ jobs:
       STORAGE_PROVIDER: local
       LOCAL_STORAGE_PATH: tmp/e2e
       RATE_LIMIT_STORE_PROVIDER: memory
+      PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER: memory
+      E2E_ENABLE_RATE_LIMIT: true
+      PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS: 2
+      TRUSTED_PROXY_IP_HEADER: X-Forwarded-For
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4

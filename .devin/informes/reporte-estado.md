@@ -1,6 +1,6 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-08-30  
+**Fecha:** 2026-08-31  
 **Proyecto:** `pancheria`  
 **Baseline:** `HEAD` — branch `main`  
 **Histórico:** las fases previas quedan archivadas en `.devin/informes/archivados/reporte-estado-historico-2026-08-30.md`.
@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo. El build de producción, la verificación de tipos, los tests unitarios, el lint y Knip pasan correctamente. La funcionalidad principal cubre ventas con pagos mixtos, pedidos con reservas de stock, chat con adjuntos, caja/cierre diario, panel de control, catálogo público, imágenes de productos/promos y videos con soporte de múltiples proveedores de almacenamiento.
+El proyecto se encuentra en estado operativo. El build de producción, la verificación de tipos, los tests unitarios, el lint, Knip y el suite E2E pasan correctamente. La funcionalidad principal cubre ventas con pagos mixtos, pedidos con reservas de stock, chat con adjuntos, caja/cierre diario, panel de control, catálogo público, imágenes de productos/promos y videos con soporte de múltiples proveedores de almacenamiento.
 
 La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example`, `.devin/environment.yaml`, informes vigentes e índices, y archivó el prompt de mejoras de ventas (`auditoria-y-mejoras-ventas.md`) porque sus objetivos ya estaban implementados.
 
@@ -44,11 +44,12 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 |---------|-----------|
 | `npm run lint` | Pasa |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | 123 suites, 1163 tests pasan |
+| `npm test` | 118 suites, 1131 tests pasan |
 | `npm run build` | Build exitoso (44 páginas estáticas generadas) |
 | `npm run knip` | Pasa |
+| `npm run test:e2e` | **96 passed** en base descartable |
 
-> **Nota:** E2E (`npm run test:e2e`) no se ejecutó en esta sesión por requerir una base descartable. Ver `.devin/informes/entornos.md` para la configuración segura.
+> **Nota:** E2E se ejecutó contra la base descartable configurada en `.env.e2e` (`neondb_e2e`). Ver `.devin/informes/entornos.md` para la configuración segura.
 
 ## 5. Hallazgos documentales recientes
 
@@ -61,6 +62,7 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 | `README.md` y `AGENTS.md` con `src/lib/` y comandos desactualizados | Menor | Se agregó `npm run knip` y se listaron módulos recientes. |
 | Conteos de tests/rutas en `reporte-estado.md` desactualizados | Menor | Se actualizaron a 123 suites, 1163 tests y 44 páginas estáticas. |
 | Nombres de variables en guía de funcionamiento incompletos | Menor | Se corrigieron `CAJA_AUTO_CLOSE_HOURS` y `CAJA_AUTO_CLOSED_BY`. |
+| Tests E2E de caja fallaban por `clearCookies` insuficiente y el test de rate limit devolvía `201` en lugar de `429` | Mayor | Se agregó `clearSession(page)` a `tests/e2e/helpers.ts`, se robusteció `loginAs` y se configuraron `E2E_ENABLE_RATE_LIMIT=true`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS=2` y `TRUSTED_PROXY_IP_HEADER=X-Forwarded-For` en `.github/workflows/ci.yml` y `.env.e2e.example`. Suite E2E: 96 passed. |
 
 ## 6. Acciones pendientes recomendadas
 

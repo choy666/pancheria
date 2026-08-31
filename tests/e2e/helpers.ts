@@ -39,7 +39,29 @@ export async function setUniqueClientIp(page: Page): Promise<void> {
   await page.setExtraHTTPHeaders({ 'X-Forwarded-For': ip });
 }
 
+const LOGIN_NAVIGATION_TIMEOUT = 60_000;
 const LOGIN_REDIRECT_TIMEOUT = 30_000;
+
+/**
+ * Limpia la sesión del contexto de Playwright de forma robusta.
+ *
+ * `page.context().clearCookies()` no siempre invalida la sesión de NextAuth v5
+ * si quedan cookies `httpOnly` o si el server component redirige antes de que
+ * el cliente descarte el estado. Este helper combina la navegación a `/login`,
+ * la limpieza de cookies y el borrado de `localStorage`/`sessionStorage` para
+ * evitar que `loginAs` caiga en `/` por una sesión residual.
+ */
+export async function clearSession(page: Page): Promise<void> {
+  await page.goto('/login', {
+    waitUntil: 'domcontentloaded',
+    timeout: LOGIN_NAVIGATION_TIMEOUT,
+  });
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+}
 
 /**
  * Inicia sesión con credenciales genéricas.
@@ -55,7 +77,21 @@ export async function loginAs(
   username: string,
   password: string
 ): Promise<void> {
-  await page.goto('/login');
+  await page.goto('/login', {
+    waitUntil: 'domcontentloaded',
+    timeout: LOGIN_NAVIGATION_TIMEOUT,
+  });
+
+  const currentUrl = page.url();
+  if (!currentUrl.includes('/login')) {
+    throw new Error(
+      `La navegación a /login terminó en "${currentUrl}". ` +
+        'Esto suele pasar cuando la sesión anterior no se limpió por completo. ' +
+        'Usá clearSession(page) antes de loginAs(page, ...) si el test cambia de usuario.'
+    );
+  }
+
+  await expect(page.getByLabel('Usuario')).toBeVisible({ timeout: 15_000 });
   await page.getByLabel('Usuario').fill(username);
   await page.getByLabel('Contraseña').fill(password);
   await page.getByRole('button', { name: 'Ingresar' }).click();

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, getTestSecondBranch, ensureCashRegisterOpen, setUniqueClientIp } from './helpers';
+import { login, unique, createProductViaApi, getTestSecondBranch, ensureCashRegisterOpen, setUniqueClientIp, clearSession } from './helpers';
 
 test.describe('Pedido público con chat', () => {
   test.beforeEach(async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe('Pedido público con chat', () => {
       isActive: true,
     });
 
-    await page.context().clearCookies();
+    await clearSession(page);
     await page.goto(`/pedido?branchId=${second.branchId}`);
 
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();

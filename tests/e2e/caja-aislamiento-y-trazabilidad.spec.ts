@@ -6,6 +6,7 @@ import {
   unique,
   createProductViaApi,
   openCashRegisterFromUI,
+  clearSession,
 } from './helpers';
 
 test.describe('Trazabilidad de caja por sucursal y operador', () => {
@@ -52,7 +53,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     const cashRegisterId = headingText?.match(/Caja #(\d+)/)?.[1];
     expect(cashRegisterId).toBeDefined();
 
-    await page.context().clearCookies();
+    await clearSession(page);
 
     await loginAs(page, secondBranch.username, secondBranch.password);
 

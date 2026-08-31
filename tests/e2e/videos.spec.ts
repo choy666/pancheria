@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { loginAsAdmin, loginAsOperator } from './helpers';
+import { loginAsAdmin, loginAsOperator, clearSession } from './helpers';
 
 async function navigateToVideos(page: Page) {
   await page.goto('/videos');
@@ -82,7 +82,7 @@ test.describe('Videos', () => {
   });
 
   test('el operador no puede acceder a videos', async ({ page }) => {
-    await page.context().clearCookies();
+    await clearSession(page);
     await loginAsOperator(page);
     await page.goto('/videos');
     await expect(page).toHaveURL('/');
