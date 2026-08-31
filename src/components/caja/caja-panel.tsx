@@ -18,6 +18,7 @@ import { useCashRegister } from '@/hooks/useCashRegister';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CashRegisterSummary } from '@/components/caja/cash-register-summary';
 import { formatLastUpdated } from '@/lib/date';
+import { formatMoney } from '@/lib/money';
 
 interface CajaPanelProps {
   branchName?: string | null;
@@ -27,7 +28,7 @@ function parseAmount(value: string): number {
   const trimmed = value.trim().replace(',', '.');
   if (trimmed === '') return 0;
   const parsed = Number(trimmed);
-  return Number.isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
+  return Number.isNaN(parsed) ? 0 : Math.round(parsed);
 }
 
 export function CajaPanel({ branchName }: CajaPanelProps) {
@@ -108,9 +109,11 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
                   id="panel-initial-amount"
                   data-testid="initial-amount-input"
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min={0}
-                  step="0.01"
-                  placeholder="0.00"
+                  step={1}
+                  placeholder="0"
                   value={initialAmount}
                   onChange={(e) => setInitialAmount(e.target.value)}
                 />
@@ -182,14 +185,16 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
                   id="panel-closing-cash-count"
                   data-testid="closing-cash-count-input"
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min={0}
-                  step="0.01"
-                  placeholder="0.00"
+                  step={1}
+                  placeholder="0"
                   value={closingCashCount}
                   onChange={(e) => setClosingCashCount(e.target.value)}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Esperado en efectivo: ${(cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount).toFixed(2)}
+                  Esperado en efectivo: {formatMoney((cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount))}
                 </p>
               </div>
               <div className="space-y-2">

@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DEFAULT_DENOMINATIONS } from '@/config/payments';
+import { formatMoney, formatNumber } from '@/lib/money';
 import type { PaymentMethod, PaymentPart } from '@/domain/types';
 
 interface PaymentPartsInputProps {
@@ -24,25 +26,31 @@ const METHODS: {
   { method: 'transfer', label: 'Transferencia', icon: Landmark },
 ];
 
+function roundAmount(value: number): number {
+  return Math.max(0, Math.round(value));
+}
+
 export function PaymentPartsInput({
   total,
   payments,
   onChange,
   disabled,
 }: PaymentPartsInputProps) {
+  const totalRounded = roundAmount(total);
+
   const byMethod = useMemo(() => {
     const map = new Map<PaymentMethod, number>();
     for (const payment of payments) {
-      map.set(payment.method, payment.amount);
+      map.set(payment.method, roundAmount(payment.amount));
     }
     return map;
   }, [payments]);
 
   const paid = useMemo(() => {
-    return payments.reduce((sum, payment) => sum + payment.amount, 0);
+    return payments.reduce((sum, payment) => sum + roundAmount(payment.amount), 0);
   }, [payments]);
 
-  const remaining = total - paid;
+  const remaining = totalRounded - paid;
 
   function isOnly(method: PaymentMethod) {
     return payments.length === 1 && payments[0].method === method;
@@ -51,7 +59,7 @@ export function PaymentPartsInput({
   const isMixed = payments.length === 2;
 
   function updatePayment(method: PaymentMethod, raw: string) {
-    const value = raw === '' ? 0 : Number(raw);
+    const value = raw === '' ? 0 : roundAmount(Number(raw));
     if (Number.isNaN(value) || value < 0) return;
 
     const next: PaymentPart[] = [];
@@ -66,14 +74,35 @@ export function PaymentPartsInput({
   }
 
   function setFull(method: PaymentMethod) {
-    onChange([{ method, amount: total }]);
+    onChange([{ method, amount: totalRounded }]);
+  }
+
+  function addToMethod(method: PaymentMethod, addend: number) {
+    const otherPaid = paid - (byMethod.get(method) ?? 0);
+    const current = byMethod.get(method) ?? 0;
+    const nextAmount = Math.min(current + addend, totalRounded - otherPaid);
+    const next: PaymentPart[] = [];
+
+    for (const config of METHODS) {
+      const amount =
+        config.method === method ? nextAmount : (byMethod.get(config.method) ?? 0);
+      if (amount > 0) {
+        next.push({ method: config.method, amount });
+      }
+    }
+
+    onChange(next);
+  }
+
+  function completeMethod(method: PaymentMethod) {
+    addToMethod(method, Math.max(0, remaining));
   }
 
   const remainingText =
     remaining > 0
-      ? `Faltan: $${remaining.toFixed(2)}`
+      ? `Faltan: ${formatMoney(remaining)}`
       : remaining < 0
-        ? `Sobran: $${Math.abs(remaining).toFixed(2)}`
+        ? `Sobran: ${formatMoney(Math.abs(remaining))}`
         : 'Pago completo';
 
   return (
@@ -103,20 +132,58 @@ export function PaymentPartsInput({
       <div className="grid grid-cols-2 gap-3">
         {METHODS.map(({ method, label }) => {
           const amount = byMethod.get(method) ?? 0;
+          const canComplete = remaining > 0;
           return (
             <div key={method} className="space-y-1">
               <Label htmlFor={`payment-${method}`}>{label}</Label>
-              <Input
-                id={`payment-${method}`}
-                data-testid={`payment-${method}-input`}
-                type="number"
-                min={0}
-                step={0.01}
-                value={amount > 0 ? amount.toFixed(2) : ''}
-                onChange={(e) => updatePayment(method, e.target.value)}
-                disabled={disabled}
-                placeholder="0.00"
-              />
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  $
+                </span>
+                <Input
+                  id={`payment-${method}`}
+                  data-testid={`payment-${method}-input`}
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  step={1}
+                  min={0}
+                  value={amount > 0 ? String(amount) : ''}
+                  onChange={(e) => updatePayment(method, e.target.value)}
+                  disabled={disabled}
+                  placeholder="0"
+                  className="pl-7"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {DEFAULT_DENOMINATIONS.map((denomination) => (
+                  <Button
+                    key={denomination}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled}
+                    data-testid={`payment-${method}-denom-${denomination}`}
+                    onClick={() => addToMethod(method, denomination)}
+                    className="h-7 px-1.5 text-xs"
+                  >
+                    +{formatNumber(denomination)}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={disabled || !canComplete}
+                data-testid={`payment-${method}-complete-rest`}
+                onClick={() => completeMethod(method)}
+                className="h-7 px-1.5 text-xs"
+              >
+                Completar resto
+              </Button>
             </div>
           );
         })}

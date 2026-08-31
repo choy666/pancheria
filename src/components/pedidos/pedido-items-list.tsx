@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/money';
 import type { RecipeItemConfig } from '@/domain/types';
 
 interface OrderDetailItem {
@@ -63,10 +64,10 @@ export function PedidoItemsList({ items }: PedidoItemsListProps) {
               </td>
               <td className="p-3 text-right">{item.quantity}</td>
               <td className="p-3 text-right">
-                ${item.unitPrice.toFixed(2)}
+                {formatMoney(item.unitPrice)}
               </td>
               <td className="p-3 text-right font-mono">
-                ${item.subtotal.toFixed(2)}
+                {formatMoney(item.subtotal)}
               </td>
             </tr>
           ))}

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { formatMoney } from '@/lib/money';
 import type { CartItem } from '@/hooks/useCart';
 
 function CartItemRecipeDetails({ item }: { item: CartItem }) {
@@ -68,7 +69,7 @@ export function CartSummary({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.name}</p>
                   <p className="font-mono text-sm text-muted-foreground">
-                    ${item.price.toFixed(2)} x {item.quantity}
+                    {formatMoney(item.price)} x {item.quantity}
                   </p>
                   {item.type === 'compound' && item.recipe && item.recipe.length > 0 && (
                     <p className="text-xs text-muted-foreground">
@@ -122,7 +123,7 @@ export function CartSummary({
 
         <div className="border-t border-white/10 pt-4">
           <p className="font-mono text-2xl font-bold">
-            Total: ${total.toFixed(2)}
+            Total: {formatMoney(total)}
           </p>
         </div>
 

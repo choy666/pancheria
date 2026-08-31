@@ -28,6 +28,7 @@ import * as saleService from '@/application/services/saleService';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
+import { formatMoney } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 import { routes } from '@/config/routes';
@@ -157,7 +158,7 @@ export default async function ProductsPage() {
                     <TableCell className="hidden lg:table-cell font-mono">
                       {product.type === 'manual_supply'
                         ? '-'
-                        : `$${product.price.toFixed(2)}`}
+                        : formatMoney(product.price)}
                     </TableCell>
                     <TableCell>
                       {(() => {

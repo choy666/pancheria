@@ -55,7 +55,13 @@ test.describe('Chat con adjuntos', () => {
       mimeType: 'image/png',
       buffer: pngBuffer(),
     });
+
+    const clientSendPromise = page.waitForResponse(
+      (response) => response.url().includes('/chat') && response.request().method() === 'POST'
+    );
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
+    await clientSendPromise;
+    await page.getByTestId('chat-attachment-uploading').waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
 
     await expect(
       page.locator('[data-testid="chat-attachment-image"][data-sender-type="client"]')
@@ -82,7 +88,13 @@ test.describe('Chat con adjuntos', () => {
       mimeType: 'image/png',
       buffer: pngBuffer(),
     });
+
+    const operatorSendPromise = page.waitForResponse(
+      (response) => response.url().includes('/chat') && response.request().method() === 'POST'
+    );
     await page.getByRole('button', { name: 'Enviar mensaje' }).click();
+    await operatorSendPromise;
+    await page.getByTestId('chat-attachment-uploading').waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
 
     await expect(
       page.locator('[data-testid="chat-attachment-image"][data-sender-type="operator"]')

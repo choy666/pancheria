@@ -123,7 +123,6 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ### Prompts activos
 
-- [Mejoras de UX en combos y pagos del módulo de ventas](mejoras-ux-ventas-combos-pagos.md) — diálogo de combos con servicios/extras separados y pago adaptado a pesos argentinos.
 - [Prompt maestro — Proyecto Panchería](pancheria.prompt.md) — punto de entrada para cualquier tarea futura.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
@@ -131,6 +130,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ### Prompts archivados
 
+- [Mejoras de UX en combos y pagos del módulo de ventas](archivados/mejoras-ux-ventas-combos-pagos.md) — resuelto: diálogo de combos con servicios/extras separados, pago adaptado a pesos argentinos, formato de moneda con/sin centavos y `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
 - [Corrección de tests E2E fallidos — caja, stock y entorno](archivados/correccion-tests-e2e-caja-y-entorno.md) — resuelto: entorno, helpers y locators robustos para `npm run test:e2e`.
 - [Errores de deploy en Vercel](archivados/errores-deploy-vercel-forbidden-react-441.md) — resuelto: todos los Server Components del panel usan `getCurrentBranchIdOrRedirect`; las rutas API y server actions mantienen `getCurrentBranchId` para devolver `403`.
 - [Auditoría del chat de pedidos — workaround de body, warnings y mejoras pendientes](archivados/auditoria-chat-workaround-y-mejoras.md) — resuelto: JSON body, compresión en test, `disablePollingOnMount` y `force-dynamic`.

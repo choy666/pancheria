@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
 import { getProductAdditional, type CartItem } from '@/lib/ventas-helpers';
+import { formatMoney } from '@/lib/money';
 import type { PaymentPart } from '@/domain/types';
 
 interface SalesCartProps {
@@ -89,7 +90,7 @@ export function SalesCart({
                         {item.product.name}
                       </p>
                       <p className="font-mono text-sm text-muted-foreground">
-                        ${item.product.price.toFixed(2)} x {item.quantity}
+                        {formatMoney(item.product.price)} x {item.quantity}
                       </p>
                       {item.product.type === 'compound' &&
                         item.product.recipe &&
@@ -142,7 +143,7 @@ export function SalesCart({
 
           <div className="border-t border-white/10 pt-4">
             <p className="font-mono text-2xl font-bold">
-              Total: ${total.toFixed(2)}
+              Total: {formatMoney(total)}
             </p>
           </div>
 

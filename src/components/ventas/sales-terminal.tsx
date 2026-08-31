@@ -25,6 +25,7 @@ import {
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
+import { formatMoney } from '@/lib/money';
 import type { PaymentPart } from '@/domain/types';
 
 export function SalesTerminal() {
@@ -246,12 +247,11 @@ export function SalesTerminal() {
     }
 
     const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
-    if (Math.abs(paid - total) >= 0.005) {
+    if (Math.round(paid) !== Math.round(total)) {
       setError(
-        `El pago no cubre el total. Faltan $${Math.max(
-          0,
-          total - paid
-        ).toFixed(2)} o sobran $${Math.max(0, paid - total).toFixed(2)}.`
+        `El pago no cubre el total. Faltan ${formatMoney(
+          Math.max(0, total - paid)
+        )} o sobran ${formatMoney(Math.max(0, paid - total))}.`
       );
       return;
     }

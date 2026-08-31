@@ -202,6 +202,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - Desde `/caja` el operador/admin abre la caja indicando usuario.
    - Se inserta un registro con `status = 'open'`.
    - No se requiere monto inicial; todos los totales comienzan en `0`.
+   - El monto inicial, si se ingresa, es un valor entero en pesos (sin centavos), igual que los pagos en el terminal de ventas.
 
 2. **Ventas**
    - Cada venta confirmada incrementa `totalSales`, `total`, `cashTotal` o `transferTotal` según medio de pago.
@@ -211,6 +212,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 
 3. **Cierre manual**
    - El operador/cierra la caja.
+   - El monto contado en efectivo se ingresa como pesos enteros; el sistema calcula la diferencia contra el efectivo esperado.
    - Se calcula el resumen final y se graba en el registro (`status = 'closed'`, `closedAt`, `closedBy`).
 
 4. **Cierre automático**

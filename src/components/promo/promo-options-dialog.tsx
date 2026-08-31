@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { formatMoney } from '@/lib/money';
 import type { RecipeItemConfig } from '@/domain/types';
 
 export interface PromoOptionsDialogProps {
@@ -20,6 +21,56 @@ export interface PromoOptionsDialogProps {
   recipe: RecipeItemConfig[];
   initialSelectedIds?: number[];
   onConfirm: (selectedRecipeItemIds: number[]) => void;
+}
+
+function renderSection(
+  productName: string,
+  title: string,
+  items: RecipeItemConfig[],
+  selectedIds: number[],
+  onToggle: (supplyId: number) => void,
+  allowToggle: boolean
+) {
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <h4 className="mb-2 text-sm font-semibold">{title}</h4>
+      <ul className="space-y-2">
+        {items.map((item) => {
+          const checked = selectedIds.includes(item.supplyId);
+          const inputId = `promo-option-${item.supplyId}`;
+
+          return (
+            <li key={item.supplyId} className="flex items-center gap-2">
+              {allowToggle ? (
+                <>
+                  <input
+                    id={inputId}
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
+                    checked={checked}
+                    onChange={() => onToggle(item.supplyId)}
+                    aria-label={`Incluir ${item.supplyName} en ${productName}`}
+                  />
+                  <label
+                    htmlFor={inputId}
+                    className="text-sm"
+                  >
+                    {item.supplyName} ({item.quantity})
+                  </label>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  {item.supplyName} ({item.quantity})
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 export function PromoOptionsDialog({
@@ -38,14 +89,38 @@ export function PromoOptionsDialog({
         .map((item) => item.supplyId)
   );
 
-  const criticalItems = useMemo(
+  const alwaysIncludeItems = useMemo(
     () => recipe.filter((item) => !item.isOptional),
     [recipe]
   );
-  const optionalItems = useMemo(
-    () => recipe.filter((item) => item.isOptional),
+
+  const optionalManualItems = useMemo(
+    () =>
+      recipe.filter(
+        (item) => item.isOptional && item.supplyType === 'manual_supply'
+      ),
     [recipe]
   );
+
+  const optionalServiceItems = useMemo(
+    () =>
+      recipe.filter(
+        (item) => item.isOptional && item.supplyType === 'service'
+      ),
+    [recipe]
+  );
+
+  const selectedItems = useMemo(
+    () =>
+      recipe.filter(
+        (item) => !item.isOptional || selectedIds.includes(item.supplyId)
+      ),
+    [recipe, selectedIds]
+  );
+
+  const selectedSummary = useMemo(() => {
+    return selectedItems.map((item) => item.supplyName).join(', ');
+  }, [selectedItems]);
 
   const handleToggle = (supplyId: number) => {
     setSelectedIds((prev) =>
@@ -66,49 +141,42 @@ export function PromoOptionsDialog({
         <DialogHeader>
           <DialogTitle>{productName}</DialogTitle>
           <DialogDescription>
-            Total: ${productPrice.toFixed(2)}
+            Total: {formatMoney(productPrice)}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {criticalItems.length > 0 && (
-            <div>
-              <h4 className="mb-2 text-sm font-semibold">Siempre incluye</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                {criticalItems.map((item) => (
-                  <li key={item.supplyId}>
-                    {item.supplyName} ({item.quantity})
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {renderSection(
+            productName,
+            'Siempre incluye',
+            alwaysIncludeItems,
+            selectedIds,
+            handleToggle,
+            false
           )}
 
-          {optionalItems.length > 0 && (
-            <div>
-              <h4 className="mb-2 text-sm font-semibold">
-                Quitá lo que no querás
-              </h4>
-              <ul className="space-y-2">
-                {optionalItems.map((item) => (
-                  <li key={item.supplyId} className="flex items-center gap-2">
-                    <input
-                      id={`promo-option-${item.supplyId}`}
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
-                      checked={selectedIds.includes(item.supplyId)}
-                      onChange={() => handleToggle(item.supplyId)}
-                      aria-label={`Incluir ${item.supplyName} en ${productName}`}
-                    />
-                    <label
-                      htmlFor={`promo-option-${item.supplyId}`}
-                      className="text-sm"
-                    >
-                      {item.supplyName} ({item.quantity})
-                    </label>
-                  </li>
-                ))}
-              </ul>
+          {renderSection(
+            productName,
+            'Insumos opcionales',
+            optionalManualItems,
+            selectedIds,
+            handleToggle,
+            true
+          )}
+
+          {renderSection(
+            productName,
+            'Servicios / extras',
+            optionalServiceItems,
+            selectedIds,
+            handleToggle,
+            true
+          )}
+
+          {selectedSummary && (
+            <div className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Incluye: </span>
+              {selectedSummary}
             </div>
           )}
         </div>

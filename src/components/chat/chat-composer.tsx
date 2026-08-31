@@ -11,6 +11,7 @@ interface ChatComposerProps {
   onSend: () => void;
   isReadOnly: boolean;
   isSending: boolean;
+  isUploading?: boolean;
   selectedFile: File | null;
   previewUrl: string | null;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -25,6 +26,7 @@ export function ChatComposer({
   onSend,
   isReadOnly,
   isSending,
+  isUploading,
   selectedFile,
   previewUrl,
   onFileSelect,
@@ -34,7 +36,10 @@ export function ChatComposer({
   return (
     <div className="border-t border-white/8 p-3">
       {selectedFile && previewUrl && (
-        <div className="relative mb-2 inline-block">
+        <div
+          className="relative mb-2 inline-block"
+          data-testid={isUploading ? 'chat-attachment-uploading' : undefined}
+        >
           <Image
             src={previewUrl}
             alt="Vista previa"

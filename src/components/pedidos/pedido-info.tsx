@@ -1,4 +1,5 @@
 import { formatDateTime } from '@/lib/date';
+import { formatMoney } from '@/lib/money';
 import type { DeliveryType } from '@/domain/types';
 
 interface OrderInfo {
@@ -66,7 +67,7 @@ export function PedidoInfo({ order }: PedidoInfoProps) {
       <div>
         <p className="text-sm text-muted-foreground">Total</p>
         <p className="font-mono text-lg font-bold">
-          ${order.total.toFixed(2)}
+          {formatMoney(order.total)}
         </p>
       </div>
       {order.convertedSaleId && (

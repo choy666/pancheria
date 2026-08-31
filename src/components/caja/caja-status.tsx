@@ -24,6 +24,7 @@ import {
 } from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
+import { formatMoney } from '@/lib/money';
 
 interface CajaStatusProps {
   cashRegister: CashRegister | null;
@@ -37,7 +38,7 @@ function parseAmount(value: string): number {
   const trimmed = value.trim().replace(',', '.');
   if (trimmed === '') return 0;
   const parsed = Number(trimmed);
-  return Number.isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
+  return Number.isNaN(parsed) ? 0 : Math.round(parsed);
 }
 
 export function CajaStatus({
@@ -113,9 +114,11 @@ export function CajaStatus({
                     id="initial-amount"
                     data-testid="initial-amount-input"
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min={0}
-                    step="0.01"
-                    placeholder="0.00"
+                    step={1}
+                    placeholder="0"
                     value={initialAmount}
                     onChange={(e) => setInitialAmount(e.target.value)}
                   />
@@ -179,7 +182,7 @@ export function CajaStatus({
           <p className="text-base">
             Monto inicial:{' '}
             <span className="font-mono font-medium">
-              ${cashRegister.initialAmount.toFixed(2)}
+              {formatMoney(cashRegister.initialAmount)}
             </span>
           </p>
         )}
@@ -214,14 +217,16 @@ export function CajaStatus({
                   id="closing-cash-count"
                   data-testid="closing-cash-count-input"
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min={0}
-                  step="0.01"
-                  placeholder="0.00"
+                  step={1}
+                  placeholder="0"
                   value={closingCashCount}
                   onChange={(e) => setClosingCashCount(e.target.value)}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Esperado en efectivo: ${(cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount).toFixed(2)}
+                  Esperado en efectivo: {formatMoney((cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount))}
                 </p>
               </div>
               <div className="space-y-2">

@@ -89,7 +89,7 @@ describe('CajaHistory', () => {
     render(<CajaHistory />);
 
     expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('$1500.00')).toBeInTheDocument();
+    expect(screen.getByText('$ 1.500')).toBeInTheDocument();
     expect(screen.getByText('Cerrada')).toBeInTheDocument();
   });
 });

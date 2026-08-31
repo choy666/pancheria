@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { authenticatedFetch } from '@/lib/fetch';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
+import { formatMoney } from '@/lib/money';
 import {
   PEDIDOS_CONFIRMAR_API,
   PEDIDOS_RECIBIR_API,
@@ -214,11 +215,11 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     }
 
     const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
-    if (Math.abs(paid - order.total) >= 0.005) {
+    if (Math.round(paid) !== Math.round(order.total)) {
       setActionError(
-        `El pago no cubre el total. Faltan $${Math.max(0, order.total - paid).toFixed(
-          2
-        )} o sobran $${Math.max(0, paid - order.total).toFixed(2)}.`
+        `El pago no cubre el total. Faltan ${formatMoney(
+          Math.max(0, order.total - paid)
+        )} o sobran ${formatMoney(Math.max(0, paid - order.total))}.`
       );
       return;
     }

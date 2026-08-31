@@ -438,9 +438,9 @@ describe('PedidoClient', () => {
       expect(summary).toBeInTheDocument();
       expect(summary).toHaveTextContent('Cliente: Juan Pérez');
       expect(summary).toHaveTextContent('Sucursal: Sucursal A');
-      expect(summary).toHaveTextContent('Total: $1200.00');
+      expect(summary).toHaveTextContent('Total: $ 1.200');
       expect(summary).toHaveTextContent('1x Panchuque (unidad)');
-      expect(summary).toHaveTextContent('$1200.00 c/u');
+      expect(summary).toHaveTextContent('$ 1.200 c/u');
 
       const chatButton = screen.getByText('Ir al chat del pedido');
       expect(chatButton).toBeInTheDocument();

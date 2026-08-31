@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
+import { formatMoney } from '@/lib/money';
 import { Pagination } from '@/components/ui/pagination';
 import { routes } from '@/config/routes';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
@@ -272,16 +273,16 @@ export function CajaHistory({
                     data-testid={`cash-register-total-${cashRegister.id}`}
                     className="font-mono font-medium text-primary"
                   >
-                    ${cashRegister.total.toFixed(2)}
+                    {formatMoney(cashRegister.total)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell font-mono">
-                    ${cashRegister.initialAmount.toFixed(2)}
+                    {formatMoney(cashRegister.initialAmount)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell font-mono">
-                    ${cashRegister.cashTotal.toFixed(2)}
+                    {formatMoney(cashRegister.cashTotal)}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell font-mono">
-                    ${cashRegister.transferTotal.toFixed(2)}
+                    {formatMoney(cashRegister.transferTotal)}
                   </TableCell>
                   <TableCell
                     className={`hidden lg:table-cell font-mono ${
@@ -295,7 +296,7 @@ export function CajaHistory({
                     }`}
                   >
                     {cashRegister.closingDifference !== undefined && cashRegister.closingDifference !== null
-                      ? `${cashRegister.closingDifference >= 0 ? '+' : ''}${cashRegister.closingDifference.toFixed(2)}`
+                      ? `${cashRegister.closingDifference >= 0 ? '+' : ''}${formatMoney(Math.abs(cashRegister.closingDifference))}`
                       : '-'}
                   </TableCell>
                   {showAutoColumn && (

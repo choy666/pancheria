@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDateTime } from '@/lib/date';
+import { formatMoney } from '@/lib/money';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -376,7 +377,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
                 <TableCell>{order.branch?.name ?? '—'}</TableCell>
                 <TableCell>{deliveryLabels[order.deliveryType]}</TableCell>
                 <TableCell className="font-mono">
-                  ${order.total.toFixed(2)}
+                  {formatMoney(order.total)}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-2">

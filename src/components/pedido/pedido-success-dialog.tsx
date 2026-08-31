@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatMoney } from '@/lib/money';
 import type { CreatedOrder } from './usePedidoClient';
 import type { PublicOrderItem } from '@/lib/whatsapp';
 
@@ -130,7 +131,7 @@ export function PedidoSuccessDialog({
                 <p>
                   Total:{' '}
                   <span className="font-mono text-foreground">
-                    ${createdOrder.total.toFixed(2)}
+                    {formatMoney(createdOrder.total)}
                   </span>
                 </p>
               </div>
@@ -146,12 +147,12 @@ export function PedidoSuccessDialog({
                           {item.quantity}x {item.name} ({item.unit})
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          ${item.price.toFixed(2)} c/u
+                          {formatMoney(item.price)} c/u
                         </p>
                         <OrderItemRecipeDetails item={item} />
                       </div>
                       <span className="font-mono text-foreground">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatMoney(item.price * item.quantity)}
                       </span>
                     </li>
                   ))}

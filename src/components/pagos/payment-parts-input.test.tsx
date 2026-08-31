@@ -79,7 +79,7 @@ describe('PaymentPartsInput', () => {
 
     expect(
       screen.getByTestId('payment-remaining-badge')
-    ).toHaveTextContent('Sobran: $500.00');
+    ).toHaveTextContent('Sobran: $ 500');
     expect(
       screen.getByTestId('payment-mixed-badge')
     ).toHaveTextContent('Mixto');
@@ -119,5 +119,70 @@ describe('PaymentPartsInput', () => {
     expect(onChange).toHaveBeenCalledWith([
       { method: 'transfer', amount: 1500 },
     ]);
+  });
+
+  test('redondea los montos decimales al entero más cercano', () => {
+    const onChange = jest.fn();
+    render(
+      <PaymentPartsInput
+        total={1500}
+        payments={[{ method: 'cash', amount: 1500 }]}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.change(screen.getByTestId('payment-cash-input'), {
+      target: { value: '500.70' },
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith([{ method: 'cash', amount: 501 }]);
+  });
+
+  test('los botones de denominación suman al monto actual sin superar el total', () => {
+    const onChange = jest.fn();
+    render(
+      <PaymentPartsInput
+        total={5000}
+        payments={[{ method: 'cash', amount: 1000 }]}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('payment-cash-denom-2000'));
+
+    expect(onChange).toHaveBeenLastCalledWith([{ method: 'cash', amount: 3000 }]);
+
+    fireEvent.click(screen.getByTestId('payment-cash-denom-5000'));
+
+    expect(onChange).toHaveBeenLastCalledWith([{ method: 'cash', amount: 5000 }]);
+  });
+
+  test('el botón Completar resto rellena el monto faltante', () => {
+    const onChange = jest.fn();
+    render(
+      <PaymentPartsInput
+        total={5000}
+        payments={[{ method: 'cash', amount: 1000 }]}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('payment-cash-complete-rest'));
+
+    expect(onChange).toHaveBeenLastCalledWith([{ method: 'cash', amount: 5000 }]);
+  });
+
+  test('muestra el monto restante formateado con separador de miles', () => {
+    render(
+      <PaymentPartsInput
+        total={15000}
+        payments={[{ method: 'cash', amount: 5000 }]}
+        onChange={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.getByTestId('payment-remaining-badge')
+    ).toHaveTextContent('Faltan: $ 10.000');
   });
 });

@@ -41,4 +41,23 @@ export function subtractMoney(a: Money, b: Money): Money {
   return subtract(a, b);
 }
 
+function formatWithOptions(amount: number, options: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat('es-AR', options)
+    .format(amount)
+    .replace(/\u00a0/g, ' ');
+}
 
+export function formatNumber(amount: number, includeCents = false): string {
+  return formatWithOptions(amount, {
+    minimumFractionDigits: includeCents ? 2 : 0,
+    maximumFractionDigits: includeCents ? 2 : 0,
+  });
+}
+
+export function formatMoney(amount: number, includeCents = false): string {
+  const formatted = formatNumber(Math.abs(amount), includeCents);
+  if (amount < 0) {
+    return `-$ ${formatted}`;
+  }
+  return `$ ${formatted}`;
+}

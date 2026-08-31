@@ -100,6 +100,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PRODUCT_IMAGE_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para imágenes de productos; si no se define, usa `LOCAL_STORAGE_PATH` como fallback (por defecto `tmp/videos/product-images`).
 - `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `next.config.ts` para extender `img-src` en la CSP.
 - `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH` / `PRODUCT_IMAGE_URL_MAX_LENGTH` (opcional) — longitud máxima de una URL externa de imagen (por defecto 2048); la variable pública tiene prioridad.
+- `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` (opcional) — valores de los botones de denominación rápida en el ingreso de pagos, separados por coma. Por defecto `1000,2000,5000,10000,20000`.
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` (opcional) — si se define como `true`, se inyecta el script de Vercel Web Analytics en todas las páginas. En desarrollo no envía datos aunque esté habilitado; también es necesario activar Web Analytics en el dashboard de Vercel.
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.

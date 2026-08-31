@@ -3,6 +3,7 @@
 import { addHours, intervalToDuration } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAutoCloseHours } from '@/config/caja';
+import { formatMoney } from '@/lib/money';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 
 interface CashRegisterSummaryData {
@@ -118,31 +119,31 @@ export function CashRegisterSummary({
             data-testid="cash-register-total"
             className="font-mono text-2xl font-bold text-primary"
           >
-            Total: ${cashRegister.total.toFixed(2)}
+            Total: {formatMoney(cashRegister.total)}
           </p>
           <div className="grid grid-cols-2 gap-3 text-base">
             <p className="rounded-lg bg-muted/30 p-3">
               Efectivo en ventas:{' '}
               <span className="font-mono font-medium">
-                ${cashRegister.cashTotal.toFixed(2)}
+                {formatMoney(cashRegister.cashTotal)}
               </span>
             </p>
             <p className="rounded-lg bg-muted/30 p-3">
               Transferencia:{' '}
               <span className="font-mono font-medium">
-                ${cashRegister.transferTotal.toFixed(2)}
+                {formatMoney(cashRegister.transferTotal)}
               </span>
             </p>
             <p className="rounded-lg bg-muted/30 p-3">
               Monto inicial:{' '}
               <span className="font-mono font-medium">
-                ${cashRegister.initialAmount.toFixed(2)}
+                {formatMoney(cashRegister.initialAmount)}
               </span>
             </p>
             <p className="rounded-lg bg-muted/30 p-3">
               Efectivo en caja:{' '}
               <span className="font-mono font-medium">
-                ${cashInDrawer.toFixed(2)}
+                {formatMoney(cashInDrawer)}
               </span>
             </p>
           </div>
@@ -158,7 +159,7 @@ export function CashRegisterSummary({
             >
               Diferencia:{' '}
               <span className="font-mono">
-                {difference > 0 ? '+' : ''}${difference.toFixed(2)}
+                {difference > 0 ? '+' : ''}{formatMoney(difference)}
               </span>
               {difference > 0 ? ' (sobrante)' : difference < 0 ? ' (faltante)' : ' (cuadrado)'}
             </p>
@@ -167,7 +168,7 @@ export function CashRegisterSummary({
             <p className="text-base">
               Efectivo contado:{' '}
               <span className="font-mono font-semibold">
-                ${cashRegister.closingCashCount.toFixed(2)}
+                {formatMoney(cashRegister.closingCashCount)}
               </span>
             </p>
           )}

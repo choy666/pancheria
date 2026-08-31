@@ -45,6 +45,7 @@ export function OrderChat({
     isSending,
     isLoadingOlder,
     isPolling,
+    isUploading,
     error,
     selectedFile,
     previewUrl,
@@ -101,6 +102,7 @@ export function OrderChat({
         onSend={() => void handleSend()}
         isReadOnly={isReadOnly}
         isSending={isSending}
+        isUploading={isUploading}
         selectedFile={selectedFile}
         previewUrl={previewUrl}
         onFileSelect={handleFileSelect}

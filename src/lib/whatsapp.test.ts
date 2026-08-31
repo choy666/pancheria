@@ -26,13 +26,13 @@ describe('buildWhatsAppMessage', () => {
 
     expect(message).toContain('Panchuque');
     expect(message).toContain('Gaseosa');
-    expect(message).toContain('Total: $2900.00');
+    expect(message).toContain('Total: $ 2.900');
     expect(message).toContain('Cliente: Juan Pérez');
     expect(message).toContain('Entrega: Envío a domicilio');
     expect(message).toContain('Dirección: Av. Siempre Viva 742');
     expect(message).toContain('Notas: Sin mostaza');
-    expect(message).toContain('$2400.00');
-    expect(message).toContain('$500.00');
+    expect(message).toContain('$ 2.400');
+    expect(message).toContain('$ 500');
   });
 
   test('omite dirección cuando el retiro es en sucursal', () => {
@@ -52,7 +52,7 @@ describe('buildWhatsAppMessage', () => {
     expect(message).not.toContain('Notas');
   });
 
-  test('formatea precios con dos decimales', () => {
+  test('formatea precios sin centavos', () => {
     const order: PublicOrder = {
       items: [
         { productId: 1, name: 'Panchuque', price: 1200.5, unit: 'unidad', quantity: 1 },
@@ -64,7 +64,7 @@ describe('buildWhatsAppMessage', () => {
 
     const message = buildWhatsAppMessage(order);
 
-    expect(message).toContain('Total: $1200.50');
+    expect(message).toContain('Total: $ 1.201');
   });
 
   test('incluye el nombre de la sucursal cuando está definido', () => {

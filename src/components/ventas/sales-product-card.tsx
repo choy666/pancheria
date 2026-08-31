@@ -7,6 +7,7 @@ import {
   isProductOutOfStock,
   type SellableProduct,
 } from '@/lib/ventas-helpers';
+import { formatMoney } from '@/lib/money';
 
 interface SalesProductCardProps {
   product: SellableProduct;
@@ -81,7 +82,7 @@ export function SalesProductCard({
       </CardHeader>
       <CardContent className="p-5 pt-0">
         <p className="font-mono text-2xl font-bold text-primary">
-          ${product.price.toFixed(2)}
+          {formatMoney(product.price)}
         </p>
         <p className="mt-1 text-base text-muted-foreground">
           {product.type === 'service'

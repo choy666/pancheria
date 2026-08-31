@@ -11,6 +11,7 @@ import {
   productTypeBadgeClasses,
 } from '@/lib/product-style';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
+import { formatMoney } from '@/lib/money';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
@@ -114,7 +115,7 @@ export function ProductCard({
         )}
 
         <p className="font-mono text-2xl font-bold text-primary">
-          ${product.price.toFixed(2)}
+          {formatMoney(product.price)}
         </p>
 
         <p className="text-sm text-muted-foreground">{availabilityLabel}</p>

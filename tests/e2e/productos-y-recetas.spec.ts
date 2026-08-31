@@ -371,7 +371,7 @@ test.describe('Edición y eliminación de promos', () => {
       .locator('[data-testid="product-row"]')
       .filter({ hasText: new RegExp(promo.name) });
     await expect(updatedRow).toBeVisible();
-    await expect(updatedRow).toContainText(`$${newPrice.toFixed(2)}`);
+    await expect(updatedRow).toContainText(`$ 1.500`);
 
     const productRes = await page.request.get(`/api/productos/${promo.id}`);
     expect(productRes.status()).toBe(200);

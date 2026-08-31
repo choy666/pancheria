@@ -131,6 +131,15 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **El historial de ventas (`sales-history.tsx`) y el detalle de pedidos (`pedido-items-list.tsx`) muestran el detalle de preparación.** Se renderizan los insumos incluidos (`Incluye: ...`) y los opcionales quitados (`Sin: ...`).
 - **`promo-form.tsx` permite configurar complementos opcionales.** La interfaz de administración carga todos los productos activos (no solo críticos), valida que haya al menos un insumo crítico con descuento automático y permite marcar manuales/servicios como opcionales y preseleccionados.
 
+## 15. Formato de moneda y pagos en pesos argentinos
+
+- **Los montos en la UI se muestran en pesos argentinos enteros, con separador de miles y sin centavos.** `src/lib/money.ts` expone `formatMoney(amount)` (`$ 1.500`) y `formatNumber(amount)` (`1.500`) usando `Intl.NumberFormat('es-AR')`, reemplazando el espacio duro (`U+00A0`) por espacio simple para consistencia en tests y DOM.
+- **`PaymentPartsInput` trabaja con montos enteros.** Los inputs usan `type="number" inputMode="numeric" pattern="[0-9]*" step={1} min={0}`, y los valores ingresados se redondean con `Math.round`. El badge de resto usa `formatMoney`.
+- **Los botones de denominación rápida suman al método activo sin superar el total.** La configuración vive en `src/config/payments.ts` y puede sobrescribirse con `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
+- **El botón "Completar resto" rellena el método activo con el monto faltante.** Si el pago ya cubre o supera el total, el botón se deshabilita.
+- **La validación de pagos usa redondeo para mantener consistencia con la UI.** `sales-terminal.tsx` y `payment-helpers.ts` comparan `Math.round(paid) === Math.round(total)`. El almacenamiento interno sigue usando `numeric(10, 2)` para compatibilidad.
+- **El monto inicial y el cierre de caja usan pesos enteros.** Los inputs de `caja-status.tsx` y `caja-panel.tsx` usan `type="number" inputMode="numeric" pattern="[0-9]*" step={1} min={0}` y `validateNonNegativeMoney` redondea con `Math.round`. El resumen de caja, el historial de cajas y el dashboard muestran `$ 1.500` sin centavos.
+
 ## 14. Módulo de ventas (`/ventas`)
 
 - **Los productos agotados se ocultan por defecto en el catálogo del terminal.** Los servicios (`type === 'service'`) siempre se muestran porque no tienen límite de stock. Se agregó un toggle "Mostrar agotados" para casos excepcionales.

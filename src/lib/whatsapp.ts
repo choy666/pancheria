@@ -1,4 +1,4 @@
-import { moneyToNumber, parseMoney } from '@/lib/money';
+import { moneyToNumber, parseMoney, formatMoney } from '@/lib/money';
 import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import { routes } from '@/config/routes';
@@ -39,7 +39,7 @@ export function buildChatPublicUrl(
 export function buildWhatsAppMessage(order: PublicOrder): string {
   const lines = order.items.map((item) => {
     const subtotal = moneyToNumber(parseMoney(item.price * item.quantity));
-    return `- ${item.quantity}x ${item.name} (${item.unit}) — $${subtotal.toFixed(2)}`;
+    return `- ${item.quantity}x ${item.name} (${item.unit}) — ${formatMoney(subtotal)}`;
   });
 
   const total = moneyToNumber(parseMoney(order.total));
@@ -53,7 +53,7 @@ export function buildWhatsAppMessage(order: PublicOrder): string {
     parts.push(`Pedido #${order.orderNumber}`);
   }
 
-  parts.push(...lines, `Total: $${total.toFixed(2)}`, `Cliente: ${order.customerName}`);
+  parts.push(...lines, `Total: ${formatMoney(total)}`, `Cliente: ${order.customerName}`);
 
   if (order.customerPhone) {
     parts.push(`Teléfono: ${order.customerPhone.trim().replace(/\s/g, '')}`);

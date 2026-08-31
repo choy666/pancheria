@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatMoney } from '@/lib/money';
 import type { Branch } from '@/domain/types';
 
 interface PedidoCustomerFormProps {
@@ -114,7 +115,7 @@ export function PedidoCustomerForm({
 
       <div className="border-t border-white/10 pt-3">
         <p className="font-mono text-xl font-bold">
-          Total: ${total.toFixed(2)}
+          Total: {formatMoney(total)}
         </p>
       </div>
     </div>

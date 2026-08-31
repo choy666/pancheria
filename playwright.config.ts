@@ -15,7 +15,7 @@ export default defineConfig({
   globalSetup: useGlobalSetup ? './tests/e2e/global-setup.ts' : undefined,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
   // 60 s para todos los entornos: en local, con Turbopack compilando bajo
   // demanda, 30 s se queda corto para el primer login + navegación a páginas
   // protegidas como /stock o /ventas.

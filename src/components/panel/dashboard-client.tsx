@@ -23,6 +23,7 @@ import { routes } from '@/config/routes';
 import { getAutoCloseHours } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
 import { cn } from '@/lib/utils';
+import { formatMoney } from '@/lib/money';
 import type { OrderStatus } from '@/domain/types';
 
 interface DashboardClientProps {
@@ -123,19 +124,19 @@ function CajaCard({ data }: { data: NonNullable<ReturnType<typeof useDashboard>[
           </span>
         </div>
         <p className="font-mono text-2xl font-bold text-primary">
-          ${cashRegister.total.toFixed(2)}
+          {formatMoney(cashRegister.total)}
         </p>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <p className="rounded-lg bg-muted/30 p-2">
             Efectivo:{' '}
             <span className="font-mono font-medium">
-              ${cashRegister.cashTotal.toFixed(2)}
+              {formatMoney(cashRegister.cashTotal)}
             </span>
           </p>
           <p className="rounded-lg bg-muted/30 p-2">
             Transferencia:{' '}
             <span className="font-mono font-medium">
-              ${cashRegister.transferTotal.toFixed(2)}
+              {formatMoney(cashRegister.transferTotal)}
             </span>
           </p>
         </div>

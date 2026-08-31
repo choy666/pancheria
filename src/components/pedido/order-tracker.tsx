@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card';
 import { PUBLIC_PEDIDO_SEGUIMIENTO_API } from '@/config/api';
 import { addRecentOrder, buildChatUrl } from '@/lib/recent-orders';
+import { formatMoney } from '@/lib/money';
 import {
   getLastCustomerName,
   setLastCustomerName,
@@ -249,7 +250,7 @@ export function OrderTracker() {
               <div>
                 <p className="text-muted-foreground">Total</p>
                 <p className="font-mono font-medium">
-                  ${order.total.toFixed(2)}
+                  {formatMoney(order.total)}
                 </p>
               </div>
               <div>

@@ -54,7 +54,7 @@ export function validateNonNegativeMoney(
   if (Number.isNaN(asNumber) || asNumber < 0) {
     throw new ValidationError(`${fieldName} debe ser un monto mayor o igual a 0.`);
   }
-  return Math.round(asNumber * 100) / 100;
+  return Math.round(asNumber);
 }
 
 

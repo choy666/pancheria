@@ -36,6 +36,7 @@ export interface UseOrderChatResult {
   isSending: boolean;
   isLoadingOlder: boolean;
   isPolling: boolean;
+  isUploading: boolean;
   error: string | null;
   selectedFile: File | null;
   previewUrl: string | null;
@@ -115,6 +116,7 @@ export function useOrderChat({
   const [isSending, setIsSending] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -487,6 +489,7 @@ export function useOrderChat({
 
     isSendingRef.current = true;
     setIsSending(true);
+    setIsUploading(!!selectedFile && !!uploadApiUrl);
     setError(null);
 
     try {
@@ -547,7 +550,10 @@ export function useOrderChat({
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       isSendingRef.current = false;
-      if (isMountedRef.current) setIsSending(false);
+      if (isMountedRef.current) {
+        setIsSending(false);
+        setIsUploading(false);
+      }
     }
   }
 
@@ -584,6 +590,7 @@ export function useOrderChat({
     isSending,
     isLoadingOlder,
     isPolling,
+    isUploading,
     error,
     selectedFile,
     previewUrl,

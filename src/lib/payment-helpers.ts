@@ -1,4 +1,4 @@
-import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { addMoney, formatMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import type { PaymentMethod, PaymentPart } from '@/domain/types';
 
 export function sumPaymentParts(payments: PaymentPart[]): number {
@@ -44,12 +44,12 @@ export function validatePaymentParts(
   }
 
   const paid = sumPaymentParts(payments);
-  if (Math.abs(paid - total) >= 0.005) {
+  if (Math.round(paid) !== Math.round(total)) {
     return {
       valid: false,
-      error: `La suma de los pagos ($${paid.toFixed(
-        2
-      )}) no coincide con el total ($${total.toFixed(2)}).`,
+      error: `La suma de los pagos (${formatMoney(
+        paid
+      )}) no coincide con el total (${formatMoney(total)}).`,
     };
   }
 

@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authenticatedFetch } from '@/lib/fetch';
+import { formatMoney } from '@/lib/money';
 import { formatTime } from '@/lib/date';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -214,7 +215,7 @@ export function SalesHistory({
                     </div>
                   ))}
                 </TableCell>
-                <TableCell className="font-mono">${sale.total.toFixed(2)}</TableCell>
+                <TableCell className="font-mono">{formatMoney(sale.total)}</TableCell>
                 <TableCell className="hidden md:table-cell">
                   <div
                     className="flex flex-wrap gap-1"
@@ -227,7 +228,7 @@ export function SalesHistory({
                           variant="outline"
                           data-testid={`sale-payment-${p.method}`}
                         >
-                          {paymentLabels[p.method]} ${p.amount.toFixed(2)}
+                          {paymentLabels[p.method]} {formatMoney(p.amount)}
                         </Badge>
                       ))
                     ) : (
@@ -300,7 +301,7 @@ export function SalesHistory({
                 ))}
               </div>
               <p className="font-mono text-lg font-semibold text-foreground">
-                Total: ${selectedSale.total.toFixed(2)}
+                Total: {formatMoney(selectedSale.total)}
               </p>
               <div className="space-y-2">
                 <Label htmlFor="cancel-reason">Motivo</Label>
