@@ -263,7 +263,6 @@ export default async function globalSetup() {
       products,
       videos,
       cash_registers,
-      daily_closures,
       public_order_rate_limits,
       login_attempts,
       users,

@@ -11,13 +11,13 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
       { name: 'Ventas', url: '/ventas' },
       { name: 'Productos', url: '/productos' },
       { name: 'Stock', url: '/stock' },
-      { name: 'Caja y cierre', url: '/cierre' },
+      { name: 'Caja', url: '/cierre' },
       { name: 'Panel', url: '/' },
     ];
 
     for (const item of menu) {
       const nav = page.locator('nav');
-      await nav.getByRole('link', { name: item.name }).click();
+      await nav.getByRole('link', { name: item.name, exact: true }).click();
       await expect(page).toHaveURL(item.url);
     }
   });

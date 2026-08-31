@@ -3,7 +3,6 @@ import { db } from '@/db';
 import {
   branches,
   cashRegisters,
-  dailyClosures,
   products,
   recipes,
   saleItems,
@@ -117,7 +116,6 @@ export async function getBranchDeletionSummary(id: number) {
     productCount,
     saleCount,
     cashRegisterCount,
-    dailyClosureCount,
     stockMovementCount,
     userCount,
     recipeCount,
@@ -132,11 +130,6 @@ export async function getBranchDeletionSummary(id: number) {
       .select({ count: count() })
       .from(cashRegisters)
       .where(eq(cashRegisters.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-    db
-      .select({ count: count() })
-      .from(dailyClosures)
-      .where(eq(dailyClosures.branchId, id))
       .then((rows) => rows[0]?.count ?? 0),
     db
       .select({ count: count() })
@@ -168,7 +161,6 @@ export async function getBranchDeletionSummary(id: number) {
       products: productCount,
       sales: saleCount,
       cashRegisters: cashRegisterCount,
-      dailyClosures: dailyClosureCount,
       stockMovements: stockMovementCount,
       users: userCount,
       recipes: recipeCount,
@@ -176,7 +168,6 @@ export async function getBranchDeletionSummary(id: number) {
         productCount +
         saleCount +
         cashRegisterCount +
-        dailyClosureCount +
         stockMovementCount +
         userCount +
         recipeCount,
@@ -227,7 +218,6 @@ export async function deleteBranch(id: number) {
 
     await tx.delete(sales).where(eq(sales.branchId, id));
     await tx.delete(cashRegisters).where(eq(cashRegisters.branchId, id));
-    await tx.delete(dailyClosures).where(eq(dailyClosures.branchId, id));
     await tx.delete(products).where(eq(products.branchId, id));
     await tx.delete(users).where(eq(users.branchId, id));
     await tx.delete(branches).where(eq(branches.id, id));

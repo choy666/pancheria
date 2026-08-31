@@ -124,38 +124,6 @@ test.describe('Validaciones y casos límite', () => {
     await ensureCashRegisterClosed(page);
   });
 
-  test('rechaza cierre duplicado para la misma fecha', async ({ page }) => {
-    const base = new Date(Date.now() - 1000 * 365 * 86400000);
-    let target = '';
-
-    for (let i = 0; i < 10; i++) {
-      const candidate = base.toISOString().split('T')[0];
-      const existente = await page.request.get(`/api/cierre?date=${candidate}`);
-      const cierre = (await existente.json()) as { id?: number } | null;
-
-      if (!cierre) {
-        target = candidate;
-        break;
-      }
-
-      base.setDate(base.getDate() + 1);
-    }
-
-    expect(target).not.toBe('');
-
-    const cierre1 = await page.request.post('/api/cierre', {
-      data: { date: target },
-    });
-    expect(cierre1.status()).toBe(201);
-
-    const cierre2 = await page.request.post('/api/cierre', {
-      data: { date: target },
-    });
-    expect(cierre2.status()).toBe(400);
-    const body = (await cierre2.json()) as { error?: string };
-    expect(body.error).toContain('Ya existe un cierre');
-  });
-
   test('rechaza anulación de venta de caja eliminada', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 

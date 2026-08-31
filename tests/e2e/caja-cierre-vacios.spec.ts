@@ -27,10 +27,6 @@ test.describe('Caja y cierre con estados vacíos', () => {
     await expect(
       page.getByText('No hay una caja abierta. Abrí una caja para comenzar a vender.')
     ).toBeVisible();
-
-    await expect(
-      page.getByRole('heading', { name: 'Cierre diario' })
-    ).not.toBeVisible();
   });
 
   test('la caja abierta sin ventas muestra totales en cero y todos los insumos críticos activos', async ({

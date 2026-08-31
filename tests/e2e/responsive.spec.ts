@@ -19,7 +19,6 @@ const protectedRoutes = [
   '/productos/nuevo',
   '/stock',
   '/cierre',
-  '/cierre/historial',
   '/usuarios',
   '/sucursales',
   '/videos',
@@ -149,9 +148,6 @@ test.describe('Responsividad en móvil', () => {
     await page.goto('/ventas/historial');
     await expect(page.locator('table')).toBeVisible();
 
-    await page.goto('/cierre/historial');
-    await expect(page.locator('table')).toBeVisible();
-
     await page.goto('/ventas');
     await expect(
       page.getByRole('button', { name: /Abrir caja|Cerrar caja/ })
@@ -196,7 +192,6 @@ test.describe('Responsividad en móvil', () => {
 
     const detalleRoutes = [
       `/ventas/historial/${caja.id}`,
-      `/cierre/${caja.id}`,
     ];
 
     for (const route of detalleRoutes) {

@@ -6,7 +6,7 @@ test.describe('Smoke de producción', () => {
     await ensureLoggedIn(page);
     await expect(page).toHaveURL('/');
 
-    const protectedRoutes = ['/ventas', '/stock', '/productos', '/cierre/historial'];
+    const protectedRoutes = ['/ventas', '/stock', '/productos', '/cierre'];
 
     for (const route of protectedRoutes) {
       await page.goto(route);

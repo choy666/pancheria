@@ -40,7 +40,7 @@ test.describe('Flujo completo de un día de operación', () => {
     await ensureCashRegisterClosed(page);
   });
 
-  test('operación típica: productos, receta, venta, cierre y CSV', async ({
+  test('operación típica: productos, receta, venta y cierre de caja', async ({
     page,
   }) => {
     const pan = await createProductViaApi(page, {
@@ -127,49 +127,6 @@ test.describe('Flujo completo de un día de operación', () => {
     await page.goto('/cierre');
 
     await closeCashRegisterFromUI(page);
-
-    const cierreDate = new Date().toISOString().split('T')[0];
-
-    await page.getByLabel('Fecha').fill(cierreDate);
-
-    await page.getByRole('button', { name: 'Generar cierre' }).click();
-
-    await expect(page.getByTestId('closure-total')).toBeVisible({
-      timeout: 10000,
-    });
-    await expect(page.getByTestId('closure-total')).toHaveText(
-      `Total: $${(1500 * 2 + 800).toFixed(2)}`
-    );
-    await expect(
-      page
-        .getByTestId('closure-product-item')
-        .filter({ hasText: combo.name })
-    ).toBeVisible();
-    await expect(
-      page
-        .getByTestId('closure-supply-item')
-        .filter({ hasText: bebida.name })
-    ).toBeVisible();
-
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Descargar CSV' }).click(),
-    ]);
-
-    expect(download.suggestedFilename()).toContain('cierre-');
-
-    await page.goto('/cierre/historial');
-    await expect(page.getByText('Historial de cierres')).toBeVisible();
-    await expect(page.getByRole('table')).toBeVisible();
-
-    const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const end = new Date().toISOString();
-    const cierres = await page.request.get(
-      `/api/cierre/historial?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
-    );
-    expect(cierres.status()).toBe(200);
-    const body = (await cierres.json()) as { items: { total: number }[] };
-    expect(body.items.some((c) => c.total === 3800)).toBe(true);
 
     await page.goto(`/ventas/historial/${caja.id}`);
     await expect(

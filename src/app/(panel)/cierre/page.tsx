@@ -1,13 +1,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CajaPanel } from '@/components/caja/caja-panel';
-import { ClosurePanel } from '@/components/cierre/closure-panel';
 import { auth } from '@/auth';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
 import { routes } from '@/config/routes';
 
-export default async function ClosurePage() {
+export default async function CajaPage() {
   const session = await auth();
   const branchId = await getCurrentBranchIdOrRedirect(session);
   const branch = await branchService.getBranchById(branchId);
@@ -28,8 +27,6 @@ export default async function ClosurePage() {
         <h2 className="text-xl font-semibold tracking-tight">Caja actual</h2>
         <CajaPanel branchName={branchName} />
       </section>
-
-      <ClosurePanel />
     </div>
   );
 }

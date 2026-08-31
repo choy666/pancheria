@@ -6,6 +6,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 
 - [Prompt maestro — Proyecto Panchería](prompts/pancheria.prompt.md)
 - [Guía de escritura de prompts](prompts/README.md)
+- [Mejoras de UX en combos y pagos del módulo de ventas](prompts/mejoras-ux-ventas-combos-pagos.md)
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.

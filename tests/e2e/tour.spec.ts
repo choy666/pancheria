@@ -73,11 +73,11 @@ test.describe('Guía interactiva', () => {
     expect(seen).toBe('true');
 
     // Simula la reanudación en el paso final para probar el botón Finalizar.
-    // El paso final del flujo admin es el índice 25.
+    // El paso final del flujo admin es el índice 24.
     await setTourStorageValue(page, 'active', 'true');
-    await setTourStorageValue(page, 'step', '25');
+    await setTourStorageValue(page, 'step', '24');
 
-    await page.goto('/cierre/historial');
+    await page.goto('/perfil');
     await expect(page.locator('.driver-popover-title')).toBeVisible();
     await expect(page.locator('.driver-popover-title')).toContainText(
       'Fin del recorrido'
@@ -156,42 +156,38 @@ test.describe('Guía interactiva', () => {
     await waitForTourStep(page, 'Cierre de caja');
 
     await clickTourNext(page); // 14 -> 15
-    await page.waitForURL('/cierre/historial');
-    await waitForTourStep(page, 'Historial de cierres');
-
-    await clickTourNext(page); // 15 -> 16
     await page.waitForURL('/pedidos');
     await waitForTourStep(page, 'Pedidos');
 
-    await clickTourNext(page); // 16 -> 17
+    await clickTourNext(page); // 15 -> 16
     await waitForTourStep(page, 'Estado del pedido');
 
-    await clickTourNext(page); // 17 -> 18
+    await clickTourNext(page); // 16 -> 17
     await waitForTourStep(page, 'Listado de pedidos');
 
-    await clickTourNext(page); // 18 -> 19
+    await clickTourNext(page); // 17 -> 18
     await page.waitForURL('/videos');
     await waitForTourStep(page, 'Videos');
 
-    await clickTourNext(page); // 19 -> 20
+    await clickTourNext(page); // 18 -> 19
     await waitForTourStep(page, 'Listado y reproducción');
 
-    await clickTourNext(page); // 20 -> 21
+    await clickTourNext(page); // 19 -> 20
     await page.waitForURL('/sucursales');
     await waitForTourStep(page, 'Sucursales');
 
-    await clickTourNext(page); // 21 -> 22
+    await clickTourNext(page); // 20 -> 21
     await page.waitForURL('/usuarios');
     await waitForTourStep(page, 'Usuarios');
 
-    await clickTourNext(page); // 22 -> 23
+    await clickTourNext(page); // 21 -> 22
     await waitForTourStep(page, 'Selector de sucursal');
 
-    await clickTourNext(page); // 23 -> 24
+    await clickTourNext(page); // 22 -> 23
     await page.waitForURL('/perfil');
     await waitForTourStep(page, 'Perfil');
 
-    await clickTourNext(page); // 24 -> 25
+    await clickTourNext(page); // 23 -> 24
     await waitForTourStep(page, 'Fin del recorrido');
 
     const doneButton = page.locator(
@@ -271,24 +267,20 @@ test.describe('Tour como operador', () => {
     await waitForTourStep(page, 'Cierre de caja');
 
     await clickTourNext(page); // 11 -> 12
-    await page.waitForURL('/cierre/historial');
-    await waitForTourStep(page, 'Historial de cierres');
-
-    await clickTourNext(page); // 12 -> 13
     await page.waitForURL('/pedidos');
     await waitForTourStep(page, 'Pedidos');
 
-    await clickTourNext(page); // 13 -> 14
+    await clickTourNext(page); // 12 -> 13
     await waitForTourStep(page, 'Estado del pedido');
 
-    await clickTourNext(page); // 14 -> 15
+    await clickTourNext(page); // 13 -> 14
     await waitForTourStep(page, 'Listado de pedidos');
 
-    await clickTourNext(page); // 15 -> 16
+    await clickTourNext(page); // 14 -> 15
     await page.waitForURL('/perfil');
     await waitForTourStep(page, 'Perfil');
 
-    await clickTourNext(page); // 16 -> 17
+    await clickTourNext(page); // 15 -> 16
     await waitForTourStep(page, 'Fin del recorrido');
 
     const doneButton = page.locator(

@@ -503,42 +503,6 @@ export const stockMovements = pgTable(
   })
 );
 
-export const dailyClosures = pgTable(
-  'daily_closures',
-  {
-    id: serial('id').primaryKey(),
-    branchId: integer('branch_id')
-      .notNull()
-      .references(() => branches.id, { onDelete: 'restrict' }),
-    date: timestamp('date').notNull(),
-    total: numeric('total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
-    cashTotal: numeric('cash_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
-    transferTotal: numeric('transfer_total', { precision: 10, scale: 2, mode: 'number' }).notNull(),
-    totalSales: integer('total_sales').notNull(),
-    productsSummary: jsonb('products_summary')
-      .$type<Record<string, number>>()
-      .notNull(),
-    criticalSuppliesSummary: jsonb('critical_supplies_summary')
-      .$type<Record<string, number>>()
-      .notNull(),
-    recipeSuppliesSummary: jsonb('recipe_supplies_summary')
-      .$type<Record<string, number>>()
-      .default({})
-      .notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => ({
-    branchDateUniqueIdx: uniqueIndex('daily_closures_branch_date_unique_idx').on(
-      table.branchId,
-      table.date
-    ),
-    branchDateIdx: index('daily_closures_branch_date_idx').on(
-      table.branchId,
-      table.date
-    ),
-  })
-);
-
 export const videos = pgTable(
   'videos',
   {
@@ -573,7 +537,6 @@ export const branchesRelations = relations(branches, ({ many }) => ({
   sales: many(sales),
   orders: many(orders),
   stockMovements: many(stockMovements),
-  dailyClosures: many(dailyClosures),
   videos: many(videos),
 }));
 
@@ -721,12 +684,7 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
   }),
 }));
 
-export const dailyClosuresRelations = relations(dailyClosures, ({ one }) => ({
-  branch: one(branches, {
-    fields: [dailyClosures.branchId],
-    references: [branches.id],
-  }),
-}));
+
 
 export const loginAttempts = pgTable('login_attempts', {
   username: varchar('username', { length: 255 }).primaryKey(),

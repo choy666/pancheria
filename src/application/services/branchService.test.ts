@@ -215,7 +215,6 @@ describe('branchService', () => {
         products: 0,
         sales: 0,
         cashRegisters: 0,
-        dailyClosures: 0,
         stockMovements: 0,
         users: 0,
         recipes: 0,

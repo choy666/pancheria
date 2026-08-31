@@ -366,17 +366,7 @@ export function TourProvider({
           popover: {
             title: 'Cierre de caja',
             description:
-              'Acá cerrás la caja del día y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
-          },
-        },
-        {
-          element: '[data-tour="closure-history-table"]',
-          route: routes.cierreHistorial,
-          waitForElement: 5000,
-          popover: {
-            title: 'Historial de cierres',
-            description:
-              'En esta tabla se guardan todos los cierres diarios, con el total desglosado por fecha, cantidad de ventas, efectivo y transferencia.',
+              'Acá cerrás la caja y ves el resumen: total, efectivo, transferencia, productos vendidos e insumos consumidos.',
           },
         },
         {

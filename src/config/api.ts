@@ -38,6 +38,4 @@ export const PEDIDOS_CHAT_UPLOAD_API = (orderId: number | string) =>
 export const CAJA_API = '/api/caja';
 export const CAJA_HISTORIAL_API = '/api/caja/historial';
 export const CAJA_ELIMINADAS_API = '/api/caja/eliminadas';
-export const CIERRE_API = '/api/cierre';
-export const CIERRE_HISTORIAL_API = '/api/cierre/historial';
 export const PANEL_RESUMEN_API = '/api/panel/resumen';

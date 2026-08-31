@@ -123,6 +123,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ### Prompts activos
 
+- [Mejoras de UX en combos y pagos del módulo de ventas](mejoras-ux-ventas-combos-pagos.md) — diálogo de combos con servicios/extras separados y pago adaptado a pesos argentinos.
 - [Prompt maestro — Proyecto Panchería](pancheria.prompt.md) — punto de entrada para cualquier tarea futura.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.

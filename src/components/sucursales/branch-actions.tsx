@@ -37,7 +37,6 @@ interface DeletionSummary {
     products: number;
     sales: number;
     cashRegisters: number;
-    dailyClosures: number;
     stockMovements: number;
     users: number;
     recipes: number;
@@ -85,7 +84,6 @@ export function BranchActions({
             products: 0,
             sales: 0,
             cashRegisters: 0,
-            dailyClosures: 0,
             stockMovements: 0,
             users: 0,
             recipes: 0,
@@ -148,9 +146,6 @@ export function BranchActions({
                   )}
                   {summary.counts.cashRegisters > 0 && (
                     <li>Cajas: {summary.counts.cashRegisters}</li>
-                  )}
-                  {summary.counts.dailyClosures > 0 && (
-                    <li>Cierres diarios: {summary.counts.dailyClosures}</li>
                   )}
                   {summary.counts.stockMovements > 0 && (
                     <li>Movimientos de stock: {summary.counts.stockMovements}</li>
