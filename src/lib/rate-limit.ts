@@ -7,6 +7,16 @@ function getFirstHeaderValue(value: string | null): string | null {
 }
 
 export function getClientIp(request: NextRequest): string {
+  // Log temporal para depurar rate limit en CI.
+  console.error('[RATE_LIMIT_DEBUG] env:', {
+    NODE_ENV: process.env.NODE_ENV,
+    E2E_ENABLE_RATE_LIMIT: process.env.E2E_ENABLE_RATE_LIMIT,
+    PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS: process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS,
+    TRUSTED_PROXY_IP_HEADER: process.env.TRUSTED_PROXY_IP_HEADER,
+    'x-vercel-forwarded-for': request.headers.get('x-vercel-forwarded-for'),
+    'x-forwarded-for': request.headers.get('x-forwarded-for'),
+  });
+
   // En Vercel, el header x-vercel-forwarded-for es confiable.
   if (process.env.VERCEL) {
     const vercelForwarded = getFirstHeaderValue(
@@ -45,6 +55,7 @@ export function createRateLimiter(
       process.env.NODE_ENV === 'test' &&
       process.env.E2E_ENABLE_RATE_LIMIT !== 'true'
     ) {
+      console.error('[RATE_LIMIT_DEBUG] desactivado en test por E2E_ENABLE_RATE_LIMIT');
       return false;
     }
 
@@ -58,6 +69,8 @@ export function createRateLimiter(
       return false;
     }
 
-    return store.recordRequest(ip, windowMs, maxRequests);
+    const blocked = await store.recordRequest(ip, windowMs, maxRequests);
+    console.error('[RATE_LIMIT_DEBUG] recordRequest', { ip, windowMs, maxRequests, blocked });
+    return blocked;
   };
 }
