@@ -56,6 +56,8 @@ export default defineConfig({
             process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV ?? '',
           PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS:
             process.env.PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS ?? '',
+          PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER:
+            process.env.PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER ?? '',
           TRUSTED_PROXY_IP_HEADER: process.env.TRUSTED_PROXY_IP_HEADER ?? '',
         },
       }

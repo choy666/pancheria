@@ -62,7 +62,7 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 | `README.md` y `AGENTS.md` con `src/lib/` y comandos desactualizados | Menor | Se agregó `npm run knip` y se listaron módulos recientes. |
 | Conteos de tests/rutas en `reporte-estado.md` desactualizados | Menor | Se actualizaron a 123 suites, 1163 tests y 44 páginas estáticas. |
 | Nombres de variables en guía de funcionamiento incompletos | Menor | Se corrigieron `CAJA_AUTO_CLOSE_HOURS` y `CAJA_AUTO_CLOSED_BY`. |
-| Tests E2E de caja fallaban por `clearCookies` insuficiente y el test de rate limit devolvía `201` en lugar de `429` | Mayor | Se agregó `clearSession(page)` a `tests/e2e/helpers.ts`, se robusteció `loginAs` y se configuraron `E2E_ENABLE_RATE_LIMIT=true`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS=2` y `TRUSTED_PROXY_IP_HEADER=X-Forwarded-For` en `.github/workflows/ci.yml` y `.env.e2e.example`. Suite E2E: 96 passed. |
+| Tests E2E de caja fallaban por `clearSession` insuficiente y el test de rate limit devolvía `201` en lugar de `429` | Mayor | Se agregó `clearSession(page)` a `tests/e2e/helpers.ts`, se robusteció `loginAs` y se configuraron `E2E_ENABLE_RATE_LIMIT=true`, `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV=true`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS=2` y `TRUSTED_PROXY_IP_HEADER=X-Forwarded-For` en `.github/workflows/ci.yml` y `.env.e2e.example`. Suite E2E: 96 passed. |
 
 ## 6. Acciones pendientes recomendadas
 
