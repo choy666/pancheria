@@ -16,6 +16,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Reporte de estado vigente](informes/reporte-estado.md)
 - [Entornos y credenciales](informes/entornos.md)
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
+- [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
 - [Índice de informes](informes/README.md)
 
@@ -35,6 +36,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── reporte-estado.md         # Informe de estado vigente (único)
 │   ├── entornos.md               # Entornos, credenciales y pasos de migración
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
+│   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── README.md                 # Índice de informes
 │   └── archivados/               # Reportes históricos y planes resueltos
