@@ -5,6 +5,7 @@ import {
   getStorageProvider,
 } from '@/config/videos';
 import { getStorageProvider as getProviderInstance } from '@/lib/storage';
+import { deleteVideoFileByUrl } from '@/lib/storage';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { videoSchema, videoUpdateSchema } from '@/lib/zod-schemas';
 import { ZodError } from 'zod';
@@ -91,6 +92,24 @@ export async function deleteVideo(branchId: number, id: number) {
 export async function restoreVideo(branchId: number, id: number) {
   await getVideoById(branchId, id, true);
   return videoRepository.restore(branchId, id);
+}
+
+export async function permanentlyDeleteVideo(branchId: number, id: number) {
+  const video = await getVideoById(branchId, id, true);
+
+  if (!video.deletedAt) {
+    throw new ValidationError(
+      'El video debe estar en la papelera para eliminarse permanentemente.'
+    );
+  }
+
+  const deleted = await videoRepository.hardDelete(branchId, id);
+
+  if (deleted && video.fileUrl) {
+    await deleteVideoFileByUrl(video.fileUrl);
+  }
+
+  return deleted;
 }
 
 function validateVideo(data: VideoInsert | VideoUpdate) {

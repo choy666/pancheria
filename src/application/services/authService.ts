@@ -4,17 +4,18 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { ValidationError } from '@/domain/errors';
 import {
-  createRateLimitStore,
+  getRateLimitStore,
+  setRateLimitStore as setRateLimitStoreBase,
   type RateLimitStore,
 } from '@/lib/rate-limit-store';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
-let rateLimitStore: RateLimitStore = createRateLimitStore();
+const rateLimitStore = getRateLimitStore();
 
 export function setRateLimitStore(store: RateLimitStore): void {
-  rateLimitStore = store;
+  setRateLimitStoreBase(store);
 }
 
 async function clearFailedAttempts(username: string) {

@@ -258,6 +258,100 @@ test.describe('Ciclo de vida de productos y recetas', () => {
   });
 });
 
+test.describe('Papelera de productos', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test('elimina, restaura y elimina permanentemente un producto desde la papelera', async ({
+    page,
+  }) => {
+    const product = await createProductViaApi(page, {
+      name: unique('Producto papelera E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'beverage',
+      price: 500,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    await page.goto('/productos');
+    await expect(page.getByText('Productos y promos')).toBeVisible();
+
+    const row = page
+      .locator('[data-testid="product-row"]')
+      .filter({ hasText: new RegExp(product.name) });
+    await expect(row).toBeVisible();
+
+    // Soft delete
+    await row.getByTestId('delete-product-button').click();
+    const confirmDialog = page.getByRole('dialog', {
+      name: 'Eliminar producto',
+    });
+    await expect(confirmDialog).toBeVisible({ timeout: 10000 });
+    await confirmDialog.getByRole('button', { name: 'Eliminar' }).click();
+    await expect(row).toHaveCount(0, { timeout: 10000 });
+
+    // Ir a papelera
+    await page.getByTestId('products-trash-link').click();
+    await expect(page).toHaveURL('/productos/eliminados');
+    await expect(page.getByRole('heading', { name: 'Papelera de productos' })).toBeVisible();
+
+    const trashRow = page
+      .locator('[data-testid="product-trash-row"]')
+      .filter({ hasText: new RegExp(product.name) });
+    await expect(trashRow).toBeVisible();
+
+    // Restaurar
+    await trashRow.getByTestId('restore-product-button').click();
+    const restoreDialog = page.getByRole('dialog', {
+      name: 'Restaurar producto',
+    });
+    await expect(restoreDialog).toBeVisible({ timeout: 10000 });
+    await restoreDialog.getByRole('button', { name: 'Restaurar' }).click();
+    await expect(trashRow).toHaveCount(0, { timeout: 10000 });
+
+    // Verificar que volvió al listado activo
+    await page.goto('/productos');
+    const restoredRow = page
+      .locator('[data-testid="product-row"]')
+      .filter({ hasText: new RegExp(product.name) });
+    await expect(restoredRow).toBeVisible();
+
+    // Soft delete otra vez
+    await restoredRow.getByTestId('delete-product-button').click();
+    const confirmDialog2 = page.getByRole('dialog', {
+      name: 'Eliminar producto',
+    });
+    await expect(confirmDialog2).toBeVisible({ timeout: 10000 });
+    await confirmDialog2.getByRole('button', { name: 'Eliminar' }).click();
+    await expect(restoredRow).toHaveCount(0, { timeout: 10000 });
+
+    // Hard delete desde la papelera
+    await page.getByTestId('products-trash-link').click();
+    await expect(page).toHaveURL('/productos/eliminados');
+
+    const trashRow2 = page
+      .locator('[data-testid="product-trash-row"]')
+      .filter({ hasText: new RegExp(product.name) });
+    await expect(trashRow2).toBeVisible();
+
+    await trashRow2.getByTestId('permanently-delete-product-button').click();
+    const deleteDialog = page.getByRole('dialog', {
+      name: 'Eliminar producto permanentemente',
+    });
+    await expect(deleteDialog).toBeVisible({ timeout: 10000 });
+    await deleteDialog.getByRole('button', { name: 'Eliminar' }).click();
+    await expect(trashRow2).toHaveCount(0, { timeout: 10000 });
+
+    // Confirmar hard delete por API
+    const productRes = await page.request.get(`/api/productos/${product.id}`);
+    expect(productRes.status()).toBe(404);
+  });
+});
+
 test.describe('Edición y eliminación de promos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);

@@ -10,6 +10,7 @@ var mockInsert: jest.Mock;
 var mockWhereReturning: jest.Mock;
 var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
+var mockDelete: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
@@ -20,6 +21,7 @@ jest.mock('@/db', () => {
   mockWhereReturning = jest.fn(() => ({ returning: mockReturning }));
   mockSet = jest.fn(() => ({ where: mockWhereReturning }));
   mockUpdate = jest.fn(() => ({ set: mockSet }));
+  mockDelete = jest.fn(() => ({ where: mockWhereReturning }));
 
   return {
     db: {
@@ -28,6 +30,7 @@ jest.mock('@/db', () => {
       },
       insert: mockInsert,
       update: mockUpdate,
+      delete: mockDelete,
     },
   };
 });
@@ -237,6 +240,27 @@ describe('videoRepository', () => {
       mockReturning.mockResolvedValue([]);
 
       const result = await videoRepository.softDelete(BRANCH_ID, 999);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('hardDelete', () => {
+    test('elimina permanentemente un video', async () => {
+      const expected = { id: 1, title: 'Promo' };
+      mockReturning.mockResolvedValue([expected]);
+
+      const result = await videoRepository.hardDelete(BRANCH_ID, 1);
+
+      expect(result).toEqual(expected);
+      expect(mockDelete).toHaveBeenCalled();
+      expect(mockWhereReturning).toHaveBeenCalled();
+    });
+
+    test('devuelve null si el video no existe', async () => {
+      mockReturning.mockResolvedValue([]);
+
+      const result = await videoRepository.hardDelete(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });

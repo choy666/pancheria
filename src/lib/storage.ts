@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import {
   getVideoAllowedMimeTypes,
+  getStorageProvider as getStorageProviderName,
   type StorageProviderName,
 } from '@/config/videos';
 import type { S3Client } from '@aws-sdk/client-s3';
@@ -93,6 +94,7 @@ export interface StorageProvider {
   getPublicUrl(keyOrUrl: string): string;
   saveFile?(key: string, file: File): Promise<string>;
   readFile?(key: string): Promise<{ buffer: Buffer; mimeType: string } | null>;
+  deleteFile?(key: string): Promise<void>;
 }
 
 function getLocalStorageDir(): string {
@@ -147,6 +149,17 @@ class LocalStorageProvider implements StorageProvider {
       return null;
     }
   }
+
+  async deleteFile(key: string): Promise<void> {
+    if (!isValidLocalVideoKey(key)) return;
+    const dir = getLocalStorageDir();
+    const filePath = resolveLocalVideoPath(key, dir);
+    try {
+      await fs.unlink(/*turbopackIgnore: true*/ filePath);
+    } catch {
+      // Ignorar errores si el archivo no existe.
+    }
+  }
 }
 
 class VercelBlobStorageProvider implements StorageProvider {
@@ -184,6 +197,18 @@ class VercelBlobStorageProvider implements StorageProvider {
       return keyOrUrl;
     }
     return `https://blob.vercel-storage.com/${keyOrUrl}`;
+  }
+
+  async deleteFile(key: string): Promise<void> {
+    const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+    if (!token) {
+      throw new Error(
+        'Falta BLOB_READ_WRITE_TOKEN para usar el proveedor de Vercel Blob.'
+      );
+    }
+
+    const { del } = await import('@vercel/blob');
+    await del(key, { token });
   }
 }
 
@@ -294,6 +319,49 @@ class S3R2StorageProvider implements StorageProvider {
     const region = process.env.S3_REGION ?? 'us-east-1';
     return `https://${bucket}.s3.${region}.amazonaws.com/${keyOrUrl}`;
   }
+
+  async deleteFile(key: string): Promise<void> {
+    const accessKeyId =
+      process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey =
+      process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
+    const bucket = process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
+    const region =
+      process.env.S3_REGION ?? process.env.R2_REGION ?? 'auto';
+    const endpoint =
+      process.env.S3_ENDPOINT ??
+      (this.kind === 'r2' && process.env.R2_ACCOUNT_ID
+        ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+        : undefined);
+
+    if (!accessKeyId || !secretAccessKey || !bucket) {
+      throw new Error('Faltan credenciales de S3/R2.');
+    }
+
+    const clientModuleName = '@aws-sdk/client-s3';
+
+    try {
+      const clientModule = (await import(clientModuleName)) as {
+        S3Client: typeof S3Client;
+        DeleteObjectCommand: typeof import('@aws-sdk/client-s3').DeleteObjectCommand;
+      };
+
+      const s3Client = new clientModule.S3Client({
+        region,
+        endpoint,
+        credentials: { accessKeyId, secretAccessKey },
+      });
+
+      await s3Client.send(
+        new clientModule.DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        })
+      );
+    } catch {
+      throw new Error('Para usar STORAGE_PROVIDER=s3 o r2, instalá @aws-sdk/client-s3.');
+    }
+  }
 }
 
 let localProvider: LocalStorageProvider | null = null;
@@ -325,5 +393,55 @@ export function getStorageProvider(name: StorageProviderName): StorageProvider {
       return r2Provider;
     default:
       throw new Error(`Proveedor de almacenamiento no soportado: ${name}`);
+  }
+}
+
+export async function deleteStorageFile(key: string): Promise<void> {
+  const providerName = getStorageProviderName();
+  const provider = getStorageProvider(providerName);
+
+  if (!provider.deleteFile) {
+    throw new Error('El proveedor de almacenamiento no soporta eliminar archivos.');
+  }
+
+  await provider.deleteFile(key);
+}
+
+const LOCAL_VIDEO_STREAM_PATTERN = /\/api\/videos\/(.+?)\/stream$/;
+
+function extractVideoKeyFromUrl(fileUrl: string): string | null {
+  if (
+    !fileUrl.startsWith('http://') &&
+    !fileUrl.startsWith('https://')
+  ) {
+    // Ya es una clave relativa.
+    return fileUrl;
+  }
+
+  try {
+    const parsed = new URL(fileUrl);
+
+    const localMatch = parsed.pathname.match(LOCAL_VIDEO_STREAM_PATTERN);
+    if (localMatch) {
+      return decodeURIComponent(localMatch[1]);
+    }
+
+    const key = parsed.pathname.replace(/^\//, '');
+    if (key) return decodeURIComponent(key);
+  } catch {
+    // Ignorar URLs inválidas.
+  }
+
+  return null;
+}
+
+export async function deleteVideoFileByUrl(fileUrl: string): Promise<void> {
+  const key = extractVideoKeyFromUrl(fileUrl);
+  if (!key) return;
+
+  try {
+    await deleteStorageFile(key);
+  } catch {
+    // Ignorar errores si el archivo no existe o el proveedor falla.
   }
 }

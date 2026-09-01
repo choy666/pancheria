@@ -10,9 +10,10 @@ import {
   deleteVideoAction,
   restoreVideoAction,
   toggleVideoStatusAction,
+  permanentlyDeleteVideoAction,
 } from '@/app/(panel)/videos/actions';
 
-export default async function VideosPage() {
+export default async function VideosTrashPage() {
   const session = await auth();
 
   if (session?.user?.role !== 'admin') {
@@ -20,29 +21,25 @@ export default async function VideosPage() {
   }
 
   const branchId = await getCurrentBranchIdOrRedirect(session);
-  const videos = await videoService.listVideos(branchId);
+  const allVideos = await videoService.listVideos(branchId, true);
+  const deletedVideos = allVideos.filter((video) => video.deletedAt !== null);
 
   return (
-    <div data-tour="videos-page" className="space-y-5">
+    <div data-tour="videos-trash-page" className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Videos</h1>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <Link href={routes.videosEliminados}>
-            <Button data-testid="videos-trash-link" variant="outline" className="w-full sm:w-auto">
-              Papelera
-            </Button>
-          </Link>
-          <Link href={routes.videosNuevo}>
-            <Button className="w-full sm:w-auto">Subir video</Button>
-          </Link>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Papelera de videos</h1>
+        <Link href={routes.videos}>
+          <Button variant="outline">Volver a videos</Button>
+        </Link>
       </div>
 
       <VideoList
-        videos={videos}
+        videos={deletedVideos}
         deleteVideoAction={deleteVideoAction}
         restoreVideoAction={restoreVideoAction}
         toggleVideoStatusAction={toggleVideoStatusAction}
+        permanentlyDeleteVideoAction={permanentlyDeleteVideoAction}
+        emptyMessage="No hay videos en la papelera."
       />
     </div>
   );

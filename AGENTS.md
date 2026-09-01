@@ -391,6 +391,33 @@ Para evitar duplicación de código al agregar nuevos canales de chat o extender
 - Reutilizar `src/components/chat/order-chat.tsx` parametrizando `chatApiUrl`, `readApiUrl`, `uploadApiUrl`, `isClient` y `readOnly`.
 - Seguir el flujo `chatService` → `orderMessageRepository` → endpoints API → componente `OrderChat`. No replicar la lógica de envío/lectura en componentes o páginas.
 
+## Papelera de productos y videos
+
+- Los productos y videos soportan soft delete (`deletedAt`, `isActive: false`) y restauración desde sus respectivas papeleras: `/productos/eliminados` y `/videos/eliminados`.
+- El soft delete **no** debe borrar archivos asociados (imagen del producto, archivo de video) ni recetas; eso asegura que la restauración recupere el estado completo.
+- El hard delete individual (`productService.permanentlyDeleteProduct`, `videoService.permanentlyDeleteVideo`) elimina la fila de la base de datos y luego libera el archivo con `deleteProductImage` o `deleteVideoFileByUrl`.
+- `productService.permanentlyDeleteProduct` valida referencias históricas (`sale_items`, `order_items`, `sale_item_recipes`, `order_item_recipes`, `order_stock_reservations`, `stock_movements`, `recipes.supplyId`) y rechaza el borrado si existen. Las recetas de un producto compuesto se eliminan en cascada por la FK `recipes.compoundProductId`.
+- `videoService.permanentlyDeleteVideo` requiere que el video esté en soft delete; los videos no tienen dependencias restrictivas.
+
+## Cachés en memoria y rate limiting
+
+- `RateLimitStore` (`src/lib/rate-limit-store.ts`) es un singleton accesible con `getRateLimitStore()`. Expone `remove(username)` para invalidar intentos fallidos de un usuario.
+- `userService.deleteUser` y `branchService.deleteBranch` invocan `rateLimitStore.remove()` tras confirmar la eliminación en base de datos.
+- `InMemoryPublicOrderRateLimitStore` (`src/lib/public-order-rate-limit-store.ts`) limpia entradas expiradas periódicamente dentro de `recordRequest`.
+- En producción con múltiples instancias se recomienda `RATE_LIMIT_STORE_PROVIDER=db` y `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db` para compartir el estado.
+
+## Eliminación de sucursales y limpieza de recursos
+
+- `src/application/services/branchService.ts` implementa `deleteBranch` como hard delete en una transacción. Elimina en cascada: recetas, `sale_items`, movimientos de stock, pedidos (`orders` con `order_items`, `order_messages`, `order_stock_reservations` y `order_item_recipes` por cascada), ventas (`sales` con `sale_payments` y `sale_item_recipes` por cascada), cajas, videos, productos, usuarios y finalmente la sucursal.
+- Antes del commit, `deleteBranch` recolecta las claves de archivos asociados:
+  - `products.imageKey` (imágenes de productos/promos).
+  - `orderMessages.attachmentKey` (adjuntos de chat de los pedidos de la sucursal).
+  - `videos.fileUrl` (videos de la sucursal).
+- Inmediatamente después del commit se llaman `deleteProductImage`, `deleteChatAttachment` y `deleteVideoFileByUrl`, que soportan los proveedores `local`, `vercel-blob`, `s3` y `r2`.
+- `src/lib/storage.ts` expone `deleteStorageFile` y `deleteVideoFileByUrl`; `src/lib/product-image-storage.ts` expone `deleteProductImage`; `src/lib/chat-storage.ts` expone `deleteChatAttachment`.
+- La eliminación de sucursal **no conserva historial**. En cambio, el flujo diario de productos, cajas y videos usa soft delete (`deletedAt`) con papelera/restauración; los archivos no se liberan hasta que se elimine definitivamente la entidad o la sucursal.
+- El cliente detecta sucursales eliminadas: `src/components/pedido/usePedidoClient.ts` limpia `pancheria-branch-id`, `pancheria-cart-v1`, pedidos recientes (`pancheria-recent-orders-v1`) y claves del tour asociadas a la sucursal inexistente.
+
 ## Consideraciones técnicas futuras
 
 - `authService.ts` abstrae el almacenamiento de intentos fallidos mediante `RateLimitStore` (`src/lib/rate-limit-store.ts`). La implementación por defecto es `InMemoryRateLimitStore`. Para producción con múltiples instancias, usar `DbRateLimitStore` configurando `RATE_LIMIT_STORE_PROVIDER=db` (requiere la tabla `login_attempts`, ya existente en `src/db/schema.ts` y creada con la migración `0007_boring_scorpion.sql`).

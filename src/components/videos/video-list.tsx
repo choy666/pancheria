@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { routes } from '@/config/routes';
 import type { VideoRow } from '@/domain/types';
 import type { VideoState } from '@/app/(panel)/videos/actions';
@@ -32,6 +33,11 @@ interface VideoListProps {
     _prevState: VideoState,
     formData: FormData
   ) => Promise<VideoState>;
+  permanentlyDeleteVideoAction?: (
+    _prevState: VideoState,
+    formData: FormData
+  ) => Promise<VideoState>;
+  emptyMessage?: string;
 }
 
 export function VideoList({
@@ -39,10 +45,17 @@ export function VideoList({
   deleteVideoAction,
   restoreVideoAction,
   toggleVideoStatusAction,
+  permanentlyDeleteVideoAction,
+  emptyMessage = 'No hay videos registrados.',
 }: VideoListProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [confirm, setConfirm] = useState<{
+    type: 'delete' | 'restore' | 'permanent';
+    id: number;
+    title: string;
+  } | null>(null);
 
   async function handleAction(
     action: (
@@ -51,16 +64,40 @@ export function VideoList({
     ) => Promise<VideoState>,
     formData: FormData
   ) {
-    startTransition(() => {
-      action(null, formData).then((result) => {
-        if (result?.error) {
-          setError(result.error);
-        } else {
-          setError(null);
-          router.refresh();
-        }
-      });
+    startTransition(async () => {
+      const result = await action(null, formData);
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setError(null);
+        router.refresh();
+      }
     });
+  }
+
+  function handleConfirm() {
+    if (!confirm) return;
+
+    const formData = new FormData();
+    formData.append('id', String(confirm.id));
+
+    let action;
+    switch (confirm.type) {
+      case 'delete':
+        action = deleteVideoAction;
+        break;
+      case 'restore':
+        action = restoreVideoAction;
+        break;
+      case 'permanent':
+        action = permanentlyDeleteVideoAction;
+        break;
+    }
+
+    if (action) {
+      handleAction(action, formData);
+    }
+    setConfirm(null);
   }
 
   return (
@@ -83,7 +120,7 @@ export function VideoList({
           </TableHeader>
           <TableBody>
             {videos.map((video) => (
-              <TableRow key={video.id}>
+              <TableRow key={video.id} data-testid="video-row">
                 <TableCell>
                   <Link
                     href={routes.videoDetalle(video.id)}
@@ -139,37 +176,59 @@ export function VideoList({
                     )}
 
                     {video.deletedAt ? (
-                      <form
-                        action={(formData) =>
-                          handleAction(restoreVideoAction, formData)
-                        }
-                      >
-                        <input type="hidden" name="id" value={video.id} />
+                      <>
                         <Button
-                          type="submit"
+                          type="button"
                           variant="outline"
                           size="sm"
                           disabled={isPending}
+                          data-testid="restore-video-button"
+                          onClick={() =>
+                            setConfirm({
+                              type: 'restore',
+                              id: video.id,
+                              title: video.title,
+                            })
+                          }
                         >
                           Restaurar
                         </Button>
-                      </form>
+                        {permanentlyDeleteVideoAction && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={isPending}
+                            data-testid="permanently-delete-video-button"
+                            onClick={() =>
+                              setConfirm({
+                                type: 'permanent',
+                                id: video.id,
+                                title: video.title,
+                              })
+                            }
+                          >
+                            Eliminar permanentemente
+                          </Button>
+                        )}
+                      </>
                     ) : (
-                      <form
-                        action={(formData) =>
-                          handleAction(deleteVideoAction, formData)
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={isPending}
+                        data-testid="delete-video-button"
+                        onClick={() =>
+                          setConfirm({
+                            type: 'delete',
+                            id: video.id,
+                            title: video.title,
+                          })
                         }
                       >
-                        <input type="hidden" name="id" value={video.id} />
-                        <Button
-                          type="submit"
-                          variant="destructive"
-                          size="sm"
-                          disabled={isPending}
-                        >
-                          Eliminar
-                        </Button>
-                      </form>
+                        Eliminar
+                      </Button>
                     )}
                   </div>
                 </TableCell>
@@ -181,13 +240,41 @@ export function VideoList({
                   colSpan={4}
                   className="text-center text-muted-foreground"
                 >
-                  No hay videos registrados.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={
+          confirm?.type === 'delete'
+            ? 'Eliminar video'
+            : confirm?.type === 'restore'
+              ? 'Restaurar video'
+              : 'Eliminar video permanentemente'
+        }
+        description={
+          confirm?.type === 'delete'
+            ? `¿Eliminar "${confirm?.title ?? ''}"? El video se podrá restaurar desde la papelera.`
+            : confirm?.type === 'restore'
+              ? `¿Restaurar "${confirm?.title ?? ''}"?`
+              : `¿Eliminar permanentemente "${confirm?.title ?? ''}"? Esta acción no se puede deshacer.`
+        }
+        confirmLabel={
+          confirm?.type === 'permanent'
+            ? 'Eliminar permanentemente'
+            : confirm?.type === 'delete'
+              ? 'Eliminar'
+              : 'Restaurar'
+        }
+        cancelLabel="Cancelar"
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }

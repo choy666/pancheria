@@ -3,16 +3,23 @@ import { db } from '@/db';
 import {
   branches,
   cashRegisters,
+  orderMessages,
+  orders,
   products,
   recipes,
   saleItems,
   sales,
   stockMovements,
   users,
+  videos,
 } from '@/db/schema';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { validateNonEmptyString } from '@/lib/validation-helpers';
 import { validateOpeningHours } from '@/lib/branch-helpers';
+import { getRateLimitStore } from '@/lib/rate-limit-store';
+import { deleteProductImage } from '@/lib/product-image-storage';
+import { deleteChatAttachment } from '@/lib/chat-storage';
+import { deleteVideoFileByUrl } from '@/lib/storage';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
 
 export async function listBranches() {
@@ -119,6 +126,8 @@ export async function getBranchDeletionSummary(id: number) {
     stockMovementCount,
     userCount,
     recipeCount,
+    orderCount,
+    videoCount,
   ] = await Promise.all([
     Promise.resolve(productIds.length),
     db
@@ -153,6 +162,16 @@ export async function getBranchDeletionSummary(id: number) {
           )
           .then((rows) => rows[0]?.count ?? 0)
       : Promise.resolve(0),
+    db
+      .select({ count: count() })
+      .from(orders)
+      .where(eq(orders.branchId, id))
+      .then((rows) => rows[0]?.count ?? 0),
+    db
+      .select({ count: count() })
+      .from(videos)
+      .where(eq(videos.branchId, id))
+      .then((rows) => rows[0]?.count ?? 0),
   ]);
 
   return {
@@ -164,13 +183,17 @@ export async function getBranchDeletionSummary(id: number) {
       stockMovements: stockMovementCount,
       users: userCount,
       recipes: recipeCount,
+      orders: orderCount,
+      videos: videoCount,
       total:
         productCount +
         saleCount +
         cashRegisterCount +
         stockMovementCount +
         userCount +
-        recipeCount,
+        recipeCount +
+        orderCount +
+        videoCount,
     },
   };
 }
@@ -184,13 +207,60 @@ export async function deleteBranch(id: number) {
     throw new NotFoundError('Sucursal', id);
   }
 
-  await db.transaction(async (tx) => {
-    const productRows = await tx
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.branchId, id));
-    const productIds = productRows.map((row) => row.id);
+  // Archivos vinculados que deben liberarse tras el commit de base de datos.
+  const productImageKeys: string[] = [];
+  const chatAttachmentKeys: string[] = [];
+  const videoFileUrls: string[] = [];
 
+  const userRows = await db
+    .select({ username: users.username })
+    .from(users)
+    .where(eq(users.branchId, id));
+  const usernames = userRows.map((row) => row.username);
+
+  const productRows = await db
+    .select({ id: products.id, imageKey: products.imageKey })
+    .from(products)
+    .where(eq(products.branchId, id));
+  const productIds = productRows.map((row) => row.id);
+
+  for (const product of productRows) {
+    if (product.imageKey) {
+      productImageKeys.push(product.imageKey);
+    }
+  }
+
+  const orderRows = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.branchId, id));
+  const orderIds = orderRows.map((row) => row.id);
+
+  if (orderIds.length > 0) {
+    const messageRows = await db
+      .select({ attachmentKey: orderMessages.attachmentKey })
+      .from(orderMessages)
+      .where(inArray(orderMessages.orderId, orderIds));
+
+    for (const message of messageRows) {
+      if (message.attachmentKey) {
+        chatAttachmentKeys.push(message.attachmentKey);
+      }
+    }
+  }
+
+  const videoRows = await db
+    .select({ fileUrl: videos.fileUrl })
+    .from(videos)
+    .where(eq(videos.branchId, id));
+
+  for (const video of videoRows) {
+    if (video.fileUrl) {
+      videoFileUrls.push(video.fileUrl);
+    }
+  }
+
+  await db.transaction(async (tx) => {
     const saleRows = await tx
       .select({ id: sales.id })
       .from(sales)
@@ -216,12 +286,25 @@ export async function deleteBranch(id: number) {
       .delete(stockMovements)
       .where(eq(stockMovements.branchId, id));
 
+    // Eliminación en cascada de pedidos, mensajes, items y reservas.
+    await tx.delete(orders).where(eq(orders.branchId, id));
+
     await tx.delete(sales).where(eq(sales.branchId, id));
     await tx.delete(cashRegisters).where(eq(cashRegisters.branchId, id));
+    await tx.delete(videos).where(eq(videos.branchId, id));
     await tx.delete(products).where(eq(products.branchId, id));
     await tx.delete(users).where(eq(users.branchId, id));
     await tx.delete(branches).where(eq(branches.id, id));
   });
+
+  // Liberar archivos asociados fuera de la transacción para no bloquear el rollback.
+  await Promise.allSettled(productImageKeys.map(deleteProductImage));
+  await Promise.allSettled(chatAttachmentKeys.map(deleteChatAttachment));
+  await Promise.allSettled(videoFileUrls.map(deleteVideoFileByUrl));
+
+  // Limpiar intentos fallidos de login de los usuarios eliminados.
+  const rateLimitStore = getRateLimitStore();
+  await Promise.allSettled(usernames.map((username) => rateLimitStore.remove(username)));
 
   return branch;
 }

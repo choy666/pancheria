@@ -13,6 +13,7 @@ export interface RateLimitStore {
     maxAttempts: number
   ): Promise<boolean>;
   recordSuccessfulAttempt(username: string): Promise<void>;
+  remove(username: string): Promise<void>;
 }
 
 export class InMemoryRateLimitStore implements RateLimitStore {
@@ -40,6 +41,10 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 
   async recordSuccessfulAttempt(username: string): Promise<void> {
+    this.attemptsByUsername.delete(username);
+  }
+
+  async remove(username: string): Promise<void> {
     this.attemptsByUsername.delete(username);
   }
 }
@@ -74,6 +79,23 @@ class DbRateLimitStore implements RateLimitStore {
   async recordSuccessfulAttempt(username: string): Promise<void> {
     await db.delete(loginAttempts).where(eq(loginAttempts.username, username));
   }
+
+  async remove(username: string): Promise<void> {
+    await db.delete(loginAttempts).where(eq(loginAttempts.username, username));
+  }
+}
+
+let rateLimitStoreSingleton: RateLimitStore | null = null;
+
+export function getRateLimitStore(): RateLimitStore {
+  if (!rateLimitStoreSingleton) {
+    rateLimitStoreSingleton = createRateLimitStore();
+  }
+  return rateLimitStoreSingleton;
+}
+
+export function setRateLimitStore(store: RateLimitStore): void {
+  rateLimitStoreSingleton = store;
 }
 
 export function createRateLimitStore(): RateLimitStore {

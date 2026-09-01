@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStorageProvider as getGlobalStorageProvider } from '@/config/videos';
 import { getChatAllowedImageMimeTypes, getChatImageMaxSizeBytes } from '@/config/chat';
+import { deleteStorageFile } from '@/lib/storage';
 import { ValidationError } from '@/domain/errors';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
@@ -264,5 +265,27 @@ export async function readChatAttachment(
     return { buffer, mimeType };
   } catch {
     return null;
+  }
+}
+
+export async function deleteChatAttachment(key: string): Promise<void> {
+  if (!key) return;
+
+  const provider = getGlobalStorageProvider();
+
+  if (provider === 'local') {
+    try {
+      const filePath = resolveChatAttachmentPath(key);
+      await fs.unlink(/*turbopackIgnore: true*/ filePath);
+    } catch {
+      // Ignorar errores si el archivo no existe.
+    }
+    return;
+  }
+
+  try {
+    await deleteStorageFile(key);
+  } catch {
+    // Ignorar errores si el archivo no existe o falla el proveedor remoto.
   }
 }

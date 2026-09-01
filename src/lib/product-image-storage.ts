@@ -3,6 +3,7 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStorageProvider } from '@/config/videos';
+import { deleteStorageFile } from '@/lib/storage';
 import {
   getProductImageAllowedMimeTypes,
   getProductImageLocalStorageBasePath,
@@ -518,14 +519,20 @@ export async function deleteProductImage(key: string): Promise<void> {
   if (!key) return;
 
   const provider = getStorageProvider();
-  if (provider !== 'local') {
+
+  if (provider === 'local') {
+    try {
+      const filePath = resolveProductImagePath(key);
+      await fs.unlink(/*turbopackIgnore: true*/ filePath);
+    } catch {
+      // Ignorar errores si el archivo no existe.
+    }
     return;
   }
 
   try {
-    const filePath = resolveProductImagePath(key);
-    await fs.unlink(/*turbopackIgnore: true*/ filePath);
+    await deleteStorageFile(key);
   } catch {
-    // Ignorar errores si el archivo no existe.
+    // Ignorar errores si el archivo no existe o falla el proveedor remoto.
   }
 }

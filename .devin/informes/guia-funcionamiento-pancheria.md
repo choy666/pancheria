@@ -320,6 +320,34 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 - Ventana y máximo de pedidos configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
 - Ventana y máximo de chat configurables por `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
 
+### 7.4 Eliminación de una sucursal
+
+Eliminar una sucursal es una operación destructiva e irreversible: se borran todos los datos de la sucursal y los archivos asociados.
+
+1. El `admin` va a `/sucursales`, selecciona eliminar y confirma escribiendo el nombre exacto.
+2. El sistema muestra un resumen con: productos, recetas, ventas, cajas, movimientos de stock, usuarios, pedidos y videos.
+3. Al confirmar, en una sola transacción se eliminan:
+   - `products` (e `imageKey` de sus imágenes).
+   - `recipes` asociadas a esos productos.
+   - `sales` y `sale_items` (con `sale_item_recipes` y `sale_payments` por cascada).
+   - `stock_movements` de la sucursal.
+   - `orders`, `order_items`, `order_messages`, `order_stock_reservations` y `order_item_recipes` (por cascada).
+   - `cash_registers`.
+   - `videos`.
+   - `users` asignados a la sucursal.
+   - Finalmente la sucursal (`branches`).
+4. Inmediatamente después del commit se liberan los archivos:
+   - Imágenes de productos (`deleteProductImage` en `local`, `vercel-blob`, `s3` y `r2`).
+   - Adjuntos de chat (`deleteChatAttachment` en todos los proveedores).
+   - Videos (`deleteVideoFileByUrl` en todos los proveedores).
+5. El cliente (`/pedido`) detecta si la sucursal guardada en `localStorage` fue eliminada y limpia:
+   - `pancheria-branch-id`
+   - `pancheria-cart-v1`
+   - Pedidos recientes (`pancheria-recent-orders-v1`)
+   - Claves del tour asociadas a esa sucursal.
+
+> **Regla de historial:** la eliminación de una sucursal no conserva historial. En cambio, el borrado diario de productos, cajas o videos usa soft delete: el registro pasa a `deletedAt` y puede restaurarse desde la papelera; los archivos no se borran hasta que se elimine definitivamente la entidad o la sucursal a la que pertenecen.
+
 ---
 
 ## 8. Cierres diarios
@@ -390,6 +418,7 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 | Cancelar pedido público (`paid`) | Sí | `cancellation` | `products`, `sales`, `stock_movements`, `cashRegisters`, `orders` | Anula la venta y reintegra stock |
 | Eliminar producto | No | — | `products` (soft delete) | No si está en recetas activas |
 | Eliminar caja | No | — | `cashRegisters` (soft delete) | No si está abierta |
+| Eliminar sucursal | No* | — | `branches` (hard delete) en cascada | Se borran productos, recetas, ventas, cajas, pedidos, mensajes, reservas, stock, usuarios, videos y archivos asociados. No conserva historial. |
 | Cierre diario | No | — | `dailyClosures` | Resumen informativo |
 
 ---
@@ -485,7 +514,7 @@ Disponibilidad = infinita.
 6. **Tipos `reserve` y `reserve_release` en `stock_movements`**: el flujo vigente genera movimientos `reserve` al recibir un pedido (`in_process`) y `reserve_release` al confirmar el pago o cancelar un pedido en reserva. Los valores legacy `order` y `order_cancellation` permanecen en el enum por compatibilidad, pero no se generan en el flujo actual.
 7. **Stock de productos `compound`**: el campo `products.stock` de un producto compuesto no se usa para calcular disponibilidad; se usa el stock de sus insumos críticos con `autoDiscount`. `products.stock` se mantiene en `0` y puede servir como referencia si se ajusta manualmente.
 8. **Productos `manual_supply` en recetas**: son informativos; no afectan disponibilidad ni se descuentan.
-9. **Soft delete**: al eliminar un producto, venta o caja, el registro permanece en base con `deletedAt`. Para eliminar definitivamente hay que ir a la papelera.
+9. **Soft delete y hard delete**: al eliminar un producto, video, venta o caja, el registro permanece en base con `deletedAt` y puede restaurarse desde la papelera. La eliminación permanente de productos y videos se hace individualmente desde `/productos/eliminados` y `/videos/eliminados`; libera la imagen o el archivo asociado y respeta las dependencias históricas. La eliminación de una sucursal sigue siendo hard delete de todo el branch, sin conservar historial.
 
 ---
 

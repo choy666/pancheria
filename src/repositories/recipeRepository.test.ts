@@ -87,14 +87,4 @@ describe('recipeRepository', () => {
     });
   });
 
-  describe('deleteByCompoundProductId', () => {
-    test('elimina las recetas de un producto compuesto', async () => {
-      mockDeleteWhere.mockResolvedValue(undefined);
-
-      await recipeRepository.deleteByCompoundProductId(BRANCH_ID, 10);
-
-      expect(mockDelete).toHaveBeenCalled();
-      expect(mockDeleteWhere).toHaveBeenCalled();
-    });
-  });
 });

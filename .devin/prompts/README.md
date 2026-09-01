@@ -140,6 +140,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Personalizar promos permitiendo quitar insumos manuales y servicios](archivados/promos-con-servicios-y-manuales.md) — resuelto: promos con insumos críticos, manuales y servicios, snapshots de receta en `sale_item_recipes`/`order_item_recipes`; migraciones `0018_black_vin_gonzales.sql`, `0021_ambiguous_mandarin.sql` y `0023_chubby_sersi.sql`.
 - [Imágenes ilustrativas para promos y catálogo público](archivados/plan-imagenes-promos.md) — resuelto: imágenes de productos/promos en catálogo público; migración `0021_ambiguous_mandarin.sql`.
 - [Auditoría, depuración y mejoras de UX del módulo de ventas](archivados/auditoria-y-mejoras-ventas.md) — resuelto: productos agotados ocultos por defecto, pago mixto con badge "Mixto" y refactor de `SalesTerminal` en `SalesProductCard`/`SalesCart`; ver `src/lib/ventas-helpers.ts`.
+- [Cerrar pendientes de hard delete, papelera y limpieza de cachés](archivados/implementar-pendientes-hard-delete-cache.md) — resuelto: E2E pasa con 98 tests, diálogos de confirmación en videos, `deletedProducts` y limpieza de código muerto en `recipeRepository`.
 
 ## Véase también
 

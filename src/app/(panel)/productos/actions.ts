@@ -28,3 +28,47 @@ export async function deleteProduct(
   revalidatePath(routes.productos);
   return null;
 }
+
+export async function restoreProductAction(
+  _prevState: DeleteProductState,
+  formData: FormData
+): Promise<DeleteProductState> {
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
+  const id = Number(formData.get('id'));
+
+  try {
+    await productService.restoreProduct(branchId, id);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+
+  revalidatePath(routes.productos);
+  revalidatePath(routes.productosEliminados);
+  return null;
+}
+
+export async function permanentlyDeleteProductAction(
+  _prevState: DeleteProductState,
+  formData: FormData
+): Promise<DeleteProductState> {
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
+  const id = Number(formData.get('id'));
+
+  try {
+    await productService.permanentlyDeleteProduct(branchId, id);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+
+  revalidatePath(routes.productos);
+  revalidatePath(routes.productosEliminados);
+  return null;
+}

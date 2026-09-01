@@ -18,9 +18,11 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
+- [Plan de limpieza — hard delete y cachés en memoria (resuelto)](informes/archivados/plan-limpieza-hard-delete-cache-2026-09-01.md) — plan detallado para los pendientes de limpieza.
 - [Índice de informes](informes/README.md)
 
 > **Plan de acción cerrado:** el plan de acción de 2026-08-27 fue resuelto y se archivó en `informes/archivados/plan-de-accion-2026-08-27.md`.
+> **Plan de limpieza — hard delete y cachés cerrado:** el plan de limpieza de hard delete, papelera y cachés en memoria fue resuelto y se archivó en `informes/archivados/plan-limpieza-hard-delete-cache-2026-09-01.md`.
 
 ## Configuración del entorno
 

@@ -57,6 +57,25 @@ describe('InMemoryPublicOrderRateLimitStore', () => {
     const blocked = await store.recordRequest('192.168.1.1', windowMs, 10);
     expect(blocked).toBe(false);
   });
+
+  test('limpia registros expirados periódicamente', async () => {
+    const expiredIp = '192.168.1.1';
+
+    await store.recordRequest(expiredIp, 1, 10);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 99 requests con ventana larga para que no expiren.
+    for (let i = 0; i < 99; i += 1) {
+      await store.recordRequest(`10.0.0.${i % 256}`, 60_000, 1000);
+    }
+
+    // El request 100 activa la limpieza y debe eliminar el registro vencido.
+    await store.recordRequest('10.0.0.100', 60_000, 1000);
+
+    const deleted = await store.cleanupExpired();
+    expect(deleted).toBe(0);
+    expect((store as unknown as { attemptsByIp: Map<string, unknown> }).attemptsByIp.has(expiredIp)).toBe(false);
+  });
 });
 
 describe('DbPublicOrderRateLimitStore', () => {

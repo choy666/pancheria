@@ -1,6 +1,8 @@
 import {
   InMemoryRateLimitStore,
   createRateLimitStore,
+  getRateLimitStore,
+  setRateLimitStore,
 } from './rate-limit-store';
 
 jest.mock('@/db', () => ({
@@ -65,6 +67,14 @@ describe('InMemoryRateLimitStore', () => {
     const blocked = await store.recordFailedAttempt('admin', 60_000, 5);
     expect(blocked).toBe(false);
   });
+
+  test('elimina los intentos con remove', async () => {
+    await store.recordFailedAttempt('admin', 60_000, 5);
+    await store.remove('admin');
+
+    const blocked = await store.recordFailedAttempt('admin', 60_000, 5);
+    expect(blocked).toBe(false);
+  });
 });
 
 describe('DbRateLimitStore (vía createRateLimitStore)', () => {
@@ -108,6 +118,30 @@ describe('DbRateLimitStore (vía createRateLimitStore)', () => {
 
     expect(mockedDb.delete).toHaveBeenCalled();
     expect(mockedDb.where).toHaveBeenCalled();
+  });
+
+  test('remove elimina los intentos del usuario', async () => {
+    mockedDb.returning.mockResolvedValue([{ count: 1 }]);
+
+    const store = createRateLimitStore();
+    await store.remove('admin');
+
+    expect(mockedDb.delete).toHaveBeenCalled();
+    expect(mockedDb.where).toHaveBeenCalled();
+  });
+});
+
+describe('getRateLimitStore / setRateLimitStore', () => {
+  test('devuelve el mismo store tras setRateLimitStore', () => {
+    const customStore = new InMemoryRateLimitStore();
+    setRateLimitStore(customStore);
+
+    expect(getRateLimitStore()).toBe(customStore);
+  });
+
+  test('crea un store si no se configuró uno', () => {
+    setRateLimitStore(createRateLimitStore());
+    expect(getRateLimitStore()).toBeDefined();
   });
 });
 

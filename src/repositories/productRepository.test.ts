@@ -22,7 +22,7 @@ jest.mock('@/db', () => {
   mockWhereReturning = jest.fn(() => ({ returning: mockReturning }));
   mockSet = jest.fn(() => ({ where: mockWhereReturning }));
   mockUpdate = jest.fn(() => ({ set: mockSet }));
-  mockDeleteWhere = jest.fn();
+  mockDeleteWhere = jest.fn(() => ({ returning: mockReturning }));
   mockDelete = jest.fn(() => ({ where: mockDeleteWhere }));
 
   return {
@@ -301,6 +301,27 @@ describe('productRepository', () => {
       mockReturning.mockResolvedValue([]);
 
       const result = await productRepository.restore(BRANCH_ID, 999);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('hardDelete', () => {
+    test('elimina permanentemente un producto', async () => {
+      const expected = { id: 1, name: 'Pan' };
+      mockReturning.mockResolvedValue([expected]);
+
+      const result = await productRepository.hardDelete(BRANCH_ID, 1);
+
+      expect(result).toEqual(expected);
+      expect(mockDelete).toHaveBeenCalled();
+      expect(mockDeleteWhere).toHaveBeenCalled();
+    });
+
+    test('devuelve null si el producto no existe', async () => {
+      mockReturning.mockResolvedValue([]);
+
+      const result = await productRepository.hardDelete(BRANCH_ID, 999);
 
       expect(result).toBeNull();
     });

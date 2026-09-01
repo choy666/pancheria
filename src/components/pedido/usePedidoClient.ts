@@ -14,6 +14,7 @@ import {
 } from '@/config/api';
 import { useCart } from '@/hooks/useCart';
 import { useRecentOrders } from '@/hooks/useRecentOrders';
+import { cleanupRecentOrdersForBranches } from '@/lib/recent-orders';
 import { routes } from '@/config/routes';
 import type { CartItem } from '@/hooks/useCart';
 import type { RecentOrder } from '@/lib/recent-orders';
@@ -145,25 +146,6 @@ export function usePedidoClient({
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationError, setCancellationError] = useState<string | null>(null);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    const stored = localStorage.getItem(BRANCH_STORAGE_KEY);
-    const storedBranchId = stored ? Number(stored) : NaN;
-    if (
-      !stored ||
-      Number.isNaN(storedBranchId) ||
-      !branches.some((b) => b.id === storedBranchId) ||
-      storedBranchId !== activeBranch.id
-    ) {
-      localStorage.setItem(BRANCH_STORAGE_KEY, String(activeBranch.id));
-    }
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [activeBranch.id, branches]);
-
   const getAvailability = useCallback(
     (productId: number) => {
       const product = products.find((p) => p.id === productId);
@@ -185,6 +167,46 @@ export function usePedidoClient({
     products,
     getAvailability,
   });
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const stored = localStorage.getItem(BRANCH_STORAGE_KEY);
+    const storedBranchId = stored ? Number(stored) : NaN;
+    const branchIds = branches.map((b) => b.id);
+
+    if (!stored || Number.isNaN(storedBranchId)) {
+      localStorage.setItem(BRANCH_STORAGE_KEY, String(activeBranch.id));
+    } else if (!branches.some((b) => b.id === storedBranchId)) {
+      // La sucursal guardada fue eliminada: limpiar estados vinculados.
+      localStorage.removeItem(BRANCH_STORAGE_KEY);
+      localStorage.removeItem('pancheria-cart-v1');
+      cleanupRecentOrdersForBranches(branchIds);
+      clearCart();
+
+      // Limpiar claves del tour asociadas a sucursales inexistentes.
+      if (typeof window !== 'undefined') {
+        const validBranchIds = new Set(branchIds);
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (!key || !key.startsWith('pancheria-tour-')) continue;
+          const match = key.match(/^pancheria-tour-(?:step|active|seen)-[^-]+-(\d+)$/);
+          if (match) {
+            const branchIdFromKey = Number(match[1]);
+            if (!validBranchIds.has(branchIdFromKey)) {
+              localStorage.removeItem(key);
+            }
+          }
+        }
+      }
+    } else if (storedBranchId !== activeBranch.id) {
+      localStorage.setItem(BRANCH_STORAGE_KEY, String(activeBranch.id));
+    }
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [activeBranch.id, branches, clearCart]);
 
   const { orders: recentOrders, add: addRecentOrder, remove: removeRecentOrder } =
     useRecentOrders();

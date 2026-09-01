@@ -1,9 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { recipes } from '@/db/schema';
+import {
+  recipes,
+  saleItems,
+  orderItems,
+  saleItemRecipes,
+  orderItemRecipes,
+  orderStockReservations,
+  stockMovements,
+} from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as productRepository from '@/repositories/productRepository';
-import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
@@ -176,14 +183,6 @@ export async function updateProduct(
 export async function deleteProduct(branchId: number, id: number) {
   const product = await getProductById(branchId, id);
 
-  if (product.imageKey) {
-    await deleteProductImage(product.imageKey);
-  }
-
-  if (product.type === 'compound') {
-    await recipeRepository.deleteByCompoundProductId(branchId, id);
-  }
-
   const usedAsSupply = await db.query.recipes.findMany({
     where: eq(recipes.supplyId, id),
     with: { compoundProduct: true },
@@ -209,19 +208,70 @@ export async function deleteProduct(branchId: number, id: number) {
     throw new ValidationError(message);
   }
 
-  const hasOrphanedRecipes = usedAsSupply.some(
-    (recipe) =>
-      recipe.compoundProduct &&
-      (recipe.compoundProduct.deletedAt || !recipe.compoundProduct.isActive)
-  );
-
-  if (hasOrphanedRecipes) {
-    await recipeRepository.deleteBySupplyId(branchId, id);
-  }
-
   return productRepository.softDelete(branchId, id);
 }
 
 export async function restoreProduct(branchId: number, id: number) {
   return productRepository.restore(branchId, id);
+}
+
+export async function permanentlyDeleteProduct(branchId: number, id: number) {
+  const product = await executeInTransaction(async (tx) => {
+    const current = await productRepository.findByIdForUpdate(branchId, id, true, tx);
+    if (!current) throw new NotFoundError('Producto', id);
+
+    if (!current.deletedAt) {
+      throw new ValidationError(
+        'El producto debe estar en la papelera para eliminarse permanentemente.'
+      );
+    }
+
+    const hasSaleItems = await tx.query.saleItems.findFirst({
+      where: eq(saleItems.productId, id),
+    });
+    const hasOrderItems = await tx.query.orderItems.findFirst({
+      where: eq(orderItems.productId, id),
+    });
+    const hasSaleItemRecipes = await tx.query.saleItemRecipes.findFirst({
+      where: eq(saleItemRecipes.supplyId, id),
+    });
+    const hasOrderItemRecipes = await tx.query.orderItemRecipes.findFirst({
+      where: eq(orderItemRecipes.supplyId, id),
+    });
+    const hasStockReservations = await tx.query.orderStockReservations.findFirst({
+      where: eq(orderStockReservations.productId, id),
+    });
+    const hasStockMovements = await tx.query.stockMovements.findFirst({
+      where: eq(stockMovements.productId, id),
+    });
+    const hasRecipesAsSupply = await tx.query.recipes.findFirst({
+      where: eq(recipes.supplyId, id),
+    });
+
+    const hasReferences =
+      hasSaleItems ||
+      hasOrderItems ||
+      hasSaleItemRecipes ||
+      hasOrderItemRecipes ||
+      hasStockReservations ||
+      hasStockMovements ||
+      hasRecipesAsSupply;
+
+    if (hasReferences) {
+      throw new ValidationError(
+        `No se puede eliminar permanentemente '${current.name}' porque tiene ventas, pedidos o movimientos asociados.`
+      );
+    }
+
+    const deleted = await productRepository.hardDelete(branchId, id, tx);
+    if (!deleted) throw new NotFoundError('Producto', id);
+
+    return deleted;
+  });
+
+  if (product.imageKey) {
+    await deleteProductImage(product.imageKey);
+  }
+
+  return product;
 }

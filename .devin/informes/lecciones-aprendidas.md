@@ -48,8 +48,13 @@
 
 - **Las validaciones de integridad con soft delete deben considerar el estado del registro padre.** No basta con verificar la existencia de una relación; hay que descartar padres eliminados. Ejemplo: una receta cuya promo fue eliminada no debe bloquear el soft delete de un insumo.
 - **Preferir soft delete sobre hard delete cuando existan tablas históricas.** `saleItems.productId` y `stockMovements.productId` referencian a `products.id`. Hard delete rompe la legibilidad del historial.
+- **El soft delete no debe liberar archivos ni recetas asociadas.** La imagen de un producto y las recetas de una promo deben conservarse mientras el registro esté en papelera, para que la restauración sea completa. Liberar archivos (imágenes, videos) y dejar que la base de datos elimine en cascada las recetas debe ocurrir solo durante el hard delete.
+- **Los stores en memoria del servidor no son caches de contenido, pero sí acumulan estado de negocio.** El singleton `RateLimitStore` puede conservar intentos fallidos de un usuario eliminado. Al eliminar usuarios o sucursales, invalidar esas entradas con `store.remove()` para evitar acumulación entre reinicios.
+- **Invalidar entradas de rate limit de forma idempotente y fuera de la transacción principal.** La limpieza de `loginAttempts` no es crítica para el rollback; invocarla después del commit evita liberar entradas de una operación que finalmente falla.
 - **Tener cuidado con `findFirst` cuando coexisten registros activos e inactivos.** Sin orden explícito puede devolver el registro inactivo y ocultar el activo, lo que lleva a decisiones incorrectas.
 - **Agregar tests de cobertura para el caso "registro inactivo".** Permite detectar regresiones futuras en la lógica de eliminación.
+- **Al eliminar una sucursal, liberar los archivos asociados fuera de la transacción.** `deleteBranch` recolecta las claves de imágenes, adjuntos y videos antes del commit, borra todas las filas en una transacción y luego elimina los archivos de los proveedores configurados. Si el borrado de archivos falla, la base de datos ya está limpia; los restos pueden detectarse con los crons de limpieza de adjuntos o un futuro cron de limpieza general.
+- **Distinguir entre soft delete con historial y hard delete sin historial.** Productos, cajas y videos usan soft delete para conservar auditoría y permitir restauración; las imágenes/archivos permanecen mientras la entidad exista. La eliminación de una sucursal es hard delete y libera todo, incluidos los archivos, sin conservar historial.
 
 ## 5. Seguridad y entorno
 

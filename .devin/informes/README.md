@@ -7,6 +7,7 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente,
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
 - [Checklist pre-push](checklist-pre-push.md) — verificaciones y consejos para evitar errores de CI antes de subir a Git.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
+- [Plan de limpieza — hard delete y cachés en memoria (resuelto)](archivados/plan-limpieza-hard-delete-cache-2026-09-01.md) — plan detallado para implementar hard delete de productos/videos con liberación de archivos e invalidación de cachés del servidor.
 - [Archivo de informes históricos](archivados/) — reportes anteriores (`reporte-estado-YYYY-MM-DD.md`) y planes resueltos (incluye el plan de acción de 2026-08-27 y el snapshot `reporte-estado-historico-2026-08-30.md`).
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 

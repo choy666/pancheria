@@ -105,3 +105,11 @@ export async function restore(branchId: number, id: number): Promise<VideoRow | 
     .returning();
   return result ?? null;
 }
+
+export async function hardDelete(branchId: number, id: number): Promise<VideoRow | null> {
+  const [result] = await db
+    .delete(videos)
+    .where(and(eq(videos.id, id), eq(videos.branchId, branchId)))
+    .returning();
+  return result ?? null;
+}

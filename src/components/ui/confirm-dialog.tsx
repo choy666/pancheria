@@ -40,7 +40,11 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
             {cancelLabel}
           </Button>
-          <Button onClick={onConfirm} className="w-full sm:w-auto">
+          <Button
+            data-testid="confirm-dialog-confirm"
+            onClick={onConfirm}
+            className="w-full sm:w-auto"
+          >
             {confirmLabel}
           </Button>
         </DialogFooter>

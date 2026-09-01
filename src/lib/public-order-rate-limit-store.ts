@@ -16,6 +16,8 @@ export interface PublicOrderRateLimitStore {
   cleanupExpired(): Promise<number>;
 }
 
+const CLEANUP_INTERVAL = 100;
+
 export class InMemoryPublicOrderRateLimitStore
   implements PublicOrderRateLimitStore
 {
@@ -23,6 +25,7 @@ export class InMemoryPublicOrderRateLimitStore
     string,
     { count: number; resetAt: number }
   >();
+  private requestCount = 0;
 
   async recordRequest(
     ip: string,
@@ -31,6 +34,11 @@ export class InMemoryPublicOrderRateLimitStore
   ): Promise<boolean> {
     const now = Date.now();
     const record = this.attemptsByIp.get(ip);
+
+    this.requestCount += 1;
+    if (this.requestCount % CLEANUP_INTERVAL === 0) {
+      await this.cleanupExpired();
+    }
 
     if (!record || now > record.resetAt) {
       this.attemptsByIp.set(ip, { count: 1, resetAt: now + windowMs });

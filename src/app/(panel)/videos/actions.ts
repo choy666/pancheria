@@ -118,6 +118,7 @@ export async function deleteVideoAction(
   }
 
   revalidatePath(routes.videos);
+  revalidatePath(routes.videosEliminados);
   return null;
 }
 
@@ -140,5 +141,29 @@ export async function restoreVideoAction(
   }
 
   revalidatePath(routes.videos);
+  revalidatePath(routes.videosEliminados);
+  return null;
+}
+
+export async function permanentlyDeleteVideoAction(
+  _prevState: VideoState,
+  formData: FormData
+): Promise<VideoState> {
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
+
+  const id = Number(formData.get('id'));
+
+  try {
+    await videoService.permanentlyDeleteVideo(branchId, id);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+
+  revalidatePath(routes.videos);
+  revalidatePath(routes.videosEliminados);
   return null;
 }

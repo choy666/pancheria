@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import * as branchService from '@/application/services/branchService';
+import { getRateLimitStore } from '@/lib/rate-limit-store';
 import { ValidationError, NotFoundError } from '@/domain/errors';
 import {
   validateNonEmptyString,
@@ -160,4 +161,7 @@ export async function deleteUser(id: number) {
   }
 
   await db.delete(users).where(eq(users.id, id));
+
+  const rateLimitStore = getRateLimitStore();
+  await rateLimitStore.remove(user.username);
 }

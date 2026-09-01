@@ -40,6 +40,8 @@ interface DeletionSummary {
     stockMovements: number;
     users: number;
     recipes: number;
+    orders: number;
+    videos: number;
     total: number;
   };
 }
@@ -87,6 +89,8 @@ export function BranchActions({
             stockMovements: 0,
             users: 0,
             recipes: 0,
+            orders: 0,
+            videos: 0,
             total: 0,
           },
         });
@@ -150,8 +154,14 @@ export function BranchActions({
                   {summary.counts.stockMovements > 0 && (
                     <li>Movimientos de stock: {summary.counts.stockMovements}</li>
                   )}
+                  {summary.counts.orders > 0 && (
+                    <li>Pedidos: {summary.counts.orders}</li>
+                  )}
                   {summary.counts.users > 0 && (
                     <li>Usuarios: {summary.counts.users}</li>
+                  )}
+                  {summary.counts.videos > 0 && (
+                    <li>Videos: {summary.counts.videos}</li>
                   )}
                   {summary.counts.total === 0 && (
                     <li>No hay registros asociados.</li>

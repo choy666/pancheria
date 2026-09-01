@@ -8,6 +8,7 @@ import {
   toggleVideoStatus,
   deleteVideo,
   restoreVideo,
+  permanentlyDeleteVideo,
 } from './videoService';
 import * as videoRepository from '@/repositories/videoRepository';
 import * as storage from '@/lib/storage';
@@ -246,6 +247,63 @@ describe('videoService', () => {
       const result = await restoreVideo(BRANCH_ID, 1);
 
       expect(result!.deletedAt).toBeNull();
+    });
+  });
+
+  describe('permanentlyDeleteVideo', () => {
+    test('rechaza eliminar un video que no está en papelera', async () => {
+      mockedVideoRepository.findById.mockResolvedValue({
+        id: 1,
+        ...validVideo,
+        deletedAt: null,
+        branchId: BRANCH_ID,
+      } as VideoRow);
+
+      await expect(permanentlyDeleteVideo(BRANCH_ID, 1)).rejects.toThrow(
+        ValidationError
+      );
+      expect(mockedVideoRepository.hardDelete).not.toHaveBeenCalled();
+    });
+
+    test('elimina permanentemente un video en papelera y borra el archivo', async () => {
+      mockedVideoRepository.findById.mockResolvedValue({
+        id: 1,
+        ...validVideo,
+        deletedAt: new Date(),
+        branchId: BRANCH_ID,
+      } as VideoRow);
+      mockedVideoRepository.hardDelete.mockResolvedValue({
+        id: 1,
+        ...validVideo,
+        deletedAt: new Date(),
+      } as VideoRow);
+
+      const result = await permanentlyDeleteVideo(BRANCH_ID, 1);
+
+      expect(result!.id).toBe(1);
+      expect(mockedVideoRepository.hardDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
+      expect(mockedStorage.deleteVideoFileByUrl).toHaveBeenCalledWith(
+        validVideo.fileUrl
+      );
+    });
+
+    test('elimina permanentemente un video en papelera sin archivo', async () => {
+      mockedVideoRepository.findById.mockResolvedValue({
+        id: 1,
+        ...validVideo,
+        fileUrl: '',
+        deletedAt: new Date(),
+        branchId: BRANCH_ID,
+      } as unknown as VideoRow);
+      mockedVideoRepository.hardDelete.mockResolvedValue({
+        id: 1,
+        ...validVideo,
+        deletedAt: new Date(),
+      } as VideoRow);
+
+      await permanentlyDeleteVideo(BRANCH_ID, 1);
+
+      expect(mockedStorage.deleteVideoFileByUrl).not.toHaveBeenCalled();
     });
   });
 });

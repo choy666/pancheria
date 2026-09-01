@@ -175,3 +175,16 @@ export async function restore(branchId: number, id: number): Promise<ProductRow 
     .returning();
   return result ?? null;
 }
+
+export async function hardDelete(
+  branchId: number,
+  id: number,
+  dbOrTx?: typeof db
+): Promise<ProductRow | null> {
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  const [result] = await client
+    .delete(products)
+    .where(and(eq(products.id, id), eq(products.branchId, branchId)))
+    .returning();
+  return result ?? null;
+}

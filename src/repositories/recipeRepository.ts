@@ -30,21 +30,4 @@ export async function findByCompoundProductId(
   });
 }
 
-export async function deleteByCompoundProductId(
-  branchId: number,
-  compoundProductId: number
-) {
-  if (!(await assertProductInBranch(branchId, compoundProductId))) {
-    return;
-  }
 
-  return db.delete(recipes).where(eq(recipes.compoundProductId, compoundProductId));
-}
-
-export async function deleteBySupplyId(branchId: number, supplyId: number) {
-  if (!(await assertProductInBranch(branchId, supplyId))) {
-    return;
-  }
-
-  return db.delete(recipes).where(eq(recipes.supplyId, supplyId));
-}

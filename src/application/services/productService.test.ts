@@ -7,11 +7,13 @@ import {
   updateProduct,
   deleteProduct,
   restoreProduct,
+  permanentlyDeleteProduct,
 } from './productService';
 import * as productRepository from '@/repositories/productRepository';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
 import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
+import * as productImageStorage from '@/lib/product-image-storage';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import { ValidationError, NotFoundError } from '@/domain/errors';
@@ -20,6 +22,7 @@ import type { ProductRow } from '@/domain/types';
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/recipeRepository');
 jest.mock('@/application/services/saleService');
+jest.mock('@/lib/product-image-storage');
 jest.mock('@/application/transactionService', () => ({
   executeInTransaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn(db)
@@ -32,7 +35,14 @@ jest.mock('@/db', () => ({
     query: {
       recipes: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
       },
+      saleItems: { findFirst: jest.fn() },
+      orderItems: { findFirst: jest.fn() },
+      saleItemRecipes: { findFirst: jest.fn() },
+      orderItemRecipes: { findFirst: jest.fn() },
+      orderStockReservations: { findFirst: jest.fn() },
+      stockMovements: { findFirst: jest.fn() },
     },
   },
 }));
@@ -44,10 +54,21 @@ const mockedRecipeRepository = recipeRepository as jest.Mocked<
   typeof recipeRepository
 >;
 const mockedSaleService = saleService as jest.Mocked<typeof saleService>;
+const mockedProductImageStorage = productImageStorage as jest.Mocked<
+  typeof productImageStorage
+>;
 const mockedDb = db as unknown as {
   delete: jest.Mock;
   where: jest.Mock;
-  query: { recipes: { findMany: jest.Mock } };
+  query: {
+    recipes: { findMany: jest.Mock; findFirst: jest.Mock };
+    saleItems: { findFirst: jest.Mock };
+    orderItems: { findFirst: jest.Mock };
+    saleItemRecipes: { findFirst: jest.Mock };
+    orderItemRecipes: { findFirst: jest.Mock };
+    orderStockReservations: { findFirst: jest.Mock };
+    stockMovements: { findFirst: jest.Mock };
+  };
 };
 
 const BRANCH_ID = 1;
@@ -549,11 +570,10 @@ describe('productService', () => {
       const result = await deleteProduct(BRANCH_ID, 1);
 
       expect(result!.id).toBe(1);
-      expect(mockedRecipeRepository.deleteByCompoundProductId).not.toHaveBeenCalled();
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
-    test('elimina las recetas al marcar como eliminada una promo', async () => {
+    test('no elimina recetas al marcar como eliminada una promo', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         name: 'Panchuque',
@@ -568,7 +588,6 @@ describe('productService', () => {
 
       await deleteProduct(BRANCH_ID, 1);
 
-      expect(mockedRecipeRepository.deleteByCompoundProductId).toHaveBeenCalledWith(BRANCH_ID, 1);
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
 
@@ -594,7 +613,6 @@ describe('productService', () => {
       await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(
         "No se puede eliminar 'Pan' porque forma parte de la promo activa 'Panchuque'."
       );
-      expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
       expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
     });
 
@@ -628,7 +646,6 @@ describe('productService', () => {
       await expect(deleteProduct(BRANCH_ID, 1)).rejects.toThrow(
         "No se puede eliminar 'Pan' porque forma parte de las promos activas: 'Panchuque', 'Panchuque doble'."
       );
-      expect(mockedRecipeRepository.deleteBySupplyId).not.toHaveBeenCalled();
       expect(mockedProductRepository.softDelete).not.toHaveBeenCalled();
     });
 
@@ -672,7 +689,7 @@ describe('productService', () => {
       );
     });
 
-    test('elimina recetas huérfanas al eliminar un insumo', async () => {
+    test('no elimina recetas huérfanas al eliminar un insumo', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
         name: 'Pan',
@@ -696,7 +713,6 @@ describe('productService', () => {
 
       await deleteProduct(BRANCH_ID, 1);
 
-      expect(mockedRecipeRepository.deleteBySupplyId).toHaveBeenCalledWith(BRANCH_ID, 1);
       expect(mockedProductRepository.softDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
     });
   });
@@ -712,6 +728,101 @@ describe('productService', () => {
 
       expect(result!.id).toBe(1);
       expect(mockedProductRepository.restore).toHaveBeenCalledWith(BRANCH_ID, 1);
+    });
+  });
+
+  describe('permanentlyDeleteProduct', () => {
+    beforeEach(() => {
+      mockedDb.query.saleItems.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.orderItems.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.saleItemRecipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.orderItemRecipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.orderStockReservations.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.stockMovements.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+    });
+
+    test('rechaza eliminar un producto que no está en papelera', async () => {
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+        deletedAt: null,
+        branchId: BRANCH_ID,
+      } as ProductRow);
+
+      await expect(permanentlyDeleteProduct(BRANCH_ID, 1)).rejects.toThrow(
+        ValidationError
+      );
+      expect(mockedProductRepository.hardDelete).not.toHaveBeenCalled();
+    });
+
+    test('rechaza eliminar un producto con ventas asociadas', async () => {
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+        deletedAt: new Date(),
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedDb.query.saleItems.findFirst.mockResolvedValue({ id: 1 });
+
+      await expect(permanentlyDeleteProduct(BRANCH_ID, 1)).rejects.toThrow(
+        ValidationError
+      );
+      expect(mockedProductRepository.hardDelete).not.toHaveBeenCalled();
+    });
+
+    test('elimina permanentemente un producto en papelera y borra la imagen', async () => {
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+        deletedAt: new Date(),
+        imageKey: 'product-images/1/test.webp',
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedProductRepository.hardDelete.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        deletedAt: new Date(),
+        imageKey: 'product-images/1/test.webp',
+      } as ProductRow);
+
+      const result = await permanentlyDeleteProduct(BRANCH_ID, 1);
+
+      expect(result!.id).toBe(1);
+      expect(mockedProductRepository.hardDelete).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        db
+      );
+      expect(mockedProductImageStorage.deleteProductImage).toHaveBeenCalledWith(
+        'product-images/1/test.webp'
+      );
+    });
+
+    test('elimina permanentemente un producto en papelera sin imagen', async () => {
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+        deletedAt: new Date(),
+        imageKey: null,
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedProductRepository.hardDelete.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        deletedAt: new Date(),
+        imageKey: null,
+      } as ProductRow);
+
+      await permanentlyDeleteProduct(BRANCH_ID, 1);
+
+      expect(
+        mockedProductImageStorage.deleteProductImage
+      ).not.toHaveBeenCalled();
     });
   });
 

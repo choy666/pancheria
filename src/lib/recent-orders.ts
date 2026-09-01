@@ -123,6 +123,22 @@ export function removeRecentOrder(orderId: number): void {
   emitChange();
 }
 
+export function cleanupRecentOrdersForBranches(validBranchIds: number[]): void {
+  const validBranchIdSet = new Set(validBranchIds);
+  const orders = readOrders().filter((order) =>
+    validBranchIdSet.has(order.branchId)
+  );
+  saveOrders(orders);
+  if (orders.length === 0) {
+    cachedOrders = [];
+    cachedRaw = null;
+  } else {
+    cachedRaw = JSON.stringify({ version: 'pancheria-recent-orders-v1', orders });
+    cachedOrders = orders;
+  }
+  emitChange();
+}
+
 export function subscribeRecentOrders(listener: Listener): () => void {
   if (typeof window !== 'undefined' && !isStorageSubscribed) {
     window.addEventListener('storage', handleStorage);

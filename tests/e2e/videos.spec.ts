@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { loginAsAdmin, loginAsOperator, clearSession } from './helpers';
+import { loginAsAdmin, loginAsOperator, clearSession, unique } from './helpers';
 
 async function navigateToVideos(page: Page) {
   await page.goto('/videos');
@@ -72,6 +72,88 @@ test.describe('Videos', () => {
       await expect(page).toHaveURL(/\/videos\/\d+/);
       await expect(page.getByRole('heading', { name: 'Video de prueba E2E' })).toBeVisible();
       await expect(page.locator('video')).toBeVisible();
+    } finally {
+      try {
+        unlinkSync(filePath);
+      } catch {
+        // Ignorar error de limpieza.
+      }
+    }
+  });
+
+  test('sube, elimina, restaura y elimina permanentemente un video', async ({
+    page,
+  }) => {
+    const filePath = createTempVideoFile();
+    const videoTitle = unique('Video papelera E2E');
+
+    try {
+      await page.goto('/videos/nuevo');
+      await page.getByLabel('Título').fill(videoTitle);
+      await page.getByLabel('Archivo de video').setInputFiles(filePath);
+
+      await page.getByRole('button', { name: 'Subir archivo' }).click();
+      await expect(page.getByText('Archivo listo')).toBeVisible({ timeout: 15000 });
+
+      await page.getByRole('button', { name: 'Guardar video' }).click();
+      await expect(page).toHaveURL('/videos', { timeout: 15000 });
+
+      const row = page
+        .locator('[data-testid="video-row"]')
+        .filter({ hasText: new RegExp(videoTitle) });
+      await expect(row).toBeVisible();
+
+      // Soft delete
+      await row.getByTestId('delete-video-button').click();
+      await page.getByTestId('confirm-dialog-confirm').click();
+      await expect(row).toHaveCount(0, { timeout: 10000 });
+
+      // Ir a papelera
+      await page.getByTestId('videos-trash-link').click();
+      await expect(page).toHaveURL('/videos/eliminados');
+      await expect(page.getByRole('heading', { name: 'Papelera de videos' })).toBeVisible();
+
+      const trashRow = page
+        .locator('[data-testid="video-row"]')
+        .filter({ hasText: new RegExp(videoTitle) });
+      await expect(trashRow).toBeVisible();
+
+      // Restaurar
+      await trashRow.getByTestId('restore-video-button').click();
+      await page.getByTestId('confirm-dialog-confirm').click();
+      await expect(trashRow).toHaveCount(0, { timeout: 10000 });
+
+      // Volver al listado y ver activo
+      await page.goto('/videos');
+      const restoredRow = page
+        .locator('[data-testid="video-row"]')
+        .filter({ hasText: new RegExp(videoTitle) });
+      await expect(restoredRow).toBeVisible();
+
+      // Soft delete otra vez para hard delete
+      await restoredRow.getByTestId('delete-video-button').click();
+      await page.getByTestId('confirm-dialog-confirm').click();
+      await expect(restoredRow).toHaveCount(0, { timeout: 10000 });
+
+      await page.getByTestId('videos-trash-link').click();
+      await expect(page).toHaveURL('/videos/eliminados');
+
+      const trashRow2 = page
+        .locator('[data-testid="video-row"]')
+        .filter({ hasText: new RegExp(videoTitle) });
+      await expect(trashRow2).toBeVisible();
+
+      // Hard delete
+      await trashRow2.getByTestId('permanently-delete-video-button').click();
+      await page.getByTestId('confirm-dialog-confirm').click();
+      await expect(trashRow2).toHaveCount(0, { timeout: 10000 });
+
+      // Confirmar por API
+      await page.goto('/videos');
+      await expect(
+        page.locator('[data-testid="video-row"]').filter({ hasText: new RegExp(videoTitle) })
+      ).toHaveCount(0);
+      await expect(page).toHaveURL('/videos');
     } finally {
       try {
         unlinkSync(filePath);

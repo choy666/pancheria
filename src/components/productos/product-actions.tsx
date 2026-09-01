@@ -77,6 +77,7 @@ export function ProductActions({ productId, productName }: ProductActionsProps) 
           variant="ghost"
           size="sm"
           disabled={isPending || isDeletePending}
+          data-testid="delete-product-button"
           className="w-full sm:w-auto text-destructive hover:text-destructive"
         >
           {isPending || isDeletePending ? 'Eliminando...' : 'Eliminar'}
