@@ -47,7 +47,7 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 | `npm test` | 118 suites, 1131 tests pasan |
 | `npm run build` | Build exitoso (44 páginas estáticas generadas) |
 | `npm run knip` | Pasa |
-| `npm run test:e2e` | **96 passed** en base descartable |
+| `npm run test:e2e` | **96 passed** en base descartable; CI en GitHub Actions: **96 passed** |
 
 > **Nota:** E2E se ejecutó contra la base descartable configurada en `.env.e2e` (`neondb_e2e`). Ver `.devin/informes/entornos.md` para la configuración segura.
 
