@@ -22,21 +22,24 @@ import { deleteChatAttachment } from '@/lib/chat-storage';
 import { deleteVideoFileByUrl } from '@/lib/storage';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
 
-export async function listBranches() {
+export async function listBranches(): Promise<Branch[]> {
   return db.query.branches.findMany({
     orderBy: (branches, { desc }) => [desc(branches.createdAt)],
-  });
+  }) as Promise<Branch[]>;
 }
 
-export async function getBranchById(id: number) {
+export async function getBranchById(id: number): Promise<Branch | undefined> {
   return db.query.branches.findFirst({
     where: eq(branches.id, id),
-  });
+  }) as Promise<Branch | undefined>;
 }
 
 export async function createBranch(
   name: string,
-  openingHours: BranchOpeningHours[] = []
+  openingHours: BranchOpeningHours[] = [],
+  address?: string | null,
+  phone?: string | null,
+  location?: string | null
 ) {
   const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
   validateOpeningHours(openingHours);
@@ -51,7 +54,13 @@ export async function createBranch(
 
   const [branch] = await db
     .insert(branches)
-    .values({ name: trimmed, openingHours })
+    .values({
+      name: trimmed,
+      openingHours,
+      address: address ?? null,
+      phone: phone ?? null,
+      location: location ?? null,
+    })
     .returning();
 
   if (!branch) {
@@ -64,7 +73,10 @@ export async function createBranch(
 export async function updateBranch(
   id: number,
   name: string,
-  openingHours: BranchOpeningHours[] = []
+  openingHours: BranchOpeningHours[] = [],
+  address?: string | null,
+  phone?: string | null,
+  location?: string | null
 ) {
   const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
   validateOpeningHours(openingHours);
@@ -93,7 +105,13 @@ export async function updateBranch(
 
   const [updated] = await db
     .update(branches)
-    .set({ name: trimmed, openingHours })
+    .set({
+      name: trimmed,
+      openingHours,
+      address: address ?? null,
+      phone: phone ?? null,
+      location: location ?? null,
+    })
     .where(eq(branches.id, id))
     .returning();
 
@@ -175,7 +193,7 @@ export async function getBranchDeletionSummary(id: number) {
   ]);
 
   return {
-    branch,
+    branch: branch as Branch,
     counts: {
       products: productCount,
       sales: saleCount,
@@ -306,5 +324,5 @@ export async function deleteBranch(id: number) {
   const rateLimitStore = getRateLimitStore();
   await Promise.allSettled(usernames.map((username) => rateLimitStore.remove(username)));
 
-  return branch;
+  return branch as Branch;
 }

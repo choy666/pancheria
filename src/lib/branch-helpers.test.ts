@@ -137,7 +137,7 @@ describe('branch-helpers', () => {
     test('muestra el horario de hoy cuando aún está por abrir', () => {
       const branch = makeBranch([{ dayOfWeek: 1, open: '20:00', close: '23:00' }]);
       const now = new Date('2025-06-02T18:00:00-03:00'); // Lunes
-      expect(getCurrentOrNextOpening(branch, now)).toBe('Hoy: de 20:00 a 23:00');
+      expect(getCurrentOrNextOpening(branch, now)).toBe('Hoy de 20:00 a 23:00');
     });
 
     test('muestra el siguiente día cuando el horario de hoy ya pasó', () => {
@@ -146,7 +146,7 @@ describe('branch-helpers', () => {
         { dayOfWeek: 2, open: '08:00', close: '18:00' },
       ]);
       const now = new Date('2025-06-02T23:30:00-03:00'); // Lunes, después del horario
-      expect(getCurrentOrNextOpening(branch, now)).toBe('Mañana: de 08:00 a 18:00');
+      expect(getCurrentOrNextOpening(branch, now)).toBe('Mañana de 08:00 a 18:00');
     });
   });
 

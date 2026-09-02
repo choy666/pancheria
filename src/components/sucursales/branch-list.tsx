@@ -21,6 +21,9 @@ interface Branch {
   id: number;
   name: string;
   openingHours: BranchOpeningHours[];
+  address?: string | null;
+  phone?: string | null;
+  location?: string | null;
 }
 
 interface BranchListProps {

@@ -204,7 +204,7 @@ export async function createOrder(
   if (!openCashRegister) {
     const opening = getCurrentOrNextOpening(branch);
     throw new ValidationError(
-      `La caja de la sucursal está cerrada. Horario de apertura: ${opening}.`
+      `En este momento no podemos recibir pedidos. Horario de atención: ${opening}.`
     );
   }
 
@@ -389,8 +389,14 @@ export async function convertOrderToSale(
 
   const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
   if (!cashRegister) {
+    const branch =
+      (await branchService.getBranchById(branchId)) ??
+      (await orderRepository.findById(branchId, orderId))?.branch;
+    const opening = branch
+      ? getCurrentOrNextOpening(branch)
+      : 'consultá con la sucursal';
     throw new ValidationError(
-      'No hay una caja abierta. Abrí la caja para confirmar el pedido.'
+      `En este momento no podemos confirmar el pedido. Horario de atención: ${opening}.`
     );
   }
 

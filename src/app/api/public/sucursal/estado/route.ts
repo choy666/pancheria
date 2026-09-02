@@ -3,7 +3,11 @@ import { z } from 'zod';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
+import {
+  isBranchOpen,
+  getTodayOpening,
+  getNextOpening,
+} from '@/lib/branch-helpers';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive(),
@@ -21,18 +25,27 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   }
 
   const cashRegister = await cashRegisterService.getOpenCashRegister(query.branchId);
+  const open = cashRegister !== null && isBranchOpen(branch);
 
-  if (cashRegister) {
-    return NextResponse.json({
-      status: 'open',
-      openingHours: getCurrentOrNextOpening(branch),
-      message: 'La caja está abierta.',
-    });
-  }
+  const currentOpening = getTodayOpening(branch);
+  const nextOpening = getNextOpening(branch);
+
+  const message = open
+    ? `Sucursal abierta. ${currentOpening}.`
+    : `La sucursal está cerrada. Próxima apertura: ${nextOpening}.`;
 
   return NextResponse.json({
-    status: 'closed',
-    openingHours: getCurrentOrNextOpening(branch),
-    message: `La caja está cerrada. Horario de apertura: ${getCurrentOrNextOpening(branch)}.`,
+    isOpen: open,
+    currentOpening,
+    nextOpening,
+    branch: {
+      id: branch.id,
+      name: branch.name,
+      openingHours: branch.openingHours,
+      address: branch.address ?? null,
+      phone: branch.phone ?? null,
+      location: branch.location ?? null,
+    },
+    message,
   });
-}, 'GET /api/public/caja/estado');
+}, 'GET /api/public/sucursal/estado');

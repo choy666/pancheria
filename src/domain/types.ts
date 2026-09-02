@@ -52,6 +52,9 @@ export type Branch = {
   id: number;
   name: string;
   openingHours: BranchOpeningHours[];
+  address?: string | null;
+  phone?: string | null;
+  location?: string | null;
   createdAt: Date;
 };
 

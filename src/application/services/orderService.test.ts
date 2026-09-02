@@ -1020,7 +1020,7 @@ describe('orderService', () => {
       expect(findCapturedInsert(sales)).toHaveLength(0);
     });
 
-    test('rechaza la conversión si no hay caja abierta', async () => {
+    test('rechaza la conversión si no se puede confirmar el pedido', async () => {
       mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow(),
@@ -1034,7 +1034,9 @@ describe('orderService', () => {
           payments: [{ method: 'cash', amount: 1000 }],
           idempotencyKey: 'key-no-cash',
         })
-      ).rejects.toThrow('No hay una caja abierta. Abrí la caja para confirmar el pedido.');
+      ).rejects.toThrow(
+        'En este momento no podemos confirmar el pedido. Horario de atención: No hay horarios de apertura configurados.'
+      );
     });
 
     test('rechaza la conversión de un pedido no pendiente', async () => {

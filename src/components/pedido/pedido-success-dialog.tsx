@@ -12,8 +12,14 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatMoney } from '@/lib/money';
+import {
+  isBranchOpen,
+  getTodayOpening,
+  getNextOpening,
+} from '@/lib/branch-helpers';
 import type { CreatedOrder } from './usePedidoClient';
 import type { PublicOrderItem } from '@/lib/whatsapp';
+import type { Branch } from '@/domain/types';
 
 function OrderItemRecipeDetails({ item }: { item: PublicOrderItem }) {
   if (!item.recipeSnapshot || item.recipeSnapshot.length === 0) return null;
@@ -61,7 +67,7 @@ interface PedidoSuccessDialogProps {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   createdOrder: CreatedOrder | null;
-  branchName: string;
+  branch: Branch;
   cancellationReason: string;
   setCancellationReason: (value: string) => void;
   isCancelling: boolean;
@@ -75,7 +81,7 @@ export function PedidoSuccessDialog({
   open,
   onOpenChange,
   createdOrder,
-  branchName,
+  branch,
   cancellationReason,
   setCancellationReason,
   isCancelling,
@@ -125,7 +131,27 @@ export function PedidoSuccessDialog({
                 <p>
                   Sucursal:{' '}
                   <span className="text-foreground">
-                    {createdOrder.branchName ?? branchName}
+                    {createdOrder.branchName ?? branch.name}
+                  </span>
+                </p>
+                {branch.address && (
+                  <p>
+                    Dirección:{' '}
+                    <span className="text-foreground">{branch.address}</span>
+                  </p>
+                )}
+                {branch.phone && (
+                  <p>
+                    Teléfono:{' '}
+                    <span className="text-foreground">{branch.phone}</span>
+                  </p>
+                )}
+                <p>
+                  Horario de retiro estimado:{' '}
+                  <span className="text-foreground">
+                    {isBranchOpen(branch)
+                      ? getTodayOpening(branch)
+                      : getNextOpening(branch)}
                   </span>
                 </p>
                 <p>

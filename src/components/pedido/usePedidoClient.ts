@@ -8,7 +8,7 @@ import { getPedidoRefetchIntervalMs } from '@/config/catalog';
 import {
   PUBLIC_CATALOGO_API,
   PUBLIC_DISPONIBILIDAD_API,
-  PUBLIC_CAJA_ESTADO_API,
+  PUBLIC_SUCURSAL_ESTADO_API,
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
 } from '@/config/api';
@@ -56,6 +56,14 @@ export interface UsePedidoClientProps {
 
 const BRANCH_STORAGE_KEY = 'pancheria-branch-id';
 
+export interface BranchStatus {
+  isOpen: boolean;
+  currentOpening: string;
+  nextOpening: string;
+  message: string;
+  branch: Branch;
+}
+
 export interface UsePedidoClientResult {
   products: PublicCatalogProduct[];
   error: string | null;
@@ -65,7 +73,7 @@ export interface UsePedidoClientResult {
 
   checkoutOpen: boolean;
   setCheckoutOpen: (value: boolean) => void;
-  cashStatus: { status: 'open' | 'closed'; message: string } | null;
+  branchStatus: BranchStatus | null;
   customerName: string;
   setCustomerName: (value: string) => void;
   customerPhone: string;
@@ -128,10 +136,7 @@ export function usePedidoClient({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [cashStatus, setCashStatus] = useState<{
-    status: 'open' | 'closed';
-    message: string;
-  } | null>(null);
+  const [branchStatus, setBranchStatus] = useState<BranchStatus | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('pickup');
@@ -311,19 +316,16 @@ export function usePedidoClient({
   async function handleOpenCheckout() {
     setCheckoutOpen(true);
     setCheckoutError(null);
-    setCashStatus(null);
+    setBranchStatus(null);
 
     try {
       const response = await fetch(
-        `${PUBLIC_CAJA_ESTADO_API}?branchId=${activeBranch.id}`
+        `${PUBLIC_SUCURSAL_ESTADO_API}?branchId=${activeBranch.id}`
       );
       if (response.ok) {
-        const data = (await response.json()) as {
-          status: 'open' | 'closed';
-          message: string;
-        };
+        const data = (await response.json()) as BranchStatus;
         if (isMountedRef.current) {
-          setCashStatus(data);
+          setBranchStatus(data);
         }
       }
     } catch {
@@ -471,7 +473,7 @@ export function usePedidoClient({
 
     checkoutOpen,
     setCheckoutOpen,
-    cashStatus,
+    branchStatus,
     customerName,
     setCustomerName,
     customerPhone,

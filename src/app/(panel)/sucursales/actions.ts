@@ -16,9 +16,12 @@ export async function createBranch(
   await requireAdmin();
   const name = formData.get('name')?.toString() ?? '';
   const openingHours = parseOpeningHoursForm(formData);
+  const address = formData.get('address')?.toString() || null;
+  const phone = formData.get('phone')?.toString() || null;
+  const location = formData.get('location')?.toString() || null;
 
   try {
-    await branchService.createBranch(name, openingHours);
+    await branchService.createBranch(name, openingHours, address, phone, location);
   } catch (error) {
     if (error instanceof DomainError) {
       return { error: error.message };
@@ -39,9 +42,12 @@ export async function updateBranchAction(
   const id = Number(formData.get('id'));
   const name = formData.get('name')?.toString() ?? '';
   const openingHours = parseOpeningHoursForm(formData);
+  const address = formData.get('address')?.toString() || null;
+  const phone = formData.get('phone')?.toString() || null;
+  const location = formData.get('location')?.toString() || null;
 
   try {
-    await branchService.updateBranch(id, name, openingHours);
+    await branchService.updateBranch(id, name, openingHours, address, phone, location);
   } catch (error) {
     if (error instanceof DomainError) {
       return { error: error.message };

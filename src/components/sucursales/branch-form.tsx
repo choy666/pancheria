@@ -18,6 +18,9 @@ interface Branch {
   id: number;
   name: string;
   openingHours: BranchOpeningHours[];
+  address?: string | null;
+  phone?: string | null;
+  location?: string | null;
 }
 
 type Slot = BranchOpeningHours & { _id: string };
@@ -169,6 +172,39 @@ export function BranchForm({
           required
           defaultValue={branch?.name}
           placeholder="Ej: Sucursal Centro"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="address">Dirección (opcional)</Label>
+        <Input
+          id="address"
+          name="address"
+          type="text"
+          defaultValue={branch?.address ?? ''}
+          placeholder="Ej: Av. Pellegrini 1234, Rosario"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="phone">Teléfono (opcional)</Label>
+        <Input
+          id="phone"
+          name="phone"
+          type="text"
+          defaultValue={branch?.phone ?? ''}
+          placeholder="Ej: 3415555555"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="location">Ubicación (opcional)</Label>
+        <Input
+          id="location"
+          name="location"
+          type="text"
+          defaultValue={branch?.location ?? ''}
+          placeholder="URL del mapa o coordenadas"
         />
       </div>
 

@@ -196,7 +196,7 @@ export function getCurrentOrNextOpening(
       if (slot) {
         const dayName =
           offset === 0 ? 'Hoy' : offset === 1 ? 'Mañana' : DAYS[dayOfWeek];
-        return `${dayName}: de ${slot.open} a ${slot.close}`;
+        return `${dayName} de ${slot.open} a ${slot.close}`;
       }
     }
   }
@@ -214,4 +214,62 @@ export function formatOpeningHours(hours: BranchOpeningHours[]): string {
     })
     .map((h) => `${DAYS[h.dayOfWeek]}: ${h.open} - ${h.close}`)
     .join(', ');
+}
+
+export function getTodayOpening(
+  branch: Branch,
+  now: Date = new Date()
+): string {
+  if (!branch.openingHours || branch.openingHours.length === 0) {
+    return 'No hay horarios de apertura configurados.';
+  }
+
+  const tz = getBranchTimeZone();
+  const { dayOfWeek } = getLocalParts(now, tz);
+  const dayHours = branch.openingHours
+    .filter((h) => h.dayOfWeek === dayOfWeek)
+    .sort((a, b) => minutesOf(a.open) - minutesOf(b.open));
+
+  if (dayHours.length === 0) {
+    return 'Hoy no atendemos.';
+  }
+
+  const slots = dayHours.map((h) => `de ${h.open} a ${h.close}`);
+  return `Hoy ${slots.join(' y ')}`;
+}
+
+export function getNextOpening(
+  branch: Branch,
+  now: Date = new Date()
+): string {
+  if (!branch.openingHours || branch.openingHours.length === 0) {
+    return 'No hay horarios de apertura configurados.';
+  }
+
+  const tz = getBranchTimeZone();
+
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
+    const local = getLocalParts(date, tz);
+    const dayOfWeek = local.dayOfWeek;
+    const dayHours = branch.openingHours
+      .filter((h) => h.dayOfWeek === dayOfWeek)
+      .sort((a, b) => minutesOf(a.open) - minutesOf(b.open));
+
+    if (dayHours.length > 0) {
+      const currentMinutes =
+        offset === 0 ? local.hours * 60 + local.minutes : -1;
+      const nextSlot = dayHours.find(
+        (h) => minutesOf(h.open) > currentMinutes
+      );
+
+      if (nextSlot) {
+        const dayName =
+          offset === 0 ? 'Hoy' : offset === 1 ? 'Mañana' : DAYS[dayOfWeek];
+        return `${dayName} de ${nextSlot.open} a ${nextSlot.close}`;
+      }
+    }
+  }
+
+  return 'No hay horarios de apertura configurados.';
 }

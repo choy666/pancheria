@@ -312,11 +312,13 @@ describe('PedidoClient', () => {
           });
         }
 
-        if (urlString.includes('/api/public/caja/estado')) {
+        if (urlString.includes('/api/public/sucursal/estado')) {
           return createFetchResponse({
-            status: 'open',
-            openingHours: 'Hoy: de 08:00 a 18:00',
-            message: 'La caja está abierta.',
+            isOpen: true,
+            currentOpening: 'Hoy de 08:00 a 18:00',
+            nextOpening: 'Mañana de 08:00 a 18:00',
+            message: 'Sucursal abierta. Horario de hoy: Hoy de 08:00 a 18:00.',
+            branch: makeBranch(1, 'Sucursal A'),
           });
         }
 

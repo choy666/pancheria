@@ -88,6 +88,11 @@ export function PedidoCustomerForm({
               Retiro en sucursal: {activeBranch.name}
             </SelectItem>
           </SelectContent>
+          {deliveryType === 'pickup' && activeBranch.address && (
+            <p className="text-sm text-muted-foreground">
+              Dirección de retiro: {activeBranch.address}
+            </p>
+          )}
         </Select>
       </div>
 

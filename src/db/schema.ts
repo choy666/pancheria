@@ -88,6 +88,9 @@ export const branches = pgTable('branches', {
     .$type<BranchOpeningHours[]>()
     .default([])
     .notNull(),
+  address: text('address'),
+  phone: varchar('phone', { length: 50 }),
+  location: text('location'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
