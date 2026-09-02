@@ -1,6 +1,6 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-09-01  
+**Fecha:** 2026-09-02  
 **Proyecto:** `pancheria`  
 **Baseline:** `HEAD` — branch `main`  
 **Histórico:** las fases previas quedan archivadas en `.devin/informes/archivados/reporte-estado-historico-2026-08-30.md`.
@@ -44,10 +44,10 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 |---------|-----------|
 | `npm run lint` | Pasa |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | 118 suites, 1147 tests pasan |
+| `npm test` | 121 suites, 1159 tests pasan |
 | `npm run build` | Build exitoso, incluye `/productos/eliminados` y `/videos/eliminados` |
 | `npm run knip` | Pasa |
-| `npm run test:e2e` | **98 passed** en base descartable |
+| `npm run test:e2e` | **100 passed** en base descartable |
 
 > **Nota:** la falla anterior de login se debía a que el servidor de E2E no estaba utilizando la base descartable correctamente. Tras verificar la propagación de `DATABASE_URL` y `ADMIN_PASSWORD` (ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/implementar-pendientes-hard-delete-cache.md" />), la suite completa pasó.
 
@@ -64,6 +64,9 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 | Nombre confuso `activeProducts` en papelera de productos | Menor | Se renombró a `deletedProducts` en `src/app/(panel)/productos/eliminados/page.tsx`. |
 | `deleteByCompoundProductId` en `recipeRepository` no se usaba en producción | Menor | Se eliminó la función y su test; el borrado de recetas al cambiar el tipo de producto sigue manejado en `productService.updateProduct`. |
 | Corregir y completar `npm run test:e2e` | Mayor | La suite E2E ahora pasa con 98 tests. Se resolvieron diálogos de confirmación en videos, revalidación de rutas y filtrado de la papelera de videos. |
+| Plan de mejoras en productos, stock en promos y papelera | Mayor | Se implementaron: unidad de medida editable en `ProductForm`, stock de insumos y disponibilidad estimada en `PromoForm`, y vaciado masivo de la papelera de productos con validación de referencias históricas y reporte de omitidos. |
+| Paginación de papelera de productos | Menor | `productRepository.findDeletedInRange` ahora acepta `PaginationParams` y devuelve `PaginatedResult`, evitando paginar en memoria en la API. |
+| Tests E2E de stock en promos y vaciado masivo de papelera | Menor | Se agregaron tests en `tests/e2e/productos-y-recetas.spec.ts` para validar la visualización de stock en el formulario de promos y el vaciado masivo de la papelera. |
 
 ## 6. Hallazgos resueltos adicionales
 

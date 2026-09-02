@@ -127,6 +127,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
+- [Plan de implementación — mejoras en productos, stock en promos y papelera](plan-mejoras-productos-stock-y-papelera.md) — unidad editable, stock de insumos en `PromoForm` y vaciado masivo de papelera de productos.
 
 ### Prompts archivados
 

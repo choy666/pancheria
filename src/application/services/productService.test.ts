@@ -3,11 +3,13 @@ import {
   getProductById,
   listActiveProducts,
   listActiveProductsWithAvailability,
+  listDeletedProducts,
   createProduct,
   updateProduct,
   deleteProduct,
   restoreProduct,
   permanentlyDeleteProduct,
+  emptyTrash,
 } from './productService';
 import * as productRepository from '@/repositories/productRepository';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
@@ -823,6 +825,133 @@ describe('productService', () => {
       expect(
         mockedProductImageStorage.deleteProductImage
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listDeletedProducts', () => {
+    test('delega a productRepository.findDeletedInRange con paginación', async () => {
+      const start = new Date('2026-01-01T00:00:00.000Z');
+      const end = new Date('2026-01-31T23:59:59.999Z');
+      const pagination = { page: 1, limit: 10 };
+      mockedProductRepository.findDeletedInRange.mockResolvedValue({
+        items: [{ id: 1, name: 'Test' }] as ProductRow[],
+        total: 1,
+        page: 1,
+        limit: 10,
+      });
+
+      const result = await listDeletedProducts(BRANCH_ID, start, end, pagination);
+
+      expect(result.items).toEqual([{ id: 1, name: 'Test' }]);
+      expect(result.total).toBe(1);
+      expect(mockedProductRepository.findDeletedInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
+        start,
+        end,
+        pagination
+      );
+    });
+
+    test('puede listar sin paginación', async () => {
+      const start = new Date('2026-01-01T00:00:00.000Z');
+      const end = new Date('2026-01-31T23:59:59.999Z');
+      mockedProductRepository.findDeletedInRange.mockResolvedValue({
+        items: [{ id: 1, name: 'Test' }] as ProductRow[],
+        total: 1,
+        page: 1,
+        limit: 1,
+      });
+
+      const result = await listDeletedProducts(BRANCH_ID, start, end);
+
+      expect(result.items).toEqual([{ id: 1, name: 'Test' }]);
+      expect(mockedProductRepository.findDeletedInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
+        start,
+        end,
+        undefined
+      );
+    });
+  });
+
+  describe('emptyTrash', () => {
+    beforeEach(() => {
+      mockedProductRepository.findDeletedInRange.mockResolvedValue({
+        items: [
+          { id: 1, name: 'Pancho', deletedAt: new Date(), imageKey: null },
+          { id: 2, name: 'Gaseosa', deletedAt: new Date(), imageKey: null },
+        ] as ProductRow[],
+        total: 2,
+        page: 1,
+        limit: 2,
+      });
+
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue(
+        null
+      );
+
+      mockedProductRepository.hardDelete.mockResolvedValue(
+        null
+      );
+
+      mockedDb.query.saleItems.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.orderItems.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.saleItemRecipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.orderItemRecipes.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.orderStockReservations.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.stockMovements.findFirst.mockResolvedValue(undefined);
+      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+    });
+
+    test('elimina productos sin referencias y omite los que tienen historial', async () => {
+      mockedProductRepository.findByIdForUpdate
+        .mockResolvedValueOnce({
+          id: 1,
+          name: 'Pancho',
+          deletedAt: new Date(),
+          imageKey: null,
+        } as ProductRow)
+        .mockRejectedValueOnce(new ValidationError('Tiene referencias'));
+
+      mockedProductRepository.hardDelete.mockResolvedValue({
+        id: 1,
+        name: 'Pancho',
+        imageKey: null,
+      } as ProductRow);
+
+      const result = await emptyTrash(
+        BRANCH_ID,
+        new Date('2026-01-01T00:00:00.000Z'),
+        new Date('2026-01-31T23:59:59.999Z')
+      );
+
+      expect(result.deleted).toBe(1);
+      expect(result.skipped).toEqual([
+        { id: 2, name: 'Gaseosa' },
+      ]);
+      expect(mockedProductRepository.findDeletedInRange).toHaveBeenCalledWith(
+        BRANCH_ID,
+        expect.any(Date),
+        expect.any(Date)
+      );
+    });
+
+    test('devuelve 0 eliminados si no hay productos en el rango', async () => {
+      mockedProductRepository.findDeletedInRange.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 0,
+      });
+
+      const result = await emptyTrash(
+        BRANCH_ID,
+        new Date('2026-01-01T00:00:00.000Z'),
+        new Date('2026-01-31T23:59:59.999Z')
+      );
+
+      expect(result.deleted).toBe(0);
+      expect(result.skipped).toEqual([]);
     });
   });
 

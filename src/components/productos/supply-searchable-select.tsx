@@ -16,6 +16,7 @@ export interface Supply {
   type: ProductType;
   criticalSupplyType: CriticalSupplyType | null;
   unit: string;
+  stock: number;
 }
 
 export type SupplyGroupKey =

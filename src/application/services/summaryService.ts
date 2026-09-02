@@ -6,6 +6,8 @@ import {
   addItemToSummary,
   fillMissingCriticalSupplies,
 } from '@/lib/summary-helpers';
+export { calculateCompoundAvailability } from '@/lib/availability-helpers';
+import type { CompoundAvailabilityRecipe } from '@/lib/availability-helpers';
 import type {
   CriticalSupplyType,
   PaymentPart,
@@ -30,7 +32,7 @@ export async function findRecipesForProducts(
 
 export type RecipeWithSupply = typeof recipes.$inferSelect & {
   supply: ProductRow | null;
-};
+} & CompoundAvailabilityRecipe;
 
 type SaleItemWithProduct = {
   quantity: number;
@@ -61,23 +63,6 @@ export function groupRecipesByProduct(allRecipes: RecipeWithSupply[]) {
   }
 
   return recipesByProduct;
-}
-
-export function calculateCompoundAvailability(
-  recipeItems: RecipeWithSupply[],
-  stockBySupplyId?: Record<number, number>,
-  consumedBySupplyId?: Record<number, number>
-): number {
-  const criticalItems = recipeItems.filter((r) => r.autoDiscount);
-  if (criticalItems.length === 0) return 0;
-
-  return Math.min(
-    ...criticalItems.map((r) => {
-      const stock = stockBySupplyId?.[r.supplyId] ?? r.supply?.stock ?? 0;
-      const consumed = consumedBySupplyId?.[r.supplyId] ?? 0;
-      return Math.floor((stock - consumed) / r.quantity);
-    })
-  );
 }
 
 export async function calculateSummaryFromSales(

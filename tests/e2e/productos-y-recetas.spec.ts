@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi } from './helpers';
+import {
+  login,
+  unique,
+  createProductViaApi,
+  restockProductViaApi,
+} from './helpers';
 
 test.describe('Ciclo de vida de productos y recetas', () => {
   test.beforeEach(async ({ page }) => {
@@ -350,6 +355,48 @@ test.describe('Papelera de productos', () => {
     const productRes = await page.request.get(`/api/productos/${product.id}`);
     expect(productRes.status()).toBe(404);
   });
+
+  test('vacia la papelera masivamente por rango de fechas', async ({ page }) => {
+    const product1 = await createProductViaApi(page, {
+      name: unique('Papelera masiva 1'),
+      type: 'manual_supply',
+      price: 0,
+      unit: 'unidad',
+      isActive: true,
+    });
+
+    const product2 = await createProductViaApi(page, {
+      name: unique('Papelera masiva 2'),
+      type: 'service',
+      price: 100,
+      unit: 'unidad',
+      isActive: true,
+    });
+
+    await page.request.delete(`/api/productos/${product1.id}`);
+    await page.request.delete(`/api/productos/${product2.id}`);
+
+    await page.goto('/productos/eliminados');
+    await expect(
+      page.getByRole('heading', { name: 'Papelera de productos' })
+    ).toBeVisible();
+    await expect(page.getByText(product1.name)).toBeVisible();
+    await expect(page.getByText(product2.name)).toBeVisible();
+
+    await page.getByTestId('empty-trash').click();
+    await page.getByTestId('confirm-dialog-confirm').click();
+
+    await expect(page.getByTestId('trash-result')).toBeVisible();
+    await expect(page.getByTestId('trash-deleted-count')).toHaveText('2');
+
+    await expect(page.getByText(product1.name)).not.toBeVisible();
+    await expect(page.getByText(product2.name)).not.toBeVisible();
+
+    const productRes1 = await page.request.get(`/api/productos/${product1.id}`);
+    expect(productRes1.status()).toBe(404);
+    const productRes2 = await page.request.get(`/api/productos/${product2.id}`);
+    expect(productRes2.status()).toBe(404);
+  });
 });
 
 test.describe('Edición y eliminación de promos', () => {
@@ -538,5 +585,70 @@ test.describe('Edición y eliminación de promos', () => {
 
     const productRes = await page.request.get(`/api/productos/${promo.id}`);
     expect(productRes.status()).toBe(404);
+  });
+
+  test('muestra el stock de insumos y la disponibilidad estimada al editar una promo', async ({
+    page,
+  }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan stock visible'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 400,
+      unit: 'unidad',
+      isActive: true,
+    });
+
+    const salchicha = await createProductViaApi(page, {
+      name: unique('Salchicha stock visible'),
+      type: 'critical_supply',
+      criticalSupplyType: 'sausage',
+      price: 300,
+      unit: 'unidad',
+      isActive: true,
+    });
+
+    await restockProductViaApi(page, pan.id, 12);
+    await restockProductViaApi(page, salchicha.id, 8);
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo stock visible'),
+      type: 'compound',
+      price: 1200,
+      unit: 'unidad',
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          { supplyId: pan.id, quantity: 1, autoDiscount: true },
+          { supplyId: salchicha.id, quantity: 2, autoDiscount: true },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto(`/productos/${promo.id}/editar`);
+    await expect(page.getByText('Stock de insumos seleccionados')).toBeVisible();
+
+    const stockItems = page.locator('[data-testid="promo-stock-item"]');
+    await expect(stockItems).toHaveCount(2);
+
+    const panItem = stockItems.filter({ hasText: pan.name });
+    const salchichaItem = stockItems.filter({ hasText: salchicha.name });
+    await expect(panItem).toContainText('12 unidad en stock');
+    await expect(salchichaItem).toContainText('8 unidad en stock');
+
+    await expect(
+      page.getByText(/Con el stock crítico actual se pueden armar aproximadamente/)
+    ).toBeVisible();
+
+    // min(12/1, 8/2) = 4
+    const availability = page.locator('p').filter({
+      hasText: /Con el stock crítico actual se pueden armar aproximadamente/,
+    });
+    await expect(availability).toContainText('4');
   });
 });

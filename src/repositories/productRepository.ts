@@ -1,9 +1,9 @@
-import { eq, inArray, isNull, and } from 'drizzle-orm';
+import { eq, inArray, isNull, isNotNull, and, gte, lte, count } from 'drizzle-orm';
 import { db } from '@/db';
 import { products } from '@/db/schema';
 import { getCurrentTransaction } from '@/application/transactionService';
 import { nowUTC } from '@/lib/date';
-import type { ProductRow } from '@/domain/types';
+import type { PaginationParams, PaginatedResult, ProductRow } from '@/domain/types';
 import type { productSchema } from '@/lib/zod-schemas';
 import type { z } from 'zod';
 
@@ -117,6 +117,42 @@ export async function findActive(branchId: number): Promise<ProductRow[]> {
     ),
     orderBy: (products, { asc }) => [asc(products.name)],
   });
+}
+
+export async function findDeletedInRange(
+  branchId: number,
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+): Promise<PaginatedResult<ProductRow>> {
+  const conditions = [
+    eq(products.branchId, branchId),
+    isNotNull(products.deletedAt),
+    gte(products.deletedAt, start),
+    lte(products.deletedAt, end),
+  ];
+
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(products)
+    .where(and(...conditions));
+
+  const limit = pagination?.limit;
+  const offset = pagination ? (pagination.page - 1) * pagination.limit : undefined;
+
+  const items = await db.query.products.findMany({
+    where: and(...conditions),
+    orderBy: (products, { asc }) => [asc(products.name)],
+    limit,
+    offset,
+  });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination?.page ?? 1,
+    limit: limit ?? total,
+  };
 }
 
 export async function create(data: ProductInsert & { branchId: number }): Promise<ProductRow | undefined> {

@@ -6,8 +6,8 @@ import { db } from '@/db';
 import * as productRepository from '@/repositories/productRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { collectStockProductIdsToLock } from '@/lib/stock-helpers';
+import { calculateCompoundAvailability } from '@/lib/availability-helpers';
 import {
-  calculateCompoundAvailability,
   findRecipesForProducts,
   groupRecipesByProduct,
   type RecipeWithSupply,

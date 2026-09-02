@@ -20,9 +20,19 @@ import {
 } from '@/lib/product-image-storage';
 import { ZodError } from 'zod';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
+import type { PaginationParams } from '@/domain/types';
 
 export async function listProducts(branchId: number, includeDeleted = false) {
   return productRepository.findAll(branchId, includeDeleted);
+}
+
+export async function listDeletedProducts(
+  branchId: number,
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+) {
+  return productRepository.findDeletedInRange(branchId, start, end, pagination);
 }
 
 export async function getProductById(
@@ -274,4 +284,34 @@ export async function permanentlyDeleteProduct(branchId: number, id: number) {
   }
 
   return product;
+}
+
+export async function emptyTrash(
+  branchId: number,
+  start: Date,
+  end: Date
+): Promise<{ deleted: number; skipped: Array<{ id: number; name: string }> }> {
+  const { items: deletedProducts } = await productRepository.findDeletedInRange(
+    branchId,
+    start,
+    end
+  );
+
+  let deleted = 0;
+  const skipped: Array<{ id: number; name: string }> = [];
+
+  for (const product of deletedProducts) {
+    try {
+      await permanentlyDeleteProduct(branchId, product.id);
+      deleted++;
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        skipped.push({ id: product.id, name: product.name });
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  return { deleted, skipped };
 }

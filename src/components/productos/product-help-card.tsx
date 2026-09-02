@@ -72,8 +72,9 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
         </p>
         <p>
           El stock se carga al inicio y se ajusta desde la página Stock. La
-          unidad se asigna automáticamente (botella para bebidas, unidad para el
-          resto).
+          unidad se puede editar: por ejemplo, botella para bebidas, porción o
+          envase para aderezos, litro para artículos de limpieza y unidad para
+          servicios.
         </p>
       </CardContent>
     </Card>

@@ -1,7 +1,7 @@
 'use client';
 
 import { authenticatedFetch } from '@/lib/fetch';
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,10 @@ import {
 } from './product-image-uploader';
 import { uploadProductImage } from '@/lib/product-image-upload-client';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
+import {
+  calculateCompoundAvailability,
+  type CompoundAvailabilityRecipe,
+} from '@/lib/availability-helpers';
 import { routes } from '@/config/routes';
 import {
   productTypeBadgeClasses,
@@ -104,6 +108,35 @@ export function PromoForm({ product }: PromoFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [image, setImage] = useState<ProductImageValue>({ source: 'none' });
+
+  const supplyById = useMemo(
+    () => new Map(supplies.map((s) => [s.id, s])),
+    [supplies]
+  );
+
+  const selectedRecipeItems = useMemo(
+    () => recipeItems.filter((item) => item.supplyId),
+    [recipeItems]
+  );
+
+  const recipeForAvailability = useMemo<CompoundAvailabilityRecipe[]>(
+    () =>
+      selectedRecipeItems.map((item) => {
+        const supply = supplyById.get(item.supplyId);
+        return {
+          supplyId: item.supplyId,
+          quantity: item.quantity,
+          autoDiscount: supply?.type === 'critical_supply',
+          supply: supply ? { stock: supply.stock } : null,
+        };
+      }),
+    [selectedRecipeItems, supplyById]
+  );
+
+  const promoAvailability = useMemo(
+    () => calculateCompoundAvailability(recipeForAvailability),
+    [recipeForAvailability]
+  );
 
   useEffect(() => {
     async function load() {
@@ -656,6 +689,61 @@ export function PromoForm({ product }: PromoFormProps) {
               <p className="mt-1 text-xs text-muted-foreground">
                 Agregá al menos un insumo crítico para que el descuento de stock sea automático.
               </p>
+            </div>
+          )}
+
+          {selectedRecipeItems.length > 0 && (
+            <div className="mt-5 border-t border-white/8 pt-4">
+              <h4 className="mb-3 text-sm font-medium">
+                Stock de insumos seleccionados
+              </h4>
+              <ul className="space-y-2">
+                {selectedRecipeItems.map((item, index) => {
+                  const supply = supplyById.get(item.supplyId);
+                  if (!supply) return null;
+
+                  return (
+                    <li
+                      key={index}
+                      data-testid="promo-stock-item"
+                      data-supply-name={supply.name}
+                      className="flex items-center justify-between rounded-lg bg-muted/30 p-2 text-sm"
+                    >
+                      <span>{supply.name}</span>
+                      <span className="font-mono">
+                        {supply.stock} {supply.unit} en stock · usa{' '}
+                        {item.quantity} {supply.unit}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {recipeForAvailability.some((r) => r.autoDiscount) && (
+                <p
+                  className={cn(
+                    'mt-3 text-sm',
+                    promoAvailability > 0
+                      ? 'text-muted-foreground'
+                      : 'text-destructive'
+                  )}
+                >
+                  {promoAvailability > 0 ? (
+                    <>
+                      Con el stock crítico actual se pueden armar aproximadamente{' '}
+                      <span className="font-mono font-medium text-foreground">
+                        {promoAvailability}
+                      </span>{' '}
+                      promos.
+                    </>
+                  ) : (
+                    <>
+                      No hay stock crítico suficiente para armar promos con la
+                      configuración actual.
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )}
         </CardContent>

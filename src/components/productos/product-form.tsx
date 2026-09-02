@@ -59,6 +59,7 @@ export function ProductForm({ product }: ProductFormProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unitTouched, setUnitTouched] = useState(() => !!product);
 
   const isCritical = form.type === 'critical_supply';
   const isManual = form.type === 'manual_supply';
@@ -74,7 +75,7 @@ export function ProductForm({ product }: ProductFormProps) {
       criticalSupplyType: nextCriticalSupplyType,
       stock: isStockless ? 0 : form.stock,
       minStock: isStockless ? 0 : form.minStock,
-      unit: defaultUnit(value, nextCriticalSupplyType),
+      unit: unitTouched ? form.unit : defaultUnit(value, nextCriticalSupplyType),
       price: value === 'manual_supply' ? 0 : form.price,
     });
   }
@@ -84,7 +85,7 @@ export function ProductForm({ product }: ProductFormProps) {
     setForm({
       ...form,
       criticalSupplyType: next,
-      unit: defaultUnit(form.type, next),
+      unit: unitTouched ? form.unit : defaultUnit(form.type, next),
     });
   }
 
@@ -233,13 +234,7 @@ export function ProductForm({ product }: ProductFormProps) {
         </div>
       </div>
 
-      <div
-        className={
-          isManual
-            ? 'grid grid-cols-1 gap-5'
-            : 'grid grid-cols-1 gap-5 sm:grid-cols-2'
-        }
-      >
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {!isManual && (
           <div className="space-y-2">
             <Label htmlFor="price">Precio</Label>
@@ -259,6 +254,22 @@ export function ProductForm({ product }: ProductFormProps) {
             </p>
           </div>
         )}
+
+        <div className="space-y-2">
+          <Label htmlFor="unit">Unidad</Label>
+          <Input
+            id="unit"
+            value={form.unit}
+            onChange={(e) => {
+              setUnitTouched(true);
+              setForm({ ...form, unit: e.target.value });
+            }}
+            required
+          />
+          <p className="text-sm text-muted-foreground">
+            Ej: unidad, porción, envase, litro, kg, botella.
+          </p>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="minStock">Stock mínimo</Label>

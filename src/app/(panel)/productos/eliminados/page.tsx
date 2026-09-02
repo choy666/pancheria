@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ProductTrashActions } from '@/components/productos/product-trash-actions';
+import { ProductTrashEmptyButton } from '@/components/productos/product-trash-empty-button';
 import { productTypeLabels } from '@/lib/product-style';
 import { formatMoney } from '@/lib/money';
 import {
@@ -43,6 +44,8 @@ export default async function ProductsTrashPage() {
           <Button variant="outline">Volver a productos</Button>
         </Link>
       </div>
+
+      <ProductTrashEmptyButton />
 
       <div className="rounded-2xl border border-white/8">
         <Table>
