@@ -798,7 +798,7 @@ describe('SalesTerminal', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId('payment-cash-input')).toHaveValue(1000)
+      expect(screen.getByTestId('payment-cash-input')).toHaveValue('1000')
     );
 
     fireEvent.change(screen.getByTestId('payment-transfer-input'), {
@@ -806,7 +806,7 @@ describe('SalesTerminal', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('payment-transfer-input')).toHaveValue(500);
+      expect(screen.getByTestId('payment-transfer-input')).toHaveValue('500');
       expect(
         screen.getByTestId('payment-remaining-badge')
       ).toHaveTextContent('Pago completo');
@@ -814,5 +814,65 @@ describe('SalesTerminal', () => {
         screen.getByTestId('payment-mixed-badge')
       ).toHaveTextContent('Mixto');
     });
+  });
+
+  test('deshabilita Confirmar venta cuando el pago no cubre el total', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-cart-quantity-1')).toBeInTheDocument()
+    );
+
+    await waitFor(() => {
+      const button = screen.getByTestId('confirm-sale-button');
+      expect(button).toHaveTextContent('Confirmar venta');
+      expect(button).not.toBeDisabled();
+    });
+
+    fireEvent.change(screen.getByTestId('payment-cash-input'), {
+      target: { value: '1000' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('payment-remaining-badge')).toHaveTextContent(
+        'Faltan: $ 500'
+      )
+    );
+
+    const button = screen.getByTestId('confirm-sale-button');
+    expect(button).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('payment-cash-complete-rest'));
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('payment-remaining-badge')
+      ).toHaveTextContent('Pago completo')
+    );
+
+    expect(button).not.toBeDisabled();
   });
 });

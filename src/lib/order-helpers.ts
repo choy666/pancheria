@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'crypto';
 import { nowUTC } from '@/lib/date';
+import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { SaleItemValue } from '@/lib/sale-helpers';
 import type { RecipeItemConfig } from '@/domain/types';
 
@@ -72,19 +73,7 @@ export function buildOrderItemValues(
 }
 
 function formatRecipeItemLine(recipe: RecipeItemConfig[]): string {
-  const selected = recipe.filter((r) => !r.isOptional || r.selected);
-  const removed = recipe.filter((r) => r.isOptional && !r.selected);
-
-  const selectedText =
-    selected.length > 0
-      ? `Incluye: ${selected.map((r) => r.supplyName).join(', ')}`
-      : '';
-  const removedText =
-    removed.length > 0
-      ? `Sin: ${removed.map((r) => r.supplyName).join(', ')}`
-      : '';
-
-  return [selectedText, removedText].filter(Boolean).join(' — ');
+  return formatRecipeSummary(recipe);
 }
 
 export function buildRecipeSnapshotMessageContent(

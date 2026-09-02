@@ -12,6 +12,7 @@ import {
 } from '@/lib/product-style';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import { formatMoney } from '@/lib/money';
+import { formatRecipeItemName } from '@/lib/recipe-helpers';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
@@ -57,7 +58,9 @@ export function ProductCard({
 
   const includedItems = recipe
     .filter((item) => !item.isOptional || item.selectedByDefault)
-    .map((item) => item.supplyName);
+    .map((item) =>
+      item.isOptional ? item.supplyName : formatRecipeItemName(item)
+    );
 
   const handleAdd = () => {
     if (hasOptions) {

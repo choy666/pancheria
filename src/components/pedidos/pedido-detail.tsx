@@ -25,6 +25,8 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
     error,
     payments,
     setPayments,
+    isPaymentComplete,
+    paymentRemaining,
     cancelReason,
     setCancelReason,
     actionError,
@@ -79,6 +81,8 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
             cashRegister={cashRegister}
             payments={payments}
             setPayments={setPayments}
+            isPaymentComplete={isPaymentComplete}
+            paymentRemaining={paymentRemaining}
             cancelReason={cancelReason}
             setCancelReason={setCancelReason}
             actionError={actionError}

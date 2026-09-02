@@ -26,7 +26,7 @@ import {
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
 import { formatMoney } from '@/lib/money';
-import type { PaymentPart } from '@/domain/types';
+import { usePaymentParts } from '@/hooks/usePaymentParts';
 
 export function SalesTerminal() {
   const router = useRouter();
@@ -34,9 +34,6 @@ export function SalesTerminal() {
   const [products, setProducts] = useState<SellableProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
-  const [customPayments, setCustomPayments] = useState<PaymentPart[] | null>(
-    null
-  );
   const [promoDialogProduct, setPromoDialogProduct] =
     useState<SellableProduct | null>(null);
   const [loading, setLoading] = useState(true);
@@ -225,12 +222,12 @@ export function SalesTerminal() {
     0
   );
 
-  const paymentParts = useMemo<PaymentPart[]>(() => {
-    if (customPayments && customPayments.length > 0) {
-      return customPayments;
-    }
-    return [{ method: 'cash', amount: total }];
-  }, [customPayments, total]);
+  const {
+    paymentParts,
+    setPayments: setCustomPayments,
+    remaining,
+    isComplete,
+  } = usePaymentParts(total, { redistributeOnTotalChange: true });
 
   async function confirmSale() {
     if (cart.length === 0) {
@@ -246,12 +243,13 @@ export function SalesTerminal() {
       return;
     }
 
-    const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
-    if (Math.round(paid) !== Math.round(total)) {
+    if (!isComplete) {
       setError(
-        `El pago no cubre el total. Faltan ${formatMoney(
-          Math.max(0, total - paid)
-        )} o sobran ${formatMoney(Math.max(0, paid - total))}.`
+        `El pago no cubre el total. ${
+          remaining > 0
+            ? `Faltan ${formatMoney(remaining)}.`
+            : `Sobran ${formatMoney(Math.abs(remaining))}.`
+        }`
       );
       return;
     }
@@ -399,6 +397,7 @@ export function SalesTerminal() {
           hasShortage={Object.keys(cartShortage).length > 0}
           total={total}
           paymentParts={paymentParts}
+          isPaymentComplete={isComplete}
           onPaymentChange={setCustomPayments}
           onUpdateQuantity={updateQuantity}
           onConfirm={confirmSale}

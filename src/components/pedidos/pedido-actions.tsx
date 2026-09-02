@@ -3,6 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
+import { formatMoney } from '@/lib/money';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus, PaymentPart } from '@/domain/types';
 
@@ -12,6 +13,8 @@ interface PedidoActionsProps {
   cashRegister: CashRegister | null;
   payments: PaymentPart[];
   setPayments: (value: PaymentPart[]) => void;
+  isPaymentComplete: boolean;
+  paymentRemaining: number;
   cancelReason: string;
   setCancelReason: (value: string) => void;
   actionError: string | null;
@@ -29,6 +32,8 @@ export function PedidoActions({
   cashRegister,
   payments,
   setPayments,
+  isPaymentComplete,
+  paymentRemaining,
   cancelReason,
   setCancelReason,
   actionError,
@@ -85,6 +90,13 @@ export function PedidoActions({
               onChange={setPayments}
               disabled={!canConfirm || isSubmitting}
             />
+            {!isPaymentComplete && canConfirm && (
+              <p className="text-sm text-amber-500">
+                {paymentRemaining > 0
+                  ? `Faltan ${formatMoney(paymentRemaining)} para completar el pago.`
+                  : `Sobran ${formatMoney(Math.abs(paymentRemaining))}. Ajustá el pago antes de confirmar.`}
+              </p>
+            )}
           </div>
 
           {whatsappUrl && (
@@ -101,7 +113,7 @@ export function PedidoActions({
           <Button
             className="w-full"
             onClick={onConfirm}
-            disabled={!canConfirm || isSubmitting}
+            disabled={!canConfirm || isSubmitting || !isPaymentComplete}
           >
             {isSubmitting ? 'Confirmando...' : 'Confirmar pago'}
           </Button>

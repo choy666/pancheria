@@ -13,6 +13,7 @@ import {
   PEDIDOS_CANCELAR_API,
 } from '@/config/api';
 import { useCashRegister } from '@/hooks/useCashRegister';
+import { usePaymentParts } from '@/hooks/usePaymentParts';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus, DeliveryType, PaymentPart, OrderMessage } from '@/domain/types';
 
@@ -55,6 +56,8 @@ export interface UsePedidoDetailResult {
   error: string | null;
   payments: PaymentPart[];
   setPayments: (value: PaymentPart[]) => void;
+  isPaymentComplete: boolean;
+  paymentRemaining: number;
   cancelReason: string;
   setCancelReason: (value: string) => void;
   actionError: string | null;
@@ -81,17 +84,16 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [paymentOverrides, setPaymentOverrides] = useState<PaymentPart[] | null>(null);
-  const paymentParts = useMemo<PaymentPart[]>(() => {
-    if (!order) return [];
-    if (paymentOverrides) {
-      const paid = paymentOverrides.reduce((sum, part) => sum + part.amount, 0);
-      if (Math.abs(paid - order.total) < 0.005) {
-        return paymentOverrides;
-      }
-    }
-    return [{ method: 'cash', amount: order.total }];
-  }, [paymentOverrides, order]);
+  const orderTotal = order?.total ?? 0;
+  const {
+    paymentParts,
+    setPayments: setPaymentOverrides,
+    remaining,
+    isComplete,
+  } = usePaymentParts(orderTotal, {
+    defaultMethod: 'cash',
+    fallbackOnInvalid: false,
+  });
   const [cancelReason, setCancelReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -214,12 +216,13 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       return;
     }
 
-    const paid = paymentParts.reduce((sum, part) => sum + part.amount, 0);
-    if (Math.round(paid) !== Math.round(order.total)) {
+    if (!isComplete) {
       setActionError(
-        `El pago no cubre el total. Faltan ${formatMoney(
-          Math.max(0, order.total - paid)
-        )} o sobran ${formatMoney(Math.max(0, paid - order.total))}.`
+        `El pago no cubre el total. ${
+          remaining > 0
+            ? `Faltan ${formatMoney(remaining)}.`
+            : `Sobran ${formatMoney(Math.abs(remaining))}.`
+        }`
       );
       return;
     }
@@ -327,6 +330,8 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     error,
     payments: paymentParts,
     setPayments: setPaymentOverrides,
+    isPaymentComplete: isComplete,
+    paymentRemaining: remaining,
     cancelReason,
     setCancelReason,
     actionError,

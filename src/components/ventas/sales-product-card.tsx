@@ -8,6 +8,7 @@ import {
   type SellableProduct,
 } from '@/lib/ventas-helpers';
 import { formatMoney } from '@/lib/money';
+import { formatRecipeItemName } from '@/lib/recipe-helpers';
 
 interface SalesProductCardProps {
   product: SellableProduct;
@@ -96,7 +97,9 @@ export function SalesProductCard({
               Incluye:{' '}
               {product.recipe
                 .filter((item) => !item.isOptional || item.selectedByDefault)
-                .map((item) => item.supplyName)
+                .map((item) =>
+                  item.isOptional ? item.supplyName : formatRecipeItemName(item)
+                )
                 .join(', ')}
             </p>
           )}

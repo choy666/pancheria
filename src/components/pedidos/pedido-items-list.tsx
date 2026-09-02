@@ -1,4 +1,5 @@
 import { formatMoney } from '@/lib/money';
+import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { RecipeItemConfig } from '@/domain/types';
 
 interface OrderDetailItem {
@@ -25,17 +26,10 @@ function ItemRecipeDetails({
 }) {
   if (!recipeSnapshot || recipeSnapshot.length === 0) return null;
 
-  const selected = recipeSnapshot.filter((r) => !r.isOptional || r.selected);
-  const removed = recipeSnapshot.filter((r) => r.isOptional && !r.selected);
+  const summary = formatRecipeSummary(recipeSnapshot);
+  if (!summary) return null;
 
-  return (
-    <p className="text-xs text-muted-foreground">
-      {selected.length > 0 &&
-        `Incluye: ${selected.map((r) => `${r.supplyName} (${r.quantity})`).join(', ')}.`}
-      {removed.length > 0 &&
-        ` Sin: ${removed.map((r) => `${r.supplyName} (${r.quantity})`).join(', ')}.`}
-    </p>
-  );
+  return <p className="text-xs text-muted-foreground">{summary}</p>;
 }
 
 export function PedidoItemsList({ items }: PedidoItemsListProps) {

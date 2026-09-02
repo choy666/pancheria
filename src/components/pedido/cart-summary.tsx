@@ -1,25 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/money';
+import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { CartItem } from '@/hooks/useCart';
 
 function CartItemRecipeDetails({ item }: { item: CartItem }) {
   if (!item.recipe || item.recipe.length === 0) return null;
 
   const selectedIds = new Set(item.selectedRecipeItemIds ?? []);
-  const selected = item.recipe.filter(
-    (r) => !r.isOptional || selectedIds.has(r.supplyId)
-  );
-  const removed = item.recipe.filter(
-    (r) => r.isOptional && !selectedIds.has(r.supplyId)
-  );
+  const recipeWithSelection = item.recipe.map((r) => ({
+    ...r,
+    selected: !r.isOptional || selectedIds.has(r.supplyId),
+  }));
 
-  return (
-    <span>
-      {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
-      {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
-    </span>
-  );
+  const summary = formatRecipeSummary(recipeWithSelection);
+  if (!summary) return null;
+
+  return <span>{summary}</span>;
 }
 
 interface CartSummaryProps {

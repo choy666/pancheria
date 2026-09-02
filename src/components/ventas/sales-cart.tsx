@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
 import { getProductAdditional, type CartItem } from '@/lib/ventas-helpers';
 import { formatMoney } from '@/lib/money';
+import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { PaymentPart } from '@/domain/types';
 
 interface SalesCartProps {
@@ -16,6 +17,7 @@ interface SalesCartProps {
   hasShortage: boolean;
   total: number;
   paymentParts: PaymentPart[];
+  isPaymentComplete: boolean;
   onPaymentChange: (payments: PaymentPart[]) => void;
   onUpdateQuantity: (productId: number, quantity: number) => void;
   onConfirm: () => void;
@@ -26,21 +28,15 @@ function SalesCartItemRecipeDetails({ item }: { item: CartItem }) {
   if (!recipe || recipe.length === 0) return null;
 
   const selectedIds = new Set(item.selectedRecipeItemIds ?? []);
-  const selected = recipe.filter(
-    (r) => !r.isOptional || selectedIds.has(r.supplyId)
-  );
-  const removed = recipe.filter(
-    (r) => r.isOptional && !selectedIds.has(r.supplyId)
-  );
+  const recipeWithSelection = recipe.map((r) => ({
+    ...r,
+    selected: !r.isOptional || selectedIds.has(r.supplyId),
+  }));
 
-  return (
-    <span>
-      {selected.length > 0 &&
-        `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
-      {removed.length > 0 &&
-        ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
-    </span>
-  );
+  const summary = formatRecipeSummary(recipeWithSelection);
+  if (!summary) return null;
+
+  return <span>{summary}</span>;
 }
 
 export function SalesCart({
@@ -52,6 +48,7 @@ export function SalesCart({
   hasShortage,
   total,
   paymentParts,
+  isPaymentComplete,
   onPaymentChange,
   onUpdateQuantity,
   onConfirm,
@@ -157,12 +154,14 @@ export function SalesCart({
           <Button
             type="button"
             className="w-full"
+            data-testid="confirm-sale-button"
             disabled={
               cart.length === 0 ||
               isSubmitting ||
               cartDisabled ||
               hasShortage ||
-              isCheckingAvailability
+              isCheckingAvailability ||
+              !isPaymentComplete
             }
             onClick={onConfirm}
           >

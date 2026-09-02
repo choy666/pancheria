@@ -57,12 +57,12 @@ function renderSection(
                     htmlFor={inputId}
                     className="text-sm"
                   >
-                    {item.supplyName} ({item.quantity})
+                    {item.isOptional ? item.supplyName : `${item.supplyName} (${item.quantity})`}
                   </label>
                 </>
               ) : (
                 <span className="text-sm text-muted-foreground">
-                  {item.supplyName} ({item.quantity})
+                  {item.isOptional ? item.supplyName : `${item.supplyName} (${item.quantity})`}
                 </span>
               )}
             </li>

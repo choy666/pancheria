@@ -27,6 +27,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VENTAS_API } from '@/config/api';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
+import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { PaginatedResult, PaymentMethod, PaymentPart, RecipeItemConfig, SaleStatus } from '@/domain/types';
 
 interface Sale {
@@ -57,19 +58,7 @@ const paymentLabels: Record<string, string> = {
 
 function formatItemRecipeDetails(recipeSnapshot?: RecipeItemConfig[]): string {
   if (!recipeSnapshot || recipeSnapshot.length === 0) return '';
-
-  const selected = recipeSnapshot.filter((r) => !r.isOptional || r.selected);
-  const removed = recipeSnapshot.filter((r) => r.isOptional && !r.selected);
-
-  const parts: string[] = [];
-  if (selected.length > 0) {
-    parts.push(`Incluye: ${selected.map((r) => r.supplyName).join(', ')}`);
-  }
-  if (removed.length > 0) {
-    parts.push(`Sin: ${removed.map((r) => r.supplyName).join(', ')}`);
-  }
-
-  return parts.join('. ');
+  return formatRecipeSummary(recipeSnapshot);
 }
 
 export function SalesHistory({
