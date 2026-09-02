@@ -127,7 +127,6 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
-- [Plan de implementación — mejoras en productos, stock en promos y papelera](plan-mejoras-productos-stock-y-papelera.md) — unidad editable, stock de insumos en `PromoForm` y vaciado masivo de papelera de productos.
 
 ### Prompts archivados
 
@@ -142,6 +141,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Imágenes ilustrativas para promos y catálogo público](archivados/plan-imagenes-promos.md) — resuelto: imágenes de productos/promos en catálogo público; migración `0021_ambiguous_mandarin.sql`.
 - [Auditoría, depuración y mejoras de UX del módulo de ventas](archivados/auditoria-y-mejoras-ventas.md) — resuelto: productos agotados ocultos por defecto, pago mixto con badge "Mixto" y refactor de `SalesTerminal` en `SalesProductCard`/`SalesCart`; ver `src/lib/ventas-helpers.ts`.
 - [Cerrar pendientes de hard delete, papelera y limpieza de cachés](archivados/implementar-pendientes-hard-delete-cache.md) — resuelto: E2E pasa con 98 tests, diálogos de confirmación en videos, `deletedProducts` y limpieza de código muerto en `recipeRepository`.
+- [Plan de implementación — mejoras en productos, stock en promos y papelera](archivados/plan-mejoras-productos-stock-y-papelera.md) — resuelto: unidad editable en `ProductForm`, stock de insumos y disponibilidad en `PromoForm`, vaciado masivo de papelera con paginación en `findDeletedInRange` y tests E2E.
 
 ## Véase también
 
