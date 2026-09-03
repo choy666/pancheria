@@ -557,6 +557,42 @@ describe('validateCartAvailability', () => {
     expect(result.consumedBySupply[2]).toBeUndefined();
     expect(result.availabilityByProduct[1]).toBe(Number.MAX_SAFE_INTEGER);
   });
+
+  test('calcula consumo y disponibilidad con dos líneas del mismo producto y selecciones distintas', async () => {
+    setProducts([
+      { id: 1, name: 'Promo', type: 'compound', price: 2000 },
+      {
+        id: 2,
+        name: 'Gaseosa',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        stock: 3,
+        price: 0,
+      },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 2,
+        quantity: 1,
+        autoDiscount: true,
+        isOptional: true,
+        selectedByDefault: false,
+        supply: { name: 'Gaseosa', stock: 3 },
+      }),
+    ]);
+
+    const result = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 1, selectedRecipeItemIds: [2] },
+      { productId: 1, quantity: 1, selectedRecipeItemIds: [] },
+    ]);
+
+    expect(result.consumedBySupply[2]).toBe(1);
+    expect(result.availabilityByProduct[1]).toBe(2);
+    expect(result.shortageByProduct).toEqual({});
+  });
 });
 
 describe('buildSaleItemValues', () => {

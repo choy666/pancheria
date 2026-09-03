@@ -34,6 +34,10 @@ export function CheckoutSummary({ items, total }: CheckoutSummaryProps) {
           {items.map((item) => (
             <li
               key={item.lineId}
+              data-testid="checkout-item"
+              data-line-id={item.lineId}
+              data-product-id={item.id}
+              data-product-name={item.name}
               className="flex items-start justify-between gap-3 text-sm"
             >
               <div className="min-w-0 flex-1">

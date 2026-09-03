@@ -37,6 +37,7 @@ export function SalesTerminal() {
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [promoDialogProduct, setPromoDialogProduct] =
     useState<SellableProduct | null>(null);
+  const [promoDialogKey, setPromoDialogKey] = useState(0);
   const [editingLine, setEditingLine] = useState<{
     lineId: string;
     product: SellableProduct;
@@ -167,6 +168,7 @@ export function SalesTerminal() {
     const optionalItems =
       product.recipe?.filter((item) => item.isOptional) ?? [];
     if (optionalItems.length > 0 && selectedRecipeItemIds === undefined) {
+      setPromoDialogKey((prev) => prev + 1);
       setPromoDialogProduct(product);
       return;
     }
@@ -485,6 +487,7 @@ export function SalesTerminal() {
 
       {promoDialogProduct && !editingLine && (
         <PromoOptionsDialog
+          key={promoDialogKey}
           open={promoDialogProduct !== null}
           onOpenChange={(open) => {
             if (!open) setPromoDialogProduct(null);

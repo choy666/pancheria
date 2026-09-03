@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, unique, createProductViaApi, getTestSecondBranch, ensureCashRegisterOpen, setUniqueClientIp, clearSession } from './helpers';
+import { login, unique, createProductViaApi, restockProductViaApi, getTestSecondBranch, ensureCashRegisterOpen, setUniqueClientIp, clearSession } from './helpers';
 
 test.describe('Pedido público con chat', () => {
   test.beforeEach(async ({ page }) => {
@@ -40,6 +40,213 @@ test.describe('Pedido público con chat', () => {
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
     await expect(page.getByText('Chat del pedido')).toBeVisible();
+  });
+
+  test('agrega dos variantes del mismo producto con personalizaciones distintas', async ({
+    page,
+  }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan multilinea'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+    await restockProductViaApi(page, pan.id, 10);
+
+    const cebolla = await createProductViaApi(page, {
+      name: unique('Cebolla multilinea'),
+      type: 'manual_supply',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo multilinea'),
+      type: 'compound',
+      price: 1500,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          {
+            supplyId: pan.id,
+            quantity: 1,
+            autoDiscount: true,
+            isOptional: false,
+            supplyType: 'critical_supply',
+          },
+          {
+            supplyId: cebolla.id,
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selectedByDefault: false,
+            supplyType: 'manual_supply',
+          },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/pedido');
+    await expect(page.getByTestId(`product-card-${promo.id}`)).toBeVisible();
+
+    // Agregar la primera variante: con cebolla.
+    await page.getByTestId(`add-product-${promo.id}`).click();
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page
+      .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
+      .check();
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    await expect(page.locator(`[data-product-id="${promo.id}"]`)).toHaveCount(
+      1,
+      { timeout: 5000 }
+    );
+
+    // Agregar la segunda variante: sin cebolla.
+    await page.getByTestId(`add-product-${promo.id}`).click();
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    await expect(page.locator(`[data-product-id="${promo.id}"]`)).toHaveCount(
+      2,
+      { timeout: 5000 }
+    );
+
+    // El checkout muestra ambas líneas.
+    await page.getByRole('button', { name: 'Hacer pedido' }).click();
+    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="checkout-item"][data-product-id="' + promo.id + '"]')
+    ).toHaveCount(2);
+
+    await page.getByLabel('Nombre').fill('Juan Pérez');
+    await page.getByLabel('Teléfono').fill('3415555555');
+    await page.getByRole('button', { name: 'Confirmar pedido' }).click();
+
+    await expect(page.getByText('Pedido creado')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('edita una línea del pedido y la une con otra idéntica', async ({
+    page,
+  }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan edicion'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+    await restockProductViaApi(page, pan.id, 10);
+
+    const cebolla = await createProductViaApi(page, {
+      name: unique('Cebolla edicion'),
+      type: 'manual_supply',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo edicion'),
+      type: 'compound',
+      price: 1500,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          {
+            supplyId: pan.id,
+            quantity: 1,
+            autoDiscount: true,
+            isOptional: false,
+            supplyType: 'critical_supply',
+          },
+          {
+            supplyId: cebolla.id,
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selectedByDefault: false,
+            supplyType: 'manual_supply',
+          },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/pedido');
+    await expect(page.getByTestId(`product-card-${promo.id}`)).toBeVisible();
+
+    // Agregar variante con cebolla.
+    await page.getByTestId(`add-product-${promo.id}`).click();
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page
+      .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
+      .check();
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    // Agregar variante sin cebolla.
+    await page.getByTestId(`add-product-${promo.id}`).click();
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    await expect(page.locator(`[data-product-id="${promo.id}"]`)).toHaveCount(
+      2,
+      { timeout: 5000 }
+    );
+
+    // Editar la segunda línea para que quede igual a la primera.
+    const secondLine = page
+      .locator(`[data-product-id="${promo.id}"]`)
+      .nth(1);
+    await secondLine
+      .getByRole('button', { name: `Editar personalización de ${promo.name}` })
+      .click();
+
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page
+      .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
+      .check();
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    // Debería quedar una sola línea con cantidad 2.
+    await expect(page.locator(`[data-product-id="${promo.id}"]`)).toHaveCount(
+      1,
+      { timeout: 5000 }
+    );
+    await expect(
+      page.locator(`[data-product-id="${promo.id}"]`).getByText('2', { exact: true })
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test('crea un pedido en una sucursal no default y abre el chat', async ({

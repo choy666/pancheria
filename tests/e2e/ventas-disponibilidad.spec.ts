@@ -263,4 +263,107 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await ensureCashRegisterClosed(page);
   });
+
+  test('permite vender dos variantes del mismo producto con personalizaciones distintas', async ({
+    page,
+  }) => {
+    await ensureCashRegisterOpen(page);
+
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan multilinea'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+    await restockProductViaApi(page, pan.id, 10);
+
+    const cebolla = await createProductViaApi(page, {
+      name: unique('Cebolla multilinea'),
+      type: 'manual_supply',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo multilinea'),
+      type: 'compound',
+      price: 1500,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          {
+            supplyId: pan.id,
+            quantity: 1,
+            autoDiscount: true,
+            isOptional: false,
+            supplyType: 'critical_supply',
+          },
+          {
+            supplyId: cebolla.id,
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selectedByDefault: false,
+            supplyType: 'manual_supply',
+          },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/ventas');
+
+    const card = page.locator(
+      '[data-testid="product-card"][data-product-name="' + promo.name + '"]'
+    );
+    await expect(card).toBeVisible({ timeout: 10000 });
+
+    // Agregar variante con cebolla.
+    await card.click();
+    await expect(page.getByRole('heading', { name: promo.name })).toBeVisible({
+      timeout: 5000,
+    });
+    await page
+      .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
+      .check();
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    await expect(
+      page.locator('[data-testid="cart-item"][data-product-name="' + promo.name + '"]')
+    ).toHaveCount(1, { timeout: 5000 });
+
+    // Agregar variante sin cebolla.
+    await card.click();
+    await expect(page.getByRole('heading', { name: promo.name })).toBeVisible({
+      timeout: 5000,
+    });
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    await expect(
+      page.locator('[data-testid="cart-item"][data-product-name="' + promo.name + '"]')
+    ).toHaveCount(2, { timeout: 5000 });
+
+    await page.getByTestId('payment-cash-full').click();
+    await page.getByRole('button', { name: 'Confirmar venta' }).click();
+
+    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+      timeout: 10000,
+    });
+
+    const panRes = await page.request.get(`/api/productos/${pan.id}`);
+    expect((await panRes.json()).stock).toBe(8);
+
+    await ensureCashRegisterClosed(page);
+  });
 });

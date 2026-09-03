@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,7 @@ export function ProductCard({
   showBreakdown = true,
 }: ProductCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogKey, setDialogKey] = useState(0);
   const isOutOfStock = product.type !== 'service' && product.availability <= 0;
   const typeLabel = product.criticalSupplyType
     ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
@@ -68,13 +69,14 @@ export function ProductCard({
     .filter((item) => item.isOptional && item.selectedByDefault)
     .map((item) => item.supplyId);
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     if (hasOptions) {
+      setDialogKey((prev) => prev + 1);
       setDialogOpen(true);
       return;
     }
     onAdd();
-  };
+  }, [hasOptions, onAdd]);
 
   return (
     <Card
@@ -168,6 +170,7 @@ export function ProductCard({
 
       {hasOptions && (
         <PromoOptionsDialog
+          key={dialogKey}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           productName={product.name}
