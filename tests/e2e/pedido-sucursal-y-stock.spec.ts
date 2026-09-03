@@ -42,7 +42,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
 
     await page.getByTestId(`add-product-${product.id}`).click();
     await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
-    await expect(page.getByTestId(`cart-item-${product.id}`)).toBeVisible();
+    await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByTestId(`product-card-${productSecond.id}`)).toHaveCount(0);
 
     await page.getByTestId(`add-product-${productDefault.id}`).click();
-    await expect(page.getByTestId(`cart-item-${productDefault.id}`)).toBeVisible();
+    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toBeVisible();
 
     await page.goto(`/pedido?branchId=${second.branchId}`);
 
@@ -120,10 +120,10 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByTestId(`product-card-${productSecond.id}`)).toBeVisible();
 
     // El carrito debe haberse limpiado al cambiar de sucursal.
-    await expect(page.getByTestId(`cart-item-${productDefault.id}`)).toHaveCount(0);
+    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
 
     await page.getByTestId(`add-product-${productSecond.id}`).click();
-    await expect(page.getByTestId(`cart-item-${productSecond.id}`)).toBeVisible();
+    await expect(page.locator(`[data-product-id="${productSecond.id}"]`)).toBeVisible();
 
     await page.getByTestId('branch-select-trigger').click();
     await page.getByRole('option', { name: second.branchName }).click();
@@ -150,15 +150,15 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.goto('/pedido');
     await page.getByTestId(`add-product-${productDefault.id}`).click();
 
-    await expect(page.getByTestId(`cart-item-${productDefault.id}`)).toBeVisible();
+    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toBeVisible();
 
     await page.goto(`/pedido?branchId=${second.branchId}`);
 
-    await expect(page.getByTestId(`cart-item-${productDefault.id}`)).toHaveCount(0);
+    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
 
     await page.goto('/pedido');
 
-    await expect(page.getByTestId(`cart-item-${productDefault.id}`)).toHaveCount(0);
+    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
   });
 
   test('no descuenta stock al crear el pedido y sí al confirmarlo desde el panel', async ({
@@ -181,7 +181,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     ).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByTestId(`cart-item-${product.id}`)).toBeVisible();
+    await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();

@@ -1,3 +1,5 @@
+export { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
+
 import type { ProductRow, RecipeItemConfig } from '@/domain/types';
 
 export interface SellableProduct extends ProductRow {
@@ -6,6 +8,7 @@ export interface SellableProduct extends ProductRow {
 }
 
 export interface CartItem {
+  lineId: string;
   product: SellableProduct;
   quantity: number;
   selectedRecipeItemIds?: number[];

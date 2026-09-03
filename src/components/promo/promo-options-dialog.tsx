@@ -21,6 +21,8 @@ export interface PromoOptionsDialogProps {
   recipe: RecipeItemConfig[];
   initialSelectedIds?: number[];
   onConfirm: (selectedRecipeItemIds: number[]) => void;
+  mode?: 'add' | 'edit';
+  confirmLabel?: string;
 }
 
 function renderSection(
@@ -81,6 +83,8 @@ export function PromoOptionsDialog({
   recipe,
   initialSelectedIds,
   onConfirm,
+  mode = 'add',
+  confirmLabel,
 }: PromoOptionsDialogProps) {
   const [selectedIds, setSelectedIds] = useState<number[]>(
     initialSelectedIds ??
@@ -190,7 +194,7 @@ export function PromoOptionsDialog({
             Cancelar
           </Button>
           <Button type="button" onClick={handleConfirm}>
-            Agregar al pedido
+            {confirmLabel ?? (mode === 'edit' ? 'Guardar cambios' : 'Agregar al pedido')}
           </Button>
         </DialogFooter>
       </DialogContent>

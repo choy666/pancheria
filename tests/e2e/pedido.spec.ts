@@ -26,7 +26,7 @@ test.describe('Pedido público con chat', () => {
 
     await page.getByTestId(`add-product-${product.id}`).click();
     await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
-    await expect(page.getByTestId(`cart-item-${product.id}`)).toBeVisible();
+    await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await expect(page.getByText('Finalizar pedido')).toBeVisible();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import { authenticatedFetch } from '@/lib/fetch';
 import {
+  areRecipeSelectionsEqual,
   getDefaultSelectedRecipeItemIds,
   getProductAdditional,
   isProductOutOfStock,
@@ -36,6 +37,12 @@ export function SalesTerminal() {
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [promoDialogProduct, setPromoDialogProduct] =
     useState<SellableProduct | null>(null);
+  const [editingLine, setEditingLine] = useState<{
+    lineId: string;
+    product: SellableProduct;
+    initialSelectedIds: number[];
+    dialogKey: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,11 +164,6 @@ export function SalesTerminal() {
   ) {
     if (!cashRegister || cashRegister.status !== 'open') return;
 
-    const existing = cart.find((item) => item.product.id === product.id);
-    const currentQuantity = existing?.quantity ?? 0;
-
-    if (isProductOutOfStock(product, cartAvailability, currentQuantity)) return;
-
     const optionalItems =
       product.recipe?.filter((item) => item.isOptional) ?? [];
     if (optionalItems.length > 0 && selectedRecipeItemIds === undefined) {
@@ -172,38 +174,51 @@ export function SalesTerminal() {
     const resolvedSelected =
       selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
 
+    const existing = cart.find(
+      (item) =>
+        item.product.id === product.id &&
+        areRecipeSelectionsEqual(item.selectedRecipeItemIds ?? [], resolvedSelected)
+    );
+
+    const currentQuantity = existing?.quantity ?? 0;
+    if (isProductOutOfStock(product, cartAvailability, currentQuantity)) return;
+
     setIsCheckingAvailability(true);
     setCart((prev) => {
-      const item = prev.find((i) => i.product.id === product.id);
-      if (item) {
+      if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id
+          i.lineId === existing.lineId
             ? { ...i, quantity: i.quantity + 1 }
             : i
         );
       }
       return [
         ...prev,
-        { product, quantity: 1, selectedRecipeItemIds: resolvedSelected },
+        {
+          lineId: nanoid(),
+          product,
+          quantity: 1,
+          selectedRecipeItemIds: resolvedSelected,
+        },
       ];
     });
   }
 
-  function removeFromCart(productId: number) {
+  function removeFromCart(lineId: string) {
     setIsCheckingAvailability(true);
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    setCart((prev) => prev.filter((item) => item.lineId !== lineId));
   }
 
-  function updateQuantity(productId: number, quantity: number) {
+  function updateQuantity(lineId: string, quantity: number) {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(lineId);
       return;
     }
 
     setIsCheckingAvailability(true);
     setCart((prev) =>
       prev.map((item) => {
-        if (item.product.id !== productId) return item;
+        if (item.lineId !== lineId) return item;
         const additional = getProductAdditional(
           item.product,
           cartAvailability,
@@ -216,6 +231,65 @@ export function SalesTerminal() {
       })
     );
   }
+
+  const startEditLine = useCallback((lineId: string) => {
+    const item = cart.find((i) => i.lineId === lineId);
+    if (!item) return;
+
+    const product = products.find((p) => p.id === item.product.id) ?? item.product;
+    setEditingLine({
+      lineId,
+      product,
+      initialSelectedIds: item.selectedRecipeItemIds ?? [],
+      dialogKey: nanoid(),
+    });
+    setPromoDialogProduct(null);
+  }, [cart, products]);
+
+  const cancelEditLine = useCallback(() => {
+    setEditingLine(null);
+  }, []);
+
+  const confirmEditLine = useCallback(
+    (selectedRecipeItemIds: number[]) => {
+      if (!editingLine) return;
+
+      setIsCheckingAvailability(true);
+      setCart((prev) => {
+        const editedIndex = prev.findIndex((i) => i.lineId === editingLine.lineId);
+        if (editedIndex === -1) return prev;
+
+        const editedItem = prev[editedIndex];
+        const matchingIndex = prev.findIndex(
+          (i) =>
+            i.lineId !== editingLine.lineId &&
+            i.product.id === editedItem.product.id &&
+            areRecipeSelectionsEqual(
+              i.selectedRecipeItemIds ?? [],
+              selectedRecipeItemIds
+            )
+        );
+
+        if (matchingIndex !== -1) {
+          const next = [...prev];
+          next[matchingIndex] = {
+            ...next[matchingIndex],
+            quantity: next[matchingIndex].quantity + editedItem.quantity,
+          };
+          next.splice(editedIndex, 1);
+          return next;
+        }
+
+        return prev.map((i) =>
+          i.lineId === editingLine.lineId
+            ? { ...i, selectedRecipeItemIds: selectedRecipeItemIds }
+            : i
+        );
+      });
+      setEditingLine(null);
+    },
+    [editingLine]
+  );
 
   const total = cart.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
@@ -370,9 +444,13 @@ export function SalesTerminal() {
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             {displayProducts.map((product) => {
-              const inCartQuantity =
-                cart.find((item) => item.product.id === product.id)?.quantity ??
-                0;
+              const inCartQuantity = cart.reduce(
+                (sum, item) =>
+                  item.product.id === product.id
+                    ? sum + item.quantity
+                    : sum,
+                0
+              );
 
               return (
                 <SalesProductCard
@@ -400,11 +478,12 @@ export function SalesTerminal() {
           isPaymentComplete={isComplete}
           onPaymentChange={setCustomPayments}
           onUpdateQuantity={updateQuantity}
+          onEditLine={startEditLine}
           onConfirm={confirmSale}
         />
       </div>
 
-      {promoDialogProduct && (
+      {promoDialogProduct && !editingLine && (
         <PromoOptionsDialog
           open={promoDialogProduct !== null}
           onOpenChange={(open) => {
@@ -417,6 +496,25 @@ export function SalesTerminal() {
             addToCart(promoDialogProduct, selected);
             setPromoDialogProduct(null);
           }}
+        />
+      )}
+
+      {editingLine && (
+        <PromoOptionsDialog
+          key={editingLine.dialogKey}
+          open={editingLine !== null}
+          onOpenChange={(open) => {
+            if (!open) cancelEditLine();
+          }}
+          productName={editingLine.product.name}
+          productPrice={editingLine.product.price}
+          recipe={editingLine.product.recipe ?? []}
+          initialSelectedIds={editingLine.initialSelectedIds}
+          onConfirm={(selected) => {
+            confirmEditLine(selected);
+          }}
+          mode="edit"
+          confirmLabel="Guardar cambios"
         />
       )}
     </div>

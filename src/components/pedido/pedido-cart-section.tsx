@@ -5,8 +5,9 @@ interface PedidoCartSectionProps {
   branchName: string;
   items: CartItem[];
   total: number;
-  onUpdateQuantity: (productId: number, quantity: number) => void;
-  onRemove: (productId: number) => void;
+  onUpdateQuantity: (lineId: string, quantity: number) => void;
+  onRemove: (lineId: string) => void;
+  onEditLine?: (lineId: string) => void;
   onCheckout: () => void;
   disabled: boolean;
 }
@@ -17,6 +18,7 @@ export function PedidoCartSection({
   total,
   onUpdateQuantity,
   onRemove,
+  onEditLine,
   onCheckout,
   disabled,
 }: PedidoCartSectionProps) {
@@ -27,6 +29,7 @@ export function PedidoCartSection({
       total={total}
       onUpdateQuantity={onUpdateQuantity}
       onRemove={onRemove}
+      onEditLine={onEditLine}
       onCheckout={onCheckout}
       disabled={disabled}
     />

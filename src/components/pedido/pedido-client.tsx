@@ -15,7 +15,9 @@ import { PedidoCatalogSection } from './pedido-catalog-section';
 import { PedidoCartSection } from './pedido-cart-section';
 import { PedidoCustomerForm } from './pedido-customer-form';
 import { PedidoSuccessDialog } from './pedido-success-dialog';
+import { CheckoutSummary } from './checkout-summary';
 import { usePedidoClient } from './usePedidoClient';
+import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import {
   getTodayOpening,
   getNextOpening,
@@ -158,6 +160,7 @@ export function PedidoClient({
     cancellationError,
     items,
     total,
+    inCartQuantityByProduct,
     addItem,
     removeItem,
     updateQuantity,
@@ -166,6 +169,10 @@ export function PedidoClient({
     groupedProducts,
     products,
     isActiveBranchValid,
+    editingLine,
+    startEditLine,
+    cancelEditLine,
+    confirmEditLine,
     handleBranchChange,
     handleOpenCheckout,
     handleSubmitCheckout,
@@ -211,6 +218,7 @@ export function PedidoClient({
         activeBranch={activeBranch}
         groupedProducts={groupedProducts}
         items={items}
+        inCartQuantityByProduct={inCartQuantityByProduct}
         breakdownByProduct={breakdownByProduct}
         isCheckingAvailability={isCheckingAvailability}
         onBranchChange={handleBranchChange}
@@ -222,6 +230,7 @@ export function PedidoClient({
             total={total}
             onUpdateQuantity={updateQuantity}
             onRemove={removeItem}
+            onEditLine={startEditLine}
             onCheckout={handleOpenCheckout}
             disabled={isCheckingAvailability}
           />
@@ -241,6 +250,8 @@ export function PedidoClient({
             branchStatus={branchStatus}
             activeBranch={activeBranch}
           />
+
+          <CheckoutSummary items={items} total={total} />
 
           <PedidoCustomerForm
             customerName={customerName}
@@ -281,6 +292,23 @@ export function PedidoClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {editingLine && (
+        <PromoOptionsDialog
+          key={editingLine.dialogKey}
+          open={editingLine !== null}
+          onOpenChange={(open) => {
+            if (!open) cancelEditLine();
+          }}
+          productName={editingLine.product.name}
+          productPrice={editingLine.product.price}
+          recipe={editingLine.product.recipe ?? []}
+          initialSelectedIds={editingLine.initialSelectedIds}
+          onConfirm={confirmEditLine}
+          mode="edit"
+          confirmLabel="Guardar cambios"
+        />
+      )}
 
       <PedidoSuccessDialog
         open={successDialogOpen}

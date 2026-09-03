@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
+import { nanoid } from 'nanoid';
+import { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
 import type {
   CriticalSupplyType,
   ProductType,
@@ -17,6 +19,7 @@ export interface CartProduct {
 }
 
 export interface CartItem extends CartProduct {
+  lineId: string;
   quantity: number;
   selectedRecipeItemIds: number[];
 }
@@ -31,6 +34,7 @@ const cartItemSchema = z.object({
     .enum(['bread', 'sausage', 'beverage'])
     .nullable()
     .optional(),
+  lineId: z.string().optional(),
   quantity: z.number().int().positive(),
   selectedRecipeItemIds: z.array(z.number().int().positive()).default([]),
 });
@@ -99,6 +103,7 @@ function getInitialItems(
 
         return {
           ...product,
+          lineId: item.lineId ?? nanoid(),
           quantity,
           selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
         };
@@ -176,7 +181,14 @@ export function useCart({
         selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
 
       setItems((prev) => {
-        const existing = prev.find((item) => item.id === product.id);
+        const existing = prev.find(
+          (item) =>
+            item.id === product.id &&
+            areRecipeSelectionsEqual(
+              item.selectedRecipeItemIds,
+              resolvedSelected
+            )
+        );
 
         if (existing) {
           const max = isService ? Number.MAX_SAFE_INTEGER : availability;
@@ -185,7 +197,7 @@ export function useCart({
           if (!isService && nextQuantity <= existing.quantity) return prev;
 
           return prev.map((item) =>
-            item.id === product.id
+            item.lineId === existing.lineId
               ? { ...item, quantity: nextQuantity }
               : item
           );
@@ -195,6 +207,7 @@ export function useCart({
           ...prev,
           {
             ...product,
+            lineId: nanoid(),
             quantity: 1,
             selectedRecipeItemIds: resolvedSelected,
           },
@@ -205,11 +218,11 @@ export function useCart({
   );
 
   const updateSelectedRecipeItemIds = useCallback(
-    (productId: number, selectedRecipeItemIds: number[]) => {
+    (lineId: string, selectedRecipeItemIds: number[]) => {
       userInteractedRef.current = true;
       setItems((prev) =>
         prev.map((item) =>
-          item.id === productId
+          item.lineId === lineId
             ? { ...item, selectedRecipeItemIds }
             : item
         )
@@ -218,36 +231,36 @@ export function useCart({
     []
   );
 
-  const removeItem = useCallback((productId: number) => {
+  const removeItem = useCallback((lineId: string) => {
     userInteractedRef.current = true;
-    setItems((prev) => prev.filter((item) => item.id !== productId));
+    setItems((prev) => prev.filter((item) => item.lineId !== lineId));
   }, []);
 
   const updateQuantity = useCallback(
-    (productId: number, quantity: number) => {
+    (lineId: string, quantity: number) => {
       userInteractedRef.current = true;
       if (quantity <= 0) {
-        removeItem(productId);
+        removeItem(lineId);
         return;
       }
 
       setItems((prev) => {
-        const item = prev.find((i) => i.id === productId);
+        const item = prev.find((i) => i.lineId === lineId);
         if (!item) return prev;
 
         const isService = item.type === 'service';
-        const availability = getAvailability(productId);
+        const availability = getAvailability(item.id);
         const max = isService ? Number.MAX_SAFE_INTEGER : availability;
         const nextQuantity = isService
           ? quantity
           : Math.min(quantity, Math.max(0, max));
 
         if (!isService && nextQuantity <= 0) {
-          return prev.filter((i) => i.id !== productId);
+          return prev.filter((i) => i.lineId !== lineId);
         }
 
         return prev.map((i) =>
-          i.id === productId ? { ...i, quantity: nextQuantity } : i
+          i.lineId === lineId ? { ...i, quantity: nextQuantity } : i
         );
       });
     },

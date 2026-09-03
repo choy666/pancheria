@@ -81,19 +81,24 @@ describe('useCart', () => {
     act(() => {
       result.current.addItem(products[0]);
       result.current.addItem(products[0]);
-      result.current.updateQuantity(1, 5);
+    });
+
+    const lineId = result.current.items[0].lineId;
+
+    act(() => {
+      result.current.updateQuantity(lineId, 5);
     });
 
     expect(result.current.items[0].quantity).toBe(5);
 
     act(() => {
-      result.current.updateQuantity(1, 0);
+      result.current.updateQuantity(lineId, 0);
     });
 
     expect(result.current.items).toEqual([]);
 
     act(() => {
-      result.current.removeItem(1);
+      result.current.removeItem(lineId);
     });
 
     expect(result.current.items).toEqual([]);
@@ -173,5 +178,53 @@ describe('useCart', () => {
 
     await waitFor(() => expect(result.current.items).toEqual([]));
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  test('dos agregados del mismo producto con selecciones distintas crean dos líneas', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], [1]);
+      result.current.addItem(products[0], [2]);
+    });
+
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.total).toBe(2400);
+  });
+
+  test('dos agregados del mismo producto con selecciones iguales unen en una línea', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], [1, 2]);
+      result.current.addItem(products[0], [2, 1]);
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].quantity).toBe(2);
+  });
+
+  test('removeItem elimina solo la línea indicada', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], [1]);
+      result.current.addItem(products[0], [2]);
+    });
+
+    const firstLineId = result.current.items[0].lineId;
+
+    act(() => {
+      result.current.removeItem(firstLineId);
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].lineId).not.toBe(firstLineId);
   });
 });

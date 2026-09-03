@@ -19,7 +19,8 @@ interface SalesCartProps {
   paymentParts: PaymentPart[];
   isPaymentComplete: boolean;
   onPaymentChange: (payments: PaymentPart[]) => void;
-  onUpdateQuantity: (productId: number, quantity: number) => void;
+  onUpdateQuantity: (lineId: string, quantity: number) => void;
+  onEditLine?: (lineId: string) => void;
   onConfirm: () => void;
 }
 
@@ -51,6 +52,7 @@ export function SalesCart({
   isPaymentComplete,
   onPaymentChange,
   onUpdateQuantity,
+  onEditLine,
   onConfirm,
 }: SalesCartProps) {
   return (
@@ -77,8 +79,9 @@ export function SalesCart({
 
                 return (
                   <li
-                    key={item.product.id}
-                    data-testid="cart-item"
+                    key={item.lineId}
+                    data-testid={`sales-cart-item-${item.lineId}`}
+                    data-product-id={item.product.id}
                     data-product-name={item.product.name}
                     className="flex items-center justify-between gap-3"
                   >
@@ -104,10 +107,7 @@ export function SalesCart({
                         size="icon-sm"
                         aria-label={`Disminuir cantidad de ${item.product.name}`}
                         onClick={() =>
-                          onUpdateQuantity(
-                            item.product.id,
-                            item.quantity - 1
-                          )
+                          onUpdateQuantity(item.lineId, item.quantity - 1)
                         }
                         disabled={cartDisabled}
                       >
@@ -122,15 +122,27 @@ export function SalesCart({
                         size="icon-sm"
                         aria-label={`Aumentar cantidad de ${item.product.name}`}
                         onClick={() =>
-                          onUpdateQuantity(
-                            item.product.id,
-                            item.quantity + 1
-                          )
+                          onUpdateQuantity(item.lineId, item.quantity + 1)
                         }
                         disabled={cartDisabled || !canIncrease}
                       >
                         +
                       </Button>
+                      {item.product.type === 'compound' &&
+                        item.product.recipe &&
+                        item.product.recipe.some((r) => r.isOptional) &&
+                        onEditLine && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Editar personalización de ${item.product.name}`}
+                            onClick={() => onEditLine(item.lineId)}
+                            disabled={cartDisabled}
+                          >
+                            Editar
+                          </Button>
+                        )}
                     </div>
                   </li>
                 );

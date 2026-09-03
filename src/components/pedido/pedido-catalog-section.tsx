@@ -28,6 +28,7 @@ interface PedidoCatalogSectionProps {
   activeBranch: Branch;
   groupedProducts: ProductGroup<PublicCatalogProduct>[];
   items: CartItem[];
+  inCartQuantityByProduct?: Record<number, number>;
   breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
   isCheckingAvailability: boolean;
   onBranchChange: (branchId: string | null) => void;
@@ -40,6 +41,7 @@ export function PedidoCatalogSection({
   activeBranch,
   groupedProducts,
   items,
+  inCartQuantityByProduct: inCartQuantityByProductProp,
   breakdownByProduct,
   isCheckingAvailability,
   onBranchChange,
@@ -47,6 +49,13 @@ export function PedidoCatalogSection({
   cart,
 }: PedidoCatalogSectionProps) {
   const inCartIds = new Set(items.map((item) => item.id));
+
+  const inCartQuantityByProduct =
+    inCartQuantityByProductProp ??
+    items.reduce<Record<number, number>>((acc, item) => {
+      acc[item.id] = (acc[item.id] ?? 0) + item.quantity;
+      return acc;
+    }, {});
 
   return (
     <div className="space-y-5">
@@ -130,6 +139,7 @@ export function PedidoCatalogSection({
                     key={product.id}
                     product={product}
                     inCart={inCartIds.has(product.id)}
+                    inCartQuantity={inCartQuantityByProduct[product.id] ?? 0}
                     breakdown={
                       breakdownByProduct[product.id] ?? product.breakdown ?? []
                     }

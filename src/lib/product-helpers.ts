@@ -85,7 +85,8 @@ export async function buildProductContext(
         options?.includeDeleted
       );
 
-  if (productsList.length !== productIds.length) {
+  const uniqueProductIds = Array.from(new Set(productIds));
+  if (productsList.length !== uniqueProductIds.length) {
     throw new NotFoundError('Producto');
   }
 

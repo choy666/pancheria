@@ -27,6 +27,7 @@ import {
   stockMovements,
   cashRegisters,
   recipes,
+  orderItemRecipes,
 } from '@/db/schema';
 import {
   ValidationError,
@@ -183,13 +184,16 @@ function createMockDb(): MockDb {
   const insert = jest.fn().mockImplementation((table: unknown) => ({
     values: (data: unknown) => {
       capturedInserts.push({ table, data });
+      const rows = Array.isArray(data)
+        ? data.map((item, index) => ({
+            ...(item as object),
+            id: index + 1,
+            createdAt: new Date(),
+          }))
+        : [{ ...(data as object), id: 1, createdAt: new Date() }];
       const builder = {
         onConflictDoNothing: () => builder,
-        returning: jest
-          .fn()
-          .mockResolvedValue([
-            { ...(data as object), id: 1, createdAt: new Date() },
-          ]),
+        returning: jest.fn().mockResolvedValue(rows),
       };
       return builder;
     },
@@ -440,6 +444,52 @@ describe('orderService', () => {
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(0);
       expect(findCapturedInsert(stockMovements)).toHaveLength(0);
+    });
+
+    test('crea dos orderItems con snapshots distintos para el mismo producto con selecciones diferentes', async () => {
+      setProducts([
+        { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
+        { id: 2, name: 'Cebolla', type: 'manual_supply', price: 0 },
+      ]);
+      setRecipes([
+        createRecipeWithSupply({
+          id: 1,
+          compoundProductId: 1,
+          supplyId: 2,
+          quantity: 1,
+          autoDiscount: false,
+          isOptional: true,
+          selectedByDefault: false,
+          supply: { name: 'Cebolla', stock: 10 },
+        }),
+      ]);
+
+      const result = await createOrder({
+        branchId: BRANCH_ID,
+        items: [
+          { productId: 1, quantity: 1, selectedRecipeItemIds: [2] },
+          { productId: 1, quantity: 1, selectedRecipeItemIds: [] },
+        ],
+        customerName: 'Ana',
+        customerPhone: '3416666666',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-two-lines',
+      });
+
+      expect(result.items).toHaveLength(2);
+
+      const orderItemsData = findCapturedInsert(orderItems);
+      expect(orderItemsData).toHaveLength(1);
+      const itemsInserted = orderItemsData[0]?.data as (typeof orderItems.$inferInsert)[];
+      expect(itemsInserted).toHaveLength(2);
+
+      const recipeInserts = findCapturedInsert(orderItemRecipes);
+      expect(recipeInserts).toHaveLength(1);
+      const recipeRows = recipeInserts[0]?.data as (typeof orderItemRecipes.$inferInsert)[];
+      expect(recipeRows).toHaveLength(2);
+
+      const selectedRows = recipeRows.filter((r) => r.selected);
+      expect(selectedRows).toHaveLength(1);
     });
 
     test('rechaza el pedido si hay stock insuficiente', async () => {

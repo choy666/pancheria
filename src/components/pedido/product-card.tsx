@@ -19,6 +19,7 @@ import type { RecipeBreakdownItem } from '@/application/services/saleService';
 interface ProductCardProps {
   product: PublicCatalogProduct;
   inCart: boolean;
+  inCartQuantity?: number;
   breakdown: RecipeBreakdownItem[];
   onAdd: (selectedRecipeItemIds?: number[]) => void;
   disabled?: boolean;
@@ -28,6 +29,7 @@ interface ProductCardProps {
 export function ProductCard({
   product,
   inCart,
+  inCartQuantity = 0,
   breakdown,
   onAdd,
   disabled = false,
@@ -47,7 +49,7 @@ export function ProductCard({
     ? 'Agotado'
     : hasOptions
       ? 'Personalizar'
-      : inCart
+      : inCartQuantity > 0 || inCart
         ? 'Agregar otro'
         : 'Agregar';
 
@@ -61,6 +63,10 @@ export function ProductCard({
     .map((item) =>
       item.isOptional ? item.supplyName : formatRecipeItemName(item)
     );
+
+  const defaultSelectedIds = recipe
+    .filter((item) => item.isOptional && item.selectedByDefault)
+    .map((item) => item.supplyId);
 
   const handleAdd = () => {
     if (hasOptions) {
@@ -167,6 +173,7 @@ export function ProductCard({
           productName={product.name}
           productPrice={product.price}
           recipe={recipe}
+          initialSelectedIds={defaultSelectedIds}
           onConfirm={onAdd}
         />
       )}

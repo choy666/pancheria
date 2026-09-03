@@ -23,8 +23,9 @@ interface CartSummaryProps {
   branchName?: string;
   items: CartItem[];
   total: number;
-  onUpdateQuantity: (productId: number, quantity: number) => void;
-  onRemove: (productId: number) => void;
+  onUpdateQuantity: (lineId: string, quantity: number) => void;
+  onRemove: (lineId: string) => void;
+  onEditLine?: (lineId: string) => void;
   onCheckout: () => void;
   disabled?: boolean;
 }
@@ -35,6 +36,7 @@ export function CartSummary({
   total,
   onUpdateQuantity,
   onRemove,
+  onEditLine,
   onCheckout,
   disabled = false,
 }: CartSummaryProps) {
@@ -59,8 +61,9 @@ export function CartSummary({
           <ul className="space-y-3">
             {items.map((item) => (
               <li
-                key={item.id}
-                data-testid={`cart-item-${item.id}`}
+                key={item.lineId}
+                data-testid={`cart-item-${item.lineId}`}
+                data-product-id={item.id}
                 className="flex items-center justify-between gap-3"
               >
                 <div className="min-w-0 flex-1">
@@ -81,7 +84,7 @@ export function CartSummary({
                     size="icon-sm"
                     aria-label="Disminuir cantidad"
                     onClick={() =>
-                      onUpdateQuantity(item.id, item.quantity - 1)
+                      onUpdateQuantity(item.lineId, item.quantity - 1)
                     }
                     disabled={disabled}
                   >
@@ -96,7 +99,7 @@ export function CartSummary({
                     size="icon-sm"
                     aria-label="Aumentar cantidad"
                     onClick={() =>
-                      onUpdateQuantity(item.id, item.quantity + 1)
+                      onUpdateQuantity(item.lineId, item.quantity + 1)
                     }
                     disabled={disabled}
                   >
@@ -107,11 +110,26 @@ export function CartSummary({
                     variant="ghost"
                     size="icon-sm"
                     aria-label="Quitar producto"
-                    onClick={() => onRemove(item.id)}
+                    onClick={() => onRemove(item.lineId)}
                     disabled={disabled}
                   >
                     ×
                   </Button>
+                  {item.type === 'compound' &&
+                    item.recipe &&
+                    item.recipe.some((r) => r.isOptional) &&
+                    onEditLine && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Editar personalización de ${item.name}`}
+                        onClick={() => onEditLine(item.lineId)}
+                        disabled={disabled}
+                      >
+                        Editar
+                      </Button>
+                    )}
                 </div>
               </li>
             ))}

@@ -243,7 +243,7 @@ describe('PedidoClient', () => {
     await waitFor(() =>
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
     );
-    expect(screen.queryByTestId('cart-item-2')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-product-id="2"]')).not.toBeInTheDocument();
   });
 
   test('limpia el carrito, actualiza localStorage y navega al cambiar de sucursal', async () => {
@@ -273,7 +273,7 @@ describe('PedidoClient', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId('cart-item-10')).toBeInTheDocument()
+      expect(document.querySelector('[data-product-id="10"]')).toBeInTheDocument()
     );
 
     await act(async () => {
@@ -388,7 +388,7 @@ describe('PedidoClient', () => {
       });
 
       await waitFor(() =>
-        expect(screen.getByTestId('cart-item-1')).toBeInTheDocument()
+        expect(document.querySelector('[data-product-id="1"]')).toBeInTheDocument()
       );
 
       await act(async () => {
@@ -446,7 +446,7 @@ describe('PedidoClient', () => {
       });
 
       await waitFor(() =>
-        expect(screen.getByTestId('cart-item-1')).toBeInTheDocument()
+        expect(document.querySelector('[data-product-id="1"]')).toBeInTheDocument()
       );
 
       await act(async () => {
@@ -625,6 +625,46 @@ describe('PedidoClient', () => {
       const parsed = JSON.parse(stored as string);
       expect(parsed.orders[0].id).toBe(ORDER_ID);
       expect(parsed.orders[0].cancellationToken).toBe(CANCELLATION_TOKEN);
+    });
+
+    test('muestra el resumen del pedido en el checkout', async () => {
+      setupFetchMocks();
+
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-product-1'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(document.querySelector('[data-product-id="1"]')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('checkout-button'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Finalizar pedido')).toBeInTheDocument()
+      );
+
+      const summary = screen.getByTestId('checkout-summary');
+      expect(summary).toHaveTextContent('Resumen del pedido');
+      expect(summary).toHaveTextContent('Panchuque x 1');
+      expect(summary).toHaveTextContent('Total: $ 1.200');
     });
 
     test('muestra el banner de pedidos recientes guardados previamente', async () => {

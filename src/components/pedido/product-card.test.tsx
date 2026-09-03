@@ -112,4 +112,20 @@ describe('ProductCard', () => {
 
     expect(screen.getByRole('button', { name: 'Agregar' })).toBeInTheDocument();
   });
+
+  test('muestra la cantidad total en el badge cuando hay múltiples líneas', () => {
+    render(
+      <ProductCard
+        product={makeProduct()}
+        inCart={true}
+        inCartQuantity={3}
+        breakdown={[]}
+        onAdd={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Agregar otro' })
+    ).toBeInTheDocument();
+  });
 });

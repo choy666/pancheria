@@ -9,6 +9,7 @@ import {
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
 import { ProductType, CriticalSupplyType } from '@/domain/types';
+import type { RecipeItemConfig } from '@/domain/types';
 
 type Product = {
   id: number;
@@ -18,6 +19,7 @@ type Product = {
   type: ProductType;
   criticalSupplyType: CriticalSupplyType | null;
   availability: number;
+  recipe?: RecipeItemConfig[];
 };
 
 type Shortage = {
@@ -26,8 +28,12 @@ type Shortage = {
   supplyName: string;
 };
 
+let nanoidCounter = 0;
 jest.mock('nanoid', () => ({
-  nanoid: jest.fn(() => 'test-id'),
+  nanoid: jest.fn(() => {
+    nanoidCounter += 1;
+    return `test-id-${nanoidCounter}`;
+  }),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -874,5 +880,78 @@ describe('SalesTerminal', () => {
     );
 
     expect(button).not.toBeDisabled();
+  });
+
+  test('permite agregar dos líneas del mismo producto con personalizaciones distintas', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+        recipe: [
+          {
+            supplyId: 10,
+            supplyName: 'Cebolla',
+            supplyType: 'manual_supply',
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selected: false,
+            selectedByDefault: false,
+          },
+        ],
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const cards = screen.getAllByText('Panchuque');
+    const card = cards[0].closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Agregar al pedido' })
+      ).toBeInTheDocument()
+    );
+
+    const checkbox = screen.getByLabelText('Incluir Cebolla en Panchuque');
+    fireEvent.click(checkbox);
+
+    const confirmButton = screen.getByRole('button', { name: 'Agregar al pedido' });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('1 en pedido')
+    );
+
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', { name: 'Agregar al pedido' })
+      ).toHaveLength(1)
+    );
+
+    const confirmButton2 = screen.getByRole('button', { name: 'Agregar al pedido' });
+    fireEvent.click(confirmButton2);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('2 en pedido')
+    );
+
+    expect(document.querySelectorAll('[data-product-id="1"]')).toHaveLength(2);
   });
 });

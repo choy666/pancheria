@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { groupPublicProductsByType } from '@/lib/catalog';
+import { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
 import { getPedidoRefetchIntervalMs } from '@/config/catalog';
 import {
   PUBLIC_CATALOGO_API,
@@ -97,11 +98,17 @@ export interface UsePedidoClientResult {
 
   items: CartItem[];
   total: number;
+  inCartQuantityByProduct: Record<number, number>;
   addItem: (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => void;
-  removeItem: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
-  updateSelectedRecipeItemIds: (productId: number, selectedRecipeItemIds: number[]) => void;
+  removeItem: (lineId: string) => void;
+  updateQuantity: (lineId: string, quantity: number) => void;
+  updateSelectedRecipeItemIds: (lineId: string, selectedRecipeItemIds: number[]) => void;
   clearCart: () => void;
+
+  editingLine: { lineId: string; product: PublicCatalogProduct; initialSelectedIds: number[]; dialogKey: string } | null;
+  startEditLine: (lineId: string) => void;
+  cancelEditLine: () => void;
+  confirmEditLine: (selectedRecipeItemIds: number[]) => void;
 
   recentOrders: RecentOrder[];
   removeRecentOrder: (orderId: number) => void;
@@ -150,6 +157,13 @@ export function usePedidoClient({
   const [cancellationReason, setCancellationReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationError, setCancellationError] = useState<string | null>(null);
+
+  const [editingLine, setEditingLine] = useState<{
+    lineId: string;
+    product: PublicCatalogProduct;
+    initialSelectedIds: number[];
+    dialogKey: string;
+  } | null>(null);
 
   const getAvailability = useCallback(
     (productId: number) => {
@@ -296,11 +310,73 @@ export function usePedidoClient({
   const groupedProducts = groupPublicProductsByType(products);
   const isActiveBranchValid = branches.some((b) => b.id === activeBranch.id);
 
+  const inCartQuantityByProduct = useMemo(() => {
+    const result: Record<number, number> = {};
+    for (const item of items) {
+      result[item.id] = (result[item.id] ?? 0) + item.quantity;
+    }
+    return result;
+  }, [items]);
+
   const addItem = useCallback(
     (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => {
       cartAddItem(product, selectedRecipeItemIds);
     },
     [cartAddItem]
+  );
+
+  const startEditLine = useCallback(
+    (lineId: string) => {
+      const item = items.find((i) => i.lineId === lineId);
+      if (!item) return;
+
+      const product = products.find((p) => p.id === item.id);
+      if (!product) return;
+
+      setEditingLine({
+        lineId,
+        product,
+        initialSelectedIds: item.selectedRecipeItemIds ?? [],
+        dialogKey: nanoid(),
+      });
+    },
+    [items, products]
+  );
+
+  const cancelEditLine = useCallback(() => {
+    setEditingLine(null);
+  }, []);
+
+  const confirmEditLine = useCallback(
+    (selectedRecipeItemIds: number[]) => {
+      if (!editingLine) return;
+
+      const editedItem = items.find((i) => i.lineId === editingLine.lineId);
+      if (!editedItem) {
+        setEditingLine(null);
+        return;
+      }
+
+      const matchingLine = items.find(
+        (i) =>
+          i.lineId !== editingLine.lineId &&
+          i.id === editedItem.id &&
+          areRecipeSelectionsEqual(i.selectedRecipeItemIds, selectedRecipeItemIds)
+      );
+
+      if (matchingLine) {
+        updateQuantity(
+          matchingLine.lineId,
+          matchingLine.quantity + editedItem.quantity
+        );
+        removeItem(editingLine.lineId);
+      } else {
+        updateSelectedRecipeItemIds(editingLine.lineId, selectedRecipeItemIds);
+      }
+
+      setEditingLine(null);
+    },
+    [editingLine, items, removeItem, updateQuantity, updateSelectedRecipeItemIds]
   );
 
   function handleBranchChange(branchId: string | null) {
@@ -497,11 +573,17 @@ export function usePedidoClient({
 
     items,
     total,
+    inCartQuantityByProduct,
     addItem,
     removeItem,
     updateQuantity,
     updateSelectedRecipeItemIds,
     clearCart,
+
+    editingLine,
+    startEditLine,
+    cancelEditLine,
+    confirmEditLine,
 
     recentOrders,
     removeRecentOrder,
