@@ -62,8 +62,10 @@ export function CartSummary({
             {items.map((item) => (
               <li
                 key={item.lineId}
-                data-testid={`cart-item-${item.lineId}`}
+                data-testid="cart-item"
+                data-line-id={item.lineId}
                 data-product-id={item.id}
+                data-product-name={item.name}
                 className="flex items-center justify-between gap-3"
               >
                 <div className="min-w-0 flex-1">

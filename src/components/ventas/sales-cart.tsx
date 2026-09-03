@@ -80,7 +80,8 @@ export function SalesCart({
                 return (
                   <li
                     key={item.lineId}
-                    data-testid={`sales-cart-item-${item.lineId}`}
+                    data-testid="cart-item"
+                    data-line-id={item.lineId}
                     data-product-id={item.product.id}
                     data-product-name={item.product.name}
                     className="flex items-center justify-between gap-3"
