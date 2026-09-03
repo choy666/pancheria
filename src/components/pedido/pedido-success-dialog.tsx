@@ -13,9 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatMoney } from '@/lib/money';
 import {
-  isBranchOpen,
-  getTodayOpening,
-  getNextOpening,
+  getCurrentOrNextOpening,
 } from '@/lib/branch-helpers';
 import type { CreatedOrder } from './usePedidoClient';
 import type { PublicOrderItem } from '@/lib/whatsapp';
@@ -146,12 +144,22 @@ export function PedidoSuccessDialog({
                     <span className="text-foreground">{branch.phone}</span>
                   </p>
                 )}
+                {branch.location && (
+                  <p>
+                    <a
+                      href={branch.location}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Ver ubicación en el mapa
+                    </a>
+                  </p>
+                )}
                 <p>
                   Horario de retiro estimado:{' '}
                   <span className="text-foreground">
-                    {isBranchOpen(branch)
-                      ? getTodayOpening(branch)
-                      : getNextOpening(branch)}
+                    {getCurrentOrNextOpening(branch)}
                   </span>
                 </p>
                 <p>

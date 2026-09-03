@@ -68,8 +68,12 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
   };
 }
 
-function makeBranch(id: number, name: string): Branch {
-  return { id, name, openingHours: [], createdAt: new Date() };
+function makeBranch(
+  id: number,
+  name: string,
+  overrides: Partial<Branch> = {}
+): Branch {
+  return { id, name, openingHours: [], createdAt: new Date(), ...overrides };
 }
 
 function makeProduct(overrides: Partial<PublicCatalogProduct> = {}): PublicCatalogProduct {
@@ -301,6 +305,13 @@ describe('PedidoClient', () => {
 
     function setupFetchMocks(overrides: {
       createBody?: { order: CreatedOrder; whatsappUrl: string | null };
+      branchStatus?: {
+        isOpen?: boolean;
+        currentOpening?: string;
+        nextOpening?: string;
+        message?: string;
+        branch?: Branch;
+      };
     } = {}) {
       global.fetch = jest.fn().mockImplementation(async (url, init) => {
         const urlString = String(url);
@@ -319,6 +330,7 @@ describe('PedidoClient', () => {
             nextOpening: 'Mañana de 08:00 a 18:00',
             message: 'Sucursal abierta. Horario de hoy: Hoy de 08:00 a 18:00.',
             branch: makeBranch(1, 'Sucursal A'),
+            ...overrides.branchStatus,
           });
         }
 
@@ -406,6 +418,47 @@ describe('PedidoClient', () => {
       });
     }
 
+    async function openCheckoutDialog(branchStatusOverrides: {
+      isOpen?: boolean;
+      currentOpening?: string;
+      nextOpening?: string;
+      message?: string;
+      branch?: Branch;
+    } = {}) {
+      setupFetchMocks({ branchStatus: branchStatusOverrides });
+
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-product-1'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('cart-item-1')).toBeInTheDocument()
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('checkout-button'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Finalizar pedido')).toBeInTheDocument()
+      );
+    }
+
     test('abre WhatsApp al crear el pedido', async () => {
       setupFetchMocks();
 
@@ -458,6 +511,56 @@ describe('PedidoClient', () => {
         WHATSAPP_URL,
         '_blank',
         'noopener,noreferrer'
+      );
+    });
+
+    test('muestra la información de la sucursal al abrir el checkout', async () => {
+      await openCheckoutDialog();
+
+      expect(screen.getByText('Abierto ahora')).toBeInTheDocument();
+      expect(
+        screen.getByText('Horario de hoy: Hoy de 08:00 a 18:00')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Sucursal abierta. Hoy de 08:00 a 18:00.')
+      ).toBeInTheDocument();
+    });
+
+    test('muestra la advertencia cuando la sucursal está cerrada', async () => {
+      await openCheckoutDialog({
+        isOpen: false,
+        currentOpening: 'Hoy de 09:00 a 14:00',
+        nextOpening: 'Mañana de 09:00 a 14:00',
+        message:
+          'La sucursal está cerrada. Próxima apertura: Mañana de 09:00 a 14:00.',
+      });
+
+      expect(screen.getByText(/Cerrado/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/La sucursal está cerrada/)
+      ).toBeInTheDocument();
+    });
+
+    test('muestra dirección, teléfono y enlace al mapa cuando la sucursal los tiene', async () => {
+      const branch = makeBranch(1, 'Sucursal A', {
+        address: 'Av. Pellegrini 1234, Rosario',
+        phone: '3415555555',
+        location: 'https://maps.example.com/sucursal-a',
+      });
+
+      await openCheckoutDialog({
+        branch,
+      });
+
+      expect(
+        screen.getByText('Dirección: Av. Pellegrini 1234, Rosario')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Teléfono: 3415555555')).toBeInTheDocument();
+      const mapLink = screen.getByText('Ver en mapa');
+      expect(mapLink).toBeInTheDocument();
+      expect(mapLink).toHaveAttribute(
+        'href',
+        'https://maps.example.com/sucursal-a'
       );
     });
 

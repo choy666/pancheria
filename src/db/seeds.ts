@@ -11,9 +11,16 @@ import * as stockService from '@/application/services/stockService';
 import type { BranchOpeningHours } from '@/domain/types';
 
 const DEFAULT_BRANCH_NAME = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
+const DEFAULT_BRANCH_ADDRESS = process.env.DEFAULT_BRANCH_ADDRESS ?? null;
+const DEFAULT_BRANCH_PHONE = process.env.DEFAULT_BRANCH_PHONE ?? null;
+const DEFAULT_BRANCH_LOCATION = process.env.DEFAULT_BRANCH_LOCATION ?? null;
+
 const NEW_BRANCH_NAME = process.env.NEW_BRANCH_NAME;
 const NEW_BRANCH_USERNAME = process.env.NEW_BRANCH_USERNAME;
 const NEW_BRANCH_PASSWORD = process.env.NEW_BRANCH_PASSWORD;
+const NEW_BRANCH_ADDRESS = process.env.NEW_BRANCH_ADDRESS ?? null;
+const NEW_BRANCH_PHONE = process.env.NEW_BRANCH_PHONE ?? null;
+const NEW_BRANCH_LOCATION = process.env.NEW_BRANCH_LOCATION ?? null;
 
 const DEFAULT_OPENING_HOURS: BranchOpeningHours[] = [
   { dayOfWeek: 1, open: '10:00', close: '22:00' },
@@ -37,7 +44,13 @@ async function seedDefaultBranch(): Promise<number> {
 
   const [branch] = await db
     .insert(branches)
-    .values({ name: DEFAULT_BRANCH_NAME, openingHours: DEFAULT_OPENING_HOURS })
+    .values({
+      name: DEFAULT_BRANCH_NAME,
+      openingHours: DEFAULT_OPENING_HOURS,
+      address: DEFAULT_BRANCH_ADDRESS,
+      phone: DEFAULT_BRANCH_PHONE,
+      location: DEFAULT_BRANCH_LOCATION,
+    })
     .returning({ id: branches.id });
 
   console.log('Sucursal por defecto creada.');
@@ -109,7 +122,13 @@ async function seedOptionalBranch(defaultBranchId: number) {
 
   const [branch] = await db
     .insert(branches)
-    .values({ name: NEW_BRANCH_NAME, openingHours: DEFAULT_OPENING_HOURS })
+    .values({
+      name: NEW_BRANCH_NAME,
+      openingHours: DEFAULT_OPENING_HOURS,
+      address: NEW_BRANCH_ADDRESS,
+      phone: NEW_BRANCH_PHONE,
+      location: NEW_BRANCH_LOCATION,
+    })
     .returning({ id: branches.id });
 
   const existingUser = await db.query.users.findFirst({
