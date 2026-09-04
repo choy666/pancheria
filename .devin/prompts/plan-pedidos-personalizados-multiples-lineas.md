@@ -102,12 +102,18 @@ Se recomienda la Opción A.
 
 Cambiar en `src/components/pedido/cart-summary.tsx`:
 - `key={item.id}` → `key={item.lineId}`.
-- `data-testid={`cart-item-${item.id}`}` → `data-testid={`cart-item-${item.lineId}`}`.
-- Agregar `data-product-id={item.id}` en cada `<li>` para mantener tests que buscan por producto.
+- Usar `data-testid="cart-item"` en cada `<li>` para mantener compatibilidad con los tests E2E existentes.
+- Agregar `data-line-id={item.lineId}` para identificar la línea concreta.
+- Agregar `data-product-id={item.id}` y `data-product-name={item.name}` para tests que filtran por producto.
 
 Cambiar en `src/components/ventas/sales-cart.tsx`:
 - `key={item.product.id}` → `key={item.lineId}` (una vez que `CartItem` tenga `lineId`).
-- Agregar `data-testid={`sales-cart-item-${item.lineId}`}` y `data-product-id={item.product.id}`.
+- Usar `data-testid="cart-item"`.
+- Agregar `data-line-id={item.lineId}`, `data-product-id={item.product.id}` y `data-product-name={item.product.name}`.
+
+Cambiar en `src/components/pedido/checkout-summary.tsx`:
+- Usar `data-testid="checkout-item"` en cada `<li>`.
+- Agregar `data-line-id={item.lineId}`, `data-product-id={item.id}` y `data-product-name={item.name}`.
 
 Actualizar los tests que dependen de los `data-testid` anteriores:
 - `src/components/pedido/pedido-client.test.tsx`
