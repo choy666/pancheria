@@ -1,6 +1,6 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-09-02  
+**Fecha:** 2026-09-04  
 **Proyecto:** `pancheria`  
 **Baseline:** `HEAD` — branch `main`  
 **Histórico:** las fases previas quedan archivadas en `.devin/informes/archivados/reporte-estado-historico-2026-08-30.md`.
@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo. El build de producción, la verificación de tipos, los tests unitarios, el lint, Knip y el suite E2E pasan correctamente. La funcionalidad principal cubre ventas con pagos mixtos, pedidos con reservas de stock, chat con adjuntos, caja/cierre diario, panel de control, catálogo público, imágenes de productos/promos y videos con soporte de múltiples proveedores de almacenamiento.
+El proyecto se encuentra en estado operativo. El build de producción, la verificación de tipos, los tests unitarios, el lint, Knip y el suite E2E pasan correctamente. La funcionalidad principal cubre ventas con pagos mixtos, pedidos con reservas de stock y múltiples líneas del mismo producto personalizado, chat con adjuntos, caja/cierre diario, panel de control, catálogo público, imágenes de productos/promos y videos con soporte de múltiples proveedores de almacenamiento.
 
 La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example`, `.devin/environment.yaml`, informes vigentes e índices, y archivó el prompt de mejoras de ventas (`auditoria-y-mejoras-ventas.md`) porque sus objetivos ya estaban implementados.
 
@@ -44,10 +44,10 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 |---------|-----------|
 | `npm run lint` | Pasa |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | 121 suites, 1159 tests pasan |
+| `npm test` | 125 suites, 1205 tests pasan |
 | `npm run build` | Build exitoso, incluye `/productos/eliminados` y `/videos/eliminados` |
 | `npm run knip` | Pasa |
-| `npm run test:e2e` | **100 passed** en base descartable |
+| `npm run test:e2e` | **104 passed** en base descartable |
 
 > **Nota:** la falla anterior de login se debía a que el servidor de E2E no estaba utilizando la base descartable correctamente. Tras verificar la propagación de `DATABASE_URL` y `ADMIN_PASSWORD` (ver <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/implementar-pendientes-hard-delete-cache.md" />), la suite completa pasó.
 
@@ -81,6 +81,7 @@ La última auditoría documental depuró `README.md`, `AGENTS.md`, `.env.example
 | `localStorage` del cliente conservaba datos de sucursales eliminadas (carrito, pedidos recientes, tour) | Mayor | Se corrigió: `usePedidoClient` detecta una sucursal guardada que ya no existe y limpia `pancheria-branch-id`, `pancheria-cart-v1`, pedidos recientes y claves del tour. |
 | Nombres de variables en guía de funcionamiento incompletos | Menor | Se corrigieron `CAJA_AUTO_CLOSE_HOURS` y `CAJA_AUTO_CLOSED_BY`. |
 | Tests E2E de caja fallaban por `clearSession` insuficiente y el test de rate limit devolvía `201` en lugar de `429` | Mayor | Se agregó `clearSession(page)` a `tests/e2e/helpers.ts`, se robusteció `loginAs` y se configuraron `E2E_ENABLE_RATE_LIMIT=true`, `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV=true`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS=2` y `TRUSTED_PROXY_IP_HEADER=X-Forwarded-For` en `.github/workflows/ci.yml` y `.env.e2e.example`. Suite E2E: 96 passed. |
+|| Pedidos con múltiples líneas del mismo producto personalizado generaban keys duplicadas y el panel no mostraba recetas por línea | Mayor | Se corrigieron `pedido-success-dialog.tsx` y `usePedidoDetail.ts`; se agregó cobertura E2E de panel/chat y test unitario de `validateCartAvailability`; se estabilizó el test de sucursal no default con `openingHours` en `tests/e2e/helpers.ts`. Suite E2E: 104 passed. |
 
 ## 7. Acciones pendientes recomendadas
 

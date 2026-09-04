@@ -15,7 +15,7 @@ import {
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
 import type { CashRegister } from '@/config/caja';
-import type { OrderStatus, DeliveryType, PaymentPart, OrderMessage } from '@/domain/types';
+import type { OrderStatus, DeliveryType, PaymentPart, OrderMessage, RecipeItemConfig } from '@/domain/types';
 
 interface OrderDetailItem {
   id: number;
@@ -27,6 +27,7 @@ interface OrderDetailItem {
     name: string;
     unit: string;
   } | null;
+  recipeSnapshot?: RecipeItemConfig[];
 }
 
 interface OrderDetail {

@@ -1,5 +1,28 @@
 # Prompt: Plan de implementación — pedidos con múltiples líneas del mismo producto personalizado
 
+## Estado final
+
+La implementación de múltiples líneas del mismo producto personalizado está completa y verificada.
+
+```text
+npx tsc --noEmit          OK
+npm run lint              OK
+npm test                  125 suites / 1205 tests OK
+npm run build             OK
+npm run knip              OK
+npm run test:e2e          104 tests OK
+```
+
+### Aspectos cubiertos
+
+- El carrito (cliente y operador) identifica cada línea con `lineId` y separa agregados con distintas `selectedRecipeItemIds`.
+- El checkout y la confirmación muestran el resumen de recetas por línea.
+- El panel de pedidos (`/pedidos/[id]`) y el chat reflejan las personalizaciones de cada línea, incluyendo el mensaje de sistema con el detalle de preparación.
+- El terminal de ventas (`/ventas`) soporta múltiples líneas del mismo producto con recetas distintas.
+- Se agregaron tests unitarios de `validateCartAvailability` y tests E2E del panel/chat.
+- Se corrigió un warning de React keys duplicadas en `pedido-success-dialog.tsx`.
+- Se estabilizó el test E2E de sucursal no default configurando `openingHours` para la sucursal secundaria.
+
 ## Contexto
 
 Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos, chat por pedido y gestión de videos.
@@ -381,3 +404,15 @@ Introducir un `lineId` inmutable por línea del carrito para poder distinguir m�
 - El diálogo de edición de una línea debe montarse en el componente padre (`PedidoClient` o `sales-terminal`) y no dentro de `ProductCard`/`SalesProductCard`, porque la tarjeta no conoce la línea específica del carrito.
 - `ProductCard` debe mostrar la cantidad total en el badge (`inCartQuantity`) en lugar de un booleano, para que el usuario vea cuántas unidades del producto tiene en el carrito aunque sean líneas distintas.
 - `useCart` no tiene acceso al cálculo de disponibilidad por selección específica; por eso se usa `getAvailability(product.id)` como límite conservador. La validación final y el mensaje de faltante se obtienen del backend (`validateCartAvailability`) y se reflejan en `shortageByProduct`.
+
+## Ajustes posteriores y cierre
+
+Durante la revisión final se aplicaron las siguientes correcciones y coberturas:
+
+1. **Warning de React keys duplicadas**: se corrigió `src/components/pedido/pedido-success-dialog.tsx` para no usar `productId` como `key` cuando puede haber varias líneas del mismo producto.
+2. **Detalle del panel sin recetas**: `src/components/pedido/usePedidoDetail.ts` recibió `recipeSnapshot?: RecipeItemConfig[]` en `OrderDetailItem` para que el panel de pedidos y el detalle muestren el resumen de recetas por línea.
+3. **Flaky E2E de sucursal no default**: `tests/e2e/helpers.ts` ahora configura `openingHours` válidos para la sucursal secundaria, evitando el rechazo del pedido por falta de horario.
+4. **Cobertura E2E de panel y chat**: `tests/e2e/pedido.spec.ts` incluye un test que crea un pedido con dos variantes, accede al detalle del panel y verifica el mensaje de preparación en el chat.
+5. **Test unitario de `validateCartAvailability`**: `src/lib/product-helpers.test.ts` cubre dos líneas del mismo producto con selecciones distintas y el cálculo combinado de consumo.
+6. **Refactor de tarjetas**: se evaluó `ProductCard` y `SalesProductCard`; se decidió mantenerlos separados porque las diferencias de interacción, badge y contenido superan a la duplicación superficial.
+7. **Plan de pendientes**: se actualizó `.devin/prompts/plan-pedidos-personalizados-pendientes.md` con el estado resuelto de cada tarea.

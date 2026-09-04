@@ -171,9 +171,9 @@ export function PedidoSuccessDialog({
               </div>
               {createdOrder.items.length > 0 && (
                 <ul className="space-y-2 border-t border-border pt-2">
-                  {createdOrder.items.map((item) => (
+                  {createdOrder.items.map((item, index) => (
                     <li
-                      key={item.productId}
+                      key={`${item.productId}-${index}`}
                       className="flex items-start justify-between gap-2 text-sm"
                     >
                       <div className="min-w-0 flex-1">

@@ -232,12 +232,24 @@ export async function setupSecondBranchForE2E(): Promise<{
     where: eq(branches.name, branchName),
   });
 
+  const defaultOpeningHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    dayOfWeek,
+    open: '00:00',
+    close: '23:59',
+  }));
+
   if (!branch) {
     const [created] = await db
       .insert(branches)
-      .values({ name: branchName })
+      .values({ name: branchName, openingHours: defaultOpeningHours })
       .returning();
     branch = created;
+  } else if (!branch.openingHours || branch.openingHours.length === 0) {
+    await db
+      .update(branches)
+      .set({ openingHours: defaultOpeningHours })
+      .where(eq(branches.id, branch.id));
+    branch = { ...branch, openingHours: defaultOpeningHours };
   }
 
   if (!branch) {

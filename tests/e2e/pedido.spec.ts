@@ -273,6 +273,9 @@ test.describe('Pedido público con chat', () => {
       isActive: true,
     });
 
+    // Asegurar que haya una caja abierta en la sucursal objetivo.
+    await ensureCashRegisterOpen(page);
+
     await clearSession(page);
     await page.goto(`/pedido?branchId=${second.branchId}`);
 
@@ -293,5 +296,134 @@ test.describe('Pedido público con chat', () => {
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
+  });
+
+  test('mantiene líneas separadas en panel y chat con detalle de preparación', async ({
+    page,
+  }) => {
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan panel'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+    await restockProductViaApi(page, pan.id, 10);
+
+    const cebolla = await createProductViaApi(page, {
+      name: unique('Cebolla panel'),
+      type: 'manual_supply',
+      price: 0,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo panel'),
+      type: 'compound',
+      price: 1500,
+      unit: 'unidad',
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [
+          {
+            supplyId: pan.id,
+            quantity: 1,
+            autoDiscount: true,
+            isOptional: false,
+            supplyType: 'critical_supply',
+          },
+          {
+            supplyId: cebolla.id,
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selectedByDefault: false,
+            supplyType: 'manual_supply',
+          },
+        ],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto('/pedido');
+    await expect(page.getByTestId(`product-card-${promo.id}`)).toBeVisible();
+
+    // Agregar variante con cebolla.
+    await page.getByTestId(`add-product-${promo.id}`).click();
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page
+      .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
+      .check();
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    // Agregar variante sin cebolla.
+    await page.getByTestId(`add-product-${promo.id}`).click();
+    await expect(
+      page.getByRole('heading', { name: promo.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+
+    await expect(page.locator(`[data-product-id="${promo.id}"]`)).toHaveCount(
+      2,
+      { timeout: 5000 }
+    );
+
+    // Confirmar el pedido y abrir el chat para capturar el orderId.
+    await page.getByRole('button', { name: 'Hacer pedido' }).click();
+    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+
+    const customerName = unique('Cliente Panel');
+    await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill('3415555555');
+    await page.getByRole('button', { name: 'Confirmar pedido' }).click();
+
+    await expect(page.getByText('Pedido creado')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
+
+    await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
+    const orderIdMatch = page.url().match(/\/pedido\/(\d+)\/chat/);
+    const orderId = orderIdMatch ? orderIdMatch[1] : null;
+    expect(orderId).not.toBeNull();
+
+    // Operador: revisar panel de pedidos.
+    await login(page);
+    await page.goto('/pedidos');
+
+    const orderRow = page
+      .locator(`[data-testid^="row-order-"]`)
+      .filter({ hasText: customerName });
+    await expect(orderRow).toBeVisible({ timeout: 10000 });
+    await orderRow.getByRole('link', { name: 'Ver' }).click();
+
+    // Verificar dos líneas del mismo producto.
+    const productRows = page.locator('table tbody tr').filter({ hasText: promo.name });
+    await expect(productRows).toHaveCount(2);
+
+    // Cada línea muestra un resumen de receta distinto.
+    const detailRows = page.locator('table tbody tr').filter({ hasText: promo.name });
+    await expect(detailRows.filter({ hasText: /Incluye:/ })).toHaveCount(2);
+    await expect(
+      detailRows.filter({ hasText: new RegExp(`Sin:.*${cebolla.name}`) })
+    ).toHaveCount(1);
+
+    // El chat del operador contiene el mensaje de preparación con ambas configuraciones.
+    const prepMessage = page
+      .getByTestId('chat-message-text')
+      .filter({ hasText: 'Detalle de preparación' });
+    await expect(prepMessage).toBeVisible({ timeout: 10000 });
+    await expect(prepMessage).toContainText(`${promo.name} x1`);
+    await expect(prepMessage).toContainText(/Incluye:/);
+    await expect(prepMessage).toContainText(/Sin:/);
   });
 });

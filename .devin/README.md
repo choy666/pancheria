@@ -6,10 +6,11 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 
 - [Prompt maestro — Proyecto Panchería](prompts/pancheria.prompt.md)
 - [Guía de escritura de prompts](prompts/README.md)
-- [Mejoras de UX en combos y pagos del módulo de ventas](prompts/mejoras-ux-ventas-combos-pagos.md)
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
+
+> **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
 
 ## Estado del proyecto
 
@@ -48,7 +49,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── plan-implementacion-multi-tenant.md
-    └── archivados/               # Prompts resueltos (incluye auditoria-fallos-e2e-caja-y-rate-limit.md)
+    └── archivados/               # Prompts resueltos (incluye plan de pedidos personalizados y auditoria-fallos-e2e-caja-y-rate-limit.md)
 ```
 
 ## Reglas de uso
