@@ -41,6 +41,26 @@ Antes de hacer push, revisar mentalmente estos puntos si se editó `.github/work
 - [ ] No hay credenciales, secretos, URLs privadas ni `.env.*` commiteados por accidente.
 - [ ] No se modificó `.github/workflows/ci.yml` solo para silenciar advertencias del IDE (ver `lecciones-aprendidas.md`, sección 11).
 
+## Secretos de GitHub Actions y Vercel
+
+Verificar que existan en **Settings → Secrets and variables → Actions** del repositorio:
+
+- [ ] `E2E_DATABASE_URL` — URL con pooler de la base descartable para E2E.
+- [ ] `E2E_DATABASE_URL_UNPOOLED` — URL sin pooler de la misma base.
+- [ ] `NEXTAUTH_SECRET` — secreto de autenticación de al menos 32 bytes.
+- [ ] `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales del administrador del seed.
+- [ ] `CRON_SECRET` — token usado por `.github/workflows/expire-orders.yml` para llamar a `/api/cron/expire-orders`.
+
+Variables de acción recomendadas:
+
+- [ ] `NEXT_PUBLIC_WHATSAPP_NUMBER` — número de WhatsApp para pedidos.
+
+En **Vercel → Environment Variables → Production** debe existir:
+
+- [ ] `CRON_SECRET` con el **mismo valor** que en GitHub Actions (el endpoint lo requiere para autorizar llamadas).
+
+> Nota: el cron `expire-orders` ya no vive en `vercel.json`; se dispara desde `.github/workflows/expire-orders.yml` cada 5 minutos.
+
 ## Revisión de diff
 
 1. `git diff --stat` — confirmar que los archivos modificados son los esperados.
