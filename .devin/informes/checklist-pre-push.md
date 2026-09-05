@@ -58,6 +58,7 @@ Variables de acción recomendadas:
 En **Vercel → Environment Variables → Production** debe existir:
 
 - [ ] `CRON_SECRET` con el **mismo valor** que en GitHub Actions (el endpoint lo requiere para autorizar llamadas).
+- [ ] `CRON_SECRET` no debe tener espacios, saltos de línea ni comillas al inicio o final, porque Vercel valida el header `Authorization` en build time.
 
 > Nota: el cron `expire-orders` ya no vive en `vercel.json`; se dispara desde `.github/workflows/expire-orders.yml` cada 5 minutos.
 
