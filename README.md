@@ -195,7 +195,7 @@ Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se c
 ## Notas
 
 - El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).
-- `next.config.ts` define headers de seguridad incluyendo `Content-Security-Policy`.
+- `src/proxy.ts` define `Content-Security-Policy` con nonce por request y `src/lib/csp-helpers.ts` resuelve los orígenes permitidos; `next.config.ts` mantiene el resto de los headers de seguridad.
 - El esquema de base de datos incluye constraints `CHECK (stock >= 0)` y `CHECK (min_stock >= 0)` en `products`, además de índices recientes en `orders` y `order_messages`.
 - Los insumos manuales (`manual_supply`) son informativos en recetas y no se descuentan automáticamente del stock en ventas.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.

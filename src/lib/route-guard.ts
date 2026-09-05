@@ -5,6 +5,7 @@ const PUBLIC_PATHS: Set<string> = new Set([routes.pedido, routes.login]);
 
 const PUBLIC_PREFIXES = [
   '/api/public',
+  '/pedido/',
   '/_next/static',
   '/_next/image',
   '/favicon.ico',

@@ -10,7 +10,7 @@
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo y estable para el baseline actual. Las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **139 suites y 1326 tests**; la suite E2E pasa a **108 tests en 33 specs** con la adición del cierre diario (`cierres-diarios.spec.ts`) y la eliminación real de sucursales (`sucursal-eliminacion.spec.ts`). La ejecución de `npm run test:e2e` (equivalente a `npx playwright test`) pasó con **107 tests ok y 1 flaky preexistente**.
+El proyecto se encuentra en estado operativo y estable para el baseline actual. Las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **139 suites y 1326 tests**; la suite E2E pasa a **108 tests en 33 specs** con la adición del cierre diario (`cierres-diarios.spec.ts`) y la eliminación real de sucursales (`sucursal-eliminacion.spec.ts`). La ejecución de `npm run test:e2e` (equivalente a `npx playwright test`) pasó con **108 passed**.
 
 En esta sesión se completó la auditoría masiva de las 9 áreas, se aplicaron correcciones de seguridad sobre endpoints públicos, rate limiting, cron jobs, adjuntos y validación de productos eliminados, y se detectaron riesgos adicionales de concurrencia e integridad de datos que requieren acción posterior. Además se aplicaron correcciones documentales y de consistencia: se unificó `COMMON_BILLS` con `DEFAULT_DENOMINATIONS` en `payment-parts-input.tsx`, se documentaron las variables de dirección/teléfono/ubicación de sucursales y `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` en `README.md`, `AGENTS.md` y `.devin/environment.yaml`, y se sincronizó `.devin/prompts/README.md` con los prompts archivados faltantes.
 
@@ -33,17 +33,18 @@ Hallazgos críticos resueltos o mitigados en esta sesión:
 - Se agregó el spec E2E `ventas-pago-mixto.spec.ts` para validar pagos mixtos (`cash + transfer`) de extremo a extremo.
 - Se agregaron los specs E2E `cierres-diarios.spec.ts` y `sucursal-eliminacion.spec.ts`, cerrando los gaps de cierre diario y eliminación de sucursales.
 - Se documentaron `E2E_ENABLE_RATE_LIMIT` y `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` en `.env.example`, `README.md`, `AGENTS.md` y `.devin/environment.yaml`, y se conectó el intervalo del dashboard a `src/config/dashboard.ts`.
+- Se eliminaron `unsafe-inline` y `unsafe-eval` de `script-src` en la CSP usando nonces generados por request en `src/proxy.ts` y `src/lib/csp-helpers.ts`.
 
 Hallazgos críticos aún abiertos:
 
-- Resuelto en tarea #5: `createOrder` ahora reserva stock inmediatamente. Quedan abiertas las tareas #17 (CSP sin `unsafe-inline`/`unsafe-eval`) y #18 (`axe-core` / Lighthouse en CI).
+- Resuelto en tarea #5: `createOrder` ahora reserva stock inmediatamente. Queda abierta la tarea #18 (`axe-core` / Lighthouse en CI).
 
 Otros hallazgos relevantes:
 
 - `npm run analyze` completa el build bajo Turbopack, pero `@next/bundle-analyzer` no genera el HTML del reporte. Se agregó una nota en `next.config.ts` indicando que se requiere `next build --webpack` para el análisis completo.
 - El intervalo de refresco del dashboard ya no está hardcodeado; se lee desde `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` vía `src/config/dashboard.ts`.
 - El endpoint `/api/panel/resumen` realiza 5 consultas pesadas de pedidos solo para contar y ejecuta la expiración de pedidos `pending` dentro del request.
-- Se cerraron los gaps de cierre diario (`cierres-diarios.spec.ts`) y eliminación real de sucursales (`sucursal-eliminacion.spec.ts`) en E2E. Quedan pendientes los items #17 y #18 del plan.
+- Se cerraron los gaps de cierre diario (`cierres-diarios.spec.ts`) y eliminación real de sucursales (`sucursal-eliminacion.spec.ts`) en E2E. Se completó el item #17 del plan; queda pendiente el item #18.
 - `getClientIp` en `src/lib/rate-limit.ts` devuelve `'unknown'` cuando no puede resolver una IP confiable en producción, lo que agrupa todo el tráfico bajo la misma clave de rate limit. Recomendación: requerir un header de proxy confiable o rechazar explícitamente el rate limit para IPs no resolubles.
 - `payment-parts-input.tsx` usaba `COMMON_BILLS` fijos (`[1000,...,50000]`) inconsistentes con `DEFAULT_DENOMINATIONS`. **Corregido** en esta sesión: los botones de billetes ahora usan `DEFAULT_DENOMINATIONS`.
 
@@ -87,7 +88,7 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 | `npm run knip` | Pasa |
 | `npm run analyze` | Build exitoso, **pero no genera reporte de bundle bajo Turbopack** (ver Hallazgo 5.6) |
 | `npx drizzle-kit check` | No ejecutado (requiere base de datos de prueba) |
-| `npx playwright test` | **108 tests en 33 archivos; 107 passed, 1 flaky preexistente (`tour.spec.ts`)** |
+| `npx playwright test` | **108 tests en 33 archivos; 108 passed** |
 
 ## 5. Hallazgos de la auditoría por área
 
@@ -108,7 +109,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | No se detectaron credenciales/secretos hardcodeados en `src/` | OK | Búsquedas por `ADMIN_`, `SECRET`, `TOKEN`, `PASSWORD` solo arrojan lecturas de `process.env.*` y tests. |
 | Autenticación y autorización por rol y `branchId` | OK | `withAuth` inyecta `branchId`; `admin` puede cambiar de sucursal; `operator` está restringido. <ref_file file="C:/developer/paginas/pancheria/src/lib/with-auth.ts" /> |
 | Rate limit en endpoints públicos | OK | `createRateLimiter` protege pedidos y chat; `PUBLIC_ORDER_RATE_LIMIT_*` soporta `memory` y `db`. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
-| CSP y headers de seguridad | OK | `next.config.ts` define CSP, HSTS en producción, X-Frame-Options, etc. <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
+| CSP y headers de seguridad | OK | `src/proxy.ts` genera un nonce por request y `src/lib/csp-helpers.ts` construye el header. `script-src` ya no usa `unsafe-inline` ni `unsafe-eval` en producción. HSTS, X-Frame-Options, etc., se mantienen en `next.config.ts`. <ref_file file="C:/developer/paginas/pancheria/src/proxy.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
 | Cron jobs protegidos por `CRON_SECRET` | OK | <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/rate-limit-cleanup/route.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/chat-attachments-cleanup/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/expire-orders/route.ts" />. Comparación constante con `crypto.timingSafeEqual`. |
 | `getClientIp` devuelve `'unknown'` si no hay header confiable en producción | Mayor | Si no está en Vercel ni se configura `TRUSTED_PROXY_IP_HEADER`, toda la producción comparte la misma clave de rate limit. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
 | Tracking público expone `cancellationToken` sin identificación del cliente | Crítico | `trackOrder` devolvía el token cuando se consultaba solo con `orderNumber`. **Corregido**: se exige `customerName` o `customerPhone` para devolver datos del pedido. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="789-797" /> |
@@ -225,7 +226,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | `.github/workflows/ci.yml` completo | OK | Lint, tipos, unit tests, build, knip, E2E. Verifica secretos requeridos. <ref_file file="C:/developer/paginas/pancheria/.github/workflows/ci.yml" /> |
 | `playwright.config.ts` | OK | Carga `.env.local` y `.env.e2e`, health check a `/api/caja/resumen`, pasa variables de rate limit. <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" /> |
 | `vercel.json` con cron jobs | OK | Limpieza de rate limits y adjuntos de chat diariamente. |
-| `next.config.ts` con headers y CSP | OK | CSP con `unsafe-inline`/`unsafe-eval` (ver Recomendación 7). <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
+| `next.config.ts` con headers y CSP | OK | CSP generada por `src/proxy.ts`/`src/lib/csp-helpers.ts`; `script-src` sin `unsafe-inline`/`unsafe-eval` en producción; headers de seguridad en `next.config.ts` (ver Recomendación 7). <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
 | `.env.local` y `.env.e2e` no commiteados | OK | `.gitignore` los excluye. |
 | `package.json` sin campo `engines` | Menor | CI usa Node 22; docs dicen 20; sin `engines` no se forzaba versión. **Corregido** agregando `engines: { "node": ">=20" }`. |
 | `analyze` no genera reporte bajo Turbopack | Menor | Ver Hallazgo 6.1. |
@@ -284,7 +285,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | Optimizar imágenes de productos/chat con `next/image` | Menor | Reduce tamaño de descarga y mejora CLS. |
 | Unificar `COMMON_BILLS` con `DEFAULT_DENOMINATIONS` | Menor | **Hecho.** Evita denominaciones inconsistentes. |
 | Resolver `getClientIp` para IPs no confiables en producción | Mayor | Evita que todo el tráfico comparta el mismo bucket de rate limit. |
-| Revisar CSP `script-src 'unsafe-inline'` | Menor | Reduce riesgo de XSS; evaluar nonces o hashes. |
+| Revisar CSP `script-src 'unsafe-inline'` | Menor | **Hecho.** Ahora se genera un nonce por request en `src/proxy.ts` y `script-src` no usa `unsafe-inline`/`unsafe-eval` en producción. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
 | Agregar `axe-core` o Lighthouse en CI para accesibilidad | Futuro | Detectar problemas de accesibilidad de forma automática. |
 
 ## 8. Progreso de ejecución del plan de acción
@@ -309,7 +310,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | 14 | Targets táctiles de botones de pago | **Completado** |
 | 15 | Documentar `calculateCompoundAvailability` | **Completado** |
 | 16 | Normalizar aritmética de centavos | **Completado** |
-| 17 | CSP sin `unsafe-inline/eval` | Pendiente |
+| 17 | CSP sin `unsafe-inline/eval` | **Completado** |
 | 18 | `axe-core` / Lighthouse en CI | Pendiente |
 
 ### Verificaciones del repositorio (última ejecución)

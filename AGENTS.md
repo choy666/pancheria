@@ -105,7 +105,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen de producto/promo en MB (por defecto 5).
 - `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos separados por coma (por defecto `image/jpeg,image/png,image/webp`).
 - `PRODUCT_IMAGE_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para imágenes de productos; si no se define, usa `LOCAL_STORAGE_PATH` como fallback (por defecto `tmp/videos/product-images`).
-- `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `next.config.ts` para extender `img-src` en la CSP.
+- `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `src/lib/csp-helpers.ts` para extender `img-src` en la CSP.
 - `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH` / `PRODUCT_IMAGE_URL_MAX_LENGTH` (opcional) — longitud máxima de una URL externa de imagen (por defecto 2048); la variable pública tiene prioridad.
 - `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` (opcional) — valores de los botones de denominación rápida en el ingreso de pagos, separados por coma. Por defecto `1000,2000,5000,10000,20000`.
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` (opcional) — si se define como `true`, se inyecta el script de Vercel Web Analytics en todas las páginas. En desarrollo no envía datos aunque esté habilitado; también es necesario activar Web Analytics en el dashboard de Vercel.
@@ -192,7 +192,7 @@ El sistema permite asociar una imagen ilustrativa a cada producto/promo (`produc
 - Endpoints de API: `POST /api/productos/imagen/preparar` (devuelve instrucciones de subida), `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]` (lectura pública).
 - La lógica de almacenamiento y validación está en `src/lib/product-image-storage.ts` y `src/lib/product-image-upload-client.ts`, reutilizando el proveedor configurado en `STORAGE_PROVIDER` (`local`, `vercel-blob`, `s3`, `r2`).
 - La configuración de tamaño, MIME, dominios permitidos y URL máxima vive en `src/config/product-images.ts`.
-- La CSP de `next.config.ts` extiende `img-src` con los dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y con los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor.
+- La CSP de `src/lib/csp-helpers.ts` (inyectada por `src/proxy.ts`) extiende `img-src` con los dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y con los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor.
 - En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
 
 ## Despliegue en Vercel
@@ -345,7 +345,7 @@ useEffect(() => {
   - `src/app/(panel)/layout.tsx` redirige a `/login` si no hay sesión.
   - `src/app/(auth)/login/page.tsx` redirige a `/` si ya hay sesión.
 - Además, `src/lib/route-guard.ts` redirige `/` sin sesión a `/pedido`, mientras que `src/app/(panel)/layout.tsx` redirige `/` sin sesión a `/login`. Eso genera una inconsistencia si ambas capas se ejecutan.
-- Solución: la redirección autoritaria es la del proxy (`src/proxy.ts` + `src/lib/route-guard.ts`). `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` son redirecciones defensivas de fallback (el matcher del proxy excluye `/login` y las subrutas del panel no deberían llegar al layout sin pasar por el proxy). No hace falta eliminarlas, pero sí documentar su rol. Verificar que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
+- Solución: la redirección autoritaria es la del proxy (`src/proxy.ts` + `src/lib/route-guard.ts`). `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` son redirecciones defensivas de fallback (el matcher del proxy excluye `/api`, `/_next/static`, `/_next/image`, `favicon.ico` y archivos `.svg`; aplica CSP a las rutas de UI y redirecciones de `route-guard`). No hace falta eliminarlas, pero sí documentar su rol. Verificar que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 
