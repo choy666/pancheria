@@ -10,7 +10,7 @@
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo y estable para el baseline actual. Las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **133 suites y 1246 tests**; la suite E2E pasa a **105 tests en 31 specs** con la adición del pago mixto (`ventas-pago-mixto.spec.ts`). En esta sesión no se ejecutó `npm run test:e2e` por no contar con una base descartable configurada.
+El proyecto se encuentra en estado operativo y estable para el baseline actual. Las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **139 suites y 1326 tests**; la suite E2E pasa a **108 tests en 33 specs** con la adición del cierre diario (`cierres-diarios.spec.ts`) y la eliminación real de sucursales (`sucursal-eliminacion.spec.ts`). La ejecución de `npm run test:e2e` (equivalente a `npx playwright test`) pasó con **107 tests ok y 1 flaky preexistente**.
 
 En esta sesión se completó la auditoría masiva de las 9 áreas, se aplicaron correcciones de seguridad sobre endpoints públicos, rate limiting, cron jobs, adjuntos y validación de productos eliminados, y se detectaron riesgos adicionales de concurrencia e integridad de datos que requieren acción posterior. Además se aplicaron correcciones documentales y de consistencia: se unificó `COMMON_BILLS` con `DEFAULT_DENOMINATIONS` en `payment-parts-input.tsx`, se documentaron las variables de dirección/teléfono/ubicación de sucursales y `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` en `README.md`, `AGENTS.md` y `.devin/environment.yaml`, y se sincronizó `.devin/prompts/README.md` con los prompts archivados faltantes.
 
@@ -35,14 +35,14 @@ Hallazgos críticos resueltos o mitigados en esta sesión:
 
 Hallazgos críticos aún abiertos:
 
-- `createOrder` no reserva stock, lo que permite sobreventa de pedidos `pending` concurrentes. La validez real se mantiene gracias a `validateCartAvailability` y los locks `FOR UPDATE` en `receiveOrder` y `confirmSale`/`convertOrderToSale`, pero el riesgo de falta de reserva en el paso de creación permanece y requiere decisión de diseño.
+- Resuelto en tarea #5: `createOrder` ahora reserva stock inmediatamente. Quedan abiertas las tareas #17 (CSP sin `unsafe-inline`/`unsafe-eval`) y #18 (`axe-core` / Lighthouse en CI).
 
 Otros hallazgos relevantes:
 
 - `npm run analyze` completa el build bajo Turbopack, pero `@next/bundle-analyzer` no genera el HTML del reporte. Se agregó una nota en `next.config.ts` indicando que se requiere `next build --webpack` para el análisis completo.
 - El intervalo de refresco del dashboard ya no está hardcodeado; se lee desde `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` vía `src/config/dashboard.ts`.
 - El endpoint `/api/panel/resumen` realiza 5 consultas pesadas de pedidos solo para contar y ejecuta la expiración de pedidos `pending` dentro del request.
-- Se cerró el gap de pago mixto en E2E (`ventas-pago-mixto.spec.ts`); persisten gaps menores de cobertura en E2E (cierres de caja, borrado real de sucursales) y tests de helpers críticos.
+- Se cerraron los gaps de cierre diario (`cierres-diarios.spec.ts`) y eliminación real de sucursales (`sucursal-eliminacion.spec.ts`) en E2E. Quedan pendientes los items #17 y #18 del plan.
 - `getClientIp` en `src/lib/rate-limit.ts` devuelve `'unknown'` cuando no puede resolver una IP confiable en producción, lo que agrupa todo el tráfico bajo la misma clave de rate limit. Recomendación: requerir un header de proxy confiable o rechazar explícitamente el rate limit para IPs no resolubles.
 - `payment-parts-input.tsx` usaba `COMMON_BILLS` fijos (`[1000,...,50000]`) inconsistentes con `DEFAULT_DENOMINATIONS`. **Corregido** en esta sesión: los botones de billetes ahora usan `DEFAULT_DENOMINATIONS`.
 
@@ -81,12 +81,12 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 |---|---|
 | `npm run lint` | Pasa (0 errores, 0 advertencias) |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | **133 suites, 1246 tests pasan** |
+| `npm test` | **139 suites, 1326 tests pasan** |
 | `npm run build` | Build exitoso, 44 rutas/páginas |
 | `npm run knip` | Pasa |
 | `npm run analyze` | Build exitoso, **pero no genera reporte de bundle bajo Turbopack** (ver Hallazgo 5.6) |
 | `npx drizzle-kit check` | No ejecutado (requiere base de datos de prueba) |
-| `npx playwright test --list` | **105 tests en 31 archivos** (incluye `ventas-pago-mixto.spec.ts`). `npm run test:e2e` no se ejecutó en esta sesión por falta de base descartable configurada. |
+| `npx playwright test` | **108 tests en 33 archivos; 107 passed, 1 flaky preexistente (`tour.spec.ts`)** |
 
 ## 5. Hallazgos de la auditoría por área
 
@@ -146,7 +146,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | Cobertura de rutas críticas | OK | Se agregaron `route.test.ts` para `recibir`, `finalizar`, imágenes de productos (`[key]`, `preparar`, `upload`) y `public/sucursal/estado`. |
 | `orderStockReservationRepository.ts` | OK | Se agregó `src/repositories/orderStockReservationRepository.test.ts`. |
 | Helpers de `src/lib/` sin test unitario | Menor/Mayor | `availability-helpers.ts`, `cart-helpers.ts`, `last-customer-name.ts`, `last-customer-phone.ts`, `logger.ts`, `pagination.ts`, `product-image-upload-client.ts`, `product-style.ts`, `validation-helpers.ts`, `ventas-helpers.ts`, `with-auth.ts`. Los de lógica de negocio (`cart-helpers`, `availability-helpers`, `ventas-helpers`, `validation-helpers`, `product-image-upload-client`) tienen mayor impacto. |
-| Flujos E2E: pagos mixtos reales, eliminación real de sucursal, cierres diarios | Mayor | Pago mixto **Hecho** (`ventas-pago-mixto.spec.ts`). Persisten gaps: eliminación real de sucursal y cierres diarios. |
+| Flujos E2E: pagos mixtos reales, eliminación real de sucursal, cierres diarios | Mayor | Pago mixto **Hecho** (`ventas-pago-mixto.spec.ts`). Cierres diarios **Hecho** (`cierres-diarios.spec.ts`). Eliminación real de sucursal **Hecho** (`sucursal-eliminacion.spec.ts`). |
 | Componentes críticos de UI sin test unitario | Menor | Gran parte de los componentes del panel, productos, ventas, videos y sucursales no tienen `.test.tsx`; se recorren por E2E. |
 
 ### 5.5 Documentación y variables de entorno
@@ -299,8 +299,8 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | 5 | Reserva de stock en `createOrder` | **Completado** |
 | 6 | Soft delete / archivo para `deleteBranch` | **Completado** |
 | 7 | Tests unitarios para helpers críticos | **Completado** |
-| 8 | E2E de cierres diarios | Pendiente |
-| 9 | E2E de eliminación real de sucursal | Pendiente |
+| 8 | E2E de cierres diarios | **Completado** |
+| 9 | E2E de eliminación real de sucursal | **Completado** |
 | 10 | `orderBy` en `findFirst` y `SELECT ... FOR UPDATE` | **Completado** |
 | 11 | Idempotencia de `createOrder` | **Completado** |
 | 12 | Pausar polling al ocultar pestaña | **Completado** |
@@ -323,6 +323,8 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 
 - **Tarea #5:** se implementó reserva de stock en `createOrder`. Los pedidos `pending` ahora generan reservas en `order_stock_reservations` y movimientos `reserve` en `stock_movements`. `cancelOrder`, `expirePendingOrders` y `convertOrderToSale` liberan esas reservas cuando corresponde.
 - **Tarea #6:** se implementó soft delete de sucursales. La columna `deletedAt` se agregó a `branches` y las tablas `products`, `cashRegisters`, `orders` y `videos` reciben `deletedAt` en cascada. `users` no se borran físicamente; `verifyCredentials` rechaza login en sucursales archivadas. Se conservan `sales`, `saleItems`, `stockMovements`, `recipes` y otros datos históricos.
+- **Tarea #8:** se agregó `tests/e2e/cierres-diarios.spec.ts`. Abre caja, crea ventas por API con pagos mixtos (`cash` + `transfer`), cierra por API y verifica el resumen en `/cierre` y el historial en `/ventas/historial/[id]`, incluyendo productos vendidos y medios de pago.
+- **Tarea #9:** se agregó `tests/e2e/sucursal-eliminacion.spec.ts`. Crea una sucursal y un operador, archiva la sucursal desde el panel y verifica que desaparece del listado, que el operador no puede loguear y que el endpoint público `/api/public/pedido` rechaza pedidos para la sucursal archivada con 404.
 
 ## 9. Enlaces relevantes
 

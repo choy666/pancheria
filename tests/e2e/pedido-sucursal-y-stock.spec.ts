@@ -161,7 +161,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
   });
 
-  test('no descuenta stock al crear el pedido y sí al confirmarlo desde el panel', async ({
+  test('reserva stock al crear el pedido y descuenta al confirmar pago desde el panel', async ({
     page,
   }) => {
     const product = await createProductViaApi(page, {
@@ -198,10 +198,10 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByRole('button', { name: 'Cerrar' }).click();
     await expect(page.getByText(/se creó correctamente/)).not.toBeVisible();
 
-    // El stock no se descontó: sigue disponible en 5 unidades.
+    // El pedido reservó 1 unidad al crearse: la disponibilidad baja a 4.
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
+      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 4 unidades')
     ).toBeVisible();
 
     // Confirmar el pedido desde el panel.

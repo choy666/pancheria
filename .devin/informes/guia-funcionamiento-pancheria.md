@@ -58,9 +58,8 @@ Los datos se cargan desde `<ref_file file="C:/developer/paginas/pancheria/src/ap
 
 La navegación superior refleja ahora la distinción entre caja y cierres:
 
-- **Historial de cajas** (`/ventas/historial`): historial de ventas por caja.
+- **Historial de cajas** (`/ventas/historial`): historial de cajas cerradas y sus ventas.
 - **Caja y cierre** (`/cierre`): apertura, cierre y resumen de la caja actual.
-- **Cierres diarios** (`/cierre/historial`): cierres diarios históricos.
 
 El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/components/tour/tour-context.tsx" />`) cubre el panel, pagos mixtos, pedidos con sus estados, reservas, chat, imágenes de promos, videos, perfil y selector de sucursal.
 
@@ -114,8 +113,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 | `manual_adjustment` | Ajuste manual por pérdida, rotura, etc. | Operador desde `/stock` | Sí (`+quantity`) |
 | `sale` | Venta confirmada desde el terminal o conversión de un pedido | Automático al confirmar venta o pedido | Sí (`-quantity`) |
 | `cancellation` | Anulación de una venta | Automático al anular venta | Sí (`+quantity`, reintegro) |
-| `reserve` | Reserva de stock al recibir un pedido (`in_process`) | Automático al recibir pedido desde el panel | No (reserva lógica en `order_stock_reservations`) |
-| `reserve_release` | Liberación de una reserva al pagar o cancelar un pedido `in_process` | Automático al confirmar pago o cancelar pedido en reserva | No |
+| `reserve` | Reserva de stock al crear un pedido (`pending`) | Automático al crear pedido desde el catálogo público | No (reserva lógica en `order_stock_reservations`) |
+| `reserve_release` | Liberación de una reserva al pagar o cancelar un pedido `pending` o `in_process` | Automático al confirmar pago o cancelar pedido en reserva | No |
 
 <ref_file file="C:/developer/paginas/pancheria/src/domain/types.ts" /> (`StockMovementType`).
 
@@ -141,8 +140,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 3. **Recibir y reservar (`/pedidos/[id]/recibir`)**
    - El operador revisa el pedido `pending` y presiona **Recibir y reservar**.
    - Se bloquean productos e insumos con `SELECT ... FOR UPDATE`.
-   - Se valida disponibilidad considerando reservas ajenas (`validateCartAvailability`).
-   - Se insertan reservas en `order_stock_reservations` y se registran movimientos `reserve` en `stock_movements`.
+   - Se valida disponibilidad considerando reservas ajenas (`validateCartAvailability`). La reserva propia no se cuenta contra sí misma gracias a `excludeOrderId`.
+   - No se crean reservas duplicadas: la reserva ya existe desde la creación del pedido.
    - El pedido pasa a `in_process`. El stock físico aún no se descuenta, pero la disponibilidad futura ya considera la reserva.
 
 4. **Confirmar pago (`/pedidos/[id]/confirmar`)**
@@ -295,8 +294,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
 3. **Recibir y reservar**
    - No requiere caja abierta.
-   - Valida disponibilidad considerando reservas ajenas.
-   - Reserva stock en `order_stock_reservations` y registra movimientos `reserve`.
+   - Valida disponibilidad considerando reservas ajenas (la propia reserva no se cuenta doble).
+   - No crea una reserva adicional; la reserva activa fue generada al crear el pedido.
    - El pedido pasa a `in_process`.
 4. **Confirmar pago**
    - Requiere caja abierta.
@@ -322,31 +321,29 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 
 ### 7.4 Eliminación de una sucursal
 
-Eliminar una sucursal es una operación destructiva e irreversible: se borran todos los datos de la sucursal y los archivos asociados.
+Eliminar una sucursal ahora es un **archivo (soft delete)**: se marca `deletedAt` en `branches` y en las entidades operativas asociadas, pero se conservan los datos históricos.
 
 1. El `admin` va a `/sucursales`, selecciona eliminar y confirma escribiendo el nombre exacto.
 2. El sistema muestra un resumen con: productos, recetas, ventas, cajas, movimientos de stock, usuarios, pedidos y videos.
-3. Al confirmar, en una sola transacción se eliminan:
+3. Al confirmar, en una sola transacción se archivan (`deletedAt` = ahora):
    - `products` (e `imageKey` de sus imágenes).
    - `recipes` asociadas a esos productos.
-   - `sales` y `sale_items` (con `sale_item_recipes` y `sale_payments` por cascada).
-   - `stock_movements` de la sucursal.
    - `orders`, `order_items`, `order_messages`, `order_stock_reservations` y `order_item_recipes` (por cascada).
    - `cash_registers`.
    - `videos`.
-   - `users` asignados a la sucursal.
+   - `users` no se borran, pero quedan asociados a una sucursal archivada y no pueden iniciar sesión.
    - Finalmente la sucursal (`branches`).
-4. Inmediatamente después del commit se liberan los archivos:
-   - Imágenes de productos (`deleteProductImage` en `local`, `vercel-blob`, `s3` y `r2`).
-   - Adjuntos de chat (`deleteChatAttachment` en todos los proveedores).
-   - Videos (`deleteVideoFileByUrl` en todos los proveedores).
-5. El cliente (`/pedido`) detecta si la sucursal guardada en `localStorage` fue eliminada y limpia:
+4. **No se eliminan** físicamente para conservar historial:
+   - `sales` y `sale_items`.
+   - `stock_movements`.
+   - Archivos asociados (imágenes, adjuntos, videos): permanecen accesibles a través de las URLs históricas.
+5. El cliente (`/pedido`) detecta si la sucursal guardada en `localStorage` fue archivada y limpia:
    - `pancheria-branch-id`
    - `pancheria-cart-v1`
    - Pedidos recientes (`pancheria-recent-orders-v1`)
    - Claves del tour asociadas a esa sucursal.
 
-> **Regla de historial:** la eliminación de una sucursal no conserva historial. En cambio, el borrado diario de productos, cajas o videos usa soft delete: el registro pasa a `deletedAt` y puede restaurarse desde la papelera; los archivos no se borran hasta que se elimine definitivamente la entidad o la sucursal a la que pertenecen.
+> **Regla de historial:** el archivo de una sucursal conserva ventas y movimientos para trazabilidad. Productos, cajas, pedidos y videos archivados desaparecen de los listados normales pero pueden consultarse en las vistas de papelera. El nombre de una sucursal archivada puede reutilizarse gracias a un índice parcial único.
 
 ---
 
@@ -359,18 +356,21 @@ Eliminar una sucursal es una operación destructiva e irreversible: se borran to
 
 ### 8.2 Flujo
 
-1. El operador/admin genera un cierre para una fecha desde `/cierre`.
-2. El sistema:
-   - Rechaza si ya existe un cierre para esa fecha en esa sucursal.
-   - Rechaza si hay cajas abiertas con ventas de esa fecha.
-   - Suma todas las ventas `active` del día con caja no eliminada.
-   - Calcula totales y resúmenes.
-   - Inserta en `dailyClosures`.
+1. El operador/admin abre la caja correspondiente a la jornada desde `/ventas` o `/cierre` (`POST /api/caja/abrir`).
+2. Durante la jornada se registran ventas (`POST /api/ventas` o desde el terminal `/ventas`).
+3. Al finalizar, desde `/cierre` el operador presiona **Cerrar caja**, ingresa el efectivo contado y notas opcionales (`POST /api/caja/cerrar`).
+4. El sistema:
+   - Valida que la caja esté abierta.
+   - Calcula totales y resúmenes de la caja (efectivo, transferencia, total de ventas, diferencia).
+   - Cierra la caja (`status = 'closed'`), conservándola en `cash_registers`.
+5. Desde `/ventas/historial/[id]` se puede consultar el cierre y las ventas asociadas.
+
+> Nota: no existe una tabla `dailyClosures`; el cierre diario se materializa en cada registro de `cash_registers` cerrado.
 
 ### 8.3 Relación con caja
 
-- El cierre no modifica caja ni stock; es un resumen informativo.
-- Las ventas canceladas después del cierre no afectan el cierre ya generado.
+- El cierre no modifica stock; es un resumen informativo.
+- Las ventas anuladas después del cierre sí reintegran stock, pero el cierre conserva el total original (la anulación genera su propio registro con `sale.isCancelled = true`).
 
 ---
 
