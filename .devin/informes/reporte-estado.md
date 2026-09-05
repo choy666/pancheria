@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-09-05  
 **Proyecto:** `pancheria`  
-**Baseline:** `2558870a7270f42e04d6ef4e7cc9ff9ed81f10e1` (branch `main`) + cambios de implementación pendientes de commit  
+**Baseline:** `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` (`main`) — merge de `fix/hallazgos-auditoria-2026-09-05` completado; pendiente `npx drizzle-kit check`  
 **Auditoría:** Masiva integral — 9 áreas — **con implementación de todos los hallazgos abiertos**  
 **Histórico:** Fases anteriores en `.devin/informes/archivados/reporte-estado-2026-09-04.md`
 
@@ -246,13 +246,12 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 
 ### Pendiente de ejecución
 1. ✅ `npm run test:e2e` — ejecutado sobre `.env.e2e`: **110/110 tests pasaron** (incluye accesibilidad axe-core, responsive, pagos mixtos, chat con adjuntos, expiración y aislamiento por sucursal).
-2. `npx drizzle-kit check` — sin cambios de esquema, pero conviene verificar drift si la base local se sincronizó por SQL directo.
-3. Commit de los cambios (rama sugerida: `fix/hallazgos-auditoria-2026-09-05`).
+2. `npx drizzle-kit check` — sin cambios de esquema, pero conviene verificar drift si la base local se sincronizó por SQL directo. **No ejecutado**: la base configurada en `.env.local` no cumple el patrón descartable (`test/e2e/testing/qa/staging`). Requiere `.env.e2e` con una base de prueba.
 
 ## 8. Cierre
 
-- Baseline: `2558870a7270f42e04d6ef4e7cc9ff9ed81f10e1` (`main`) + working tree con la implementación.
+- Baseline: `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` en `main` — merge de `fix/hallazgos-auditoria-2026-09-05` (commit `d9692bd`) completado.
 - Verificaciones base ejecutadas sobre el estado final: `npm run lint`, `npx tsc --noEmit`, `npm test` (144 suites / 1393 tests), `npm run build` (73 rutas), `npm run knip` y `npm run test:e2e` (110/110 tests) — todas pasan.
-- Sin cambios de esquema: no se generaron migraciones.
-- Índices `.devin` verificados: prompts activos y archivados coinciden; no se requirió actualización.
+- Sin cambios de esquema: no se generaron migraciones; queda pendiente `npx drizzle-kit check` sobre base de prueba.
+- Índices `.devin` actualizados: prompt de implementación de hallazgos archivado en `prompts/archivados/` y READMEs actualizados.
 - No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit generate/push/migrate` ni `npx vercel env pull` por requerir confirmación explícita (el seed de la base E2E lo realizó `global-setup.ts` como parte del suite).
