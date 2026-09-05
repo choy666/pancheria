@@ -31,6 +31,7 @@ Hallazgos críticos resueltos o mitigados en esta sesión:
 - `/api/panel/resumen` ya no ejecuta `expirePendingOrders` ni dispara 5 consultas `getOrders` con `limit:1`; ahora usa `orderService.getOrderCountsByStatus` y la expiración corre en el cron `/api/cron/expire-orders`.
 - Se agregaron tests unitarios de rutas críticas: `recibir`, `finalizar`, `public/sucursal/estado`, imágenes de productos (`[key]`, `preparar`, `upload`) y `orderStockReservationRepository`.
 - Se agregó el spec E2E `ventas-pago-mixto.spec.ts` para validar pagos mixtos (`cash + transfer`) de extremo a extremo.
+- Se agregaron los specs E2E `cierres-diarios.spec.ts` y `sucursal-eliminacion.spec.ts`, cerrando los gaps de cierre diario y eliminación de sucursales.
 - Se documentaron `E2E_ENABLE_RATE_LIMIT` y `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` en `.env.example`, `README.md`, `AGENTS.md` y `.devin/environment.yaml`, y se conectó el intervalo del dashboard a `src/config/dashboard.ts`.
 
 Hallazgos críticos aún abiertos:
