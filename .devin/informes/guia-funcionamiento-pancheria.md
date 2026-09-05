@@ -113,8 +113,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 | `manual_adjustment` | Ajuste manual por pérdida, rotura, etc. | Operador desde `/stock` | Sí (`+quantity`) |
 | `sale` | Venta confirmada desde el terminal o conversión de un pedido | Automático al confirmar venta o pedido | Sí (`-quantity`) |
 | `cancellation` | Anulación de una venta | Automático al anular venta | Sí (`+quantity`, reintegro) |
-| `reserve` | Reserva de stock al crear un pedido (`pending`) | Automático al crear pedido desde el catálogo público | No (reserva lógica en `order_stock_reservations`) |
-| `reserve_release` | Liberación de una reserva al pagar o cancelar un pedido `pending` o `in_process` | Automático al confirmar pago o cancelar pedido en reserva | No |
+| `reserve` | Reserva de stock al recibir un pedido (`in_process`) | Automático al recibir pedido desde el panel | No (reserva lógica en `order_stock_reservations`) |
+| `reserve_release` | Liberación de una reserva al pagar o cancelar un pedido `in_process` | Automático al confirmar pago o cancelar pedido en reserva | No |
 
 <ref_file file="C:/developer/paginas/pancheria/src/domain/types.ts" /> (`StockMovementType`).
 
@@ -133,15 +133,14 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - El cliente puede armar el carrito en cualquier momento, incluso si la caja está cerrada.
    - Al enviar (`POST /api/public/pedido`) se valida que la caja de la sucursal esté abierta (`cashRegisterService.getOpenCashRegister`).
    - Si la caja está cerrada, el sistema responde con `400` y el mensaje incluye el horario de apertura correspondiente; el carrito permanece editable.
-   - Se valida disponibilidad de stock en el momento (`validateCartAvailability`) y **se reserva stock**.
-   - Se inserta el pedido en estado `pending` con reservas en `order_stock_reservations` y movimientos `reserve` en `stock_movements`.
-   - El stock reservado no se descuenta físicamente, pero deja de estar disponible para otros pedidos o ventas hasta que se confirme, cancele o finalice.
+   - Se valida disponibilidad de stock en el momento (`validateCartAvailability`) pero **no se reserva ni descuenta stock**.
+   - El pedido queda `pending` y el stock sigue disponible para otras ventas hasta que el operador actúe.
 
 3. **Recibir y reservar (`/pedidos/[id]/recibir`)**
    - El operador revisa el pedido `pending` y presiona **Recibir y reservar**.
    - Se bloquean productos e insumos con `SELECT ... FOR UPDATE`.
-   - Se valida disponibilidad considerando reservas ajenas (`validateCartAvailability`). La reserva propia no se cuenta contra sí misma gracias a `excludeOrderId`.
-   - No se crean reservas duplicadas: la reserva ya existe desde la creación del pedido.
+   - Se valida disponibilidad considerando reservas ajenas (`validateCartAvailability`).
+   - Se insertan reservas en `order_stock_reservations` y se registran movimientos `reserve` en `stock_movements`.
    - El pedido pasa a `in_process`. El stock físico aún no se descuenta, pero la disponibilidad futura ya considera la reserva.
 
 4. **Confirmar pago (`/pedidos/[id]/confirmar`)**
@@ -166,8 +165,9 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 2. **Cancelación de pedido público (`/pedido/[id]/cancelar` o panel `/pedidos/[id]/cancelar`)**
    - El pedido puede estar `pending`, `in_process` o `paid`.
    - El cliente puede cancelar con el `cancellationToken`; el operador cancela desde el panel sin token.
-   - Si está `pending` o `in_process`, se liberan las reservas (`reserve_release`) y se borra `order_stock_reservations`.
+   - Si está `in_process`, se liberan las reservas (`reserve_release`) y se borra `order_stock_reservations`.
    - Si está `paid`, se anula la venta vinculada (`cancellation`) y se reintegra stock.
+   - Si está `pending`, no se modifica stock porque nunca reservó ni descontó.
    - El pedido pasa a `cancelled`.
 
 ### 4.5 Ajustes manuales
@@ -280,7 +280,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - Se valida disponibilidad.
    - Se crea el pedido con estado `pending`.
    - Se persiste el snapshot de receta en `order_item_recipes` (`selected`/`isOptional`/`selectedByDefault`).
-   - **Se reserva stock** en `order_stock_reservations` y se registra un movimiento `reserve` en `stock_movements`.
+   - **No se reserva ni descuenta stock**.
    - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
    - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo.
    - Si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}` como fallback.
@@ -294,8 +294,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
 3. **Recibir y reservar**
    - No requiere caja abierta.
-   - Valida disponibilidad considerando reservas ajenas (la propia reserva no se cuenta doble).
-   - No crea una reserva adicional; la reserva activa fue generada al crear el pedido.
+   - Valida disponibilidad considerando reservas ajenas.
+   - Reserva stock en `order_stock_reservations` y registra movimientos `reserve`.
    - El pedido pasa a `in_process`.
 4. **Confirmar pago**
    - Requiere caja abierta.
@@ -321,29 +321,31 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 
 ### 7.4 Eliminación de una sucursal
 
-Eliminar una sucursal ahora es un **archivo (soft delete)**: se marca `deletedAt` en `branches` y en las entidades operativas asociadas, pero se conservan los datos históricos.
+Eliminar una sucursal es una operación destructiva e irreversible: se borran todos los datos de la sucursal y los archivos asociados.
 
 1. El `admin` va a `/sucursales`, selecciona eliminar y confirma escribiendo el nombre exacto.
 2. El sistema muestra un resumen con: productos, recetas, ventas, cajas, movimientos de stock, usuarios, pedidos y videos.
-3. Al confirmar, en una sola transacción se archivan (`deletedAt` = ahora):
+3. Al confirmar, en una sola transacción se eliminan:
    - `products` (e `imageKey` de sus imágenes).
    - `recipes` asociadas a esos productos.
+   - `sales` y `sale_items` (con `sale_item_recipes` y `sale_payments` por cascada).
+   - `stock_movements` de la sucursal.
    - `orders`, `order_items`, `order_messages`, `order_stock_reservations` y `order_item_recipes` (por cascada).
    - `cash_registers`.
    - `videos`.
-   - `users` no se borran, pero quedan asociados a una sucursal archivada y no pueden iniciar sesión.
+   - `users` asignados a la sucursal.
    - Finalmente la sucursal (`branches`).
-4. **No se eliminan** físicamente para conservar historial:
-   - `sales` y `sale_items`.
-   - `stock_movements`.
-   - Archivos asociados (imágenes, adjuntos, videos): permanecen accesibles a través de las URLs históricas.
-5. El cliente (`/pedido`) detecta si la sucursal guardada en `localStorage` fue archivada y limpia:
+4. Inmediatamente después del commit se liberan los archivos:
+   - Imágenes de productos (`deleteProductImage` en `local`, `vercel-blob`, `s3` y `r2`).
+   - Adjuntos de chat (`deleteChatAttachment` en todos los proveedores).
+   - Videos (`deleteVideoFileByUrl` en todos los proveedores).
+5. El cliente (`/pedido`) detecta si la sucursal guardada en `localStorage` fue eliminada y limpia:
    - `pancheria-branch-id`
    - `pancheria-cart-v1`
    - Pedidos recientes (`pancheria-recent-orders-v1`)
    - Claves del tour asociadas a esa sucursal.
 
-> **Regla de historial:** el archivo de una sucursal conserva ventas y movimientos para trazabilidad. Productos, cajas, pedidos y videos archivados desaparecen de los listados normales pero pueden consultarse en las vistas de papelera. El nombre de una sucursal archivada puede reutilizarse gracias a un índice parcial único.
+> **Regla de historial:** la eliminación de una sucursal no conserva historial. En cambio, el borrado diario de productos, cajas o videos usa soft delete: el registro pasa a `deletedAt` y puede restaurarse desde la papelera; los archivos no se borran hasta que se elimine definitivamente la entidad o la sucursal a la que pertenecen.
 
 ---
 
@@ -409,16 +411,16 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 | Ajuste manual negativo | Sí | `manual_adjustment` | `products`, `stock_movements` | No permite stock negativo |
 | Confirmar venta | Sí | `sale` | `products`, `sale_items`, `sale_item_recipes`, `sales`, `stock_movements`, `cashRegisters` | Descuenta insumos críticos con `autoDiscount` seleccionados en el snapshot |
 | Anular venta | Sí | `cancellation` | `products`, `sales`, `sale_items`, `sale_item_recipes`, `stock_movements`, `cashRegisters` | Reintegra insumos críticos seleccionados en el snapshot; requiere caja abierta |
-| Crear pedido público | No* | `reserve` | `order_items`, `order_item_recipes`, `orders`, `order_stock_reservations`, `stock_movements` | Valida stock; reserva stock lógico; persiste snapshot de receta; estado `pending`. |
-| Recibir y reservar pedido | No* | `reserve` | `order_stock_reservations`, `stock_movements` | Valida disponibilidad; reserva stock lógico solo si no existía; pedido pasa a `in_process` |
+| Crear pedido público | No | — | `order_items`, `order_item_recipes`, `orders` | Valida stock; persiste snapshot de receta; estado `pending` (no reserva) |
+| Recibir y reservar pedido | No | `reserve` | `order_stock_reservations`, `stock_movements` | Reserva stock lógico; pedido pasa a `in_process` |
 | Confirmar pago de pedido | Sí | `reserve_release`, `sale` | `products`, `sale_items`, `sales`, `stock_movements`, `orders`, `cashRegisters`, `order_stock_reservations` | Libera reserva propia, descuenta stock y crea venta |
 | Finalizar pedido | No | — | `orders` | Pedido pasa a `finished`; no modifica stock |
-| Cancelar pedido público (`pending`) | No* | `reserve_release` | `orders`, `order_stock_reservations`, `stock_movements` | Libera la reserva creada al crear el pedido |
-| Cancelar pedido público (`in_process`) | No* | `reserve_release` | `orders`, `order_stock_reservations`, `stock_movements` | Libera la reserva |
+| Cancelar pedido público (`pending`) | No | — | `orders` | No modifica stock porque nunca reservó |
+| Cancelar pedido público (`in_process`) | No | `reserve_release` | `orders`, `order_stock_reservations`, `stock_movements` | Libera la reserva |
 | Cancelar pedido público (`paid`) | Sí | `cancellation` | `products`, `sales`, `stock_movements`, `cashRegisters`, `orders` | Anula la venta y reintegra stock |
 | Eliminar producto | No | — | `products` (soft delete) | No si está en recetas activas |
 | Eliminar caja | No | — | `cashRegisters` (soft delete) | No si está abierta |
-| Eliminar sucursal | No* | — | `branches` (soft delete) en cascada | Se archivan `products`, `cashRegisters`, `orders`, `videos` y se conservan ventas, recetas, stock y pedidos como historial. No se pueden crear pedidos ni ventas nuevas en una sucursal archivada. |
+| Eliminar sucursal | No* | — | `branches` (hard delete) en cascada | Se borran productos, recetas, ventas, cajas, pedidos, mensajes, reservas, stock, usuarios, videos y archivos asociados. No conserva historial. |
 | Cierre diario | No | — | `dailyClosures` | Resumen informativo |
 
 ---
@@ -560,7 +562,7 @@ Disponibilidad = infinita.
 - [x] Validar `branchId` entero en `/pedido`.
 - [x] Incluir `branchId` explícito en el panel de pedidos.
 - [x] Implementar expiración automática de pedidos `pending`.
-- [x] Ajustar flujo de pedidos para que reserven stock inmediatamente al crearse.
+- [x] Ajustar flujo de pedidos para que no reserven stock al crearse.
 
 ### Configuración manual (pendiente del usuario)
 
@@ -581,6 +583,6 @@ Disponibilidad = infinita.
 
 ## 17. Conclusión
 
-Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado. WhatsApp funciona como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos reservan stock de insumos críticos al crearse (`pending`); al recibirse (`in_process`) se conserva la reserva existente; al confirmarse el pago se libera la reserva y se descuenta stock físico; al finalizar se marca entregado/retirado.
+Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado. WhatsApp funciona como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock al crearse; al recibirse (`in_process`) se reserva stock, al confirmarse el pago se libera la reserva y se descuenta stock físico, y al finalizar se marca entregado/retirado.
 
 Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`.

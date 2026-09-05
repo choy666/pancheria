@@ -21,7 +21,14 @@ Se completó la implementación de los seis hallazgos críticos y mayores identi
 5. **Resolución de IP fuera de Vercel**: `getClientIp` ahora ofrece el escape controlado `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true` para usar `X-Forwarded-For` en producción auto-alojada, y corrige el header confiable para usar el primer valor de la cadena. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" />
 6. **Cobertura de `prepareCart`**: se creó `src/lib/cart-pipeline.test.ts` con tests de contexto, bloqueo `FOR UPDATE`, reservas ajenas, totales, snapshots, servicios y faltantes. <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.test.ts" />
 
-Se generó la migración `drizzle/0027_special_hellcat.sql` con los cambios de esquema correspondientes, pero **no se aplicó a producción** (se deja para el despliegue controlado).
+Se generó la migración `drizzle/0027_dashing_bastion.sql` con los cambios de esquema correspondientes (`scope` en `public_order_rate_limits` y `order_id` en `stock_movements`). Como `drizzle-kit push` exige TTY para confirmar el unique de `branches.name`, el diff equivalente se aplicó por SQL directo a las bases de **desarrollo y E2E** (incluyendo el drop de `branches.deleted_at`, que el commit `6f4b3a3` había pusheado sin migración). En **producción** se aplicó con `drizzle-kit migrate` tras el baseline, junto a las migraciones atrasadas `0025` y `0026`.
+
+Se inicializó `drizzle.__drizzle_migrations` en las tres bases mediante `scripts/drizzle-baseline.ts`: desarrollo y E2E baselinadas completas (0000–0027); producción baselinada hasta `0024` (la tabla existía pero estaba vacía y la base estaba atrasada) y luego `npx drizzle-kit migrate` aplicó `0025` (`DROP TABLE daily_closures`, tabla obsoleta con 2 filas — eliminada con confirmación), `0026` (`branches.address`/`phone`/`location`) y `0027` (`scope` + `order_id`). Las tres bases quedaron alineadas con el journal y `migrate` es funcional en todos los entornos.
+
+Además, por decisión funcional confirmada, se revirtieron dos cambios introducidos por el commit `6f4b3a3` ("Implementa reserva de stock en createOrder y soft delete de sucursales"):
+
+- **Reservas solo al recibir (`in_process`)**: `createOrder` vuelve a solo validar disponibilidad; las reservas se crean en `receiveOrder` y se liberan únicamente cuando el pedido estaba `in_process` (cancelar, convertir o pagar). La expiración de pedidos `pending` no toca stock porque nunca reservaron.
+- **`deleteBranch` vuelve a ser hard delete**: elimina la sucursal y todos sus datos en cascada y libera los archivos asociados (imágenes de productos, adjuntos de chat y videos) después del commit. Las mejoras no relacionadas del mismo commit (scope de rate limits, `stock_movements.order_id`, snapshots históricos, transacciones reentrantes, resolución de IP y cobertura de `prepareCart`) se conservan.
 
 No se ejecutaron tests E2E ni `drizzle-kit push` porque requieren confirmación explícita y una base de datos descartable.
 
@@ -45,7 +52,7 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 
 - **Panel de control (`/`)**: resumen de caja, pedidos por estado, alertas de stock, accesos rápidos filtrados por rol.
 - **Ventas (`/ventas`)**: terminal con productos, carrito, pagos mixtos (`cash` + `transfer`), historial y anulaciones.
-- **Pedidos**: flujo `pending` → `in_process` → `paid` → `finished` / `cancelled`, con reservas de stock en `createOrder`, chat integrado y pagos mixtos.
+- **Pedidos**: flujo `pending` → `in_process` → `paid` → `finished` / `cancelled`, con reservas de stock al recibir el pedido (`receiveOrder`), chat integrado y pagos mixtos.
 - **Productos/promos**: tipos `critical_supply`, `manual_supply`, `compound`, `service`; imágenes ilustrativas en catálogo público; snapshots de receta en `sale_item_recipes` y `order_item_recipes`.
 - **Stock y caja**: movimientos con razones, cierre automático, cierres diarios históricos, soft delete de cajas.
 - **Chat de pedidos**: texto e imágenes, paginación con cursores, polling con pausa por visibilidad y estados de entrega/lectura.
@@ -62,7 +69,7 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 | `npm run build` | Build exitoso, 69 rutas/páginas |
 | `npm run knip` | Pasa |
 | `npx drizzle-kit check` | Pasa |
-| `npx drizzle-kit generate` | Migración `0027_special_hellcat.sql` generada, no aplicada |
+| `npx drizzle-kit generate` | Migración `0027_dashing_bastion.sql` generada; diff equivalente aplicado por SQL a desarrollo y E2E |
 | `npm run analyze` | No ejecutado (limitación conocida bajo Turbopack) |
 | `npx playwright test` | No ejecutado (requiere base de datos descartable) |
 
@@ -105,7 +112,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 |---|---|---|
 | Separación de capas | OK | Capas `app/`, `application/`, `repositories/`, `lib/`, `config/`, `domain/` respetadas. |
 | `prepareCart` en `src/lib/cart-pipeline.ts` reduce duplicación | OK | <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.ts" /> |
-| Soft vs hard delete | OK | Productos, videos, cajas y sucursales usan `deletedAt`; hard delete libera archivos en productos y videos. |
+| Soft vs hard delete | OK | Productos, videos y cajas usan `deletedAt` con papelera; `deleteBranch` es hard delete en cascada y libera archivos asociados tras el commit. |
 | `process.env` disperso en helpers operacionales | Mayor | `src/lib/csp-helpers.ts`, `src/lib/storage.ts`, `src/lib/chat-storage.ts`, `src/lib/product-image-storage.ts`, `src/lib/rate-limit.ts`, `src/lib/public-order-rate-limit-store.ts`, `src/lib/rate-limit-store.ts`, `src/lib/branch-helpers.ts`, `src/lib/branch-resolver.ts` leen variables directamente. Dificulta tests y simulación de entornos. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
 | Capas mezcladas: `app/(panel)/perfil/actions.ts` y `api/productos/imagen/[key]/route.ts` acceden a `db` directamente | Menor | <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/perfil/actions.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/app/api/productos/imagen/[key]/route.ts" /> |
 | `findFirst` sin orden explícito en casos no únicos | Menor | `cashRegisterRepository.findOpen`, `orderRepository.findByOrderNumberAndCustomer` no usan `orderBy`. <ref_file file="C:/developer/paginas/pancheria/src/repositories/cashRegisterRepository.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" /> |
@@ -130,7 +137,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 |---|---|---|
 | Variables principales sincronizadas con `.env.example` | OK | `DATABASE_URL`, `NEXTAUTH_*`, `ADMIN_*`, `NEXT_PUBLIC_*`, `STORAGE_*`, etc. |
 | `ANALYZE` y `AUTH_URL` documentadas como implícitas | Informativo | `ANALYZE` se usa en build; `AUTH_URL` es consumida por NextAuth v5. Están en `.env.example` como referencia. <ref_file file="C:/developer/paginas/pancheria/.env.example" /> |
-| README, lecciones aprendidas y guía de funcionamiento decían que los pedidos no reservan stock al crearse | Mayor (documental) | **Corregido** en esta sesión: se actualizaron `README.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md` para reflejar que `createOrder` reserva stock inmediatamente. <ref_file file="C:/developer/paginas/pancheria/README.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
+| Documentación del flujo de reservas | OK | Tras revertir la reserva en `createOrder`, `README.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md` vuelven a describir el flujo correcto: `pending` no reserva; la reserva se crea al recibir (`in_process`) y se libera al confirmar pago o cancelar. <ref_file file="C:/developer/paginas/pancheria/README.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
 | Prompts archivados reflejados en índices | OK | `.devin/prompts/README.md` y `.devin/README.md` listan prompts activos y archivados. <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" /> |
 
 ### 5.6 Rendimiento y bundle
@@ -140,7 +147,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | Páginas públicas críticas con `dynamic = 'force-dynamic'` | OK | `/pedido`, `/pedido/[id]/chat`, `/api/public/*`, `/api/panel/resumen`, etc. <ref_file file="C:/developer/paginas/pancheria/src/app/(public)/pedido/page.tsx" /> |
 | `optimizePackageImports` habilitado | OK | `lucide-react` y `date-fns` en `next.config.ts`. |
 | `npm run analyze` bajo Turbopack | Limitación conocida | El build termina, pero `@next/bundle-analyzer` no genera el HTML del reporte. <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
-| `orderService.expirePendingOrders` carga todos los pedidos expirados sin límite/paginación | Mayor | <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="758-793" /> <ref_snippet file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" lines="274-287" /> |
+| `orderService.expirePendingOrders` cargaba todos los pedidos expirados sin límite | Resuelto | Ahora procesa en lotes de 200 (`findExpiredPendingIds`, solo `id`/`branchId`) con exclusión de pedidos ya intentados y orden por antigüedad. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" /> |
 | `getCajaRefreshInterval()` y `getCajaClockIntervalMs()` no imponen un mínimo práctico | Mayor | Un valor bajo puede generar polling agresivo. <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" /> |
 | Loops N+1 en descuento/reintegro de stock y borrado de cajas | Menor | `saleService.deductStockForItems` / `reintegrateStockForItems`, `cashRegisterRepository.hardDeleteAllDeletedInRange`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/repositories/cashRegisterRepository.ts" /> |
 | Catálogo público y terminal de ventas cargan catálogo completo en memoria | Menor | `usePedidoClient.ts` y `sales-terminal.tsx` sin paginación. <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/usePedidoClient.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/components/ventas/sales-terminal.tsx" /> |
@@ -161,17 +168,17 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 
 | Hallazgo | Clasificación | Evidencia / Comentario |
 |---|---|---|
-| Reserva de stock en `createOrder` | OK | `createOrder` inserta reservas en `order_stock_reservations` y movimientos `reserve` en `stock_movements`. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="292-309" /> |
+| Reserva de stock al recibir el pedido | OK | `createOrder` solo valida disponibilidad (sin reservas ni movimientos); `receiveOrder` inserta reservas en `order_stock_reservations` y movimientos `reserve` en `stock_movements` al pasar el pedido a `in_process`. `cancelOrder` y `convertOrderToSale` liberan la reserva solo si el pedido estaba `in_process`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
 | Snapshots de recetas | OK | `sale_item_recipes` y `order_item_recipes` persisten el estado de recetas; `receiveOrder` ya no reescribe `order_item_recipes`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
-| Soft delete sin liberar archivos; hard delete sí | OK | Implementado en productos y videos; `deleteBranch` archiva en cascada. |
+| Soft delete sin liberar archivos; hard delete sí | OK | Implementado en productos y videos; `deleteBranch` es hard delete en cascada y libera imágenes, adjuntos de chat y videos tras el commit. |
 | Pagos mixtos | OK | Tabla `sale_payments`, soporte en ventas y confirmación de pedidos. |
 | Cierre automático de cajas | OK | `CAJA_AUTO_CLOSE_HOURS` y `CAJA_AUTO_CLOSED_BY`. |
 | Transacción reentrante en `cancelOrder` → `cancelSale` | OK | `executeInTransaction` detecta una transacción activa con `getCurrentTransaction()` y reutiliza el mismo `tx`; `cancelOrder` + `cancelSale` son atómicos. <ref_file file="C:/developer/paginas/pancheria/src/application/transactionService.ts" /> <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="360-403" /> |
 | `convertOrderToSale` usa el snapshot histórico para validar y descontar | OK | `validateCartAvailability` y `buildSaleItemValues` usan el `recipeSnapshot` del pedido cuando está presente, asegurando que se validen y descuenten los mismos insumos. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="474-540" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/sale-helpers.ts" /> |
 | `stock_movements` con FK `orderId` | OK | La columna `orderId` nullable con FK a `orders.id` poblada en `reserve` y `reserve_release` mejora trazabilidad. <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="489-517" /> |
 | `updateProduct` borra la imagen anterior dentro de la transacción | Menor | Si el `UPDATE` falla, el archivo ya fue eliminado. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/productService.ts" lines="154-159" /> |
-| `deleteBranch` no libera archivos asociados | Menor | Archiva productos, cajas, pedidos y videos, pero no elimina imágenes/videos/adjuntos. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/branchService.ts" lines="213-269" /> |
-| `expirePendingOrders` solo tolera errores que contienen `"confirmado"` | Menor | Si `cancelOrder` falla por otro motivo, el cron se detiene y deja pedidos expirados. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="779-787" /> |
+| `deleteBranch` libera archivos asociados | OK | Hard delete en cascada dentro de una transacción y liberación de imágenes de productos, adjuntos de chat y videos después del commit. <ref_file file="C:/developer/paginas/pancheria/src/application/services/branchService.ts" /> |
+| `expirePendingOrders` toleraba solo errores que contienen `"confirmado"` | Resuelto | El mensaje no existía en el código real (código muerto) y la carrera podía anular una venta `paid`. Ahora `cancelExpiredOrder` bloquea la fila y solo cancela si el pedido sigue `pending`, y se toleran `DomainError` genéricos. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
 
 ### 5.9 Configuración de despliegue, CI/CD y entornos
 
@@ -190,9 +197,9 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 
 | Hallazgo | Acción | Evidencia |
 |---|---|---|
-| README.md decía que los pedidos no reservan stock al crearse | Actualizado flujo y explicación de reservas | <ref_file file="C:/developer/paginas/pancheria/README.md" /> |
-| `lecciones-aprendidas.md` decía que `createOrder` no descuenta stock | Reescrita la lección para reflejar reserva inmediata | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> |
-| `guia-funcionamiento-pancheria.md` contradecía el flujo de reservas | Actualizado checklist y conclusión | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
+| `README.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md` describían reserva inmediata en `createOrder` | Revertidas para reflejar el flujo vigente: `pending` no reserva; la reserva se crea al recibir (`in_process`) | <ref_file file="C:/developer/paginas/pancheria/README.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
+| La guía describía `deleteBranch` como soft delete con archivo en cascada | Revertida a hard delete en cascada con liberación de archivos post-commit | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
+| Specs E2E asumían reserva al crear el pedido y archivo de sucursal | Actualizados a disponibilidad intacta en `pending` y eliminación definitiva | <ref_file file="C:/developer/paginas/pancheria/tests/e2e/pedido-reserva-flujo.spec.ts" /> <ref_file file="C:/developer/paginas/pancheria/tests/e2e/pedido-sucursal-y-stock.spec.ts" /> <ref_file file="C:/developer/paginas/pancheria/tests/e2e/sucursal-eliminacion.spec.ts" /> |
 
 ## 7. Plan de acción priorizado
 
@@ -205,7 +212,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 | `getClientIp` en producción fuera de Vercel | Resuelto | Resuelto: `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true` como escape controlado. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
 | Tests unitarios de `src/lib/cart-pipeline.ts` | Resuelto | Resuelto: `src/lib/cart-pipeline.test.ts` cubre contexto, `FOR UPDATE`, reservas, totales, snapshots, servicios y faltantes. <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.ts" /> |
 | Mover eliminación de archivos fuera de la transacción o a una cola post-commit | Menor | Evita que un rollback deje `imageKey` apuntando a un archivo inexistente. <ref_file file="C:/developer/paginas/pancheria/src/application/services/productService.ts" /> |
-| Paginar `expirePendingOrders` y tolerar errores de dominio genéricos | Menor | Reduce carga de memoria y evita que el cron se detenga por carreras. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
+| Paginar `expirePendingOrders` y tolerar errores de dominio genéricos | Resuelto | Resuelto: `cancelExpiredOrder` cancela de forma atómica solo si el pedido sigue `pending`, se toleran `DomainError` y el listado se procesa en lotes de 200 con `findExpiredPendingIds`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
 | Imponer mínimos prácticos a intervalos de caja | Menor | Evita polling agresivo si se configuran valores muy bajos. <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" /> |
 | Centralizar lecturas de `process.env` en `src/config/*` | Menor | Reduce acoplamiento y mejora testeabilidad. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
 | Alinear versiones de paquetes `@next/*` y `eslint-config-next` con `next` | Informativo | Consistencia de versiones en `package.json`. <ref_file file="C:/developer/paginas/pancheria/package.json" /> |
@@ -214,7 +221,7 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 
 - Baseline: `9c6f08507090d7dd379a49f25ad3e7600ae4fe3a`
 - Verificaciones base ejecutadas: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`, `npx drizzle-kit check` — todas pasaron.
-- Migración generada: `drizzle/0027_special_hellcat.sql` (no aplicada a producción).
+- Migración generada: `drizzle/0027_dashing_bastion.sql` (solo `scope` en `public_order_rate_limits` y `order_id` en `stock_movements`, sin cambios en `branches`). Aplicada en desarrollo y E2E por SQL directo, y en producción por `drizzle-kit migrate` junto a las atrasadas `0025` y `0026`. Las tres bases tienen `drizzle.__drizzle_migrations` inicializada y alineada con el journal.
 - Documentación actualizada: `README.md`, `AGENTS.md`, `.env.example`.
 - Informe anterior archivado en `.devin/informes/archivados/reporte-estado-2026-09-04.md`.
-- No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npm run test:e2e`, `npx playwright test` ni `npx vercel env pull` por requerir confirmación explícita y una base de datos descartable.
+- No se ejecutaron `npx tsx src/db/seeds.ts`, `npm run test:e2e`, `npx playwright test` ni `npx vercel env pull` por requerir confirmación explícita y una base de datos descartable. La sincronización de esquema en desarrollo y E2E se aplicó por SQL directo porque `drizzle-kit push` requiere TTY para confirmar la restricción unique restaurada en `branches.name`.

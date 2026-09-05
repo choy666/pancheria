@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { login, unique, clearSession } from './helpers';
 
-test.describe('Eliminación (archivo) de sucursal', () => {
+test.describe('Eliminación de sucursal', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });
 
-  test('archiva una sucursal, oculta el listado y bloquea el login de sus usuarios', async ({
+  test('elimina una sucursal, la quita del listado y bloquea el login de sus usuarios', async ({
     page,
   }) => {
     const branchName = unique('Sucursal Archivo');
@@ -68,8 +68,8 @@ test.describe('Eliminación (archivo) de sucursal', () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test('rechaza crear pedidos en una sucursal archivada', async ({ page }) => {
-    const branchName = unique('Sucursal Archivo API');
+  test('rechaza crear pedidos en una sucursal eliminada', async ({ page }) => {
+    const branchName = unique('Sucursal Eliminada API');
 
     await page.goto('/sucursales');
     await page.getByLabel('Nombre de la sucursal').fill(branchName);

@@ -23,11 +23,13 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Tests de accesibilidad   | `npm run test:accessibility`                      |
 | Código muerto            | `npm run knip`                                    |
 | Generar migraciones      | `npx drizzle-kit generate`                        |
-| Empujar migraciones      | `npx drizzle-kit push`                            |
+| Aplicar migraciones      | `npx drizzle-kit migrate`                          |
+| Registrar baseline de migraciones | `npx tsx scripts/drizzle-baseline.ts` (`TARGET_E2E=1` para la base E2E) |
+| Empujar migraciones (sincronización directa) | `npx drizzle-kit push`               |
 | Empujar migraciones en producción | Ver `.devin/informes/entornos.md`        |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
 
-> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches` con `RESTART IDENTITY CASCADE` (las tablas hijas como `order_stock_reservations`, `sale_payments`, `sale_item_recipes` y `order_item_recipes` quedan cubiertas por el `CASCADE`), y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
 > Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El `playwright.config.ts` y `scripts/dev-e2e.ts` cargan `.env.local` como base y luego `.env.e2e` con prioridad, asi que se recomienda copiar `.env.e2e.example` a `.env.e2e` y completar `DATABASE_URL` con una base descartable. **El nombre de la base para E2E debe terminar en `test`, `e2e`, `testing`, `qa` o `staging`, incluso si es local.** El `global-setup.ts` aborta si `DATABASE_URL` no es local o no cumple con ese patrón, salvo que `E2E_ALLOW_REMOTE_DB=true` esté explícitamente definido.
 >
@@ -38,6 +40,8 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 > `npm run build` y el job `build` de CI no pasan `DATABASE_URL` porque las páginas públicas críticas (`/pedido`, `/pedido/[id]/chat`) usan `dynamic = 'force-dynamic'`; el build no consulta la base de datos durante la generación estática. Si en el futuro se agrega SSG que requiera DB, usar una URL de staging, nunca la productiva.
 >
 > Antes de subir cambios a Git, consultar `.devin/informes/checklist-pre-push.md` para evitar errores comunes de CI (lint, tipos, build, knip, variables de E2E, rate limit, etc.).
+>
+> **Migraciones:** todo cambio en `src/db/schema.ts` debe acompañarse de la migración generada con `npx drizzle-kit generate` y commiteada en `drizzle/`. Las bases de desarrollo y E2E tienen inicializado `drizzle.__drizzle_migrations`, por lo que `npx drizzle-kit migrate` es el flujo recomendado para aplicar cambios. `drizzle-kit push` desincroniza la base del historial commiteado y requiere TTY ante confirmaciones; si se usa, correr después `npx tsx scripts/drizzle-baseline.ts` para registrar la migración como aplicada.
 
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:

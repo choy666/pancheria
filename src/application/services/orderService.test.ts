@@ -401,15 +401,8 @@ describe('orderService', () => {
       expect(findCapturedUpdate(products)).toHaveLength(0);
       expect(
         mockedOrderStockReservationRepository.insertReservations
-      ).toHaveBeenCalled();
-
-      const stockMovementsInserts = findCapturedInsert(stockMovements);
-      expect(stockMovementsInserts).toHaveLength(1);
-      const reserveRows = stockMovementsInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
-      expect(reserveRows).toHaveLength(1);
-      expect(reserveRows[0]?.type).toBe('reserve');
-      expect(reserveRows[0]?.quantity).toBe(-2);
-      expect(reserveRows[0]?.orderId).toBe(1);
+      ).not.toHaveBeenCalled();
+      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
     test('crea un pedido con promo sin descontar insumos compartidos', async () => {
@@ -460,15 +453,8 @@ describe('orderService', () => {
       expect(findCapturedUpdate(products)).toHaveLength(0);
       expect(
         mockedOrderStockReservationRepository.insertReservations
-      ).toHaveBeenCalled();
-
-      const stockMovementsInserts = findCapturedInsert(stockMovements);
-      expect(stockMovementsInserts).toHaveLength(1);
-      const reserveRows = stockMovementsInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
-      expect(reserveRows).toHaveLength(1);
-      expect(reserveRows[0]?.type).toBe('reserve');
-      expect(reserveRows[0]?.quantity).toBe(-4);
-      expect(reserveRows[0]?.orderId).toBe(1);
+      ).not.toHaveBeenCalled();
+      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
     test('crea dos orderItems con snapshots distintos para el mismo producto con selecciones diferentes', async () => {
@@ -1436,11 +1422,6 @@ describe('orderService', () => {
 
       expect(count).toBe(1);
       expect(mockedDb.query.orders.findMany).toHaveBeenCalled();
-      expect(mockedDb.query.orders.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.anything(),
-        })
-      );
       expect(findCapturedUpdate(orders)).toHaveLength(1);
 
       const updatedOrder = findCapturedUpdate(orders)[0]?.data as Partial<

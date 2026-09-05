@@ -4,9 +4,9 @@
 
 | Entorno | ¿Dónde está la URL? | Variables obligatorias adicionales | Comando de migración | Comando para levantar / testear |
 |---------|---------------------|------------------------------------|----------------------|---------------------------------|
-| Desarrollo | `.env.local` → `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) | `DATABASE_URL`, `NEXTAUTH_SECRET` o `AUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `npx drizzle-kit push` | `npm run dev` |
+| Desarrollo | `.env.local` → `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`) | `DATABASE_URL`, `NEXTAUTH_SECRET` o `AUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `npx drizzle-kit migrate` | `npm run dev` |
 | Producción | Vercel → `DATABASE_URL_UNPOOLED` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Ver [Producción](#producción) | `npm run build && npm run start` |
-| E2E / Playwright | `.env.e2e` → `DATABASE_URL` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | No aplica (`global-setup.ts` maneja el esquema) | `npm run test:e2e` (asegurarse de que no haya otro servidor en `localhost:3000` usando `.env.local`) |
+| E2E / Playwright | `.env.e2e` → `DATABASE_URL` | `DATABASE_URL`, `AUTH_SECRET` o `NEXTAUTH_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `npx drizzle-kit migrate` con las variables de `.env.e2e` (el `global-setup.ts` trunca y reseedea datos, pero no aplica el esquema) | `npm run test:e2e` (asegurarse de que no haya otro servidor en `localhost:3000` usando `.env.local`) |
 
 ---
 
@@ -44,15 +44,22 @@ Si no existe, copiar `.env.example` a `.env.local` y completar con los datos de 
 
 ### Aplicar migración en desarrollo
 
-```powershell
-npx drizzle-kit push
-```
-
-Si pide confirmación por `data-loss`, agregar `--force`:
+La base de desarrollo tiene inicializado el historial `drizzle.__drizzle_migrations`, por lo que el flujo recomendado es:
 
 ```powershell
-npx drizzle-kit push --force
+npx drizzle-kit generate   # genera la migración desde src/db/schema.ts
+npx drizzle-kit migrate    # aplica las migraciones pendientes del journal
 ```
+
+`npx drizzle-kit push` sigue disponible para sincronización directa, pero **no registra la migración en `drizzle.__drizzle_migrations`** y desalinea la base del historial commiteado. Si se usa `push`, generar igualmente la migración con `generate` y correr después:
+
+```powershell
+npx tsx scripts/drizzle-baseline.ts
+```
+
+para registrar el archivo como aplicado sin re-ejecutarlo.
+
+> Nota: `push` pide confirmación interactiva (TTY) ante cambios destructivos o constraints sobre tablas con datos; en terminales sin TTY falla con "Interactive prompts require a TTY terminal". En ese caso usar `migrate` (que no es interactivo) o aplicar el SQL de la migración manualmente.
 
 ---
 
@@ -84,11 +91,28 @@ $env:DATABASE_URL_UNPOOLED = (
   Where-Object { $_ -match '^DATABASE_URL_UNPOOLED=' } |
   ForEach-Object { ($_ -split '=', 2)[1].Trim().Trim('"') }
 )
-
-npx drizzle-kit push --force
 ```
 
 > **Por qué `.Trim().Trim('"')`**: el `env pull` de Vercel agrega `"` al inicio y al final de cada valor. Si no se quitan, `pg` no conecta.
+
+#### Baseline de migraciones (ya realizado el 2026-09-05)
+
+Producción tenía `drizzle.__drizzle_migrations` vacía y estaba atrasada hasta la migración `0024`. Se inicializó el baseline con `npx tsx scripts/drizzle-baseline.ts --through=0024` y luego `npx drizzle-kit migrate` aplicó `0025` (drop de `daily_closures`, tabla obsoleta tras el refactor del cierre diario), `0026` (campos `address`/`phone`/`location` de sucursales) y `0027` (`scope` en `public_order_rate_limits` y `order_id` en `stock_movements`). Las tres bases (desarrollo, E2E y producción) quedaron alineadas con el journal.
+
+Si en el futuro otra base queda sin baseline, el procedimiento es:
+
+```powershell
+# Registra como aplicadas las migraciones ya presentes en la base
+# (verificar primero con information_schema hasta qué migración llegó)
+npx tsx scripts/drizzle-baseline.ts --through=<tag>
+
+# Aplica solo las migraciones posteriores al baseline
+npx drizzle-kit migrate
+```
+
+`migrate` no es interactivo y corre cada migración pendiente en una transacción, insertando su fila en `__drizzle_migrations`.
+
+Alternativa vigente: `npx drizzle-kit push --force` sigue funcionando, pero no registra `__drizzle_migrations`; si se usa, correr después `npx tsx scripts/drizzle-baseline.ts` para registrar los archivos como aplicados.
 
 ### 4. Verificar que se aplicó
 
@@ -103,11 +127,14 @@ npx tsx -e "
 import { Client } from 'pg';
 const client = new Client({ connectionString: process.env.DATABASE_URL_UNPOOLED, ssl: { rejectUnauthorized: false } });
 await client.connect();
-const result = await client.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'customer_phone'\");
-console.log(result.rows.length > 0 ? 'OK: columna customer_phone aplicada.' : 'PENDIENTE: columna customer_phone no existe.');
+const result = await client.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'stock_movements' AND column_name = 'order_id'\");
+console.log(result.rows.length > 0 ? 'OK: stock_movements.order_id aplicada.' : 'PENDIENTE: stock_movements.order_id no existe.');
 
-const result2 = await client.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'branches' AND column_name = 'opening_hours'\");
-console.log(result2.rows.length > 0 ? 'OK: columna opening_hours aplicada.' : 'PENDIENTE: columna opening_hours no existe.');
+const result2 = await client.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'public_order_rate_limits' AND column_name = 'scope'\");
+console.log(result2.rows.length > 0 ? 'OK: public_order_rate_limits.scope aplicada.' : 'PENDIENTE: public_order_rate_limits.scope no existe.');
+
+const result3 = await client.query(\"SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations\");
+console.log('Migraciones registradas en __drizzle_migrations:', result3.rows[0].n);
 await client.end();
 "
 ```

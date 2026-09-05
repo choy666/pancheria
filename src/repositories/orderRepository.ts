@@ -1,4 +1,4 @@
-import { eq, and, isNull, count, lt, inArray, ilike, or } from 'drizzle-orm';
+import { eq, and, isNull, count, lt, inArray, notInArray, ilike, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { orders, orderItems, orderMessages } from '@/db/schema';
 import type { OrderStatus, OrderWithItems, OrderWithUnreadCount, OrderItem, RecipeItemConfig } from '@/domain/types';
@@ -254,36 +254,35 @@ export async function countOrdersByStatus(
   return result;
 }
 
-export async function findExpiredPending(
-  branchId: number,
-  expirationDate: Date
-): Promise<OrderWithItems[]> {
-  const ordersList = await db.query.orders.findMany({
-    where: and(
-      eq(orders.branchId, branchId),
-      eq(orders.status, 'pending'),
-      isNull(orders.deletedAt),
-      lt(orders.createdAt, expirationDate)
-    ),
-    with: { items: { with: { recipeSnapshots: true } } },
+/**
+ * Devuelve los identificadores de pedidos `pending` vencidos, ordenados por
+ * antigüedad y acotados por `limit`. `excludeIds` permite saltear pedidos ya
+ * intentados dentro de una misma corrida de expiración.
+ */
+export async function findExpiredPendingIds(
+  expirationDate: Date,
+  options: { branchId?: number; limit?: number; excludeIds?: number[] } = {}
+): Promise<{ id: number; branchId: number }[]> {
+  const conditions = [
+    eq(orders.status, 'pending'),
+    isNull(orders.deletedAt),
+    lt(orders.createdAt, expirationDate),
+  ];
+
+  if (options.branchId !== undefined) {
+    conditions.push(eq(orders.branchId, options.branchId));
+  }
+
+  if (options.excludeIds && options.excludeIds.length > 0) {
+    conditions.push(notInArray(orders.id, options.excludeIds));
+  }
+
+  return db.query.orders.findMany({
+    columns: { id: true, branchId: true },
+    where: and(...conditions),
+    orderBy: (o, { asc }) => [asc(o.createdAt)],
+    limit: options.limit ?? 200,
   });
-
-  return ordersList.map((order) => normalizeOrder(order));
-}
-
-export async function findExpiredPendingAll(
-  expirationDate: Date
-): Promise<OrderWithItems[]> {
-  const ordersList = await db.query.orders.findMany({
-    where: and(
-      eq(orders.status, 'pending'),
-      isNull(orders.deletedAt),
-      lt(orders.createdAt, expirationDate)
-    ),
-    with: { items: { with: { recipeSnapshots: true } } },
-  });
-
-  return ordersList.map((order) => normalizeOrder(order));
 }
 
 export async function insertOrder(

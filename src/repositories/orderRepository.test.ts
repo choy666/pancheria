@@ -211,34 +211,39 @@ describe('orderRepository', () => {
     });
   });
 
-  describe('findExpiredPending', () => {
-    test('devuelve pedidos pendientes vencidos para una sucursal', async () => {
+  describe('findExpiredPendingIds', () => {
+    test('devuelve ids de pedidos pendientes vencidos para una sucursal', async () => {
       const cutoff = new Date('2024-01-01');
-      mockFindMany.mockResolvedValue([buildOrder()]);
+      mockFindMany.mockResolvedValue([{ id: 1, branchId: BRANCH_ID }]);
 
-      const result = await orderRepository.findExpiredPending(BRANCH_ID, cutoff);
+      const result = await orderRepository.findExpiredPendingIds(cutoff, {
+        branchId: BRANCH_ID,
+      });
 
       expect(result).toHaveLength(1);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          with: { items: { with: { recipeSnapshots: true } } },
+          columns: { id: true, branchId: true },
+          where: expect.anything(),
+          limit: 200,
         })
       );
     });
-  });
 
-  describe('findExpiredPendingAll', () => {
-    test('devuelve pedidos pendientes vencidos sin filtrar sucursal', async () => {
+    test('acota el lote y excluye ids ya intentados', async () => {
       const cutoff = new Date('2024-01-01');
-      mockFindMany.mockResolvedValue([buildOrder()]);
+      mockFindMany.mockResolvedValue([]);
 
-      const result = await orderRepository.findExpiredPendingAll(cutoff);
+      const result = await orderRepository.findExpiredPendingIds(cutoff, {
+        limit: 50,
+        excludeIds: [7, 9],
+      });
 
-      expect(result).toHaveLength(1);
+      expect(result).toEqual([]);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          limit: 50,
           where: expect.anything(),
-          with: { items: { with: { recipeSnapshots: true } } },
         })
       );
     });

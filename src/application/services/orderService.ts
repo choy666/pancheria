@@ -11,7 +11,7 @@ import * as idempotencyService from '@/application/idempotencyService';
 
 import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
-import { NotFoundError, ValidationError } from '@/domain/errors';
+import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
 import type {
   OrderWithItems,
@@ -221,7 +221,6 @@ export async function createOrder(
   return executeInTransaction(async (tx) => {
     const {
       productById,
-      recipesByProduct,
       saleItemValues: orderItemValues,
       total: orderTotal,
     } = await prepareCart({
@@ -229,7 +228,6 @@ export async function createOrder(
       items,
       operation: 'pedido',
       dbOrTx: tx,
-      options: { shouldLock: true },
     });
 
     const orderNumber = generateOrderNumber(branchId);
@@ -289,25 +287,6 @@ export async function createOrder(
 
     if (recipeRows.length > 0) {
       await tx.insert(orderItemRecipes).values(recipeRows);
-    }
-
-    const reservations = buildReservationsForItems(
-      branchId,
-      order.id,
-      orderItemValues,
-      productById,
-      recipesByProduct
-    );
-
-    if (reservations.length > 0) {
-      await orderStockReservationRepository.insertReservations(tx, reservations);
-      await insertStockReserveMovements(
-        tx,
-        branchId,
-        order.id,
-        reservations,
-        'reserve'
-      );
     }
 
     const recipeMessage = buildRecipeSnapshotMessageContent(orderItemValues);
@@ -380,7 +359,7 @@ export async function cancelOrder(
       throw new ValidationError('El token de cancelación no es válido.');
     }
 
-    if (locked.status === 'in_process' || locked.status === 'pending') {
+    if (locked.status === 'in_process') {
       const reservationsToRelease =
         await orderStockReservationRepository.findByOrderId(tx, id);
       await orderStockReservationRepository.deleteByOrderId(tx, id);
@@ -480,7 +459,7 @@ export async function convertOrderToSale(
       { dbOrTx: tx }
     );
 
-    if (lockedOrder.status === 'in_process' || lockedOrder.status === 'pending') {
+    if (lockedOrder.status === 'in_process') {
       const reservationsToRelease =
         await orderStockReservationRepository.findByOrderId(tx, orderId);
       await orderStockReservationRepository.deleteByOrderId(tx, orderId);
@@ -763,35 +742,89 @@ export async function expirePendingOrders(
   const expirationMs = getOrderExpirationMs();
   const cutoff = new Date(Date.now() - expirationMs);
 
-  const expiredOrders =
-    branchId === undefined
-      ? await orderRepository.findExpiredPendingAll(cutoff)
-      : await orderRepository.findExpiredPending(branchId, cutoff);
-
   let expiredCount = 0;
+  // Los pedidos que cambian de estado salen del resultado en la siguiente
+  // página; los que fallan quedan registrados para no reintentarlos en esta
+  // corrida (la consulta los excluye y este set es la guarda de corte).
+  const attemptedOrderIds = new Set<number>();
 
-  for (const order of expiredOrders) {
-    try {
-      await cancelOrder(
-        order.branchId,
-        order.id,
-        'Expiración automática por inactividad'
-      );
-      expiredCount += 1;
-    } catch (error) {
-      // Si el pedido fue confirmado o cancelado entre la búsqueda y la
-      // cancelación, no interrumpimos la limpieza del resto.
-      if (
-        error instanceof ValidationError &&
-        error.message.includes('confirmado')
-      ) {
-        continue;
+  for (;;) {
+    const batch = await orderRepository.findExpiredPendingIds(cutoff, {
+      branchId,
+      limit: EXPIRED_ORDERS_BATCH_SIZE,
+      excludeIds: [...attemptedOrderIds],
+    });
+
+    const fresh = batch.filter((order) => !attemptedOrderIds.has(order.id));
+    if (fresh.length === 0) break;
+
+    for (const order of fresh) {
+      attemptedOrderIds.add(order.id);
+      try {
+        const cancelled = await cancelExpiredOrder(
+          order.branchId,
+          order.id,
+          'Expiración automática por inactividad'
+        );
+        if (cancelled) {
+          expiredCount += 1;
+        }
+      } catch (error) {
+        // Si el pedido fue modificado o eliminado entre la búsqueda y la
+        // cancelación, no interrumpimos la limpieza del resto.
+        if (error instanceof DomainError) {
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
   }
 
   return expiredCount;
+}
+
+const EXPIRED_ORDERS_BATCH_SIZE = 200;
+
+/**
+ * Cancela un pedido expirado solo si sigue en estado `pending`.
+ * Bloquea la fila para evitar carreras con confirmaciones, recepciones o
+ * cancelaciones concurrentes. Devuelve `true` si el pedido se canceló.
+ */
+async function cancelExpiredOrder(
+  branchId: number,
+  orderId: number,
+  reason: string
+): Promise<boolean> {
+  return executeInTransaction(async (tx) => {
+    const locked = await orderRepository.findByIdForUpdate(tx, branchId, orderId);
+
+    if (!locked || locked.status !== 'pending') {
+      return false;
+    }
+
+    // Un pedido pending no reserva stock; se libera por si quedaron
+    // reservas legadas en la base de datos.
+    const reservationsToRelease =
+      await orderStockReservationRepository.findByOrderId(tx, orderId);
+    if (reservationsToRelease.length > 0) {
+      await orderStockReservationRepository.deleteByOrderId(tx, orderId);
+      await insertStockReserveMovements(
+        tx,
+        branchId,
+        orderId,
+        reservationsToRelease,
+        'reserve_release'
+      );
+    }
+
+    await orderRepository.cancel(tx, branchId, orderId, {
+      status: 'cancelled',
+      cancelledAt: nowUTC(),
+      cancellationReason: reason,
+    });
+
+    return true;
+  });
 }
 
 export interface TrackOrderResult {

@@ -1,4 +1,4 @@
-import { isNull, relations } from 'drizzle-orm';
+import { relations } from 'drizzle-orm';
 import {
   pgTable,
   serial,
@@ -82,28 +82,18 @@ export type BranchOpeningHours = {
   close: string;
 };
 
-export const branches = pgTable(
-  'branches',
-  {
-    id: serial('id').primaryKey(),
-    name: varchar('name', { length: 255 }).notNull(),
-    openingHours: jsonb('opening_hours')
-      .$type<BranchOpeningHours[]>()
-      .default([])
-      .notNull(),
-    address: text('address'),
-    phone: varchar('phone', { length: 50 }),
-    location: text('location'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    deletedAt: timestamp('deleted_at'),
-  },
-  (table) => ({
-    deletedAtIdx: index('branches_deleted_at_idx').on(table.deletedAt),
-    nameUniqueIdx: uniqueIndex('branches_name_active_unique_idx')
-      .on(table.name)
-      .where(isNull(table.deletedAt)),
-  })
-);
+export const branches = pgTable('branches', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull().unique(),
+  openingHours: jsonb('opening_hours')
+    .$type<BranchOpeningHours[]>()
+    .default([])
+    .notNull(),
+  address: text('address'),
+  phone: varchar('phone', { length: 50 }),
+  location: text('location'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 export const users = pgTable(
   'users',

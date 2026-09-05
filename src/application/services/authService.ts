@@ -59,11 +59,6 @@ export async function verifyCredentials(
     return null;
   }
 
-  if (user.branch?.deletedAt) {
-    await recordFailedAttempt(username);
-    return null;
-  }
-
   await clearFailedAttempts(username);
 
   return {

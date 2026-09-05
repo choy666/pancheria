@@ -11,6 +11,7 @@ Ejecutar en orden y confirmar que todas pasan:
 3. `npm test`
 4. `npm run build`
 5. `npm run knip`
+6. Si se tocó `src/db/schema.ts`: `npx drizzle-kit generate` y commitear la migración generada en `drizzle/` junto con `drizzle/meta/`; verificar con `npx drizzle-kit check` que no haya drift.
 
 > Si alguno falla, corregir antes de commitear. El CI ejecuta los mismos pasos y fallará en el primer error.
 
