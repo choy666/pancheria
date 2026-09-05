@@ -1,4 +1,4 @@
-import { eq, inArray, isNull, isNotNull, and, gte, lte, count } from 'drizzle-orm';
+import { eq, inArray, isNull, isNotNull, and, gte, lte, count, asc } from 'drizzle-orm';
 import { db } from '@/db';
 import { products } from '@/db/schema';
 import { getCurrentTransaction } from '@/application/transactionService';
@@ -105,6 +105,7 @@ export async function findByIdsForUpdate(
     .select()
     .from(products)
     .where(and(...conditions))
+    .orderBy(asc(products.id))
     .for('update');
 }
 

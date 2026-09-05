@@ -1,5 +1,6 @@
 import { defineConfig } from 'drizzle-kit';
 import dotenv from 'dotenv';
+import { getDatabaseUrl, getDatabaseUrlUnpooled } from './src/config/database';
 
 // Cargar variables de entorno desde .env.local de forma dinámica.
 // En Vercel el archivo no existe, por lo que dotenv no hace nada y process.env
@@ -7,11 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 function resolveDatabaseUrl(): string {
-  const candidate =
-    process.env.DATABASE_URL_UNPOOLED ??
-    process.env.POSTGRES_URL_NON_POOLING ??
-    process.env.DATABASE_URL ??
-    process.env.POSTGRES_URL;
+  const candidate = getDatabaseUrlUnpooled() ?? getDatabaseUrl();
 
   if (!candidate) {
     // Knip y otras herramientas de análisis cargan este archivo sin variables

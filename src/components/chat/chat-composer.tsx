@@ -74,9 +74,10 @@ export function ChatComposer({
             />
             <label
               htmlFor={`chat-file-${orderId}`}
+              aria-label="Adjuntar imagen"
               className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <ImageIcon className="size-4" />
+              <ImageIcon className="size-4" aria-hidden="true" />
             </label>
           </>
         )}

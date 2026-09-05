@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { inArray, eq, and, asc } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, products, stockMovements, orderItems, orderItemRecipes, orderMessages } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
@@ -11,7 +11,7 @@ import * as idempotencyService from '@/application/idempotencyService';
 
 import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
-import { NotFoundError, ValidationError } from '@/domain/errors';
+import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
 import type {
   OrderWithItems,
@@ -23,7 +23,7 @@ import type {
   RecipeItemConfig,
   OrderItem,
 } from '@/domain/types';
-import type { RecipeWithSupply } from '@/application/services/summaryService';
+import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 import {
   buildProductContext,
   validateProductsForOperation,
@@ -31,7 +31,7 @@ import {
   assertNoStockShortage,
   buildRecipeSnapshot,
 } from '@/lib/product-helpers';
-import { buildSaleItemValues } from '@/lib/sale-helpers';
+import { prepareCart } from '@/lib/cart-pipeline';
 import {
   generateOrderNumber,
   generateCancellationToken,
@@ -85,13 +85,14 @@ interface ReservationInput {
   quantity: number;
 }
 
-function recomputeOrderRecipeSnapshots(
+function ensureOrderRecipeSnapshots(
   items: OrderItem[],
   recipesByProduct: Map<number, RecipeWithSupply[]>
 ): OrderItem[] {
   return items.map((item) => {
     const recipeList = recipesByProduct.get(item.productId) ?? [];
     if (recipeList.length === 0) return item;
+    if (item.recipeSnapshot && item.recipeSnapshot.length > 0) return item;
 
     const selectedIds =
       item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [];
@@ -109,6 +110,7 @@ function toSaleItemInputWithSelection(
     quantity: item.quantity,
     selectedRecipeItemIds:
       item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [],
+    recipeSnapshot: item.recipeSnapshot,
   }));
 }
 
@@ -137,6 +139,7 @@ async function insertStockReserveMovements(
       type,
       quantity: type === 'reserve' ? -reservation.quantity : reservation.quantity,
       saleId: null as number | null,
+      orderId,
       reason,
       createdAt: nowUTC(),
     }))
@@ -216,26 +219,16 @@ export async function createOrder(
   }
 
   return executeInTransaction(async (tx) => {
-    const productIds = items.map((item) => item.productId);
-    const { productById, recipesByProduct } = await buildProductContext(
-      branchId,
-      productIds,
-      { dbOrTx: tx }
-    );
-
-    validateProductsForOperation(items, productById, branchId, 'pedido');
-
-    const { shortageByProduct } = await validateCartAvailability(
+    const {
+      productById,
+      saleItemValues: orderItemValues,
+      total: orderTotal,
+    } = await prepareCart({
       branchId,
       items,
-      undefined,
-      tx
-    );
-
-    assertNoStockShortage(shortageByProduct, productById);
-
-    const { saleItemValues: orderItemValues, total: orderTotal } =
-      buildSaleItemValues(productById, items, recipesByProduct);
+      operation: 'pedido',
+      dbOrTx: tx,
+    });
 
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
@@ -253,7 +246,18 @@ export async function createOrder(
       idempotencyKey: branchIdempotencyKey,
     });
 
-    const order = await orderRepository.insertOrder(tx, orderValues);
+    const { order, isNew } = await orderRepository.insertOrderIdempotent(
+      tx,
+      orderValues
+    );
+
+    if (!isNew) {
+      const existing = await orderRepository.findById(branchId, order.id);
+      if (!existing) {
+        throw new NotFoundError('Pedido', order.id);
+      }
+      return existing;
+    }
 
     const orderItemsToInsert = buildOrderItemValues(orderItemValues, order.id);
 
@@ -455,8 +459,6 @@ export async function convertOrderToSale(
       { dbOrTx: tx }
     );
 
-    validateProductsForOperation(order.items, productById, branchId, 'venta');
-
     if (lockedOrder.status === 'in_process') {
       const reservationsToRelease =
         await orderStockReservationRepository.findByOrderId(tx, orderId);
@@ -470,27 +472,47 @@ export async function convertOrderToSale(
       );
     }
 
-    const itemsForValidation = toSaleItemInputWithSelection(order.items);
-
-    const { shortageByProduct } = await validateCartAvailability(
-      branchId,
-      itemsForValidation,
-      undefined,
-      tx
-    );
-
-    assertNoStockShortage(shortageByProduct, productById);
-
-    const { saleItemValues, total: saleTotal } = buildSaleItemValues(
+    const productIdsToLock = collectStockProductIdsToLock(
+      order.items,
       productById,
-      order.items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.subtotal,
-        recipeSnapshot: item.recipeSnapshot,
-      }))
+      recipesByProduct
     );
+
+    if (productIdsToLock.length > 0) {
+      await tx
+        .select()
+        .from(products)
+        .where(
+          and(
+            eq(products.branchId, branchId),
+            inArray(products.id, productIdsToLock)
+          )
+        )
+        .orderBy(asc(products.id))
+        .for('update');
+    }
+
+    const itemsForValidation = toSaleItemInputWithSelection(order.items);
+    const buildItems = order.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+      recipeSnapshot: item.recipeSnapshot,
+    }));
+
+    const {
+      productById: saleProductById,
+      recipesByProduct: saleRecipesByProduct,
+      saleItemValues,
+      total: saleTotal,
+    } = await prepareCart({
+      branchId,
+      items: itemsForValidation,
+      operation: 'venta',
+      dbOrTx: tx,
+      options: { shouldLock: false, buildItems, excludeOrderId: orderId },
+    });
 
     const paymentTotalValidation = validatePaymentParts(payments, saleTotal);
     if (!paymentTotalValidation.valid) {
@@ -506,8 +528,8 @@ export async function convertOrderToSale(
       branchIdempotencyKey,
       payments,
       saleItemValues,
-      productById,
-      recipesByProduct
+      saleProductById,
+      saleRecipesByProduct
     );
 
     await orderRepository.updateStatus(tx, branchId, orderId, {
@@ -566,40 +588,10 @@ export async function receiveOrder(
 
     validateProductsForOperation(order.items, productById, branchId, 'pedido');
 
-    const orderItemsWithSnapshot = recomputeOrderRecipeSnapshots(
+    const orderItemsWithSnapshot = ensureOrderRecipeSnapshots(
       order.items,
       recipesByProduct
     );
-
-    const orderItemIds = orderItemsWithSnapshot.map((item) => item.id);
-
-    if (orderItemIds.length > 0) {
-      await tx
-        .delete(orderItemRecipes)
-        .where(inArray(orderItemRecipes.orderItemId, orderItemIds));
-    }
-
-    const recipeRows: (typeof orderItemRecipes.$inferInsert)[] = [];
-    for (const item of orderItemsWithSnapshot) {
-      const snapshot = item.recipeSnapshot ?? [];
-      for (const config of snapshot) {
-        recipeRows.push({
-          orderItemId: item.id,
-          supplyId: config.supplyId,
-          supplyName: config.supplyName,
-          supplyType: config.supplyType,
-          quantity: config.quantity,
-          autoDiscount: config.autoDiscount,
-          isOptional: config.isOptional,
-          selected: config.selected,
-          selectedByDefault: config.selectedByDefault,
-        });
-      }
-    }
-
-    if (recipeRows.length > 0) {
-      await tx.insert(orderItemRecipes).values(recipeRows);
-    }
 
     const productIdsToLock = collectStockProductIdsToLock(
       orderItemsWithSnapshot,
@@ -612,6 +604,7 @@ export async function receiveOrder(
         .select()
         .from(products)
         .where(inArray(products.id, productIdsToLock))
+        .orderBy(asc(products.id))
         .for('update');
     }
 
@@ -623,7 +616,8 @@ export async function receiveOrder(
       branchId,
       itemsForValidation,
       undefined,
-      tx
+      tx,
+      orderId
     );
 
     assertNoStockShortage(shortageByProduct, productById);
@@ -736,41 +730,101 @@ export async function getOrders(
   return orderRepository.findOrders(branchId, options);
 }
 
+export async function getOrderCountsByStatus(
+  branchId: number
+): Promise<Record<OrderStatus, number>> {
+  return orderRepository.countOrdersByStatus(branchId);
+}
+
 export async function expirePendingOrders(
   branchId?: number
 ): Promise<number> {
   const expirationMs = getOrderExpirationMs();
   const cutoff = new Date(Date.now() - expirationMs);
 
-  const expiredOrders =
-    branchId === undefined
-      ? await orderRepository.findExpiredPendingAll(cutoff)
-      : await orderRepository.findExpiredPending(branchId, cutoff);
-
   let expiredCount = 0;
+  // Los pedidos que cambian de estado salen del resultado en la siguiente
+  // página; los que fallan quedan registrados para no reintentarlos en esta
+  // corrida (la consulta los excluye y este set es la guarda de corte).
+  const attemptedOrderIds = new Set<number>();
 
-  for (const order of expiredOrders) {
-    try {
-      await cancelOrder(
-        order.branchId,
-        order.id,
-        'Expiración automática por inactividad'
-      );
-      expiredCount += 1;
-    } catch (error) {
-      // Si el pedido fue confirmado o cancelado entre la búsqueda y la
-      // cancelación, no interrumpimos la limpieza del resto.
-      if (
-        error instanceof ValidationError &&
-        error.message.includes('confirmado')
-      ) {
-        continue;
+  for (;;) {
+    const batch = await orderRepository.findExpiredPendingIds(cutoff, {
+      branchId,
+      limit: EXPIRED_ORDERS_BATCH_SIZE,
+      excludeIds: [...attemptedOrderIds],
+    });
+
+    const fresh = batch.filter((order) => !attemptedOrderIds.has(order.id));
+    if (fresh.length === 0) break;
+
+    for (const order of fresh) {
+      attemptedOrderIds.add(order.id);
+      try {
+        const cancelled = await cancelExpiredOrder(
+          order.branchId,
+          order.id,
+          'Expiración automática por inactividad'
+        );
+        if (cancelled) {
+          expiredCount += 1;
+        }
+      } catch (error) {
+        // Si el pedido fue modificado o eliminado entre la búsqueda y la
+        // cancelación, no interrumpimos la limpieza del resto.
+        if (error instanceof DomainError) {
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
   }
 
   return expiredCount;
+}
+
+const EXPIRED_ORDERS_BATCH_SIZE = 200;
+
+/**
+ * Cancela un pedido expirado solo si sigue en estado `pending`.
+ * Bloquea la fila para evitar carreras con confirmaciones, recepciones o
+ * cancelaciones concurrentes. Devuelve `true` si el pedido se canceló.
+ */
+async function cancelExpiredOrder(
+  branchId: number,
+  orderId: number,
+  reason: string
+): Promise<boolean> {
+  return executeInTransaction(async (tx) => {
+    const locked = await orderRepository.findByIdForUpdate(tx, branchId, orderId);
+
+    if (!locked || locked.status !== 'pending') {
+      return false;
+    }
+
+    // Un pedido pending no reserva stock; se libera por si quedaron
+    // reservas legadas en la base de datos.
+    const reservationsToRelease =
+      await orderStockReservationRepository.findByOrderId(tx, orderId);
+    if (reservationsToRelease.length > 0) {
+      await orderStockReservationRepository.deleteByOrderId(tx, orderId);
+      await insertStockReserveMovements(
+        tx,
+        branchId,
+        orderId,
+        reservationsToRelease,
+        'reserve_release'
+      );
+    }
+
+    await orderRepository.cancel(tx, branchId, orderId, {
+      status: 'cancelled',
+      cancelledAt: nowUTC(),
+      cancellationReason: reason,
+    });
+
+    return true;
+  });
 }
 
 export interface TrackOrderResult {
@@ -791,6 +845,10 @@ export async function trackOrder(
   customerName?: string,
   customerPhone?: string
 ): Promise<TrackOrderResult | null> {
+  if (!customerName?.trim() && !customerPhone?.trim()) {
+    return null;
+  }
+
   const order = await orderRepository.findByOrderNumberAndCustomer(
     orderNumber,
     customerName,

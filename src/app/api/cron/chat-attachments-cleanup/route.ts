@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import { getStorageProvider } from '@/config/videos';
 import { getChatLocalStorageBasePath } from '@/lib/chat-storage';
+import { getCronSecret } from '@/config/cron';
+import { getBlobReadWriteToken, getS3R2Credentials } from '@/config/storage';
 
 function getExpectedAuth(): string | undefined {
-  if (!process.env.CRON_SECRET) return undefined;
-  return `Bearer ${process.env.CRON_SECRET}`;
+  const cronSecret = getCronSecret();
+  if (!cronSecret) return undefined;
+  return `Bearer ${cronSecret}`;
 }
 
 async function listLocalFiles(dir: string): Promise<string[]> {
@@ -50,7 +54,7 @@ async function cleanupLocal(referencedKeys: Set<string>): Promise<number> {
 
 async function cleanupVercelBlob(referencedKeys: Set<string>): Promise<number> {
   const { list, del } = await import('@vercel/blob');
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = getBlobReadWriteToken();
   if (!token) return 0;
 
   const { blobs } = await list({ token, prefix: 'chat/' });
@@ -70,20 +74,11 @@ async function cleanupS3R2(
   provider: 's3' | 'r2',
   referencedKeys: Set<string>
 ): Promise<number> {
-  const accessKeyId =
-    process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey =
-    process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-  const region =
-    process.env.S3_REGION ?? process.env.R2_REGION ?? 'auto';
-  const endpoint =
-    process.env.S3_ENDPOINT ??
-    (provider === 'r2' && process.env.R2_ACCOUNT_ID
-      ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-      : undefined);
+  const credentials = getS3R2Credentials(provider);
+  if (!credentials) return 0;
 
-  if (!accessKeyId || !secretAccessKey || !bucket) return 0;
+  const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+    credentials;
 
   const clientModule = (await import('@aws-sdk/client-s3')) as {
     S3Client: typeof import('@aws-sdk/client-s3').S3Client;
@@ -129,7 +124,7 @@ async function cleanupS3R2(
 }
 
 export async function GET(request: NextRequest) {
-  const expected = getExpectedAuth();
+  const expected = getExpectedAuth() ?? '';
   if (!expected) {
     return NextResponse.json(
       { error: 'CRON_SECRET no configurado.' },
@@ -137,8 +132,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== expected) {
+  const authHeader = request.headers.get('authorization') ?? '';
+  if (
+    authHeader.length !== expected.length ||
+    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected))
+  ) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 

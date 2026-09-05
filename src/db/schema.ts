@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   jsonb,
   check,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -490,6 +491,7 @@ export const stockMovements = pgTable(
     quantity: integer('quantity').notNull(),
     reason: text('reason'),
     saleId: integer('sale_id').references(() => sales.id, { onDelete: 'set null' }),
+    orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -685,6 +687,10 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
     fields: [stockMovements.saleId],
     references: [sales.id],
   }),
+  order: one(orders, {
+    fields: [stockMovements.orderId],
+    references: [orders.id],
+  }),
 }));
 
 
@@ -695,11 +701,16 @@ export const loginAttempts = pgTable('login_attempts', {
   lastAttempt: bigint('last_attempt', { mode: 'number' }).notNull(),
 });
 
-export const publicOrderRateLimits = pgTable('public_order_rate_limits', {
-  ip: varchar('ip', { length: 255 }).primaryKey(),
-  count: integer('count').notNull(),
-  resetAt: bigint('reset_at', { mode: 'number' }).notNull(),
-});
+export const publicOrderRateLimits = pgTable(
+  'public_order_rate_limits',
+  {
+    scope: varchar('scope', { length: 64 }).notNull(),
+    ip: varchar('ip', { length: 255 }).notNull(),
+    count: integer('count').notNull(),
+    resetAt: bigint('reset_at', { mode: 'number' }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.scope, table.ip] })]
+);
 
 export const videosRelations = relations(videos, ({ one }) => ({
   branch: one(branches, {

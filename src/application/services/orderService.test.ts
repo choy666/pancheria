@@ -13,6 +13,7 @@ import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
 import * as productRepository from '@/repositories/productRepository';
+import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
@@ -20,6 +21,7 @@ import { db } from '@/db';
 import {
   orders,
   orderItems,
+  orderMessages,
   sales,
   saleItems,
   salePayments,
@@ -28,6 +30,7 @@ import {
   cashRegisters,
   recipes,
   orderItemRecipes,
+  orderStockReservations,
 } from '@/db/schema';
 import {
   ValidationError,
@@ -227,6 +230,7 @@ function createMockDb(): MockDb {
     const builder: {
       from: jest.Mock;
       where: jest.Mock;
+      orderBy: jest.Mock;
       for: jest.Mock;
       groupBy: jest.Mock;
       then: (onFulfilled?: (value: unknown) => unknown) => Promise<unknown>;
@@ -236,6 +240,7 @@ function createMockDb(): MockDb {
         return builder;
       }),
       where: jest.fn(() => builder),
+      orderBy: jest.fn(() => builder),
       for: jest.fn().mockImplementation(async () => {
         if (lastTable === orders) {
           const order = await query.orders.findFirst();
@@ -394,6 +399,9 @@ describe('orderService', () => {
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedInsert(orderItems)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(0);
+      expect(
+        mockedOrderStockReservationRepository.insertReservations
+      ).not.toHaveBeenCalled();
       expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
@@ -443,6 +451,9 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(0);
+      expect(
+        mockedOrderStockReservationRepository.insertReservations
+      ).not.toHaveBeenCalled();
       expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
@@ -641,6 +652,66 @@ describe('orderService', () => {
       expect(result.id).toBe(42);
       expect(findCapturedInsert(orders)).toHaveLength(0);
     });
+
+    test('evita duplicados cuando el conflicto ocurre dentro de la transacción', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 10,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      const existing = createOrderRow({ id: 42, orderNumber: 'PED-42' });
+      const fullExisting = {
+        ...existing,
+        branch: {
+          id: BRANCH_ID,
+          name: 'Sucursal Test',
+          openingHours: [],
+          createdAt: new Date(),
+        },
+        items: [
+          createOrderItemRow({
+            orderId: 42,
+            productId: 1,
+            quantity: 1,
+            unitPrice: 1000,
+            subtotal: 1000,
+          }),
+        ],
+      };
+
+      mockedDb.query.orders.findFirst
+        .mockReset()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(fullExisting);
+
+      const spy = jest
+        .spyOn(orderRepository, 'insertOrderIdempotent')
+        .mockResolvedValue({ order: existing, isNew: false });
+
+      const result = await createOrder({
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-conflict-in-tx',
+      });
+
+      spy.mockRestore();
+
+      expect(result.id).toBe(42);
+      expect(findCapturedInsert(orders)).toHaveLength(0);
+      expect(findCapturedInsert(orderItems)).toHaveLength(0);
+      expect(findCapturedInsert(orderItemRecipes)).toHaveLength(0);
+      expect(findCapturedInsert(orderMessages)).toHaveLength(0);
+    });
   });
 
   describe('receiveOrder', () => {
@@ -678,6 +749,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'reserve',
         quantity: -2,
+        orderId: 1,
         reason: 'Reservado para pedido #1',
       });
     });
@@ -746,8 +818,8 @@ describe('orderService', () => {
       expect(reserveData).toHaveLength(2);
       expect(reserveData).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ productId: 2, type: 'reserve', quantity: -2 }),
-          expect.objectContaining({ productId: 3, type: 'reserve', quantity: -4 }),
+          expect.objectContaining({ productId: 2, type: 'reserve', quantity: -2, orderId: 1 }),
+          expect.objectContaining({ productId: 3, type: 'reserve', quantity: -4, orderId: 1 }),
         ])
       );
     });
@@ -858,6 +930,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'reserve_release',
         quantity: 2,
+        orderId: 1,
         reason: 'Reserva liberada del pedido #1',
       });
     });
@@ -984,6 +1057,7 @@ describe('orderService', () => {
       expect(stockMovement.type).toBe('sale');
       expect(stockMovement.quantity).toBe(-2);
       expect(stockMovement.saleId).toBe(1);
+      expect(stockMovement.orderId).toBeNull();
     });
 
     test('libera reserva y descuenta stock al confirmar un pedido recibido', async () => {
@@ -1037,6 +1111,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'reserve_release',
         quantity: 2,
+        orderId: 1,
         reason: 'Reserva liberada del pedido #1',
       });
 
@@ -1045,6 +1120,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'sale',
         quantity: -2,
+        orderId: null,
       });
     });
 
@@ -1346,11 +1422,6 @@ describe('orderService', () => {
 
       expect(count).toBe(1);
       expect(mockedDb.query.orders.findMany).toHaveBeenCalled();
-      expect(mockedDb.query.orders.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.anything(),
-        })
-      );
       expect(findCapturedUpdate(orders)).toHaveLength(1);
 
       const updatedOrder = findCapturedUpdate(orders)[0]?.data as Partial<

@@ -402,7 +402,9 @@ describe('cashRegisterRepository', () => {
 
   describe('hardDelete', () => {
     test('elimina definitivamente una caja previamente marcada como eliminada', async () => {
-      txSelectWhere.mockResolvedValue([{ deletedAt: new Date() }]);
+      txSelectWhere
+        .mockResolvedValueOnce([{ deletedAt: new Date() }])
+        .mockResolvedValueOnce([{ value: 0 }]);
       txUpdateWhere.mockResolvedValue(undefined);
       txDeleteWhere.mockResolvedValue(undefined);
 
@@ -410,8 +412,21 @@ describe('cashRegisterRepository', () => {
 
       expect(result).toEqual({ deleted: true });
       expect(txSelect).toHaveBeenCalled();
-      expect(txUpdate).toHaveBeenCalled();
+      expect(txUpdate).not.toHaveBeenCalled();
       expect(txDelete).toHaveBeenCalled();
+    });
+
+    test('no elimina si la caja tiene ventas asociadas', async () => {
+      txSelectWhere
+        .mockResolvedValueOnce([{ deletedAt: new Date() }])
+        .mockResolvedValueOnce([{ value: 5 }]);
+
+      const result = await cashRegisterRepository.hardDelete(BRANCH_ID, 1);
+
+      expect(result).toEqual({ deleted: false, hasSales: true });
+      expect(txSelect).toHaveBeenCalled();
+      expect(txUpdate).not.toHaveBeenCalled();
+      expect(txDelete).not.toHaveBeenCalled();
     });
 
     test('no elimina si la caja no está marcada como eliminada', async () => {
@@ -437,10 +452,12 @@ describe('cashRegisterRepository', () => {
   });
 
   describe('hardDeleteAllDeletedInRange', () => {
-    test('elimina todas las cajas eliminadas en el rango', async () => {
+    test('elimina todas las cajas eliminadas en el rango sin ventas', async () => {
       const start = new Date('2026-08-01T00:00:00.000Z');
       const end = new Date('2026-08-07T23:59:59.000Z');
-      txSelectWhere.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      txSelectWhere
+        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+        .mockResolvedValue([{ value: 0 }]);
       txUpdateWhere.mockResolvedValue(undefined);
       txDeleteWhere.mockResolvedValue(undefined);
 
@@ -451,8 +468,26 @@ describe('cashRegisterRepository', () => {
       );
 
       expect(result).toEqual({ deleted: 2 });
-      expect(txUpdate).toHaveBeenCalled();
+      expect(txUpdate).not.toHaveBeenCalled();
       expect(txDelete).toHaveBeenCalled();
+    });
+
+    test('omite cajas con ventas asociadas', async () => {
+      const start = new Date('2026-08-01T00:00:00.000Z');
+      const end = new Date('2026-08-07T23:59:59.000Z');
+      txSelectWhere
+        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+        .mockResolvedValue([{ value: 1 }]);
+
+      const result = await cashRegisterRepository.hardDeleteAllDeletedInRange(
+        BRANCH_ID,
+        start,
+        end
+      );
+
+      expect(result).toEqual({ deleted: 0 });
+      expect(txUpdate).not.toHaveBeenCalled();
+      expect(txDelete).not.toHaveBeenCalled();
     });
 
     test('devuelve deleted: 0 si no hay cajas eliminadas en el rango', async () => {

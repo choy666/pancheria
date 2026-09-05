@@ -5,6 +5,20 @@ export type CompoundAvailabilityRecipe = {
   supply?: { stock: number } | null;
 };
 
+/**
+ * Calcula la cantidad de unidades de un producto compuesto que se pueden armar
+ * a partir del stock de sus insumos críticos.
+ *
+ * Solo los insumos con `autoDiscount === true` limitan la disponibilidad.
+ * Los insumos opcionales o manuales (`autoDiscount === false`) no afectan el
+ * cálculo. Si la receta no tiene insumos críticos con `autoDiscount`, la
+ * disponibilidad reportada es `0` porque no se conoce un insumo limitante.
+ *
+ * `stockBySupplyId` permite sobreescribir el stock de cada insumo, por ejemplo
+ * cuando se evalúa disponibilidad considerando reservas o consumos acumulados.
+ * `consumedBySupplyId` resta una cantidad previamente comprometida del stock
+ * disponible.
+ */
 export function calculateCompoundAvailability(
   recipeItems: CompoundAvailabilityRecipe[],
   stockBySupplyId?: Record<number, number>,

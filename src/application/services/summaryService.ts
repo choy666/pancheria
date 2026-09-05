@@ -1,38 +1,22 @@
-import { eq, and, inArray, isNull } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, recipes } from '@/db/schema';
+import { products } from '@/db/schema';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import {
   addItemToSummary,
   fillMissingCriticalSupplies,
 } from '@/lib/summary-helpers';
 export { calculateCompoundAvailability } from '@/lib/availability-helpers';
-import type { CompoundAvailabilityRecipe } from '@/lib/availability-helpers';
+import {
+  findRecipesForProducts,
+  groupRecipesByProduct,
+  type RecipeWithSupply,
+} from '@/lib/recipe-helpers';
 import type {
   CriticalSupplyType,
   PaymentPart,
-  ProductRow,
   RecipeItemConfig,
 } from '@/domain/types';
-
-export async function findRecipesForProducts(
-  branchId: number,
-  compoundProductIds: number[],
-  dbOrTx: typeof db = db
-): Promise<RecipeWithSupply[]> {
-  if (compoundProductIds.length === 0) return [];
-
-  const allRecipes = (await dbOrTx.query.recipes.findMany({
-    where: inArray(recipes.compoundProductId, compoundProductIds),
-    with: { supply: true },
-  })) as RecipeWithSupply[];
-
-  return allRecipes.filter((recipe) => recipe.supply?.branchId === branchId);
-}
-
-export type RecipeWithSupply = typeof recipes.$inferSelect & {
-  supply: ProductRow | null;
-} & CompoundAvailabilityRecipe;
 
 type SaleItemWithProduct = {
   quantity: number;
@@ -51,19 +35,6 @@ export type SaleWithItems = {
   payments?: PaymentPart[];
   items: SaleItemWithProduct[];
 };
-
-export function groupRecipesByProduct(allRecipes: RecipeWithSupply[]) {
-  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
-
-  for (const recipeItem of allRecipes) {
-    if (!recipesByProduct.has(recipeItem.compoundProductId)) {
-      recipesByProduct.set(recipeItem.compoundProductId, []);
-    }
-    recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
-  }
-
-  return recipesByProduct;
-}
 
 export async function calculateSummaryFromSales(
   branchId: number,

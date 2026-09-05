@@ -15,12 +15,12 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 
 ## Requisitos
 
-- Node.js 20 LTS o superior
+- Node.js 20 LTS o superior (CI verifica en 22)
 - PostgreSQL (recomendado Neon)
 
 ## Configuración
 
-1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME` y `NEXT_PUBLIC_WHATSAPP_NUMBER` (si se quiere el fallback de WhatsApp). Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`/`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`/`NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`), `TRUSTED_PROXY_IP_HEADER`, `RATE_LIMIT_STORE_PROVIDER`, `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` según el entorno.
+1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_BRANCH_NAME` y `NEXT_PUBLIC_WHATSAPP_NUMBER` (si se quiere el fallback de WhatsApp). Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`/`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`/`NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`), `TRUSTED_PROXY_IP_HEADER`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`, `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD`/`NEW_BRANCH_ADDRESS`/`NEW_BRANCH_PHONE`/`NEW_BRANCH_LOCATION`, `DEFAULT_BRANCH_ADDRESS`/`DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_LOCATION` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` según el entorno.
 2. `AUTH_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` en NextAuth v5; usar en producción para que coincida con el dominio de Vercel.
 3. `NEXT_PUBLIC_APP_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` para construir URLs locales de videos y adjuntos de chat cuando `STORAGE_PROVIDER=local`.
 4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
@@ -60,6 +60,7 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `npx tsc --noEmit` — verificación de tipos
 - `npm test` — tests unitarios
 - `npm run test:e2e` (o `npx playwright test`) — tests end-to-end
+- `npm run test:accessibility` — tests de accesibilidad con `axe-core`
 - `npm run knip` — detectar exports, dependencias y archivos no usados
 - `npx drizzle-kit generate` — generar migraciones
 - `npx drizzle-kit push` — empujar migraciones
@@ -146,16 +147,16 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
 - Armar un carrito con validación de disponibilidad en tiempo real.
 - Hacer el pedido desde la app; si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un enlace de WhatsApp como fallback.
 - El pedido valida disponibilidad al crearlo, pero **no reserva ni descuenta stock**. El flujo del operador es:
-  - **Recibir y reservar**: pasa de `pending` a `in_process` y reserva stock de insumos críticos.
-  - **Confirmar pago**: pasa de `pending` o `in_process` a `paid`, convierte la reserva en descuento definitivo y genera la venta.
+  - **Recibir y reservar**: pasa de `pending` a `in_process` y reserva stock de insumos críticos en `order_stock_reservations` con un movimiento `reserve` en `stock_movements`.
+  - **Confirmar pago**: pasa de `pending` o `in_process` a `paid`, libera la reserva (`reserve_release`) y descuenta el stock definitivo, generando la venta.
   - **Finalizar pedido**: pasa de `paid` a `finished` para marcar entrega/retiro.
-  - **Cancelar**: libera la reserva si estaba en `in_process` y anula la venta si ya estaba `paid`.
+  - **Cancelar**: libera la reserva si estaba en `in_process`; anula la venta si ya estaba `paid`.
 - Al crear el pedido, el cliente puede ir al chat `/pedido/[id]/chat?token=...` para coordinar con la sucursal. El chat soporta texto e imágenes.
 - El listado de pedidos del operador (`/pedidos`) puede hacer polling automático si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0 (deshabilitado por defecto) e incluye un botón de actualización manual. Muestra la cantidad de mensajes no leídos (`unreadCount`) por pedido.
-- Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado. La expiración no libera stock porque un pedido `pending` nunca reservó.
+- Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado o mediante el cron `/api/cron/expire-orders`. La expiración no libera stock porque un pedido `pending` nunca reservó.
 
 Variables de entorno relacionadas (ver `.env.example` para el listado completo):
-`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_API_TIMEOUT_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `TRUSTED_PROXY_IP_HEADER`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`, `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD`.
+`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_API_TIMEOUT_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS`, `E2E_ENABLE_RATE_LIMIT`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `TRUSTED_PROXY_IP_HEADER`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`, `DEFAULT_BRANCH_NAME`, `DEFAULT_BRANCH_ADDRESS`, `DEFAULT_BRANCH_PHONE`, `DEFAULT_BRANCH_LOCATION`, `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD`, `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
 
 ## Videos, reproducción y Cast
 
@@ -195,7 +196,7 @@ Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se c
 ## Notas
 
 - El sistema crea un administrador inicial desde las variables de entorno (`ADMIN_USERNAME`).
-- `next.config.ts` define headers de seguridad incluyendo `Content-Security-Policy`.
+- `src/proxy.ts` define `Content-Security-Policy` con nonce por request y `src/lib/csp-helpers.ts` resuelve los orígenes permitidos; `next.config.ts` mantiene el resto de los headers de seguridad.
 - El esquema de base de datos incluye constraints `CHECK (stock >= 0)` y `CHECK (min_stock >= 0)` en `products`, además de índices recientes en `orders` y `order_messages`.
 - Los insumos manuales (`manual_supply`) son informativos en recetas y no se descuentan automáticamente del stock en ventas.
 - Los insumos críticos (pan, salchicha, bebida) se descuentan automáticamente.

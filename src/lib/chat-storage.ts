@@ -2,6 +2,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
+import {
+  getChatLocalStorageBasePath,
+  getBlobReadWriteToken,
+  getS3R2Credentials,
+} from '@/config/storage';
 import { getStorageProvider as getGlobalStorageProvider } from '@/config/videos';
 import { getChatAllowedImageMimeTypes, getChatImageMaxSizeBytes } from '@/config/chat';
 import { deleteStorageFile } from '@/lib/storage';
@@ -49,13 +54,7 @@ export function resolveChatAttachmentPath(
   return resolved;
 }
 
-export function getChatLocalStorageBasePath(): string {
-  return (
-    process.env.CHAT_LOCAL_STORAGE_PATH ??
-    process.env.LOCAL_STORAGE_PATH ??
-    path.join(process.cwd(), 'tmp', 'videos')
-  );
-}
+export { getChatLocalStorageBasePath };
 
 function getExtension(mimeType: string): string {
   switch (mimeType) {
@@ -132,7 +131,7 @@ async function saveVercelBlob(
   orderId: number,
   info: ChatFileInfo
 ): Promise<SavedChatAttachment> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  const token = getBlobReadWriteToken();
   if (!token) {
     throw new ValidationError('Falta BLOB_READ_WRITE_TOKEN para Vercel Blob.');
   }
@@ -161,22 +160,14 @@ async function saveS3R2(
   info: ChatFileInfo,
   kind: 's3' | 'r2'
 ): Promise<SavedChatAttachment> {
-  const accessKeyId =
-    process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey =
-    process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-  const region =
-    process.env.S3_REGION ?? process.env.R2_REGION ?? 'auto';
-  const endpoint =
-    process.env.S3_ENDPOINT ??
-    (kind === 'r2' && process.env.R2_ACCOUNT_ID
-      ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-      : undefined);
+  const credentials = getS3R2Credentials(kind);
 
-  if (!accessKeyId || !secretAccessKey || !bucket) {
+  if (!credentials) {
     throw new ValidationError('Faltan credenciales de S3/R2.');
   }
+
+  const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+    credentials;
 
   const key = `chat/${orderId}/${nanoid()}${getExtension(info.type)}`;
 

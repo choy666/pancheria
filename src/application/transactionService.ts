@@ -10,6 +10,11 @@ export function getCurrentTransaction(): typeof db | undefined {
 export async function executeInTransaction<T>(
   fn: (tx: typeof db) => Promise<T>
 ): Promise<T> {
+  const existingTx = getCurrentTransaction();
+  if (existingTx) {
+    return await fn(existingTx);
+  }
+
   return await db.transaction(async (tx) => {
     return await transactionStorage.run(
       tx as unknown as typeof db,

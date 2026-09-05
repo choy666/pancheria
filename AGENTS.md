@@ -20,23 +20,28 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Tests unitarios          | `npm test`                                        |
 | Verificación de tipos    | `npx tsc --noEmit`                                |
 | Tests E2E                | `npm run test:e2e`                                |
+| Tests de accesibilidad   | `npm run test:accessibility`                      |
 | Código muerto            | `npm run knip`                                    |
 | Generar migraciones      | `npx drizzle-kit generate`                        |
-| Empujar migraciones      | `npx drizzle-kit push`                            |
+| Aplicar migraciones      | `npx drizzle-kit migrate`                          |
+| Registrar baseline de migraciones | `npx tsx scripts/drizzle-baseline.ts` (`TARGET_E2E=1` para la base E2E) |
+| Empujar migraciones (sincronización directa) | `npx drizzle-kit push`               |
 | Empujar migraciones en producción | Ver `.devin/informes/entornos.md`        |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
 
-> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `daily_closures`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches`, y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
+> **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches` con `RESTART IDENTITY CASCADE` (las tablas hijas como `order_stock_reservations`, `sale_payments`, `sale_item_recipes` y `order_item_recipes` quedan cubiertas por el `CASCADE`), y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
 > Para correr E2E de forma confiable se requiere una base de datos descartable, `ADMIN_USERNAME`/`ADMIN_PASSWORD` consistentes con el seed y que `AUTH_URL`/`NEXTAUTH_URL` apunten a `http://localhost:3000`. El `playwright.config.ts` y `scripts/dev-e2e.ts` cargan `.env.local` como base y luego `.env.e2e` con prioridad, asi que se recomienda copiar `.env.e2e.example` a `.env.e2e` y completar `DATABASE_URL` con una base descartable. **El nombre de la base para E2E debe terminar en `test`, `e2e`, `testing`, `qa` o `staging`, incluso si es local.** El `global-setup.ts` aborta si `DATABASE_URL` no es local o no cumple con ese patrón, salvo que `E2E_ALLOW_REMOTE_DB=true` esté explícitamente definido.
 >
 > Además, E2E requiere un secreto de autenticación válido (`AUTH_SECRET` o `NEXTAUTH_SECRET`) de al menos 32 bytes y las credenciales de administrador (`ADMIN_USERNAME`/`ADMIN_PASSWORD`). En GitHub Actions, `NEXTAUTH_SECRET`, `ADMIN_USERNAME` y `ADMIN_PASSWORD` deben configurarse como repository secrets; el workflow `.github/workflows/ci.yml` fallará de inmediato si faltan. El job de E2E usa una base de datos remota descartable de Neon, configurada a través de los repository secrets `E2E_DATABASE_URL` y `E2E_DATABASE_URL_UNPOOLED`. El nombre de la base debe terminar en `test`, `e2e`, `testing`, `qa` o `staging` para cumplir la validación de `tests/e2e/global-setup.ts`.
 >
-> El `webServer` de `playwright.config.ts` levanta `npm run dev:e2e`, que carga `.env.local` y luego `.env.e2e` con `dotenv` antes de iniciar Next.js, y espera a que `/api/caja/resumen` responda. `tests/e2e/global-setup.ts` realiza un `preheat` del servidor llamando las rutas críticas (chat, pedido público, catálogo, caja) antes de ejecutar los tests, para evitar timeouts en los primeros tests por compilación bajo Turbopack. También se puede levantar manualmente con `npm run dev:e2e` y correr `NO_WEB_SERVER=1 npx playwright test`; esto es necesario si `.env.local` apunta a producción o si se quiere reutilizar un servidor ya calentado.
+> El `webServer` de `playwright.config.ts` levanta `npm run dev:e2e`, que carga `.env.local` y luego `.env.e2e` con `dotenv` antes de iniciar Next.js, y espera a que `/api/caja/resumen` responda. `tests/e2e/global-setup.ts` realiza un `preheat` del servidor llamando las rutas críticas (chat, pedido público, catálogo, caja) antes de ejecutar los tests, para evitar timeouts en los primeros tests por compilación bajo Turbopack. También se puede levantar manualmente con `npm run dev:e2e` y correr `NO_WEB_SERVER=1 npx playwright test`; esto es necesario si `.env.local` apunta a producción o si se quiere reutilizar un servidor ya calentado. Para ejecutar solo los tests de accesibilidad con axe-core, usar `npm run test:accessibility`.
 >
 > `npm run build` y el job `build` de CI no pasan `DATABASE_URL` porque las páginas públicas críticas (`/pedido`, `/pedido/[id]/chat`) usan `dynamic = 'force-dynamic'`; el build no consulta la base de datos durante la generación estática. Si en el futuro se agrega SSG que requiera DB, usar una URL de staging, nunca la productiva.
 >
 > Antes de subir cambios a Git, consultar `.devin/informes/checklist-pre-push.md` para evitar errores comunes de CI (lint, tipos, build, knip, variables de E2E, rate limit, etc.).
+>
+> **Migraciones:** todo cambio en `src/db/schema.ts` debe acompañarse de la migración generada con `npx drizzle-kit generate` y commiteada en `drizzle/`. Las bases de desarrollo y E2E tienen inicializado `drizzle.__drizzle_migrations`, por lo que `npx drizzle-kit migrate` es el flujo recomendado para aplicar cambios. `drizzle-kit push` desincroniza la base del historial commiteado y requiere TTY ante confirmaciones; si se usa, correr después `npx tsx scripts/drizzle-baseline.ts` para registrar la migración como aplicada.
 
 ## Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:
@@ -53,6 +58,9 @@ Copiar `.env.example` a `.env.local` y completar:
 - `ADMIN_USERNAME` — usuario administrador inicial.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
 - `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (usado por el seed).
+- `DEFAULT_BRANCH_ADDRESS` (opcional) — dirección de la sucursal por defecto (usado por el seed).
+- `DEFAULT_BRANCH_PHONE` (opcional) — teléfono de la sucursal por defecto (usado por el seed).
+- `DEFAULT_BRANCH_LOCATION` (opcional) — URL de ubicación de la sucursal por defecto (usado por el seed).
 - `NEXT_PUBLIC_BRANCH_TIMEZONE` (opcional) — zona horaria para calcular horarios de apertura de sucursales. Si no se define, se usa `America/Argentina/Buenos_Aires`.
 - `NEW_BRANCH_NAME` (opcional) — nombre de una segunda sucursal a crear vía seed.
 - `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
@@ -63,11 +71,13 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` (opcional) — intervalo del reloj de caja en milisegundos (por defecto 60000 ms).
 - `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` (opcional) — días de historial de caja por defecto (por defecto 30 días).
 - `TRUSTED_PROXY_IP_HEADER` (opcional) — header confiable para obtener la IP real del cliente en rate limiting. Si no se define, en producción se usa el header `x-vercel-forwarded-for` y en desarrollo se usa `X-Forwarded-For` como fallback.
+- `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` (opcional) — si se define como `true`, permite usar `X-Forwarded-For` en producción cuando no hay proxy confiable configurado. Puede ser vulnerable a IP spoofing; usalo solo si un proxy sanitiza el header.
 - `NEXT_PUBLIC_WHATSAPP_NUMBER` — número de WhatsApp para pedidos, con código de país y sin signo + ni espacios.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del listado de pedidos del operador en milisegundos (deshabilitado por defecto; definir un valor mayor a 0 para habilitar; 0 lo deshabilita explícitamente).
+- `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del panel de control en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_API_TIMEOUT_MS` (opcional) — timeout por defecto para solicitudes al API desde el cliente en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del chat del pedido en milisegundos (por defecto 5000 ms).
 - `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` (opcional) — longitud máxima de un mensaje de chat en caracteres (por defecto 1000).
@@ -80,6 +90,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
 - `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV` (opcional) — si se define como `true`, activa el rate limit de pedidos en `NODE_ENV=development`. Por defecto está deshabilitado en desarrollo para evitar falsos positivos por la IP compartida de loopback (`127.0.0.1` / `::1`).
+- `E2E_ENABLE_RATE_LIMIT` (opcional) — si se define como `true`, activa el rate limit de pedidos en `NODE_ENV=test` (usado por el suite de Playwright).
 - `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup` y `GET /api/cron/chat-attachments-cleanup`. Si no se define, los endpoints rechazan todas las llamadas.
 
 > Los schedules de los cron jobs (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`) están definidos en `vercel.json` (`0 0 * * *` por defecto). Vercel Cron Jobs no leen variables de entorno para el `schedule`; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente).
@@ -100,7 +111,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen de producto/promo en MB (por defecto 5).
 - `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos separados por coma (por defecto `image/jpeg,image/png,image/webp`).
 - `PRODUCT_IMAGE_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para imágenes de productos; si no se define, usa `LOCAL_STORAGE_PATH` como fallback (por defecto `tmp/videos/product-images`).
-- `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `next.config.ts` para extender `img-src` en la CSP.
+- `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `src/lib/csp-helpers.ts` para extender `img-src` en la CSP.
 - `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH` / `PRODUCT_IMAGE_URL_MAX_LENGTH` (opcional) — longitud máxima de una URL externa de imagen (por defecto 2048); la variable pública tiene prioridad.
 - `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` (opcional) — valores de los botones de denominación rápida en el ingreso de pagos, separados por coma. Por defecto `1000,2000,5000,10000,20000`.
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` (opcional) — si se define como `true`, se inyecta el script de Vercel Web Analytics en todas las páginas. En desarrollo no envía datos aunque esté habilitado; también es necesario activar Web Analytics en el dashboard de Vercel.
@@ -187,7 +198,7 @@ El sistema permite asociar una imagen ilustrativa a cada producto/promo (`produc
 - Endpoints de API: `POST /api/productos/imagen/preparar` (devuelve instrucciones de subida), `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]` (lectura pública).
 - La lógica de almacenamiento y validación está en `src/lib/product-image-storage.ts` y `src/lib/product-image-upload-client.ts`, reutilizando el proveedor configurado en `STORAGE_PROVIDER` (`local`, `vercel-blob`, `s3`, `r2`).
 - La configuración de tamaño, MIME, dominios permitidos y URL máxima vive en `src/config/product-images.ts`.
-- La CSP de `next.config.ts` extiende `img-src` con los dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y con los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor.
+- La CSP de `src/lib/csp-helpers.ts` (inyectada por `src/proxy.ts`) extiende `img-src` con los dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y con los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor.
 - En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
 
 ## Despliegue en Vercel
@@ -340,7 +351,7 @@ useEffect(() => {
   - `src/app/(panel)/layout.tsx` redirige a `/login` si no hay sesión.
   - `src/app/(auth)/login/page.tsx` redirige a `/` si ya hay sesión.
 - Además, `src/lib/route-guard.ts` redirige `/` sin sesión a `/pedido`, mientras que `src/app/(panel)/layout.tsx` redirige `/` sin sesión a `/login`. Eso genera una inconsistencia si ambas capas se ejecutan.
-- Solución: la redirección autoritaria es la del proxy (`src/proxy.ts` + `src/lib/route-guard.ts`). `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` son redirecciones defensivas de fallback (el matcher del proxy excluye `/login` y las subrutas del panel no deberían llegar al layout sin pasar por el proxy). No hace falta eliminarlas, pero sí documentar su rol. Verificar que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
+- Solución: la redirección autoritaria es la del proxy (`src/proxy.ts` + `src/lib/route-guard.ts`). `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` son redirecciones defensivas de fallback (el matcher del proxy excluye `/api`, `/_next/static`, `/_next/image`, `favicon.ico` y archivos `.svg`; aplica CSP a las rutas de UI y redirecciones de `route-guard`). No hace falta eliminarlas, pero sí documentar su rol. Verificar que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
 
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 

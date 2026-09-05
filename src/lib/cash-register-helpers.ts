@@ -1,4 +1,4 @@
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, asc } from 'drizzle-orm';
 import { db } from '@/db';
 import { cashRegisters } from '@/db/schema';
 
@@ -44,6 +44,7 @@ export async function lockOpenCashRegister(
         isNull(cashRegisters.deletedAt)
       )
     )
+    .orderBy(asc(cashRegisters.id))
     .for('update');
 
   return locked ?? null;

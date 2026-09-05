@@ -33,4 +33,27 @@ describe('transactionService', () => {
     expect(callback).toHaveBeenCalledWith(mockTx);
     expect(mockedDb.transaction).toHaveBeenCalled();
   });
+
+  test('executeInTransaction es reentrante y reutiliza la transacción activa', async () => {
+    const mockTx = { id: 'tx-123' };
+    mockedDb.transaction.mockImplementation(async (fn: any) => {
+      return await fn(mockTx);
+    });
+
+    const inner = jest.fn(async (tx: any) => {
+      expect(tx).toBe(mockTx);
+      return 'interno';
+    });
+
+    const result = await executeInTransaction(async (tx: any) => {
+      const innerResult = await executeInTransaction(inner);
+      expect(innerResult).toBe('interno');
+      expect(tx).toBe(mockTx);
+      return 'externo';
+    });
+
+    expect(result).toBe('externo');
+    expect(mockedDb.transaction).toHaveBeenCalledTimes(1);
+    expect(inner).toHaveBeenCalledWith(mockTx);
+  });
 });

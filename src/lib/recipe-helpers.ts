@@ -1,4 +1,39 @@
-import type { RecipeItemConfig } from '@/domain/types';
+import { inArray } from 'drizzle-orm';
+import { recipes } from '@/db/schema';
+import type { ProductRow, RecipeItemConfig } from '@/domain/types';
+import type { CompoundAvailabilityRecipe } from '@/lib/availability-helpers';
+
+export type RecipeWithSupply = typeof recipes.$inferSelect & {
+  supply: ProductRow | null;
+} & CompoundAvailabilityRecipe;
+
+export async function findRecipesForProducts(
+  branchId: number,
+  compoundProductIds: number[],
+  dbOrTx: typeof import('@/db').db
+): Promise<RecipeWithSupply[]> {
+  if (compoundProductIds.length === 0) return [];
+
+  const allRecipes = (await dbOrTx.query.recipes.findMany({
+    where: inArray(recipes.compoundProductId, compoundProductIds),
+    with: { supply: true },
+  })) as RecipeWithSupply[];
+
+  return allRecipes.filter((recipe) => recipe.supply?.branchId === branchId);
+}
+
+export function groupRecipesByProduct(allRecipes: RecipeWithSupply[]) {
+  const recipesByProduct = new Map<number, RecipeWithSupply[]>();
+
+  for (const recipeItem of allRecipes) {
+    if (!recipesByProduct.has(recipeItem.compoundProductId)) {
+      recipesByProduct.set(recipeItem.compoundProductId, []);
+    }
+    recipesByProduct.get(recipeItem.compoundProductId)?.push(recipeItem);
+  }
+
+  return recipesByProduct;
+}
 
 export function formatRecipeItemName(item: RecipeItemConfig): string {
   return item.isOptional

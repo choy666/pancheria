@@ -3,6 +3,14 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import {
+  getLocalStorageBasePath,
+  getBlobReadWriteToken,
+  getS3R2Credentials,
+  getS3R2Bucket,
+  getS3R2Endpoint,
+  getS3PublicUrlRegion,
+} from '@/config/storage';
+import {
   getVideoAllowedMimeTypes,
   getStorageProvider as getStorageProviderName,
   type StorageProviderName,
@@ -98,7 +106,7 @@ export interface StorageProvider {
 }
 
 function getLocalStorageDir(): string {
-  return process.env.LOCAL_STORAGE_PATH ?? path.join(process.cwd(), 'tmp', 'videos');
+  return getLocalStorageBasePath();
 }
 
 class LocalStorageProvider implements StorageProvider {
@@ -165,7 +173,7 @@ class LocalStorageProvider implements StorageProvider {
 class VercelBlobStorageProvider implements StorageProvider {
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
-    const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+    const token = getBlobReadWriteToken();
     if (!token) {
       throw new Error(
         'Falta BLOB_READ_WRITE_TOKEN para usar el proveedor de Vercel Blob.'
@@ -200,7 +208,7 @@ class VercelBlobStorageProvider implements StorageProvider {
   }
 
   async deleteFile(key: string): Promise<void> {
-    const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+    const token = getBlobReadWriteToken();
     if (!token) {
       throw new Error(
         'Falta BLOB_READ_WRITE_TOKEN para usar el proveedor de Vercel Blob.'
@@ -221,27 +229,16 @@ class S3R2StorageProvider implements StorageProvider {
 
   async prepareUpload(file: FileInfo, _branchId: number): Promise<UploadInstructions> {
     void _branchId;
-    const accessKeyId =
-      process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-    const secretAccessKey =
-      process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
-    const bucket =
-      process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-    const region =
-      process.env.S3_REGION ??
-      process.env.R2_REGION ??
-      'auto';
-    const endpoint =
-      process.env.S3_ENDPOINT ??
-      (this.kind === 'r2' && process.env.R2_ACCOUNT_ID
-        ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-        : undefined);
+    const credentials = getS3R2Credentials(this.kind);
 
-    if (!accessKeyId || !secretAccessKey || !bucket) {
+    if (!credentials) {
       throw new Error(
         'Faltan credenciales de S3/R2. Configurá S3_* o R2_* según el proveedor.'
       );
     }
+
+    const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+      credentials;
 
     const clientModuleName = '@aws-sdk/client-s3';
     const presignerModuleName = '@aws-sdk/s3-presigned-post';
@@ -304,39 +301,26 @@ class S3R2StorageProvider implements StorageProvider {
       return keyOrUrl;
     }
 
-    const bucket =
-      process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-    const endpoint =
-      process.env.S3_ENDPOINT ??
-      (this.kind === 'r2' && process.env.R2_ACCOUNT_ID
-        ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-        : undefined);
+    const bucket = getS3R2Bucket();
+    const endpoint = getS3R2Endpoint(this.kind);
 
     if (endpoint) {
       return `${endpoint.replace(/\/$/, '')}/${keyOrUrl}`;
     }
 
-    const region = process.env.S3_REGION ?? 'us-east-1';
+    const region = getS3PublicUrlRegion();
     return `https://${bucket}.s3.${region}.amazonaws.com/${keyOrUrl}`;
   }
 
   async deleteFile(key: string): Promise<void> {
-    const accessKeyId =
-      process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-    const secretAccessKey =
-      process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
-    const bucket = process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-    const region =
-      process.env.S3_REGION ?? process.env.R2_REGION ?? 'auto';
-    const endpoint =
-      process.env.S3_ENDPOINT ??
-      (this.kind === 'r2' && process.env.R2_ACCOUNT_ID
-        ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-        : undefined);
+    const credentials = getS3R2Credentials(this.kind);
 
-    if (!accessKeyId || !secretAccessKey || !bucket) {
+    if (!credentials) {
       throw new Error('Faltan credenciales de S3/R2.');
     }
+
+    const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+      credentials;
 
     const clientModuleName = '@aws-sdk/client-s3';
 

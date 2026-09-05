@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,40 @@ interface ProductCardProps {
   onAdd: (selectedRecipeItemIds?: number[]) => void;
   disabled?: boolean;
   showBreakdown?: boolean;
+}
+
+interface ProductImageProps {
+  imageUrl: string;
+  productName: string;
+}
+
+function ProductImage({ imageUrl, productName }: ProductImageProps) {
+  const [imageError, setImageError] = useState(false);
+
+  if (imageError) {
+    return (
+      <div
+        className="flex h-full w-full items-center justify-center text-muted-foreground"
+        role="img"
+        aria-label={`Imagen no disponible para ${productName}`}
+      >
+        <ImageOff className="h-10 w-10" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={imageUrl}
+      alt={`Imagen de ${productName}`}
+      fill
+      className="object-cover"
+      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+      loading="lazy"
+      priority={false}
+      onError={() => setImageError(true)}
+    />
+  );
 }
 
 export function ProductCard({
@@ -104,18 +139,17 @@ export function ProductCard({
       <CardContent className="space-y-4 p-5 pt-0">
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
           {product.imageUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={product.imageUrl}
-              alt={`Imagen de ${product.name}`}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              onError={(event) => {
-                (event.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
+            <ProductImage
+              key={product.imageUrl}
+              imageUrl={product.imageUrl}
+              productName={product.name}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <div
+              className="flex h-full w-full items-center justify-center text-muted-foreground"
+              role="img"
+              aria-label={`Imagen no disponible para ${product.name}`}
+            >
               <ImageOff className="h-10 w-10" />
             </div>
           )}

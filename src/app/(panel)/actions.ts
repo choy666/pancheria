@@ -6,6 +6,7 @@ import { requireAdmin, ACTIVE_BRANCH_COOKIE } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
 import { parseBranchId } from '@/lib/branch-resolver';
 import { routes } from '@/config/routes';
+import { isProduction } from '@/config/env';
 
 export async function setActiveBranchAction(formData: FormData) {
   await requireAdmin();
@@ -31,7 +32,7 @@ export async function setActiveBranchAction(formData: FormData) {
   cookieStore.set(ACTIVE_BRANCH_COOKIE, String(parsed), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction(),
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });

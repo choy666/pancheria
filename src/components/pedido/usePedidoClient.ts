@@ -15,6 +15,7 @@ import {
 } from '@/config/api';
 import { useCart } from '@/hooks/useCart';
 import { useRecentOrders } from '@/hooks/useRecentOrders';
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import { cleanupRecentOrdersForBranches } from '@/lib/recent-orders';
 import { routes } from '@/config/routes';
 import type { CartItem } from '@/hooks/useCart';
@@ -230,29 +231,30 @@ export function usePedidoClient({
   const { orders: recentOrders, add: addRecentOrder, remove: removeRecentOrder } =
     useRecentOrders();
 
-  useEffect(() => {
-    const intervalMs = getPedidoRefetchIntervalMs();
+  const refreshCatalog = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true`
+      );
+      if (!response.ok) throw new Error('Error al refrescar el catálogo');
 
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(
-          `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true`
-        );
-        if (!response.ok) throw new Error('Error al refrescar el catálogo');
-
-        const data = (await response.json()) as {
-          branch: Branch;
-          products: PublicCatalogProduct[];
-        };
-        if (!isMountedRef.current) return;
-        setProducts(data.products);
-      } catch {
-        // No saturar la UI con errores de fondo.
-      }
-    }, intervalMs);
-
-    return () => clearInterval(interval);
+      const data = (await response.json()) as {
+        branch: Branch;
+        products: PublicCatalogProduct[];
+      };
+      if (!isMountedRef.current) return;
+      setProducts(data.products);
+    } catch {
+      // No saturar la UI con errores de fondo.
+    }
   }, [activeBranch.id]);
+
+  useVisibilityPolling(
+    refreshCatalog,
+    getPedidoRefetchIntervalMs(),
+    true,
+    false
+  );
 
   useEffect(() => {
     if (items.length === 0) {

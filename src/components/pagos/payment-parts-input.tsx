@@ -27,8 +27,6 @@ const METHODS: {
   { method: 'transfer', label: 'Transferencia', icon: Landmark },
 ];
 
-const COMMON_BILLS = [1000, 2000, 5000, 10000, 20000, 50000];
-
 function roundAmount(value: number): number {
   return Math.max(0, Math.round(value));
 }
@@ -316,7 +314,7 @@ export function PaymentPartsInput({
                       disabled={disabled}
                       data-testid={`payment-${method}-denom-${denomination}`}
                       onClick={() => addToMethod(method, denomination)}
-                      className="h-7 px-1.5 text-xs"
+                      className="min-h-11 min-w-11 px-1.5 text-xs"
                     >
                       +{formatNumber(denomination)}
                     </Button>
@@ -332,7 +330,7 @@ export function PaymentPartsInput({
                   disabled={disabled || !canComplete}
                   data-testid={`payment-${method}-complete-rest`}
                   onClick={() => completeMethod(method)}
-                  className="h-7 px-1.5 text-xs"
+                  className="min-h-11 min-w-11 px-1.5 text-xs"
                 >
                   Completar resto
                 </Button>
@@ -345,7 +343,7 @@ export function PaymentPartsInput({
                     disabled={disabled}
                     data-testid={`payment-${method}-complete-other`}
                     onClick={() => completeWithOther(method)}
-                    className="h-7 px-1.5 text-xs"
+                    className="min-h-11 min-w-11 px-1.5 text-xs"
                   >
                     Completar con {otherLabel.toLowerCase()}
                   </Button>
@@ -356,7 +354,7 @@ export function PaymentPartsInput({
                 <div className="space-y-1">
                   <span className="text-xs text-muted-foreground">Billetes</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {COMMON_BILLS.map((bill) => (
+                    {DEFAULT_DENOMINATIONS.map((bill) => (
                       <Button
                         key={bill}
                         type="button"
@@ -365,7 +363,7 @@ export function PaymentPartsInput({
                         disabled={disabled}
                         data-testid={`payment-cash-bill-${bill}`}
                         onClick={() => payWithBill(method, bill)}
-                        className="h-7 px-1.5 text-xs"
+                        className="min-h-11 min-w-11 px-1.5 text-xs"
                       >
                         {formatNumber(bill)}
                       </Button>
@@ -407,7 +405,7 @@ export function PaymentPartsInput({
           disabled={disabled}
           data-testid="payment-clear"
           onClick={clearPayments}
-          className="h-7 px-2 text-xs"
+          className="min-h-11 min-w-11 px-2 text-xs"
         >
           Limpiar pago
         </Button>

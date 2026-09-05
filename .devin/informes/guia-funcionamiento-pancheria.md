@@ -58,9 +58,8 @@ Los datos se cargan desde `<ref_file file="C:/developer/paginas/pancheria/src/ap
 
 La navegación superior refleja ahora la distinción entre caja y cierres:
 
-- **Historial de cajas** (`/ventas/historial`): historial de ventas por caja.
+- **Historial de cajas** (`/ventas/historial`): historial de cajas cerradas y sus ventas.
 - **Caja y cierre** (`/cierre`): apertura, cierre y resumen de la caja actual.
-- **Cierres diarios** (`/cierre/historial`): cierres diarios históricos.
 
 El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/components/tour/tour-context.tsx" />`) cubre el panel, pagos mixtos, pedidos con sus estados, reservas, chat, imágenes de promos, videos, perfil y selector de sucursal.
 
@@ -359,18 +358,21 @@ Eliminar una sucursal es una operación destructiva e irreversible: se borran to
 
 ### 8.2 Flujo
 
-1. El operador/admin genera un cierre para una fecha desde `/cierre`.
-2. El sistema:
-   - Rechaza si ya existe un cierre para esa fecha en esa sucursal.
-   - Rechaza si hay cajas abiertas con ventas de esa fecha.
-   - Suma todas las ventas `active` del día con caja no eliminada.
-   - Calcula totales y resúmenes.
-   - Inserta en `dailyClosures`.
+1. El operador/admin abre la caja correspondiente a la jornada desde `/ventas` o `/cierre` (`POST /api/caja/abrir`).
+2. Durante la jornada se registran ventas (`POST /api/ventas` o desde el terminal `/ventas`).
+3. Al finalizar, desde `/cierre` el operador presiona **Cerrar caja**, ingresa el efectivo contado y notas opcionales (`POST /api/caja/cerrar`).
+4. El sistema:
+   - Valida que la caja esté abierta.
+   - Calcula totales y resúmenes de la caja (efectivo, transferencia, total de ventas, diferencia).
+   - Cierra la caja (`status = 'closed'`), conservándola en `cash_registers`.
+5. Desde `/ventas/historial/[id]` se puede consultar el cierre y las ventas asociadas.
+
+> Nota: no existe una tabla `dailyClosures`; el cierre diario se materializa en cada registro de `cash_registers` cerrado.
 
 ### 8.3 Relación con caja
 
-- El cierre no modifica caja ni stock; es un resumen informativo.
-- Las ventas canceladas después del cierre no afectan el cierre ya generado.
+- El cierre no modifica stock; es un resumen informativo.
+- Las ventas anuladas después del cierre sí reintegran stock, pero el cierre conserva el total original (la anulación genera su propio registro con `sale.isCancelled = true`).
 
 ---
 

@@ -87,7 +87,7 @@ export const GET = withApiErrorHandling(
     return new NextResponse(new Uint8Array(file.buffer), {
       headers: {
         'Content-Type': file.mimeType,
-        'Cache-Control': 'public, max-age=86400, must-revalidate',
+        'Cache-Control': 'private, no-store, must-revalidate',
       },
     });
   }

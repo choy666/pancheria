@@ -115,7 +115,6 @@ export function UserForm({
               className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              tabIndex={-1}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </Button>

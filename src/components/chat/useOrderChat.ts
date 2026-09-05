@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import {
   getChatRefreshIntervalMs,
   getChatPageSize,
@@ -377,6 +378,41 @@ export function useOrderChat({
     }
   }, [readApiUrl, token, isClient]);
 
+  const intervalMs = getChatRefreshIntervalMs();
+  const maxBackoffMs = intervalMs * 8;
+
+  const runScheduledPoll = useCallback(() => {
+    if (!isMountedRef.current) return;
+    if (Date.now() < nextAllowedAtRef.current) return;
+    if (isSendingRef.current || isFetchingRef.current) return;
+
+    queueMicrotask(async () => {
+      if (!isMountedRef.current) return;
+      const ok = await pollNewMessages();
+      if (!isMountedRef.current) return;
+
+      if (ok) {
+        consecutiveErrorsRef.current = 0;
+        nextAllowedAtRef.current = 0;
+      } else {
+        consecutiveErrorsRef.current += 1;
+        const exponent = Math.max(0, consecutiveErrorsRef.current - 1);
+        const delay = Math.min(
+          intervalMs * Math.pow(2, exponent),
+          maxBackoffMs
+        );
+        nextAllowedAtRef.current = Date.now() + delay;
+      }
+    });
+  }, [intervalMs, maxBackoffMs, pollNewMessages]);
+
+  useVisibilityPolling(
+    runScheduledPoll,
+    intervalMs,
+    true,
+    !disablePollingOnMount
+  );
+
   useEffect(() => {
     isMountedRef.current = true;
     markAsRead();
@@ -385,47 +421,8 @@ export function useOrderChat({
       queueMicrotask(() => void loadInitialMessages());
     }
 
-    const intervalMs = getChatRefreshIntervalMs();
-    const maxBackoffMs = intervalMs * 8;
     consecutiveErrorsRef.current = 0;
     nextAllowedAtRef.current = 0;
-
-    function scheduleBackoff() {
-      const exponent = Math.max(0, consecutiveErrorsRef.current - 1);
-      const delay = Math.min(
-        intervalMs * Math.pow(2, exponent),
-        maxBackoffMs
-      );
-      nextAllowedAtRef.current = Date.now() + delay;
-    }
-
-    function runScheduledPoll() {
-      if (!isMountedRef.current) return;
-      if (Date.now() < nextAllowedAtRef.current) return;
-      if (isSendingRef.current || isFetchingRef.current) return;
-
-      queueMicrotask(async () => {
-        if (!isMountedRef.current) return;
-        const ok = await pollNewMessages();
-        if (!isMountedRef.current) return;
-
-        if (ok) {
-          consecutiveErrorsRef.current = 0;
-          nextAllowedAtRef.current = 0;
-        } else {
-          consecutiveErrorsRef.current += 1;
-          scheduleBackoff();
-        }
-      });
-    }
-
-    const interval = setInterval(() => {
-      runScheduledPoll();
-    }, intervalMs);
-
-    if (initialHasMore !== undefined && !disablePollingOnMount) {
-      queueMicrotask(() => void pollNewMessages());
-    }
 
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted) {
@@ -447,11 +444,10 @@ export function useOrderChat({
 
     return () => {
       isMountedRef.current = false;
-      clearInterval(interval);
       window.removeEventListener('pageshow', handlePageShow);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [markAsRead, loadInitialMessages, pollNewMessages, initialHasMore, disablePollingOnMount]);
+  }, [markAsRead, loadInitialMessages, pollNewMessages, initialHasMore]);
 
   useEffect(() => {
     if (isFirstUnreadEffectRef.current) {

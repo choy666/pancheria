@@ -67,12 +67,13 @@ test.describe('Expiración automática de pedidos', () => {
     const expiredCreatedAt = new Date(Date.now() - 2 * expirationMs);
     await setOrderCreatedAt(orderId, expiredCreatedAt);
 
-    // Al consultar el listado de pedidos pending se dispara la expiración
-    // de los pedidos vencidos (orderService.expirePendingOrders).
-    const listRes = await page.request.get(
-      `/api/pedidos?branchId=1&status=pending&page=1&limit=10`
-    );
-    expect(listRes.status()).toBe(200);
+    // La expiración de pedidos vencidos corre por el cronjob.
+    const cronSecret = process.env.CRON_SECRET;
+    expect(cronSecret).toBeTruthy();
+    const cronRes = await page.request.get('/api/cron/expire-orders', {
+      headers: { Authorization: `Bearer ${cronSecret}` },
+    });
+    expect(cronRes.status()).toBe(200);
 
     // Verifica vía API que el pedido quedó cancelado por expiración automática.
     const response = await page.request.get(`/api/pedidos/${orderId}`);

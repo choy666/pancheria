@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { NextRequest } from 'next/server';
+import { DomainError } from '@/domain/errors';
 import { createRateLimiter, getClientIp } from './rate-limit';
 
 jest.mock('@/lib/public-order-rate-limit-store', () => ({
@@ -53,18 +54,35 @@ describe('getClientIp', () => {
     expect(getClientIp(request)).toBe('21.22.23.24');
   });
 
-  test('ignora X-Forwarded-For fuera de desarrollo', () => {
+  test('rechaza X-Forwarded-For no confiable en producción', () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const request = createRequest({
       'x-forwarded-for': '21.22.23.24',
     });
+    expect(() => getClientIp(request)).toThrow(DomainError);
+  });
+
+  test('retorna unknown cuando no hay fuentes fuera de producción', () => {
+    Object.assign(process.env, { NODE_ENV: 'test' });
+    const request = createRequest();
     expect(getClientIp(request)).toBe('unknown');
   });
 
-  test('retorna unknown cuando no hay fuentes', () => {
+  test('rechaza request sin IP confiable en producción', () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const request = createRequest();
-    expect(getClientIp(request)).toBe('unknown');
+    expect(() => getClientIp(request)).toThrow(DomainError);
+  });
+
+  test('permite X-Forwarded-For en producción con PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true', () => {
+    Object.assign(process.env, {
+      NODE_ENV: 'production',
+      PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS: 'true',
+    });
+    const request = createRequest({
+      'x-forwarded-for': '203.0.113.5, 10.0.0.1',
+    });
+    expect(getClientIp(request)).toBe('203.0.113.5');
   });
 });
 
@@ -106,7 +124,12 @@ describe('createRateLimiter', () => {
     const blocked = await isRateLimited('1.2.3.4');
 
     expect(blocked).toBe(true);
-    expect(store.recordRequest).toHaveBeenCalledWith('1.2.3.4', 60_000, 10);
+    expect(store.recordRequest).toHaveBeenCalledWith(
+      'pedido',
+      '1.2.3.4',
+      60_000,
+      10
+    );
 
     if (original !== undefined) {
       Object.assign(process.env, { E2E_ENABLE_RATE_LIMIT: original });
@@ -143,7 +166,12 @@ describe('createRateLimiter', () => {
     const blocked = await isRateLimited('1.2.3.4');
 
     expect(blocked).toBe(true);
-    expect(store.recordRequest).toHaveBeenCalledWith('1.2.3.4', 60_000, 10);
+    expect(store.recordRequest).toHaveBeenCalledWith(
+      'pedido',
+      '1.2.3.4',
+      60_000,
+      10
+    );
   });
 
   test('delega en el store fuera de test', async () => {
@@ -157,6 +185,11 @@ describe('createRateLimiter', () => {
     const blocked = await isRateLimited('1.2.3.4');
 
     expect(blocked).toBe(true);
-    expect(store.recordRequest).toHaveBeenCalledWith('1.2.3.4', 60_000, 10);
+    expect(store.recordRequest).toHaveBeenCalledWith(
+      'pedido',
+      '1.2.3.4',
+      60_000,
+      10
+    );
   });
 });

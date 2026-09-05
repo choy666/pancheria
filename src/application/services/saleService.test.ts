@@ -158,8 +158,8 @@ function createMockDb(): MockDb {
 
   const select = jest.fn().mockImplementation(() => ({
     from: jest.fn().mockImplementation(() => ({
-      where: jest.fn().mockImplementation(() => ({
-        for: jest.fn().mockResolvedValue([
+      where: jest.fn().mockImplementation(() => {
+        const forResult = jest.fn().mockResolvedValue([
           {
             id: 1,
             branchId: BRANCH_ID,
@@ -173,8 +173,15 @@ function createMockDb(): MockDb {
             criticalSuppliesSummary: {},
             recipeSuppliesSummary: {},
           },
-        ]),
-      })),
+        ]);
+
+        return {
+          orderBy: jest.fn().mockImplementation(() => ({
+            for: forResult,
+          })),
+          for: forResult,
+        };
+      }),
     })),
   }));
 
@@ -1361,8 +1368,9 @@ describe('cancelSale', () => {
     const result = await cancelSale(BRANCH_ID, 1, 'ya anulada');
 
     expect(result.status).toBe('cancelled');
-    expect(mockedExecuteInTransaction).not.toHaveBeenCalled();
+    expect(mockedExecuteInTransaction).toHaveBeenCalledTimes(1);
     expect(findCapturedUpdate(sales).length).toBe(0);
+    expect(findCapturedUpdate(products).length).toBe(0);
   });
 
   test('anula una venta de servicio sin reintegrar stock', async () => {

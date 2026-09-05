@@ -2,6 +2,9 @@
   "name": "pancheria",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:e2e": "tsx scripts/dev-e2e.ts",
@@ -10,6 +13,7 @@
     "lint": "eslint",
     "test": "jest",
     "test:e2e": "npx playwright test",
+    "test:accessibility": "npx playwright test tests/e2e/accessibility.spec.ts",
     "knip": "knip",
     "analyze": "cross-env ANALYZE=true next build"
   },
@@ -49,6 +53,7 @@
     }
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@next/bundle-analyzer": "16.3.2",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",

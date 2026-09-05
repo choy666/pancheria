@@ -43,7 +43,7 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
     await page.getByRole('button', { name: 'Cerrar' }).click();
 
-    // El stock físico sigue en 5 porque el pedido aún no fue recibido.
+    // El pedido pending no reserva stock: la disponibilidad sigue en 5.
     await page.goto('/pedido');
     await expect(
       page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')

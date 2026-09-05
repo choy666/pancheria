@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
+import { getCronSecret } from '@/config/cron';
 import { DbPublicOrderRateLimitStore } from '@/lib/public-order-rate-limit-store';
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const expected = process.env.CRON_SECRET
-    ? `Bearer ${process.env.CRON_SECRET}`
-    : undefined;
+  const authHeader = request.headers.get('authorization') ?? '';
+  const cronSecret = getCronSecret();
+  const expected = cronSecret ? `Bearer ${cronSecret}` : '';
 
-  if (!expected || authHeader !== expected) {
+  if (
+    !expected ||
+    authHeader.length !== expected.length ||
+    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected))
+  ) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 

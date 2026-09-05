@@ -2,8 +2,23 @@
  * @jest-environment jsdom
  */
 import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react';
 import { ProductCard } from './product-card';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
+
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: function Image({
+    src,
+    alt,
+    className,
+    onError,
+  }: React.ImgHTMLAttributes<HTMLImageElement>) {
+    // El mock solo simula el renderizado de `next/image` en JSDOM.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img alt={alt} src={src} className={className} onError={onError} />;
+  },
+}));
 
 function makeProduct(
   overrides: Partial<PublicCatalogProduct> = {}

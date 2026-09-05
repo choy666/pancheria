@@ -1,9 +1,8 @@
 import {
-  findRecipesForProducts,
-  groupRecipesByProduct,
   calculateCompoundAvailability,
   calculateSummaryFromSales,
 } from './summaryService';
+import { findRecipesForProducts, groupRecipesByProduct } from '@/lib/recipe-helpers';
 import { db } from '@/db';
 import * as money from '@/lib/money';
 

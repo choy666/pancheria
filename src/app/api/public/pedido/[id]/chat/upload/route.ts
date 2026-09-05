@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { saveChatAttachment } from '@/lib/chat-storage';
+import { deleteChatAttachment, saveChatAttachment } from '@/lib/chat-storage';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import {
   getChatRateLimitWindowMs,
@@ -58,18 +58,23 @@ export const POST = withApiErrorHandling(
 
     const attachment = await saveChatAttachment(file, orderId);
 
-    const message = await chatService.sendClientMessage(orderId, query.token, {
-      content: typeof content === 'string' ? content : null,
-      attachment: {
-        url: attachment.publicUrl,
-        key: attachment.key,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        name: attachment.name,
-      },
-    });
+    try {
+      const message = await chatService.sendClientMessage(orderId, query.token, {
+        content: typeof content === 'string' ? content : null,
+        attachment: {
+          url: attachment.publicUrl,
+          key: attachment.key,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          name: attachment.name,
+        },
+      });
 
-    return NextResponse.json({ message }, { status: 201 });
+      return NextResponse.json({ message }, { status: 201 });
+    } catch (error) {
+      await deleteChatAttachment(attachment.key);
+      throw error;
+    }
   }
 );
 

@@ -10,7 +10,7 @@ function sumPayments(payments: PaymentPart[]): number {
 }
 
 function isPaymentComplete(payments: PaymentPart[], total: number): boolean {
-  return Math.round(sumPayments(payments)) === Math.round(total);
+  return sumPayments(payments) === roundAmount(total);
 }
 
 function distributePayments(
@@ -28,17 +28,18 @@ function distributePayments(
     }));
   }
 
-  const ratio = total / oldTotal;
+  // Se calcula en enteros para evitar errores de coma flotante del ratio.
   const result = validPayments.map((p) => ({
     ...p,
-    amount: roundAmount(p.amount * ratio),
+    amount: roundAmount((p.amount * total) / oldTotal),
   }));
 
   const newTotal = sumPayments(result);
-  const diff = total - newTotal;
+  const diff = roundAmount(total - newTotal);
   if (diff !== 0) {
-    result[result.length - 1].amount = roundAmount(
-      result[result.length - 1].amount + diff
+    const lastIndex = result.length - 1;
+    result[lastIndex].amount = roundAmount(
+      Math.max(0, result[lastIndex].amount + diff)
     );
   }
 
@@ -97,7 +98,7 @@ export function usePaymentParts(
       return;
     }
 
-    if (Math.round(total) !== Math.round(previousTotalRef.current)) {
+    if (total !== previousTotalRef.current) {
       setPaymentsState(distributePayments(payments, totalRounded));
     }
 
@@ -118,7 +119,7 @@ export function usePaymentParts(
     [totalRounded, paid]
   );
   const isComplete = useMemo(
-    () => Math.round(remaining) === 0,
+    () => remaining === 0,
     [remaining]
   );
   const isMixed = useMemo(

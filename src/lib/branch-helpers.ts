@@ -1,4 +1,5 @@
 import type { Branch, BranchOpeningHours } from '@/domain/types';
+import { getBranchTimezone } from '@/config/branch';
 
 const DAYS = [
   'Domingo',
@@ -138,17 +139,10 @@ function getLocalParts(now: Date, timeZone: string) {
   };
 }
 
-function getBranchTimeZone(): string {
-  return (
-    process.env.NEXT_PUBLIC_BRANCH_TIMEZONE ||
-    'America/Argentina/Buenos_Aires'
-  );
-}
-
 export function isBranchOpen(branch: Branch, now: Date = new Date()): boolean {
   if (!branch.openingHours || branch.openingHours.length === 0) return false;
 
-  const tz = getBranchTimeZone();
+  const tz = getBranchTimezone();
   const { dayOfWeek } = getLocalParts(now, tz);
 
   const todayHours = branch.openingHours.filter((h) => h.dayOfWeek === dayOfWeek);
@@ -172,7 +166,7 @@ export function getCurrentOrNextOpening(
     return 'No hay horarios de apertura configurados.';
   }
 
-  const tz = getBranchTimeZone();
+  const tz = getBranchTimezone();
 
   for (let offset = 0; offset < 7; offset += 1) {
     const date = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
@@ -224,7 +218,7 @@ export function getTodayOpening(
     return 'No hay horarios de apertura configurados.';
   }
 
-  const tz = getBranchTimeZone();
+  const tz = getBranchTimezone();
   const { dayOfWeek } = getLocalParts(now, tz);
   const dayHours = branch.openingHours
     .filter((h) => h.dayOfWeek === dayOfWeek)
@@ -246,7 +240,7 @@ export function getNextOpening(
     return 'No hay horarios de apertura configurados.';
   }
 
-  const tz = getBranchTimeZone();
+  const tz = getBranchTimezone();
 
   for (let offset = 0; offset < 7; offset += 1) {
     const date = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);

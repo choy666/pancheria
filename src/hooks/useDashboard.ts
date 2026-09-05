@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
 import { PANEL_RESUMEN_API } from '@/config/api';
+import { getDashboardRefreshIntervalMs } from '@/config/dashboard';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus } from '@/domain/types';
 
@@ -21,7 +22,7 @@ export interface UseDashboardResult {
   refresh: () => Promise<void>;
 }
 
-const DASHBOARD_REFRESH_INTERVAL_MS = 30000;
+const DASHBOARD_REFRESH_INTERVAL_MS = getDashboardRefreshIntervalMs();
 
 export function useDashboard(): UseDashboardResult {
   const isMountedRef = useRef(true);
