@@ -26,7 +26,13 @@ import {
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
-import { formatMoney } from '@/lib/money';
+import {
+  addMoney,
+  formatMoney,
+  moneyToNumber,
+  multiplyMoney,
+  parseMoney,
+} from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
 
 export function SalesTerminal() {
@@ -293,10 +299,17 @@ export function SalesTerminal() {
     [editingLine]
   );
 
-  const total = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0
-  );
+  const total = useMemo(() => {
+    const totalMoney = cart.reduce(
+      (sum, item) =>
+        addMoney(
+          sum,
+          multiplyMoney(parseMoney(item.product.price), item.quantity)
+        ),
+      parseMoney(0)
+    );
+    return moneyToNumber(totalMoney);
+  }, [cart]);
 
   const {
     paymentParts,

@@ -13,7 +13,7 @@ import {
   users,
   videos,
 } from '@/db/schema';
-import { NotFoundError, ValidationError } from '@/domain/errors';
+import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import { validateNonEmptyString } from '@/lib/validation-helpers';
 import { validateOpeningHours } from '@/lib/branch-helpers';
 import { getRateLimitStore } from '@/lib/rate-limit-store';
@@ -64,7 +64,7 @@ export async function createBranch(
     .returning();
 
   if (!branch) {
-    throw new Error('No se pudo crear la sucursal.');
+    throw new DomainError('No se pudo crear la sucursal.');
   }
 
   return branch as Branch;
@@ -116,7 +116,7 @@ export async function updateBranch(
     .returning();
 
   if (!updated) {
-    throw new Error('No se pudo actualizar la sucursal.');
+    throw new DomainError('No se pudo actualizar la sucursal.');
   }
 
   return updated as Branch;

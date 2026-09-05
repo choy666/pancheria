@@ -1,6 +1,6 @@
 import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, sales, cashRegisters } from '@/db/schema';
+import { products, sales } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
@@ -61,16 +61,18 @@ export async function getOpenCashRegister(branchId: number) {
 
       const summary = await calculateCashRegisterSummary(branchId, locked.id, tx);
 
-      await tx
-        .update(cashRegisters)
-        .set({
+      await cashRegisterRepository.update(
+        branchId,
+        locked.id,
+        {
           status: 'closed',
           closedAt: nowUTC(),
           closedBy: getAutoClosedBy(),
           autoClosed: true,
           ...summary,
-        })
-        .where(and(eq(cashRegisters.id, locked.id), eq(cashRegisters.branchId, branchId)));
+        } as Partial<cashRegisterRepository.CashRegisterRow>,
+        tx
+      );
 
       return null;
     });
@@ -109,18 +111,15 @@ export async function openCashRegister(params: {
         throw new ValidationError('Ya existe una caja abierta.');
       }
 
-      const [result] = await tx
-        .insert(cashRegisters)
-        .values({
+      return cashRegisterRepository.create(
+        {
           branchId: finalParams.branchId,
           openedAt: nowUTC(),
           openedBy: finalParams.openedBy,
           initialAmount: finalParams.initialAmount,
-          status: 'open',
-        })
-        .returning();
-
-      return result;
+        },
+        tx
+      );
     });
   } catch (error) {
     if (isUniqueViolationError(error)) {
@@ -164,7 +163,7 @@ export async function calculateCashRegisterSummary(
 }
 
 type CashRegisterSummaryInput = Pick<
-  typeof cashRegisters.$inferSelect,
+  cashRegisterRepository.CashRegisterRow,
   'productsSummary' | 'criticalSuppliesSummary' | 'recipeSuppliesSummary'
 >;
 
@@ -260,11 +259,12 @@ export async function closeCashRegister(
       closeData.closingDifference = difference;
     }
 
-    const [updated] = await tx
-      .update(cashRegisters)
-      .set(closeData)
-      .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
-      .returning();
+    const updated = await cashRegisterRepository.update(
+      branchId,
+      id,
+      closeData as Partial<cashRegisterRepository.CashRegisterRow>,
+      tx
+    );
 
     if (!updated) {
       throw new NotFoundError('Caja', id);

@@ -455,10 +455,10 @@ describe('cashRegisterRepository', () => {
     test('elimina todas las cajas eliminadas en el rango sin ventas', async () => {
       const start = new Date('2026-08-01T00:00:00.000Z');
       const end = new Date('2026-08-07T23:59:59.000Z');
+      const groupBy = jest.fn().mockResolvedValue([]);
       txSelectWhere
         .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-        .mockResolvedValue([{ value: 0 }]);
-      txUpdateWhere.mockResolvedValue(undefined);
+        .mockReturnValueOnce({ groupBy });
       txDeleteWhere.mockResolvedValue(undefined);
 
       const result = await cashRegisterRepository.hardDeleteAllDeletedInRange(
@@ -468,16 +468,21 @@ describe('cashRegisterRepository', () => {
       );
 
       expect(result).toEqual({ deleted: 2 });
+      expect(groupBy).toHaveBeenCalled();
       expect(txUpdate).not.toHaveBeenCalled();
-      expect(txDelete).toHaveBeenCalled();
+      expect(txDelete).toHaveBeenCalledTimes(1);
     });
 
     test('omite cajas con ventas asociadas', async () => {
       const start = new Date('2026-08-01T00:00:00.000Z');
       const end = new Date('2026-08-07T23:59:59.000Z');
+      const groupBy = jest.fn().mockResolvedValue([
+        { cashRegisterId: 1, value: 3 },
+        { cashRegisterId: 2, value: 1 },
+      ]);
       txSelectWhere
         .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-        .mockResolvedValue([{ value: 1 }]);
+        .mockReturnValueOnce({ groupBy });
 
       const result = await cashRegisterRepository.hardDeleteAllDeletedInRange(
         BRANCH_ID,
@@ -488,6 +493,27 @@ describe('cashRegisterRepository', () => {
       expect(result).toEqual({ deleted: 0 });
       expect(txUpdate).not.toHaveBeenCalled();
       expect(txDelete).not.toHaveBeenCalled();
+    });
+
+    test('elimina solo las cajas sin ventas asociadas', async () => {
+      const start = new Date('2026-08-01T00:00:00.000Z');
+      const end = new Date('2026-08-07T23:59:59.000Z');
+      const groupBy = jest
+        .fn()
+        .mockResolvedValue([{ cashRegisterId: 1, value: 2 }]);
+      txSelectWhere
+        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+        .mockReturnValueOnce({ groupBy });
+      txDeleteWhere.mockResolvedValue(undefined);
+
+      const result = await cashRegisterRepository.hardDeleteAllDeletedInRange(
+        BRANCH_ID,
+        start,
+        end
+      );
+
+      expect(result).toEqual({ deleted: 1 });
+      expect(txDelete).toHaveBeenCalledTimes(1);
     });
 
     test('devuelve deleted: 0 si no hay cajas eliminadas en el rango', async () => {

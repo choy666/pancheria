@@ -2,9 +2,10 @@ import { and, eq, not } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { db } from '@/db';
 import { users } from '@/db/schema';
+import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
 import { getRateLimitStore } from '@/lib/rate-limit-store';
-import { ValidationError, NotFoundError } from '@/domain/errors';
+import { DomainError, ValidationError, NotFoundError } from '@/domain/errors';
 import {
   validateNonEmptyString,
   validateMinLength,
@@ -68,7 +69,7 @@ export async function createUser(data: {
     .returning();
 
   if (!user) {
-    throw new Error('No se pudo crear el usuario.');
+    throw new DomainError('No se pudo crear el usuario.');
   }
 
   return user;
@@ -141,7 +142,7 @@ export async function updateUser(
     .returning();
 
   if (!updated) {
-    throw new Error('No se pudo actualizar el usuario.');
+    throw new DomainError('No se pudo actualizar el usuario.');
   }
 
   return updated;
@@ -164,4 +165,41 @@ export async function deleteUser(id: number) {
 
   const rateLimitStore = getRateLimitStore();
   await rateLimitStore.remove(user.username);
+}
+
+export async function findById(id: number) {
+  return db.query.users.findFirst({
+    where: eq(users.id, id),
+  });
+}
+
+export async function updatePassword(
+  id: number,
+  newPassword: string
+): Promise<typeof users.$inferSelect> {
+  validateMinLength(newPassword, 6, 'La contraseña');
+
+  return executeInTransaction(async (tx) => {
+    const user = await tx.query.users.findFirst({
+      where: eq(users.id, id),
+    });
+
+    if (!user) {
+      throw new NotFoundError('Usuario', id);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    const [updated] = await tx
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, user.id))
+      .returning();
+
+    if (!updated) {
+      throw new DomainError('No se pudo actualizar la contraseña.');
+    }
+
+    return updated;
+  });
 }

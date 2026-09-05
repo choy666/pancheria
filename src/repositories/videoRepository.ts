@@ -11,7 +11,8 @@ export type VideoUpdate = Partial<VideoInsert>;
 
 export async function findAll(
   branchId: number,
-  includeDeleted = false
+  includeDeleted = false,
+  options: { limit?: number; offset?: number } = {}
 ): Promise<VideoRow[]> {
   const conditions = [eq(videos.branchId, branchId)];
   if (!includeDeleted) {
@@ -21,6 +22,8 @@ export async function findAll(
   return db.query.videos.findMany({
     where: and(...conditions),
     orderBy: (videos, { asc: ascFn }) => [ascFn(videos.title)],
+    limit: options.limit,
+    offset: options.offset,
   });
 }
 

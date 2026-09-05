@@ -16,6 +16,8 @@ import {
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
+import { cashRegisters } from '@/db/schema';
+import { and, eq, asc } from 'drizzle-orm';
 import { ValidationError, NotFoundError } from '@/domain/errors';
 
 jest.mock('@/repositories/cashRegisterRepository');
@@ -71,6 +73,64 @@ describe('cashRegisterService', () => {
     mockUpdate = jest.fn();
     mockSelectResult = [];
     mockInsertResult = [];
+
+    mockedCashRegisterRepository.lockOpenCashRegister.mockImplementation(
+      async (tx: any) => {
+        const rows = await tx
+          .select()
+          .from(cashRegisters)
+          .where()
+          .orderBy(asc(cashRegisters.id))
+          .for('update');
+        return rows[0] ?? null;
+      }
+    );
+
+    mockedCashRegisterRepository.lockCashRegisterById.mockImplementation(
+      async (tx: any, _branchId: number, id: number) => {
+        const rows = await tx
+          .select()
+          .from(cashRegisters)
+          .where(
+            and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, _branchId))
+          )
+          .for('update');
+        return rows[0] ?? null;
+      }
+    );
+
+    mockedCashRegisterRepository.create.mockImplementation(
+      async (params: any, tx: any) => {
+        const [result] = await tx
+          .insert(cashRegisters)
+          .values({
+            branchId: params.branchId,
+            openedAt: params.openedAt,
+            openedBy: params.openedBy,
+            initialAmount: params.initialAmount ?? 0,
+            status: 'open',
+          })
+          .returning();
+        return result;
+      }
+    );
+
+    mockedCashRegisterRepository.update.mockImplementation(
+      async (
+        _branchId: number,
+        id: number,
+        data: any,
+        tx: any
+      ) => {
+        const rows = await tx
+          .update(cashRegisters)
+          .set(data)
+          .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, _branchId)))
+          .returning();
+        return Array.isArray(rows) ? rows[0] ?? null : null;
+      }
+    );
+
     mockedExecuteInTransaction.mockImplementation(async (fn) =>
       fn({
         select: jest.fn(() => ({

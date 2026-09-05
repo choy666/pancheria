@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and, isNull } from 'drizzle-orm';
-import { db } from '@/db';
-import { products } from '@/db/schema';
+import * as productRepository from '@/repositories/productRepository';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { readProductImage } from '@/lib/product-image-storage';
 import { isPublicSellableProduct } from '@/lib/catalog';
@@ -31,16 +29,9 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const product = await db.query.products.findFirst({
-      where: and(
-        eq(products.id, productId),
-        eq(products.imageKey, decodedKey),
-        eq(products.isActive, true),
-        isNull(products.deletedAt)
-      ),
-    });
+    const product = await productRepository.findByImageKey(decodedKey);
 
-    if (!product || !isPublicSellableProduct(product)) {
+    if (!product || product.id !== productId || !isPublicSellableProduct(product)) {
       return NextResponse.json(
         { error: 'Imagen no encontrada.' },
         { status: 404 }

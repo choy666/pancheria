@@ -201,6 +201,16 @@ export default async function ProductsPage() {
                 ))}
               </Fragment>
             ))}
+            {groupedProducts.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground"
+                >
+                  No hay productos registrados.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

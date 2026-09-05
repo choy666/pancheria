@@ -9,7 +9,7 @@ import {
 } from '@/config/storage';
 import { getStorageProvider as getGlobalStorageProvider } from '@/config/videos';
 import { getChatAllowedImageMimeTypes, getChatImageMaxSizeBytes } from '@/config/chat';
-import { deleteStorageFile } from '@/lib/storage';
+import { assertFileSignature, deleteStorageFile } from '@/lib/storage';
 import { ValidationError } from '@/domain/errors';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
@@ -40,7 +40,7 @@ export function resolveChatAttachmentPath(
   basePath?: string
 ): string {
   if (!isValidChatAttachmentKey(key)) {
-    throw new Error('Clave de adjunto inválida.');
+    throw new ValidationError('Clave de adjunto inválida.');
   }
   const base = basePath ?? getChatLocalStorageBasePath();
   const resolved = path.resolve(
@@ -49,7 +49,7 @@ export function resolveChatAttachmentPath(
   );
   const baseResolved = path.resolve(/*turbopackIgnore: true*/ base);
   if (!resolved.startsWith(baseResolved + path.sep)) {
-    throw new Error('Ruta de adjunto fuera del directorio permitido.');
+    throw new ValidationError('Ruta de adjunto fuera del directorio permitido.');
   }
   return resolved;
 }
@@ -69,14 +69,17 @@ function getExtension(mimeType: string): string {
   }
 }
 
-function validateImage(file: ChatFileInfo): void {
-  if (!getChatAllowedImageMimeTypes().includes(file.type)) {
+async function validateImage(file: File, info: ChatFileInfo): Promise<void> {
+  if (!getChatAllowedImageMimeTypes().includes(info.type)) {
     throw new ValidationError('El tipo de imagen no está permitido.');
   }
 
-  if (file.size > getChatImageMaxSizeBytes()) {
+  if (info.size > getChatImageMaxSizeBytes()) {
     throw new ValidationError('La imagen excede el tamaño máximo permitido.');
   }
+
+  // Verificar los magic bytes: el Content-Type declarado no es confiable.
+  await assertFileSignature(file, info.type);
 }
 
 export async function saveChatAttachment(
@@ -89,7 +92,7 @@ export async function saveChatAttachment(
     size: file.size,
   };
 
-  validateImage(info);
+  await validateImage(file, info);
 
   const provider = getGlobalStorageProvider();
 

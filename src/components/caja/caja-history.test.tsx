@@ -88,8 +88,10 @@ describe('CajaHistory', () => {
 
     render(<CajaHistory />);
 
-    expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('$ 1.500')).toBeInTheDocument();
+    expect(screen.getByTestId('cash-register-id-1')).toHaveTextContent('#1');
+    expect(screen.getByTestId('cash-register-total-1')).toHaveTextContent(
+      '$ 1.500'
+    );
     expect(screen.getByText('Cerrada')).toBeInTheDocument();
   });
 });

@@ -142,4 +142,45 @@ describe('useVisibilityPolling', () => {
 
     expect(callback).toHaveBeenCalledTimes(2);
   });
+
+  test('ejecuta onResume antes del callback al volver a visible', () => {
+    setHidden(false);
+    const calls: string[] = [];
+    const callback = jest.fn(() => calls.push('callback'));
+    const onResume = jest.fn(() => calls.push('onResume'));
+
+    renderHook(() =>
+      useVisibilityPolling(callback, INTERVAL, true, false, onResume)
+    );
+
+    setHidden(true);
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    setHidden(false);
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(calls).toEqual(['onResume', 'callback']);
+  });
+
+  test('no ejecuta onResume cuando la pestaña se oculta', () => {
+    setHidden(false);
+    const callback = jest.fn();
+    const onResume = jest.fn();
+
+    renderHook(() =>
+      useVisibilityPolling(callback, INTERVAL, true, false, onResume)
+    );
+
+    setHidden(true);
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(onResume).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+  });
 });

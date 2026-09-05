@@ -48,7 +48,9 @@ describe('ProductCard', () => {
       />
     );
 
-    expect(screen.getByText('Disponible: 5 unidades')).toBeInTheDocument();
+    expect(screen.getByTestId('product-availability')).toHaveTextContent(
+      'Disponible: 5 unidades'
+    );
     expect(screen.getByRole('button', { name: 'Agregar' })).toBeInTheDocument();
   });
 

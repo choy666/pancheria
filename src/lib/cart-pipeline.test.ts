@@ -4,6 +4,7 @@ import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 
 var mockFindByIds: jest.Mock;
 var mockFindByIdsForUpdate: jest.Mock;
+var mockLockForUpdate: jest.Mock;
 var mockFindRecipesForProducts: jest.Mock;
 var mockGroupRecipesByProduct: jest.Mock;
 var mockFindActiveReservationsByProductIds: jest.Mock;
@@ -11,7 +12,12 @@ var mockFindActiveReservationsByProductIds: jest.Mock;
 jest.mock('@/repositories/productRepository', () => {
   mockFindByIds = jest.fn();
   mockFindByIdsForUpdate = jest.fn();
-  return { findByIds: mockFindByIds, findByIdsForUpdate: mockFindByIdsForUpdate };
+  mockLockForUpdate = jest.fn().mockResolvedValue([]);
+  return {
+    findByIds: mockFindByIds,
+    findByIdsForUpdate: mockFindByIdsForUpdate,
+    lockForUpdate: mockLockForUpdate,
+  };
 });
 
 jest.mock('@/lib/recipe-helpers', () => {
@@ -233,7 +239,7 @@ describe('cart-pipeline', () => {
       options: { shouldLock: true },
     });
 
-    expect(dbOrTx.select).toHaveBeenCalled();
+    expect(mockLockForUpdate).toHaveBeenCalled();
   });
 
   it('no ejecuta FOR UPDATE cuando shouldLock es false', async () => {
@@ -245,7 +251,7 @@ describe('cart-pipeline', () => {
       dbOrTx,
     });
 
-    expect(dbOrTx.select).not.toHaveBeenCalled();
+    expect(mockLockForUpdate).not.toHaveBeenCalled();
   });
 
   it('descuenta reservas ajenas de la disponibilidad', async () => {

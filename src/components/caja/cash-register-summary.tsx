@@ -124,13 +124,19 @@ export function CashRegisterSummary({
           <div className="grid grid-cols-2 gap-3 text-base">
             <p className="rounded-lg bg-muted/30 p-3">
               Efectivo en ventas:{' '}
-              <span className="font-mono font-medium">
+              <span
+                data-testid="cash-register-cash-total"
+                className="font-mono font-medium"
+              >
                 {formatMoney(cashRegister.cashTotal)}
               </span>
             </p>
             <p className="rounded-lg bg-muted/30 p-3">
               Transferencia:{' '}
-              <span className="font-mono font-medium">
+              <span
+                data-testid="cash-register-transfer-total"
+                className="font-mono font-medium"
+              >
                 {formatMoney(cashRegister.transferTotal)}
               </span>
             </p>
@@ -179,7 +185,10 @@ export function CashRegisterSummary({
           )}
           <p className="text-base">
             Ventas:{' '}
-            <span className="font-mono font-semibold">
+            <span
+              data-testid="cash-register-sales-count"
+              className="font-mono font-semibold"
+            >
               {cashRegister.totalSales}
             </span>
           </p>

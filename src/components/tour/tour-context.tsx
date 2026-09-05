@@ -605,8 +605,17 @@ export function TourProvider({
     }
   }, [pathname, startTour, keys]);
 
+  // El valor del contexto se memoiza para no re-renderizar a todos los
+  // consumidores en cada render del provider. Las funciones ya son
+  // referencias estables (useCallback), así que el valor solo cambia cuando
+  // cambia `isActive` o alguna de las callbacks.
+  const contextValue = useMemo<TourContextValue>(
+    () => ({ startTour, restartTour, stopTour, isActive }),
+    [startTour, restartTour, stopTour, isActive]
+  );
+
   return (
-    <TourContext.Provider value={{ startTour, restartTour, stopTour, isActive }}>
+    <TourContext.Provider value={contextValue}>
       {children}
     </TourContext.Provider>
   );

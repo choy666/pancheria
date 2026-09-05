@@ -3,7 +3,7 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStorageProvider } from '@/config/videos';
-import { deleteStorageFile } from '@/lib/storage';
+import { assertFileSignature, deleteStorageFile } from '@/lib/storage';
 import {
   getBlobReadWriteToken,
   getProductImageLocalStorageBasePath,
@@ -340,6 +340,10 @@ export async function saveProductImage(
   };
 
   validateProductImage(info);
+
+  // Verificar los magic bytes: el Content-Type declarado no es confiable.
+  // Esto cubre los tres proveedores porque todos reciben el File real.
+  await assertFileSignature(file, info.type);
 
   const key =
     typeof providedKey === 'string' && providedKey.trim().length > 0

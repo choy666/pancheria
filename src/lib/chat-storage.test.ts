@@ -35,8 +35,20 @@ const mockedGetStorageProvider = getStorageProvider as jest.MockedFunction<
   typeof getStorageProvider
 >;
 
+// Prefijos de firma (magic bytes) por tipo MIME para que los archivos de
+// prueba superen la validación de contenido de `saveChatAttachment`.
+const SIGNATURE_PREFIX: Record<string, number[]> = {
+  'image/jpeg': [0xff, 0xd8, 0xff],
+  'image/png': [0x89, 0x50, 0x4e, 0x47],
+  'image/webp': [
+    0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+  ], // 'RIFF....WEBP'
+};
+
 function createFile(name: string, type: string, size: number): File {
-  return new File([new Uint8Array(size)], name, { type });
+  const prefix = SIGNATURE_PREFIX[type] ?? [];
+  const padding = new Uint8Array(Math.max(size - prefix.length, 0));
+  return new File([new Uint8Array(prefix), padding], name, { type });
 }
 
 describe('chat-storage', () => {
@@ -111,6 +123,18 @@ describe('chat-storage', () => {
       await expect(saveChatAttachment(file, 10)).rejects.toThrow(
         ValidationError
       );
+    });
+
+    test('rechaza una imagen cuyo contenido no coincide con el tipo declarado', async () => {
+      // Declarada como JPEG pero con bytes nulos (sin FF D8 FF).
+      const file = new File([new Uint8Array(100)], 'foto.jpg', {
+        type: 'image/jpeg',
+      });
+
+      await expect(saveChatAttachment(file, 10)).rejects.toThrow(
+        ValidationError
+      );
+      expect(mockWriteFile).not.toHaveBeenCalled();
     });
 
     test('sube a Vercel Blob cuando el proveedor es vercel-blob', async () => {

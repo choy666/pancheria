@@ -82,7 +82,10 @@ function BranchInfoCard({ branchStatus, activeBranch }: BranchInfoCardProps) {
           </p>
         )}
         {branch.phone && (
-          <p className="mt-1 text-muted-foreground">
+          <p
+            data-testid="branch-phone"
+            className="mt-1 text-muted-foreground"
+          >
             Teléfono: {branch.phone}
           </p>
         )}

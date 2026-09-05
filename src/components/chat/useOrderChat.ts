@@ -406,11 +406,20 @@ export function useOrderChat({
     });
   }, [intervalMs, maxBackoffMs, pollNewMessages]);
 
+  // Al volver a visible se resetea el backoff de errores para que el poll
+  // inmediato de `useVisibilityPolling` no quede bloqueado por un reintento
+  // programado mientras la pestaña estaba oculta.
+  const resetPollBackoff = useCallback(() => {
+    consecutiveErrorsRef.current = 0;
+    nextAllowedAtRef.current = 0;
+  }, []);
+
   useVisibilityPolling(
     runScheduledPoll,
     intervalMs,
     true,
-    !disablePollingOnMount
+    !disablePollingOnMount,
+    resetPollBackoff
   );
 
   useEffect(() => {
@@ -424,6 +433,9 @@ export function useOrderChat({
     consecutiveErrorsRef.current = 0;
     nextAllowedAtRef.current = 0;
 
+    // `pageshow` con `persisted` cubre la restauración desde bfcache, caso que
+    // `visibilitychange` (manejado por `useVisibilityPolling`) no siempre
+    // dispara.
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted) {
         consecutiveErrorsRef.current = 0;
@@ -433,19 +445,9 @@ export function useOrderChat({
     }
     window.addEventListener('pageshow', handlePageShow);
 
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        consecutiveErrorsRef.current = 0;
-        nextAllowedAtRef.current = 0;
-        void pollNewMessages();
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       isMountedRef.current = false;
       window.removeEventListener('pageshow', handlePageShow);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [markAsRead, loadInitialMessages, pollNewMessages, initialHasMore]);
 
