@@ -20,6 +20,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 | Tests unitarios          | `npm test`                                        |
 | Verificación de tipos    | `npx tsc --noEmit`                                |
 | Tests E2E                | `npm run test:e2e`                                |
+| Tests de accesibilidad   | `npm run test:accessibility`                      |
 | Código muerto            | `npm run knip`                                    |
 | Generar migraciones      | `npx drizzle-kit generate`                        |
 | Empujar migraciones      | `npx drizzle-kit push`                            |
@@ -32,7 +33,7 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 >
 > Además, E2E requiere un secreto de autenticación válido (`AUTH_SECRET` o `NEXTAUTH_SECRET`) de al menos 32 bytes y las credenciales de administrador (`ADMIN_USERNAME`/`ADMIN_PASSWORD`). En GitHub Actions, `NEXTAUTH_SECRET`, `ADMIN_USERNAME` y `ADMIN_PASSWORD` deben configurarse como repository secrets; el workflow `.github/workflows/ci.yml` fallará de inmediato si faltan. El job de E2E usa una base de datos remota descartable de Neon, configurada a través de los repository secrets `E2E_DATABASE_URL` y `E2E_DATABASE_URL_UNPOOLED`. El nombre de la base debe terminar en `test`, `e2e`, `testing`, `qa` o `staging` para cumplir la validación de `tests/e2e/global-setup.ts`.
 >
-> El `webServer` de `playwright.config.ts` levanta `npm run dev:e2e`, que carga `.env.local` y luego `.env.e2e` con `dotenv` antes de iniciar Next.js, y espera a que `/api/caja/resumen` responda. `tests/e2e/global-setup.ts` realiza un `preheat` del servidor llamando las rutas críticas (chat, pedido público, catálogo, caja) antes de ejecutar los tests, para evitar timeouts en los primeros tests por compilación bajo Turbopack. También se puede levantar manualmente con `npm run dev:e2e` y correr `NO_WEB_SERVER=1 npx playwright test`; esto es necesario si `.env.local` apunta a producción o si se quiere reutilizar un servidor ya calentado.
+> El `webServer` de `playwright.config.ts` levanta `npm run dev:e2e`, que carga `.env.local` y luego `.env.e2e` con `dotenv` antes de iniciar Next.js, y espera a que `/api/caja/resumen` responda. `tests/e2e/global-setup.ts` realiza un `preheat` del servidor llamando las rutas críticas (chat, pedido público, catálogo, caja) antes de ejecutar los tests, para evitar timeouts en los primeros tests por compilación bajo Turbopack. También se puede levantar manualmente con `npm run dev:e2e` y correr `NO_WEB_SERVER=1 npx playwright test`; esto es necesario si `.env.local` apunta a producción o si se quiere reutilizar un servidor ya calentado. Para ejecutar solo los tests de accesibilidad con axe-core, usar `npm run test:accessibility`.
 >
 > `npm run build` y el job `build` de CI no pasan `DATABASE_URL` porque las páginas públicas críticas (`/pedido`, `/pedido/[id]/chat`) usan `dynamic = 'force-dynamic'`; el build no consulta la base de datos durante la generación estática. Si en el futuro se agrega SSG que requiera DB, usar una URL de staging, nunca la productiva.
 >

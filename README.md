@@ -60,6 +60,7 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `npx tsc --noEmit` — verificación de tipos
 - `npm test` — tests unitarios
 - `npm run test:e2e` (o `npx playwright test`) — tests end-to-end
+- `npm run test:accessibility` — tests de accesibilidad con `axe-core`
 - `npm run knip` — detectar exports, dependencias y archivos no usados
 - `npx drizzle-kit generate` — generar migraciones
 - `npx drizzle-kit push` — empujar migraciones

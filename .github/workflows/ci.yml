@@ -84,7 +84,7 @@ jobs:
       - run: npm run knip
 
   e2e:
-    name: Tests end-to-end
+    name: Tests end-to-end y accesibilidad
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -151,5 +151,6 @@ jobs:
       - run: npx playwright install --with-deps
         timeout-minutes: 10
 
-      - run: npx playwright test --reporter=line
-        timeout-minutes: 15
+      - name: Ejecutar tests E2E y accesibilidad con axe-core
+        run: npx playwright test --reporter=line
+        timeout-minutes: 18
