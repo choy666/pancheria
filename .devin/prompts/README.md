@@ -124,6 +124,8 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 ### Prompts activos
 
 - [Prompt maestro — Proyecto Panchería](pancheria.prompt.md) — punto de entrada para cualquier tarea futura.
+- [Auditoría masiva integral del proyecto](auditoria-masiva.md) — guía para auditar de forma sistemática calidad, seguridad, arquitectura, cobertura de pruebas, documentación, rendimiento, accesibilidad, integridad de datos y despliegue/CI.
+- [Resumen ejecutivo — Auditoría masiva integral](auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento para ejecutar `auditoria-masiva.md` de forma reproducible.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
@@ -144,6 +146,9 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Plan de implementación — mejoras en productos, stock en promos y papelera](archivados/plan-mejoras-productos-stock-y-papelera.md) — resuelto: unidad editable en `ProductForm`, stock de insumos y disponibilidad en `PromoForm`, vaciado masivo de papelera con paginación en `findDeletedInRange` y tests E2E.
 - [Pedidos con múltiples líneas del mismo producto personalizado](archivados/plan-pedidos-personalizados-multiples-lineas.md) — resuelto: carrito con `lineId`, unión de líneas idénticas, resumen de recetas en checkout, panel, chat y terminal de ventas; suite E2E: 104 passed.
 - [Pendientes de pedidos con múltiples líneas personalizadas](archivados/plan-pedidos-personalizados-pendientes.md) — resuelto: warning de keys, flaky test de sucursal, cobertura E2E de panel/chat, test de `validateCartAvailability` y sincronización del plan.
+- [Cobertura de auditoría — flujo de pedidos públicos y stock](archivados/cobertura-auditoria-flujo-pedidos-2026-08-27.md) — archivado: flujo vigente de pedidos `pending` → `in_process` → `paid` → `finished` con reservas de stock; contexto histórico.
+- [Plan de mejoras — flujo de pedidos, chat, caja y sucursales](archivados/plan-mejoras-flujo-pedidos-chat-caja-sucursales-2026-08-27.md) — resuelto: captura de teléfono, horarios de sucursal, estados de pedido, chat con estados y reservas transaccionales.
+- [Arquitectura y buenas prácticas del flujo de pedidos, sucursales y stock](archivados/recomendaciones-pedidos-sucursal-stock-2026-08-27.md) — archivado: reglas de negocio, aislamiento por `branchId`, reutilización de helpers y decisiones arquitectónicas del flujo.
 
 ## Véase también
 

@@ -11,7 +11,7 @@ import {
   findRecipesForProducts,
   groupRecipesByProduct,
   type RecipeWithSupply,
-} from '@/application/services/summaryService';
+} from '@/lib/recipe-helpers';
 
 function recipeItemToConfig(
   recipe: RecipeWithSupply,
@@ -101,7 +101,7 @@ export async function buildProductContext(
     const allRecipes = await findRecipesForProducts(
       branchId,
       compoundProductIds,
-      client
+      client ?? db
     );
     recipesByProduct = groupRecipesByProduct(allRecipes);
   }
@@ -156,7 +156,7 @@ async function buildAvailabilityContext(
     const allRecipes = await findRecipesForProducts(
       branchId,
       compoundProductIds,
-      client
+      client ?? db
     );
 
     for (const recipeItem of allRecipes) {

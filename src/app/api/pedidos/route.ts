@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as orderService from '@/application/services/orderService';
-import { expirePendingOrders } from '@/application/services/orderService';
 import * as branchService from '@/application/services/branchService';
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
@@ -42,8 +41,6 @@ export const GET = withApiErrorHandling(
         }
       }
     }
-
-    await expirePendingOrders(branchId);
 
     const result = await orderService.getOrders(branchId, {
       status,

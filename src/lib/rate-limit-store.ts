@@ -1,6 +1,8 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { loginAttempts } from '@/db/schema';
+import { isProduction, isTest, hasDatabaseUrl } from '@/config/env';
+import { getRateLimitStoreProvider } from '@/config/rate-limit';
 
 export interface RateLimitStore {
   /**
@@ -99,7 +101,7 @@ export function setRateLimitStore(store: RateLimitStore): void {
 }
 
 export function createRateLimitStore(): RateLimitStore {
-  const provider = process.env.RATE_LIMIT_STORE_PROVIDER;
+  const provider = getRateLimitStoreProvider();
 
   if (provider === 'db') {
     return new DbRateLimitStore();
@@ -109,14 +111,11 @@ export function createRateLimitStore(): RateLimitStore {
     return new InMemoryRateLimitStore();
   }
 
-  if (process.env.NODE_ENV === 'test') {
+  if (isTest()) {
     return new InMemoryRateLimitStore();
   }
 
-  if (
-    process.env.NODE_ENV === 'production' &&
-    (process.env.DATABASE_URL || process.env.POSTGRES_URL)
-  ) {
+  if (isProduction() && hasDatabaseUrl()) {
     return new DbRateLimitStore();
   }
 

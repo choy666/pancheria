@@ -225,6 +225,35 @@ export async function findOrders(
   };
 }
 
+export async function countOrdersByStatus(
+  branchId: number
+): Promise<Record<OrderStatus, number>> {
+  const rows = await db
+    .select({
+      status: orders.status,
+      count: count(),
+    })
+    .from(orders)
+    .where(and(eq(orders.branchId, branchId), isNull(orders.deletedAt)))
+    .groupBy(orders.status);
+
+  const result: Record<OrderStatus, number> = {
+    pending: 0,
+    in_process: 0,
+    paid: 0,
+    finished: 0,
+    cancelled: 0,
+  };
+
+  for (const row of rows) {
+    if (row.status) {
+      result[row.status] = Number(row.count);
+    }
+  }
+
+  return result;
+}
+
 export async function findExpiredPending(
   branchId: number,
   expirationDate: Date
@@ -264,6 +293,44 @@ export async function insertOrder(
   const [order] = await tx.insert(orders).values(values).returning();
   if (!order) throw new Error('No se pudo crear el pedido.');
   return order;
+}
+
+/**
+ * Inserta un pedido de forma idempotente usando onConflictDoNothing.
+ * Si ya existe un pedido con la misma sucursal e idempotencyKey,
+ * devuelve el pedido existente sin duplicar items ni mensajes.
+ */
+export async function insertOrderIdempotent(
+  tx: typeof db,
+  values: typeof orders.$inferInsert
+): Promise<{ order: typeof orders.$inferSelect; isNew: boolean }> {
+  const [inserted] = await tx
+    .insert(orders)
+    .values(values)
+    .onConflictDoNothing({ target: [orders.branchId, orders.idempotencyKey] })
+    .returning();
+
+  if (inserted) {
+    return { order: inserted, isNew: true };
+  }
+
+  const [existing] = await tx
+    .select()
+    .from(orders)
+    .where(
+      and(
+        eq(orders.branchId, values.branchId as number),
+        eq(orders.idempotencyKey, values.idempotencyKey as string),
+        isNull(orders.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!existing) {
+    throw new Error('No se pudo crear ni recuperar el pedido.');
+  }
+
+  return { order: existing, isNew: false };
 }
 
 export async function insertOrderItems(

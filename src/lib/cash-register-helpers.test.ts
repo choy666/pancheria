@@ -8,7 +8,7 @@ var mockSelect: jest.Mock;
 
 function buildMockTx(returning: unknown[] = []) {
   mockFor = jest.fn().mockResolvedValue(returning);
-  mockWhere = jest.fn(() => ({ for: mockFor }));
+  mockWhere = jest.fn(() => ({ for: mockFor, orderBy: jest.fn(() => ({ for: mockFor })) }));
   mockFrom = jest.fn(() => ({ where: mockWhere }));
   mockSelect = jest.fn(() => ({ from: mockFrom }));
 

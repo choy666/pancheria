@@ -65,6 +65,15 @@ describe('branchService', () => {
       from: jest.fn().mockReturnThis(),
       where: jest.fn().mockResolvedValue([]),
       delete: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([
+              { id: 1, name: 'Sucursal A' },
+            ]),
+          }),
+        }),
+      }),
     };
 
     mockedDb.transaction.mockImplementation(async (callback) => {
@@ -242,7 +251,14 @@ describe('branchService', () => {
 
       const result = await deleteBranch(1);
 
-      expect(result).toEqual({ id: 1, name: 'Sucursal A', openingHours: [] });
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 1,
+          name: 'Sucursal A',
+          openingHours: [],
+          deletedAt: expect.any(Date),
+        })
+      );
       expect(mockedDb.query.branches.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),

@@ -9,18 +9,31 @@ import { products, recipes, users, branches } from './schema';
 import { copyCatalogToBranch } from './catalog-copy';
 import * as stockService from '@/application/services/stockService';
 import type { BranchOpeningHours } from '@/domain/types';
+import {
+  getDefaultBranchName,
+  getDefaultBranchAddress,
+  getDefaultBranchPhone,
+  getDefaultBranchLocation,
+  getNewBranchName,
+  getNewBranchUsername,
+  getNewBranchPassword,
+  getNewBranchAddress,
+  getNewBranchPhone,
+  getNewBranchLocation,
+} from '@/config/branch';
+import { getAdminUsername, getAdminPassword } from '@/config/auth';
 
-const DEFAULT_BRANCH_NAME = process.env.DEFAULT_BRANCH_NAME ?? 'Sucursal por defecto';
-const DEFAULT_BRANCH_ADDRESS = process.env.DEFAULT_BRANCH_ADDRESS ?? null;
-const DEFAULT_BRANCH_PHONE = process.env.DEFAULT_BRANCH_PHONE ?? null;
-const DEFAULT_BRANCH_LOCATION = process.env.DEFAULT_BRANCH_LOCATION ?? null;
+const DEFAULT_BRANCH_NAME = getDefaultBranchName() ?? 'Sucursal por defecto';
+const DEFAULT_BRANCH_ADDRESS = getDefaultBranchAddress() ?? null;
+const DEFAULT_BRANCH_PHONE = getDefaultBranchPhone() ?? null;
+const DEFAULT_BRANCH_LOCATION = getDefaultBranchLocation() ?? null;
 
-const NEW_BRANCH_NAME = process.env.NEW_BRANCH_NAME;
-const NEW_BRANCH_USERNAME = process.env.NEW_BRANCH_USERNAME;
-const NEW_BRANCH_PASSWORD = process.env.NEW_BRANCH_PASSWORD;
-const NEW_BRANCH_ADDRESS = process.env.NEW_BRANCH_ADDRESS ?? null;
-const NEW_BRANCH_PHONE = process.env.NEW_BRANCH_PHONE ?? null;
-const NEW_BRANCH_LOCATION = process.env.NEW_BRANCH_LOCATION ?? null;
+const NEW_BRANCH_NAME = getNewBranchName();
+const NEW_BRANCH_USERNAME = getNewBranchUsername();
+const NEW_BRANCH_PASSWORD = getNewBranchPassword();
+const NEW_BRANCH_ADDRESS = getNewBranchAddress() ?? null;
+const NEW_BRANCH_PHONE = getNewBranchPhone() ?? null;
+const NEW_BRANCH_LOCATION = getNewBranchLocation() ?? null;
 
 const DEFAULT_OPENING_HOURS: BranchOpeningHours[] = [
   { dayOfWeek: 1, open: '10:00', close: '22:00' },
@@ -58,8 +71,8 @@ async function seedDefaultBranch(): Promise<number> {
 }
 
 async function seedAdmin(defaultBranchId: number) {
-  const username = process.env.ADMIN_USERNAME;
-  const password = process.env.ADMIN_PASSWORD;
+  const username = getAdminUsername();
+  const password = getAdminPassword();
 
   if (!username || !password) {
     console.warn(

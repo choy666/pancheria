@@ -1,4 +1,4 @@
-import { eq, sql, and, inArray, gte } from 'drizzle-orm';
+import { eq, sql, and, inArray, gte, asc } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   cashRegisters,
@@ -23,7 +23,7 @@ import type {
   StockMovementType,
 } from '@/domain/types';
 
-import { type RecipeWithSupply } from '@/application/services/summaryService';
+import { type RecipeWithSupply } from '@/lib/recipe-helpers';
 import { addItemToSummary } from '@/lib/summary-helpers';
 import {
   collectStockProductIdsToLock,
@@ -31,13 +31,9 @@ import {
   buildStockMovementReason,
 } from '@/lib/stock-helpers';
 import { lockCashRegisterById } from '@/lib/cash-register-helpers';
-import {
-  buildProductContext,
-  validateProductsForOperation,
-  validateCartAvailability,
-  assertNoStockShortage,
-} from '@/lib/product-helpers';
-import { buildSaleItemValues, type SaleItemValue } from '@/lib/sale-helpers';
+import { buildProductContext } from '@/lib/product-helpers';
+import { type SaleItemValue } from '@/lib/sale-helpers';
+import { prepareCart } from '@/lib/cart-pipeline';
 import {
   sumPaymentParts,
   amountByPaymentMethod,
@@ -146,6 +142,7 @@ async function deductStockForItems(
       .select()
       .from(products)
       .where(inArray(products.id, idsToLock))
+      .orderBy(asc(products.id))
       .for('update');
   }
 
@@ -307,6 +304,7 @@ async function reintegrateStockForItems(
       .select()
       .from(products)
       .where(inArray(products.id, idsToLock))
+      .orderBy(asc(products.id))
       .for('update');
   }
 
@@ -517,29 +515,18 @@ export async function confirmSale(params: {
       throw new ValidationError('La venta ya fue procesada.');
     }
 
-    const productIds = items.map((item) => item.productId);
-    const { productById, recipesByProduct } = await buildProductContext(
-      branchId,
-      productIds,
-      { dbOrTx: tx }
-    );
-
-    validateProductsForOperation(items, productById, branchId, 'venta');
-
-    const { shortageByProduct } = await validateCartAvailability(
-      branchId,
-      items,
-      undefined,
-      tx
-    );
-
-    assertNoStockShortage(shortageByProduct, productById);
-
-    const { saleItemValues, total: saleTotal } = buildSaleItemValues(
+    const {
       productById,
+      recipesByProduct,
+      saleItemValues,
+      total: saleTotal,
+    } = await prepareCart({
+      branchId,
       items,
-      recipesByProduct
-    );
+      operation: 'venta',
+      dbOrTx: tx,
+      options: { shouldLock: true },
+    });
 
     const paymentValidation = validatePaymentParts(payments, saleTotal);
     if (!paymentValidation.valid) {
@@ -647,6 +634,32 @@ export async function cancelSale(
   }));
 
   return executeInTransaction(async (tx) => {
+    const [locked] = await tx
+      .update(sales)
+      .set({
+        status: 'cancelled',
+        cancelledAt: nowUTC(),
+        cancellationReason: reason,
+      })
+      .where(
+        and(
+          eq(sales.id, id),
+          eq(sales.branchId, branchId),
+          eq(sales.status, 'active')
+        )
+      )
+      .returning();
+
+    if (!locked) {
+      const current = await tx.query.sales.findFirst({
+        where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
+      });
+      if (current?.status === 'cancelled') {
+        return current;
+      }
+      throw new NotFoundError('Venta', id);
+    }
+
     const { productById, recipesByProduct } = await buildProductContext(
       branchId,
       saleItemValues.map((item) => item.productId),
@@ -667,16 +680,6 @@ export async function cancelSale(
       'subtract'
     );
 
-    const [updated] = await tx
-      .update(sales)
-      .set({
-        status: 'cancelled',
-        cancelledAt: nowUTC(),
-        cancellationReason: reason,
-      })
-      .where(and(eq(sales.id, id), eq(sales.branchId, branchId)))
-      .returning();
-
-    return updated;
+    return locked;
   });
 }

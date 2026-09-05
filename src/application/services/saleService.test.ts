@@ -158,8 +158,8 @@ function createMockDb(): MockDb {
 
   const select = jest.fn().mockImplementation(() => ({
     from: jest.fn().mockImplementation(() => ({
-      where: jest.fn().mockImplementation(() => ({
-        for: jest.fn().mockResolvedValue([
+      where: jest.fn().mockImplementation(() => {
+        const forResult = jest.fn().mockResolvedValue([
           {
             id: 1,
             branchId: BRANCH_ID,
@@ -173,8 +173,15 @@ function createMockDb(): MockDb {
             criticalSuppliesSummary: {},
             recipeSuppliesSummary: {},
           },
-        ]),
-      })),
+        ]);
+
+        return {
+          orderBy: jest.fn().mockImplementation(() => ({
+            for: forResult,
+          })),
+          for: forResult,
+        };
+      }),
     })),
   }));
 

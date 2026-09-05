@@ -4,46 +4,17 @@ import * as orderService from '@/application/services/orderService';
 import * as stockService from '@/application/services/stockService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
-import type { OrderStatus } from '@/domain/types';
+
 
 export const dynamic = 'force-dynamic';
 
-const ORDER_STATUSES: OrderStatus[] = [
-  'pending',
-  'in_process',
-  'paid',
-  'finished',
-  'cancelled',
-];
-
 export const GET = withApiErrorHandling(
   withAuth(async (_request: NextRequest, _context, { branchId }) => {
-    await orderService.expirePendingOrders(branchId);
-
-    const [cashRegister, stockAlerts, ...orderResults] = await Promise.all([
+    const [cashRegister, stockAlerts, orderCounts] = await Promise.all([
       cashRegisterService.getOpenCashRegisterSummary(branchId),
       stockService.listStockAlerts(branchId),
-      ...ORDER_STATUSES.map((status) =>
-        orderService.getOrders(branchId, {
-          status,
-          page: 1,
-          limit: 1,
-        })
-      ),
+      orderService.getOrderCountsByStatus(branchId),
     ]);
-
-    const orderCounts: Record<OrderStatus, number> = {
-      pending: 0,
-      in_process: 0,
-      paid: 0,
-      finished: 0,
-      cancelled: 0,
-    };
-
-    for (let i = 0; i < ORDER_STATUSES.length; i += 1) {
-      const status = ORDER_STATUSES[i];
-      orderCounts[status] = orderResults[i]?.total ?? 0;
-    }
 
     const lowStockCount = stockAlerts.filter((product) => product.isLow).length;
 

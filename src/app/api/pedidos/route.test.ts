@@ -55,7 +55,6 @@ describe('GET /api/pedidos', () => {
       openingHours: [],
       createdAt: new Date(),
     });
-    mockedOrderService.expirePendingOrders.mockResolvedValue(0);
   });
 
   function buildRequest(path = ''): NextRequest {

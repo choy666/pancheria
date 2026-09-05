@@ -1,6 +1,8 @@
 import { lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { publicOrderRateLimits } from '@/db/schema';
+import { isProduction, isTest, hasDatabaseUrl } from '@/config/env';
+import { getPublicOrderRateLimitStoreProvider } from '@/config/rate-limit';
 
 export interface PublicOrderRateLimitStore {
   /**
@@ -103,7 +105,7 @@ export class DbPublicOrderRateLimitStore
 }
 
 export function createPublicOrderRateLimitStore(): PublicOrderRateLimitStore {
-  const provider = process.env.PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER;
+  const provider = getPublicOrderRateLimitStoreProvider();
 
   if (provider === 'db') {
     return new DbPublicOrderRateLimitStore();
@@ -113,14 +115,11 @@ export function createPublicOrderRateLimitStore(): PublicOrderRateLimitStore {
     return new InMemoryPublicOrderRateLimitStore();
   }
 
-  if (process.env.NODE_ENV === 'test') {
+  if (isTest()) {
     return new InMemoryPublicOrderRateLimitStore();
   }
 
-  if (
-    process.env.NODE_ENV === 'production' &&
-    (process.env.DATABASE_URL || process.env.POSTGRES_URL)
-  ) {
+  if (isProduction() && hasDatabaseUrl()) {
     return new DbPublicOrderRateLimitStore();
   }
 

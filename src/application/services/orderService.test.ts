@@ -13,6 +13,7 @@ import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
 import * as productRepository from '@/repositories/productRepository';
+import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
@@ -20,6 +21,7 @@ import { db } from '@/db';
 import {
   orders,
   orderItems,
+  orderMessages,
   sales,
   saleItems,
   salePayments,
@@ -28,6 +30,7 @@ import {
   cashRegisters,
   recipes,
   orderItemRecipes,
+  orderStockReservations,
 } from '@/db/schema';
 import {
   ValidationError,
@@ -227,6 +230,7 @@ function createMockDb(): MockDb {
     const builder: {
       from: jest.Mock;
       where: jest.Mock;
+      orderBy: jest.Mock;
       for: jest.Mock;
       groupBy: jest.Mock;
       then: (onFulfilled?: (value: unknown) => unknown) => Promise<unknown>;
@@ -236,6 +240,7 @@ function createMockDb(): MockDb {
         return builder;
       }),
       where: jest.fn(() => builder),
+      orderBy: jest.fn(() => builder),
       for: jest.fn().mockImplementation(async () => {
         if (lastTable === orders) {
           const order = await query.orders.findFirst();
@@ -394,7 +399,16 @@ describe('orderService', () => {
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedInsert(orderItems)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(0);
-      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
+      expect(
+        mockedOrderStockReservationRepository.insertReservations
+      ).toHaveBeenCalled();
+
+      const stockMovementsInserts = findCapturedInsert(stockMovements);
+      expect(stockMovementsInserts).toHaveLength(1);
+      const reserveRows = stockMovementsInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
+      expect(reserveRows).toHaveLength(1);
+      expect(reserveRows[0]?.type).toBe('reserve');
+      expect(reserveRows[0]?.quantity).toBe(-2);
     });
 
     test('crea un pedido con promo sin descontar insumos compartidos', async () => {
@@ -443,7 +457,16 @@ describe('orderService', () => {
 
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(0);
-      expect(findCapturedInsert(stockMovements)).toHaveLength(0);
+      expect(
+        mockedOrderStockReservationRepository.insertReservations
+      ).toHaveBeenCalled();
+
+      const stockMovementsInserts = findCapturedInsert(stockMovements);
+      expect(stockMovementsInserts).toHaveLength(1);
+      const reserveRows = stockMovementsInserts[0]?.data as (typeof stockMovements.$inferInsert)[];
+      expect(reserveRows).toHaveLength(1);
+      expect(reserveRows[0]?.type).toBe('reserve');
+      expect(reserveRows[0]?.quantity).toBe(-4);
     });
 
     test('crea dos orderItems con snapshots distintos para el mismo producto con selecciones diferentes', async () => {
@@ -640,6 +663,66 @@ describe('orderService', () => {
 
       expect(result.id).toBe(42);
       expect(findCapturedInsert(orders)).toHaveLength(0);
+    });
+
+    test('evita duplicados cuando el conflicto ocurre dentro de la transacción', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 10,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      const existing = createOrderRow({ id: 42, orderNumber: 'PED-42' });
+      const fullExisting = {
+        ...existing,
+        branch: {
+          id: BRANCH_ID,
+          name: 'Sucursal Test',
+          openingHours: [],
+          createdAt: new Date(),
+        },
+        items: [
+          createOrderItemRow({
+            orderId: 42,
+            productId: 1,
+            quantity: 1,
+            unitPrice: 1000,
+            subtotal: 1000,
+          }),
+        ],
+      };
+
+      mockedDb.query.orders.findFirst
+        .mockReset()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(fullExisting);
+
+      const spy = jest
+        .spyOn(orderRepository, 'insertOrderIdempotent')
+        .mockResolvedValue({ order: existing, isNew: false });
+
+      const result = await createOrder({
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-conflict-in-tx',
+      });
+
+      spy.mockRestore();
+
+      expect(result.id).toBe(42);
+      expect(findCapturedInsert(orders)).toHaveLength(0);
+      expect(findCapturedInsert(orderItems)).toHaveLength(0);
+      expect(findCapturedInsert(orderItemRecipes)).toHaveLength(0);
+      expect(findCapturedInsert(orderMessages)).toHaveLength(0);
     });
   });
 

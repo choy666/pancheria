@@ -1,4 +1,5 @@
 import * as branchService from '@/application/services/branchService';
+import { getDefaultBranchName } from '@/config/branch';
 import type { Branch } from '@/domain/types';
 
 /**
@@ -44,7 +45,7 @@ export async function listPublicBranches(): Promise<Branch[]> {
  * controlado, sin exponer detalles internos al cliente.
  */
 export async function getDefaultBranchId(): Promise<number | null> {
-  const defaultBranchName = process.env.DEFAULT_BRANCH_NAME?.trim();
+  const defaultBranchName = getDefaultBranchName();
 
   if (!defaultBranchName) {
     return null;

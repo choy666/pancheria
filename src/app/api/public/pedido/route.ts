@@ -28,15 +28,15 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const query = querySchema.parse(Object.fromEntries(searchParams));
   const ip = getClientIp(request);
 
-  const body = await request.json();
-  const data = orderSchema.parse(body);
-
   if (await isRateLimited(ip)) {
     return NextResponse.json(
       { error: 'Demasiados pedidos. Intentalo más tarde.' },
       { status: 429 }
     );
   }
+
+  const body = await request.json();
+  const data = orderSchema.parse(body);
 
   const branchId = query.branchId ?? (await getDefaultBranchId());
 

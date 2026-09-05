@@ -10,11 +10,12 @@
  *   5. Ejecutar tests, lint, tsc y build antes de desplegar.
  */
 import type { NextAuthConfig } from 'next-auth';
+import { getAuthSecret } from '@/config/auth';
 import { routes } from '@/config/routes';
 import { getAuthRedirect } from '@/lib/route-guard';
 
-function getAuthSecret(): string {
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+function resolveAuthSecret(): string {
+  const secret = getAuthSecret();
 
   if (!secret) {
     throw new Error(
@@ -36,7 +37,7 @@ function getAuthSecret(): string {
 
 export const authConfig = {
   providers: [],
-  secret: getAuthSecret(),
+  secret: resolveAuthSecret(),
   session: {
     strategy: 'jwt',
   },

@@ -85,4 +85,69 @@ describe('usePaymentParts', () => {
       { method: 'cash', amount: 1501 },
     ]);
   });
+
+  test('redistribuye proporciones periódicas a enteros exactos (1 y 2 a 1000)', () => {
+    const { result, rerender } = renderHook(
+      ({ total }) => usePaymentParts(total, { redistributeOnTotalChange: true }),
+      { initialProps: { total: 3 } }
+    );
+
+    act(() => {
+      result.current.setPayments([
+        { method: 'cash', amount: 1 },
+        { method: 'transfer', amount: 2 },
+      ]);
+    });
+
+    rerender({ total: 1000 });
+
+    expect(result.current.paymentParts).toEqual([
+      { method: 'cash', amount: 333 },
+      { method: 'transfer', amount: 667 },
+    ]);
+    expect(result.current.isComplete).toBe(true);
+    expect(result.current.remaining).toBe(0);
+  });
+
+  test('redistribuye tres partes con división periódica ajustando el último pago', () => {
+    const { result, rerender } = renderHook(
+      ({ total }) => usePaymentParts(total, { redistributeOnTotalChange: true }),
+      { initialProps: { total: 3 } }
+    );
+
+    act(() => {
+      result.current.setPayments([
+        { method: 'cash', amount: 1 },
+        { method: 'transfer', amount: 1 },
+        { method: 'cash', amount: 1 },
+      ]);
+    });
+
+    rerender({ total: 1000 });
+
+    expect(result.current.paid).toBe(1000);
+    expect(result.current.isComplete).toBe(true);
+  });
+
+  test('redistribuye reduciendo el total manteniendo la proporción', () => {
+    const { result, rerender } = renderHook(
+      ({ total }) => usePaymentParts(total, { redistributeOnTotalChange: true }),
+      { initialProps: { total: 1000 } }
+    );
+
+    act(() => {
+      result.current.setPayments([
+        { method: 'cash', amount: 300 },
+        { method: 'transfer', amount: 700 },
+      ]);
+    });
+
+    rerender({ total: 500 });
+
+    expect(result.current.paymentParts).toEqual([
+      { method: 'cash', amount: 150 },
+      { method: 'transfer', amount: 350 },
+    ]);
+    expect(result.current.isComplete).toBe(true);
+  });
 });

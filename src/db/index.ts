@@ -2,6 +2,7 @@ import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import { Pool as NeonPool } from '@neondatabase/serverless';
 import { Pool as PgPool } from 'pg';
+import { getDatabaseUrl } from '@/config/database';
 import * as schema from './schema';
 
 type Db =
@@ -9,18 +10,15 @@ type Db =
   | ReturnType<typeof drizzlePg<typeof schema>>;
 
 function resolveDatabaseUrl(): string {
-  const candidate =
-    process.env.DATABASE_URL ??
-    process.env.POSTGRES_URL ??
-    process.env.POSTGRES_PRISMA_URL;
+  const databaseUrl = getDatabaseUrl();
 
-  if (!candidate) {
+  if (!databaseUrl) {
     throw new Error(
       'No se encontró una URL de conexión a PostgreSQL. Definí DATABASE_URL, POSTGRES_URL o POSTGRES_PRISMA_URL en las variables de entorno.'
     );
   }
 
-  return candidate;
+  return databaseUrl;
 }
 
 function isNeonDatabase(url: string): boolean {

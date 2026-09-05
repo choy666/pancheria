@@ -1,4 +1,4 @@
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql, isNull } from 'drizzle-orm';
 import { orderStockReservations, orders } from '@/db/schema';
 
 export interface ReservationInput {
@@ -31,17 +31,21 @@ export async function findActiveReservationsByProductIds(
 ): Promise<{ productId: number; quantity: number }[]> {
   if (productIds.length === 0) return [];
 
-  const inProcessOrderIds = tx
+  const activeOrderIds = tx
     .select({ orderId: orders.id })
     .from(orders)
     .where(
-      and(eq(orders.branchId, branchId), eq(orders.status, 'in_process'))
+      and(
+        eq(orders.branchId, branchId),
+        inArray(orders.status, ['pending', 'in_process']),
+        isNull(orders.deletedAt)
+      )
     );
 
   const conditions = [
     eq(orderStockReservations.branchId, branchId),
     inArray(orderStockReservations.productId, productIds),
-    inArray(orderStockReservations.orderId, inProcessOrderIds),
+    inArray(orderStockReservations.orderId, activeOrderIds),
   ];
 
   if (excludeOrderId !== undefined) {

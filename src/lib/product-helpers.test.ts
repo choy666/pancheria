@@ -4,7 +4,7 @@ import {
   validateCartAvailability,
 } from './product-helpers';
 import type { ProductRow, SaleItemInput } from '@/domain/types';
-import type { RecipeWithSupply } from '@/application/services/summaryService';
+import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 
 var mockFindByIds: jest.Mock;
 var mockFindRecipesForProducts: jest.Mock;
@@ -15,7 +15,7 @@ jest.mock('@/repositories/productRepository', () => {
   return { findByIds: mockFindByIds };
 });
 
-jest.mock('@/application/services/summaryService', () => {
+jest.mock('@/lib/recipe-helpers', () => {
   mockFindRecipesForProducts = jest.fn();
   mockGroupRecipesByProduct = jest.fn();
   return {

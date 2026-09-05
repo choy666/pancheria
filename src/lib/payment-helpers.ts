@@ -1,4 +1,5 @@
 import { addMoney, formatMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { equal } from 'dinero.js';
 import type { PaymentMethod, PaymentPart } from '@/domain/types';
 
 export function parsePaymentAmount(raw: string): number | null {
@@ -85,7 +86,8 @@ export function validatePaymentParts(
   }
 
   const paid = sumPaymentParts(payments);
-  if (Math.round(paid) !== Math.round(total)) {
+  // Se compara en centavos con dinero.js para evitar errores de coma flotante.
+  if (!equal(parseMoney(paid), parseMoney(total))) {
     return {
       valid: false,
       error: `La suma de los pagos (${formatMoney(

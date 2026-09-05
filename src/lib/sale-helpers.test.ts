@@ -1,6 +1,6 @@
 import { buildSaleItemValues } from './sale-helpers';
 import type { ProductRow } from '@/domain/types';
-import type { RecipeWithSupply } from '@/application/services/summaryService';
+import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 
 const productById = new Map<number, ProductRow>([
   [

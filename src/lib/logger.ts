@@ -10,6 +10,8 @@
  * defecto. Evitar pasar objetos de request o respuesta completos en `extra`.
  */
 
+import { isProduction, isTest } from '@/config/env';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogPayload {
@@ -19,14 +21,12 @@ interface LogPayload {
   [key: string]: unknown;
 }
 
-const isTest = process.env.NODE_ENV === 'test';
-const isProduction = process.env.NODE_ENV === 'production';
 const isBrowser = typeof window !== 'undefined';
 
 function shouldEmit(level: LogLevel): boolean {
-  if (isTest) return false;
+  if (isTest()) return false;
   // En producción omitir logs de debug para reducir ruido.
-  if (level === 'debug' && isProduction) return false;
+  if (level === 'debug' && isProduction()) return false;
   return true;
 }
 
@@ -64,7 +64,7 @@ function writeLog(
   const payload = preparePayload(level, message, extra);
 
   // En el navegador usar siempre texto plano; en el servidor usar JSON en prod.
-  if (isProduction && !isBrowser) {
+  if (isProduction() && !isBrowser) {
     writeConsoleLog(level, JSON.stringify(payload));
   } else {
     writeConsoleLog(level, message, extra);

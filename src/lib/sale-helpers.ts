@@ -1,7 +1,7 @@
 import { addMoney, moneyToNumber, multiplyMoney, parseMoney } from '@/lib/money';
 import { buildRecipeSnapshot } from '@/lib/product-helpers';
 import type { ProductRow, RecipeItemConfig } from '@/domain/types';
-import type { RecipeWithSupply } from '@/application/services/summaryService';
+import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 
 export type SaleItemValue = {
   productId: number;

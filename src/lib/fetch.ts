@@ -1,3 +1,5 @@
+import { getApiTimeoutMs } from '@/config/network';
+
 export class FetchTimeoutError extends Error {
   constructor(message = 'La solicitud excedió el tiempo de espera.') {
     super(message);
@@ -20,13 +22,7 @@ export class FetchAbortError extends Error {
 }
 
 export function getDefaultTimeoutMs(): number {
-  const env = process.env.NEXT_PUBLIC_API_TIMEOUT_MS;
-  if (!env) return 30_000;
-
-  const parsed = Number(env);
-  if (Number.isNaN(parsed) || parsed <= 0) return 30_000;
-
-  return parsed;
+  return getApiTimeoutMs();
 }
 
 export async function authenticatedFetch(

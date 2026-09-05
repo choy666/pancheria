@@ -56,6 +56,7 @@ export type Branch = {
   phone?: string | null;
   location?: string | null;
   createdAt: Date;
+  deletedAt?: Date | null;
 };
 
 export type ProductRow = {

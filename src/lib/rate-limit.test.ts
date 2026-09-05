@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { NextRequest } from 'next/server';
+import { DomainError } from '@/domain/errors';
 import { createRateLimiter, getClientIp } from './rate-limit';
 
 jest.mock('@/lib/public-order-rate-limit-store', () => ({
@@ -53,18 +54,24 @@ describe('getClientIp', () => {
     expect(getClientIp(request)).toBe('21.22.23.24');
   });
 
-  test('ignora X-Forwarded-For fuera de desarrollo', () => {
+  test('rechaza X-Forwarded-For no confiable en producción', () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const request = createRequest({
       'x-forwarded-for': '21.22.23.24',
     });
+    expect(() => getClientIp(request)).toThrow(DomainError);
+  });
+
+  test('retorna unknown cuando no hay fuentes fuera de producción', () => {
+    Object.assign(process.env, { NODE_ENV: 'test' });
+    const request = createRequest();
     expect(getClientIp(request)).toBe('unknown');
   });
 
-  test('retorna unknown cuando no hay fuentes', () => {
+  test('rechaza request sin IP confiable en producción', () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const request = createRequest();
-    expect(getClientIp(request)).toBe('unknown');
+    expect(() => getClientIp(request)).toThrow(DomainError);
   });
 });
 

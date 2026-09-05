@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { isVercelAnalyticsEnabled } from '@/config/analytics';
 
 function injectAnalyticsScript() {
   if (typeof window === 'undefined') {
@@ -20,8 +21,7 @@ function injectAnalyticsScript() {
 }
 
 export function ConditionalAnalytics() {
-  const enabled =
-    String(process.env.NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS).trim() === 'true';
+  const enabled = isVercelAnalyticsEnabled();
 
   useEffect(() => {
     if (enabled) {

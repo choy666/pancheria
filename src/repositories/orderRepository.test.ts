@@ -12,19 +12,34 @@ var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockFrom: jest.Mock;
 var mockWhere: jest.Mock;
+var mockLimit: jest.Mock;
 var mockSelect: jest.Mock;
+var selectResult: unknown[];
 
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
   mockFindMany = jest.fn();
   const mockOrderMessagesFindMany = jest.fn().mockResolvedValue([]);
   mockReturning = jest.fn();
-  mockValues = jest.fn((data: unknown) => ({ returning: mockReturning }));
+
+  const insertBuilder = {
+    onConflictDoNothing: jest.fn().mockReturnThis(),
+    returning: mockReturning,
+  };
+  mockValues = jest.fn((data: unknown) => insertBuilder);
+
   mockInsert = jest.fn(() => ({ values: mockValues }));
   mockWhereReturning = jest.fn(() => ({ returning: mockReturning }));
   mockSet = jest.fn(() => ({ where: mockWhereReturning }));
   mockUpdate = jest.fn(() => ({ set: mockSet }));
-  mockWhere = jest.fn().mockResolvedValue([{ count: '1' }]);
+
+  selectResult = [];
+  mockLimit = jest.fn().mockImplementation(() => Promise.resolve(selectResult));
+  mockWhere = jest.fn(() => ({
+    limit: mockLimit,
+    then: (onFulfilled?: (value: unknown) => unknown) =>
+      Promise.resolve([{ count: '1' }]).then(onFulfilled),
+  }));
   mockFrom = jest.fn(() => ({ where: mockWhere }));
   mockSelect = jest.fn(() => ({ from: mockFrom }));
 
@@ -70,6 +85,7 @@ function buildOrder(overrides: Partial<typeof orders.$inferSelect> = {}): typeof
 describe('orderRepository', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    selectResult = [];
   });
 
   describe('findById', () => {
@@ -248,6 +264,38 @@ describe('orderRepository', () => {
       await expect(orderRepository.insertOrder(tx, buildOrder())).rejects.toThrow(
         'No se pudo crear el pedido.'
       );
+    });
+  });
+
+  describe('insertOrderIdempotent', () => {
+    test('inserta un pedido nuevo y devuelve isNew true', async () => {
+      const expected = buildOrder();
+      mockReturning.mockResolvedValue([expected]);
+
+      const tx: any = { insert: mockInsert, select: mockSelect };
+      const result = await orderRepository.insertOrderIdempotent(tx, expected);
+
+      expect(result.order).toEqual(expected);
+      expect(result.isNew).toBe(true);
+      expect(mockValues).toHaveBeenCalledWith(expected);
+    });
+
+    test('devuelve el pedido existente sin error cuando hay conflicto', async () => {
+      const existing = buildOrder({
+        id: 42,
+        orderNumber: 'PED-42',
+        idempotencyKey: 'key-duplicate',
+      });
+      mockReturning.mockResolvedValue([]);
+      selectResult = [existing];
+
+      const tx: any = { insert: mockInsert, select: mockSelect };
+      const values = buildOrder({ idempotencyKey: 'key-duplicate' });
+      const result = await orderRepository.insertOrderIdempotent(tx, values);
+
+      expect(result.order).toEqual(existing);
+      expect(result.isNew).toBe(false);
+      expect(mockLimit).toHaveBeenCalledWith(1);
     });
   });
 

@@ -63,12 +63,61 @@ function getStorageOrigins(): string[] {
   return origins;
 }
 
+/**
+ * Transforma la lista de dominios permitidos para imágenes externas en el
+ * formato de `remotePatterns` que requiere `next/image`. Cada entrada puede
+ * incluir o no el protocolo y, opcionalmente, un puerto. Si la variable de
+ * entorno está vacía, se devuelve un arreglo vacío.
+ */
+function getProductImageRemotePatterns() {
+  const raw = process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS ?? '';
+
+  return raw
+    .split(',')
+    .map((domain) => domain.trim().toLowerCase())
+    .filter(Boolean)
+    .map((domain) => {
+      let protocol: 'http' | 'https' = 'https';
+      let host = domain;
+
+      if (host.includes('://')) {
+        const [scheme, rest] = host.split('://', 2);
+        if (scheme === 'http' || scheme === 'https') {
+          protocol = scheme;
+        }
+        host = rest ?? '';
+      }
+
+      // Se ignora cualquier ruta o query que pueda haber quedado.
+      const hostPort = host.split('/')[0].split('?')[0].split('#')[0];
+      if (!hostPort) return null;
+
+      let hostname = hostPort;
+      let port: string | undefined;
+      const portMatch = hostname.match(/^(.+):(\d+)$/);
+      if (portMatch) {
+        hostname = portMatch[1] ?? '';
+        port = portMatch[2];
+      }
+
+      if (!hostname) return null;
+
+      return port
+        ? { protocol, hostname, port }
+        : { protocol, hostname };
+    })
+    .filter((pattern): pattern is { protocol: 'http' | 'https'; hostname: string; port?: string } => pattern !== null);
+}
+
 const nextConfig: NextConfig = {
   // Deshabilitar compresión en test para evitar advertencias de listeners y
   // posibles conflictos entre Turbopack y los tests E2E.
   compress: process.env.NODE_ENV !== 'test',
   typescript: {
     tsconfigPath: './tsconfig.build.json',
+  },
+  images: {
+    remotePatterns: getProductImageRemotePatterns(),
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
@@ -175,6 +224,11 @@ const nextConfig: NextConfig = {
   },
 };
 
+/**
+ * Nota: el bundle analyzer de Next.js no genera el reporte HTML bajo
+ * Turbopack. Para obtener el análisis completo hay que correr
+ * `ANALYZE=true next build --webpack` o forzar webpack.
+ */
 const withAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });

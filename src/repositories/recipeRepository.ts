@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { recipes, products } from '@/db/schema';
 import type { recipeItemSchema } from '@/lib/zod-schemas';
@@ -8,7 +8,11 @@ export type RecipeItemInsert = z.infer<typeof recipeItemSchema>;
 
 async function assertProductInBranch(branchId: number, productId: number) {
   const product = await db.query.products.findFirst({
-    where: and(eq(products.id, productId), eq(products.branchId, branchId)),
+    where: and(
+      eq(products.id, productId),
+      eq(products.branchId, branchId),
+      isNull(products.deletedAt)
+    ),
     columns: { id: true },
   });
   return product !== null;

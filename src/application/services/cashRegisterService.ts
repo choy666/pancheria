@@ -329,7 +329,15 @@ export async function permanentlyDeleteCashRegister(branchId: number, id: number
     throw new ValidationError('La caja no está en la papelera.');
   }
 
-  return cashRegisterRepository.hardDelete(branchId, id);
+  const result = await cashRegisterRepository.hardDelete(branchId, id);
+
+  if ('hasSales' in result && result.hasSales) {
+    throw new ValidationError(
+      'No se puede eliminar la caja porque tiene ventas asociadas.'
+    );
+  }
+
+  return result;
 }
 
 export async function listDeletedCashRegisterHistory(

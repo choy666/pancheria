@@ -6,7 +6,6 @@ import {
   lte,
   isNull,
   isNotNull,
-  inArray,
   count,
 } from 'drizzle-orm';
 import { db } from '@/db';
@@ -197,10 +196,14 @@ export async function hardDelete(branchId: number, id: number) {
       return { deleted: false };
     }
 
-    await tx
-      .update(sales)
-      .set({ cashRegisterId: null })
+    const [salesCount] = await tx
+      .select({ value: count() })
+      .from(sales)
       .where(eq(sales.cashRegisterId, id));
+
+    if (Number(salesCount?.value ?? 0) > 0) {
+      return { deleted: false, hasSales: true };
+    }
 
     await tx
       .delete(cashRegisters)
@@ -232,17 +235,25 @@ export async function hardDeleteAllDeletedInRange(
       return { deleted: 0 };
     }
 
-    const ids = rows.map((row) => row.id);
+    let deleted = 0;
 
-    await tx
-      .update(sales)
-      .set({ cashRegisterId: null })
-      .where(inArray(sales.cashRegisterId, ids));
+    for (const row of rows) {
+      const [salesCount] = await tx
+        .select({ value: count() })
+        .from(sales)
+        .where(eq(sales.cashRegisterId, row.id));
 
-    await tx
-      .delete(cashRegisters)
-      .where(inArray(cashRegisters.id, ids));
+      if (Number(salesCount?.value ?? 0) > 0) {
+        continue;
+      }
 
-    return { deleted: ids.length };
+      await tx
+        .delete(cashRegisters)
+        .where(and(eq(cashRegisters.id, row.id), eq(cashRegisters.branchId, branchId)));
+
+      deleted++;
+    }
+
+    return { deleted };
   });
 }

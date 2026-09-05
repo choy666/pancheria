@@ -5,8 +5,15 @@ import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStorageProvider } from '@/config/videos';
 import { deleteStorageFile } from '@/lib/storage';
 import {
-  getProductImageAllowedMimeTypes,
+  getBlobReadWriteToken,
   getProductImageLocalStorageBasePath,
+  getS3R2Bucket,
+  getS3R2Credentials,
+  getS3R2Endpoint,
+  getS3PublicUrlRegion,
+} from '@/config/storage';
+import {
+  getProductImageAllowedMimeTypes,
   getProductImageMaxSizeBytes,
   getProductImageAllowedExternalDomains,
   getProductImageUrlMaxLength,
@@ -160,19 +167,14 @@ function getProductImagePublicUrlForVercelBlob(key: string): string {
 }
 
 function getProductImagePublicUrlForS3R2(kind: 's3' | 'r2', key: string): string {
-  const bucket =
-    process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-  const endpoint =
-    process.env.S3_ENDPOINT ??
-    (kind === 'r2' && process.env.R2_ACCOUNT_ID
-      ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-      : undefined);
+  const bucket = getS3R2Bucket();
+  const endpoint = getS3R2Endpoint(kind);
 
   if (endpoint) {
     return `${endpoint.replace(/\/$/, '')}/${key}`;
   }
 
-  const region = process.env.S3_REGION ?? 'us-east-1';
+  const region = getS3PublicUrlRegion();
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 }
 
@@ -230,7 +232,7 @@ export async function prepareProductImageUpload(
       };
     }
     case 'vercel-blob': {
-      const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+      const token = getBlobReadWriteToken();
       if (!token) {
         throw new ValidationError(
           'Falta BLOB_READ_WRITE_TOKEN para usar el proveedor Vercel Blob.'
@@ -270,24 +272,16 @@ async function prepareS3R2Upload(
   file: ProductImageFileInfo,
   key: string
 ): Promise<ProductImageUploadInstructions> {
-  const accessKeyId =
-    process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey =
-    process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-  const region =
-    process.env.S3_REGION ?? process.env.R2_REGION ?? 'auto';
-  const endpoint =
-    process.env.S3_ENDPOINT ??
-    (kind === 'r2' && process.env.R2_ACCOUNT_ID
-      ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-      : undefined);
+  const credentials = getS3R2Credentials(kind);
 
-  if (!accessKeyId || !secretAccessKey || !bucket) {
+  if (!credentials) {
     throw new ValidationError(
       'Faltan credenciales de S3/R2. Configurá S3_* o R2_* según el proveedor.'
     );
   }
+
+  const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+    credentials;
 
   let s3Client: S3Client;
   let createPresignedPostFn: typeof createPresignedPost;
@@ -410,7 +404,7 @@ async function saveProductImageVercelBlob(
   key: string,
   info: ProductImageFileInfo
 ): Promise<SavedProductImage> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  const token = getBlobReadWriteToken();
   if (!token) {
     throw new ValidationError(
       'Falta BLOB_READ_WRITE_TOKEN para Vercel Blob.'
@@ -438,22 +432,14 @@ async function saveProductImageS3R2(
   info: ProductImageFileInfo,
   kind: 's3' | 'r2'
 ): Promise<SavedProductImage> {
-  const accessKeyId =
-    process.env.S3_ACCESS_KEY_ID ?? process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey =
-    process.env.S3_SECRET_ACCESS_KEY ?? process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.S3_BUCKET ?? process.env.R2_BUCKET_NAME;
-  const region =
-    process.env.S3_REGION ?? process.env.R2_REGION ?? 'auto';
-  const endpoint =
-    process.env.S3_ENDPOINT ??
-    (kind === 'r2' && process.env.R2_ACCOUNT_ID
-      ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-      : undefined);
+  const credentials = getS3R2Credentials(kind);
 
-  if (!accessKeyId || !secretAccessKey || !bucket) {
+  if (!credentials) {
     throw new ValidationError('Faltan credenciales de S3/R2.');
   }
+
+  const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+    credentials;
 
   let s3Client: S3Client;
   let PutObjectCommand: typeof import('@aws-sdk/client-s3').PutObjectCommand;

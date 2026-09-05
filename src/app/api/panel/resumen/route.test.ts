@@ -107,14 +107,13 @@ describe('GET /api/panel/resumen', () => {
       { isLow: false } as Awaited<ReturnType<typeof stockService.listStockAlerts>>[number],
       { isLow: true } as Awaited<ReturnType<typeof stockService.listStockAlerts>>[number],
     ]);
-    mockedOrderService.expirePendingOrders.mockResolvedValue(0);
-
-    mockedOrderService.getOrders
-      .mockResolvedValueOnce(buildOrderResult(2))
-      .mockResolvedValueOnce(buildOrderResult(1))
-      .mockResolvedValueOnce(buildOrderResult(3))
-      .mockResolvedValueOnce(buildOrderResult(4))
-      .mockResolvedValueOnce(buildOrderResult(0));
+    mockedOrderService.getOrderCountsByStatus.mockResolvedValue({
+      pending: 2,
+      in_process: 1,
+      paid: 3,
+      finished: 4,
+      cancelled: 0,
+    });
 
     const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as {
@@ -133,15 +132,21 @@ describe('GET /api/panel/resumen', () => {
       finished: 4,
       cancelled: 0,
     });
-    expect(mockedOrderService.getOrders).toHaveBeenCalledTimes(5);
-    expect(mockedOrderService.expirePendingOrders).toHaveBeenCalledWith(BRANCH_ID);
+    expect(mockedOrderService.getOrderCountsByStatus).toHaveBeenCalledWith(
+      BRANCH_ID
+    );
   });
 
   test('devuelve caja cerrada cuando no hay caja abierta', async () => {
     mockedCashRegisterService.getOpenCashRegisterSummary.mockResolvedValue(null);
     mockedStockService.listStockAlerts.mockResolvedValue([]);
-    mockedOrderService.expirePendingOrders.mockResolvedValue(0);
-    mockedOrderService.getOrders.mockResolvedValue(buildOrderResult(0));
+    mockedOrderService.getOrderCountsByStatus.mockResolvedValue({
+      pending: 0,
+      in_process: 0,
+      paid: 0,
+      finished: 0,
+      cancelled: 0,
+    });
 
     const response = await GET(buildRequest(), { params: Promise.resolve({}) });
     const body = (await response.json()) as {

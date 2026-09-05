@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { isProduction } from '@/config/env';
 
 const DEFAULT_VIDEO_MAX_SIZE_MB = 100;
 
@@ -69,7 +70,7 @@ export function getStorageProvider(): StorageProviderName {
     return 'local';
   }
 
-  if (process.env.NODE_ENV === 'production' && provider === 'local') {
+  if (isProduction() && provider === 'local') {
     logger.warn(
       'STORAGE_PROVIDER=local en producción. El filesystem de Vercel es efímero; los videos y adjuntos pueden perderse. Recomendado: vercel-blob, s3 o r2.',
       { source: 'getStorageProvider' }
