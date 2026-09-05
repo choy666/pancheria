@@ -1,8 +1,29 @@
 import { eq, and, gte, lt, count } from 'drizzle-orm';
 import { db } from '@/db';
-import { sales, saleItems, salePayments } from '@/db/schema';
+import {
+  sales,
+  saleItems,
+  saleItemRecipes,
+  salePayments,
+  products,
+  cashRegisters,
+} from '@/db/schema';
+import { DomainError } from '@/domain/errors';
 import { nowUTC } from '@/lib/date';
 import type { PaginatedResult, PaginationParams, PaymentPart, SaleStatus } from '@/domain/types';
+
+export type SaleRow = typeof sales.$inferSelect;
+
+export type SaleWithDetails = SaleRow & {
+  items: (typeof saleItems.$inferSelect & {
+    product: typeof products.$inferSelect | null;
+    recipeSnapshots: (typeof saleItemRecipes.$inferSelect)[];
+  })[];
+  payments: (typeof salePayments.$inferSelect)[];
+  cashRegister: (typeof cashRegisters.$inferSelect) | null;
+};
+
+export type SaleItemRecipeInsert = typeof saleItemRecipes.$inferInsert;
 
 export async function findById(branchId: number, id: number) {
   const result = await db.query.sales.findFirst({
@@ -144,7 +165,7 @@ export async function create(params: {
     })
     .returning();
 
-  if (!sale) throw new Error('No se pudo crear la venta.');
+  if (!sale) throw new DomainError('No se pudo crear la venta.');
 
   await db.insert(saleItems).values(
     items.map((item) => ({
@@ -180,4 +201,75 @@ export async function cancel(branchId: number, id: number, reason: string) {
     .where(and(eq(sales.id, id), eq(sales.branchId, branchId)))
     .returning();
   return result ?? null;
+}
+
+export async function insertSale(
+  tx: typeof db,
+  values: typeof sales.$inferInsert
+): Promise<typeof sales.$inferSelect | undefined> {
+  const [sale] = await tx
+    .insert(sales)
+    .values(values)
+    .onConflictDoNothing()
+    .returning();
+  return sale;
+}
+
+export async function insertItems(
+  tx: typeof db,
+  rows: (typeof saleItems.$inferInsert)[]
+): Promise<typeof saleItems.$inferSelect[]> {
+  return tx.insert(saleItems).values(rows).returning();
+}
+
+export async function insertItemRecipes(
+  tx: typeof db,
+  rows: (typeof saleItemRecipes.$inferInsert)[]
+): Promise<void> {
+  if (rows.length === 0) return;
+  await tx.insert(saleItemRecipes).values(rows);
+}
+
+export async function insertPayments(
+  tx: typeof db,
+  rows: (typeof salePayments.$inferInsert)[]
+): Promise<void> {
+  if (rows.length === 0) return;
+  await tx.insert(salePayments).values(rows);
+}
+
+export async function findByIdWithDetails(
+  tx: typeof db,
+  branchId: number,
+  id: number
+): Promise<SaleWithDetails | undefined> {
+  return tx.query.sales.findFirst({
+    where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
+    with: {
+      items: { with: { product: true, recipeSnapshots: true } },
+      payments: true,
+      cashRegister: true,
+    },
+  }) as unknown as Promise<SaleWithDetails | undefined>;
+}
+
+export async function cancelIfActive(
+  tx: typeof db,
+  branchId: number,
+  id: number,
+  values: Partial<typeof sales.$inferInsert>
+): Promise<typeof sales.$inferSelect | undefined> {
+  const [updated] = await tx
+    .update(sales)
+    .set(values)
+    .where(
+      and(
+        eq(sales.id, id),
+        eq(sales.branchId, branchId),
+        eq(sales.status, 'active')
+      )
+    )
+    .returning();
+
+  return updated;
 }

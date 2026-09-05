@@ -256,6 +256,16 @@ export function SalesHistory({
                 </TableCell>
               </TableRow>
             ))}
+            {sales.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground"
+                >
+                  No hay ventas registradas.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

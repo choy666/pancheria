@@ -1,16 +1,7 @@
-import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import {
-  recipes,
-  saleItems,
-  orderItems,
-  saleItemRecipes,
-  orderItemRecipes,
-  orderStockReservations,
-  stockMovements,
-} from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as productRepository from '@/repositories/productRepository';
+import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
@@ -117,8 +108,11 @@ export async function updateProduct(
   const updateData = { ...data };
   delete updateData.stock;
 
-  return executeInTransaction(async (tx) => {
-    const current = await productRepository.findByIdForUpdate(branchId, id, false);
+  let previousImageKey: string | null = null;
+  let shouldDeletePreviousImage = false;
+
+  const updated = await executeInTransaction(async (tx) => {
+    const current = await productRepository.findByIdForUpdate(branchId, id, false, tx);
     if (!current) throw new NotFoundError('Producto', id);
 
     try {
@@ -151,12 +145,9 @@ export async function updateProduct(
       validateProductImageUrl(updateData.imageUrl);
     }
 
-    if (
-      current.imageKey &&
-      updateData.imageKey !== current.imageKey
-    ) {
-      await deleteProductImage(current.imageKey);
-    }
+    previousImageKey = current.imageKey ?? null;
+    shouldDeletePreviousImage =
+      !!previousImageKey && updateData.imageKey !== previousImageKey;
 
     const effectiveType = updateData.type ?? current.type;
 
@@ -167,13 +158,10 @@ export async function updateProduct(
 
     if (updateData.type && updateData.type !== current.type) {
       if (current.type === 'compound') {
-        await tx.delete(recipes).where(eq(recipes.compoundProductId, id));
+        await recipeRepository.deleteByCompoundProductId(tx, id);
       }
 
-      const usedAsSupply = await tx.query.recipes.findMany({
-        where: eq(recipes.supplyId, id),
-        with: { compoundProduct: true },
-      });
+      const usedAsSupply = await recipeRepository.findBySupplyId(tx, id);
 
       const usedInActiveRecipe = usedAsSupply.some(
         (recipe) => recipe.compoundProduct && !recipe.compoundProduct.deletedAt
@@ -186,17 +174,20 @@ export async function updateProduct(
       }
     }
 
-    return productRepository.update(branchId, id, updateData);
+    return productRepository.update(branchId, id, updateData, tx);
   });
+
+  if (shouldDeletePreviousImage && previousImageKey) {
+    await deleteProductImage(previousImageKey);
+  }
+
+  return updated;
 }
 
 export async function deleteProduct(branchId: number, id: number) {
   const product = await getProductById(branchId, id);
 
-  const usedAsSupply = await db.query.recipes.findMany({
-    where: eq(recipes.supplyId, id),
-    with: { compoundProduct: true },
-  });
+  const usedAsSupply = await recipeRepository.findBySupplyId(db, id);
 
   const activePromos = usedAsSupply
     .filter(
@@ -236,38 +227,11 @@ export async function permanentlyDeleteProduct(branchId: number, id: number) {
       );
     }
 
-    const hasSaleItems = await tx.query.saleItems.findFirst({
-      where: eq(saleItems.productId, id),
-    });
-    const hasOrderItems = await tx.query.orderItems.findFirst({
-      where: eq(orderItems.productId, id),
-    });
-    const hasSaleItemRecipes = await tx.query.saleItemRecipes.findFirst({
-      where: eq(saleItemRecipes.supplyId, id),
-    });
-    const hasOrderItemRecipes = await tx.query.orderItemRecipes.findFirst({
-      where: eq(orderItemRecipes.supplyId, id),
-    });
-    const hasStockReservations = await tx.query.orderStockReservations.findFirst({
-      where: eq(orderStockReservations.productId, id),
-    });
-    const hasStockMovements = await tx.query.stockMovements.findFirst({
-      where: eq(stockMovements.productId, id),
-    });
-    const hasRecipesAsSupply = await tx.query.recipes.findFirst({
-      where: eq(recipes.supplyId, id),
-    });
+    const referencedIds = await productRepository.findReferencedProductIds(tx, [
+      id,
+    ]);
 
-    const hasReferences =
-      hasSaleItems ||
-      hasOrderItems ||
-      hasSaleItemRecipes ||
-      hasOrderItemRecipes ||
-      hasStockReservations ||
-      hasStockMovements ||
-      hasRecipesAsSupply;
-
-    if (hasReferences) {
+    if (referencedIds.has(id)) {
       throw new ValidationError(
         `No se puede eliminar permanentemente '${current.name}' porque tiene ventas, pedidos o movimientos asociados.`
       );
@@ -286,31 +250,76 @@ export async function permanentlyDeleteProduct(branchId: number, id: number) {
   return product;
 }
 
+const EMPTY_TRASH_BATCH_SIZE = 100;
+
 export async function emptyTrash(
   branchId: number,
   start: Date,
   end: Date
 ): Promise<{ deleted: number; skipped: Array<{ id: number; name: string }> }> {
-  const { items: deletedProducts } = await productRepository.findDeletedInRange(
-    branchId,
-    start,
-    end
-  );
-
   let deleted = 0;
-  const skipped: Array<{ id: number; name: string }> = [];
+  let skipped: Array<{ id: number; name: string }> = [];
+  let page = 1;
 
-  for (const product of deletedProducts) {
-    try {
-      await permanentlyDeleteProduct(branchId, product.id);
-      deleted++;
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        skipped.push({ id: product.id, name: product.name });
-      } else {
-        throw error;
+  for (;;) {
+    const { items: deletedProducts } = await productRepository.findDeletedInRange(
+      branchId,
+      start,
+      end,
+      { page, limit: EMPTY_TRASH_BATCH_SIZE }
+    );
+
+    if (deletedProducts.length === 0) break;
+
+    const productIds = deletedProducts.map((product) => product.id);
+    const imageKeysToDelete: string[] = [];
+
+    const result = await executeInTransaction(async (tx) => {
+      const referencedIds = await productRepository.findReferencedProductIds(
+        tx,
+        productIds
+      );
+
+      const deletableProducts = deletedProducts.filter(
+        (product) => !referencedIds.has(product.id)
+      );
+
+      const batchSkipped = deletedProducts
+        .filter((product) => referencedIds.has(product.id))
+        .map((product) => ({ id: product.id, name: product.name }));
+
+      if (deletableProducts.length === 0) {
+        return { deleted: 0, skipped: batchSkipped, imageKeys: [] };
       }
+
+      const deletableIds = deletableProducts.map((product) => product.id);
+      const deletedRows = await productRepository.hardDeleteMany(
+        branchId,
+        deletableIds,
+        tx
+      );
+
+      const keys = deletedRows
+        .map((row) => row.imageKey)
+        .filter((key): key is string => !!key);
+
+      return {
+        deleted: deletedRows.length,
+        skipped: batchSkipped,
+        imageKeys: keys,
+      };
+    });
+
+    deleted += result.deleted;
+    skipped = skipped.concat(result.skipped);
+    imageKeysToDelete.push(...result.imageKeys);
+
+    for (const imageKey of imageKeysToDelete) {
+      await deleteProductImage(imageKey);
     }
+
+    if (deletedProducts.length < EMPTY_TRASH_BATCH_SIZE) break;
+    page++;
   }
 
   return { deleted, skipped };

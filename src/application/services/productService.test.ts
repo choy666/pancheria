@@ -52,9 +52,10 @@ jest.mock('@/db', () => ({
 const mockedProductRepository = productRepository as jest.Mocked<
   typeof productRepository
 >;
-const mockedRecipeRepository = recipeRepository as jest.Mocked<
-  typeof recipeRepository
->;
+const mockedRecipeRepository = recipeRepository as unknown as {
+  findBySupplyId: jest.Mock;
+  deleteByCompoundProductId: jest.Mock;
+};
 const mockedSaleService = saleService as jest.Mocked<typeof saleService>;
 const mockedProductImageStorage = productImageStorage as jest.Mocked<
   typeof productImageStorage
@@ -81,10 +82,15 @@ describe('productService', () => {
   });
 
   beforeEach(() => {
+    mockedProductRepository.findByIdForUpdate.mockReset();
     mockedProductRepository.findByIdForUpdate.mockImplementation(
       async (branchId: number, id: number, includeDeleted = false) =>
         mockedProductRepository.findById(branchId, id, includeDeleted)
     );
+    mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+      new Set<number>()
+    );
+    mockedProductRepository.hardDeleteMany.mockResolvedValue([]);
   });
 
   describe('listProducts', () => {
@@ -305,7 +311,7 @@ describe('productService', () => {
         branchId: BRANCH_ID,
       } as ProductRow);
 
-      mockedDb.query.recipes.findMany.mockResolvedValue([
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([
         { compoundProduct: { deletedAt: null } },
       ]);
 
@@ -324,7 +330,7 @@ describe('productService', () => {
         branchId: BRANCH_ID,
       } as ProductRow);
 
-      mockedDb.query.recipes.findMany.mockResolvedValue([
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([
         { compoundProduct: { deletedAt: new Date() } },
       ]);
 
@@ -334,7 +340,7 @@ describe('productService', () => {
       const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.type).toBe('manual_supply');
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data);
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data, expect.anything());
     });
 
     test('actualiza un producto válido y descarta stock pero conserva minStock', async () => {
@@ -344,7 +350,7 @@ describe('productService', () => {
         branchId: BRANCH_ID,
       } as ProductRow);
 
-      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([]);
 
       const data = {
         name: 'Nuevo nombre',
@@ -359,12 +365,14 @@ describe('productService', () => {
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
         BRANCH_ID,
         1,
-        expect.not.objectContaining({ stock: expect.any(Number) })
+        expect.not.objectContaining({ stock: expect.any(Number) }),
+        expect.anything()
       );
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
         BRANCH_ID,
         1,
-        expect.objectContaining({ minStock: 10 })
+        expect.objectContaining({ minStock: 10 }),
+        expect.anything()
       );
     });
 
@@ -389,7 +397,7 @@ describe('productService', () => {
         branchId: BRANCH_ID,
       } as ProductRow);
 
-      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([]);
 
       const data = { type: 'manual_supply', price: 0 } as unknown as ProductInsert;
       mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
@@ -397,9 +405,11 @@ describe('productService', () => {
       const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.type).toBe('manual_supply');
-      expect(mockedDb.delete).toHaveBeenCalledWith(recipes);
-      expect(mockedDb.where).toHaveBeenCalled();
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data);
+      expect(mockedRecipeRepository.deleteByCompoundProductId).toHaveBeenCalledWith(
+        expect.anything(),
+        1
+      );
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data, expect.anything());
     });
 
     test('rechaza criticalSupplyType sin type en un producto no crítico', async () => {
@@ -446,8 +456,8 @@ describe('productService', () => {
       const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.name).toBe('Nuevo nombre');
-      expect(mockedDb.delete).not.toHaveBeenCalled();
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data);
+      expect(mockedRecipeRepository.deleteByCompoundProductId).not.toHaveBeenCalled();
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data, expect.anything());
     });
 
     test('permite cambiar un producto a tipo service', async () => {
@@ -457,7 +467,7 @@ describe('productService', () => {
         branchId: BRANCH_ID,
       } as ProductRow);
 
-      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([]);
 
       const data = {
         type: 'service',
@@ -477,7 +487,8 @@ describe('productService', () => {
           type: 'service',
           stock: 0,
           minStock: 0,
-        })
+        }),
+        expect.anything()
       );
     });
 
@@ -488,7 +499,7 @@ describe('productService', () => {
         branchId: BRANCH_ID,
       } as ProductRow);
 
-      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([]);
 
       const data = {
         name: 'Panchuque actualizado',
@@ -505,7 +516,8 @@ describe('productService', () => {
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
         BRANCH_ID,
         1,
-        expect.objectContaining({ stock: 0, minStock: 0 })
+        expect.objectContaining({ stock: 0, minStock: 0 }),
+        expect.anything()
       );
     });
 
@@ -531,7 +543,8 @@ describe('productService', () => {
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
         BRANCH_ID,
         1,
-        expect.objectContaining({ stock: 0, minStock: 0 })
+        expect.objectContaining({ stock: 0, minStock: 0 }),
+        expect.anything()
       );
     });
 
@@ -550,7 +563,8 @@ describe('productService', () => {
       expect(mockedProductRepository.update).toHaveBeenCalledWith(
         BRANCH_ID,
         1,
-        expect.objectContaining({ minStock: 12 })
+        expect.objectContaining({ minStock: 12 }),
+        expect.anything()
       );
     });
   });
@@ -563,7 +577,7 @@ describe('productService', () => {
         type: 'critical_supply',
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([]);
       mockedProductRepository.softDelete.mockResolvedValue({
         id: 1,
         deletedAt: new Date(),
@@ -582,7 +596,7 @@ describe('productService', () => {
         type: 'compound',
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.recipes.findMany.mockResolvedValue([]);
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([]);
       mockedProductRepository.softDelete.mockResolvedValue({
         id: 1,
         deletedAt: new Date(),
@@ -600,7 +614,7 @@ describe('productService', () => {
         type: 'critical_supply',
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.recipes.findMany.mockResolvedValue([
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([
         {
           compoundProduct: {
             type: 'compound',
@@ -625,7 +639,7 @@ describe('productService', () => {
         type: 'critical_supply',
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.recipes.findMany.mockResolvedValue([
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([
         {
           compoundProduct: {
             type: 'compound',
@@ -658,7 +672,7 @@ describe('productService', () => {
         type: 'critical_supply',
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.recipes.findMany.mockResolvedValue([
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([
         {
           compoundProduct: {
             type: 'compound',
@@ -698,7 +712,7 @@ describe('productService', () => {
         type: 'critical_supply',
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.recipes.findMany.mockResolvedValue([
+      mockedRecipeRepository.findBySupplyId.mockResolvedValue([
         {
           compoundProduct: {
             type: 'compound',
@@ -735,13 +749,9 @@ describe('productService', () => {
 
   describe('permanentlyDeleteProduct', () => {
     beforeEach(() => {
-      mockedDb.query.saleItems.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.orderItems.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.saleItemRecipes.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.orderItemRecipes.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.orderStockReservations.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.stockMovements.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+      mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+        new Set<number>()
+      );
     });
 
     test('rechaza eliminar un producto que no está en papelera', async () => {
@@ -767,7 +777,9 @@ describe('productService', () => {
         deletedAt: new Date(),
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedDb.query.saleItems.findFirst.mockResolvedValue({ id: 1 });
+      mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+        new Set([1])
+      );
 
       await expect(permanentlyDeleteProduct(BRANCH_ID, 1)).rejects.toThrow(
         ValidationError
@@ -886,38 +898,17 @@ describe('productService', () => {
         limit: 2,
       });
 
-      mockedProductRepository.findByIdForUpdate.mockResolvedValue(
-        null
-      );
-
-      mockedProductRepository.hardDelete.mockResolvedValue(
-        null
-      );
-
-      mockedDb.query.saleItems.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.orderItems.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.saleItemRecipes.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.orderItemRecipes.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.orderStockReservations.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.stockMovements.findFirst.mockResolvedValue(undefined);
-      mockedDb.query.recipes.findFirst.mockResolvedValue(undefined);
+      mockedProductRepository.hardDeleteMany.mockResolvedValue([]);
     });
 
     test('elimina productos sin referencias y omite los que tienen historial', async () => {
-      mockedProductRepository.findByIdForUpdate
-        .mockResolvedValueOnce({
-          id: 1,
-          name: 'Pancho',
-          deletedAt: new Date(),
-          imageKey: null,
-        } as ProductRow)
-        .mockRejectedValueOnce(new ValidationError('Tiene referencias'));
+      mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+        new Set([2])
+      );
 
-      mockedProductRepository.hardDelete.mockResolvedValue({
-        id: 1,
-        name: 'Pancho',
-        imageKey: null,
-      } as ProductRow);
+      mockedProductRepository.hardDeleteMany.mockResolvedValue([
+        { id: 1, name: 'Pancho', imageKey: null } as ProductRow,
+      ]);
 
       const result = await emptyTrash(
         BRANCH_ID,
@@ -932,7 +923,17 @@ describe('productService', () => {
       expect(mockedProductRepository.findDeletedInRange).toHaveBeenCalledWith(
         BRANCH_ID,
         expect.any(Date),
-        expect.any(Date)
+        expect.any(Date),
+        expect.objectContaining({ page: 1, limit: 100 })
+      );
+      expect(mockedProductRepository.findReferencedProductIds).toHaveBeenCalledWith(
+        expect.anything(),
+        [1, 2]
+      );
+      expect(mockedProductRepository.hardDeleteMany).toHaveBeenCalledWith(
+        BRANCH_ID,
+        [1],
+        expect.anything()
       );
     });
 

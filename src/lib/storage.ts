@@ -15,8 +15,85 @@ import {
   getStorageProvider as getStorageProviderName,
   type StorageProviderName,
 } from '@/config/videos';
+import { ValidationError } from '@/domain/errors';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
+
+// ---------------------------------------------------------------------------
+// Validación de firma (magic bytes)
+// ---------------------------------------------------------------------------
+// Verifica que los primeros bytes del archivo correspondan al tipo MIME
+// declarado, para no confiar únicamente en el Content-Type que envía el
+// cliente. Las firmas cubren los tipos permitidos por defecto (imágenes
+// JPEG/PNG/WebP y videos MP4/WebM/OGG) más variantes habituales
+// (QuickTime, Matroska, AVI).
+
+const SIGNATURE_READ_BYTES = 16;
+
+function matchesBytes(
+  header: Uint8Array,
+  expected: readonly number[],
+  offset = 0
+): boolean {
+  if (header.length < offset + expected.length) return false;
+  return expected.every((byte, index) => header[offset + index] === byte);
+}
+
+const signatureCheckers: Record<string, (header: Uint8Array) => boolean> = {
+  // JPEG: FF D8 FF
+  'image/jpeg': (h) => matchesBytes(h, [0xff, 0xd8, 0xff]),
+  // PNG: 89 50 4E 47 ('.PNG')
+  'image/png': (h) => matchesBytes(h, [0x89, 0x50, 0x4e, 0x47]),
+  // WebP: 'RIFF' .... 'WEBP'
+  'image/webp': (h) =>
+    matchesBytes(h, [0x52, 0x49, 0x46, 0x46]) &&
+    matchesBytes(h, [0x57, 0x45, 0x42, 0x50], 8),
+  // MP4/MOV (ISO Base Media): tamaño de caja (4 bytes) + 'ftyp'
+  'video/mp4': (h) => matchesBytes(h, [0x66, 0x74, 0x79, 0x70], 4),
+  'video/quicktime': (h) => matchesBytes(h, [0x66, 0x74, 0x79, 0x70], 4),
+  // WebM/MKV (EBML): 1A 45 DF A3
+  'video/webm': (h) => matchesBytes(h, [0x1a, 0x45, 0xdf, 0xa3]),
+  'video/x-matroska': (h) => matchesBytes(h, [0x1a, 0x45, 0xdf, 0xa3]),
+  // OGG: 'OggS'
+  'video/ogg': (h) => matchesBytes(h, [0x4f, 0x67, 0x67, 0x53]),
+  // AVI: 'RIFF' .... 'AVI '
+  'video/x-msvideo': (h) =>
+    matchesBytes(h, [0x52, 0x49, 0x46, 0x46]) &&
+    matchesBytes(h, [0x41, 0x56, 0x49, 0x20], 8),
+};
+
+/**
+ * Indica si los primeros bytes del archivo coinciden con la firma esperada
+ * para el `mimeType` declarado. Tipos sin firma conocida se rechazan
+ * (fail closed): la lista de tipos permitidos es configurable, pero un tipo
+ * sin verificación de contenido no aporta defensa contra archivos disfrazados.
+ */
+function hasExpectedFileSignature(
+  header: Uint8Array,
+  mimeType: string
+): boolean {
+  const checker = signatureCheckers[mimeType];
+  if (!checker) return false;
+  return checker(header);
+}
+
+/**
+ * Lee los primeros bytes de `file` y lanza `ValidationError` si el contenido
+ * no coincide con la firma esperada para `mimeType`.
+ */
+export async function assertFileSignature(
+  file: Blob,
+  mimeType: string
+): Promise<void> {
+  const header = new Uint8Array(
+    await file.slice(0, SIGNATURE_READ_BYTES).arrayBuffer()
+  );
+  if (!hasExpectedFileSignature(header, mimeType)) {
+    throw new ValidationError(
+      'El contenido del archivo no coincide con el tipo declarado.'
+    );
+  }
+}
 
 const mimeTypesByExtension: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -68,7 +145,7 @@ export function isValidLocalVideoKey(key: string): boolean {
 
 export function resolveLocalVideoPath(key: string, baseDir?: string): string {
   if (!isValidLocalVideoKey(key)) {
-    throw new Error('Identificador de video inválido.');
+    throw new ValidationError('Identificador de video inválido.');
   }
   const dir = baseDir ?? getLocalStorageDir();
   const resolved = path.resolve(
@@ -77,7 +154,7 @@ export function resolveLocalVideoPath(key: string, baseDir?: string): string {
   );
   const baseResolved = path.resolve(/*turbopackIgnore: true*/ dir);
   if (!resolved.startsWith(baseResolved + path.sep)) {
-    throw new Error('Ruta de video fuera del directorio permitido.');
+    throw new ValidationError('Ruta de video fuera del directorio permitido.');
   }
   return resolved;
 }
@@ -140,6 +217,9 @@ class LocalStorageProvider implements StorageProvider {
   async saveFile(key: string, file: File): Promise<string> {
     const dir = getLocalStorageDir();
     const filePath = resolveLocalVideoPath(key, dir);
+    // Validar magic bytes contra el MIME declarado (o el inferido de la clave
+    // si el cliente no envió Content-Type) antes de escribir en disco.
+    await assertFileSignature(file, file.type || guessMimeType(key));
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     const arrayBuffer = await file.arrayBuffer();
     await fs.writeFile(filePath, Buffer.from(arrayBuffer));

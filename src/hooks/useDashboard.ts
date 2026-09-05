@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { authenticatedFetch } from '@/lib/fetch';
 import { PANEL_RESUMEN_API } from '@/config/api';
 import { getDashboardRefreshIntervalMs } from '@/config/dashboard';
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus } from '@/domain/types';
 
@@ -55,42 +56,27 @@ export function useDashboard(): UseDashboardResult {
     }
   }, []);
 
+  const pollDashboard = useCallback(() => {
+    void fetchDashboard();
+  }, [fetchDashboard]);
+
+  // `immediate: false` porque la carga inicial la dispara el efecto de
+  // montaje de abajo, incluso si la pestaña arranca oculta. El hook pausa el
+  // intervalo cuando la pestaña se oculta y hace un fetch inmediato al
+  // volver a ser visible.
+  useVisibilityPolling(
+    pollDashboard,
+    DASHBOARD_REFRESH_INTERVAL_MS,
+    true,
+    false
+  );
+
   useEffect(() => {
     isMountedRef.current = true;
     queueMicrotask(() => void fetchDashboard());
 
-    let intervalId: NodeJS.Timeout | null = null;
-
-    function startInterval() {
-      intervalId = setInterval(
-        () => void fetchDashboard(),
-        DASHBOARD_REFRESH_INTERVAL_MS
-      );
-    }
-
-    function stopInterval() {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-    }
-
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        stopInterval();
-      } else {
-        queueMicrotask(() => void fetchDashboard());
-        startInterval();
-      }
-    }
-
-    startInterval();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       isMountedRef.current = false;
-      stopInterval();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchDashboard]);
 

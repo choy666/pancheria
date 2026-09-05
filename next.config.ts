@@ -1,56 +1,72 @@
 import type { NextConfig } from 'next';
 import withBundleAnalyzer from '@next/bundle-analyzer';
+// Los imports a src/ se hacen con rutas relativas porque el loader de
+// next.config.ts no resuelve los path aliases de tsconfig. El módulo
+// `storage-origins` es autocontenido (sin imports) a propósito.
+import { getStorageImageOrigins } from './src/config/storage-origins';
+import { getProductImageAllowedExternalDomains } from './src/config/product-images';
 
 /**
  * El Content-Security-Policy se genera por request en `src/proxy.ts`
  * usando un nonce. Los orígenes de imágenes y almacenamiento se resuelven
- * en `src/lib/csp-helpers.ts` para mantener la política sincronizada.
+ * en `src/lib/csp-helpers.ts` y `src/config/storage-origins.ts` para
+ * mantener la política sincronizada.
  */
 
 /**
- * Transforma la lista de dominios permitidos para imágenes externas en el
- * formato de `remotePatterns` que requiere `next/image`. Cada entrada puede
- * incluir o no el protocolo y, opcionalmente, un puerto. Si la variable de
- * entorno está vacía, se devuelve un arreglo vacío.
+ * Transforma un dominio u origen (con o sin protocolo, y opcionalmente con
+ * puerto o comodín `*`) en el formato de `remotePatterns` que requiere
+ * `next/image`. Devuelve null si la entrada no contiene un hostname válido.
  */
-function getProductImageRemotePatterns() {
-  const raw = process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS ?? '';
+function domainToRemotePattern(domain: string) {
+  let protocol: 'http' | 'https' = 'https';
+  let host = domain;
 
-  return raw
-    .split(',')
-    .map((domain) => domain.trim().toLowerCase())
-    .filter(Boolean)
-    .map((domain) => {
-      let protocol: 'http' | 'https' = 'https';
-      let host = domain;
+  if (host.includes('://')) {
+    const [scheme, rest] = host.split('://', 2);
+    if (scheme === 'http' || scheme === 'https') {
+      protocol = scheme;
+    }
+    host = rest ?? '';
+  }
 
-      if (host.includes('://')) {
-        const [scheme, rest] = host.split('://', 2);
-        if (scheme === 'http' || scheme === 'https') {
-          protocol = scheme;
-        }
-        host = rest ?? '';
-      }
+  // Se ignora cualquier ruta o query que pueda haber quedado.
+  const hostPort = host.split('/')[0].split('?')[0].split('#')[0];
+  if (!hostPort) return null;
 
-      // Se ignora cualquier ruta o query que pueda haber quedado.
-      const hostPort = host.split('/')[0].split('?')[0].split('#')[0];
-      if (!hostPort) return null;
+  let hostname = hostPort;
+  let port: string | undefined;
+  const portMatch = hostname.match(/^(.+):(\d+)$/);
+  if (portMatch) {
+    hostname = portMatch[1] ?? '';
+    port = portMatch[2];
+  }
 
-      let hostname = hostPort;
-      let port: string | undefined;
-      const portMatch = hostname.match(/^(.+):(\d+)$/);
-      if (portMatch) {
-        hostname = portMatch[1] ?? '';
-        port = portMatch[2];
-      }
+  if (!hostname) return null;
 
-      if (!hostname) return null;
+  return port
+    ? { protocol, hostname, port }
+    : { protocol, hostname };
+}
 
-      return port
-        ? { protocol, hostname, port }
-        : { protocol, hostname };
-    })
-    .filter((pattern): pattern is { protocol: 'http' | 'https'; hostname: string; port?: string } => pattern !== null);
+/**
+ * Construye la lista de `remotePatterns` para `next/image`: los dominios
+ * permitidos por `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` más el origen del
+ * proveedor de almacenamiento configurado (`vercel-blob`, `s3` o `r2`),
+ * compartido con la CSP para mantener ambas políticas sincronizadas.
+ */
+function getImageRemotePatterns() {
+  const domains = [
+    ...getProductImageAllowedExternalDomains(),
+    ...getStorageImageOrigins(),
+  ];
+
+  return domains
+    .map(domainToRemotePattern)
+    .filter(
+      (pattern): pattern is { protocol: 'http' | 'https'; hostname: string; port?: string } =>
+        pattern !== null
+    );
 }
 
 const nextConfig: NextConfig = {
@@ -61,7 +77,8 @@ const nextConfig: NextConfig = {
     tsconfigPath: './tsconfig.build.json',
   },
   images: {
-    remotePatterns: getProductImageRemotePatterns(),
+    remotePatterns: getImageRemotePatterns(),
+    formats: ['image/avif', 'image/webp'],
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],

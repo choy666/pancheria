@@ -1,7 +1,20 @@
-import { eq, and, isNull, count, lt, inArray, notInArray, ilike, or } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  isNull,
+  count,
+  lt,
+  inArray,
+  notInArray,
+  ilike,
+  or,
+} from 'drizzle-orm';
 import { db } from '@/db';
-import { orders, orderItems, orderMessages } from '@/db/schema';
+import { orders, orderItems, orderItemRecipes, orderMessages } from '@/db/schema';
+import { DomainError } from '@/domain/errors';
 import type { OrderStatus, OrderWithItems, OrderWithUnreadCount, OrderItem, RecipeItemConfig } from '@/domain/types';
+
+export type OrderItemRecipeInsert = typeof orderItemRecipes.$inferInsert;
 
 function normalizeOrder(
   order: (typeof orders.$inferSelect & {
@@ -290,7 +303,7 @@ export async function insertOrder(
   values: typeof orders.$inferInsert
 ): Promise<typeof orders.$inferSelect> {
   const [order] = await tx.insert(orders).values(values).returning();
-  if (!order) throw new Error('No se pudo crear el pedido.');
+  if (!order) throw new DomainError('No se pudo crear el pedido.');
   return order;
 }
 
@@ -326,7 +339,7 @@ export async function insertOrderIdempotent(
     .limit(1);
 
   if (!existing) {
-    throw new Error('No se pudo crear ni recuperar el pedido.');
+    throw new DomainError('No se pudo crear ni recuperar el pedido.');
   }
 
   return { order: existing, isNew: false };
@@ -337,6 +350,21 @@ export async function insertOrderItems(
   values: (typeof orderItems.$inferInsert)[]
 ): Promise<void> {
   await tx.insert(orderItems).values(values);
+}
+
+export async function insertItems(
+  tx: typeof db,
+  values: (typeof orderItems.$inferInsert)[]
+): Promise<typeof orderItems.$inferSelect[]> {
+  return tx.insert(orderItems).values(values).returning();
+}
+
+export async function insertItemRecipes(
+  tx: typeof db,
+  values: (typeof orderItemRecipes.$inferInsert)[]
+): Promise<void> {
+  if (values.length === 0) return;
+  await tx.insert(orderItemRecipes).values(values);
 }
 
 export async function updateStatus(
@@ -352,7 +380,7 @@ export async function updateStatus(
     .returning();
 
   if (!updated) {
-    throw new Error('No se pudo actualizar el pedido.');
+    throw new DomainError('No se pudo actualizar el pedido.');
   }
 
   return updated;
@@ -371,7 +399,7 @@ export async function cancel(
     .returning();
 
   if (!updated) {
-    throw new Error('No se pudo cancelar el pedido.');
+    throw new DomainError('No se pudo cancelar el pedido.');
   }
 
   return updated;
@@ -397,6 +425,9 @@ export async function findByOrderNumberAndCustomer(
 
   const order = await db.query.orders.findFirst({
     where: and(...conditions),
+    // Orden determinista: orderNumber es único por sucursal, pero la consulta
+    // no filtra por sucursal, así que ante duplicados se toma el más reciente.
+    orderBy: (o, { desc }) => [desc(o.createdAt), desc(o.id)],
     with: { branch: true, items: { with: { product: true, recipeSnapshots: true } } },
   });
 

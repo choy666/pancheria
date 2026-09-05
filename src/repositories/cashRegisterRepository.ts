@@ -1,12 +1,14 @@
 import {
   eq,
   and,
+  asc,
   desc,
   gte,
   lte,
   isNull,
   isNotNull,
   count,
+  inArray,
 } from 'drizzle-orm';
 import { db } from '@/db';
 import { cashRegisters, sales } from '@/db/schema';
@@ -18,6 +20,8 @@ import type {
   PaginationParams,
 } from '@/domain/types';
 
+export type CashRegisterRow = typeof cashRegisters.$inferSelect;
+
 export async function findOpen(branchId: number) {
   return db.query.cashRegisters.findFirst({
     where: and(
@@ -25,6 +29,9 @@ export async function findOpen(branchId: number) {
       eq(cashRegisters.status, 'open'),
       isNull(cashRegisters.deletedAt)
     ),
+    // Orden determinista: ante datos legacy con más de una caja abierta,
+    // se elige la abierta más recientemente.
+    orderBy: [desc(cashRegisters.openedAt), desc(cashRegisters.id)],
   });
 }
 
@@ -133,13 +140,17 @@ export async function findDeletedInRange(
   };
 }
 
-export async function create(params: {
-  branchId: number;
-  openedAt: Date;
-  openedBy: string;
-  initialAmount?: number;
-}) {
-  const [result] = await db
+export async function create(
+  params: {
+    branchId: number;
+    openedAt: Date;
+    openedBy: string;
+    initialAmount?: number;
+  },
+  dbOrTx?: typeof db
+) {
+  const client = dbOrTx ?? db;
+  const [result] = await client
     .insert(cashRegisters)
     .values({
       branchId: params.branchId,
@@ -155,9 +166,11 @@ export async function create(params: {
 export async function update(
   branchId: number,
   id: number,
-  data: Partial<typeof cashRegisters.$inferInsert>
+  data: Partial<typeof cashRegisters.$inferInsert>,
+  dbOrTx?: typeof db
 ) {
-  const [result] = await db
+  const client = dbOrTx ?? db;
+  const [result] = await client
     .update(cashRegisters)
     .set(data)
     .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)))
@@ -213,6 +226,54 @@ export async function hardDelete(branchId: number, id: number) {
   });
 }
 
+export async function lockCashRegisterById(
+  tx: typeof db,
+  branchId: number,
+  id: number,
+  options: { requireOpen?: boolean; requireNotDeleted?: boolean } = {}
+): Promise<CashRegisterRow | null> {
+  const conditions: ReturnType<typeof and>[] = [
+    eq(cashRegisters.id, id),
+    eq(cashRegisters.branchId, branchId),
+  ];
+
+  if (options.requireOpen) {
+    conditions.push(eq(cashRegisters.status, 'open'));
+  }
+
+  if (options.requireNotDeleted) {
+    conditions.push(isNull(cashRegisters.deletedAt));
+  }
+
+  const [locked] = await tx
+    .select()
+    .from(cashRegisters)
+    .where(and(...conditions))
+    .for('update');
+
+  return locked ?? null;
+}
+
+export async function lockOpenCashRegister(
+  tx: typeof db,
+  branchId: number
+): Promise<CashRegisterRow | null> {
+  const [locked] = await tx
+    .select()
+    .from(cashRegisters)
+    .where(
+      and(
+        eq(cashRegisters.branchId, branchId),
+        eq(cashRegisters.status, 'open'),
+        isNull(cashRegisters.deletedAt)
+      )
+    )
+    .orderBy(asc(cashRegisters.id))
+    .for('update');
+
+  return locked ?? null;
+}
+
 export async function hardDeleteAllDeletedInRange(
   branchId: number,
   start: Date,
@@ -235,25 +296,37 @@ export async function hardDeleteAllDeletedInRange(
       return { deleted: 0 };
     }
 
-    let deleted = 0;
+    const ids = rows.map((row) => row.id);
 
-    for (const row of rows) {
-      const [salesCount] = await tx
-        .select({ value: count() })
-        .from(sales)
-        .where(eq(sales.cashRegisterId, row.id));
+    // Una sola consulta agregada para saber qué cajas tienen ventas asociadas,
+    // en lugar de un count() por cada caja (patrón N+1).
+    const salesCountRows = await tx
+      .select({ cashRegisterId: sales.cashRegisterId, value: count() })
+      .from(sales)
+      .where(inArray(sales.cashRegisterId, ids))
+      .groupBy(sales.cashRegisterId);
 
-      if (Number(salesCount?.value ?? 0) > 0) {
-        continue;
-      }
+    const idsWithSales = new Set(
+      salesCountRows
+        .filter((row) => Number(row.value) > 0)
+        .map((row) => row.cashRegisterId)
+    );
 
-      await tx
-        .delete(cashRegisters)
-        .where(and(eq(cashRegisters.id, row.id), eq(cashRegisters.branchId, branchId)));
+    const deletableIds = ids.filter((id) => !idsWithSales.has(id));
 
-      deleted++;
+    if (deletableIds.length === 0) {
+      return { deleted: 0 };
     }
 
-    return { deleted };
+    await tx
+      .delete(cashRegisters)
+      .where(
+        and(
+          eq(cashRegisters.branchId, branchId),
+          inArray(cashRegisters.id, deletableIds)
+        )
+      );
+
+    return { deleted: deletableIds.length };
   });
 }

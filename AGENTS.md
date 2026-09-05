@@ -65,19 +65,19 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEW_BRANCH_NAME` (opcional) — nombre de una segunda sucursal a crear vía seed.
 - `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
 - `NEW_BRANCH_PASSWORD` (opcional) — contraseña en texto plano del usuario de la segunda sucursal; el seed la hashea con bcrypt.
-- `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms).
+- `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms; mínimo recomendado 5000 ms).
 - `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` (opcional) — horas de cierre automático de cajas abiertas (por defecto 12 horas).
 - `CAJA_AUTO_CLOSED_BY` (opcional) — etiqueta del usuario que cierra cajas automáticamente (por defecto `Sistema`).
-- `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` (opcional) — intervalo del reloj de caja en milisegundos (por defecto 60000 ms).
+- `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` (opcional) — intervalo del reloj de caja en milisegundos (por defecto 60000 ms; mínimo recomendado 10000 ms).
 - `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` (opcional) — días de historial de caja por defecto (por defecto 30 días).
 - `TRUSTED_PROXY_IP_HEADER` (opcional) — header confiable para obtener la IP real del cliente en rate limiting. Si no se define, en producción se usa el header `x-vercel-forwarded-for` y en desarrollo se usa `X-Forwarded-For` como fallback.
 - `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` (opcional) — si se define como `true`, permite usar `X-Forwarded-For` en producción cuando no hay proxy confiable configurado. Puede ser vulnerable a IP spoofing; usalo solo si un proxy sanitiza el header.
-- `NEXT_PUBLIC_WHATSAPP_NUMBER` — número de WhatsApp para pedidos, con código de país y sin signo + ni espacios.
+- `NEXT_PUBLIC_WHATSAPP_NUMBER` (opcional) — número de WhatsApp para pedidos, con código de país y sin signo + ni espacios. Si no se define, el pedido funciona sin enlace de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
 - `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del listado de pedidos del operador en milisegundos (deshabilitado por defecto; definir un valor mayor a 0 para habilitar; 0 lo deshabilita explícitamente).
-- `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del panel de control en milisegundos (por defecto 30000 ms).
+- `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del panel de control en milisegundos (por defecto 30000 ms; valores menores a 1000 ms se ajustan a 5000 ms).
 - `NEXT_PUBLIC_API_TIMEOUT_MS` (opcional) — timeout por defecto para solicitudes al API desde el cliente en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del chat del pedido en milisegundos (por defecto 5000 ms).
 - `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` (opcional) — longitud máxima de un mensaje de chat en caracteres (por defecto 1000).
@@ -91,6 +91,9 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
 - `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV` (opcional) — si se define como `true`, activa el rate limit de pedidos en `NODE_ENV=development`. Por defecto está deshabilitado en desarrollo para evitar falsos positivos por la IP compartida de loopback (`127.0.0.1` / `::1`).
 - `E2E_ENABLE_RATE_LIMIT` (opcional) — si se define como `true`, activa el rate limit de pedidos en `NODE_ENV=test` (usado por el suite de Playwright).
+- `BASE_URL` (opcional) — URL base para Playwright (por defecto `http://localhost:3000`).
+- `NO_WEB_SERVER` (opcional) — si se define como `1` u otro valor no vacío, deshabilita el `webServer` de Playwright para reutilizar un servidor ya levantado (`npm run dev:e2e`).
+- `NO_GLOBAL_SETUP` (opcional) — si se define como `1` u otro valor no vacío, salta `tests/e2e/global-setup.ts` cuando el servidor y la base de datos ya están preparados.
 - `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup` y `GET /api/cron/chat-attachments-cleanup`. Si no se define, los endpoints rechazan todas las llamadas.
 
 > Los schedules de los cron jobs (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`) están definidos en `vercel.json` (`0 0 * * *` por defecto). Vercel Cron Jobs no leen variables de entorno para el `schedule`; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente).

@@ -140,9 +140,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }
 
-  const referencedKeys = new Set(
-    await orderMessageRepository.findAllAttachmentKeys()
-  );
+  const CHAT_ATTACHMENTS_BATCH_SIZE = 500;
+  const referencedKeys = new Set<string>();
+
+  for (let offset = 0; ; offset += CHAT_ATTACHMENTS_BATCH_SIZE) {
+    const batch = await orderMessageRepository.findAllAttachmentKeys({
+      limit: CHAT_ATTACHMENTS_BATCH_SIZE,
+      offset,
+    });
+
+    for (const key of batch) {
+      referencedKeys.add(key);
+    }
+
+    if (batch.length < CHAT_ATTACHMENTS_BATCH_SIZE) break;
+  }
 
   const provider = getStorageProvider();
   let deleted = 0;

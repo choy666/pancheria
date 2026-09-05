@@ -10,6 +10,7 @@ import {
   getCajaRefreshInterval,
 } from '@/config/caja';
 import type { CashRegister } from '@/config/caja';
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 
 export interface UseCashRegisterResult {
   cashRegister: CashRegister | null;
@@ -61,40 +62,22 @@ export function useCashRegister(): UseCashRegisterResult {
   }, []);
 
 
+  const pollCaja = useCallback(() => {
+    void fetchCaja();
+  }, [fetchCaja]);
+
+  // `immediate: false` porque la carga inicial la dispara el efecto de
+  // montaje de abajo, incluso si la pestaña arranca oculta. El hook pausa el
+  // intervalo cuando la pestaña se oculta y hace un fetch inmediato al
+  // volver a ser visible.
+  useVisibilityPolling(pollCaja, getCajaRefreshInterval(), true, false);
+
   useEffect(() => {
     isMountedRef.current = true;
     queueMicrotask(() => void fetchCaja());
 
-    const intervalDuration = getCajaRefreshInterval();
-    let intervalId: NodeJS.Timeout | null = null;
-
-    function startInterval() {
-      intervalId = setInterval(() => void fetchCaja(), intervalDuration);
-    }
-
-    function stopInterval() {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-    }
-
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        stopInterval();
-      } else {
-        queueMicrotask(() => void fetchCaja());
-        startInterval();
-      }
-    }
-
-    startInterval();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       isMountedRef.current = false;
-      stopInterval();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchCaja]);
 

@@ -1,6 +1,7 @@
 import { eq, and, isNull, isNotNull, asc, desc, sql, gt, lt, count } from 'drizzle-orm';
 import { db } from '@/db';
 import { orderMessages } from '@/db/schema';
+import { DomainError } from '@/domain/errors';
 import { nowUTC } from '@/lib/date';
 import type { OrderMessageSenderType } from '@/domain/types';
 
@@ -63,7 +64,7 @@ export async function insertMessage(
   const [message] = await tx.insert(orderMessages).values(values).returning();
 
   if (!message) {
-    throw new Error('No se pudo crear el mensaje.');
+    throw new DomainError('No se pudo crear el mensaje.');
   }
 
   return message;
@@ -125,11 +126,24 @@ export async function countUnreadByOrderAndSender(
   return Number(rows[0]?.count ?? 0);
 }
 
-export async function findAllAttachmentKeys(): Promise<string[]> {
-  const rows = await db
+export async function findAllAttachmentKeys(
+  options: { limit?: number; offset?: number } = {}
+): Promise<string[]> {
+  let query = db
     .select({ attachmentKey: orderMessages.attachmentKey })
     .from(orderMessages)
-    .where(isNotNull(orderMessages.attachmentKey));
+    .where(isNotNull(orderMessages.attachmentKey))
+    .$dynamic();
+
+  if (options.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+
+  if (options.offset !== undefined) {
+    query = query.offset(options.offset);
+  }
+
+  const rows = await query;
 
   return rows.map((row) => row.attachmentKey as string);
 }

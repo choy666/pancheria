@@ -1,3 +1,4 @@
+import { sql, gte, eq, and } from 'drizzle-orm';
 import {
   calculateAvailability,
   calculateAvailabilityForProductIds,
@@ -235,10 +236,39 @@ function setProducts(productsList: Partial<ProductRow>[]) {
   mockedProductRepository.findById.mockImplementation(
     async (_branchId: number, id: number) => normalized.find((p) => p.id === id) ?? null
   );
+  mockedProductRepository.lockForUpdate.mockResolvedValue([]);
+  mockedProductRepository.decrementStock.mockImplementation(
+    async (tx: typeof db, productId: number, quantity: number) => {
+      const product = await mockedProductRepository.findById(BRANCH_ID, productId);
+      if (product && product.stock < quantity) {
+        return false;
+      }
+      await tx
+        .update(products)
+        .set({ stock: sql`${products.stock} - ${quantity}` })
+        .where(and(eq(products.id, productId), gte(products.stock, quantity)))
+        .returning({ id: products.id });
+      return true;
+    }
+  );
+  mockedProductRepository.incrementStock.mockImplementation(
+    async (tx: typeof db, productId: number, quantity: number) => {
+      await tx
+        .update(products)
+        .set({ stock: sql`${products.stock} + ${quantity}` })
+        .where(eq(products.id, productId));
+    }
+  );
 }
 
 function findCapturedInsert(table: unknown) {
   return capturedInserts.filter((c) => c.table === table);
+}
+
+function capturedRows<T = unknown>(table: unknown): T[] {
+  return findCapturedInsert(table).flatMap((c) =>
+    Array.isArray(c.data) ? (c.data as T[]) : ([c.data] as T[])
+  );
 }
 
 function findCapturedUpdate(table: unknown) {
@@ -954,11 +984,11 @@ describe('confirmSale', () => {
     expect(findCapturedInsert(sales).length).toBe(1);
     expect(findCapturedInsert(saleItems).length).toBe(1);
     expect(findCapturedInsert(salePayments).length).toBe(1);
-    expect(findCapturedInsert(stockMovements).length).toBe(1);
     expect(findCapturedUpdate(products).length).toBe(1);
 
-    const movement = findCapturedInsert(stockMovements)[0].data as StockMovementInsert;
-    expect(movement.quantity).toBe(-5);
+    const stockMovementRows = capturedRows<StockMovementInsert>(stockMovements);
+    expect(stockMovementRows.length).toBe(1);
+    expect(stockMovementRows[0].quantity).toBe(-5);
   });
 
   test('vincula la venta a la caja abierta', async () => {
@@ -1155,10 +1185,10 @@ describe('confirmSale', () => {
     expect(productUpdates[0].data).toMatchObject({ stock: expect.any(Object) });
     expect(productUpdates[1].data).toMatchObject({ stock: expect.any(Object) });
 
-    const movements = findCapturedInsert(stockMovements);
-    expect(movements.length).toBe(2);
-    expect((movements[0].data as StockMovementInsert).quantity).toBe(-9);
-    expect((movements[1].data as StockMovementInsert).quantity).toBe(-18);
+    const stockMovementRows = capturedRows<StockMovementInsert>(stockMovements);
+    expect(stockMovementRows.length).toBe(2);
+    expect(stockMovementRows[0].quantity).toBe(-9);
+    expect(stockMovementRows[1].quantity).toBe(-18);
   });
 
   test('descuenta stock de un combo y una bebida en la misma venta', async () => {
@@ -1222,11 +1252,11 @@ describe('confirmSale', () => {
     expect(productUpdates[0].data).toMatchObject({ stock: expect.any(Object) });
     expect(productUpdates[1].data).toMatchObject({ stock: expect.any(Object) });
 
-    const movements = findCapturedInsert(stockMovements);
-    expect(movements.length).toBe(2);
+    const stockMovementRows = capturedRows<StockMovementInsert>(stockMovements);
+    expect(stockMovementRows.length).toBe(2);
 
-    const quantities = movements
-      .map((m) => (m.data as StockMovementInsert).quantity)
+    const quantities = stockMovementRows
+      .map((m) => m.quantity)
       .sort((a, b) => a - b);
     expect(quantities).toEqual([-4, -3]);
   });
@@ -1297,9 +1327,9 @@ describe('cancelSale', () => {
 
     expect(findCapturedUpdate(products).length).toBe(1);
 
-    const movements = findCapturedInsert(stockMovements);
-    expect(movements.length).toBe(1);
-    expect((movements[0].data as StockMovementInsert).quantity).toBe(4);
+    const stockMovementRows = capturedRows<StockMovementInsert>(stockMovements);
+    expect(stockMovementRows.length).toBe(1);
+    expect(stockMovementRows[0].quantity).toBe(4);
   });
 
   test('lanza NotFoundError si la venta no existe', async () => {

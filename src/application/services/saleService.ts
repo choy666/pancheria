@@ -1,28 +1,20 @@
-import { eq, sql, and, inArray, gte, asc } from 'drizzle-orm';
 import { db } from '@/db';
+import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
+import { nowUTC } from '@/lib/date';
 import {
-  cashRegisters,
-  products,
-  sales,
-  saleItems,
-  saleItemRecipes,
-  salePayments,
-  stockMovements,
-} from '@/db/schema';
+  DomainError,
+  InsufficientStockError,
+  NotFoundError,
+  ValidationError,
+} from '@/domain/errors';
+import * as productRepository from '@/repositories/productRepository';
+import * as saleRepository from '@/repositories/saleRepository';
+import * as stockMovementRepository from '@/repositories/stockMovementRepository';
+import type { StockMovementInsert } from '@/repositories/stockMovementRepository';
+import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import * as idempotencyService from '@/application/idempotencyService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
-import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
-import { nowUTC } from '@/lib/date';
-import { InsufficientStockError, NotFoundError, ValidationError } from '@/domain/errors';
-import type {
-  PaymentPart,
-  ProductRow,
-  ProductType,
-  SaleItemInput,
-  StockMovementType,
-} from '@/domain/types';
-
 import { type RecipeWithSupply } from '@/lib/recipe-helpers';
 import { addItemToSummary } from '@/lib/summary-helpers';
 import {
@@ -39,6 +31,13 @@ import {
   amountByPaymentMethod,
   validatePaymentParts,
 } from '@/lib/payment-helpers';
+import type {
+  PaymentPart,
+  ProductRow,
+  ProductType,
+  SaleItemInput,
+  StockMovementType,
+} from '@/domain/types';
 
 export { validateCartAvailability } from '@/lib/product-helpers';
 
@@ -53,7 +52,7 @@ export type { ProductAvailability, RecipeBreakdownItem } from '@/lib/product-hel
 
 async function updateCashRegisterSummary(
   tx: typeof db,
-  cashRegister: (typeof cashRegisters.$inferSelect) | null,
+  cashRegister: import('@/repositories/cashRegisterRepository').CashRegisterRow | null,
   saleItems: SaleItemValue[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>,
@@ -101,9 +100,10 @@ async function updateCashRegisterSummary(
     );
   }
 
-  await tx
-    .update(cashRegisters)
-    .set({
+  await cashRegisterRepository.update(
+    cashRegister.branchId,
+    cashRegister.id,
+    {
       total,
       cashTotal,
       transferTotal,
@@ -111,13 +111,9 @@ async function updateCashRegisterSummary(
       productsSummary,
       criticalSuppliesSummary,
       recipeSuppliesSummary,
-    })
-    .where(
-      and(
-        eq(cashRegisters.id, cashRegister.id),
-        eq(cashRegisters.branchId, cashRegister.branchId)
-      )
-    );
+    },
+    tx
+  );
 }
 
 async function deductStockForItems(
@@ -138,13 +134,10 @@ async function deductStockForItems(
   const reason = buildStockMovementReason(movementType, source.saleId);
 
   if (idsToLock.length > 0) {
-    await tx
-      .select()
-      .from(products)
-      .where(inArray(products.id, idsToLock))
-      .orderBy(asc(products.id))
-      .for('update');
+    await productRepository.lockForUpdate(tx, idsToLock);
   }
+
+  const movementRows: StockMovementInsert[] = [];
 
   for (const item of items) {
     const product = productById.get(item.productId)!;
@@ -157,16 +150,7 @@ async function deductStockForItems(
         recipesByProduct,
         recipeSnapshot
       )) {
-        const [updated] = await tx
-          .update(products)
-          .set({ stock: sql`${products.stock} - ${consumed}` })
-          .where(
-            and(
-              eq(products.id, supplyId),
-              gte(products.stock, consumed)
-            )
-          )
-          .returning({ id: products.id });
+        const updated = await productRepository.decrementStock(tx, supplyId, consumed);
 
         if (!updated) {
           throw new InsufficientStockError(
@@ -177,7 +161,7 @@ async function deductStockForItems(
           );
         }
 
-        await tx.insert(stockMovements).values({
+        movementRows.push({
           branchId,
           productId: supplyId,
           type: movementType,
@@ -192,13 +176,11 @@ async function deductStockForItems(
       product.type === 'critical_supply' &&
       product.criticalSupplyType === 'beverage'
     ) {
-      const [updated] = await tx
-        .update(products)
-        .set({ stock: sql`${products.stock} - ${item.quantity}` })
-        .where(
-          and(eq(products.id, product.id), gte(products.stock, item.quantity))
-        )
-        .returning({ id: products.id });
+      const updated = await productRepository.decrementStock(
+        tx,
+        product.id,
+        item.quantity
+      );
 
       if (!updated) {
         throw new InsufficientStockError(
@@ -208,7 +190,7 @@ async function deductStockForItems(
         );
       }
 
-      await tx.insert(stockMovements).values({
+      movementRows.push({
         branchId,
         productId: product.id,
         type: movementType,
@@ -223,6 +205,8 @@ async function deductStockForItems(
       // automáticos. Los insumos manuales se controlan fuera del flujo de venta.
     }
   }
+
+  await stockMovementRepository.insertMany(tx, movementRows);
 }
 
 async function reintegrateStockAndUpdateCashRegister(
@@ -302,13 +286,10 @@ async function reintegrateStockForItems(
   const reason = buildStockMovementReason(movementType, source.saleId);
 
   if (idsToLock.length > 0) {
-    await tx
-      .select()
-      .from(products)
-      .where(inArray(products.id, idsToLock))
-      .orderBy(asc(products.id))
-      .for('update');
+    await productRepository.lockForUpdate(tx, idsToLock);
   }
+
+  const movementRows: StockMovementInsert[] = [];
 
   for (const item of items) {
     const product = productById.get(item.productId);
@@ -322,12 +303,9 @@ async function reintegrateStockForItems(
         recipesByProduct,
         recipeSnapshot
       )) {
-        await tx
-          .update(products)
-          .set({ stock: sql`${products.stock} + ${reintegrated}` })
-          .where(eq(products.id, supplyId));
+        await productRepository.incrementStock(tx, supplyId, reintegrated);
 
-        await tx.insert(stockMovements).values({
+        movementRows.push({
           branchId,
           productId: supplyId,
           type: movementType,
@@ -342,12 +320,9 @@ async function reintegrateStockForItems(
       product.type === 'critical_supply' &&
       product.criticalSupplyType === 'beverage'
     ) {
-      await tx
-        .update(products)
-        .set({ stock: sql`${products.stock} + ${item.quantity}` })
-        .where(eq(products.id, product.id));
+      await productRepository.incrementStock(tx, product.id, item.quantity);
 
-      await tx.insert(stockMovements).values({
+      movementRows.push({
         branchId,
         productId: product.id,
         type: movementType,
@@ -361,12 +336,14 @@ async function reintegrateStockForItems(
       // Los servicios y los insumos manuales no reintegran stock al anularse.
     }
   }
+
+  await stockMovementRepository.insertMany(tx, movementRows);
 }
 
 export async function insertSaleAndUpdateCashRegister(
   tx: typeof db,
   branchId: number,
-  cashRegister: (typeof cashRegisters.$inferSelect) | null,
+  cashRegister: import('@/repositories/cashRegisterRepository').CashRegisterRow | null,
   idempotencyKey: string,
   payments: PaymentPart[],
   saleItemValues: SaleItemValue[],
@@ -376,18 +353,14 @@ export async function insertSaleAndUpdateCashRegister(
   const total = sumPaymentParts(payments);
   const primaryPaymentMethod = payments[0]?.method ?? 'cash';
 
-  const [sale] = await tx
-    .insert(sales)
-    .values({
-      branchId,
-      total,
-      paymentMethod: primaryPaymentMethod,
-      cashRegisterId: cashRegister?.id ?? null,
-      idempotencyKey,
-      createdAt: nowUTC(),
-    })
-    .onConflictDoNothing()
-    .returning();
+  const sale = await saleRepository.insertSale(tx, {
+    branchId,
+    total,
+    paymentMethod: primaryPaymentMethod,
+    cashRegisterId: cashRegister?.id ?? null,
+    idempotencyKey,
+    createdAt: nowUTC(),
+  });
 
   if (!sale) {
     const existing = await idempotencyService.findExistingByIdempotencyKey(
@@ -397,22 +370,23 @@ export async function insertSaleAndUpdateCashRegister(
       tx
     );
     if (!existing) {
-      throw new Error('No se pudo crear ni recuperar la venta.');
+      throw new DomainError('No se pudo crear ni recuperar la venta.');
     }
     return existing;
   }
 
-  const insertedSaleItems = await tx
-    .insert(saleItems)
-    .values(
-      saleItemValues.map((item) => ({
-        ...item,
-        saleId: sale.id,
-      }))
-    )
-    .returning();
+  const insertedSaleItems = await saleRepository.insertItems(
+    tx,
+    saleItemValues.map((item) => ({
+      saleId: sale.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+    }))
+  );
 
-  const recipeRows: (typeof saleItemRecipes.$inferInsert)[] = [];
+  const recipeRows: saleRepository.SaleItemRecipeInsert[] = [];
   for (let i = 0; i < insertedSaleItems.length; i++) {
     const saleItem = insertedSaleItems[i];
     const snapshot = saleItemValues[i].recipeSnapshot ?? [];
@@ -431,20 +405,16 @@ export async function insertSaleAndUpdateCashRegister(
     }
   }
 
-  if (recipeRows.length > 0) {
-    await tx.insert(saleItemRecipes).values(recipeRows);
-  }
+  await saleRepository.insertItemRecipes(tx, recipeRows);
 
-  if (payments.length > 0) {
-    await tx.insert(salePayments).values(
-      payments.map((payment) => ({
-        saleId: sale.id,
-        method: payment.method,
-        amount: payment.amount,
-        createdAt: nowUTC(),
-      }))
-    );
-  }
+  const paymentRows = payments.map((payment) => ({
+    saleId: sale.id,
+    method: payment.method,
+    amount: payment.amount,
+    createdAt: nowUTC(),
+  }));
+
+  await saleRepository.insertPayments(tx, paymentRows);
 
   await deductStockForItems(
     tx,
@@ -556,14 +526,7 @@ export async function cancelSale(
   reason: string
 ) {
   return executeInTransaction(async (tx) => {
-    const sale = (await tx.query.sales.findFirst({
-      where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
-      with: {
-        items: { with: { product: true, recipeSnapshots: true } },
-        payments: true,
-        cashRegister: true,
-      },
-    })) as {
+    const sale = (await saleRepository.findByIdWithDetails(tx, branchId, id)) as {
       id: number;
       branchId: number;
       total: number;
@@ -638,26 +601,14 @@ export async function cancelSale(
         : undefined,
     }));
 
-    const [locked] = await tx
-      .update(sales)
-      .set({
-        status: 'cancelled',
-        cancelledAt: nowUTC(),
-        cancellationReason: reason,
-      })
-      .where(
-        and(
-          eq(sales.id, id),
-          eq(sales.branchId, branchId),
-          eq(sales.status, 'active')
-        )
-      )
-      .returning();
+    const locked = await saleRepository.cancelIfActive(tx, branchId, id, {
+      status: 'cancelled',
+      cancelledAt: nowUTC(),
+      cancellationReason: reason,
+    });
 
     if (!locked) {
-      const current = await tx.query.sales.findFirst({
-        where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
-      });
+      const current = await saleRepository.findById(branchId, id);
       if (current?.status === 'cancelled') {
         return current;
       }

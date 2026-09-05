@@ -172,13 +172,16 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
       unit: 'unidad',
       isActive: true,
     });
-    await restockProductViaApi(page, product.id, 5);
+    const initialStock = 5;
+    await restockProductViaApi(page, product.id, initialStock);
 
     await page.goto('/pedido');
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText(`Disponible: ${initialStock} unidades`);
 
     await page.getByTestId(`add-product-${product.id}`).click();
     await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();

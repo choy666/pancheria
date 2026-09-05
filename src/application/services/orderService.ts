@@ -1,9 +1,12 @@
-import { inArray, eq, and, asc } from 'drizzle-orm';
 import { db } from '@/db';
-import { sales, products, stockMovements, orderItems, orderItemRecipes, orderMessages } from '@/db/schema';
 import * as orderRepository from '@/repositories/orderRepository';
+import type { OrderItemRecipeInsert } from '@/repositories/orderRepository';
+import * as productRepository from '@/repositories/productRepository';
+import * as stockMovementRepository from '@/repositories/stockMovementRepository';
+import type { StockMovementInsert } from '@/repositories/stockMovementRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
+import type { SaleRow } from '@/repositories/saleRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
@@ -132,18 +135,18 @@ async function insertStockReserveMovements(
 
   const reason = buildStockMovementReason(type, undefined, orderId);
 
-  await tx.insert(stockMovements).values(
-    reservations.map((reservation) => ({
-      branchId,
-      productId: reservation.productId,
-      type,
-      quantity: type === 'reserve' ? -reservation.quantity : reservation.quantity,
-      saleId: null as number | null,
-      orderId,
-      reason,
-      createdAt: nowUTC(),
-    }))
-  );
+  const rows: StockMovementInsert[] = reservations.map((reservation) => ({
+    branchId,
+    productId: reservation.productId,
+    type,
+    quantity: type === 'reserve' ? -reservation.quantity : reservation.quantity,
+    saleId: null,
+    orderId,
+    reason,
+    createdAt: nowUTC(),
+  }));
+
+  await stockMovementRepository.insertMany(tx, rows);
 }
 
 function buildReservationsForItems(
@@ -261,12 +264,12 @@ export async function createOrder(
 
     const orderItemsToInsert = buildOrderItemValues(orderItemValues, order.id);
 
-    const insertedOrderItems = await tx
-      .insert(orderItems)
-      .values(orderItemsToInsert)
-      .returning();
+    const insertedOrderItems = await orderRepository.insertItems(
+      tx,
+      orderItemsToInsert
+    );
 
-    const recipeRows: (typeof orderItemRecipes.$inferInsert)[] = [];
+    const recipeRows: OrderItemRecipeInsert[] = [];
     for (let i = 0; i < insertedOrderItems.length; i++) {
       const orderItem = insertedOrderItems[i];
       const snapshot = orderItemValues[i].recipeSnapshot ?? [];
@@ -285,13 +288,11 @@ export async function createOrder(
       }
     }
 
-    if (recipeRows.length > 0) {
-      await tx.insert(orderItemRecipes).values(recipeRows);
-    }
+    await orderRepository.insertItemRecipes(tx, recipeRows);
 
     const recipeMessage = buildRecipeSnapshotMessageContent(orderItemValues);
     if (recipeMessage) {
-      await tx.insert(orderMessages).values({
+      await orderMessageRepository.insertMessage(tx, {
         orderId: order.id,
         senderType: 'operator',
         senderName: 'Sistema',
@@ -386,7 +387,7 @@ export async function cancelOrder(
 
 export async function convertOrderToSale(
   input: ConvertOrderInput
-): Promise<typeof sales.$inferSelect> {
+): Promise<SaleRow> {
   const { branchId, orderId, payments, idempotencyKey } = input;
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
@@ -479,17 +480,7 @@ export async function convertOrderToSale(
     );
 
     if (productIdsToLock.length > 0) {
-      await tx
-        .select()
-        .from(products)
-        .where(
-          and(
-            eq(products.branchId, branchId),
-            inArray(products.id, productIdsToLock)
-          )
-        )
-        .orderBy(asc(products.id))
-        .for('update');
+      await productRepository.lockForUpdate(tx, productIdsToLock, branchId);
     }
 
     const itemsForValidation = toSaleItemInputWithSelection(order.items);
@@ -600,12 +591,7 @@ export async function receiveOrder(
     );
 
     if (productIdsToLock.length > 0) {
-      await tx
-        .select()
-        .from(products)
-        .where(inArray(products.id, productIdsToLock))
-        .orderBy(asc(products.id))
-        .for('update');
+      await productRepository.lockForUpdate(tx, productIdsToLock);
     }
 
     const itemsForValidation = toSaleItemInputWithSelection(

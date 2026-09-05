@@ -116,4 +116,34 @@ describe('POST /api/public/pedido/[id]/chat/upload', () => {
     expect(response.status).toBe(400);
     expect(mockedChatService.sendClientMessage).not.toHaveBeenCalled();
   });
+
+  test('sube un adjunto sin contenido', async () => {
+    const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
+
+    const response = await POST(
+      buildRequest(createFormData(file)),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockedChatService.sendClientMessage).toHaveBeenCalledWith(
+      ORDER_ID,
+      TOKEN,
+      expect.objectContaining({ content: null })
+    );
+  });
+
+  test('rechaza un contenido que supera el máximo permitido', async () => {
+    const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
+    const formData = createFormData(file, 'a'.repeat(1001));
+
+    const response = await POST(
+      buildRequest(formData),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedChatStorage.saveChatAttachment).not.toHaveBeenCalled();
+    expect(mockedChatService.sendClientMessage).not.toHaveBeenCalled();
+  });
 });

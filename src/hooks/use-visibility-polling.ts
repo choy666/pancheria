@@ -12,18 +12,27 @@ import { useEffect, useRef } from 'react';
  * @param enabled - Si es `false` no inicia el intervalo ni escucha eventos.
  * @param immediate - Si es `true` llama a `callback` inmediatamente al montar
  *   cuando la pestaña ya está visible. Por defecto `true`.
+ * @param onResume - Función opcional que se ejecuta cuando la pestaña vuelve
+ *   a ser visible, justo antes de `callback`. Útil para resetear estado
+ *   interno (p. ej. backoff de reintentos) al reanudar el polling.
  */
 export function useVisibilityPolling(
   callback: () => void,
   intervalMs: number,
   enabled: boolean = true,
-  immediate: boolean = true
+  immediate: boolean = true,
+  onResume?: () => void
 ): void {
   const savedCallback = useRef(callback);
+  const savedOnResume = useRef(onResume);
 
   useEffect(() => {
     savedCallback.current = callback;
   }, [callback]);
+
+  useEffect(() => {
+    savedOnResume.current = onResume;
+  }, [onResume]);
 
   useEffect(() => {
     if (!enabled) {
@@ -53,6 +62,7 @@ export function useVisibilityPolling(
       }
 
       stopInterval();
+      savedOnResume.current?.();
       savedCallback.current();
       startInterval();
     }
@@ -74,5 +84,7 @@ export function useVisibilityPolling(
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
+    // `onResume` se lee desde una ref para no reiniciar el intervalo
+    // cuando cambie la referencia de la función.
   }, [enabled, immediate, intervalMs]);
 }

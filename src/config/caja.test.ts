@@ -59,6 +59,16 @@ describe('caja config', () => {
     expect(getCajaClockIntervalMs()).toBe(60000);
   });
 
+  test('getCajaClockIntervalMs ajusta al mínimo valores menores a 10 segundos', () => {
+    process.env.NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS = '5000';
+    expect(getCajaClockIntervalMs()).toBe(10000);
+  });
+
+  test('getCajaClockIntervalMs ajusta al mínimo valores positivos muy bajos', () => {
+    process.env.NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS = '1';
+    expect(getCajaClockIntervalMs()).toBe(10000);
+  });
+
   test('getDefaultCajaHistoryDays usa el valor por defecto', () => {
     delete process.env.CAJA_DEFAULT_HISTORY_DAYS;
     delete process.env.NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS;
@@ -87,6 +97,16 @@ describe('caja config', () => {
 
   test('getCajaRefreshInterval ignora valores inválidos', () => {
     process.env.NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS = '0';
+    expect(getCajaRefreshInterval()).toBe(5000);
+  });
+
+  test('getCajaRefreshInterval ajusta al mínimo valores menores a 5 segundos', () => {
+    process.env.NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS = '1000';
+    expect(getCajaRefreshInterval()).toBe(5000);
+  });
+
+  test('getCajaRefreshInterval ajusta al mínimo valores positivos muy bajos', () => {
+    process.env.NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS = '1';
     expect(getCajaRefreshInterval()).toBe(5000);
   });
 });

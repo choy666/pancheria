@@ -128,4 +128,34 @@ describe('POST /api/pedidos/[id]/chat/upload', () => {
     expect(response.status).toBe(400);
     expect(mockedChatService.sendOperatorMessage).not.toHaveBeenCalled();
   });
+
+  test('sube un adjunto sin contenido', async () => {
+    const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
+
+    const response = await POST(
+      buildRequest(createFormData(file)),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockedChatService.sendOperatorMessage).toHaveBeenCalledWith(
+      ORDER_ID,
+      BRANCH_ID,
+      expect.objectContaining({ content: null })
+    );
+  });
+
+  test('rechaza un contenido que supera el máximo permitido', async () => {
+    const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
+    const formData = createFormData(file, 'a'.repeat(1001));
+
+    const response = await POST(
+      buildRequest(formData),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedChatStorage.saveChatAttachment).not.toHaveBeenCalled();
+    expect(mockedChatService.sendOperatorMessage).not.toHaveBeenCalled();
+  });
 });

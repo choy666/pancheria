@@ -33,9 +33,11 @@ interface ProductImageProps {
 }
 
 function ProductImage({ imageUrl, productName }: ProductImageProps) {
-  const [imageError, setImageError] = useState(false);
+  // Se guarda la URL que falló (en lugar de un booleano) para que el estado de
+  // error se reinicie solo cuando cambia la imagen, sin forzar un remount.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
-  if (imageError) {
+  if (failedUrl === imageUrl) {
     return (
       <div
         className="flex h-full w-full items-center justify-center text-muted-foreground"
@@ -56,7 +58,7 @@ function ProductImage({ imageUrl, productName }: ProductImageProps) {
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
       loading="lazy"
       priority={false}
-      onError={() => setImageError(true)}
+      onError={() => setFailedUrl(imageUrl)}
     />
   );
 }
@@ -140,7 +142,6 @@ export function ProductCard({
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
           {product.imageUrl ? (
             <ProductImage
-              key={product.imageUrl}
               imageUrl={product.imageUrl}
               productName={product.name}
             />
@@ -163,7 +164,12 @@ export function ProductCard({
           {formatMoney(product.price)}
         </p>
 
-        <p className="text-sm text-muted-foreground">{availabilityLabel}</p>
+        <p
+          data-testid="product-availability"
+          className="text-sm text-muted-foreground"
+        >
+          {availabilityLabel}
+        </p>
 
         {product.type === 'compound' && includedItems.length > 0 && (
           <p className="text-sm text-muted-foreground">
@@ -178,9 +184,9 @@ export function ProductCard({
               Ver insumos
             </summary>
             <ul className="mt-2 space-y-1 pl-4">
-              {breakdown.map((item, index) => (
+              {breakdown.map((item) => (
                 <li
-                  key={index}
+                  key={item.supplyName}
                   className={item.isLimiting ? 'font-medium text-foreground' : ''}
                 >
                   {item.supplyName}: {item.available} disp., {item.required} req.

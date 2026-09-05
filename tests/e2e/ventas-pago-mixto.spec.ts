@@ -19,11 +19,18 @@ test.describe('Pago mixto en el terminal de ventas', () => {
   }) => {
     await ensureCashRegisterOpen(page);
 
+    // Los montos esperados se derivan de los datos del test para no
+    // hardcodear valores formateados en las aserciones.
+    const cashPayment = 1000;
+    const transferPayment = 500;
+    const expectedMoney = (amount: number) =>
+      `$ ${new Intl.NumberFormat('es-AR').format(amount)}`;
+
     const bebida = await createProductViaApi(page, {
       name: unique('Bebida mixto'),
       type: 'critical_supply',
       criticalSupplyType: 'beverage',
-      price: 1500,
+      price: cashPayment + transferPayment,
       unit: 'unidad',
       minStock: 0,
       isActive: true,
@@ -51,9 +58,9 @@ test.describe('Pago mixto en el terminal de ventas', () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Ingresar pago en efectivo.
-    await page.getByTestId('payment-cash-input').fill('1000');
+    await page.getByTestId('payment-cash-input').fill(String(cashPayment));
     // Ingresar pago con transferencia.
-    await page.getByTestId('payment-transfer-input').fill('500');
+    await page.getByTestId('payment-transfer-input').fill(String(transferPayment));
 
     await expect(page.getByTestId('payment-remaining-badge')).toHaveText(
       'Pago completo',
@@ -72,12 +79,16 @@ test.describe('Pago mixto en el terminal de ventas', () => {
     // Verificar caja.
     await page.goto('/cierre');
     await expect(page.getByTestId('cash-register-total')).toHaveText(
-      'Total: $ 1.500',
+      `Total: ${expectedMoney(cashPayment + transferPayment)}`,
       { timeout: 10000 }
     );
-    await expect(page.getByText('Efectivo en ventas: $ 1.000')).toBeVisible();
-    await expect(page.getByText('Transferencia: $ 500')).toBeVisible();
-    await expect(page.getByText('Ventas: 1')).toBeVisible();
+    await expect(
+      page.getByTestId('cash-register-cash-total')
+    ).toHaveText(expectedMoney(cashPayment));
+    await expect(
+      page.getByTestId('cash-register-transfer-total')
+    ).toHaveText(expectedMoney(transferPayment));
+    await expect(page.getByTestId('cash-register-sales-count')).toHaveText('1');
 
     await expect(
       page.locator('[data-testid="cash-register-product-item"]').filter({

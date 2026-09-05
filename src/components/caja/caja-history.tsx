@@ -179,6 +179,14 @@ export function CajaHistory({
 
   const branchNameById = new Map(branches?.map((b) => [b.id, b.name]));
 
+  // Columnas base: ID, Apertura, Cierre, Estado, Ventas, Total, Inicial,
+  // Efectivo, Transferencia, Diferencia, Abierta por, Cerrada por y Acciones.
+  const columnCount =
+    13 +
+    (deletedOnly ? 1 : 0) +
+    (showAutoColumn ? 1 : 0) +
+    (isAdmin ? 1 : 0);
+
   return (
     <div className="space-y-5">
       {actionError && <p className="text-destructive">{actionError}</p>}
@@ -249,7 +257,10 @@ export function CajaHistory({
                     )
                   }
                 >
-                  <TableCell className="hidden sm:table-cell font-mono">
+                  <TableCell
+                    data-testid={`cash-register-id-${cashRegister.id}`}
+                    className="hidden sm:table-cell font-mono"
+                  >
                     #{cashRegister.id}
                   </TableCell>
                   <TableCell>{formatDateTime(cashRegister.openedAt)}</TableCell>
@@ -332,6 +343,18 @@ export function CajaHistory({
                 </TableRow>
               );
             })}
+            {cashRegisters.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={columnCount}
+                  className="text-center text-muted-foreground"
+                >
+                  {deletedOnly
+                    ? 'No hay cajas eliminadas.'
+                    : 'No hay cajas en el historial.'}
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

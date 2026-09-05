@@ -34,4 +34,23 @@ export async function findByCompoundProductId(
   });
 }
 
+export async function findBySupplyId(
+  dbOrTx: typeof db = db,
+  supplyId: number
+) {
+  return dbOrTx.query.recipes.findMany({
+    where: eq(recipes.supplyId, supplyId),
+    with: {
+      compoundProduct: true,
+    },
+  });
+}
 
+export async function deleteByCompoundProductId(
+  dbOrTx: typeof db = db,
+  compoundProductId: number
+): Promise<void> {
+  await dbOrTx
+    .delete(recipes)
+    .where(eq(recipes.compoundProductId, compoundProductId));
+}

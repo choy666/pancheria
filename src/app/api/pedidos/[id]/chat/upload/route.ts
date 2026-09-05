@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { saveChatAttachment } from '@/lib/chat-storage';
+import { chatMessageContentSchema } from '@/lib/zod-schemas';
 import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
+
+// El contenido es opcional en el upload porque el adjunto ya es suficiente;
+// cuando viene, se valida con la misma regla que el endpoint de texto.
+const uploadBodySchema = chatMessageContentSchema.partial();
 
 export const POST = withApiErrorHandling(
   withAuth(async (
@@ -23,7 +28,7 @@ export const POST = withApiErrorHandling(
 
     const formData = await request.formData();
     const file = formData.get('file');
-    const content = formData.get('content');
+    const contentField = formData.get('content');
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -32,10 +37,14 @@ export const POST = withApiErrorHandling(
       );
     }
 
+    const { content } = uploadBodySchema.parse({
+      content: typeof contentField === 'string' ? contentField : undefined,
+    });
+
     const attachment = await saveChatAttachment(file, orderId);
 
     const message = await chatService.sendOperatorMessage(orderId, branchId, {
-      content: typeof content === 'string' ? content : null,
+      content: content ?? null,
       attachment: {
         url: attachment.publicUrl,
         key: attachment.key,

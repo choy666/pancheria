@@ -1,12 +1,25 @@
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 
-// Cargar .env.local como base y luego .env.e2e para que E2E tenga valores
-// aislados sin modificar la configuracion de desarrollo.
+// Cargar .env.local como base y luego .env.e2e con prioridad.
+// Se ignoran las entradas vacías de .env.e2e para evitar que dotenv pise
+// valores de .env.local con cadenas vacías (comportamiento de override).
 dotenv.config({ path: '.env.local' });
-dotenv.config({ path: '.env.e2e', override: true });
+
+try {
+  const e2ePath = path.resolve('.env.e2e');
+  const e2eEnv = dotenv.parse(fs.readFileSync(e2ePath));
+  for (const [key, value] of Object.entries(e2eEnv)) {
+    if (value.trim() !== '') {
+      process.env[key] = value;
+    }
+  }
+} catch {
+  // Si .env.e2e no existe, .env.local sigue siendo la fuente.
+}
 
 function resolveNextBin(): string {
   const require = createRequire(import.meta.url);

@@ -3,6 +3,7 @@ import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import { Pool as NeonPool } from '@neondatabase/serverless';
 import { Pool as PgPool } from 'pg';
 import { getDatabaseUrl } from '@/config/database';
+import { DatabaseConnectionError } from '@/domain/errors';
 import * as schema from './schema';
 
 type Db =
@@ -13,7 +14,7 @@ function resolveDatabaseUrl(): string {
   const databaseUrl = getDatabaseUrl();
 
   if (!databaseUrl) {
-    throw new Error(
+    throw new DatabaseConnectionError(
       'No se encontró una URL de conexión a PostgreSQL. Definí DATABASE_URL, POSTGRES_URL o POSTGRES_PRISMA_URL en las variables de entorno.'
     );
   }

@@ -267,6 +267,16 @@ export function StockList() {
                 ))}
               </Fragment>
             ))}
+            {groupedProducts.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="text-center text-muted-foreground"
+                >
+                  No hay productos para mostrar.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

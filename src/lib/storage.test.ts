@@ -51,8 +51,23 @@ jest.mock('./public-url', () => ({
   getPublicBaseUrl: jest.fn().mockReturnValue('http://localhost:3000'),
 }));
 
+// Prefijos de firma (magic bytes) por tipo MIME para que los archivos de
+// prueba superen la validación de contenido de `saveFile`.
+const SIGNATURE_PREFIX: Record<string, number[]> = {
+  'video/mp4': [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], // '....ftyp'
+  'video/webm': [0x1a, 0x45, 0xdf, 0xa3],
+  'video/ogg': [0x4f, 0x67, 0x67, 0x53], // 'OggS'
+  'image/jpeg': [0xff, 0xd8, 0xff],
+  'image/png': [0x89, 0x50, 0x4e, 0x47],
+  'image/webp': [
+    0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+  ], // 'RIFF....WEBP'
+};
+
 function createFile(name: string, type: string, size: number): File {
-  return new File([new Uint8Array(size)], name, { type });
+  const prefix = SIGNATURE_PREFIX[type] ?? [];
+  const padding = new Uint8Array(Math.max(size - prefix.length, 0));
+  return new File([new Uint8Array(prefix), padding], name, { type });
 }
 
 describe('helpers de storage', () => {
@@ -124,6 +139,19 @@ describe('LocalStorageProvider', () => {
     expect(mockMkdir).toHaveBeenCalled();
     expect(mockWriteFile).toHaveBeenCalled();
     expect(url).toContain('abc123.mp4');
+  });
+
+  test('saveFile rechaza un archivo cuyo contenido no coincide con el tipo declarado', async () => {
+    const provider = getStorageProvider('local');
+    // Declarado como mp4 pero con bytes nulos (sin 'ftyp').
+    const file = new File([new Uint8Array(100)], 'video.mp4', {
+      type: 'video/mp4',
+    });
+
+    await expect(provider.saveFile!('abc123.mp4', file)).rejects.toThrow(
+      'El contenido del archivo no coincide con el tipo declarado.'
+    );
+    expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
   test('readFile devuelve el buffer y el MIME', async () => {

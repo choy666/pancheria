@@ -1,3 +1,4 @@
+import { sql, gte, eq, and } from 'drizzle-orm';
 import {
   createOrder,
   receiveOrder,
@@ -273,6 +274,7 @@ function findCapturedUpdate(table: unknown) {
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/orderMessageRepository', () => ({
   countUnreadByOrderAndSender: jest.fn(),
+  insertMessage: jest.fn(),
 }));
 jest.mock('@/repositories/orderStockReservationRepository', () => ({
   findByOrderId: jest.fn(),
@@ -333,6 +335,21 @@ function setProducts(productsList: Partial<ProductRow>[]) {
     async (_branchId: number, id: number) =>
       normalized.find((p) => p.id === id) ?? null
   );
+  mockedProductRepository.lockForUpdate.mockResolvedValue([]);
+  mockedProductRepository.decrementStock.mockImplementation(
+    async (tx: typeof db, productId: number, quantity: number) => {
+      const product = await mockedProductRepository.findById(BRANCH_ID, productId);
+      if (product && product.stock < quantity) {
+        return false;
+      }
+      await tx
+        .update(products)
+        .set({ stock: sql`${products.stock} - ${quantity}` })
+        .where(and(eq(products.id, productId), gte(products.stock, quantity)))
+        .returning({ id: products.id });
+      return true;
+    }
+  );
 }
 
 function setRecipes(recipesList: RecipeWithSupply[]) {
@@ -362,6 +379,15 @@ describe('orderService', () => {
       createOpenCashRegister()
     );
     mockedOrderMessageRepository.countUnreadByOrderAndSender.mockResolvedValue(0);
+    mockedOrderMessageRepository.insertMessage.mockImplementation(
+      async (tx: typeof db, values: typeof orderMessages.$inferInsert) => {
+        const [message] = await tx
+          .insert(orderMessages)
+          .values(values)
+          .returning();
+        return message;
+      }
+    );
   });
 
   afterEach(() => {
@@ -1052,8 +1078,9 @@ describe('orderService', () => {
         ?.data as Partial<OrderRow>;
       expect(orderUpdate.status).toBe('paid');
 
-      const stockMovement = findCapturedInsert(stockMovements)[0]
-        ?.data as typeof stockMovements.$inferInsert;
+      const stockMovementsData = findCapturedInsert(stockMovements)[0]
+        ?.data as (typeof stockMovements.$inferInsert)[];
+      const stockMovement = stockMovementsData[0];
       expect(stockMovement.type).toBe('sale');
       expect(stockMovement.quantity).toBe(-2);
       expect(stockMovement.saleId).toBe(1);
@@ -1115,7 +1142,7 @@ describe('orderService', () => {
         reason: 'Reserva liberada del pedido #1',
       });
 
-      const saleData = stockMovementInserts[1]?.data as typeof stockMovements.$inferInsert;
+      const saleData = (stockMovementInserts[1]?.data as (typeof stockMovements.$inferInsert)[])[0];
       expect(saleData).toMatchObject({
         productId: 1,
         type: 'sale',

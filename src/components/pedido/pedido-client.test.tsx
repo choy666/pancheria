@@ -555,7 +555,9 @@ describe('PedidoClient', () => {
       expect(
         screen.getByText('Dirección: Av. Pellegrini 1234, Rosario')
       ).toBeInTheDocument();
-      expect(screen.getByText('Teléfono: 3415555555')).toBeInTheDocument();
+      expect(screen.getByTestId('branch-phone')).toHaveTextContent(
+        `Teléfono: ${branch.phone}`
+      );
       const mapLink = screen.getByText('Ver en mapa');
       expect(mapLink).toBeInTheDocument();
       expect(mapLink).toHaveAttribute(

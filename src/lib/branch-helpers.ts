@@ -1,4 +1,5 @@
 import type { Branch, BranchOpeningHours } from '@/domain/types';
+import { ValidationError } from '@/domain/errors';
 import { getBranchTimezone } from '@/config/branch';
 
 const DAYS = [
@@ -19,7 +20,7 @@ export function validateOpeningHours(
   hours: unknown
 ): asserts hours is BranchOpeningHours[] {
   if (!Array.isArray(hours)) {
-    throw new Error('Los horarios de apertura deben ser un arreglo.');
+    throw new ValidationError('Los horarios de apertura deben ser un arreglo.');
   }
 
   for (const item of hours) {
@@ -34,13 +35,13 @@ export function validateOpeningHours(
       !isValidTime(item.open) ||
       !isValidTime(item.close)
     ) {
-      throw new Error(
+      throw new ValidationError(
         'Cada horario debe tener dayOfWeek (0-6), open y close en formato HH:mm.'
       );
     }
 
     if (item.close <= item.open) {
-      throw new Error(
+      throw new ValidationError(
         `El horario de cierre debe ser posterior al de apertura (${item.open} - ${item.close}).`
       );
     }
@@ -50,7 +51,7 @@ export function validateOpeningHours(
   for (const item of hours) {
     const key = `${item.dayOfWeek}-${item.open}-${item.close}`;
     if (seen.has(key)) {
-      throw new Error('No puede haber horarios duplicados para el mismo día.');
+      throw new ValidationError('No puede haber horarios duplicados para el mismo día.');
     }
     seen.add(key);
   }
@@ -67,7 +68,7 @@ export function validateOpeningHours(
       prev.dayOfWeek === current.dayOfWeek &&
       minutesOf(prev.close) > minutesOf(current.open)
     ) {
-      throw new Error(
+      throw new ValidationError(
         `Los horarios del ${DAYS[current.dayOfWeek]} se solapan (${prev.open} - ${prev.close} y ${current.open} - ${current.close}).`
       );
     }

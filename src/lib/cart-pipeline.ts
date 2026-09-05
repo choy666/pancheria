@@ -1,5 +1,4 @@
-import { and, eq, inArray, asc } from 'drizzle-orm';
-import { products } from '@/db/schema';
+import * as productRepository from '@/repositories/productRepository';
 import type { ProductRow, RecipeItemConfig, SaleItemInput } from '@/domain/types';
 import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 import {
@@ -72,17 +71,11 @@ export async function prepareCart(
     );
 
     if (productIdsToLock.length > 0) {
-      await dbOrTx
-        .select()
-        .from(products)
-        .where(
-          and(
-            eq(products.branchId, branchId),
-            inArray(products.id, productIdsToLock)
-          )
-        )
-        .orderBy(asc(products.id))
-        .for('update');
+      await productRepository.lockForUpdate(
+        dbOrTx,
+        productIdsToLock,
+        branchId
+      );
     }
   }
 

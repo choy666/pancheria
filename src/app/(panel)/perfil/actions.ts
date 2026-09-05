@@ -1,10 +1,8 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { auth } from '@/auth';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import * as userService from '@/application/services/userService';
 import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import {
   validateMinLength,
@@ -38,9 +36,7 @@ export async function changePassword(
       throw new ValidationError('Las contraseñas nuevas no coinciden.');
     }
 
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
+    const user = await userService.findById(userId);
 
     if (!user) {
       throw new NotFoundError('Usuario', userId);
@@ -52,9 +48,7 @@ export async function changePassword(
       throw new ValidationError('La contraseña actual es incorrecta.');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-
-    await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+    await userService.updatePassword(userId, newPassword);
 
     return { success: 'Contraseña actualizada correctamente.' };
   } catch (error) {

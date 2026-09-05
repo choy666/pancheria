@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { stockMovements } from '@/db/schema';
 import type { PaginatedResult, PaginationParams, StockMovementType } from '@/domain/types';
 
+export type StockMovementInsert = typeof stockMovements.$inferInsert;
+
 export async function findByProductId(
   branchId: number,
   productId: number,
@@ -50,4 +52,12 @@ export async function create(params: {
     })
     .returning();
   return result;
+}
+
+export async function insertMany(
+  tx: typeof db,
+  rows: (typeof stockMovements.$inferInsert)[]
+): Promise<void> {
+  if (rows.length === 0) return;
+  await tx.insert(stockMovements).values(rows);
 }

@@ -145,7 +145,8 @@ jobs:
           console.log('DATABASE_URL configurada para E2E.');
           "
 
-      - run: npx drizzle-kit push --force
+      - name: Aplicar migraciones en la base E2E descartable
+        run: npx drizzle-kit migrate
         timeout-minutes: 5
 
       - run: npx playwright install --with-deps

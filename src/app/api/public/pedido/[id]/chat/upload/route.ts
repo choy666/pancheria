@@ -4,6 +4,7 @@ import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { deleteChatAttachment, saveChatAttachment } from '@/lib/chat-storage';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
+import { chatMessageContentSchema } from '@/lib/zod-schemas';
 import {
   getChatRateLimitWindowMs,
   getChatRateLimitMaxRequests,
@@ -13,6 +14,10 @@ import { parseId } from '@/lib/id';
 const querySchema = z.object({
   token: z.string().min(1),
 });
+
+// El contenido es opcional en el upload porque el adjunto ya es suficiente;
+// cuando viene, se valida con la misma regla que el endpoint de texto.
+const uploadBodySchema = chatMessageContentSchema.partial();
 
 const isRateLimited = createRateLimiter(
   'chat',
@@ -47,7 +52,7 @@ export const POST = withApiErrorHandling(
 
     const formData = await request.formData();
     const file = formData.get('file');
-    const content = formData.get('content');
+    const contentField = formData.get('content');
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -56,11 +61,15 @@ export const POST = withApiErrorHandling(
       );
     }
 
+    const { content } = uploadBodySchema.parse({
+      content: typeof contentField === 'string' ? contentField : undefined,
+    });
+
     const attachment = await saveChatAttachment(file, orderId);
 
     try {
       const message = await chatService.sendClientMessage(orderId, query.token, {
-        content: typeof content === 'string' ? content : null,
+        content: content ?? null,
         attachment: {
           url: attachment.publicUrl,
           key: attachment.key,
