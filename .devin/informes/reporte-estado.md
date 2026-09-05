@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-09-05  
 **Proyecto:** `pancheria`  
-**Baseline:** `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` (`main`) — merge de `fix/hallazgos-auditoria-2026-09-05` completado; pendiente `npx drizzle-kit check`  
+**Baseline:** `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` (`main`) — merge de `fix/hallazgos-auditoria-2026-09-05` completado; verificaciones base y E2E OK  
 **Auditoría:** Masiva integral — 9 áreas — **con implementación de todos los hallazgos abiertos**  
 **Histórico:** Fases anteriores en `.devin/informes/archivados/reporte-estado-2026-09-04.md`
 
@@ -66,7 +66,7 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 | `npm test` | **144 suites, 1393 tests pasan** |
 | `npm run build` | Build exitoso, 73 rutas/páginas |
 | `npm run knip` | Pasa (sin exports/dependencias sin uso) |
-| `npx drizzle-kit check` | No ejecutado (esquema sin cambios desde `0027`) |
+| `npx drizzle-kit check` | **Pasa**: esquema y migraciones consistentes contra `.env.e2e` |
 | `npm run analyze` | No ejecutado (limitación conocida bajo Turbopack) |
 | `npm run test:e2e` | **Pasa: 110/110 tests (18.1 min)** contra la base descartable de `.env.e2e` |
 
@@ -245,13 +245,13 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | División de `validateCartAvailability` | Diferido — extracción riesgosa sin ganancia inmediata |
 
 ### Pendiente de ejecución
-1. ✅ `npm run test:e2e` — ejecutado sobre `.env.e2e`: **110/110 tests pasaron** (incluye accesibilidad axe-core, responsive, pagos mixtos, chat con adjuntos, expiración y aislamiento por sucursal).
-2. `npx drizzle-kit check` — sin cambios de esquema, pero conviene verificar drift si la base local se sincronizó por SQL directo. **No ejecutado**: la base configurada en `.env.local` no cumple el patrón descartable (`test/e2e/testing/qa/staging`). Requiere `.env.e2e` con una base de prueba.
+1. ✅ `npm run test:e2e` — re-ejecutado sobre `.env.e2e`: **110/110 tests pasaron** (18.1m; incluye accesibilidad axe-core, responsive, pagos mixtos, chat con adjuntos, expiración y aislamiento por sucursal).
+2. ✅ `npx drizzle-kit check` — ejecutado sobre la base de `.env.e2e`: sin drift; esquema y migraciones consistentes.
 
 ## 8. Cierre
 
 - Baseline: `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` en `main` — merge de `fix/hallazgos-auditoria-2026-09-05` (commit `d9692bd`) completado.
 - Verificaciones base ejecutadas sobre el estado final: `npm run lint`, `npx tsc --noEmit`, `npm test` (144 suites / 1393 tests), `npm run build` (73 rutas), `npm run knip` y `npm run test:e2e` (110/110 tests) — todas pasan.
-- Sin cambios de esquema: no se generaron migraciones; queda pendiente `npx drizzle-kit check` sobre base de prueba.
+- Sin cambios de esquema: no se generaron migraciones; `npx drizzle-kit check` sobre base de `.env.e2e` pasó sin drift.
 - Índices `.devin` actualizados: prompt de implementación de hallazgos archivado en `prompts/archivados/` y READMEs actualizados.
 - No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit generate/push/migrate` ni `npx vercel env pull` por requerir confirmación explícita (el seed de la base E2E lo realizó `global-setup.ts` como parte del suite).
