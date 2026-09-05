@@ -11,17 +11,12 @@ import {
 import {
   getE2eEnableRateLimit,
   getPublicOrderRateLimitEnableInDev,
+  getPublicRateLimitTrustPrivateIps,
 } from '@/config/rate-limit';
 
 function getFirstHeaderValue(value: string | null): string | null {
   if (!value) return null;
   return value.split(',')[0].trim();
-}
-
-function getLastHeaderValue(value: string | null): string | null {
-  if (!value) return null;
-  const parts = value.split(',');
-  return parts[parts.length - 1].trim();
 }
 
 export function getClientIp(request: NextRequest): string {
@@ -37,14 +32,10 @@ export function getClientIp(request: NextRequest): string {
   const trustedHeader = getTrustedProxyIpHeader();
   if (trustedHeader) {
     const headerValue = request.headers.get(trustedHeader.toLowerCase());
-    // X-Forwarded-For puede contener una cadena de IPs; el proxy más cercano
-    // agrega la IP al final, por lo que se usa el último valor para evitar spoofing.
-    const isForwardedFor =
-      trustedHeader.toLowerCase() === 'x-forwarded-for' ||
-      trustedHeader.toLowerCase() === 'x-real-ip';
-    const trustedValue = isForwardedFor
-      ? getLastHeaderValue(headerValue)
-      : getFirstHeaderValue(headerValue);
+    // X-Forwarded-For puede contener una cadena de IPs. Si confiamos en el
+    // header porque está detrás de un proxy controlado, el primer valor es la
+    // IP del cliente original. X-Real-IP suele traer un solo valor.
+    const trustedValue = getFirstHeaderValue(headerValue);
     if (trustedValue) return trustedValue;
   }
 
@@ -54,10 +45,18 @@ export function getClientIp(request: NextRequest): string {
     if (forwarded) return forwarded;
   }
 
+  // Escape controlado para producción auto-alojada sin proxy confiable.
+  // Usar el primer valor de X-Forwarded-For puede ser vulnerable a spoofing,
+  // por eso requiere activación explícita mediante variable de entorno.
+  if (isProduction() && getPublicRateLimitTrustPrivateIps()) {
+    const forwarded = getFirstHeaderValue(request.headers.get('x-forwarded-for'));
+    if (forwarded) return forwarded;
+  }
+
   if (isProduction()) {
     throw new DomainError(
       'No se pudo resolver una IP confiable para aplicar rate limit. ' +
-        'Configurá TRUSTED_PROXY_IP_HEADER si no usás Vercel.'
+        'Configurá TRUSTED_PROXY_IP_HEADER o PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true si no usás Vercel.'
     );
   }
 
@@ -65,7 +64,7 @@ export function getClientIp(request: NextRequest): string {
 }
 
 export function createRateLimiter(
-  _scope: string,
+  scope: string,
   windowMs: number,
   maxRequests: number
 ) {
@@ -83,6 +82,6 @@ export function createRateLimiter(
       return false;
     }
 
-    return store.recordRequest(ip, windowMs, maxRequests);
+    return store.recordRequest(scope, ip, windowMs, maxRequests);
   };
 }

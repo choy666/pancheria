@@ -409,6 +409,7 @@ describe('orderService', () => {
       expect(reserveRows).toHaveLength(1);
       expect(reserveRows[0]?.type).toBe('reserve');
       expect(reserveRows[0]?.quantity).toBe(-2);
+      expect(reserveRows[0]?.orderId).toBe(1);
     });
 
     test('crea un pedido con promo sin descontar insumos compartidos', async () => {
@@ -467,6 +468,7 @@ describe('orderService', () => {
       expect(reserveRows).toHaveLength(1);
       expect(reserveRows[0]?.type).toBe('reserve');
       expect(reserveRows[0]?.quantity).toBe(-4);
+      expect(reserveRows[0]?.orderId).toBe(1);
     });
 
     test('crea dos orderItems con snapshots distintos para el mismo producto con selecciones diferentes', async () => {
@@ -761,6 +763,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'reserve',
         quantity: -2,
+        orderId: 1,
         reason: 'Reservado para pedido #1',
       });
     });
@@ -829,8 +832,8 @@ describe('orderService', () => {
       expect(reserveData).toHaveLength(2);
       expect(reserveData).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ productId: 2, type: 'reserve', quantity: -2 }),
-          expect.objectContaining({ productId: 3, type: 'reserve', quantity: -4 }),
+          expect.objectContaining({ productId: 2, type: 'reserve', quantity: -2, orderId: 1 }),
+          expect.objectContaining({ productId: 3, type: 'reserve', quantity: -4, orderId: 1 }),
         ])
       );
     });
@@ -941,6 +944,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'reserve_release',
         quantity: 2,
+        orderId: 1,
         reason: 'Reserva liberada del pedido #1',
       });
     });
@@ -1067,6 +1071,7 @@ describe('orderService', () => {
       expect(stockMovement.type).toBe('sale');
       expect(stockMovement.quantity).toBe(-2);
       expect(stockMovement.saleId).toBe(1);
+      expect(stockMovement.orderId).toBeNull();
     });
 
     test('libera reserva y descuenta stock al confirmar un pedido recibido', async () => {
@@ -1120,6 +1125,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'reserve_release',
         quantity: 2,
+        orderId: 1,
         reason: 'Reserva liberada del pedido #1',
       });
 
@@ -1128,6 +1134,7 @@ describe('orderService', () => {
         productId: 1,
         type: 'sale',
         quantity: -2,
+        orderId: null,
       });
     });
 

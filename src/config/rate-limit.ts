@@ -23,3 +23,7 @@ export function getE2eEnableRateLimit(): boolean {
 export function getPublicOrderRateLimitEnableInDev(): boolean {
   return process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV === 'true';
 }
+
+export function getPublicRateLimitTrustPrivateIps(): boolean {
+  return process.env.PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS === 'true';
+}

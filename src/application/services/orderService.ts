@@ -110,6 +110,7 @@ function toSaleItemInputWithSelection(
     quantity: item.quantity,
     selectedRecipeItemIds:
       item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [],
+    recipeSnapshot: item.recipeSnapshot,
   }));
 }
 
@@ -138,6 +139,7 @@ async function insertStockReserveMovements(
       type,
       quantity: type === 'reserve' ? -reservation.quantity : reservation.quantity,
       saleId: null as number | null,
+      orderId,
       reason,
       createdAt: nowUTC(),
     }))

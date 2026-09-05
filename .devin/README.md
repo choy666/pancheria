@@ -6,6 +6,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 
 - [Prompt maestro — Proyecto Panchería](prompts/pancheria.prompt.md)
 - [Guía de escritura de prompts](prompts/README.md)
+- [Implementación de hallazgos críticos y mayores de la auditoría 2026-09-05](prompts/implementacion-hallazgos-auditoria-2026-09-05.md) — guía para resolver los seis hallazgos priorizados de la auditoría más reciente.
 - [Auditoría masiva integral del proyecto](prompts/auditoria-masiva.md)
 - [Resumen ejecutivo — Auditoría masiva integral](prompts/auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento.
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)

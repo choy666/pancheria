@@ -1,55 +1,29 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-09-04  
+**Fecha:** 2026-09-05  
 **Proyecto:** `pancheria`  
-**Baseline:** `940d8a055f10d2170ad177b8f226666c140b6376` (branch `main`)  
+**Baseline:** `9c6f08507090d7dd379a49f25ad3e7600ae4fe3a` (branch `auditoria/masiva-2026-09-04`)  
 **Auditoría:** Masiva integral — 9 áreas  
-**Histórico:** Fases anteriores en `.devin/informes/archivados/reporte-estado-historico-2026-08-30.md`
+**Histórico:** Fases anteriores en `.devin/informes/archivados/reporte-estado-2026-09-04.md`
 
 ---
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo y estable para el baseline actual. Las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **139 suites y 1326 tests**; la suite E2E pasa a **110 tests en 34 specs** con la adición del cierre diario (`cierres-diarios.spec.ts`), la eliminación real de sucursales (`sucursal-eliminacion.spec.ts`) y los tests de accesibilidad (`accessibility.spec.ts`). La ejecución de `npm run test:e2e` (equivalente a `npx playwright test`) pasó con **110 passed**.
+El proyecto se encuentra en estado operativo y las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **140 suites y 1337 tests**; el build genera **69 rutas/páginas**.
 
-En esta sesión se completó la auditoría masiva de las 9 áreas, se aplicaron correcciones de seguridad sobre endpoints públicos, rate limiting, cron jobs, adjuntos y validación de productos eliminados, y se detectaron riesgos adicionales de concurrencia e integridad de datos que requieren acción posterior. Además se aplicaron correcciones documentales y de consistencia: se unificó `COMMON_BILLS` con `DEFAULT_DENOMINATIONS` en `payment-parts-input.tsx`, se documentaron las variables de dirección/teléfono/ubicación de sucursales y `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` en `README.md`, `AGENTS.md` y `.devin/environment.yaml`, y se sincronizó `.devin/prompts/README.md` con los prompts archivados faltantes.
+Se completó la implementación de los seis hallazgos críticos y mayores identificados en la auditoría masiva del 2026-09-05:
 
-Hallazgos críticos resueltos o mitigados en esta sesión:
+1. **Transacciones reentrantes** (`executeInTransaction`): ahora detecta una transacción activa mediante `getCurrentTransaction()` y reutiliza el mismo `tx`, garantizando que `cancelOrder` + `cancelSale` sean atómicos. <ref_file file="C:/developer/paginas/pancheria/src/application/transactionService.ts" />
+2. **Unificación de recetas históricas** en `convertOrderToSale` y `receiveOrder`: `validateCartAvailability` y `buildSaleItemValues` usan el `recipeSnapshot` del pedido cuando está presente, evitando validar con recetas actuales y descontar con snapshots distintos. <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" />
+3. **Scope en rate limits**: `createRateLimiter` propaga el `scope` al store, tanto en memoria como en PostgreSQL, separando contadores de pedidos y chat. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/public-order-rate-limit-store.ts" />
+4. **Trazabilidad de reservas en `stock_movements`**: se agregó la columna `orderId` nullable con FK a `orders.id` y `onDelete: 'set null'`, poblada en movimientos `reserve` y `reserve_release`. <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" />
+5. **Resolución de IP fuera de Vercel**: `getClientIp` ahora ofrece el escape controlado `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true` para usar `X-Forwarded-For` en producción auto-alojada, y corrige el header confiable para usar el primer valor de la cadena. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" />
+6. **Cobertura de `prepareCart`**: se creó `src/lib/cart-pipeline.test.ts` con tests de contexto, bloqueo `FOR UPDATE`, reservas ajenas, totales, snapshots, servicios y faltantes. <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.test.ts" />
 
-- Tracking público ya no expone `cancellationToken` ni datos del pedido si no se proporciona `customerName` o `customerPhone`.
-- Rate limiting endurece la resolución de IP confiable y rechaza IPs vacías en producción.
-- Cron jobs comparan `CRON_SECRET` con `crypto.timingSafeEqual`.
-- Adjuntos de chat autenticados usan `Cache-Control` privado y sin cache compartida.
-- El upload de adjuntos de chat limpia el archivo si `sendClientMessage` falla por token inválido.
-- `recipeRepository.assertProductInBranch` filtra productos `deletedAt`.
-- `cancelSale` es idempotente y transaccional: bloquea la venta con `FOR UPDATE`, reintegra stock y actualiza la caja dentro de una sola transacción.
-- `confirmSale` y `convertOrderToSale` bloquean los insumos críticos con `FOR UPDATE` antes de validar disponibilidad y descontar stock.
-- `validateCartAvailability` resta reservas activas de `in_process` del stock efectivo.
-- `receiveOrder` bloquea productos antes de validar disponibilidad.
-- `receiveOrder` ya no reescribe `orderItemRecipes`; preserva el snapshot histórico del pedido y solo computa recetas en memoria si el item no tenía snapshot.
-- `cashRegisterRepository.hardDelete` y `hardDeleteAllDeletedInRange` no borran cajas con ventas asociadas, preservando el vínculo histórico.
-- `/api/panel/resumen` ya no ejecuta `expirePendingOrders` ni dispara 5 consultas `getOrders` con `limit:1`; ahora usa `orderService.getOrderCountsByStatus` y la expiración corre en el cron `/api/cron/expire-orders`.
-- Se agregaron tests unitarios de rutas críticas: `recibir`, `finalizar`, `public/sucursal/estado`, imágenes de productos (`[key]`, `preparar`, `upload`) y `orderStockReservationRepository`.
-- Se agregó el spec E2E `ventas-pago-mixto.spec.ts` para validar pagos mixtos (`cash + transfer`) de extremo a extremo.
-- Se agregaron los specs E2E `cierres-diarios.spec.ts` y `sucursal-eliminacion.spec.ts`, cerrando los gaps de cierre diario y eliminación de sucursales.
-- Se documentaron `E2E_ENABLE_RATE_LIMIT` y `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` en `.env.example`, `README.md`, `AGENTS.md` y `.devin/environment.yaml`, y se conectó el intervalo del dashboard a `src/config/dashboard.ts`.
-- Se eliminaron `unsafe-inline` y `unsafe-eval` de `script-src` en la CSP usando nonces generados por request en `src/proxy.ts` y `src/lib/csp-helpers.ts`.
-- Se agregó el spec E2E `accessibility.spec.ts` con `axe-core` y `@axe-core/playwright` para verificar WCAG 2.1 AA en páginas públicas y del panel; se integró a `npm run test:e2e` y a `ci.yml`.
+Se generó la migración `drizzle/0027_special_hellcat.sql` con los cambios de esquema correspondientes, pero **no se aplicó a producción** (se deja para el despliegue controlado).
 
-Hallazgos críticos aún abiertos:
-
-- Resuelto en tarea #5: `createOrder` ahora reserva stock inmediatamente. Las tareas #17 (CSP) y #18 (axe-core / Lighthouse en CI) están completadas.
-
-Otros hallazgos relevantes:
-
-- `npm run analyze` completa el build bajo Turbopack, pero `@next/bundle-analyzer` no genera el HTML del reporte. Se agregó una nota en `next.config.ts` indicando que se requiere `next build --webpack` para el análisis completo.
-- El intervalo de refresco del dashboard ya no está hardcodeado; se lee desde `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` vía `src/config/dashboard.ts`.
-- El endpoint `/api/panel/resumen` realiza 5 consultas pesadas de pedidos solo para contar y ejecuta la expiración de pedidos `pending` dentro del request.
-- Se cerraron los gaps de cierre diario (`cierres-diarios.spec.ts`) y eliminación real de sucursales (`sucursal-eliminacion.spec.ts`) en E2E. Se completaron los items #17 (CSP) y #18 (axe-core / Lighthouse en CI) del plan.
-- `getClientIp` en `src/lib/rate-limit.ts` devuelve `'unknown'` cuando no puede resolver una IP confiable en producción, lo que agrupa todo el tráfico bajo la misma clave de rate limit. Recomendación: requerir un header de proxy confiable o rechazar explícitamente el rate limit para IPs no resolubles.
-- `payment-parts-input.tsx` usaba `COMMON_BILLS` fijos (`[1000,...,50000]`) inconsistentes con `DEFAULT_DENOMINATIONS`. **Corregido** en esta sesión: los botones de billetes ahora usan `DEFAULT_DENOMINATIONS`.
-
-No se recomienda liberar a producción acciones correctivas de código complejas en esta iteración; el plan de acción prioriza cierre de brechas de seguridad restantes, cobertura de tests y las correcciones de concurrencia/integridad identificadas.
+No se ejecutaron tests E2E ni `drizzle-kit push` porque requieren confirmación explícita y una base de datos descartable.
 
 ## 2. Stack y arquitectura
 
@@ -65,16 +39,16 @@ No se recomienda liberar a producción acciones correctivas de código complejas
 - Playwright `1.62.x`
 - Vercel (despliegue recomendado)
 
-La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/application/` (servicios/casos de uso), `src/repositories/` (acceso a datos), `src/lib/` (utilidades transversales), `src/config/` (configuración con getters de variables de entorno), `src/domain/` (tipos y errores) y `src/db/` (esquema y seeds). <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
+La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/application/` (servicios/casos de uso), `src/repositories/` (acceso a datos), `src/lib/` (utilidades transversales), `src/config/` (configuración con getters de variables de entorno), `src/domain/` (tipos y errores) y `src/db/` (esquema y seeds). Se agregó `src/lib/cart-pipeline.ts` para unificar la preparación del carrito entre ventas y pedidos. <ref_file file="C:/developer/paginas/pancheria/AGENTS.md" />
 
 ## 3. Estado funcional
 
 - **Panel de control (`/`)**: resumen de caja, pedidos por estado, alertas de stock, accesos rápidos filtrados por rol.
 - **Ventas (`/ventas`)**: terminal con productos, carrito, pagos mixtos (`cash` + `transfer`), historial y anulaciones.
-- **Pedidos**: flujo `pending` → `in_process` → `paid` → `finished` / `cancelled`, con reservas de stock y chat integrado.
+- **Pedidos**: flujo `pending` → `in_process` → `paid` → `finished` / `cancelled`, con reservas de stock en `createOrder`, chat integrado y pagos mixtos.
 - **Productos/promos**: tipos `critical_supply`, `manual_supply`, `compound`, `service`; imágenes ilustrativas en catálogo público; snapshots de receta en `sale_item_recipes` y `order_item_recipes`.
 - **Stock y caja**: movimientos con razones, cierre automático, cierres diarios históricos, soft delete de cajas.
-- **Chat de pedidos**: texto e imágenes, paginación con cursores, polling y estados de entrega/lectura.
+- **Chat de pedidos**: texto e imágenes, paginación con cursores, polling con pausa por visibilidad y estados de entrega/lectura.
 - **Almacenamiento**: `local`, `vercel-blob`, `s3` y `r2` para videos, adjuntos de chat e imágenes de productos.
 - **Multi-sucursal**: aislamiento por `branchId`; admin puede operar sobre cualquier sucursal.
 
@@ -84,12 +58,15 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 |---|---|
 | `npm run lint` | Pasa (0 errores, 0 advertencias) |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | **139 suites, 1326 tests pasan** |
-| `npm run build` | Build exitoso, 44 rutas/páginas |
+| `npm test` | **140 suites, 1337 tests pasan** |
+| `npm run build` | Build exitoso, 69 rutas/páginas |
 | `npm run knip` | Pasa |
-| `npm run analyze` | Build exitoso, **pero no genera reporte de bundle bajo Turbopack** (ver Hallazgo 5.6) |
-| `npx drizzle-kit check` | No ejecutado (requiere base de datos de prueba) |
-| `npx playwright test` | **110 tests en 34 archivos; 110 passed** |
+| `npx drizzle-kit check` | Pasa |
+| `npx drizzle-kit generate` | Migración `0027_special_hellcat.sql` generada, no aplicada |
+| `npm run analyze` | No ejecutado (limitación conocida bajo Turbopack) |
+| `npx playwright test` | No ejecutado (requiere base de datos descartable) |
+
+Los resultados de los comandos se resumen en la tabla anterior.
 
 ## 5. Hallazgos de la auditoría por área
 
@@ -101,7 +78,11 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 |---|---|---|
 | Verificaciones base (`lint`, `tsc`, `test`, `build`, `knip`) pasan | OK | Ver sección 4 |
 | `src/lib/utils.ts` contiene únicamente `cn` | OK | <ref_file file="C:/developer/paginas/pancheria/src/lib/utils.ts" /> |
-| `throw new Error` en hooks y componentes de cliente sin boundary explícita | Menor | Hooks como `useDashboard.ts` y componentes como `usePedidoClient.ts` lanzan errores de fetch directamente. No se detecta `Error Boundary` global; los tests cubren caminos controlados, pero un error de red puede propagarse. <ref_snippet file="C:/developer/paginas/pancheria/src/hooks/useDashboard.ts" lines="36-39" /> |
+| `saleService.ts` (685 líneas) y `orderService.ts` (846 líneas) son excesivamente largos y mezclan múltiples responsabilidades | Mayor | <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
+| `throw new Error` genéricos en servicios/repositorios no se mapean a `DomainError`/`NotFoundError` y terminan como 500 | Menor | `branchService.ts:64,115,264`, `userService.ts:71,144`, `saleService.ts:396`, `orderRepository.ts:294,330,356,375` <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" /> |
+| `product-card.tsx` usa `key={product.imageUrl}` en `ProductImage`, forzando remount cuando cambia la URL | Menor | <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" /> |
+| `product-card.tsx` y `sales-product-card.tsx` duplican layout e insumos | Menor | <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" /> <ref_file file="C:/developer/paginas/pancheria/src/components/ventas/sales-product-card.tsx" /> |
+| `sales-terminal.tsx` calcula el total con multiplicación directa de `number` sin helpers de dinero | Menor | <ref_file file="C:/developer/paginas/pancheria/src/components/ventas/sales-terminal.tsx" /> |
 
 ### 5.2 Seguridad
 
@@ -109,63 +90,48 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 |---|---|---|
 | No se detectaron credenciales/secretos hardcodeados en `src/` | OK | Búsquedas por `ADMIN_`, `SECRET`, `TOKEN`, `PASSWORD` solo arrojan lecturas de `process.env.*` y tests. |
 | Autenticación y autorización por rol y `branchId` | OK | `withAuth` inyecta `branchId`; `admin` puede cambiar de sucursal; `operator` está restringido. <ref_file file="C:/developer/paginas/pancheria/src/lib/with-auth.ts" /> |
-| Rate limit en endpoints públicos | OK | `createRateLimiter` protege pedidos y chat; `PUBLIC_ORDER_RATE_LIMIT_*` soporta `memory` y `db`. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
-| CSP y headers de seguridad | OK | `src/proxy.ts` genera un nonce por request y `src/lib/csp-helpers.ts` construye el header. `script-src` ya no usa `unsafe-inline` ni `unsafe-eval` en producción. HSTS, X-Frame-Options, etc., se mantienen en `next.config.ts`. <ref_file file="C:/developer/paginas/pancheria/src/proxy.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
-| Cron jobs protegidos por `CRON_SECRET` | OK | <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/rate-limit-cleanup/route.ts" />, <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/chat-attachments-cleanup/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/expire-orders/route.ts" />. Comparación constante con `crypto.timingSafeEqual`. |
-| `getClientIp` devuelve `'unknown'` si no hay header confiable en producción | Mayor | Si no está en Vercel ni se configura `TRUSTED_PROXY_IP_HEADER`, toda la producción comparte la misma clave de rate limit. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
-| Tracking público expone `cancellationToken` sin identificación del cliente | Crítico | `trackOrder` devolvía el token cuando se consultaba solo con `orderNumber`. **Corregido**: se exige `customerName` o `customerPhone` para devolver datos del pedido. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="789-797" /> |
-| `getClientIp` permite spoofing y acepta IPs vacías | Mayor | `rate-limit.ts` tomaba el primer valor de `X-Forwarded-For` y devolvía `unknown`. **Corregido**: validación de `TRUSTED_PROXY_IP_HEADER`, descarte de valores privados/vacíos, uso del último `X-Forwarded-For` cuando está configurado, y `unknown` solo en desarrollo. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
-| Cache pública de adjuntos de chat autenticados | Mayor | `Cache-Control: public, max-age=86400` en `src/app/api/chat/attachment/[key]/route.ts` permitía cachear en proxies compartidos. **Corregido**: política privada y `no-store` / `must-revalidate`. <ref_file file="C:/developer/paginas/pancheria/src/app/api/chat/attachment/[key]/route.ts" /> |
-| Upload de adjuntos guardaba archivo antes de validar token | Mayor | `sendClientMessage` validaba el token después de `saveChatAttachment`. **Corregido**: limpieza del adjunto en el `catch` si el envío falla. <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/upload/route.ts" /> |
-| Comparación directa de `CRON_SECRET` | Mayor | Los cron jobs usaban `authHeader !== expected`. **Corregido**: comparación constante con `crypto.timingSafeEqual`. <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/rate-limit-cleanup/route.ts" /> |
-| Productos eliminados aceptados como insumos de receta | Mayor | `recipeRepository.assertProductInBranch` no filtraba `deletedAt`. **Corregido**: agregado `isNull(products.deletedAt)`. <ref_file file="C:/developer/paginas/pancheria/src/repositories/recipeRepository.ts" /> |
-| `public/pedido` aplicaba rate limit después de parsear el body | Menor | `branchId` se obtenía del body antes del rate limit. **Corregido**: rate limit antes del parseo. <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/route.ts" /> |
-| Hostnames de storage hardcodeados | Informativo | `next.config.ts` y `src/lib/storage.ts` construyen orígenes oficiales de Vercel Blob, S3 y R2. Aunque son endpoints públicos oficiales, la política estricta del proyecto recomienda evitar hardcodeos. <ref_snippet file="C:/developer/paginas/pancheria/src/lib/storage.ts" lines="187-199" /> |
+| Rate limit en endpoints públicos | OK | `createRateLimiter` protege pedidos y chat, y el scope se propaga al store, separando contadores de pedidos y chat. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/public-order-rate-limit-store.ts" /> |
+| Cron jobs protegidos por `CRON_SECRET` con `crypto.timingSafeEqual` | OK | <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/rate-limit-cleanup/route.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/chat-attachments-cleanup/route.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/expire-orders/route.ts" /> |
+| CSP y headers de seguridad | OK | `src/proxy.ts` genera nonce por request; `next.config.ts` añade X-Frame-Options, X-Content-Type-Options, Referrer-Policy y HSTS. <ref_file file="C:/developer/paginas/pancheria/src/proxy.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
+| Rate limit de pedidos y chat con scope separado en el store de DB | OK | `createRateLimiter(scope, ...)` propaga el scope; `public_order_rate_limits` tiene PK compuesta `(scope, ip)`. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/public-order-rate-limit-store.ts" /> <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="708-712" /> |
+| `getClientIp` en producción fuera de Vercel | OK | Se agregó `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true` como escape controlado para `X-Forwarded-For` (resuelto). <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
+| Header confiable `X-Forwarded-For` | OK | Se usa el primer valor de la cadena, que corresponde al cliente original detrás de un proxy confiable. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
+| Validación de uploads por `file.type` sin magic bytes | Menor | `src/lib/chat-storage.ts`, `src/lib/storage.ts`, `src/lib/product-image-storage.ts` <ref_file file="C:/developer/paginas/pancheria/src/lib/storage.ts" /> |
+| `POST /api/public/pedido/[id]/chat/upload` no valida `content` con `chatMessageContentSchema` | Menor | <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/upload/route.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/application/services/chatService.ts" /> |
 
 ### 5.3 Arquitectura y deuda técnica
 
 | Hallazgo | Clasificación | Evidencia / Comentario |
 |---|---|---|
 | Separación de capas | OK | Capas `app/`, `application/`, `repositories/`, `lib/`, `config/`, `domain/` respetadas. |
-| Soft vs hard delete | OK | Productos, videos y cajas usan `deletedAt`/`isActive`; hard delete libera archivos en `productService.permanentlyDeleteProduct`, `videoService.permanentlyDeleteVideo` y `branchService.deleteBranch`. |
-| `findFirst` con orden/unicidad | OK | La mayoría de `findFirst` filtra por `id` o campos únicos (`users.username`, índice único parcial `cash_registers_open_status_idx`). El caso de apertura de caja está cubierto por constraint de BD. |
-| Duplicación de lógica entre ventas/pedidos | OK | `validateProductsForOperation`, `buildSaleItemValues` e `insertSaleAndUpdateCashRegister` se comparten según lecciones aprendidas. <ref_file file="C:/developer/paginas/pancheria/src/lib/sale-helpers.ts" /> |
-| Variables de entorno centralizadas en `src/config/*` | OK | `caja.ts`, `chat.ts`, `catalog.ts`, `orders.ts`, `payments.ts`, `product-images.ts`, `videos.ts` exponen getters con defaults. |
-| `process.env` disperso en helpers operacionales | Mayor | `src/lib/storage.ts`, `src/lib/chat-storage.ts`, `src/lib/product-image-storage.ts`, `src/lib/rate-limit.ts`, `src/lib/public-order-rate-limit-store.ts`, `src/lib/rate-limit-store.ts`, `src/lib/branch-helpers.ts`, `src/lib/branch-resolver.ts` y `src/lib/public-url.ts` leen variables directamente. Dificulta tests y simulación de entornos. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
-| Capas mezcladas: servicios y helpers acceden directamente al esquema Drizzle | Mayor | `saleService.ts`, `orderService.ts` y `product-helpers.ts` importan e insertan/actualizan tablas directamente. `product-helpers.ts` además depende de `application/services/summaryService`. <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" /> |
-| Duplicación de lógica entre `confirmSale`, `convertOrderToSale` y `createOrder` | Mayor | Los tres flujos repiten `buildProductContext`, `validateCartAvailability`, `assertNoStockShortage` y `buildSaleItemValues`. Recomendación: extraer un `prepareCart()` común. <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> |
-| `deleteBranch` elimina físicamente sin archivo ni bloqueo | Mayor | `branchService.deleteBranch` borra todas las tablas de negocio y archivos sin soft delete ni `SELECT ... FOR UPDATE`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/branchService.ts" /> |
-| Funciones críticas son largas y con múltiples responsabilidades | Menor | `insertSaleAndUpdateCashRegister`, `confirmSale`, `convertOrderToSale`, `createOrder`, `receiveOrder`, `validateCartAvailability` y `deleteBranch` exceden la longitud recomendable. <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> |
-| Capa `domain` subutilizada | Informativo | Solo existen tipos y errores; faltan value objects (`Stock`, `Payment`, `Order`). <ref_file file="C:/developer/paginas/pancheria/src/domain/types.ts" /> |
+| `prepareCart` en `src/lib/cart-pipeline.ts` reduce duplicación | OK | <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.ts" /> |
+| Soft vs hard delete | OK | Productos, videos, cajas y sucursales usan `deletedAt`; hard delete libera archivos en productos y videos. |
+| `process.env` disperso en helpers operacionales | Mayor | `src/lib/csp-helpers.ts`, `src/lib/storage.ts`, `src/lib/chat-storage.ts`, `src/lib/product-image-storage.ts`, `src/lib/rate-limit.ts`, `src/lib/public-order-rate-limit-store.ts`, `src/lib/rate-limit-store.ts`, `src/lib/branch-helpers.ts`, `src/lib/branch-resolver.ts` leen variables directamente. Dificulta tests y simulación de entornos. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
+| Capas mezcladas: `app/(panel)/perfil/actions.ts` y `api/productos/imagen/[key]/route.ts` acceden a `db` directamente | Menor | <ref_file file="C:/developer/paginas/pancheria/src/app/(panel)/perfil/actions.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/app/api/productos/imagen/[key]/route.ts" /> |
+| `findFirst` sin orden explícito en casos no únicos | Menor | `cashRegisterRepository.findOpen`, `orderRepository.findByOrderNumberAndCustomer` no usan `orderBy`. <ref_file file="C:/developer/paginas/pancheria/src/repositories/cashRegisterRepository.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" /> |
+| Funciones críticas son largas y con múltiples responsabilidades | Menor | `insertSaleAndUpdateCashRegister`, `confirmSale`, `convertOrderToSale`, `createOrder`, `receiveOrder`, `validateCartAvailability`, `deleteBranch`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
 
 ### 5.4 Cobertura de pruebas
 
 | Hallazgo | Clasificación | Evidencia / Comentario |
 |---|---|---|
-| Unitarios: 133 suites / 1246 tests | OK | `npm test` |
-| E2E: 31 specs / 105 tests listados | OK | <ref_file file="C:/developer/paginas/pancheria/tests/e2e" /> |
+| Unitarios: 139 suites / 1326 tests | OK | `npm test` |
+| E2E: 33 specs / 113 tests | OK | `tests/e2e` |
 | Cobertura de rutas API | OK | 50 rutas `src/app/api/**/route.ts` con 50 `route.test.ts` asociados. |
 | Cobertura de servicios y repositorios | OK | 13 servicios y 10 repositorios cuentan con test unitario. |
-| Cobertura de rutas críticas | OK | Se agregaron `route.test.ts` para `recibir`, `finalizar`, imágenes de productos (`[key]`, `preparar`, `upload`) y `public/sucursal/estado`. |
-| `orderStockReservationRepository.ts` | OK | Se agregó `src/repositories/orderStockReservationRepository.test.ts`. |
-| Helpers de `src/lib/` sin test unitario | Menor/Mayor | `availability-helpers.ts`, `cart-helpers.ts`, `last-customer-name.ts`, `last-customer-phone.ts`, `logger.ts`, `pagination.ts`, `product-image-upload-client.ts`, `product-style.ts`, `validation-helpers.ts`, `ventas-helpers.ts`, `with-auth.ts`. Los de lógica de negocio (`cart-helpers`, `availability-helpers`, `ventas-helpers`, `validation-helpers`, `product-image-upload-client`) tienen mayor impacto. |
-| Flujos E2E: pagos mixtos reales, eliminación real de sucursal, cierres diarios | Mayor | Pago mixto **Hecho** (`ventas-pago-mixto.spec.ts`). Cierres diarios **Hecho** (`cierres-diarios.spec.ts`). Eliminación real de sucursal **Hecho** (`sucursal-eliminacion.spec.ts`). |
-| Componentes críticos de UI sin test unitario | Menor | Gran parte de los componentes del panel, productos, ventas, videos y sucursales no tienen `.test.tsx`; se recorren por E2E. |
+| `src/lib/cart-pipeline.ts` con test unitario | OK | Se creó `src/lib/cart-pipeline.test.ts` con cobertura de contexto, `FOR UPDATE`, reservas, totales, snapshots, servicios y faltantes. <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.ts" /> |
+| Helpers de `src/lib/` sin test unitario | Menor | `csp-helpers.ts`, `pagination.ts`, `logger.ts`, `product-image-upload-client.ts`, `last-customer-name.ts`, `last-customer-phone.ts`, `product-style.ts`. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
+| Componentes críticos de UI sin test unitario | Menor | `dashboard-client.tsx`, `caja-panel.tsx`, `chat-composer.tsx`, `pedidos-list.tsx`, `branch-form.tsx`, `change-password-form.tsx`, `video-player.tsx`, `sales-cart.tsx` se recorren por E2E. <ref_file file="C:/developer/paginas/pancheria/src/components" /> |
+| Flujos E2E críticos cubiertos | OK | Pago mixto, cierres diarios, eliminación de sucursal, expiración, rate limit, cambio de contraseña, anulación. <ref_file file="C:/developer/paginas/pancheria/tests/e2e" /> |
 
 ### 5.5 Documentación y variables de entorno
 
 | Hallazgo | Clasificación | Evidencia / Comentario |
 |---|---|---|
 | Variables principales sincronizadas con `.env.example` | OK | `DATABASE_URL`, `NEXTAUTH_*`, `ADMIN_*`, `NEXT_PUBLIC_*`, `STORAGE_*`, etc. |
-| `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` expuesta y conectada | OK | Se agregó `src/config/dashboard.ts` y se conectó a `useDashboard.ts`. Documentada en `.env.example`, `README.md`, `AGENTS.md` y `.devin/environment.yaml`. |
-| `E2E_ENABLE_RATE_LIMIT` documentada | OK | Documentada en `.env.example`, `README.md`, `AGENTS.md` y `.devin/environment.yaml`. |
-| `ANALYZE` no documentada en `.env.example` | Menor | Se usa en `package.json` y `next.config.ts`. **Corregido** en `.env.example`. |
-| `NO_WEB_SERVER` / `NO_GLOBAL_SETUP` no documentadas en `.env.e2e.example` | Menor | Aparecen en `.devin/environment.yaml` pero no en el template E2E. **Corregido** en `.env.e2e.example`. | 
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` no documentada en `.env.e2e.example` | Menor | Obligatoria para el flujo de pedidos. **Corregido** en `.env.e2e.example`. |
-| Variables de dirección/teléfono/ubicación de sucursales no documentadas en `AGENTS.md` / `README.md` | Menor | **Corregido** en esta sesión: agregadas a `AGENTS.md`, `README.md` y `.devin/environment.yaml`. |
-| `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` no documentada en `README.md` | Menor | **Corregido** en esta sesión: agregada a `README.md` y `.devin/environment.yaml`. <ref_file file="C:/developer/paginas/pancheria/src/config/payments.ts" /> |
-| Prompts archivados no reflejados en `.devin/prompts/README.md` | Menor | **Corregido** en esta sesión: se agregaron `cobertura-auditoria-flujo-pedidos-2026-08-27.md`, `plan-mejoras-flujo-pedidos-chat-caja-sucursales-2026-08-27.md` y `recomendaciones-pedidos-sucursal-stock-2026-08-27.md` al índice. |
-| Versión de Node inconsistente entre docs y CI | Informativo | `README.md`, `AGENTS.md` y `.devin/environment.yaml` indican Node 20; CI usa `node-version: 22`. Se agregó `engines` a `package.json` (`>=20`). |
+| `ANALYZE` y `AUTH_URL` documentadas como implícitas | Informativo | `ANALYZE` se usa en build; `AUTH_URL` es consumida por NextAuth v5. Están en `.env.example` como referencia. <ref_file file="C:/developer/paginas/pancheria/.env.example" /> |
+| README, lecciones aprendidas y guía de funcionamiento decían que los pedidos no reservan stock al crearse | Mayor (documental) | **Corregido** en esta sesión: se actualizaron `README.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md` para reflejar que `createOrder` reserva stock inmediatamente. <ref_file file="C:/developer/paginas/pancheria/README.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
+| Prompts archivados reflejados en índices | OK | `.devin/prompts/README.md` y `.devin/README.md` listan prompts activos y archivados. <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/README.md" /> |
 
 ### 5.6 Rendimiento y bundle
 
@@ -173,52 +139,39 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 |---|---|---|
 | Páginas públicas críticas con `dynamic = 'force-dynamic'` | OK | `/pedido`, `/pedido/[id]/chat`, `/api/public/*`, `/api/panel/resumen`, etc. <ref_file file="C:/developer/paginas/pancheria/src/app/(public)/pedido/page.tsx" /> |
 | `optimizePackageImports` habilitado | OK | `lucide-react` y `date-fns` en `next.config.ts`. |
-| `npm run analyze` bajo Turbopack | OK / Limitación conocida | El build termina, pero `@next/bundle-analyzer` no genera el HTML del reporte. Se documentó en `next.config.ts` que se requiere `next build --webpack` para el análisis completo. |
-| `/api/panel/resumen` consulta conteos de pedidos | OK | Se reemplazaron las 5 llamadas `getOrders(..., limit:1)` por `orderService.getOrderCountsByStatus(branchId)`, que agrupa en una sola consulta SQL. |
-| Expiración de pedidos `pending` | OK | Ya no corre en el request de `/api/panel/resumen`; se movió al cron `/api/cron/expire-orders` (`*/5 * * * *`), protegido por `CRON_SECRET`. |
-| Intervalo de refresco del panel hardcodeado | OK | Se lee desde `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` con fallback de 30000 ms. |
-| `orderRepository.findOrders` carga relaciones completas en listado paginado | Menor | <ref_snippet file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" lines="188-206" />. El listado solo requiere nombres y cantidades. |
-| Polling del catálogo público sin pausar al ocultar pestaña | Menor | `usePedidoClient.ts` no escucha `visibilitychange`; el intervalo sigue corriendo con la pestaña oculta. <ref_snippet file="C:/developer/paginas/pancheria/src/components/pedido/usePedidoClient.ts" lines="233-255" /> |
-| Imágenes del catálogo público usan `<img>` nativo sin optimización | Menor | `product-card.tsx` usa `<img>` sin `srcset` ni `next/image`. <ref_snippet file="C:/developer/paginas/pancheria/src/components/pedido/product-card.tsx" lines="106-116" /> |
-| Vista previa de videos de hasta 100 MB | Menor | `video-form.tsx` crea `URL.createObjectURL(file)` para archivos grandes. <ref_snippet file="C:/developer/paginas/pancheria/src/components/videos/video-form.tsx" lines="363-374" /> |
-| Terminal de ventas envía todos los IDs del catálogo en cada cambio de carrito | Menor | `sales-terminal.tsx` postea `productIds: products.map(...)` al calcular disponibilidad. <ref_snippet file="C:/developer/paginas/pancheria/src/components/ventas/sales-terminal.tsx" lines="109-140" /> |
+| `npm run analyze` bajo Turbopack | Limitación conocida | El build termina, pero `@next/bundle-analyzer` no genera el HTML del reporte. <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
+| `orderService.expirePendingOrders` carga todos los pedidos expirados sin límite/paginación | Mayor | <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="758-793" /> <ref_snippet file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" lines="274-287" /> |
+| `getCajaRefreshInterval()` y `getCajaClockIntervalMs()` no imponen un mínimo práctico | Mayor | Un valor bajo puede generar polling agresivo. <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" /> |
+| Loops N+1 en descuento/reintegro de stock y borrado de cajas | Menor | `saleService.deductStockForItems` / `reintegrateStockForItems`, `cashRegisterRepository.hardDeleteAllDeletedInRange`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/saleService.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/repositories/cashRegisterRepository.ts" /> |
+| Catálogo público y terminal de ventas cargan catálogo completo en memoria | Menor | `usePedidoClient.ts` y `sales-terminal.tsx` sin paginación. <ref_file file="C:/developer/paginas/pancheria/src/components/pedido/usePedidoClient.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/components/ventas/sales-terminal.tsx" /> |
+| `useOrderChat.ts` agrega listeners propios de visibilidad además de `useVisibilityPolling` | Menor | Puede provocar fetch duplicado al volver visible. <ref_file file="C:/developer/paginas/pancheria/src/components/chat/useOrderChat.ts" /> |
 
 ### 5.7 Accesibilidad y UX
 
 | Hallazgo | Clasificación | Evidencia / Comentario |
 |---|---|---|
 | Uso de atributos ARIA en componentes críticos | OK | `aria-label`, `aria-pressed`, `aria-live`, `aria-expanded` presentes en carrito, pagos, chat, selector de sucursal, paginación, etc. <ref_file file="C:/developer/paginas/pancheria/src/components" /> |
-| Estados de carga/error/vacío | OK | Componentes testeados (`stock-list`, `caja-history`, `chat-message-list`) manejan estados. |
+| Estados de carga/error/vacío | OK | Skeletons y mensajes vacíos en listados principales. <ref_file file="C:/developer/paginas/pancheria/src/components" /> |
 | Tour interactivo adaptativo | OK | `tour-context.tsx` filtra pasos por rol (`admin`/`operator`) y usa `data-tour` / `skipMissingElement`. <ref_file file="C:/developer/paginas/pancheria/src/components/tour/tour-context.tsx" /> |
-| Botón de visibilidad de contraseña excluido del tab order | Mayor | `user-form.tsx` usa `tabIndex={-1}` en el `Button` de mostrar/ocultar, pese a ser interactivo. **Corregido** en esta sesión. <ref_snippet file="C:/developer/paginas/pancheria/src/components/usuarios/user-form.tsx" lines="111-121" /> |
-| Label del input de archivo del chat sin nombre accesible | Mayor | `chat-composer.tsx` tiene un `<label>` que solo contiene un icono. **Corregido** agregando `aria-label` y `aria-hidden` en el icono. <ref_snippet file="C:/developer/paginas/pancheria/src/components/chat/chat-composer.tsx" lines="75-81" /> |
-| Error de checkout no se anuncia como alerta | Menor | `pedido-customer-form.tsx` no usa `role="alert"` en el mensaje de error. **Corregido**. <ref_snippet file="C:/developer/paginas/pancheria/src/components/pedido/pedido-customer-form.tsx" lines="47-53" /> |
-| Denominaciones rápidas inconsistentes | Menor | `payment-parts-input.tsx` usaba `COMMON_BILLS` fijos `[1000,...,50000]`, mientras `payments.ts` lee `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` con default `[1000,...,20000]`. **Corregido** en esta sesión: los botones de billetes usan `DEFAULT_DENOMINATIONS`. <ref_file file="C:/developer/paginas/pancheria/src/components/pagos/payment-parts-input.tsx" /> |
-| Botones de denominación rápida por debajo de 44×44 px en móvil | Menor | `payment-parts-input.tsx` usa `h-7 px-1.5` (28 px de alto). |
-| Chat no pausa polling al ocultar pestaña | Menor | `useOrderChat.ts` sigue refrescando en segundo plano. <ref_snippet file="C:/developer/paginas/pancheria/src/components/chat/useOrderChat.ts" lines="422-446" /> |
-| Fallback de imagen de producto oculta el elemento sin alternativa | Menor | `product-card.tsx` pone `display: none` en `onError`. |
-| Auditoría automática de accesibilidad | Informativo | Se agregó `accessibility.spec.ts` con `@axe-core/playwright` y se incluyó en `.github/workflows/ci.yml`/`npm run test:e2e`. Verifica WCAG 2.1 AA en páginas públicas y del panel. |
+| Accesibilidad automatizada con axe-core | OK | `tests/e2e/accessibility.spec.ts` con `@axe-core/playwright` y CI. <ref_file file="C:/developer/paginas/pancheria/tests/e2e/accessibility.spec.ts" /> |
+| Responsividad | OK | `tests/e2e/responsive.spec.ts` verifica viewports y targets táctiles. <ref_file file="C:/developer/paginas/pancheria/tests/e2e/responsive.spec.ts" /> |
+| Targets táctiles de botones de pago por debajo de 44×44 px | Menor | `payment-parts-input.tsx` usa `h-7 px-1.5` (28 px de alto). <ref_file file="C:/developer/paginas/pancheria/src/components/pagos/payment-parts-input.tsx" /> |
 
 ### 5.8 Integridad de datos y flujos de negocio
 
 | Hallazgo | Clasificación | Evidencia / Comentario |
 |---|---|---|
-| Constraints de stock no negativo | OK | `CHECK (stock >= 0)`, `CHECK (min_stock >= 0)` en `products`. <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" /> |
-| Snapshots de recetas | OK | `sale_item_recipes` y `order_item_recipes` persisten el estado de recetas en cada venta/pedido; `receiveOrder` ya no reescribe `order_item_recipes`, preservando el snapshot original. |
-| Soft delete sin liberar archivos; hard delete sí | OK | Implementado en productos, videos y sucursales. |
-| Expiración de pedidos `pending` | OK | `ORDER_EXPIRATION_MS`; la expiración no libera stock porque no reservó. |
+| Reserva de stock en `createOrder` | OK | `createOrder` inserta reservas en `order_stock_reservations` y movimientos `reserve` en `stock_movements`. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="292-309" /> |
+| Snapshots de recetas | OK | `sale_item_recipes` y `order_item_recipes` persisten el estado de recetas; `receiveOrder` ya no reescribe `order_item_recipes`. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
+| Soft delete sin liberar archivos; hard delete sí | OK | Implementado en productos y videos; `deleteBranch` archiva en cascada. |
 | Pagos mixtos | OK | Tabla `sale_payments`, soporte en ventas y confirmación de pedidos. |
 | Cierre automático de cajas | OK | `CAJA_AUTO_CLOSE_HOURS` y `CAJA_AUTO_CLOSED_BY`. |
-| `cancelSale` transaccional e idempotente | OK | La venta se bloquea con `FOR UPDATE`, se valida `status='active'` y la cancelación completa corre dentro de `executeInTransaction`. Segundo intento sobre una venta ya cancelada no reintegra stock ni afecta caja. |
-| `confirmSale` y `convertOrderToSale` bloquean insumos antes de validar | OK | Se agregó `SELECT ... FOR UPDATE` de insumos críticos (`compound` y `beverage`) inmediatamente después de `buildProductContext` y antes de `validateCartAvailability`, reduciendo el riesgo de sobreventa entre validación y descuento. |
-| Hard delete de caja | OK / Limitación conocida | `cashRegisterRepository.hardDelete` y `hardDeleteAllDeletedInRange` verifican `count(sales.cashRegisterId)` y rechazan el borrado si existen ventas asociadas. Si el modelo de negocio cambia y se permite borrar cajas con ventas, se requeriría una estrategia de archivado en lugar de `SET NULL`. |
-| `createOrder` no reserva stock: overselling de pedidos `pending` | Crítico / Mitigado | `createOrder` valida disponibilidad sin insertar reservas. `validateCartAvailability` ahora resta reservas activas y `confirmSale`/`convertOrderToSale`/`receiveOrder` bloquean stock con `FOR UPDATE`, por lo que la sobreventa real se evita al confirmar/recibir. El riesgo residual es puramente semántico: dos pedidos `pending` pueden "comprometer" stock disponible al crear, pero solo uno llegará a `in_process`. Decisión pendiente: reservar stock al crear o documentar la semántica. |
-| `receiveOrder` preserva snapshots de recetas | OK | Ya no elimina ni reinserta `orderItemRecipes`; conserva el snapshot original del pedido y solo computa en memoria cuando el item no tiene snapshot. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
-| `findFirst` y `SELECT ... FOR UPDATE` sin orden determinista | Menor | `cashRegisterRepository.findOpen`, `orderRepository.findByOrderNumberAndCustomer`, `productRepository.findByIdsForUpdate` y `deductStockForItems` no usan `orderBy`. Riesgo de no-determinismo y deadlocks. <ref_file file="C:/developer/paginas/pancheria/src/repositories/orderRepository.ts" /> |
-| `createOrder` no es idempotente ante concurrencia | Menor | `getOrderByIdempotencyKey` se consulta fuera de la transacción y `insertOrder` no usa `onConflictDoNothing`. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="211-216" /> |
-| `calculateCompoundAvailability` devuelve 0 si no hay insumos críticos | Menor | Un `compound` con recetas solo opcionales (`autoDiscount: false`) queda con disponibilidad 0. Los tests asumen este comportamiento, pero conviene documentar la regla de negocio. <ref_file file="C:/developer/paginas/pancheria/src/lib/availability-helpers.ts" /> |
-| `expirePendingOrders` | OK | Ahora se ejecuta en el cron `/api/cron/expire-orders` cada 5 minutos; ya no depende del polling del panel. <ref_file file="C:/developer/paginas/pancheria/src/app/api/cron/expire-orders/route.ts" /> |
-| Manejo de centavos inconsistente en pagos | Menor | `parsePaymentAmount` redondea con `Math.round`; `validatePaymentParts` compara con `Math.round`. Recomendación: aritmética entera de centavos. <ref_file file="C:/developer/paginas/pancheria/src/lib/payment-helpers.ts" /> |
+| Transacción reentrante en `cancelOrder` → `cancelSale` | OK | `executeInTransaction` detecta una transacción activa con `getCurrentTransaction()` y reutiliza el mismo `tx`; `cancelOrder` + `cancelSale` son atómicos. <ref_file file="C:/developer/paginas/pancheria/src/application/transactionService.ts" /> <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="360-403" /> |
+| `convertOrderToSale` usa el snapshot histórico para validar y descontar | OK | `validateCartAvailability` y `buildSaleItemValues` usan el `recipeSnapshot` del pedido cuando está presente, asegurando que se validen y descuenten los mismos insumos. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="474-540" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/sale-helpers.ts" /> |
+| `stock_movements` con FK `orderId` | OK | La columna `orderId` nullable con FK a `orders.id` poblada en `reserve` y `reserve_release` mejora trazabilidad. <ref_snippet file="C:/developer/paginas/pancheria/src/db/schema.ts" lines="489-517" /> |
+| `updateProduct` borra la imagen anterior dentro de la transacción | Menor | Si el `UPDATE` falla, el archivo ya fue eliminado. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/productService.ts" lines="154-159" /> |
+| `deleteBranch` no libera archivos asociados | Menor | Archiva productos, cajas, pedidos y videos, pero no elimina imágenes/videos/adjuntos. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/branchService.ts" lines="213-269" /> |
+| `expirePendingOrders` solo tolera errores que contienen `"confirmado"` | Menor | Si `cancelOrder` falla por otro motivo, el cron se detiene y deja pedidos expirados. <ref_snippet file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" lines="779-787" /> |
 
 ### 5.9 Configuración de despliegue, CI/CD y entornos
 
@@ -226,119 +179,42 @@ A continuación se clasifican los hallazgos en **crítico**, **mayor**, **menor*
 |---|---|---|
 | `.github/workflows/ci.yml` completo | OK | Lint, tipos, unit tests, build, knip, E2E. Verifica secretos requeridos. <ref_file file="C:/developer/paginas/pancheria/.github/workflows/ci.yml" /> |
 | `playwright.config.ts` | OK | Carga `.env.local` y `.env.e2e`, health check a `/api/caja/resumen`, pasa variables de rate limit. <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" /> |
-| `vercel.json` con cron jobs | OK | Limpieza de rate limits y adjuntos de chat diariamente. |
-| `next.config.ts` con headers y CSP | OK | CSP generada por `src/proxy.ts`/`src/lib/csp-helpers.ts`; `script-src` sin `unsafe-inline`/`unsafe-eval` en producción; headers de seguridad en `next.config.ts`. <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
+| `vercel.json` con cron jobs | OK | Limpieza de rate limits, adjuntos de chat y expiración de pedidos. |
+| `next.config.ts` con headers y CSP | OK | CSP generada por `src/proxy.ts`/`src/lib/csp-helpers.ts`; headers de seguridad en `next.config.ts`. <ref_file file="C:/developer/paginas/pancheria/src/proxy.ts" /> <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
 | `.env.local` y `.env.e2e` no commiteados | OK | `.gitignore` los excluye. |
-| `package.json` sin campo `engines` | Menor | CI usa Node 22; docs dicen 20; sin `engines` no se forzaba versión. **Corregido** agregando `engines: { "node": ">=20" }`. |
-| `analyze` no genera reporte bajo Turbopack | Menor | Ver Hallazgo 6.1. |
+| Versiones desalineadas en `package.json` | Informativo | `next` `^16.3.3` vs `@next/bundle-analyzer` y `eslint-config-next` `16.3.2`. <ref_file file="C:/developer/paginas/pancheria/package.json" /> |
+| `playwright.config.ts` y `scripts/dev-e2e.ts` usan `override: true` para `.env.e2e` | Menor | Si se dejan variables vacías, sobrescriben `.env.local` con cadenas vacías. <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" /> <ref_file file="C:/developer/paginas/pancheria/scripts/dev-e2e.ts" /> |
+| `next.config.ts` sin CORS explícito | Informativo | Si se esperan llamadas cross-origin a `/api/public/*`, agregar headers. <ref_file file="C:/developer/paginas/pancheria/next.config.ts" /> |
 
-## 6. Últimas resoluciones (desde el baseline previo)
+## 6. Correcciones documentales aplicadas
 
-| Hallazgo | Clasificación original | Acción aplicada |
+| Hallazgo | Acción | Evidencia |
 |---|---|---|
-| `productService.deleteProduct` borraba imagen y recetas durante el soft delete | Mayor | Se corrigió: soft delete solo marca `deletedAt` e `isActive`; la imagen y recetas se conservan y se liberan solo en hard delete. |
-| No existía hard delete individual con liberación de archivos para productos y videos | Mayor | Se agregaron `productRepository.hardDelete`, `productService.permanentlyDeleteProduct`, `videoRepository.hardDelete` y `videoService.permanentlyDeleteVideo`. |
-| No había UI de papelera para productos y videos | Mayor | Se agregaron `/productos/eliminados` y `/videos/eliminados`. |
-| Cachés en memoria de rate limit no se limpiaban al eliminar usuarios/sucursales | Menor | Se agregó `remove` a `RateLimitStore` y su uso en `userService.deleteUser` y `branchService.deleteBranch`. |
-| `InMemoryPublicOrderRateLimitStore` acumulaba registros expirados | Menor | Se invoca `cleanupExpired` periódicamente en `recordRequest`. |
-| `VideoList` eliminaba/restauraba videos sin confirmación | Menor | Se agregó `ConfirmDialog` en `video-list.tsx`. |
-| `deleteByCompoundProductId` en `recipeRepository` sin uso | Menor | Se eliminó la función y su test. |
-| Tests E2E de caja y rate limit | Mayor | Suite E2E pasa con variables `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV`, `TRUSTED_PROXY_IP_HEADER`, etc. |
-| Pedidos con múltiples líneas del mismo producto personalizado | Mayor | Se corrigieron keys duplicadas y resumen de recetas por línea; suite E2E: 104 passed. |
-| `deleteBranch` no limpiaba pedidos/videos/archivos asociados | Mayor | Se corrigió cascada completa incluyendo archivos `local`, `vercel-blob`, `s3` y `r2`. |
-| `localStorage` conservaba datos de sucursales eliminadas | Mayor | `usePedidoClient` detecta sucursal inexistente y limpia claves. |
-| Tests E2E de stock en promos y vaciado masivo de papelera | Menor | Agregados en `productos-y-recetas.spec.ts`. |
-| Tracking público exponía `cancellationToken` sin identificación del cliente | Crítico | `trackOrder` ahora exige `customerName` o `customerPhone` para devolver datos del pedido. |
-| `getClientIp` permitía spoofing y aceptaba IPs vacías | Mayor | `src/lib/rate-limit.ts` valida `TRUSTED_PROXY_IP_HEADER`, descarta privados y usa el último `X-Forwarded-For` cuando está configurado. |
-| Adjuntos de chat cacheados públicamente | Mayor | `src/app/api/chat/attachment/[key]/route.ts` usa `Cache-Control` privado y sin cache compartida. |
-| Upload de adjuntos guardaba antes de validar token | Mayor | `src/app/api/public/pedido/[id]/chat/upload/route.ts` limpia el adjunto si `sendClientMessage` falla. |
-| Comparación directa de `CRON_SECRET` | Mayor | Los cron jobs usan `crypto.timingSafeEqual`. |
-| Productos eliminados como insumos de receta | Mayor | `recipeRepository.assertProductInBranch` filtra `isNull(products.deletedAt)`. |
-| Rate limit de pedidos públicos aplicado después del parseo | Menor | `src/app/api/public/pedido/route.ts` aplica rate limit antes de procesar el body. |
-| Denominaciones rápidas inconsistentes (`COMMON_BILLS`) | Menor | `src/components/pagos/payment-parts-input.tsx` usa `DEFAULT_DENOMINATIONS` en los botones de billetes. |
-| Variables de dirección/teléfono/ubicación de sucursales no documentadas | Menor | `AGENTS.md`, `README.md` y `.devin/environment.yaml` documentan `DEFAULT_BRANCH_ADDRESS`, `DEFAULT_BRANCH_PHONE`, `DEFAULT_BRANCH_LOCATION`, `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`. |
-| `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` no documentada en `README.md` | Menor | `README.md` y `.devin/environment.yaml` incluyen la variable. |
-| Prompts archivados ausentes en el índice | Menor | `.devin/prompts/README.md` lista los prompts archivados `cobertura-auditoria-flujo-pedidos-2026-08-27.md`, `plan-mejoras-flujo-pedidos-chat-caja-sucursales-2026-08-27.md` y `recomendaciones-pedidos-sucursal-stock-2026-08-27.md`. |
+| README.md decía que los pedidos no reservan stock al crearse | Actualizado flujo y explicación de reservas | <ref_file file="C:/developer/paginas/pancheria/README.md" /> |
+| `lecciones-aprendidas.md` decía que `createOrder` no descuenta stock | Reescrita la lección para reflejar reserva inmediata | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/lecciones-aprendidas.md" /> |
+| `guia-funcionamiento-pancheria.md` contradecía el flujo de reservas | Actualizado checklist y conclusión | <ref_file file="C:/developer/paginas/pancheria/.devin/informes/guia-funcionamiento-pancheria.md" /> |
 
 ## 7. Plan de acción priorizado
 
 | Recomendación | Prioridad | Razón |
 |---|---|---|
-| Cerrar condiciones de carrera en `cancelSale`, `confirmSale` y `convertOrderToSale` | Crítico | Evita doble reintegro de stock/caja y sobreventa entre recepción y confirmación. **Hecho.** |
-| Resolver overselling de pedidos `pending` (`createOrder` sin reserva) | Crítico | Varios pedidos pueden comprometer el mismo stock antes de `receiveOrder`. **Mitigado** con locks y reservas en recepción/confirmación; decisión pendiente de reservar al crear. |
-| Preservar referencia histórica al eliminar cajas | Crítico | Los reportes de cierre no pueden perder `cashRegisterId` por hard delete. **Hecho:** se impide hard delete si existen ventas asociadas. |
-| Agregar `countOrdersByStatus` y reemplazar `getOrders(..., limit:1)` en `/api/panel/resumen` | Crítico | **Hecho:** ahora se usa `orderService.getOrderCountsByStatus(branchId)`. |
-| Mover `expirePendingOrders` fuera del request del dashboard (cron job o endpoint background) | Crítico | **Hecho:** se creó `/api/cron/expire-orders` (`*/5 * * * *`) protegido por `CRON_SECRET`; se quitó de `/api/panel/resumen` y `/api/pedidos`. |
-| Agregar `route.test.ts` para `recibir`, `finalizar`, `public/sucursal/estado` y rutas de imagen de productos | Crítico | Estados de pedido, catálogo público e imágenes son críticos. **Hecho.** |
-| Exponer `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` y conectarlo a `useDashboard.ts` | Mayor | Consistencia con el resto de intervalos configurables. **Hecho.** |
-| Documentar `E2E_ENABLE_RATE_LIMIT` en `.env.example`, `README.md` y `AGENTS.md` (o aislar la lógica de test) | Mayor | **Hecho.** |
-| Centralizar `process.env` en `src/config/*` y limpiar dependencias de capas | Mayor | Reduce riesgo de dependencias circulares y facilita tests. |
-| Extraer pipeline común `prepareCart()` para ventas, pedidos y conversión | Mayor | Reduce duplicación y errores de inconsistencia. |
-| Decidir semántica de reservas de stock en pedidos `pending` | Crítico | Reservar stock al crear o documentar que la disponibilidad solo se garantiza al recibir/confirmar; impacta UX y contabilidad de stock comprometido. |
-| Proteger snapshots históricos en `receiveOrder` | Mayor | **Hecho:** se reemplazó `recomputeOrderRecipeSnapshots` por `ensureOrderRecipeSnapshots`; `receiveOrder` no vuelve a escribir `orderItemRecipes`, conserva el snapshot del pedido y solo computa en memoria cuando no hay snapshot. |
-| Implementar soft delete o bloqueo para `deleteBranch` | Mayor | Evita pérdida irreversible de datos históricos. |
-| Crear E2E de pago mixto real (`cash + transfer`) en el terminal de ventas | Mayor | **Hecho.** |
-| Agregar test unitario para `orderStockReservationRepository.ts` | Mayor | **Hecho.** |
-| Agregar `orderBy` en `findFirst` y `SELECT ... FOR UPDATE` de múltiples filas | Menor | Reduce no-determinismo y riesgo de deadlocks. |
-| Hacer `createOrder` idempotente con `onConflictDoNothing` | Menor | Evita violaciones de unicidad en concurrencia. |
-| Normalizar manejo de centavos en pagos | Menor | Evita redondeos inconsistentes en `payment-helpers.ts`. |
-| Pausar polling del catálogo público al ocultar pestaña (`visibilitychange`) | Menor | Mejora batería y uso de ancho de banda. |
-| Optimizar imágenes de productos/chat con `next/image` | Menor | Reduce tamaño de descarga y mejora CLS. |
-| Unificar `COMMON_BILLS` con `DEFAULT_DENOMINATIONS` | Menor | **Hecho.** Evita denominaciones inconsistentes. |
-| Resolver `getClientIp` para IPs no confiables en producción | Mayor | Evita que todo el tráfico comparta el mismo bucket de rate limit. |
-| Revisar CSP `script-src 'unsafe-inline'` | Menor | **Hecho.** Ahora se genera un nonce por request en `src/proxy.ts` y `script-src` no usa `unsafe-inline`/`unsafe-eval` en producción. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
-| Agregar `axe-core` o Lighthouse en CI para accesibilidad | Futuro | **Hecho.** `accessibility.spec.ts` con `@axe-core/playwright` valida WCAG 2.1 AA en cada CI. |
+| `executeInTransaction` re-entrante para `cancelOrder` → `cancelSale` | Resuelto | Resuelto: `getCurrentTransaction()` reutiliza el `tx` activo; tests actualizados. <ref_file file="C:/developer/paginas/pancheria/src/application/transactionService.ts" /> |
+| Unificar validación y deducción de recetas en `convertOrderToSale` usando el snapshot histórico | Resuelto | Resuelto: `validateCartAvailability` y `buildSaleItemValues` usan `recipeSnapshot` del pedido. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
+| Scope en `public_order_rate_limits` | Resuelto | Resuelto: PK compuesta `(scope, ip)` y store separa contadores por scope. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
+| `orderId` nullable en `stock_movements` | Resuelto | Resuelto: columna y FK agregadas, poblada en reservas; migración generada. <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" /> |
+| `getClientIp` en producción fuera de Vercel | Resuelto | Resuelto: `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true` como escape controlado. <ref_file file="C:/developer/paginas/pancheria/src/lib/rate-limit.ts" /> |
+| Tests unitarios de `src/lib/cart-pipeline.ts` | Resuelto | Resuelto: `src/lib/cart-pipeline.test.ts` cubre contexto, `FOR UPDATE`, reservas, totales, snapshots, servicios y faltantes. <ref_file file="C:/developer/paginas/pancheria/src/lib/cart-pipeline.ts" /> |
+| Mover eliminación de archivos fuera de la transacción o a una cola post-commit | Menor | Evita que un rollback deje `imageKey` apuntando a un archivo inexistente. <ref_file file="C:/developer/paginas/pancheria/src/application/services/productService.ts" /> |
+| Paginar `expirePendingOrders` y tolerar errores de dominio genéricos | Menor | Reduce carga de memoria y evita que el cron se detenga por carreras. <ref_file file="C:/developer/paginas/pancheria/src/application/services/orderService.ts" /> |
+| Imponer mínimos prácticos a intervalos de caja | Menor | Evita polling agresivo si se configuran valores muy bajos. <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" /> |
+| Centralizar lecturas de `process.env` en `src/config/*` | Menor | Reduce acoplamiento y mejora testeabilidad. <ref_file file="C:/developer/paginas/pancheria/src/lib/csp-helpers.ts" /> |
+| Alinear versiones de paquetes `@next/*` y `eslint-config-next` con `next` | Informativo | Consistencia de versiones en `package.json`. <ref_file file="C:/developer/paginas/pancheria/package.json" /> |
 
-## 8. Progreso de ejecución del plan de acción
+## 8. Cierre
 
-### Estado actual del plan de 18 tareas
-
-| # | Tarea | Estado |
-|---|---|---|
-| 1 | Centralizar lecturas de `process.env` en `src/config/*` | **Completado** |
-| 2 | Desacoplar `product-helpers.ts` de `summaryService` | **Completado** |
-| 3 | Extraer `prepareCart()` común | **Completado** |
-| 4 | Resolver `getClientIp` en producción | **Completado** |
-| 5 | Reserva de stock en `createOrder` | **Completado** |
-| 6 | Soft delete / archivo para `deleteBranch` | **Completado** |
-| 7 | Tests unitarios para helpers críticos | **Completado** |
-| 8 | E2E de cierres diarios | **Completado** |
-| 9 | E2E de eliminación real de sucursal | **Completado** |
-| 10 | `orderBy` en `findFirst` y `SELECT ... FOR UPDATE` | **Completado** |
-| 11 | Idempotencia de `createOrder` | **Completado** |
-| 12 | Pausar polling al ocultar pestaña | **Completado** |
-| 13 | `next/image` en catálogo público | **Completado** |
-| 14 | Targets táctiles de botones de pago | **Completado** |
-| 15 | Documentar `calculateCompoundAvailability` | **Completado** |
-| 16 | Normalizar aritmética de centavos | **Completado** |
-| 17 | CSP sin `unsafe-inline/eval` | **Completado** |
-| 18 | `axe-core` / Lighthouse en CI | **Completado** |
-
-### Verificaciones del repositorio (última ejecución)
-
-- `npm run lint` — ✅
-- `npx tsc --noEmit` — ✅
-- `npm test` — ✅ (139 suites, 1326 tests)
-- `npm run build` — ✅
-- `npm run knip` — ✅
-
-### Decisiones aplicadas
-
-- **Tarea #5:** se implementó reserva de stock en `createOrder`. Los pedidos `pending` ahora generan reservas en `order_stock_reservations` y movimientos `reserve` en `stock_movements`. `cancelOrder`, `expirePendingOrders` y `convertOrderToSale` liberan esas reservas cuando corresponde.
-- **Tarea #6:** se implementó soft delete de sucursales. La columna `deletedAt` se agregó a `branches` y las tablas `products`, `cashRegisters`, `orders` y `videos` reciben `deletedAt` en cascada. `users` no se borran físicamente; `verifyCredentials` rechaza login en sucursales archivadas. Se conservan `sales`, `saleItems`, `stockMovements`, `recipes` y otros datos históricos.
-- **Tarea #8:** se agregó `tests/e2e/cierres-diarios.spec.ts`. Abre caja, crea ventas por API con pagos mixtos (`cash` + `transfer`), cierra por API y verifica el resumen en `/cierre` y el historial en `/ventas/historial/[id]`, incluyendo productos vendidos y medios de pago.
-- **Tarea #9:** se agregó `tests/e2e/sucursal-eliminacion.spec.ts`. Crea una sucursal y un operador, archiva la sucursal desde el panel y verifica que desaparece del listado, que el operador no puede loguear y que el endpoint público `/api/public/pedido` rechaza pedidos para la sucursal archivada con 404.
-
-## 9. Enlaces relevantes
-
-- `README.md` — punto de entrada del repositorio.
-- `AGENTS.md` — reglas y convenciones para agentes.
-- `.devin/README.md` — índice de `.devin/`.
-- `.devin/prompts/README.md` — índice de prompts activos y archivados.
-- `.devin/prompts/auditoria-masiva.md` — metodología de la auditoría.
-- `.devin/prompts/auditoria-masiva-resumen.md` — guía de ejecución de la auditoría.
-- `.devin/informes/entornos.md` — procedimientos de entornos y credenciales.
-- `.devin/informes/guia-funcionamiento-pancheria.md` — conceptos de negocio y flujos.
-- `.devin/informes/lecciones-aprendidas.md` — decisiones técnicas y regresiones evitadas.
-- `.devin/informes/checklist-pre-push.md` — verificaciones antes de subir cambios.
-- `.devin/informes/archivados/reporte-estado-historico-2026-08-30.md` — snapshot completo de fases anteriores.
+- Baseline: `9c6f08507090d7dd379a49f25ad3e7600ae4fe3a`
+- Verificaciones base ejecutadas: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`, `npx drizzle-kit check` — todas pasaron.
+- Migración generada: `drizzle/0027_special_hellcat.sql` (no aplicada a producción).
+- Documentación actualizada: `README.md`, `AGENTS.md`, `.env.example`.
+- Informe anterior archivado en `.devin/informes/archivados/reporte-estado-2026-09-04.md`.
+- No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npm run test:e2e`, `npx playwright test` ni `npx vercel env pull` por requerir confirmación explícita y una base de datos descartable.

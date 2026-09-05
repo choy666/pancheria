@@ -95,6 +95,7 @@ export type SaleItemInput = {
   productId: number;
   quantity: number;
   selectedRecipeItemIds?: number[];
+  recipeSnapshot?: RecipeItemConfig[];
 };
 
 export type Order = {
@@ -164,6 +165,7 @@ export type StockMovement = {
   quantity: number;
   reason: string | null;
   saleId: number | null;
+  orderId: number | null;
   createdAt: Date;
 };
 

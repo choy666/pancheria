@@ -35,6 +35,7 @@ export async function create(params: {
   quantity: number;
   reason?: string;
   saleId?: number;
+  orderId?: number;
 }) {
   const [result] = await db
     .insert(stockMovements)
@@ -45,6 +46,7 @@ export async function create(params: {
       quantity: params.quantity,
       reason: params.reason ?? null,
       saleId: params.saleId ?? null,
+      orderId: params.orderId ?? null,
     })
     .returning();
   return result;

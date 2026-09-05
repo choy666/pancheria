@@ -183,6 +183,7 @@ async function deductStockForItems(
           type: movementType,
           quantity: -consumed,
           saleId: source.saleId ?? null,
+          orderId: null,
           reason,
           createdAt: nowUTC(),
         });
@@ -213,6 +214,7 @@ async function deductStockForItems(
         type: movementType,
         quantity: -item.quantity,
         saleId: source.saleId ?? null,
+        orderId: null,
         reason,
         createdAt: nowUTC(),
       });
@@ -331,6 +333,7 @@ async function reintegrateStockForItems(
           type: movementType,
           quantity: reintegrated,
           saleId: source.saleId ?? null,
+          orderId: null,
           reason,
           createdAt: nowUTC(),
         });
@@ -350,6 +353,7 @@ async function reintegrateStockForItems(
         type: movementType,
         quantity: item.quantity,
         saleId: source.saleId ?? null,
+        orderId: null,
         reason,
         createdAt: nowUTC(),
       });
@@ -551,89 +555,89 @@ export async function cancelSale(
   id: number,
   reason: string
 ) {
-  const sale = (await db.query.sales.findFirst({
-    where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
-    with: {
-      items: { with: { product: true, recipeSnapshots: true } },
-      payments: true,
-      cashRegister: true,
-    },
-  })) as {
-    id: number;
-    branchId: number;
-    total: number;
-    paymentMethod: 'cash' | 'transfer';
-    status: 'active' | 'cancelled';
-    cashRegisterId: number | null;
-    items: {
-      productId: number;
-      quantity: number;
-      unitPrice: number;
-      subtotal: number;
-      product: { name: string } | null;
-      recipeSnapshots: {
-        supplyId: number;
-        supplyName: string;
-        supplyType: ProductType;
-        quantity: number;
-        autoDiscount: boolean;
-        isOptional: boolean;
-        selected: boolean;
-        selectedByDefault: boolean;
-      }[];
-    }[];
-    payments: PaymentPart[];
-    cashRegister: {
+  return executeInTransaction(async (tx) => {
+    const sale = (await tx.query.sales.findFirst({
+      where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
+      with: {
+        items: { with: { product: true, recipeSnapshots: true } },
+        payments: true,
+        cashRegister: true,
+      },
+    })) as {
       id: number;
       branchId: number;
       total: number;
-      cashTotal: number;
-      transferTotal: number;
-      totalSales: number;
-      productsSummary: string | null;
-      criticalSuppliesSummary: string | null;
-      status: 'open' | 'closed';
-      deletedAt: Date | null;
-    } | null;
-  } | undefined;
+      paymentMethod: 'cash' | 'transfer';
+      status: 'active' | 'cancelled';
+      cashRegisterId: number | null;
+      items: {
+        productId: number;
+        quantity: number;
+        unitPrice: number;
+        subtotal: number;
+        product: { name: string } | null;
+        recipeSnapshots: {
+          supplyId: number;
+          supplyName: string;
+          supplyType: ProductType;
+          quantity: number;
+          autoDiscount: boolean;
+          isOptional: boolean;
+          selected: boolean;
+          selectedByDefault: boolean;
+        }[];
+      }[];
+      payments: PaymentPart[];
+      cashRegister: {
+        id: number;
+        branchId: number;
+        total: number;
+        cashTotal: number;
+        transferTotal: number;
+        totalSales: number;
+        productsSummary: string | null;
+        criticalSuppliesSummary: string | null;
+        status: 'open' | 'closed';
+        deletedAt: Date | null;
+      } | null;
+    } | undefined;
 
-  if (!sale) throw new NotFoundError('Venta', id);
-  if (sale.status === 'cancelled') return sale;
+    if (!sale) throw new NotFoundError('Venta', id);
+    if (sale.status === 'cancelled') return sale;
 
-  if (
-    !sale.cashRegister ||
-    sale.cashRegister.status !== 'open' ||
-    sale.cashRegister.deletedAt ||
-    sale.cashRegister.branchId !== branchId
-  ) {
-    throw new ValidationError(
-      'No se puede anular una venta de una caja cerrada o eliminada.'
-    );
-  }
+    if (
+      !sale.cashRegister ||
+      sale.cashRegister.status !== 'open' ||
+      sale.cashRegister.deletedAt ||
+      sale.cashRegister.branchId !== branchId
+    ) {
+      throw new ValidationError(
+        'No se puede anular una venta de una caja cerrada o eliminada.'
+      );
+    }
 
-  const payments = sale.payments ?? [];
+    const payments = sale.payments ?? [];
 
-  const saleItemValues: SaleItemValue[] = sale.items.map((item) => ({
-    productId: item.productId,
-    productName: item.product?.name ?? `Producto ${item.productId}`,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    subtotal: item.subtotal,
-    recipeSnapshot: item.recipeSnapshots
-      ? item.recipeSnapshots.map((s) => ({
-          supplyId: s.supplyId,
-          supplyName: s.supplyName,
-          supplyType: s.supplyType,
-          quantity: s.quantity,
-          autoDiscount: s.autoDiscount,
-          isOptional: s.isOptional,
-          selected: s.selected,
-          selectedByDefault: s.selectedByDefault,
-        }))
-      : undefined,
-  }));
+    const saleItemValues: SaleItemValue[] = sale.items.map((item) => ({
+      productId: item.productId,
+      productName: item.product?.name ?? `Producto ${item.productId}`,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+      recipeSnapshot: item.recipeSnapshots
+        ? item.recipeSnapshots.map((s) => ({
+            supplyId: s.supplyId,
+            supplyName: s.supplyName,
+            supplyType: s.supplyType,
+            quantity: s.quantity,
+            autoDiscount: s.autoDiscount,
+            isOptional: s.isOptional,
+            selected: s.selected,
+            selectedByDefault: s.selectedByDefault,
+          }))
+        : undefined,
+    }));
 
-  return executeInTransaction(async (tx) => {
     const [locked] = await tx
       .update(sales)
       .set({

@@ -124,6 +124,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 ### Prompts activos
 
 - [Prompt maestro — Proyecto Panchería](pancheria.prompt.md) — punto de entrada para cualquier tarea futura.
+- [Implementación de hallazgos críticos y mayores de la auditoría 2026-09-05](implementacion-hallazgos-auditoria-2026-09-05.md) — guía para resolver transacciones anidadas, validación de recetas en `convertOrderToSale`, scope del rate limit, FK `orderId` en `stock_movements`, `getClientIp` en producción y tests de `cart-pipeline`.
 - [Auditoría masiva integral del proyecto](auditoria-masiva.md) — guía para auditar de forma sistemática calidad, seguridad, arquitectura, cobertura de pruebas, documentación, rendimiento, accesibilidad, integridad de datos y despliegue/CI.
 - [Resumen ejecutivo — Auditoría masiva integral](auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento para ejecutar `auditoria-masiva.md` de forma reproducible.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.

@@ -1368,8 +1368,9 @@ describe('cancelSale', () => {
     const result = await cancelSale(BRANCH_ID, 1, 'ya anulada');
 
     expect(result.status).toBe('cancelled');
-    expect(mockedExecuteInTransaction).not.toHaveBeenCalled();
+    expect(mockedExecuteInTransaction).toHaveBeenCalledTimes(1);
     expect(findCapturedUpdate(sales).length).toBe(0);
+    expect(findCapturedUpdate(products).length).toBe(0);
   });
 
   test('anula una venta de servicio sin reintegrar stock', async () => {

@@ -9,8 +9,12 @@ export interface PublicOrderRateLimitStore {
    * Registra un request y devuelve `true` si el IP superó el límite.
    * La operación es atómica: incrementa el contador si la ventana aún
    * no venció, o lo reinicia en caso contrario.
+   *
+   * El `scope` separa contadores por funcionalidad (por ejemplo, `pedido`
+   * y `chat`) para que un límite alcanzado en uno no bloquee el otro.
    */
   recordRequest(
+    scope: string,
     ip: string,
     windowMs: number,
     maxRequests: number
@@ -23,19 +27,25 @@ const CLEANUP_INTERVAL = 100;
 export class InMemoryPublicOrderRateLimitStore
   implements PublicOrderRateLimitStore
 {
-  private attemptsByIp = new Map<
+  private attemptsByScopeAndIp = new Map<
     string,
     { count: number; resetAt: number }
   >();
   private requestCount = 0;
 
+  private key(scope: string, ip: string): string {
+    return `${scope}:${ip}`;
+  }
+
   async recordRequest(
+    scope: string,
     ip: string,
     windowMs: number,
     maxRequests: number
   ): Promise<boolean> {
     const now = Date.now();
-    const record = this.attemptsByIp.get(ip);
+    const scopeIpKey = this.key(scope, ip);
+    const record = this.attemptsByScopeAndIp.get(scopeIpKey);
 
     this.requestCount += 1;
     if (this.requestCount % CLEANUP_INTERVAL === 0) {
@@ -43,7 +53,10 @@ export class InMemoryPublicOrderRateLimitStore
     }
 
     if (!record || now > record.resetAt) {
-      this.attemptsByIp.set(ip, { count: 1, resetAt: now + windowMs });
+      this.attemptsByScopeAndIp.set(scopeIpKey, {
+        count: 1,
+        resetAt: now + windowMs,
+      });
       return 1 > maxRequests;
     }
 
@@ -55,9 +68,9 @@ export class InMemoryPublicOrderRateLimitStore
     const now = Date.now();
     let deleted = 0;
 
-    for (const [ip, record] of this.attemptsByIp.entries()) {
+    for (const [scopeIpKey, record] of this.attemptsByScopeAndIp.entries()) {
       if (now > record.resetAt) {
-        this.attemptsByIp.delete(ip);
+        this.attemptsByScopeAndIp.delete(scopeIpKey);
         deleted += 1;
       }
     }
@@ -70,6 +83,7 @@ export class DbPublicOrderRateLimitStore
   implements PublicOrderRateLimitStore
 {
   async recordRequest(
+    scope: string,
     ip: string,
     windowMs: number,
     maxRequests: number
@@ -79,12 +93,13 @@ export class DbPublicOrderRateLimitStore
     const [row] = await db
       .insert(publicOrderRateLimits)
       .values({
+        scope,
         ip,
         count: 1,
         resetAt: now + windowMs,
       })
       .onConflictDoUpdate({
-        target: publicOrderRateLimits.ip,
+        target: [publicOrderRateLimits.scope, publicOrderRateLimits.ip],
         set: {
           count: sql`CASE WHEN ${publicOrderRateLimits.resetAt} > ${now} THEN ${publicOrderRateLimits.count} + 1 ELSE 1 END`,
           resetAt: sql`CASE WHEN ${publicOrderRateLimits.resetAt} > ${now} THEN ${publicOrderRateLimits.resetAt} ELSE ${now + windowMs} END`,
@@ -99,7 +114,7 @@ export class DbPublicOrderRateLimitStore
     const result = await db
       .delete(publicOrderRateLimits)
       .where(lt(publicOrderRateLimits.resetAt, Date.now()))
-      .returning({ ip: publicOrderRateLimits.ip });
+      .returning({ scope: publicOrderRateLimits.scope, ip: publicOrderRateLimits.ip });
     return result.length;
   }
 }

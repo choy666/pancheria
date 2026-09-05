@@ -120,7 +120,8 @@ interface AvailabilityContext {
 async function buildAvailabilityContext(
   branchId: number,
   productIds: number[],
-  dbOrTx?: typeof import('@/db').db
+  dbOrTx?: typeof import('@/db').db,
+  recipeSnapshotsByProductId?: Map<number, RecipeItemConfig[]>
 ): Promise<AvailabilityContext> {
   const client = dbOrTx;
   const productsList = client
@@ -149,6 +150,22 @@ async function buildAvailabilityContext(
     ) {
       supplyStockById[product.id] = product.stock;
       supplyNameById[product.id] = product.name;
+    }
+  }
+
+  if (recipeSnapshotsByProductId) {
+    for (const [productId, snapshot] of recipeSnapshotsByProductId.entries()) {
+      const product = productById.get(productId);
+      if (!product || product.type !== 'compound') continue;
+
+      for (const config of snapshot) {
+        if (!config.autoDiscount) continue;
+        const supply = productById.get(config.supplyId);
+        if (supply) {
+          supplyStockById[config.supplyId] = supply.stock;
+          supplyNameById[config.supplyId] = supply.name;
+        }
+      }
     }
   }
 
@@ -182,7 +199,7 @@ async function buildAvailabilityContext(
 }
 
 function buildBreakdown(
-  criticalItems: RecipeWithSupply[],
+  criticalItems: { supplyId: number; quantity: number }[],
   supplyStockById: Record<number, number>,
   supplyNameById: Record<number, string>,
   consumedBySupply: Record<number, number> = {}
@@ -344,6 +361,27 @@ export function validateProductsForOperation(
   }
 }
 
+function getRecipeListForItem(
+  item: SaleItemInput,
+  product: ProductRow,
+  recipesByProduct: Map<number, RecipeWithSupply[]>
+): { supplyId: number; quantity: number; autoDiscount: boolean; selected: boolean }[] {
+  if (product.type !== 'compound') return [];
+
+  if (item.recipeSnapshot && item.recipeSnapshot.length > 0) {
+    return item.recipeSnapshot;
+  }
+
+  const recipes = recipesByProduct.get(product.id) ?? [];
+  const selectedIds = item.selectedRecipeItemIds ?? [];
+  return recipes.map((recipe) => ({
+    supplyId: recipe.supplyId,
+    quantity: recipe.quantity,
+    autoDiscount: recipe.autoDiscount,
+    selected: isRecipeItemSelected(recipe, selectedIds),
+  }));
+}
+
 export async function validateCartAvailability(
   branchId: number,
   items: SaleItemInput[],
@@ -357,9 +395,25 @@ export async function validateCartAvailability(
   breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
 }> {
   const itemProductIds = items.map((item) => item.productId);
-  const allProductIds = Array.from(
-    new Set([...itemProductIds, ...(productIds ?? [])])
+  const snapshotSupplyIds = items.flatMap(
+    (item) =>
+      item.recipeSnapshot
+        ?.filter((config) => config.autoDiscount)
+        .map((config) => config.supplyId) ?? []
   );
+  const allProductIds = Array.from(
+    new Set([...itemProductIds, ...(productIds ?? []), ...snapshotSupplyIds])
+  );
+
+  const recipeSnapshotsByProductId = new Map<number, RecipeItemConfig[]>();
+  for (const item of items) {
+    if (!item.recipeSnapshot || item.recipeSnapshot.length === 0) continue;
+    const existing = recipeSnapshotsByProductId.get(item.productId) ?? [];
+    recipeSnapshotsByProductId.set(item.productId, [
+      ...existing,
+      ...item.recipeSnapshot,
+    ]);
+  }
 
   const {
     productsList,
@@ -367,7 +421,12 @@ export async function validateCartAvailability(
     recipesByProduct,
     supplyStockById,
     supplyNameById,
-  } = await buildAvailabilityContext(branchId, allProductIds, dbOrTx);
+  } = await buildAvailabilityContext(
+    branchId,
+    allProductIds,
+    dbOrTx,
+    recipeSnapshotsByProductId
+  );
 
   const idsToLock = collectStockProductIdsToLock(
     items,
@@ -422,11 +481,9 @@ export async function validateCartAvailability(
   for (const item of items) {
     const product = productById.get(item.productId)!;
     if (product.type === 'compound') {
-      const recipeList = recipesByProduct.get(product.id) ?? [];
-      const selectedIds = item.selectedRecipeItemIds ?? [];
+      const recipeList = getRecipeListForItem(item, product, recipesByProduct);
       for (const recipeItem of recipeList) {
-        if (!recipeItem.autoDiscount) continue;
-        if (!isRecipeItemSelected(recipeItem, selectedIds)) continue;
+        if (!recipeItem.autoDiscount || !recipeItem.selected) continue;
         consumedBySupply[recipeItem.supplyId] =
           (consumedBySupply[recipeItem.supplyId] ?? 0) +
           item.quantity * recipeItem.quantity;
@@ -511,8 +568,8 @@ export async function validateCartAvailability(
         };
       }
     } else if (product.type === 'compound') {
-      const criticalItems = (recipesByProduct.get(product.id) ?? []).filter(
-        (r) => r.autoDiscount
+      const criticalItems = getRecipeListForItem(item, product, recipesByProduct).filter(
+        (recipeItem) => recipeItem.autoDiscount && recipeItem.selected
       );
       let bottleneck: { available: number; required: number; supplyName: string } | null = null;
       let minCapacity = Infinity;

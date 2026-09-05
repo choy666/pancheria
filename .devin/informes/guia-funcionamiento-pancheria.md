@@ -560,7 +560,7 @@ Disponibilidad = infinita.
 - [x] Validar `branchId` entero en `/pedido`.
 - [x] Incluir `branchId` explícito en el panel de pedidos.
 - [x] Implementar expiración automática de pedidos `pending`.
-- [x] Ajustar flujo de pedidos para que no reserven stock al crearse.
+- [x] Ajustar flujo de pedidos para que reserven stock inmediatamente al crearse.
 
 ### Configuración manual (pendiente del usuario)
 
@@ -581,6 +581,6 @@ Disponibilidad = infinita.
 
 ## 17. Conclusión
 
-Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado. WhatsApp funciona como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock al crearse; al recibirse (`in_process`) se reserva stock, al confirmarse el pago se libera la reserva y se descuenta stock físico, y al finalizar se marca entregado/retirado.
+Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado. WhatsApp funciona como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos reservan stock de insumos críticos al crearse (`pending`); al recibirse (`in_process`) se conserva la reserva existente; al confirmarse el pago se libera la reserva y se descuenta stock físico; al finalizar se marca entregado/retirado.
 
 Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`.
