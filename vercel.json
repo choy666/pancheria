@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/chat-attachments-cleanup",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/expire-orders",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
