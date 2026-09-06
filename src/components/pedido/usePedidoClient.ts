@@ -24,7 +24,7 @@ import type { ProductGroup } from '@/lib/product-grouping';
 import type { Branch } from '@/domain/types';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
-import type { PublicOrderItem } from '@/lib/whatsapp';
+import type { PublicOrderItem } from '@/domain/types';
 
 interface ShortageInfo {
   available: number;
@@ -47,7 +47,6 @@ export interface CreatedOrder {
   items: PublicOrderItem[];
   createdAt: string;
   expiresAt: string;
-  whatsappUrl: string | null;
 }
 
 export interface UsePedidoClientProps {
@@ -129,7 +128,6 @@ export interface UsePedidoClientResult {
   handleOpenCheckout: () => void;
   handleSubmitCheckout: () => Promise<void>;
   handleCancelOrder: () => Promise<void>;
-  handleOpenWhatsApp: () => void;
   handleGoToChat: () => void;
 }
 
@@ -522,12 +520,11 @@ export function usePedidoClient({
         throw new Error(data.error ?? 'Error al crear el pedido');
       }
 
-      const { order, whatsappUrl } = (await response.json()) as {
+      const { order } = (await response.json()) as {
         order: CreatedOrder;
-        whatsappUrl: string | null;
       };
 
-      setCreatedOrder({ ...order, whatsappUrl });
+      setCreatedOrder(order);
       addRecentOrder({
         id: order.id,
         orderNumber: order.orderNumber,
@@ -585,16 +582,6 @@ export function usePedidoClient({
     } finally {
       setIsCancelling(false);
     }
-  }
-
-  function handleOpenWhatsApp() {
-    if (!createdOrder?.whatsappUrl) return;
-
-    window.open(
-      createdOrder.whatsappUrl,
-      '_blank',
-      'noopener,noreferrer'
-    );
   }
 
   function handleGoToChat() {
@@ -663,7 +650,6 @@ export function usePedidoClient({
     handleOpenCheckout,
     handleSubmitCheckout,
     handleCancelOrder,
-    handleOpenWhatsApp,
     handleGoToChat,
   };
 }

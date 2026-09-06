@@ -283,15 +283,13 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - **No se reserva ni descuenta stock**.
    - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
    - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo.
-   - Si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un mensaje de WhatsApp con el resumen y un enlace a `wa.me/{NUMERO}` como fallback.
 9. El cliente coordina con la sucursal por el chat (texto e imágenes). El pedido queda `pending` hasta que el operador actúe.
-10. Si prefiere, el cliente puede abrir WhatsApp y enviar el mensaje. El navegador no puede verificar la entrega.
-11. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
+10. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
 
 ### 7.2 Flujo del operador
 
 1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado muestra `unreadCount` de mensajes sin leer. Si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0, el listado hace polling automático; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
-2. Al abrir un pedido, ve detalle, el chat con el cliente, un enlace para abrir el WhatsApp del cliente (fallback), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
+2. Al abrir un pedido, ve detalle, el chat con el cliente, el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
 3. **Recibir y reservar**
    - No requiere caja abierta.
    - Valida disponibilidad considerando reservas ajenas.
@@ -495,7 +493,6 @@ Disponibilidad = infinita.
 | `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout por defecto de requests al API | `30000` ms |
 | `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número de WhatsApp para pedidos (fallback) | — |
 | `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
 | `CRON_SECRET` | Protección de endpoints de cron | — |
 
@@ -508,7 +505,7 @@ Disponibilidad = infinita.
 1. ~~**Cambio de precio entre pedido y venta**~~: resuelto. `convertOrderToSale` conserva los precios históricos de `order.items` usando `buildSaleItemValues` con `unitPrice` y `subtotal`.
 2. ~~**Pedido `pending` infinito**~~: resuelto. `expirePendingOrders` cancela pedidos `pending` cuya antigüedad supere `ORDER_EXPIRATION_MS` (default 1 hora) e integra en `GET /api/pedidos`.
 3. ~~**Cambio de sucursal en panel sin `branchId` explícito**~~: resuelto. `PedidosList` envía `branchId` en query string y `GET /api/pedidos` lo valida contra `getCurrentBranchId(session)`, rechazando accesos cruzados de `operator`.
-4. ~~**Pedido exclusivo por WhatsApp sin coordinación**~~: resuelto. El flujo vigente crea el pedido en la app, ofrece un chat de pedidos (`/pedido/[id]/chat`) como canal principal y mantiene WhatsApp como fallback. Se agregaron `order_messages`, adjuntos con `attachmentKey`, `unreadCount` y limpieza de adjuntos huérfanos.
+4. ~~**Pedido exclusivo por WhatsApp sin coordinación**~~: resuelto. El flujo vigente crea el pedido en la app y ofrece un chat de pedidos (`/pedido/[id]/chat`) como único canal de comunicación; la integración con WhatsApp fue eliminada por completo. Se agregaron `order_messages`, adjuntos con `attachmentKey`, `unreadCount` y limpieza de adjuntos huérfanos.
 
 ### Limitaciones vigentes
 
@@ -535,8 +532,7 @@ Disponibilidad = infinita.
 
 3. **Pedidos públicos y chat**
    - El cliente arma el pedido desde `/pedido` y lo confirma en la app.
-   - Si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, la app también ofrece un mensaje de WhatsApp como fallback.
-   - El cliente coordina con la sucursal por el chat del pedido (`/pedido/[id]/chat`) o, si prefiere, por WhatsApp.
+   - El cliente coordina con la sucursal por el chat del pedido (`/pedido/[id]/chat`).
    - El operador recibe el pedido (`/pedidos/[id]/recibir`) para reservar stock, confirma el pago (`/pedidos/[id]/confirmar`) cuando la caja esté abierta y finaliza (`/pedidos/[id]/finalizar`) al entregar/retirar.
    - Si el cliente u operador cancela, se liberan reservas o anula la venta según el estado; el pedido pasa a `cancelled`.
 
@@ -566,7 +562,7 @@ Disponibilidad = infinita.
 
 ### Configuración manual (pendiente del usuario)
 
-- [ ] Configurar `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET` en Vercel.
+- [ ] Configurar `NEXTAUTH_URL` y `NEXTAUTH_SECRET` en Vercel.
 - [ ] Configurar `DATABASE_URL` y `DATABASE_URL_UNPOOLED` con base de producción.
 - [ ] Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
 - [ ] Ejecutar `npm run build`, `npm run test:e2e` en base de prueba.
@@ -583,6 +579,6 @@ Disponibilidad = infinita.
 
 ## 17. Conclusión
 
-Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado. WhatsApp funciona como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado. El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock al crearse; al recibirse (`in_process`) se reserva stock, al confirmarse el pago se libera la reserva y se descuenta stock físico, y al finalizar se marca entregado/retirado.
+Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado (único canal de comunicación con el cliente). El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock al crearse; al recibirse (`in_process`) se reserva stock, al confirmarse el pago se libera la reserva y se descuenta stock físico, y al finalizar se marca entregado/retirado.
 
 Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`.

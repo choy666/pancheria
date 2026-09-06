@@ -20,7 +20,7 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 
 ## Configuración
 
-1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `DEFAULT_BRANCH_NAME`. Opcionalmente configurar `NEXT_PUBLIC_WHATSAPP_NUMBER` si se quiere el fallback de WhatsApp. Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`/`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`/`NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`), `TRUSTED_PROXY_IP_HEADER`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`, `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD`/`NEW_BRANCH_ADDRESS`/`NEW_BRANCH_PHONE`/`NEW_BRANCH_LOCATION`, `DEFAULT_BRANCH_ADDRESS`/`DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_LOCATION` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` según el entorno.
+1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `DEFAULT_BRANCH_NAME`. Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`/`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`/`NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`), `TRUSTED_PROXY_IP_HEADER`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`, `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD`/`NEW_BRANCH_ADDRESS`/`NEW_BRANCH_PHONE`/`NEW_BRANCH_LOCATION`, `DEFAULT_BRANCH_ADDRESS`/`DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_LOCATION` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` según el entorno.
 2. `AUTH_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` en NextAuth v5; usar en producción para que coincida con el dominio de Vercel.
 3. `NEXT_PUBLIC_APP_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` para construir URLs locales de videos y adjuntos de chat cuando `STORAGE_PROVIDER=local`.
 4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
@@ -47,7 +47,7 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 ## Notas de seguridad y producción
 
 - No commitear `.env.local` ni `.env.e2e`; `.env.e2e.example` es el template seguro para compartir.
-- En producción definir `NEXT_PUBLIC_APP_URL` y `NEXTAUTH_URL` con el dominio real. De lo contrario, las URLs de videos, chat, imágenes de productos y WhatsApp caerán en `http://localhost:3000`.
+- En producción definir `NEXT_PUBLIC_APP_URL` y `NEXTAUTH_URL` con el dominio real. De lo contrario, las URLs de videos, chat e imágenes de productos caerán en `http://localhost:3000`.
 - En producción usar `STORAGE_PROVIDER=vercel-blob`, `s3` o `r2` para videos, adjuntos de chat e imágenes de productos. `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
 - Si `.env.local` fue expuesto, rotar `NEXTAUTH_SECRET`, `ADMIN_PASSWORD`, `BLOB_READ_WRITE_TOKEN` y las credenciales de Neon.
 
@@ -80,7 +80,7 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
   - `src/config/product-images.ts` expone getters para las variables de entorno de imágenes de productos.
 - `src/domain/` — tipos y errores de dominio
 - `src/hooks/` — hooks personalizados de React
-- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `product-image-storage`, `product-image-upload-client`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `branch-helpers`, `route-guard`, `fetch`, `whatsapp`, `auth`, `db-errors`, `with-auth.ts`, `public-url`, `api-handler`, `logger`, `pagination`, `validation-helpers`, `last-customer-name`, `last-customer-phone`, `recent-orders`, y helpers de productos/ventas/pedidos/stock/caja/pagos
+- `src/lib/` — utilidades: `cn`, `json`, `money`, `date`, `storage` (videos), `chat-storage`, `product-image-storage`, `product-image-upload-client`, `rate-limit`, `public-order-rate-limit-store`, `rate-limit-store` (login), `branch-resolver`, `branch-helpers`, `route-guard`, `fetch`, `auth`, `db-errors`, `with-auth.ts`, `public-url`, `api-handler`, `logger`, `pagination`, `validation-helpers`, `last-customer-name`, `last-customer-phone`, `recent-orders`, y helpers de productos/ventas/pedidos/stock/caja/pagos
 
 ## Panel de control
 
@@ -146,7 +146,7 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
 
 - Ver el catálogo de productos vendibles de una sucursal.
 - Armar un carrito con validación de disponibilidad en tiempo real.
-- Hacer el pedido desde la app; si `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado, también se genera un enlace de WhatsApp como fallback.
+- Hacer el pedido desde la app; el cliente coordina con la sucursal por el chat del pedido.
 - El pedido valida disponibilidad al crearlo, pero **no reserva ni descuenta stock**. El flujo del operador es:
   - **Recibir y reservar**: pasa de `pending` a `in_process` y reserva stock de insumos críticos en `order_stock_reservations` con un movimiento `reserve` en `stock_movements`.
   - **Confirmar pago**: pasa de `pending` o `in_process` a `paid`, libera la reserva (`reserve_release`) y descuenta el stock definitivo, generando la venta.
@@ -157,7 +157,7 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
 - Los pedidos `pending` expiran automáticamente tras `ORDER_EXPIRATION_MS` (por defecto 1 hora; mínimo 1 minuto) al consultar el listado o mediante el cron `/api/cron/expire-orders`. La expiración no libera stock porque un pedido `pending` nunca reservó.
 
 Variables de entorno relacionadas (ver `.env.example` para el listado completo):
-`NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING`, `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING`, `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_CATALOG_PAGE_SIZE`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_API_TIMEOUT_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS`, `E2E_ENABLE_RATE_LIMIT`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `TRUSTED_PROXY_IP_HEADER`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`, `DEFAULT_BRANCH_NAME`, `DEFAULT_BRANCH_ADDRESS`, `DEFAULT_BRANCH_PHONE`, `DEFAULT_BRANCH_LOCATION`, `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD`, `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
+`NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS`, `NEXT_PUBLIC_CATALOG_PAGE_SIZE`, `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_API_TIMEOUT_MS`, `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`, `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS`, `E2E_ENABLE_RATE_LIMIT`, `ORDER_EXPIRATION_MS`, `CRON_SECRET`, `TRUSTED_PROXY_IP_HEADER`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS`, `DEFAULT_BRANCH_NAME`, `DEFAULT_BRANCH_ADDRESS`, `DEFAULT_BRANCH_PHONE`, `DEFAULT_BRANCH_LOCATION`, `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PASSWORD`, `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
 
 ## Videos, reproducción y Cast
 

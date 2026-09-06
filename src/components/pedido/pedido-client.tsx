@@ -187,7 +187,6 @@ export function PedidoClient({
     handleOpenCheckout,
     handleSubmitCheckout,
     handleCancelOrder,
-    handleOpenWhatsApp,
     handleGoToChat,
   } = usePedidoClient({ branches, activeBranch, initialProducts, initialTotal, pageSize });
 
@@ -333,7 +332,6 @@ export function PedidoClient({
         isCancelling={isCancelling}
         cancellationError={cancellationError}
         onCancel={handleCancelOrder}
-        onWhatsApp={handleOpenWhatsApp}
         onGoToChat={handleGoToChat}
       />
     </div>

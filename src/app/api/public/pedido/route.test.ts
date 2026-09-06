@@ -5,7 +5,6 @@ import { NextRequest } from 'next/server';
 import { POST } from './route';
 import * as orderService from '@/application/services/orderService';
 import { getDefaultBranchId } from '@/lib/branch-resolver';
-import { getWhatsAppNumber, getWhatsAppMessageParts } from '@/config/catalog';
 import {
   ValidationError,
   NotFoundError,
@@ -18,8 +17,6 @@ jest.mock('@/lib/branch-resolver', () => ({
   getDefaultBranchId: jest.fn(),
 }));
 jest.mock('@/config/catalog', () => ({
-  getWhatsAppNumber: jest.fn(),
-  getWhatsAppMessageParts: jest.fn(),
   getPedidoRefetchIntervalMs: jest.fn().mockReturnValue(30000),
 }));
 jest.mock('@/lib/logger', () => ({
@@ -35,12 +32,6 @@ jest.mock('@/lib/logger', () => ({
 const mockedOrderService = orderService as jest.Mocked<typeof orderService>;
 const mockedGetDefaultBranchId = getDefaultBranchId as jest.MockedFunction<
   typeof getDefaultBranchId
->;
-const mockedGetWhatsAppNumber = getWhatsAppNumber as jest.MockedFunction<
-  typeof getWhatsAppNumber
->;
-const mockedGetWhatsAppMessageParts = getWhatsAppMessageParts as jest.MockedFunction<
-  typeof getWhatsAppMessageParts
 >;
 
 const BRANCH_ID = 1;
@@ -91,11 +82,6 @@ describe('POST /api/public/pedido', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetDefaultBranchId.mockResolvedValue(BRANCH_ID);
-    mockedGetWhatsAppNumber.mockReturnValue('5493415555555');
-    mockedGetWhatsAppMessageParts.mockReturnValue({
-      greeting: 'Hola',
-      closing: 'Gracias',
-    });
   });
 
   const validBody = {
@@ -106,7 +92,7 @@ describe('POST /api/public/pedido', () => {
     idempotencyKey: 'key-1',
   };
 
-  test('crea el pedido y devuelve el enlace de WhatsApp con status 201', async () => {
+  test('crea el pedido y devuelve el detalle con status 201', async () => {
     const order = createMockOrder();
     mockedOrderService.createOrder.mockResolvedValue(order as any);
 
@@ -115,14 +101,12 @@ describe('POST /api/public/pedido', () => {
     );
     const body = (await response.json()) as {
       order: typeof order & { branchName?: string };
-      whatsappUrl: string;
     };
 
     expect(response.status).toBe(201);
     expect(body.order.orderNumber).toBe(order.orderNumber);
     expect(body.order.branchName).toBe('Sucursal Test');
     expect(body.order.expiresAt).toBeDefined();
-    expect(body.whatsappUrl).toContain('https://wa.me/5493415555555');
     expect(mockedOrderService.createOrder).toHaveBeenCalledWith({
       branchId: BRANCH_ID,
       ...validBody,
@@ -143,27 +127,6 @@ describe('POST /api/public/pedido', () => {
     expect(mockedOrderService.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ branchId: 2 })
     );
-  });
-
-  test('crea el pedido con whatsappUrl nulo si no está configurado el número de WhatsApp', async () => {
-    mockedGetWhatsAppNumber.mockImplementation(() => {
-      throw new Error('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado.');
-    });
-
-    const order = createMockOrder();
-    mockedOrderService.createOrder.mockResolvedValue(order as any);
-
-    const response = await POST(
-      buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
-    );
-    const body = (await response.json()) as {
-      order: typeof order;
-      whatsappUrl: string | null;
-    };
-
-    expect(response.status).toBe(201);
-    expect(body.whatsappUrl).toBeNull();
-    expect(mockedOrderService.createOrder).toHaveBeenCalled();
   });
 
   test('devuelve 400 cuando el cuerpo es inválido', async () => {

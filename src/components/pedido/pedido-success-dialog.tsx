@@ -16,7 +16,7 @@ import {
   getCurrentOrNextOpening,
 } from '@/lib/branch-helpers';
 import type { CreatedOrder } from './usePedidoClient';
-import type { PublicOrderItem } from '@/lib/whatsapp';
+import type { PublicOrderItem } from '@/domain/types';
 import type { Branch } from '@/domain/types';
 
 function OrderItemRecipeDetails({ item }: { item: PublicOrderItem }) {
@@ -37,30 +37,6 @@ function OrderItemRecipeDetails({ item }: { item: PublicOrderItem }) {
   );
 }
 
-interface WhatsAppIconProps {
-  className?: string;
-}
-
-function WhatsAppIcon({ className }: WhatsAppIconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      data-testid="whatsapp-icon"
-      aria-hidden="true"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C10.1409 22.75 8.39016 22.2775 6.86335 21.4455L2.12395 22.2397C1.88692 22.2794 1.6452 22.2031 1.47391 22.0345C1.30261 21.8659 1.2225 21.6255 1.25845 21.3878L2.05878 16.0977C1.53735 14.8339 1.25001 13.4496 1.25001 12C1.25001 6.06294 6.06295 1.25 12 1.25ZM7.94309 6.7002C7.20774 6.7002 6.599 7.32056 6.71374 8.08595C6.929 9.52188 7.56749 12.1676 9.46536 14.0799C11.4494 16.0789 14.2876 16.9343 15.8259 17.2715C16.6211 17.4459 17.3 16.8158 17.3 16.0387V14.2151C17.3 14.0909 17.2235 13.9796 17.1076 13.935L15.1475 13.1825C15.0949 13.1623 15.0377 13.1573 14.9824 13.1681L13.0048 13.5542C11.7304 12.894 10.958 12.1532 10.4942 11.0387L10.867 9.02365C10.8769 8.97021 10.8721 8.91508 10.8531 8.86416L10.1182 6.89529C10.0744 6.77797 9.96233 6.7002 9.83711 6.7002H7.94309Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 interface PedidoSuccessDialogProps {
   open: boolean;
   onOpenChange: (value: boolean) => void;
@@ -71,7 +47,6 @@ interface PedidoSuccessDialogProps {
   isCancelling: boolean;
   cancellationError: string | null;
   onCancel: () => Promise<void>;
-  onWhatsApp: () => void;
   onGoToChat: () => void;
 }
 
@@ -85,7 +60,6 @@ export function PedidoSuccessDialog({
   isCancelling,
   cancellationError,
   onCancel,
-  onWhatsApp,
   onGoToChat,
 }: PedidoSuccessDialogProps) {
   return (
@@ -94,7 +68,7 @@ export function PedidoSuccessDialog({
         <DialogHeader>
           <DialogTitle>Pedido creado</DialogTitle>
           <DialogDescription>
-            {`El pedido ${createdOrder?.orderNumber ? '#' + createdOrder.orderNumber : ''} se creó correctamente. Usá el chat para coordinar con la sucursal. También podés enviar el pedido por WhatsApp si preferís.`}
+            {`El pedido ${createdOrder?.orderNumber ? '#' + createdOrder.orderNumber : ''} se creó correctamente. Usá el chat para coordinar con la sucursal.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -195,23 +169,6 @@ export function PedidoSuccessDialog({
             </div>
           )}
 
-          {createdOrder?.whatsappUrl && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Si preferís, envialo por WhatsApp:
-              </p>
-              <a
-                href={createdOrder.whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-md border border-[#25D366] bg-[#25D366]/10 px-3 py-2 text-sm font-medium text-[#128C7E] hover:bg-[#25D366]/20"
-              >
-                <WhatsAppIcon className="size-4" />
-                Abrir WhatsApp
-              </a>
-            </div>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="cancellation-reason">
               Motivo de cancelación (opcional)
@@ -243,18 +200,6 @@ export function PedidoSuccessDialog({
           >
             Cerrar
           </Button>
-          {createdOrder?.whatsappUrl && (
-            <Button
-              type="button"
-              onClick={onWhatsApp}
-              variant="outline"
-              aria-label="Abrir WhatsApp"
-              className="w-full sm:w-auto border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10"
-            >
-              <WhatsAppIcon className="size-4" />
-              WhatsApp
-            </Button>
-          )}
           <Button
             type="button"
             onClick={onGoToChat}

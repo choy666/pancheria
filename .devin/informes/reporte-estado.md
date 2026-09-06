@@ -42,6 +42,8 @@ Esta iteración tuvo dos fases:
 Los tests E2E se ejecutaron contra la base descartable de `.env.e2e` con resultado completo: **110/110 pasaron**. No se ejecutó `drizzle-kit push` (no hubo cambios de esquema).
 
 > **Actualización post-baseline:** el cron `expire-orders` se movió de `vercel.json` a `.github/workflows/expire-orders.yml`; se sincronizó la documentación en `README.md`, `AGENTS.md`, `.env.example`, `environment.yaml` y este informe; se eliminó el dominio de producción hardcodeado del workflow.
+>
+> **Actualización 2026-09-06:** se eliminó por completo la integración con WhatsApp (`src/lib/whatsapp.ts`, enlaces `wa.me`, botones en `pedido-success-dialog.tsx` y `pedido-actions.tsx`, y las variables `NEXT_PUBLIC_WHATSAPP_*` de `.env.example`, `.env.e2e.example`, `ci.yml` y la documentación). El tipo `PublicOrderItem` se reubicó en `src/domain/types.ts` y el chat del pedido quedó como único canal con el cliente.
 
 ## 2. Stack y arquitectura
 

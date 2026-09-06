@@ -12,11 +12,6 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/config/catalog', () => ({
-  getWhatsAppNumber: jest.fn().mockReturnValue('5493415555555'),
-  getWhatsAppMessageParts: jest.fn().mockReturnValue({
-    greeting: 'Hola',
-    closing: 'Gracias',
-  }),
   getPedidoRefetchIntervalMs: jest.fn().mockReturnValue(1_000_000),
 }));
 
@@ -27,7 +22,6 @@ const BRANCH_KEY = 'pancheria-branch-id';
 
 const ORDER_ID = 42;
 const CANCELLATION_TOKEN = 'cancel-token';
-const WHATSAPP_URL = 'https://wa.me/5493415555555?text=pedido';
 
 interface CreatedOrder {
   id: number;
@@ -44,7 +38,6 @@ interface CreatedOrder {
   items: { productId: number; name: string; price: number; unit: string; quantity: number }[];
   createdAt: string;
   expiresAt: string;
-  whatsappUrl: string | null;
 }
 
 function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
@@ -63,7 +56,6 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
     items: [{ productId: 1, name: 'Panchuque', price: 1200, unit: 'unidad', quantity: 1 }],
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-    whatsappUrl: WHATSAPP_URL,
     ...overrides,
   };
 }
@@ -355,10 +347,8 @@ describe('PedidoClient', () => {
   });
 
   describe('flujo de checkout', () => {
-    const originalOpen = window.open;
-
     function setupFetchMocks(overrides: {
-      createBody?: { order: CreatedOrder; whatsappUrl: string | null };
+      createBody?: { order: CreatedOrder };
       branchStatus?: {
         isOpen?: boolean;
         currentOpening?: string;
@@ -400,7 +390,6 @@ describe('PedidoClient', () => {
           return createFetchResponse(
             overrides.createBody ?? {
               order: makeCreatedOrder(),
-              whatsappUrl: WHATSAPP_URL,
             },
             true,
             201
@@ -413,14 +402,6 @@ describe('PedidoClient', () => {
         });
       });
     }
-
-    beforeEach(() => {
-      window.open = jest.fn().mockReturnValue({});
-    });
-
-    afterEach(() => {
-      window.open = originalOpen;
-    });
 
     async function completeCheckout() {
       const branches = [makeBranch(1, 'Sucursal A')];
@@ -513,28 +494,7 @@ describe('PedidoClient', () => {
       );
     }
 
-    test('abre WhatsApp al crear el pedido', async () => {
-      setupFetchMocks();
-
-      await completeCheckout();
-
-      await waitFor(() =>
-        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
-      );
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('WhatsApp'));
-        await Promise.resolve();
-      });
-
-      expect(window.open).toHaveBeenCalledWith(
-        WHATSAPP_URL,
-        '_blank',
-        'noopener,noreferrer'
-      );
-    });
-
-    test('muestra el resumen del pedido y el ícono de WhatsApp en el diálogo de pedido creado', async () => {
+    test('muestra el resumen del pedido en el diálogo de pedido creado', async () => {
       setupFetchMocks();
 
       await completeCheckout();
@@ -553,19 +513,6 @@ describe('PedidoClient', () => {
 
       const chatButton = screen.getByText('Ir al chat del pedido');
       expect(chatButton).toBeInTheDocument();
-      expect(screen.getAllByTestId('whatsapp-icon').length).toBeGreaterThan(0);
-
-      const whatsappButton = screen.getByText('WhatsApp');
-      await act(async () => {
-        fireEvent.click(whatsappButton);
-        await Promise.resolve();
-      });
-
-      expect(window.open).toHaveBeenCalledWith(
-        WHATSAPP_URL,
-        '_blank',
-        'noopener,noreferrer'
-      );
     });
 
     test('muestra la información de la sucursal al abrir el checkout', async () => {
@@ -618,20 +565,6 @@ describe('PedidoClient', () => {
         'href',
         'https://maps.example.com/sucursal-a'
       );
-    });
-
-    test('muestra el enlace manual para abrir WhatsApp', async () => {
-      setupFetchMocks();
-
-      await completeCheckout();
-
-      await waitFor(() =>
-        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
-      );
-
-      const manualLink = screen.getByText('Abrir WhatsApp');
-      expect(manualLink).toBeInTheDocument();
-      expect(manualLink).toHaveAttribute('href', WHATSAPP_URL);
     });
 
     test('permite cerrar el diálogo de pedido creado', async () => {

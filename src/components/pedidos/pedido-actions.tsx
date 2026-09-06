@@ -19,7 +19,6 @@ interface PedidoActionsProps {
   setCancelReason: (value: string) => void;
   actionError: string | null;
   isSubmitting: boolean;
-  whatsappUrl: string | null;
   onReceive: () => Promise<void>;
   onConfirm: () => Promise<void>;
   onFinish: () => Promise<void>;
@@ -38,7 +37,6 @@ export function PedidoActions({
   setCancelReason,
   actionError,
   isSubmitting,
-  whatsappUrl,
   onReceive,
   onConfirm,
   onFinish,
@@ -98,17 +96,6 @@ export function PedidoActions({
               </p>
             )}
           </div>
-
-          {whatsappUrl && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center rounded-md bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#128C7E]"
-            >
-              Abrir WhatsApp del cliente
-            </a>
-          )}
 
           <Button
             className="w-full"

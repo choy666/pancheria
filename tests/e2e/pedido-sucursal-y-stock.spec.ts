@@ -53,17 +53,8 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? '';
-
-    if (whatsappNumber) {
-      // Si el número de WhatsApp está configurado, el pedido se crea y se muestra el diálogo de éxito.
-      await expect(page.getByText(/se creó correctamente/)).toBeVisible();
-    } else {
-      // Si no hay número configurado, la API devuelve el error de configuración antes de crear el pedido.
-      await expect(
-        page.getByText('NEXT_PUBLIC_WHATSAPP_NUMBER no está configurado')
-      ).toBeVisible();
-    }
+    // El pedido se crea y se muestra el diálogo de éxito con el enlace al chat.
+    await expect(page.getByText(/se creó correctamente/)).toBeVisible();
   });
 
   test('selecciona otra sucursal, cambia el catálogo y limpia el carrito', async ({

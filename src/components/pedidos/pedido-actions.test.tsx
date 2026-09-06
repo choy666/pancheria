@@ -45,7 +45,6 @@ function renderPedidoActions(
       setCancelReason={jest.fn()}
       actionError={null}
       isSubmitting={false}
-      whatsappUrl={null}
       onReceive={jest.fn()}
       onConfirm={jest.fn()}
       onFinish={jest.fn()}

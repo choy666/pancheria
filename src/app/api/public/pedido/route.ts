@@ -4,14 +4,13 @@ import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
-import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import {
   getOrderRateLimitWindowMs,
   getOrderRateLimitMaxRequests,
   getOrderExpirationMs,
 } from '@/config/orders';
-import type { PublicOrderItem } from '@/lib/whatsapp';
+import type { PublicOrderItem } from '@/domain/types';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
@@ -62,28 +61,6 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     order.createdAt.getTime() + getOrderExpirationMs()
   ).toISOString();
 
-  const publicOrder = {
-    id: order.id,
-    cancellationToken: order.cancellationToken,
-    items: publicItems,
-    customerName: order.customerName,
-    customerPhone: order.customerPhone,
-    deliveryType: order.deliveryType,
-    address: order.address ?? undefined,
-    notes: order.notes ?? undefined,
-    total: order.total,
-    orderNumber: order.orderNumber,
-    branchName: order.branch?.name,
-  };
-
-  let whatsappUrl: string | null = null;
-  try {
-    whatsappUrl = buildWhatsAppUrl(publicOrder);
-  } catch {
-    // Si no está configurado WhatsApp, el chat sigue siendo el canal principal.
-    whatsappUrl = null;
-  }
-
   return NextResponse.json(
     {
       order: {
@@ -102,7 +79,6 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         createdAt: order.createdAt,
         expiresAt,
       },
-      whatsappUrl,
     },
     { status: 201 }
   );

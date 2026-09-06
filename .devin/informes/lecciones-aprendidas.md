@@ -40,7 +40,7 @@
 - **No dejar endpoints públicos con operaciones de escritura sin rate limit.** `POST /api/public/pedido/[id]/chat/leido` ya aplica el mismo rate limit que el resto del chat público (`createRateLimiter('chat', ...)`). Al agregar nuevos endpoints de escritura públicos, reutilizar `createRateLimiter` con un scope propio.
 - **No usar `productId` como `key` de React cuando una lista puede contener múltiples líneas del mismo producto.** En `pedido-success-dialog.tsx` y en cualquier resumen de ítems de pedido/venta, cada línea tiene su propia identidad (`order_item.id`, `sale_item.id` o `lineId`). Usar `productId` genera keys duplicadas y puede ocultar renders inconsistentes.
 - **Evitar workarounds permanentes sin fecha de deprecación.** El fallback de query param `?content=` en los `POST` de chat fue necesario por un bug de Next.js 16.3.0/Turbopack y se eliminó tras actualizar a 16.3.2. Los handlers actuales usan `request.json()` y solo caen en `catch` con un body vacío, no en query params. Documentar cualquier workaround nuevo con una fecha de revisión.
-- **Validar que los fallbacks de URL base (`localhost:3000`) no se activen en producción.** `getPublicBaseUrl()` (centraliza el cálculo que antes hacían `storage.ts`, `chat-storage.ts` y `whatsapp.ts`) usa `http://localhost:3000` como fallback. Si `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` no están configurados en Vercel, los enlaces públicos y los mensajes de WhatsApp se generarán con `localhost`.
+- **Validar que los fallbacks de URL base (`localhost:3000`) no se activen en producción.** `getPublicBaseUrl()` (centraliza el cálculo que antes hacían `storage.ts`, `chat-storage.ts` y el eliminado `whatsapp.ts`) usa `http://localhost:3000` como fallback. Si `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` no están configurados en Vercel, los enlaces públicos (chat, adjuntos, videos e imágenes) se generarán con `localhost`.
 
 ## 3. Manejo de errores y validaciones
 
@@ -122,12 +122,10 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **No duplicar en `knip.json` entradas que Knip ya detecta automáticamente.** Si un workflow de GitHub Actions o un script de `package.json` referencia un archivo (por ejemplo, `npx tsx src/db/seeds.ts` en `.github/workflows/ci.yml`), Knip puede considerarlo un punto de entrada por sí solo. Incluirlo explícitamente en `entry` genera un `Configuration hint` redundante. Eliminar la entrada duplicada, ejecutar `npm run knip` y confirmar que no quedan hints.
 - **Los avisos del IDE sobre `actions/checkout@v4` y `actions/setup-node@v4` son falsos positivos.** Esas son acciones oficiales de GitHub y el workflow es válido. El validador del IDE no las resuelve porque no puede consultar la API de GitHub o carece de acceso de red. No modificar `.github/workflows/ci.yml`; si se quiere silenciar el IDE, fijar las acciones a un SHA específico, aceptando el costo de mantenimiento.
 
-## 12. Deprecación de WhatsApp y prioridad del chat propio
+## 12. Eliminación de WhatsApp y prioridad del chat propio
 
-- **WhatsApp ya no es el canal prioritario de comunicación con el cliente.** El proyecto cuenta con un sistema de chat propio integrado en cada pedido. Nuevas funcionalidades deben mostrar la información en el chat, en el panel de pedidos y en el detalle del pedido, no depender de `src/lib/whatsapp.ts`.
-- **No agregar nuevas dependencias ni tests basados en WhatsApp.** `buildWhatsAppMessage` y `buildWhatsAppUrl` se consideran en deprecación. Si una mejora requiere mostrar un resumen al cliente, usar el chat del pedido o el diálogo de confirmación (`pedido-success-dialog.tsx`).
+- **La integración con WhatsApp fue eliminada por completo** (2026-09-06): se quitaron `src/lib/whatsapp.ts`, los enlaces `wa.me`, los botones del diálogo de pedido creado y del detalle del pedido, y las variables `NEXT_PUBLIC_WHATSAPP_*` de `.env.example`, `.env.e2e.example`, `ci.yml` y toda la documentación. El tipo `PublicOrderItem` se reubicó en `src/domain/types.ts`. **No reintroducir integraciones de WhatsApp**; el chat del pedido es el único canal de comunicación con el cliente.
 - **El detalle de preparación de promos personalizadas debe estar en el chat y en el panel del operador.** El operador y el cliente deben ver el mismo detalle (insumos incluidos y quitados) sin salir de la aplicación.
-- **La remoción completa de WhatsApp se hará en una tarea aparte.** Hasta entonces, se puede conservar el código existente, pero no se debe extender.
 
 ## 13. Promos con servicios, manuales y snapshots de receta
 

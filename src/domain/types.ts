@@ -156,6 +156,15 @@ export type OrderWithUnreadCount = OrderWithItems & {
   unreadCount: number;
 };
 
+export type PublicOrderItem = {
+  productId: number;
+  name: string;
+  price: number;
+  unit: string;
+  quantity: number;
+  recipeSnapshot?: RecipeItemConfig[];
+};
+
 export type StockMovement = {
   id: number;
   branchId: number;

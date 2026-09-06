@@ -29,7 +29,7 @@ Corroborar que las pruebas y los tests del proyecto cubran, en lo posible, la ma
 ## Sectores relevantes a evaluar
 
 1. **Autenticación y autorización**: login, sesiones, roles (`admin`, `operator`), permisos, selector de sucursal, multi-sucursal.
-2. **Catálogo público y pedidos**: catálogo, carrito, creación de pedidos, seguimiento, WhatsApp, expiración, confirmación, cancelación, chat e imágenes.
+2. **Catálogo público y pedidos**: catálogo, carrito, creación de pedidos, seguimiento, expiración, confirmación, cancelación, chat e imágenes.
 3. **Ventas y terminal de ventas**: disponibilidad, creación de ventas, anulación, precios históricos, promos e insumos compartidos.
 4. **Productos y recetas**: CRUD de productos, recetas, insumos críticos y manuales, soft delete, disponibilidad, agrupación.
 5. **Stock**: ajustes, movimientos, restock, descuento automático, stock negativo, historial.

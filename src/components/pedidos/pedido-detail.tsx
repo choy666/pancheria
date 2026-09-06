@@ -33,7 +33,6 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
     isSubmitting,
     cashRegister,
     cashRegisterLoading,
-    whatsappUrl,
     handleReceive,
     handleConfirm,
     handleFinish,
@@ -87,7 +86,6 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
             setCancelReason={setCancelReason}
             actionError={actionError}
             isSubmitting={isSubmitting}
-            whatsappUrl={whatsappUrl}
             onReceive={handleReceive}
             onConfirm={handleConfirm}
             onFinish={handleFinish}

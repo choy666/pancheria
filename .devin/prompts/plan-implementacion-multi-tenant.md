@@ -41,7 +41,7 @@ Transformar la aplicación en una plataforma multi-tenant compartida: una sola b
 9. El login debe resolver el `tenant` implícitamente (por subdominio/dominio) o pedir el `tenantSlug`. El `username` debe ser único dentro del `tenant`.
 10. Todos los repositorios y servicios deben validar que el `branchId` pertenezca al `tenantId` actual antes de operar.
 11. La migración de datos existentes debe crear el tenant `default` (para los datos históricos) y el tenant `platform` (para el superadmin), asignando todas las filas actuales al tenant `default`.
-12. Las personalizaciones por tenant (logo, colores, WhatsApp, mensajes, horarios) deben almacenarse en `tenant_settings`, no hardcodearse ni depender únicamente de `process.env`.
+12. Las personalizaciones por tenant (logo, colores, mensajes, horarios) deben almacenarse en `tenant_settings`, no hardcodearse ni depender únicamente de `process.env`.
 13. Los movimientos de stock, ventas, pedidos, cajas, cierres y videos deben incluir `tenantId` además de `branchId`.
 14. El borrado lógico de un tenant debe conservar los datos pero bloquear todo acceso nuevo.
 
@@ -80,9 +80,6 @@ En <ref_file file="C:/developer/paginas/pancheria/src/db/schema.ts" /> agregar:
   - `defaultBranchId: integer().references(() => branches.id)` (sucursal default para el catálogo público del tenant)
   - `logoUrl: text()`
   - `primaryColor: varchar()`
-  - `whatsappNumber: varchar()`
-  - `whatsappMessageGreeting: text()`
-  - `whatsappMessageClosing: text()`
   - `publicAppName: varchar()`
   - `timezone: varchar()`
   - `currency: varchar()`
@@ -334,7 +331,7 @@ Servicios a actualizar obligatoriamente:
 - Cada handler debe ejecutar `runWithTenant(tenantId, branchId, () => handler(...))` para que servicios y repositorios lean el contexto.
 - Aplicar rate limit con `tenantId + IP` usando `public_order_rate_limits` con clave `(tenantId, ip)`.
 - Catálogo, pedidos, chat, estado: filtrar por `tenantId` y `branchId`.
-- El catálogo (`/api/public/catalogo`) debe leer `whatsappNumber`, `greeting` y `closing` desde `tenant_settings`, con fallback a las env vars globales durante la transición.
+- El catálogo (`/api/public/catalogo`) debe leer la personalización pública (logo, nombre público, timezone) desde `tenant_settings`, con fallback a las env vars globales durante la transición.
 
 #### 5.2 API del panel (`/api/*`)
 
@@ -395,10 +392,10 @@ No hay `/onboarding` público: el alta la realiza el equipo de ventas/operacione
 
 - `/pedido` y `/pedido/[id]/chat` resuelven el tenant principalmente por **subdominio** (`donpancho.tuapp.com`).
 - Query param `?tenant=slug` se mantiene como fallback para pruebas, desarrollo y transición.
-- Mostrar logo, nombre y WhatsApp del tenant (desde `tenant_settings` o fallback de env vars).
+- Mostrar logo y nombre del tenant (desde `tenant_settings` o fallback de env vars).
 - **Entrega de `tenant_settings` al cliente:**
   - El Server Component (`PedidoCatalog`) debe cargar `tenant_settings` resuelto por `tenantId` y pasarlo como prop a `PedidoClient`.
-  - `PedidoClient` recibe `tenantSettings` (logo, color, WhatsApp, mensajes, nombre público, timezone) y lo usa en lugar de leer `process.env.NEXT_PUBLIC_*`.
+  - `PedidoClient` recibe `tenantSettings` (logo, color, mensajes, nombre público, timezone) y lo usa en lugar de leer `process.env.NEXT_PUBLIC_*`.
   - Las respuestas de `/api/public/catalogo` y `/api/public/pedido` también pueden devolver `tenantSettings` para que el cliente no dependa de variables de entorno.
 - Si el tenant está suspendido o eliminado, mostrar página de mantenimiento/403 controlada.
 - Si no se puede resolver el tenant y no hay default, redirigir a una landing de selección de comercio.
@@ -424,9 +421,6 @@ Actualizar archivos de entorno y documentación:
 #### 7.2 De env vars a base de datos
 
 Mover a `tenant_settings`:
-- `NEXT_PUBLIC_WHATSAPP_NUMBER` → `tenant_settings.whatsappNumber`
-- `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` → `tenant_settings.whatsappMessageGreeting`
-- `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` → `tenant_settings.whatsappMessageClosing`
 - Logo, colores, nombre público, timezone, currency.
 
 **Importante:** las variables `NEXT_PUBLIC_*` no pueden leerse en runtime del cliente desde la base de datos. Para que el cliente las consuma, el Server Component de `/pedido` debe cargar `tenant_settings` y pasarlas como props al Client Component (por ejemplo, vía contexto o props iniciales).
@@ -449,7 +443,6 @@ Mantener en env vars como fallback global:
   - Validar que el pedido (`orderId`) pertenezca a una sucursal del `tenantId` del contexto o del token.
   - Rechazar con 403 si el adjunto pertenece a otro tenant.
 - Actualizar `src/lib/public-url.ts` para soportar URLs basadas en el hostname del tenant (por ejemplo, `https://donpancho.tuapp.com` en lugar de `NEXT_PUBLIC_APP_URL`). Recibe un `host` opcional desde el request.
-- Actualizar `src/lib/whatsapp.ts` para usar el número y mensajes del tenant desde `tenant_settings` y generar el enlace con la URL del tenant.
 
 ### Fase 9 — Tests
 
@@ -574,7 +567,7 @@ Esta sección documenta los ajustes realizados al plan original y los riesgos qu
 ### Configuración y white-label
 
 - Se aclara que `NEXT_PUBLIC_*` no puede leerse dinámicamente desde DB; el Server Component debe cargar `tenant_settings` y pasarlas al cliente.
-- `whatsapp.ts`, `public-url.ts`, `storage.ts` y `chat-storage.ts` deben actualizarse para usar el hostname/tenant.
+- `public-url.ts`, `storage.ts` y `chat-storage.ts` deben actualizarse para usar el hostname/tenant.
 
 ### Tests y E2E
 
@@ -771,7 +764,7 @@ Esta sección recoge recomendaciones concretas para operar con un superadmin ún
 ### Cobro manual
 
 - **No agregar pasarelas de pago.** El superadmin controla `status` (`active`/`suspended`) según el pago recibido.
-- **Enviar recordatorios fuera de la plataforma** (WhatsApp/email manual) hasta que se justifique automatizar.
+- **Enviar recordatorios fuera de la plataforma** (mensajería o email manual) hasta que se justifique automatizar.
 - **Guardar historial de facturación externa:** usar `subscriptions` solo como registro, no como motor de cobro.
 - **Suspender, no eliminar:** si un comercio no paga, cambiar `status` a `suspended` y bloquear acceso. Si vuelve, reactivar.
 

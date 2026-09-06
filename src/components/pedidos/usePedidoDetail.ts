@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { authenticatedFetch } from '@/lib/fetch';
-import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { formatMoney } from '@/lib/money';
 import {
   PEDIDOS_CONFIRMAR_API,
@@ -65,7 +64,6 @@ export interface UsePedidoDetailResult {
   isSubmitting: boolean;
   cashRegister: CashRegister | null;
   cashRegisterLoading: boolean;
-  whatsappUrl: string | null;
   loadOrder: () => Promise<void>;
   handleReceive: () => Promise<void>;
   handleConfirm: () => Promise<void>;
@@ -104,32 +102,6 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     refresh: refreshCashRegister,
     loading: cashRegisterLoading,
   } = useCashRegister();
-
-  const whatsappUrl = useMemo(() => {
-    if (!order) return null;
-
-    try {
-      return buildWhatsAppUrl({
-        items: order.items.map((item) => ({
-          productId: item.productId,
-          name: item.product?.name ?? `Producto ${item.productId}`,
-          price: item.unitPrice,
-          unit: item.product?.unit ?? 'unidad',
-          quantity: item.quantity,
-        })),
-        customerName: order.customerName,
-        customerPhone: order.customerPhone ?? undefined,
-        deliveryType: order.deliveryType,
-        address: order.address ?? undefined,
-        notes: order.notes ?? undefined,
-        total: order.total,
-        orderNumber: order.orderNumber,
-        branchName: order.branch?.name,
-      });
-    } catch {
-      return null;
-    }
-  }, [order]);
 
   const loadOrder = useCallback(async () => {
     setLoading(true);
@@ -339,7 +311,6 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     isSubmitting,
     cashRegister,
     cashRegisterLoading,
-    whatsappUrl,
     loadOrder,
     handleReceive,
     handleConfirm,

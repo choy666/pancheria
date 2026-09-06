@@ -72,9 +72,6 @@ Copiar `.env.example` a `.env.local` y completar:
 - `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` (opcional) — días de historial de caja por defecto (por defecto 30 días).
 - `TRUSTED_PROXY_IP_HEADER` (opcional) — header confiable para obtener la IP real del cliente en rate limiting. Si no se define, en producción se usa el header `x-vercel-forwarded-for` y en desarrollo se usa `X-Forwarded-For` como fallback.
 - `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` (opcional) — si se define como `true`, permite usar `X-Forwarded-For` en producción cuando no hay proxy confiable configurado. Puede ser vulnerable a IP spoofing; usalo solo si un proxy sanitiza el header.
-- `NEXT_PUBLIC_WHATSAPP_NUMBER` (opcional) — número de WhatsApp para pedidos, con código de país y sin signo + ni espacios. Si no se define, el pedido funciona sin enlace de WhatsApp.
-- `NEXT_PUBLIC_WHATSAPP_MESSAGE_GREETING` (opcional) — saludo del mensaje de WhatsApp.
-- `NEXT_PUBLIC_WHATSAPP_MESSAGE_CLOSING` (opcional) — cierre del mensaje de WhatsApp.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_CATALOG_PAGE_SIZE` (opcional) — tamaño de página del catálogo público en `/pedido` (por defecto 48; el listado inicial se carga por SSR y el resto con el botón "Cargar más").
 - `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del listado de pedidos del operador en milisegundos (deshabilitado por defecto; definir un valor mayor a 0 para habilitar; 0 lo deshabilita explícitamente).
@@ -156,7 +153,6 @@ Copiar `.env.example` a `.env.local` y completar:
   - `branch-helpers` — validación y cálculo de horarios de apertura (`NEXT_PUBLIC_BRANCH_TIMEZONE`).
   - `route-guard` — redirecciones de autenticación (`/` → `/pedido` sin sesión, `/login` → `/` con sesión).
   - `fetch` — wrapper `authenticatedFetch` y timeout configurable (`NEXT_PUBLIC_API_TIMEOUT_MS`).
-  - `whatsapp` — generación del mensaje y enlace de WhatsApp.
   - `auth` — helpers de sesión, `getCurrentBranchId`/`getCurrentBranchIdOrRedirect`.
   - `with-auth.ts` — wrapper para endpoints autenticados que inyecta `session` y `branchId` en el handler.
   - `db-errors` — manejo centralizado de errores de conexión a PostgreSQL (`503`).
@@ -180,7 +176,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - Cada venta y pedido persiste un snapshot de receta en `sale_item_recipes` y `order_item_recipes` para garantizar que futuras ediciones de recetas no afecten transacciones históricas.
 - `PromoOptionsDialog` permite seleccionar complementos en el catálogo público y en el terminal de ventas.
 - `orderService.createOrder` inserta un mensaje automático en el chat del pedido con el detalle de preparación de cada promo.
-- El canal oficial de confirmación y detalle es el chat del pedido; WhatsApp no debe extenderse con nueva funcionalidad.
+- El canal oficial de confirmación y detalle es el chat del pedido. La integración con WhatsApp fue eliminada por completo (código, variables `NEXT_PUBLIC_WHATSAPP_*` y enlaces `wa.me`).
 
 ## Videos, reproducción y Cast
 
@@ -394,7 +390,7 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
 - Rate limit del chat: `createRateLimiter` en `src/lib/rate-limit.ts` comparte el mismo store que el rate limit de pedidos públicos (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`). La ventana y el máximo se configuran con `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
 - Limpieza de adjuntos huérfanos: el cron `GET /api/cron/chat-attachments-cleanup` (configurado en `vercel.json` y protegido por `CRON_SECRET`) elimina archivos bajo el prefijo `chat/` que no tengan un `attachmentKey` asociado en `order_messages`.
 - Variables relacionadas: `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `CRON_SECRET`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
-- WhatsApp sigue disponible como fallback cuando `NEXT_PUBLIC_WHATSAPP_NUMBER` está configurado.
+- La integración con WhatsApp fue eliminada; el chat del pedido es el único canal de comunicación con el cliente.
 
 ### Lineamientos para futuros chats
 

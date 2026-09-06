@@ -51,10 +51,6 @@ Verificar que existan en **Settings → Secrets and variables → Actions** del 
 - [ ] `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales del administrador del seed.
 - [ ] `CRON_SECRET` — token usado por `.github/workflows/expire-orders.yml` para llamar a `/api/cron/expire-orders`.
 
-Variables de acción recomendadas:
-
-- [ ] `NEXT_PUBLIC_WHATSAPP_NUMBER` — número de WhatsApp para pedidos.
-
 En **Vercel → Environment Variables → Production** debe existir:
 
 - [ ] `CRON_SECRET` con el **mismo valor** que en GitHub Actions (el endpoint lo requiere para autorizar llamadas).
