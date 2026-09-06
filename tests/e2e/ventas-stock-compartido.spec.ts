@@ -93,7 +93,7 @@ test.describe('Venta con stock compartido entre promos', () => {
       await page.waitForTimeout(100);
     }
 
-    await expect(cardB.getByText('En este pedido: 1 más')).toBeVisible({
+    await expect(cardB.getByText('Podés sumar: 1 más')).toBeVisible({
       timeout: 10000,
     });
 

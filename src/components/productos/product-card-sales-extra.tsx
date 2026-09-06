@@ -15,7 +15,7 @@ export function ProductCardSalesExtra({
           : 'text-muted-foreground'
       }`}
     >
-      {isOutOfStock ? 'Sin stock' : `En este pedido: ${maxAdditional} más`}
+      {isOutOfStock ? 'Sin stock' : `Podés sumar: ${maxAdditional} más`}
     </p>
   );
 }

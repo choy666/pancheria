@@ -9,28 +9,25 @@ describe('parsePaymentAmount', () => {
     expect(parsePaymentAmount('1500')).toBe(1500);
   });
 
-  test('usa el punto como separador de miles', () => {
+  test('usa el punto como separador de miles (es-AR)', () => {
     expect(parsePaymentAmount('1.500')).toBe(1500);
     expect(parsePaymentAmount('1.500.000')).toBe(1500000);
+    // El punto nunca es decimal: "1500.70" son 150070 pesos.
+    expect(parsePaymentAmount('1500.70')).toBe(150070);
+    expect(parsePaymentAmount('1.5')).toBe(15);
   });
 
-  test('usa la coma como separador de miles', () => {
-    expect(parsePaymentAmount('1,500')).toBe(1500);
-  });
-
-  test('acepta coma como separador decimal y redondea', () => {
+  test('usa la coma como separador decimal y redondea a enteros', () => {
     expect(parsePaymentAmount('1500,70')).toBe(1501);
     expect(parsePaymentAmount('1500,30')).toBe(1500);
+    // La coma nunca es miles: "1,500" son 1,5 pesos → 2.
+    expect(parsePaymentAmount('1,500')).toBe(2);
   });
 
-  test('acepta punto como separador decimal y redondea', () => {
-    expect(parsePaymentAmount('1500.70')).toBe(1501);
-    expect(parsePaymentAmount('1500.30')).toBe(1500);
-  });
-
-  test('detecta ambos separadores usando el más a la derecha como decimal', () => {
+  test('interpreta la combinación de separadores siempre como es-AR', () => {
     expect(parsePaymentAmount('1.500,70')).toBe(1501);
-    expect(parsePaymentAmount('1,500.70')).toBe(1501);
+    // El punto es miles aunque esté a la derecha de la coma: "1,50070" → 1,5.
+    expect(parsePaymentAmount('1,500.70')).toBe(2);
   });
 
   test('devuelve null para texto vacío', () => {

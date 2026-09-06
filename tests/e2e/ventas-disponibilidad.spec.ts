@@ -244,14 +244,13 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await card.click();
 
-    const button = page.getByRole('button', {
-      name: /Confirmar venta|Calculando disponibilidad/,
-    });
+    const button = page.getByRole('button', { name: 'Confirmar venta' });
 
     await expect(button).toBeDisabled({ timeout: 5000 });
-    await expect(button).toHaveText('Calculando disponibilidad...', {
-      timeout: 5000,
-    });
+    await expect(page.getByTestId('confirm-sale-blocker')).toContainText(
+      'Verificando disponibilidad',
+      { timeout: 5000 }
+    );
 
     await expect(button).toBeEnabled({ timeout: 10000 });
 
@@ -337,7 +336,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await page
       .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
       .check();
-    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+    await page.getByRole('button', { name: 'Agregar a la venta' }).click();
 
     await expect(
       page.locator('[data-testid="cart-item"][data-product-name="' + promo.name + '"]')
@@ -348,7 +347,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await expect(page.getByRole('heading', { name: promo.name })).toBeVisible({
       timeout: 5000,
     });
-    await page.getByRole('button', { name: 'Agregar al pedido' }).click();
+    await page.getByRole('button', { name: 'Agregar a la venta' }).click();
 
     await expect(
       page.locator('[data-testid="cart-item"][data-product-name="' + promo.name + '"]')

@@ -131,7 +131,7 @@ test.describe('Guía interactiva', () => {
     await waitForTourStep(page, 'Productos disponibles');
 
     await clickTourNext(page); // 7 -> 8
-    await waitForTourStep(page, 'Pedido actual');
+    await waitForTourStep(page, 'Venta actual');
 
     await clickTourNext(page); // 8 -> 9
     await waitForTourStep(page, 'Pagos mixtos');
@@ -252,7 +252,7 @@ test.describe('Tour como operador', () => {
     await clickTourNext(page); // 6 -> 7
 
     await clickTourNext(page); // 7 -> 8
-    await waitForTourStep(page, 'Pedido actual');
+    await waitForTourStep(page, 'Venta actual');
 
     await clickTourNext(page); // 8 -> 9
     await waitForTourStep(page, 'Pagos mixtos');

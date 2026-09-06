@@ -131,7 +131,7 @@ describe('ProductCardBase', () => {
       );
 
       const card = screen.getByRole('button', {
-        name: 'Agregar Panchuque al pedido',
+        name: 'Agregar Panchuque a la venta',
       });
       fireEvent.click(card);
       expect(onAdd).toHaveBeenCalledTimes(1);
@@ -154,7 +154,7 @@ describe('ProductCardBase', () => {
       expect(onAdd).toHaveBeenCalledTimes(2);
     });
 
-    test('muestra el badge de cantidad en pedido', () => {
+    test('muestra el badge de cantidad en venta', () => {
       render(
         <ProductCardBase
           variant="sales"
@@ -167,7 +167,7 @@ describe('ProductCardBase', () => {
 
       expect(
         screen.getByTestId('product-card-cart-quantity-1')
-      ).toHaveTextContent('3 en pedido');
+      ).toHaveTextContent('3 en venta');
     });
 
     test('muestra el stock restante con la unidad del producto', () => {
@@ -184,7 +184,7 @@ describe('ProductCardBase', () => {
       expect(screen.getByTestId('product-availability')).toHaveTextContent(
         'Disponible: 5 botella'
       );
-      expect(screen.getByText('En este pedido: 4 más')).toBeInTheDocument();
+      expect(screen.getByText('Podés sumar: 4 más')).toBeInTheDocument();
     });
 
     test('muestra "Sin stock" y no dispara onAdd cuando está agotado', () => {

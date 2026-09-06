@@ -174,6 +174,7 @@ export function SalesTerminal() {
     selectedRecipeItemIds?: number[]
   ) {
     if (!cashRegister || cashRegister.status !== 'open') return;
+    setError(null);
 
     const optionalItems =
       product.recipe?.filter((item) => item.isOptional) ?? [];
@@ -217,8 +218,15 @@ export function SalesTerminal() {
   }
 
   function removeFromCart(lineId: string) {
+    setError(null);
     setIsCheckingAvailability(true);
     setCart((prev) => prev.filter((item) => item.lineId !== lineId));
+  }
+
+  function clearCart() {
+    setError(null);
+    setCustomPayments(null);
+    setCart([]);
   }
 
   function updateQuantity(lineId: string, quantity: number) {
@@ -227,6 +235,7 @@ export function SalesTerminal() {
       return;
     }
 
+    setError(null);
     setIsCheckingAvailability(true);
     setCart((prev) =>
       prev.map((item) => {
@@ -420,29 +429,6 @@ export function SalesTerminal() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          {error && (
-            <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
-              {error}
-            </div>
-          )}
-
-          {Object.keys(cartShortage).length > 0 && (
-            <div className="rounded-lg border border-amber-600/20 bg-amber-600/10 p-4 text-base text-amber-700">
-              {Object.entries(cartShortage).map(([productId, shortage]) => {
-                const product =
-                  products.find((p) => p.id === Number(productId)) ??
-                  cart.find((i) => i.product.id === Number(productId))?.product;
-                return (
-                  <p key={productId}>
-                    Faltan insumos para {product?.name ?? 'producto'}:{' '}
-                    {shortage.supplyName} (disponible {shortage.available},
-                    requerido {shortage.required}).
-                  </p>
-                );
-              })}
-            </div>
-          )}
-
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold">Catálogo</h2>
             <Button
@@ -487,15 +473,22 @@ export function SalesTerminal() {
         <SalesCart
           cart={cart}
           cartAvailability={cartAvailability}
+          cartShortage={cartShortage}
           cartDisabled={cartDisabled}
           isSubmitting={isSubmitting}
           isCheckingAvailability={isCheckingAvailability}
-          hasShortage={Object.keys(cartShortage).length > 0}
           total={total}
           paymentParts={paymentParts}
+          paymentRemaining={remaining}
           isPaymentComplete={isComplete}
-          onPaymentChange={setCustomPayments}
+          error={error}
+          onPaymentChange={(next) => {
+            setError(null);
+            setCustomPayments(next);
+          }}
           onUpdateQuantity={updateQuantity}
+          onRemoveItem={removeFromCart}
+          onClearCart={clearCart}
           onEditLine={startEditLine}
           onConfirm={confirmSale}
         />
@@ -515,6 +508,7 @@ export function SalesTerminal() {
             addToCart(promoDialogProduct, selected);
             setPromoDialogProduct(null);
           }}
+          confirmLabel="Agregar a la venta"
         />
       )}
 

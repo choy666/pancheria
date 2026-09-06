@@ -2,44 +2,19 @@ import { addMoney, formatMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import { equal } from 'dinero.js';
 import type { PaymentMethod, PaymentPart } from '@/domain/types';
 
+/**
+ * Parsea un monto ingresado por el operador con una regla única es-AR:
+ * '.' es siempre separador de miles y ',' es siempre separador decimal
+ * (máx. una coma; los decimales se redondean a pesos enteros).
+ * Devuelve null si el texto no es un número válido.
+ */
 export function parsePaymentAmount(raw: string): number | null {
   const value = raw.replace(/\s/g, '');
   if (!value) return null;
 
-  const lastDot = value.lastIndexOf('.');
-  const lastComma = value.lastIndexOf(',');
-
-  let normalized: string;
-
-  if (lastDot !== -1 && lastComma !== -1) {
-    // Ambos separadores: el más a la derecha es el decimal.
-    const decimalChar = lastDot > lastComma ? '.' : ',';
-    const thousandsChar = decimalChar === '.' ? ',' : '.';
-    normalized = value
-      .split(thousandsChar)
-      .join('')
-      .replace(decimalChar, '.');
-  } else if (lastDot !== -1) {
-    // Si el grupo decimal tiene 1 o 2 dígitos, el punto es decimal; si no, es separador de miles.
-    const decimalPart = value.slice(lastDot + 1);
-    if (decimalPart.length <= 2) {
-      normalized = value.replace(/\./g, (c, i) => (i === lastDot ? '.' : ''));
-    } else {
-      normalized = value.replace(/\./g, '');
-    }
-  } else if (lastComma !== -1) {
-    const decimalPart = value.slice(lastComma + 1);
-    if (decimalPart.length <= 2) {
-      normalized = value.replace(/,/g, (c, i) => (i === lastComma ? '.' : ''));
-    } else {
-      normalized = value.replace(/,/g, '');
-    }
-  } else {
-    normalized = value;
-  }
-
+  const normalized = value.replace(/\./g, '').replace(',', '.');
   const parsed = Number(normalized);
-  if (Number.isNaN(parsed)) return null;
+  if (!Number.isFinite(parsed)) return null;
   return Math.max(0, Math.round(parsed));
 }
 

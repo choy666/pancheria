@@ -297,9 +297,9 @@ export function TourProvider({
           route: routes.ventas,
           waitForElement: 5000,
           popover: {
-            title: 'Pedido actual',
+            title: 'Venta actual',
             description:
-              'Al tocar un producto se agrega al pedido. Podés registrar pagos mixtos (efectivo + transferencia) y confirmar la venta.',
+              'Al tocar un producto se agrega a la venta. Podés registrar pagos mixtos (efectivo + transferencia) y confirmar la venta.',
           },
         },
         {

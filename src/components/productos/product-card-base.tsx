@@ -144,7 +144,7 @@ export function ProductCardBase({
       role={isCatalog ? undefined : 'button'}
       tabIndex={isCatalog ? undefined : isDisabled ? -1 : 0}
       aria-disabled={isCatalog ? undefined : isDisabled}
-      aria-label={isCatalog ? undefined : `Agregar ${product.name} al pedido`}
+      aria-label={isCatalog ? undefined : `Agregar ${product.name} a la venta`}
       onClick={isCatalog ? undefined : handleCardActivate}
       onKeyDown={isCatalog ? undefined : handleCardKeyDown}
       className={`transition-all ${interactiveClass}`}
@@ -170,7 +170,7 @@ export function ProductCardBase({
                 className="shrink-0"
                 data-testid={`product-card-cart-quantity-${product.id}`}
               >
-                {inCartQuantity} en pedido
+                {inCartQuantity} en venta
               </Badge>
             )
           )}

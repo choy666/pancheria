@@ -168,7 +168,7 @@ describe('SalesTerminal', () => {
       .map((card) =>
         card.querySelector('[data-slot="card-title"]')?.textContent
       )
-      .filter((name): name is string => !!name && name !== 'Pedido');
+      .filter((name): name is string => !!name && name !== 'Venta actual');
 
     expect(productNames).toEqual(['Z promo', 'A bebida', 'Z servicio']);
   });
@@ -345,6 +345,9 @@ describe('SalesTerminal', () => {
 
     fireEvent.click(card!);
     expect(screen.queryByText('1 unidad')).not.toBeInTheDocument();
+
+    // El aviso de caja cerrada se muestra dentro del carrito.
+    expect(screen.getByTestId('cart-closed-register')).toBeInTheDocument();
   });
 
   test('un servicio se puede agregar aunque haya productos sin stock', async () => {
@@ -543,20 +546,18 @@ describe('SalesTerminal', () => {
     await waitFor(() => expect(availabilityCallCount).toBe(1));
 
     const card = screen.getByText('Panchuque').closest('[data-slot="card"]');
-    const button = screen.getByRole('button', {
-      name: /Confirmar venta|Calculando disponibilidad/,
-    });
+    const button = screen.getByTestId('confirm-sale-button');
 
     expect(button).toBeDisabled();
 
     fireEvent.click(card!);
 
     await waitFor(() => {
-      const updatedButton = screen.getByRole('button', {
-        name: /Confirmar venta|Calculando disponibilidad/,
-      });
-      expect(updatedButton).toHaveTextContent('Calculando disponibilidad...');
+      const updatedButton = screen.getByTestId('confirm-sale-button');
       expect(updatedButton).toBeDisabled();
+      expect(
+        screen.getByTestId('confirm-sale-blocker')
+      ).toHaveTextContent('Verificando disponibilidad');
     });
 
     await waitFor(() => expect(availabilityCallCount).toBe(2));
@@ -571,9 +572,7 @@ describe('SalesTerminal', () => {
     });
 
     await waitFor(() => {
-      const updatedButton = screen.getByRole('button', {
-        name: /Confirmar venta|Calculando disponibilidad/,
-      });
+      const updatedButton = screen.getByTestId('confirm-sale-button');
       expect(updatedButton).toHaveTextContent('Confirmar venta');
       expect(updatedButton).not.toBeDisabled();
     });
@@ -640,16 +639,17 @@ describe('SalesTerminal', () => {
     await waitFor(() => expect(availabilityCallCount).toBe(2));
 
     await waitFor(() => {
-      const updatedButton = screen.getByRole('button', {
-        name: /Confirmar venta|Calculando disponibilidad/,
-      });
+      const updatedButton = screen.getByTestId('confirm-sale-button');
       expect(updatedButton).toHaveTextContent('Confirmar venta');
       expect(updatedButton).toBeDisabled();
+      expect(
+        screen.getByTestId('confirm-sale-blocker')
+      ).toHaveTextContent('sin insumos suficientes');
     });
 
-    expect(
-      screen.getByText(/Faltan insumos para Panchuque/)
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('cart-item-shortage')).toHaveTextContent(
+      /falta Pan/
+    );
   });
 
   test('oculta los productos agotados por defecto', async () => {
@@ -765,7 +765,7 @@ describe('SalesTerminal', () => {
     await waitFor(() =>
       expect(
         screen.getByTestId('product-card-cart-quantity-1')
-      ).toHaveTextContent('1 en pedido')
+      ).toHaveTextContent('1 en venta')
     );
   });
 
@@ -923,35 +923,150 @@ describe('SalesTerminal', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Agregar al pedido' })
+        screen.getByRole('button', { name: 'Agregar a la venta' })
       ).toBeInTheDocument()
     );
 
     const checkbox = screen.getByLabelText('Incluir Cebolla en Panchuque');
     fireEvent.click(checkbox);
 
-    const confirmButton = screen.getByRole('button', { name: 'Agregar al pedido' });
+    const confirmButton = screen.getByRole('button', { name: 'Agregar a la venta' });
     fireEvent.click(confirmButton);
 
     await waitFor(() =>
-      expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('1 en pedido')
+      expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('1 en venta')
     );
 
     fireEvent.click(card);
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole('button', { name: 'Agregar al pedido' })
+        screen.getAllByRole('button', { name: 'Agregar a la venta' })
       ).toHaveLength(1)
     );
 
-    const confirmButton2 = screen.getByRole('button', { name: 'Agregar al pedido' });
+    const confirmButton2 = screen.getByRole('button', { name: 'Agregar a la venta' });
     fireEvent.click(confirmButton2);
 
     await waitFor(() =>
-      expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('2 en pedido')
+      expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('2 en venta')
     );
 
     expect(document.querySelectorAll('[data-product-id="1"]')).toHaveLength(2);
+  });
+
+  test('permite quitar un ítem del carrito con el botón Quitar', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cart-item-remove')).toBeInTheDocument()
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Quitar Panchuque' })
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('empty-cart-message')).toBeInTheDocument()
+    );
+  });
+
+  test('permite vaciar el carrito completo con confirmación', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cart-clear')).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByTestId('cart-clear'));
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('empty-cart-message')).toBeInTheDocument()
+    );
+  });
+
+  test('explica el motivo de bloqueo cuando el pago está incompleto', async () => {
+    mockCashRegister(true);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    mockFetch(products, { 1: 5 });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+
+    fireEvent.change(screen.getByTestId('payment-cash-input'), {
+      target: { value: '1000' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('confirm-sale-button')).toBeDisabled();
+      expect(
+        screen.getByTestId('confirm-sale-blocker')
+      ).toHaveTextContent('Faltan $ 500 por cobrar');
+    });
   });
 });
