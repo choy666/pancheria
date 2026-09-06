@@ -382,18 +382,23 @@ function getRecipeListForItem(
   }));
 }
 
-export async function validateCartAvailability(
-  branchId: number,
+function isBeverageProduct(product: ProductRow | undefined): boolean {
+  return (
+    !!product &&
+    product.type === 'critical_supply' &&
+    product.criticalSupplyType === 'beverage'
+  );
+}
+
+/**
+ * Devuelve los IDs de productos a consultar: los de los ítems, los extra
+ * pedidos por `productIds` y los insumos referenciados por los snapshots de
+ * receta (necesarios para calcular su stock aunque no estén como ítem).
+ */
+export function collectCartProductIds(
   items: SaleItemInput[],
-  productIds?: number[],
-  dbOrTx?: typeof import('@/db').db,
-  excludeOrderId?: number
-): Promise<{
-  availabilityByProduct: Record<number, number>;
-  consumedBySupply: Record<number, number>;
-  shortageByProduct: Record<number, { available: number; required: number; supplyName: string }>;
-  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
-}> {
+  productIds?: number[]
+): number[] {
   const itemProductIds = items.map((item) => item.productId);
   const snapshotSupplyIds = items.flatMap(
     (item) =>
@@ -401,10 +406,18 @@ export async function validateCartAvailability(
         ?.filter((config) => config.autoDiscount)
         .map((config) => config.supplyId) ?? []
   );
-  const allProductIds = Array.from(
+  return Array.from(
     new Set([...itemProductIds, ...(productIds ?? []), ...snapshotSupplyIds])
   );
+}
 
+/**
+ * Agrupa los snapshots de receta por producto. Los snapshots llegan de un
+ * pedido ya confirmado y reemplazan a la receta vigente en la validación.
+ */
+export function groupRecipeSnapshotsByProduct(
+  items: SaleItemInput[]
+): Map<number, RecipeItemConfig[]> {
   const recipeSnapshotsByProductId = new Map<number, RecipeItemConfig[]>();
   for (const item of items) {
     if (!item.recipeSnapshot || item.recipeSnapshot.length === 0) continue;
@@ -414,27 +427,23 @@ export async function validateCartAvailability(
       ...item.recipeSnapshot,
     ]);
   }
+  return recipeSnapshotsByProductId;
+}
 
-  const {
-    productsList,
-    productById,
-    recipesByProduct,
-    supplyStockById,
-    supplyNameById,
-  } = await buildAvailabilityContext(
-    branchId,
-    allProductIds,
-    dbOrTx,
-    recipeSnapshotsByProductId
+/**
+ * Devuelve los IDs de insumos/productos cuyo stock puede estar afectado por
+ * reservas activas de pedidos: los que descuenta el carrito más los insumos
+ * con `autoDiscount` de los productos compuestos considerados y las bebidas.
+ */
+export function collectAvailabilityLockIds(
+  items: SaleItemInput[],
+  productIdsToConsider: number[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>
+): number[] {
+  const idsToLockSet = new Set(
+    collectStockProductIdsToLock(items, productById, recipesByProduct)
   );
-
-  const idsToLock = collectStockProductIdsToLock(
-    items,
-    productById,
-    recipesByProduct
-  );
-  const idsToLockSet = new Set(idsToLock);
-  const productIdsToConsider = productIds ?? itemProductIds;
 
   for (const productId of productIdsToConsider) {
     const product = productById.get(productId);
@@ -445,37 +454,50 @@ export async function validateCartAvailability(
       for (const recipeItem of recipeList) {
         if (recipeItem.autoDiscount) idsToLockSet.add(recipeItem.supplyId);
       }
-    } else if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
+    } else if (isBeverageProduct(product)) {
       idsToLockSet.add(product.id);
     }
   }
 
-  const idsToLockArray = Array.from(idsToLockSet);
+  return Array.from(idsToLockSet);
+}
 
-  if (idsToLockArray.length > 0 && dbOrTx) {
-    const reservations =
-      await orderStockReservationRepository.findActiveReservationsByProductIds(
-        dbOrTx,
-        branchId,
-        idsToLockArray,
-        excludeOrderId
-      );
-    for (const reservation of reservations) {
-      if (supplyStockById[reservation.productId] !== undefined) {
-        supplyStockById[reservation.productId] -= reservation.quantity;
-      }
+/**
+ * Descuenta las reservas activas del stock en memoria. Solo aplica sobre
+ * insumos/productos presentes en `supplyStockById`.
+ */
+export function applyReservationsToStock(
+  supplyStockById: Record<number, number>,
+  reservations: { productId: number; quantity: number }[]
+): void {
+  for (const reservation of reservations) {
+    if (supplyStockById[reservation.productId] !== undefined) {
+      supplyStockById[reservation.productId] -= reservation.quantity;
     }
   }
+}
 
+function assertCartProductsExist(
+  items: SaleItemInput[],
+  productById: Map<number, ProductRow>
+): void {
   for (const item of items) {
     if (!productById.has(item.productId)) {
       throw new NotFoundError('Producto', item.productId);
     }
   }
+}
 
+/**
+ * Calcula el consumo total por insumo del carrito: insumos `autoDiscount`
+ * seleccionados de los compuestos (con su multiplicador de receta) y las
+ * unidades de bebidas críticas.
+ */
+export function calculateConsumedBySupply(
+  items: SaleItemInput[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>
+): Record<number, number> {
   const consumedBySupply: Record<number, number> = {};
 
   for (const item of items) {
@@ -488,18 +510,28 @@ export async function validateCartAvailability(
           (consumedBySupply[recipeItem.supplyId] ?? 0) +
           item.quantity * recipeItem.quantity;
       }
-    } else if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
+    } else if (isBeverageProduct(product)) {
       consumedBySupply[product.id] =
         (consumedBySupply[product.id] ?? 0) + item.quantity;
     }
   }
 
+  return consumedBySupply;
+}
+
+/**
+ * Calcula la disponibilidad restante por producto luego del consumo del
+ * carrito. Los servicios no tienen límite; las bebidas descuentan su stock
+ * directo y los compuestos resuelven por su receta.
+ */
+export function calculateAvailabilityByProduct(
+  targetProductIds: number[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  supplyStockById: Record<number, number>,
+  consumedBySupply: Record<number, number>
+): Record<number, number> {
   const availabilityByProduct: Record<number, number> = {};
-  const targetProductIds =
-    allProductIds.length > 0 ? allProductIds : itemProductIds;
 
   for (const productId of targetProductIds) {
     const product = productById.get(productId);
@@ -510,10 +542,7 @@ export async function validateCartAvailability(
 
     if (product.type === 'service') {
       availabilityByProduct[productId] = Number.MAX_SAFE_INTEGER;
-    } else if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
+    } else if (isBeverageProduct(product)) {
       availabilityByProduct[productId] =
         (supplyStockById[product.id] ?? 0) -
         (consumedBySupply[product.id] ?? 0);
@@ -528,11 +557,20 @@ export async function validateCartAvailability(
     }
   }
 
-  const shortageByProduct: Record<
-    number,
-    { available: number; required: number; supplyName: string }
-  > = {};
+  return availabilityByProduct;
+}
 
+/**
+ * Genera el desglose de insumos críticos (`autoDiscount`) por producto
+ * compuesto, indicando cuál es el insumo limitante.
+ */
+export function calculateBreakdownByProduct(
+  productsList: ProductRow[],
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  supplyStockById: Record<number, number>,
+  supplyNameById: Record<number, string>,
+  consumedBySupply: Record<number, number>
+): Record<number, RecipeBreakdownItem[]> {
   const breakdownByProduct: Record<number, RecipeBreakdownItem[]> = {};
 
   for (const product of productsList) {
@@ -550,14 +588,32 @@ export async function validateCartAvailability(
     );
   }
 
+  return breakdownByProduct;
+}
+
+/**
+ * Detecta los productos con faltante de insumos. Para bebidas compara stock
+ * directo contra consumo; para compuestos busca el insumo con menor capacidad
+ * residual (bottleneck).
+ */
+export function calculateShortageByProduct(
+  items: SaleItemInput[],
+  productById: Map<number, ProductRow>,
+  recipesByProduct: Map<number, RecipeWithSupply[]>,
+  supplyStockById: Record<number, number>,
+  supplyNameById: Record<number, string>,
+  consumedBySupply: Record<number, number>
+): Record<number, { available: number; required: number; supplyName: string }> {
+  const shortageByProduct: Record<
+    number,
+    { available: number; required: number; supplyName: string }
+  > = {};
+
   for (const item of items) {
     const product = productById.get(item.productId);
     if (!product || product.type === 'service') continue;
 
-    if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
+    if (isBeverageProduct(product)) {
       const available = supplyStockById[product.id] ?? 0;
       const required = consumedBySupply[product.id] ?? 0;
       if (required > available) {
@@ -597,6 +653,97 @@ export async function validateCartAvailability(
       }
     }
   }
+
+  return shortageByProduct;
+}
+
+/**
+ * Orquesta la validación de disponibilidad del carrito: construye el contexto
+ * (productos, recetas y stock), descuenta las reservas activas y calcula
+ * consumo, disponibilidad, faltantes y desglose por producto.
+ */
+export async function validateCartAvailability(
+  branchId: number,
+  items: SaleItemInput[],
+  productIds?: number[],
+  dbOrTx?: typeof import('@/db').db,
+  excludeOrderId?: number
+): Promise<{
+  availabilityByProduct: Record<number, number>;
+  consumedBySupply: Record<number, number>;
+  shortageByProduct: Record<number, { available: number; required: number; supplyName: string }>;
+  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
+}> {
+  const itemProductIds = items.map((item) => item.productId);
+  const allProductIds = collectCartProductIds(items, productIds);
+  const recipeSnapshotsByProductId = groupRecipeSnapshotsByProduct(items);
+
+  const {
+    productsList,
+    productById,
+    recipesByProduct,
+    supplyStockById,
+    supplyNameById,
+  } = await buildAvailabilityContext(
+    branchId,
+    allProductIds,
+    dbOrTx,
+    recipeSnapshotsByProductId
+  );
+
+  const idsToLockArray = collectAvailabilityLockIds(
+    items,
+    productIds ?? itemProductIds,
+    productById,
+    recipesByProduct
+  );
+
+  if (idsToLockArray.length > 0 && dbOrTx) {
+    const reservations =
+      await orderStockReservationRepository.findActiveReservationsByProductIds(
+        dbOrTx,
+        branchId,
+        idsToLockArray,
+        excludeOrderId
+      );
+    applyReservationsToStock(supplyStockById, reservations);
+  }
+
+  assertCartProductsExist(items, productById);
+
+  const consumedBySupply = calculateConsumedBySupply(
+    items,
+    productById,
+    recipesByProduct
+  );
+
+  const targetProductIds =
+    allProductIds.length > 0 ? allProductIds : itemProductIds;
+
+  const availabilityByProduct = calculateAvailabilityByProduct(
+    targetProductIds,
+    productById,
+    recipesByProduct,
+    supplyStockById,
+    consumedBySupply
+  );
+
+  const breakdownByProduct = calculateBreakdownByProduct(
+    productsList,
+    recipesByProduct,
+    supplyStockById,
+    supplyNameById,
+    consumedBySupply
+  );
+
+  const shortageByProduct = calculateShortageByProduct(
+    items,
+    productById,
+    recipesByProduct,
+    supplyStockById,
+    supplyNameById,
+    consumedBySupply
+  );
 
   return { availabilityByProduct, consumedBySupply, shortageByProduct, breakdownByProduct };
 }
