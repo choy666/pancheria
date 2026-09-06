@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-09-05  
 **Proyecto:** `pancheria`  
-**Baseline:** `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` (`main`) — merge de `fix/hallazgos-auditoria-2026-09-05` completado; verificaciones base y E2E OK  
+**Baseline:** `c36e2794237ee7fd6629a170a9d6829bed227d62` (`main`) — merge de `fix/hallazgos-auditoria-2026-09-05` completado; verificaciones base y E2E OK  
 **Auditoría:** Masiva integral — 9 áreas — **con implementación de todos los hallazgos abiertos**  
 **Histórico:** Fases anteriores en `.devin/informes/archivados/reporte-estado-2026-09-04.md`
 
@@ -33,6 +33,8 @@ Esta iteración tuvo dos fases:
    - Docs: `BASE_URL`/`NO_GLOBAL_SETUP` documentadas, `NEXT_PUBLIC_WHATSAPP_NUMBER` como opcional, mínimos de intervalos documentados, `environment.yaml` sincronizado, `.env.e2e` ya no pisa variables con valores vacíos, CI E2E usa `drizzle-kit migrate`, versiones `@next/*`/`eslint-config-next` alineadas a `16.3.3`.
 
 Los tests E2E se ejecutaron contra la base descartable de `.env.e2e` con resultado completo: **110/110 pasaron**. No se ejecutó `drizzle-kit push` (no hubo cambios de esquema).
+
+> **Actualización post-baseline:** el cron `expire-orders` se movió de `vercel.json` a `.github/workflows/expire-orders.yml`; se sincronizó la documentación en `README.md`, `AGENTS.md`, `.env.example`, `environment.yaml` y este informe; se eliminó el dominio de producción hardcodeado del workflow.
 
 ## 2. Stack y arquitectura
 
@@ -123,7 +125,7 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | Rutas API, servicios, repositorios | OK | 100% con test |
 | Helpers de `src/lib/` sin test | Resuelto | Agregados `csp-helpers.test.ts` y `product-image-upload-client.test.ts`; quedan sin test solo helpers triviales (`utils`, `logger`, `last-customer-*`, `product-style`, `pagination`). |
 | `dashboard-client.tsx` y `video-player.tsx` sin cobertura | Resuelto | Suites nuevas: 13 y 8 tests respectivamente. |
-| `branch-form.tsx` sin `data-testid` | Menor | **Diferido**: cubierto indirectamente por E2E. |
+| `branch-form.tsx` sin `data-testid` | Menor | Resuelto — agregados `data-testid` en formulario, campos, franjas horarias, botones y mensaje de error. |
 | Selectores frágiles con valores numéricos | Resuelto | `data-testid` agregados (`product-availability`, `cash-register-*-total`, `cash-register-sales-count`, `cash-register-id-*`, `branch-phone`); specs E2E actualizados. |
 | Dependencia del seed en E2E | Informativo | Conocida y aceptada; `global-setup` reseedea. |
 | Flujos E2E críticos | OK | Todos cubiertos; recetas solo vía promo. |
@@ -183,7 +185,7 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 |---|---|---|
 | `ci.yml` completo | OK | lint, typecheck, unit-tests, build, knip, e2e+accesibilidad; verifica secretos |
 | `playwright.config.ts` | Resuelto | `.env.e2e` ya no sobrescribe con valores vacíos (parseo manual con `dotenv.parse` + filtrado); igual en `scripts/dev-e2e.ts` |
-| `vercel.json` crons | OK | 3 crons (`rate-limit-cleanup`, `chat-attachments-cleanup`, `expire-orders` cada 5 min) |
+| `vercel.json` crons | OK | 2 crons en `vercel.json` (`rate-limit-cleanup`, `chat-attachments-cleanup`, diarios); `expire-orders` se dispara desde `.github/workflows/expire-orders.yml` cada 5 min |
 | `next.config.ts` headers/CSP | OK | + `images.formats` y `remotePatterns` por provider |
 | CI E2E `push --force` | Resuelto | Ahora usa `drizzle-kit migrate` (registra `__drizzle_migrations`) |
 | Versiones desalineadas | Resuelto | `@next/bundle-analyzer` y `eslint-config-next` en `16.3.3` |
@@ -208,6 +210,8 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | Capas en app | `src/app/(panel)/perfil/actions.ts`, `src/app/api/productos/imagen/[key]/route.ts` |
 | Batching del cron de adjuntos | `src/app/api/cron/chat-attachments-cleanup/route.ts`, `src/repositories/orderMessageRepository.ts` |
 | `data-testid` nuevos | `product-card.tsx` (`product-availability`), `cash-register-summary.tsx` (`cash-register-cash-total`, `cash-register-transfer-total`, `cash-register-sales-count`), `caja-history.tsx` (`cash-register-id-*`), `pedido-client.tsx` (`branch-phone`) |
+|| Refactor incremental de tarjetas de producto | `src/components/productos/product-card-image.tsx`, `product-card-price.tsx`, `product-card-availability.tsx`, `product-card-recipe-included.tsx`, `product-card-sales-extra.tsx`, `src/components/pedido/product-card.tsx`, `src/components/ventas/sales-product-card.tsx` |
+|| `data-testid` en `branch-form` | `src/components/sucursales/branch-form.tsx` |
 
 ### Tests
 - 4 suites nuevas (+43 tests): `dashboard-client.test.tsx`, `video-player.test.tsx`, `csp-helpers.test.ts`, `product-image-upload-client.test.ts`.
@@ -221,6 +225,7 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | `dotenv` sin override de valores vacíos | `playwright.config.ts`, `scripts/dev-e2e.ts` |
 | `drizzle-kit migrate` en CI E2E | `.github/workflows/ci.yml` |
 | Versiones `16.3.3` | `package.json`, `package-lock.json` |
+|| `expire-orders` a GitHub Actions; dominio sin hardcodear | `.github/workflows/expire-orders.yml`, `vercel.json`, `README.md`, `AGENTS.md`, `.env.example`, `.devin/environment.yaml` |
 
 ## 7. Plan de acción priorizado — estado final
 
@@ -241,7 +246,8 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | Versiones `@next/*`/`eslint-config-next` | ✅ Resuelto (`16.3.3`) |
 | CORS explícito | Informativo — sin acción (monolito) |
 | Catálogo paginado en cliente | Parcial — capacidad `limit`/`offset` agregada en repositorios; la carga completa del catálogo queda por diseño de UX (catálogo acotado) |
-| `data-testid` en `branch-form` y consolidación `product-card`/`sales-product-card` | Diferido — no bloqueante |
+| `data-testid` en `branch-form` | ✅ Resuelto
+|| Consolidación `product-card`/`sales-product-card` | Resuelto (parcial) — extraídos `ProductCardImage`, `ProductCardPrice`, `ProductCardAvailability`, `ProductCardRecipeIncluded` y `ProductCardSalesExtra`; se mantienen los componentes originales como wrappers |
 | División de `validateCartAvailability` | Diferido — extracción riesgosa sin ganancia inmediata |
 
 ### Pendiente de ejecución

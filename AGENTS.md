@@ -94,9 +94,9 @@ Copiar `.env.example` a `.env.local` y completar:
 - `BASE_URL` (opcional) — URL base para Playwright (por defecto `http://localhost:3000`).
 - `NO_WEB_SERVER` (opcional) — si se define como `1` u otro valor no vacío, deshabilita el `webServer` de Playwright para reutilizar un servidor ya levantado (`npm run dev:e2e`).
 - `NO_GLOBAL_SETUP` (opcional) — si se define como `1` u otro valor no vacío, salta `tests/e2e/global-setup.ts` cuando el servidor y la base de datos ya están preparados.
-- `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup` y `GET /api/cron/chat-attachments-cleanup`. Si no se define, los endpoints rechazan todas las llamadas.
+- `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup`, `GET /api/cron/chat-attachments-cleanup` y `GET /api/cron/expire-orders`. Si no se define, los endpoints rechazan todas las llamadas.
 
-> Los schedules de los cron jobs (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`) están definidos en `vercel.json` (`0 0 * * *` por defecto). Vercel Cron Jobs no leen variables de entorno para el `schedule`; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente).
+> Los schedules de los cron jobs en `vercel.json` (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`, `0 0 * * *` por defecto) no se leen de variables de entorno; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente). El cron `/api/cron/expire-orders` se dispara desde `.github/workflows/expire-orders.yml` cada 5 minutos y también requiere `CRON_SECRET`.
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).

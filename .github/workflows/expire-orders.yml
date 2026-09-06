@@ -18,12 +18,19 @@ jobs:
             exit 1
           fi
 
+      - name: Verificar VERCEL_PRODUCTION_URL
+        run: |
+          if [ -z "${{ vars.VERCEL_PRODUCTION_URL }}" ]; then
+            echo "::error::Falta la variable de repositorio VERCEL_PRODUCTION_URL. Configurala en GitHub Actions."
+            exit 1
+          fi
+
       - name: Disparar expiración de pedidos vencidos
         run: |
           DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
-          if [ -z "$DOMAIN" ]; then
-            DOMAIN="pancheria-alpha.vercel.app"
-          fi
+          DOMAIN="${DOMAIN#https://}"
+          DOMAIN="${DOMAIN#http://}"
+          DOMAIN="${DOMAIN%%/*}"
           URL="https://${DOMAIN}/api/cron/expire-orders"
           echo "Llamando a ${URL}"
           curl -sfS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL"

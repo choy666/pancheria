@@ -192,7 +192,11 @@ Variables de entorno relacionadas:
 - `GET /api/cron/rate-limit-cleanup` — limpia entradas vencidas de `public_order_rate_limits`.
 - `GET /api/cron/chat-attachments-cleanup` — elimina archivos de chat huérfanos comparando las keys almacenadas en `order_messages.attachmentKey`.
 
-Ambos endpoints están protegidos por `CRON_SECRET`. Las expresiones `cron` se configuran en `vercel.json`; Vercel Cron Jobs no leen variables de entorno para el `schedule`.
+El cron de expiración de pedidos se dispara desde `.github/workflows/expire-orders.yml`:
+
+- `GET /api/cron/expire-orders` — marca pedidos `pending` vencidos como `cancelled`. Corre cada 5 minutos y está protegido por `CRON_SECRET`. El workflow usa la variable de repositorio `VERCEL_PRODUCTION_URL` para construir la URL de destino; no hay dominio hardcodeado.
+
+Todos los endpoints de cron están protegidos por `CRON_SECRET`. Los schedules de `vercel.json` no se leen de variables de entorno; el schedule de `expire-orders` se configura en el workflow de GitHub Actions.
 
 ## Notas
 
