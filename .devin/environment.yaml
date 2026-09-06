@@ -11,7 +11,7 @@ initialize:
 
 maintenance:
   - name: "Instalar dependencias del proyecto"
-    run: npm install
+    run: npm ci
 
 knowledge:
   - name: estructura
@@ -36,7 +36,8 @@ knowledge:
       - `.devin/informes/` — lecciones, reporte de estado vigente y guía de funcionamiento
 
   - name: install
-    contents: npm install
+    contents: |
+      `npm install` para el día a día; `npm ci` para una instalación reproducible desde `package-lock.json`.
 
   - name: lint
     contents: npm run lint
@@ -52,9 +53,10 @@ knowledge:
     contents: |
       npm run build
 
-  - name: e2e
+  - name: analyze
     contents: |
-      `npx playwright test` ejecuta `tests/e2e/global-setup.ts`, que trunca las tablas `sale_items`, `order_items`, `order_messages`, `stock_movements`, `sales`, `orders`, `recipes`, `products`, `videos`, `cash_registers`, `public_order_rate_limits`, `login_attempts`, `users` y `branches` con `RESTART IDENTITY CASCADE` (las tablas hijas quedan cubiertas por el CASCADE), y re-seedea la base. No usar en producción.
+      `npm run analyze` ejecuta el bundle analyzer junto con `next build` bajo Turbopack.
+      Bajo Turbopack el analizador no genera el reporte HTML; para obtener los reportes HTML usar `npm run analyze:webpack`, que fuerza webpack y genera los archivos en `.next/analyze/`.
 
   - name: database
     contents: |
@@ -116,7 +118,7 @@ knowledge:
       5. Si la URL muestra el login de Vercel, deshabilitar `Settings → Deployment Protection → Vercel Authentication`.
       6. `NEXTAUTH_URL` debe coincidir con el dominio de producción asignado.
 
-  - name: start
+  - name: dev-server
     contents: |
       Desarrollo:
         npm run dev
@@ -146,7 +148,7 @@ knowledge:
       Tests end-to-end con Playwright.
       - `npm run test:e2e` equivale a `npx playwright test`.
       - Requiere `.env.e2e` con `DATABASE_URL` apuntando a una base de datos descartable.
-      - `tests/e2e/global-setup.ts` trunca tablas y re-seedea; nunca correr contra producción.
+      - `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches` con `RESTART IDENTITY CASCADE` (las tablas hijas quedan cubiertas por el CASCADE) y re-seedea la base; nunca correr contra producción.
       - `playwright.config.ts` levanta `npm run dev:e2e` y espera `/api/caja/resumen` para forzar compilación de API.
       - Para levantar manualmente: `npm run dev:e2e` y `NO_WEB_SERVER=1 npx playwright test`.
       - Tests de accesibilidad: `npm run test:accessibility` (subconjunto con axe-core).

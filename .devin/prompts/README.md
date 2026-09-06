@@ -128,6 +128,9 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría masiva integral del proyecto](auditoria-masiva.md) — guía para auditar de forma sistemática calidad, seguridad, arquitectura, cobertura de pruebas, documentación, rendimiento, accesibilidad, integridad de datos y despliegue/CI.
 - [Resumen ejecutivo — Auditoría masiva integral](auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento para ejecutar `auditoria-masiva.md` de forma reproducible.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
+- [Auditoría del estado actual y sincronización de documentación](auditoria-estado-actual-y-documentacion.md) — punto de entrada para verificar que `reporte-estado.md` y los prompts de auditoría masiva reflejen el estado real del proyecto.
+
+> **¿Cuál usar?** `auditoria-y-documentacion.md` es para sincronizaciones documentales puntuales (variables de entorno, comandos, convenciones). `auditoria-estado-actual-y-documentacion.md` es para una verificación integral del estado del proyecto, incluyendo la revisión de los propios prompts de auditoría y del informe vigente.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
 
@@ -151,6 +154,8 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Cobertura de auditoría — flujo de pedidos públicos y stock](archivados/cobertura-auditoria-flujo-pedidos-2026-08-27.md) — archivado: flujo vigente de pedidos `pending` → `in_process` → `paid` → `finished` con reservas de stock; contexto histórico.
 - [Plan de mejoras — flujo de pedidos, chat, caja y sucursales](archivados/plan-mejoras-flujo-pedidos-chat-caja-sucursales-2026-08-27.md) — resuelto: captura de teléfono, horarios de sucursal, estados de pedido, chat con estados y reservas transaccionales.
 - [Arquitectura y buenas prácticas del flujo de pedidos, sucursales y stock](archivados/recomendaciones-pedidos-sucursal-stock-2026-08-27.md) — archivado: reglas de negocio, aislamiento por `branchId`, reutilización de helpers y decisiones arquitectónicas del flujo.
+
+> **Regla de índices:** al crear o archivar un prompt o informe, actualizar en el mismo cambio este `README.md`, `.devin/informes/README.md` (si aplica) y el bloque **Estructura** de `.devin/README.md`. El desfasaje del índice es el error más común detectado en auditorías de `.devin`.
 
 ## Véase también
 

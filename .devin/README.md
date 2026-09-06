@@ -9,6 +9,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Auditoría masiva integral del proyecto](prompts/auditoria-masiva.md)
 - [Resumen ejecutivo — Auditoría masiva integral](prompts/auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento.
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
+- [Auditoría del estado actual y sincronización de documentación](prompts/auditoria-estado-actual-y-documentacion.md) — revisión de `reporte-estado.md` y los prompts de auditoría masiva contra el estado real del proyecto.
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
 
@@ -48,7 +49,10 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 └── prompts/
     ├── pancheria.prompt.md       # Prompt maestro
     ├── README.md                 # Guía para escribir prompts
+    ├── auditoria-masiva.md       # Auditoría masiva integral (9 áreas)
+    ├── auditoria-masiva-resumen.md  # Guía de uso rápida de la auditoría masiva
     ├── auditoria-y-documentacion.md
+    ├── auditoria-estado-actual-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos (incluye plan de pedidos personalizados y auditoria-fallos-e2e-caja-y-rate-limit.md)
