@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -31,6 +32,9 @@ interface PedidoCatalogSectionProps {
   inCartQuantityByProduct?: Record<number, number>;
   breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
   isCheckingAvailability: boolean;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
   onBranchChange: (branchId: string | null) => void;
   onAdd: (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => void;
   cart: ReactNode;
@@ -44,6 +48,9 @@ export function PedidoCatalogSection({
   inCartQuantityByProduct: inCartQuantityByProductProp,
   breakdownByProduct,
   isCheckingAvailability,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   onBranchChange,
   onAdd,
   cart,
@@ -151,6 +158,20 @@ export function PedidoCatalogSection({
               </div>
             </div>
           ))}
+
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                data-testid="catalog-load-more"
+                disabled={isLoadingMore}
+                onClick={onLoadMore}
+              >
+                {isLoadingMore ? 'Cargando...' : 'Cargar más productos'}
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">{cart}</div>

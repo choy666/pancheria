@@ -25,7 +25,13 @@ export type PublicCatalogProduct = Pick<
 export type PublicCatalogResponse = {
   branch: Branch;
   products: PublicCatalogProduct[];
+  total: number;
 };
+
+export interface CatalogPagination {
+  limit?: number;
+  offset?: number;
+}
 
 function toPublicCatalogProduct(
   product: ProductRow,
@@ -56,20 +62,42 @@ async function getBranch(branchId: number): Promise<Branch> {
   return branch;
 }
 
-export async function listPublicCatalog(branchId: number): Promise<PublicCatalogResponse> {
+/**
+ * Devuelve el total de productos públicos de la sucursal. Solo consulta la
+ * base cuando hay paginación; sin paginación el listado ya es el total.
+ */
+async function getPublicProductsTotal(
+  branchId: number,
+  loadedCount: number,
+  pagination?: CatalogPagination
+): Promise<number> {
+  const isPaginated =
+    pagination?.limit !== undefined || pagination?.offset !== undefined;
+  if (!isPaginated) return loadedCount;
+  return catalogRepository.countPublicProducts(branchId);
+}
+
+export async function listPublicCatalog(
+  branchId: number,
+  pagination?: CatalogPagination
+): Promise<PublicCatalogResponse> {
   const branch = await getBranch(branchId);
-  const products = await catalogRepository.findPublicProducts(branchId);
+  const products = await catalogRepository.findPublicProducts(branchId, pagination);
+  const total = await getPublicProductsTotal(branchId, products.length, pagination);
   return {
     branch,
     products: products.map((product) => toPublicCatalogProduct(product, 0, [], undefined)),
+    total,
   };
 }
 
 export async function listPublicCatalogWithAvailability(
-  branchId: number
+  branchId: number,
+  pagination?: CatalogPagination
 ): Promise<PublicCatalogResponse> {
   const branch = await getBranch(branchId);
-  const products = await catalogRepository.findPublicProducts(branchId);
+  const products = await catalogRepository.findPublicProducts(branchId, pagination);
+  const total = await getPublicProductsTotal(branchId, products.length, pagination);
   const productIds = products.map((product) => product.id);
 
   const availabilityById: Record<number, saleService.ProductAvailability> =
@@ -91,6 +119,7 @@ export async function listPublicCatalogWithAvailability(
         entry.recipe
       );
     }),
+    total,
   };
 }
 

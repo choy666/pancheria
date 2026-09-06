@@ -127,12 +127,16 @@ interface PedidoClientProps {
   branches: Branch[];
   activeBranch: Branch;
   initialProducts: PublicCatalogProduct[];
+  initialTotal?: number;
+  pageSize?: number;
 }
 
 export function PedidoClient({
   branches,
   activeBranch,
   initialProducts,
+  initialTotal,
+  pageSize,
 }: PedidoClientProps) {
   const {
     error,
@@ -172,6 +176,9 @@ export function PedidoClient({
     groupedProducts,
     products,
     isActiveBranchValid,
+    hasMore,
+    isLoadingMore,
+    loadMore,
     editingLine,
     startEditLine,
     cancelEditLine,
@@ -182,7 +189,7 @@ export function PedidoClient({
     handleCancelOrder,
     handleOpenWhatsApp,
     handleGoToChat,
-  } = usePedidoClient({ branches, activeBranch, initialProducts });
+  } = usePedidoClient({ branches, activeBranch, initialProducts, initialTotal, pageSize });
 
   if (!isActiveBranchValid) {
     return <PedidoError />;
@@ -224,6 +231,9 @@ export function PedidoClient({
         inCartQuantityByProduct={inCartQuantityByProduct}
         breakdownByProduct={breakdownByProduct}
         isCheckingAvailability={isCheckingAvailability}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMore}
         onBranchChange={handleBranchChange}
         onAdd={addItem}
         cart={

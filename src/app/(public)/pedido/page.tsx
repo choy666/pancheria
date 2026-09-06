@@ -11,6 +11,7 @@ import { PedidoSkeleton } from '@/components/pedido/pedido-skeleton';
 import { PedidoError } from '@/components/pedido/pedido-error';
 import { logError } from '@/lib/logger';
 import { routes } from '@/config/routes';
+import { getCatalogPageSize } from '@/config/catalog';
 import type { Branch } from '@/domain/types';
 
 interface PedidoPageProps {
@@ -34,9 +35,14 @@ async function PedidoCatalog({ branchId }: PedidoCatalogProps) {
   let branches: Branch[] = [];
   let hasError = false;
 
+  const pageSize = getCatalogPageSize();
+
   try {
     [catalog, branches] = await Promise.all([
-      catalogService.listPublicCatalogWithAvailability(branchId),
+      catalogService.listPublicCatalogWithAvailability(branchId, {
+        limit: pageSize,
+        offset: 0,
+      }),
       listPublicBranches(),
     ]);
 
@@ -58,6 +64,8 @@ async function PedidoCatalog({ branchId }: PedidoCatalogProps) {
       branches={branches}
       activeBranch={catalog.branch}
       initialProducts={catalog.products}
+      initialTotal={catalog.total}
+      pageSize={pageSize}
     />
   );
 }

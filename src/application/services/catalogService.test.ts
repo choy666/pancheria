@@ -122,6 +122,39 @@ describe('catalogService', () => {
         'Sucursal con ID 999 no encontrado.'
       );
     });
+
+    test('pasa limit/offset al repositorio y devuelve el total contado', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
+      mockedCatalogRepository.findPublicProducts.mockResolvedValue([
+        makeProduct(1, 'Panchuque', 'compound'),
+      ]);
+      mockedCatalogRepository.countPublicProducts.mockResolvedValue(30);
+
+      const result = await listPublicCatalog(BRANCH_ID, { limit: 10, offset: 0 });
+
+      expect(mockedCatalogRepository.findPublicProducts).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { limit: 10, offset: 0 }
+      );
+      expect(mockedCatalogRepository.countPublicProducts).toHaveBeenCalledWith(
+        BRANCH_ID
+      );
+      expect(result.products).toHaveLength(1);
+      expect(result.total).toBe(30);
+    });
+
+    test('sin paginación el total es el largo del listado y no consulta count', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
+      mockedCatalogRepository.findPublicProducts.mockResolvedValue([
+        makeProduct(1, 'Panchuque', 'compound'),
+        makeProduct(2, 'Gaseosa', 'critical_supply', 'beverage'),
+      ]);
+
+      const result = await listPublicCatalog(BRANCH_ID);
+
+      expect(result.total).toBe(2);
+      expect(mockedCatalogRepository.countPublicProducts).not.toHaveBeenCalled();
+    });
   });
 
   describe('listPublicCatalogWithAvailability', () => {
@@ -158,9 +191,36 @@ describe('catalogService', () => {
 
       expect(result.branch).toEqual(makeBranch());
       expect(result.products).toEqual([]);
+      expect(result.total).toBe(0);
       expect(
         mockedSaleService.calculateAvailabilityForProductIds
       ).not.toHaveBeenCalled();
+    });
+
+    test('pagina los productos y calcula disponibilidad solo de la página', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
+      mockedCatalogRepository.findPublicProducts.mockResolvedValue([
+        makeProduct(3, 'Vaso', 'service'),
+      ]);
+      mockedCatalogRepository.countPublicProducts.mockResolvedValue(25);
+      mockedSaleService.calculateAvailabilityForProductIds.mockResolvedValue({
+        3: { availability: Number.MAX_SAFE_INTEGER, breakdown: [] },
+      });
+
+      const result = await listPublicCatalogWithAvailability(BRANCH_ID, {
+        limit: 5,
+        offset: 20,
+      });
+
+      expect(mockedCatalogRepository.findPublicProducts).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { limit: 5, offset: 20 }
+      );
+      expect(
+        mockedSaleService.calculateAvailabilityForProductIds
+      ).toHaveBeenCalledWith(BRANCH_ID, [3]);
+      expect(result.products).toHaveLength(1);
+      expect(result.total).toBe(25);
     });
   });
 

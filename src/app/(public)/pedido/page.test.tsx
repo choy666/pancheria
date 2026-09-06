@@ -58,6 +58,7 @@ function makeCatalog(branchId: number) {
   return {
     branch: makeBranch(branchId, 'Sucursal Test'),
     products: [],
+    total: 0,
   };
 }
 

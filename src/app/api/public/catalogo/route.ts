@@ -11,6 +11,8 @@ const querySchema = z.object({
     .optional()
     .default('false')
     .transform((value) => value === 'true' || value === '1'),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 });
 
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
@@ -22,9 +24,14 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
   }
 
+  const pagination =
+    query.limit !== undefined || query.offset !== undefined
+      ? { limit: query.limit, offset: query.offset }
+      : undefined;
+
   const result = query.includeAvailability
-    ? await catalogService.listPublicCatalogWithAvailability(branchId)
-    : await catalogService.listPublicCatalog(branchId);
+    ? await catalogService.listPublicCatalogWithAvailability(branchId, pagination)
+    : await catalogService.listPublicCatalog(branchId, pagination);
 
   return NextResponse.json(result);
 });

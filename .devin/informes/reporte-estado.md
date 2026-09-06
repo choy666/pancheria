@@ -10,7 +10,7 @@
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo y las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **144 suites y 1393 tests**; el build genera **73 rutas/páginas**. El suite E2E cuenta con **34 specs (~110 tests)**.
+El proyecto se encuentra en estado operativo y las verificaciones base (`npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run knip`) pasan correctamente. La suite de tests unitarios alcanza **145 suites y 1425 tests**; el build genera **73 rutas/páginas**. El suite E2E cuenta con **34 specs (~110 tests)**.
 
 Esta iteración tuvo dos fases:
 
@@ -29,6 +29,13 @@ Esta iteración tuvo dos fases:
    - Polling unificado: `useOrderChat` sin listener duplicado, `useCashRegister` y `useDashboard` migrados a `useVisibilityPolling` (con nuevo `onResume`), `TourProvider` con `useMemo`.
    - Empty states en productos, stock, historial de ventas y caja; `key` corregidas en `product-card.tsx`; total del terminal con helpers de dinero.
    - 4 suites de tests nuevas: `dashboard-client`, `video-player`, `csp-helpers`, `product-image-upload-client` (+43 tests).
+
+3. **Consolidación final de la iteración** (última ronda sobre `main`):
+
+   - Consolidación real de tarjetas: `ProductCardBase` con `variant="catalog" | "sales"` unifica las props de `product-card.tsx` (catálogo) y `sales-product-card.tsx` (terminal); se conservan imagen/descripción/badge de tipo y diálogo de opciones en catálogo, y tarjeta clickeable con badge de cantidad y stock restante en ventas; los `data-testid` por variante no cambian (selectores E2E intactos). <ref_file file="C:/developer/paginas/pancheria/src/components/productos/product-card-base.tsx" />
+   - `validateCartAvailability` dividida en un orquestador + 8 funciones puras exportadas y testeadas (`collectCartProductIds`, `groupRecipeSnapshotsByProduct`, `collectAvailabilityLockIds`, `applyReservationsToStock`, `calculateConsumedBySupply`, `calculateAvailabilityByProduct`, `calculateBreakdownByProduct`, `calculateShortageByProduct`). <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" />
+   - Catálogo paginado de punta a punta: `findPublicProducts` filtra vendibles en SQL y suma `countPublicProducts`; el service acepta `{limit, offset}` y devuelve `total`; `GET /api/public/catalogo` valida ambos parámetros; `/pedido` hace SSR de la primera página y el cliente pide el resto con "Cargar más" (`catalog-load-more`, dedupe por id, polling refresca lo ya cargado). Page size con `NEXT_PUBLIC_CATALOG_PAGE_SIZE` (default 48).
+   - +32 tests unitarios (145 suites, 1425 tests); re-verificación E2E parcial de los flujos tocados: **11/11 pasaron**.
    - Selectores endurecidos con `data-testid` (`product-availability`, `cash-register-cash-total`, `cash-register-transfer-total`, `cash-register-sales-count`, `cash-register-id-*`, `branch-phone`).
    - Docs: `BASE_URL`/`NO_GLOBAL_SETUP` documentadas, `NEXT_PUBLIC_WHATSAPP_NUMBER` como opcional, mínimos de intervalos documentados, `environment.yaml` sincronizado, `.env.e2e` ya no pisa variables con valores vacíos, CI E2E usa `drizzle-kit migrate`, versiones `@next/*`/`eslint-config-next` alineadas a `16.3.3`.
 
@@ -65,12 +72,12 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 |---|---|
 | `npm run lint` | Pasa (0 errores, 0 advertencias) |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | **144 suites, 1393 tests pasan** |
+| `npm test` | **145 suites, 1425 tests pasan** |
 | `npm run build` | Build exitoso, 73 rutas/páginas |
 | `npm run knip` | Pasa (sin exports/dependencias sin uso) |
 | `npx drizzle-kit check` | **Pasa**: esquema y migraciones consistentes contra `.env.e2e` |
 | `npm run analyze` | No ejecutado (limitación conocida bajo Turbopack) |
-| `npm run test:e2e` | **Pasa: 110/110 tests (18.1 min)** contra la base descartable de `.env.e2e` |
+| `npm run test:e2e` | **Pasa: 110/110 tests (18.1 min)** contra la base descartable de `.env.e2e`. Re-verificación parcial tras esta ronda: `pedido.spec.ts` + `ventas-disponibilidad.spec.ts` + `ventas-pago-mixto.spec.ts` → **11/11 pasaron** |
 
 El esquema Drizzle cuenta con **28 migraciones** (`0000`–`0027`) y el journal termina en `0027_dashing_bastion`, consistente con `src/db/schema.ts`. No hubo cambios de esquema en esta iteración.
 
@@ -86,9 +93,9 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | `src/lib/utils.ts` contiene únicamente `cn` | OK | Vigente |
 | `withApiErrorHandling` mapea errores correctamente | OK | `NotFoundError`→404, `ForbiddenError`→403, `DomainError`→400, `ZodError`→400, conexión→503, `InsufficientStockError`→409 |
 | `throw new Error` genéricos → errores de dominio | Resuelto | `branch-helpers.ts` (`ValidationError`), `branchService`, `userService`, `orderRepository`, `saleRepository`, `orderMessageRepository` (`DomainError`); `storage.ts`/`chat-storage.ts` (`ValidationError` para input); `db/index.ts` (`DatabaseConnectionError`→503). Los errores de misconfiguración de arranque (credenciales faltantes de storage) quedan como `Error` por decisión documentada (500 correcto). |
-| `validateCartAvailability` (~217 líneas) | Menor | **Diferido**: la extracción tocaba lógica validada; queda como deuda aceptada. |
+| `validateCartAvailability` (~217 líneas) | Menor | **Resuelto**: dividida en funciones puras exportadas (`collectCartProductIds`, `groupRecipeSnapshotsByProduct`, `collectAvailabilityLockIds`, `applyReservationsToStock`, `calculateConsumedBySupply`, `calculateAvailabilityByProduct`, `calculateBreakdownByProduct`, `calculateShortageByProduct`) con `validateCartAvailability` como orquestador; +12 tests unitarios. <ref_file file="C:/developer/paginas/pancheria/src/lib/product-helpers.ts" /> |
 | `key={product.imageUrl}` / `key={index}` en `product-card.tsx` | Resuelto | `ProductImage` guarda `failedUrl` (resetea el error al cambiar `src` sin remount); breakdown usa `key={item.supplyName}`. |
-| Duplicación `product-card.tsx` vs `sales-product-card.tsx` | Menor | **Diferido**: requiere diseño de componente compartido; no bloquea. |
+| Duplicación `product-card.tsx` vs `sales-product-card.tsx` | Menor | **Resuelto**: consolidación real con `ProductCardBase` (`variant="catalog" | "sales"`) en `src/components/productos/product-card-base.tsx`; ambos wrappers delegan. Se conservan los `data-testid` por variante (no se rompen selectores E2E); +11 tests unitarios del base. |
 | Total de `sales-terminal.tsx` con `number` | Resuelto | Ahora usa `addMoney`/`multiplyMoney`/`parseMoney`/`moneyToNumber` con `useMemo`. |
 
 ### 5.2 Seguridad
@@ -113,14 +120,14 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | `process.env` fuera de `src/config/*` | Resuelto | `csp-helpers.ts` migrado a getters de config; nuevo `src/config/storage-origins.ts` (autocontenido para uso desde `next.config.ts` y el proxy). |
 | Locking en `src/lib/` | Resuelto | `productRepository.lockForUpdate` concentra el `for('update')` de productos; `cash-register-helpers.ts` delega en `cashRegisterRepository`. |
 | `findFirst` sin `orderBy` | Resuelto | `findOpen` ordena por `openedAt`/`id` desc; `findByOrderNumberAndCustomer` por `createdAt`/`id` desc. |
-| Servicios monolíticos | Mayor → Resuelto (parcial) | La persistencia fue extraída a repositorios; los servicios quedaron como orquestadores. La longitud absoluta se reduce; la división fina de `orderService`/`saleService`/`validateCartAvailability` queda como deuda futura no bloqueante. |
+| Servicios monolíticos | Mayor → Resuelto (parcial) | La persistencia fue extraída a repositorios; los servicios quedaron como orquestadores. `validateCartAvailability` quedó dividida en funciones puras; la división fina de `orderService`/`saleService` queda como deuda futura no bloqueante. |
 | Soft vs hard delete | OK | Decisión funcional confirmada: `deleteBranch` es hard delete en cascada con liberación post-commit. |
 
 ### 5.4 Cobertura de pruebas
 
 | Hallazgo | Clasificación | Estado |
 |---|---|---|
-| Unitarios: 144 suites / 1393 tests | OK | `npm test` |
+| Unitarios: 145 suites / 1425 tests | OK | `npm test` |
 | E2E: 34 specs / ~110 tests | OK | `tests/e2e` |
 | Rutas API, servicios, repositorios | OK | 100% con test |
 | Helpers de `src/lib/` sin test | Resuelto | Agregados `csp-helpers.test.ts` y `product-image-upload-client.test.ts`; quedan sin test solo helpers triviales (`utils`, `logger`, `last-customer-*`, `product-style`, `pagination`). |
@@ -150,7 +157,7 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | `npm run analyze` bajo Turbopack | Limitación conocida | Requiere `next build --webpack` |
 | Intervalos de caja sin mínimo | Resuelto | Mínimos 5000/10000 ms aplicados y documentados |
 | N+1 en movimientos de stock, borrado de cajas y papelera | Resuelto | `stockMovementRepository.insertMany` (insert bulk), `hardDeleteAllDeletedInRange` con `GROUP BY` + delete único, `emptyTrash` con `findReferencedProductIds` + `hardDeleteMany`. Los `UPDATE` de stock con guarda `gte` siguen por fila (semántica requerida para `InsufficientStockError`). |
-| Catálogo completo en memoria | Resuelto (parcial) | `productRepository.findAll`, `videoRepository.findAll`, `catalogRepository.findPublicProducts` y `findAllAttachmentKeys` aceptan `limit`/`offset`; el cron de adjuntos procesa en lotes. El catálogo público/terminal sigue cargando completo por decisión de UX (catálogo acotado para este negocio). |
+| Catálogo completo en memoria | Resuelto | `catalogRepository.findPublicProducts` filtra productos vendibles en SQL (era filtro en memoria) y suma `countPublicProducts`; `listPublicCatalog`/`listPublicCatalogWithAvailability` aceptan `{limit, offset}` y devuelven `total`; `GET /api/public/catalogo` valida `limit`/`offset`; `/pedido` carga la primera página por SSR y el cliente trae el resto con "Cargar más" (`catalog-load-more`, dedupe por id, polling refresca lo ya cargado). Page size configurable con `NEXT_PUBLIC_CATALOG_PAGE_SIZE` (default 48). |
 | Listeners duplicados en `useOrderChat` | Resuelto | `useVisibilityPolling` es la única fuente de polling por visibilidad; se conserva `pageshow` (bfcache) y el reset de backoff vía `onResume`. |
 | Polling manual en `useCashRegister`/`useDashboard` | Resuelto | Migrados a `useVisibilityPolling`. |
 | `TourProvider` sin `useMemo` | Resuelto | Contexto memoizado. |
@@ -245,10 +252,10 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 | Keys de `product-card` y money helpers en `sales-terminal` | ✅ Resuelto |
 | Versiones `@next/*`/`eslint-config-next` | ✅ Resuelto (`16.3.3`) |
 | CORS explícito | Informativo — sin acción (monolito) |
-| Catálogo paginado en cliente | Parcial — capacidad `limit`/`offset` agregada en repositorios; la carga completa del catálogo queda por diseño de UX (catálogo acotado) |
+| Catálogo paginado en cliente | ✅ Resuelto — `/pedido` carga la primera página por SSR y el cliente trae el resto con "Cargar más" (`catalog-load-more`); `NEXT_PUBLIC_CATALOG_PAGE_SIZE` (default 48) |
 | `data-testid` en `branch-form` | ✅ Resuelto
-|| Consolidación `product-card`/`sales-product-card` | Resuelto (parcial) — extraídos `ProductCardImage`, `ProductCardPrice`, `ProductCardAvailability`, `ProductCardRecipeIncluded` y `ProductCardSalesExtra`; se mantienen los componentes originales como wrappers |
-| División de `validateCartAvailability` | Diferido — extracción riesgosa sin ganancia inmediata |
+|| Consolidación `product-card`/`sales-product-card` | ✅ Resuelto — `ProductCardBase` con `variant="catalog" | "sales"` en `src/components/productos/product-card-base.tsx`; los wrappers delegan; selectores E2E intactos |
+| División de `validateCartAvailability` | ✅ Resuelto — orquestador + 8 funciones puras exportadas en `product-helpers.ts` |
 
 ### Pendiente de ejecución
 1. ✅ `npm run test:e2e` — re-ejecutado sobre `.env.e2e`: **110/110 tests pasaron** (18.1m; incluye accesibilidad axe-core, responsive, pagos mixtos, chat con adjuntos, expiración y aislamiento por sucursal).
@@ -257,7 +264,8 @@ Todos los hallazgos abiertos fueron implementados. La tabla resume el estado fin
 ## 8. Cierre
 
 - Baseline: `99f05d65003edeecd3e49e27e15ddfdc9d4cee61` en `main` — merge de `fix/hallazgos-auditoria-2026-09-05` (commit `d9692bd`) completado.
-- Verificaciones base ejecutadas sobre el estado final: `npm run lint`, `npx tsc --noEmit`, `npm test` (144 suites / 1393 tests), `npm run build` (73 rutas), `npm run knip` y `npm run test:e2e` (110/110 tests) — todas pasan.
+- Verificaciones base ejecutadas sobre el estado final: `npm run lint`, `npx tsc --noEmit`, `npm test` (145 suites / 1425 tests), `npm run build` (73 rutas), `npm run knip` y `npm run test:e2e` (110/110 tests) — todas pasan.
+- Última ronda sobre `main`: consolidación `ProductCardBase` con `variant="catalog" | "sales"`, división de `validateCartAvailability` en funciones puras y catálogo paginado con "Cargar más" (`NEXT_PUBLIC_CATALOG_PAGE_SIZE`, default 48). Re-verificación E2E parcial (`pedido`, `ventas-disponibilidad`, `ventas-pago-mixto`): **11/11 pasaron**.
 - Sin cambios de esquema: no se generaron migraciones; `npx drizzle-kit check` sobre base de `.env.e2e` pasó sin drift.
 - Índices `.devin` actualizados: prompt de implementación de hallazgos archivado en `prompts/archivados/` y READMEs actualizados.
 - No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit generate/push/migrate` ni `npx vercel env pull` por requerir confirmación explícita (el seed de la base E2E lo realizó `global-setup.ts` como parte del suite).

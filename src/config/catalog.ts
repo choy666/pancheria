@@ -45,3 +45,19 @@ export function getPedidoRefetchIntervalMs(): number {
 
   return parsed;
 }
+
+/**
+ * Tamaño de página del catálogo público (`/pedido`). La página inicial se
+ * carga por SSR y el resto se pide con "Cargar más". El default es
+ * deliberadamente alto porque el catálogo de este negocio es acotado; la
+ * paginación queda como capacidad para catálogos grandes.
+ */
+export function getCatalogPageSize(): number {
+  const raw = process.env.NEXT_PUBLIC_CATALOG_PAGE_SIZE;
+  if (!raw) return 48;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return 48;
+
+  return Math.floor(parsed);
+}

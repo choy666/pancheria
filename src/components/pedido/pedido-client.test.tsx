@@ -300,6 +300,60 @@ describe('PedidoClient', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
+  test('carga la siguiente página con "Cargar más" y oculta el botón al llegar al total', async () => {
+    const p1 = makeProduct({ id: 1, name: 'Panchuque' });
+    const p2 = makeProduct({
+      id: 2,
+      name: 'Gaseosa',
+      type: 'critical_supply',
+      criticalSupplyType: 'beverage',
+    });
+
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      const urlString = String(url);
+      if (urlString.includes('/api/public/catalogo') && urlString.includes('offset=')) {
+        return createFetchResponse({
+          branch: makeBranch(1, 'Sucursal A'),
+          products: [p2],
+          total: 2,
+        });
+      }
+      return createFetchResponse({
+        branch: makeBranch(1, 'Sucursal A'),
+        products: [p1],
+        total: 2,
+      });
+    });
+
+    const branches = [makeBranch(1, 'Sucursal A')];
+
+    await act(async () => {
+      render(
+        <PedidoClient
+          branches={branches}
+          activeBranch={branches[0]}
+          initialProducts={[p1]}
+          initialTotal={2}
+          pageSize={1}
+        />
+      );
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('product-card-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('product-card-2')).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('catalog-load-more'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-2')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('catalog-load-more')).not.toBeInTheDocument();
+  });
+
   describe('flujo de checkout', () => {
     const originalOpen = window.open;
 

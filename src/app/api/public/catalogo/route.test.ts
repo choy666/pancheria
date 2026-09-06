@@ -48,6 +48,7 @@ describe('GET /api/public/catalogo', () => {
           breakdown: [],
         },
       ],
+      total: 1,
     });
   });
 
@@ -72,7 +73,8 @@ describe('GET /api/public/catalogo', () => {
 
     expect(mockedGetDefaultBranchId).not.toHaveBeenCalled();
     expect(mockedCatalogService.listPublicCatalogWithAvailability).toHaveBeenCalledWith(
-      2
+      2,
+      undefined
     );
   });
 
@@ -81,8 +83,23 @@ describe('GET /api/public/catalogo', () => {
 
     expect(mockedGetDefaultBranchId).toHaveBeenCalled();
     expect(mockedCatalogService.listPublicCatalogWithAvailability).toHaveBeenCalledWith(
-      BRANCH_ID
+      BRANCH_ID,
+      undefined
     );
+  });
+
+  test('pasa limit y offset al servicio cuando se piden', async () => {
+    await GET(buildRequest('includeAvailability=true&limit=10&offset=20'));
+
+    expect(mockedCatalogService.listPublicCatalogWithAvailability).toHaveBeenCalledWith(
+      BRANCH_ID,
+      { limit: 10, offset: 20 }
+    );
+  });
+
+  test('rechaza un limit fuera de rango', async () => {
+    const response = await GET(buildRequest('includeAvailability=true&limit=0'));
+    expect(response.status).toBe(400);
   });
 
   test('devuelve 404 si la sucursal no existe', async () => {

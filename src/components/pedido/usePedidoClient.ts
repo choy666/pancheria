@@ -54,6 +54,10 @@ export interface UsePedidoClientProps {
   branches: Branch[];
   activeBranch: Branch;
   initialProducts: PublicCatalogProduct[];
+  /** Total de productos públicos de la sucursal (para "Cargar más"). */
+  initialTotal?: number;
+  /** Tamaño de página para las cargas incrementales del catálogo. */
+  pageSize?: number;
 }
 
 const BRANCH_STORAGE_KEY = 'pancheria-branch-id';
@@ -117,6 +121,10 @@ export interface UsePedidoClientResult {
   groupedProducts: ProductGroup<PublicCatalogProduct>[];
   isActiveBranchValid: boolean;
 
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  loadMore: () => void;
+
   handleBranchChange: (branchId: string | null) => void;
   handleOpenCheckout: () => void;
   handleSubmitCheckout: () => Promise<void>;
@@ -129,11 +137,25 @@ export function usePedidoClient({
   branches,
   activeBranch,
   initialProducts,
+  initialTotal,
+  pageSize,
 }: UsePedidoClientProps): UsePedidoClientResult {
   const router = useRouter();
   const isMountedRef = useRef(true);
 
+  const resolvedPageSize =
+    pageSize && pageSize > 0 ? pageSize : initialProducts.length || 1;
+
   const [products, setProducts] = useState<PublicCatalogProduct[]>(initialProducts);
+  const [totalProducts, setTotalProducts] = useState<number>(
+    initialTotal ?? initialProducts.length
+  );
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadedCountRef = useRef(initialProducts.length);
+
+  useEffect(() => {
+    loadedCountRef.current = products.length;
+  }, [products.length]);
   const [error, setError] = useState<string | null>(null);
   const [shortageByProduct, setShortageByProduct] = useState<
     Record<number, ShortageInfo>
@@ -233,21 +255,61 @@ export function usePedidoClient({
 
   const refreshCatalog = useCallback(async () => {
     try {
+      // Refresca todos los productos ya cargados para no perder páginas
+      // traídas con "Cargar más".
+      const limit = Math.max(loadedCountRef.current, resolvedPageSize);
       const response = await fetch(
-        `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true`
+        `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true&limit=${limit}`
       );
       if (!response.ok) throw new Error('Error al refrescar el catálogo');
 
       const data = (await response.json()) as {
         branch: Branch;
         products: PublicCatalogProduct[];
+        total?: number;
       };
       if (!isMountedRef.current) return;
       setProducts(data.products);
+      if (data.total !== undefined) setTotalProducts(data.total);
     } catch {
       // No saturar la UI con errores de fondo.
     }
-  }, [activeBranch.id]);
+  }, [activeBranch.id, resolvedPageSize]);
+
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || products.length >= totalProducts) return;
+
+    setIsLoadingMore(true);
+    void (async () => {
+      try {
+        const offset = loadedCountRef.current;
+        const response = await fetch(
+          `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true&limit=${resolvedPageSize}&offset=${offset}`
+        );
+        if (!response.ok) throw new Error('Error al cargar más productos');
+
+        const data = (await response.json()) as {
+          branch: Branch;
+          products: PublicCatalogProduct[];
+          total?: number;
+        };
+        if (!isMountedRef.current) return;
+
+        // Deduplicar por id: si entre medio se insertó un producto, el offset
+        // puede repetir el último ítem de la página anterior.
+        setProducts((prev) => {
+          const known = new Set(prev.map((p) => p.id));
+          const next = data.products.filter((p) => !known.has(p.id));
+          return next.length > 0 ? [...prev, ...next] : prev;
+        });
+        if (data.total !== undefined) setTotalProducts(data.total);
+      } catch {
+        // Error silencioso: el usuario puede reintentar con "Cargar más".
+      } finally {
+        if (isMountedRef.current) setIsLoadingMore(false);
+      }
+    })();
+  }, [activeBranch.id, isLoadingMore, products.length, totalProducts, resolvedPageSize]);
 
   useVisibilityPolling(
     refreshCatalog,
@@ -592,6 +654,10 @@ export function usePedidoClient({
 
     groupedProducts,
     isActiveBranchValid,
+
+    hasMore: products.length < totalProducts,
+    isLoadingMore,
+    loadMore,
 
     handleBranchChange,
     handleOpenCheckout,
