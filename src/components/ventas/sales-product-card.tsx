@@ -7,8 +7,10 @@ import {
   isProductOutOfStock,
   type SellableProduct,
 } from '@/lib/ventas-helpers';
-import { formatMoney } from '@/lib/money';
-import { formatRecipeItemName } from '@/lib/recipe-helpers';
+import { ProductCardPrice } from '@/components/productos/product-card-price';
+import { ProductCardAvailability } from '@/components/productos/product-card-availability';
+import { ProductCardRecipeIncluded } from '@/components/productos/product-card-recipe-included';
+import { ProductCardSalesExtra } from '@/components/productos/product-card-sales-extra';
 
 interface SalesProductCardProps {
   product: SellableProduct;
@@ -82,39 +84,22 @@ export function SalesProductCard({
         </div>
       </CardHeader>
       <CardContent className="p-5 pt-0">
-        <p className="font-mono text-2xl font-bold text-primary">
-          {formatMoney(product.price)}
-        </p>
-        <p className="mt-1 text-base text-muted-foreground">
-          {product.type === 'service'
-            ? 'Disponible: sin límite'
-            : `Disponible: ${product.availability} ${product.unit}`}
-        </p>
+        <ProductCardPrice price={product.price} />
+        <ProductCardAvailability
+          type={product.type}
+          availability={product.availability}
+          unit={product.unit}
+        />
         {product.type === 'compound' &&
           product.recipe &&
           product.recipe.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              Incluye:{' '}
-              {product.recipe
-                .filter((item) => !item.isOptional || item.selectedByDefault)
-                .map((item) =>
-                  item.isOptional ? item.supplyName : formatRecipeItemName(item)
-                )
-                .join(', ')}
-            </p>
+            <ProductCardRecipeIncluded recipe={product.recipe} />
           )}
         {product.type !== 'service' && (
-          <p
-            className={`text-sm ${
-              isOutOfStock
-                ? 'font-medium text-destructive'
-                : 'text-muted-foreground'
-            }`}
-          >
-            {isOutOfStock
-              ? 'Sin stock'
-              : `En este pedido: ${maxAdditional} más`}
-          </p>
+          <ProductCardSalesExtra
+            isOutOfStock={isOutOfStock}
+            maxAdditional={maxAdditional}
+          />
         )}
       </CardContent>
     </Card>

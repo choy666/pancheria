@@ -1,19 +1,19 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ImageOff } from 'lucide-react';
 import {
   productTypeLabels,
   criticalTypeLabels,
   productTypeBadgeClasses,
 } from '@/lib/product-style';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
-import { formatMoney } from '@/lib/money';
-import { formatRecipeItemName } from '@/lib/recipe-helpers';
+import { ProductCardImage } from '@/components/productos/product-card-image';
+import { ProductCardPrice } from '@/components/productos/product-card-price';
+import { ProductCardAvailability } from '@/components/productos/product-card-availability';
+import { ProductCardRecipeIncluded } from '@/components/productos/product-card-recipe-included';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
@@ -25,42 +25,6 @@ interface ProductCardProps {
   onAdd: (selectedRecipeItemIds?: number[]) => void;
   disabled?: boolean;
   showBreakdown?: boolean;
-}
-
-interface ProductImageProps {
-  imageUrl: string;
-  productName: string;
-}
-
-function ProductImage({ imageUrl, productName }: ProductImageProps) {
-  // Se guarda la URL que falló (en lugar de un booleano) para que el estado de
-  // error se reinicie solo cuando cambia la imagen, sin forzar un remount.
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-
-  if (failedUrl === imageUrl) {
-    return (
-      <div
-        className="flex h-full w-full items-center justify-center text-muted-foreground"
-        role="img"
-        aria-label={`Imagen no disponible para ${productName}`}
-      >
-        <ImageOff className="h-10 w-10" />
-      </div>
-    );
-  }
-
-  return (
-    <Image
-      src={imageUrl}
-      alt={`Imagen de ${productName}`}
-      fill
-      className="object-cover"
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-      loading="lazy"
-      priority={false}
-      onError={() => setFailedUrl(imageUrl)}
-    />
-  );
 }
 
 export function ProductCard({
@@ -90,17 +54,6 @@ export function ProductCard({
       : inCartQuantity > 0 || inCart
         ? 'Agregar otro'
         : 'Agregar';
-
-  const availabilityLabel =
-    product.type === 'service'
-      ? 'Disponible: sin límite'
-      : `Disponible: ${product.availability} unidades`;
-
-  const includedItems = recipe
-    .filter((item) => !item.isOptional || item.selectedByDefault)
-    .map((item) =>
-      item.isOptional ? item.supplyName : formatRecipeItemName(item)
-    );
 
   const defaultSelectedIds = recipe
     .filter((item) => item.isOptional && item.selectedByDefault)
@@ -140,42 +93,28 @@ export function ProductCard({
 
       <CardContent className="space-y-4 p-5 pt-0">
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
-          {product.imageUrl ? (
-            <ProductImage
-              imageUrl={product.imageUrl}
-              productName={product.name}
-            />
-          ) : (
-            <div
-              className="flex h-full w-full items-center justify-center text-muted-foreground"
-              role="img"
-              aria-label={`Imagen no disponible para ${product.name}`}
-            >
-              <ImageOff className="h-10 w-10" />
-            </div>
-          )}
+          <ProductCardImage
+            imageUrl={product.imageUrl}
+            productName={product.name}
+          />
         </div>
 
         {product.description && (
           <p className="text-sm text-muted-foreground">{product.description}</p>
         )}
 
-        <p className="font-mono text-2xl font-bold text-primary">
-          {formatMoney(product.price)}
-        </p>
+        <ProductCardPrice price={product.price} />
 
-        <p
-          data-testid="product-availability"
-          className="text-sm text-muted-foreground"
-        >
-          {availabilityLabel}
-        </p>
+        <ProductCardAvailability
+          type={product.type}
+          availability={product.availability}
+        />
 
-        {product.type === 'compound' && includedItems.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Incluye: {includedItems.join(', ')}
-            {optionalItems.length > 0 && ' (se puede quitar)'}
-          </p>
+        {product.type === 'compound' && recipe.length > 0 && (
+          <ProductCardRecipeIncluded
+            recipe={recipe}
+            showOptionalHint={optionalItems.length > 0}
+          />
         )}
 
         {showBreakdown && product.type === 'compound' && breakdown.length > 0 && (

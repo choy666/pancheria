@@ -159,6 +159,7 @@ export function BranchForm({
     <form
       ref={formRef}
       onSubmit={handleSubmit}
+      data-testid="branch-form"
       className="max-w-md space-y-5"
     >
       {isEditing && <input type="hidden" name="id" value={branch.id} />}
@@ -172,6 +173,7 @@ export function BranchForm({
           required
           defaultValue={branch?.name}
           placeholder="Ej: Sucursal Centro"
+          data-testid="branch-name"
         />
       </div>
 
@@ -183,6 +185,7 @@ export function BranchForm({
           type="text"
           defaultValue={branch?.address ?? ''}
           placeholder="Ej: Av. Pellegrini 1234, Rosario"
+          data-testid="branch-address"
         />
       </div>
 
@@ -194,6 +197,7 @@ export function BranchForm({
           type="text"
           defaultValue={branch?.phone ?? ''}
           placeholder="Ej: 3415555555"
+          data-testid="branch-phone"
         />
       </div>
 
@@ -205,6 +209,7 @@ export function BranchForm({
           type="text"
           defaultValue={branch?.location ?? ''}
           placeholder="URL del mapa o coordenadas"
+          data-testid="branch-location"
         />
       </div>
 
@@ -227,6 +232,7 @@ export function BranchForm({
                 <div className="flex items-center gap-3">
                   <input
                     id={`day-${dayOfWeek}`}
+                    data-testid={`branch-day-${dayOfWeek}-toggle`}
                     type="checkbox"
                     checked={enabled}
                     onChange={(e) => toggleDay(dayOfWeek, e.target.checked)}
@@ -243,6 +249,7 @@ export function BranchForm({
                       type="button"
                       variant="ghost"
                       size="sm"
+                      data-testid={`branch-clear-day-${dayOfWeek}`}
                       onClick={() => handleClearDay(dayOfWeek)}
                       className="h-auto px-2 py-1 text-xs text-destructive"
                     >
@@ -265,6 +272,7 @@ export function BranchForm({
                           name={`openingHours[${dayOfWeek}][${slotIndex}][open]`}
                           className="w-28"
                           aria-label={`Apertura ${day} franja ${slotIndex + 1}`}
+                          data-testid={`branch-slot-open-${dayOfWeek}-${slotIndex}`}
                         />
                         <span className="text-muted-foreground">a</span>
                         <Input
@@ -276,11 +284,13 @@ export function BranchForm({
                           name={`openingHours[${dayOfWeek}][${slotIndex}][close]`}
                           className="w-28"
                           aria-label={`Cierre ${day} franja ${slotIndex + 1}`}
+                          data-testid={`branch-slot-close-${dayOfWeek}-${slotIndex}`}
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
+                          data-testid={`branch-remove-slot-${dayOfWeek}-${slotIndex}`}
                           onClick={() => removeSlot(slot._id)}
                           className="size-8 text-destructive"
                           aria-label={`Eliminar franja ${slotIndex + 1} de ${day}`}
@@ -293,6 +303,7 @@ export function BranchForm({
                       type="button"
                       variant="outline"
                       size="sm"
+                      data-testid={`branch-add-slot-${dayOfWeek}`}
                       onClick={() => addSlot(dayOfWeek)}
                       className="mt-2"
                     >
@@ -308,13 +319,17 @@ export function BranchForm({
       </div>
 
       {state?.error && (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="text-sm text-destructive"
+          role="alert"
+          data-testid="branch-form-error"
+        >
           {state.error}
         </p>
       )}
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending} data-testid="branch-submit">
           {isPending
             ? isEditing
               ? 'Guardando...'
@@ -328,6 +343,7 @@ export function BranchForm({
           <Button
             type="button"
             variant="outline"
+            data-testid="branch-cancel"
             onClick={onCancel}
             disabled={isPending}
           >
