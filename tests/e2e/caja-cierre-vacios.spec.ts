@@ -13,7 +13,7 @@ test.describe('Caja y cierre con estados vacíos', () => {
     await page.goto('/ventas');
 
     await expect(
-      page.getByText('No hay una caja abierta. Abrí una caja para comenzar a vender.')
+      page.getByTestId('cash-register-empty-message')
     ).toBeVisible();
     await expect(page.getByTestId('open-cash-register')).toBeVisible();
   });
@@ -25,7 +25,7 @@ test.describe('Caja y cierre con estados vacíos', () => {
 
     await expect(page.getByRole('heading', { name: 'Caja actual' })).toBeVisible();
     await expect(
-      page.getByText('No hay una caja abierta. Abrí una caja para comenzar a vender.')
+      page.getByTestId('cash-register-empty-message')
     ).toBeVisible();
   });
 
@@ -51,8 +51,8 @@ test.describe('Caja y cierre con estados vacíos', () => {
 
     await page.goto('/cierre');
 
-    await expect(page.getByText('Total: $ 0')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Ventas: 0')).toBeVisible();
+    await expect(page.getByTestId('cash-register-total')).toHaveText('Total: $ 0', { timeout: 10000 });
+    await expect(page.getByTestId('cash-register-sales-count')).toHaveText('0');
 
     const suppliesSection = page.locator('[data-testid="critical-supplies-card"]');
     await expect(suppliesSection).toBeVisible();

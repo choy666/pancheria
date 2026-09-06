@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { PRODUCTOS_ELIMINADAS_API } from '@/config/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,8 +54,7 @@ export function ProductTrashEmptyButton() {
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al vaciar la papelera');
+        await throwApiError(response, 'Error al vaciar la papelera');
       }
 
       const data = (await response.json()) as {

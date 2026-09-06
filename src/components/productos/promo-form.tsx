@@ -1,6 +1,6 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -144,7 +144,7 @@ export function PromoForm({ product }: PromoFormProps) {
         const productsRes = await authenticatedFetch(PRODUCTOS_API, {});
 
         if (!productsRes.ok) {
-          throw new Error('Error al cargar productos');
+          await throwApiError(productsRes, 'Error al cargar productos');
         }
 
         const all = (await productsRes.json()) as Supply[];
@@ -179,7 +179,7 @@ export function PromoForm({ product }: PromoFormProps) {
           } else if (recipeRes.status === 404) {
             setRecipeItems([{ ...emptyRecipeItem }]);
           } else {
-            throw new Error('Error al cargar la receta');
+            await throwApiError(recipeRes, 'Error al cargar la receta');
           }
         } else {
           setRecipeItems([{ ...emptyRecipeItem }]);
@@ -372,8 +372,7 @@ export function PromoForm({ product }: PromoFormProps) {
         });
 
         if (!productRes.ok) {
-          const data = await productRes.json();
-          throw new Error(data.error || 'Error al crear la promo');
+          await throwApiError(productRes, 'Error al crear la promo');
         }
 
         const created = (await productRes.json()) as { id: number };
@@ -389,16 +388,14 @@ export function PromoForm({ product }: PromoFormProps) {
         });
 
         if (!productRes.ok) {
-          const data = await productRes.json();
-          throw new Error(data.error || 'Error al actualizar la promo');
+          await throwApiError(productRes, 'Error al actualizar la promo');
         }
       }
 
       const imageRes = await updateProductImage(productId);
 
       if (!imageRes.ok) {
-        const data = await imageRes.json();
-        throw new Error(data?.error || 'Error al guardar la imagen de la promo');
+        await throwApiError(imageRes, 'Error al guardar la imagen de la promo');
       }
 
       const recipeRes = await authenticatedFetch(RECETAS_API, {
@@ -421,8 +418,7 @@ export function PromoForm({ product }: PromoFormProps) {
       });
 
       if (!recipeRes.ok) {
-        const data = await recipeRes.json();
-        throw new Error(data.error || 'Error al guardar la receta de la promo');
+        await throwApiError(recipeRes, 'Error al guardar la receta de la promo');
       }
 
       router.push(routes.productos);
@@ -474,6 +470,7 @@ export function PromoForm({ product }: PromoFormProps) {
         <Label htmlFor="promo-price">Precio</Label>
         <input
           id="promo-price"
+          data-testid="promo-price"
           name="promo-price"
           type="text"
           inputMode="decimal"
@@ -694,7 +691,7 @@ export function PromoForm({ product }: PromoFormProps) {
 
           {selectedRecipeItems.length > 0 && (
             <div className="mt-5 border-t border-white/8 pt-4">
-              <h4 className="mb-3 text-sm font-medium">
+              <h4 data-testid="promo-stock-heading" className="mb-3 text-sm font-medium">
                 Stock de insumos seleccionados
               </h4>
               <ul className="space-y-2">
@@ -721,6 +718,7 @@ export function PromoForm({ product }: PromoFormProps) {
 
               {recipeForAvailability.some((r) => r.autoDiscount) && (
                 <p
+                  data-testid="promo-availability"
                   className={cn(
                     'mt-3 text-sm',
                     promoAvailability > 0

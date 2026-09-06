@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PUBLIC_PEDIDO_SEGUIMIENTO_API } from '@/config/api';
+import { ApiError } from '@/lib/fetch';
 import { addRecentOrder, buildChatUrl } from '@/lib/recent-orders';
 import { formatMoney } from '@/lib/money';
 import {
@@ -110,7 +111,10 @@ export function OrderTracker() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? 'Error al buscar el pedido');
+        throw new ApiError(
+          data.error ?? 'Error al buscar el pedido',
+          response.status
+        );
       }
 
       if (!data.order) {

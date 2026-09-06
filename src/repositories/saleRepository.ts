@@ -137,6 +137,29 @@ export async function findByCashRegisterId(
   };
 }
 
+export async function findActiveWithDetailsByCashRegister(
+  dbOrTx: typeof db,
+  branchId: number,
+  cashRegisterId: number
+) {
+  return dbOrTx.query.sales.findMany({
+    where: and(
+      eq(sales.status, 'active'),
+      eq(sales.branchId, branchId),
+      eq(sales.cashRegisterId, cashRegisterId)
+    ),
+    with: {
+      items: {
+        with: {
+          product: true,
+          recipeSnapshots: true,
+        },
+      },
+      payments: true,
+    },
+  });
+}
+
 export async function create(params: {
   branchId: number;
   total: number;

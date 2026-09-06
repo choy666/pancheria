@@ -41,11 +41,11 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
-    await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${product.id}"]`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     const customerName = unique('Juan Pérez');
     const customerPhone = '3415555555';
@@ -54,7 +54,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     // El pedido se crea y se muestra el diálogo de éxito con el enlace al chat.
-    await expect(page.getByText(/se creó correctamente/)).toBeVisible();
+    await expect(page.getByTestId('order-success-description')).toBeVisible();
   });
 
   test('selecciona otra sucursal, cambia el catálogo y limpia el carrito', async ({
@@ -99,7 +99,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByTestId(`product-card-${productSecond.id}`)).toHaveCount(0);
 
     await page.getByTestId(`add-product-${productDefault.id}`).click();
-    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${productDefault.id}"]`)).toBeVisible();
 
     await page.goto(`/pedido?branchId=${second.branchId}`);
 
@@ -111,10 +111,10 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByTestId(`product-card-${productSecond.id}`)).toBeVisible();
 
     // El carrito debe haberse limpiado al cambiar de sucursal.
-    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${productDefault.id}"]`)).toHaveCount(0);
 
     await page.getByTestId(`add-product-${productSecond.id}`).click();
-    await expect(page.locator(`[data-product-id="${productSecond.id}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${productSecond.id}"]`)).toBeVisible();
 
     await page.getByTestId('branch-select-trigger').click();
     await page.getByRole('option', { name: second.branchName }).click();
@@ -141,15 +141,15 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.goto('/pedido');
     await page.getByTestId(`add-product-${productDefault.id}`).click();
 
-    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${productDefault.id}"]`)).toBeVisible();
 
     await page.goto(`/pedido?branchId=${second.branchId}`);
 
-    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${productDefault.id}"]`)).toHaveCount(0);
 
     await page.goto('/pedido');
 
-    await expect(page.locator(`[data-product-id="${productDefault.id}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${productDefault.id}"]`)).toHaveCount(0);
   });
 
   test('no reserva stock al crear el pedido y descuenta al confirmar pago desde el panel', async ({
@@ -175,10 +175,10 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     ).toHaveText(`Disponible: ${initialStock} unidades`);
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="cart-item"][data-product-id="${product.id}"]`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     const customerName = unique('Juan Pérez');
     const customerPhone = '3415555555';
@@ -186,11 +186,11 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText(/se creó correctamente/)).toBeVisible();
+    await expect(page.getByTestId('order-success-description')).toBeVisible();
 
     // Cerrar el diálogo para poder seguir navegando.
     await page.getByRole('button', { name: 'Cerrar' }).click();
-    await expect(page.getByText(/se creó correctamente/)).not.toBeVisible();
+    await expect(page.getByTestId('order-success-description')).not.toBeVisible();
 
     // El pedido pending no reserva stock: la disponibilidad sigue en 5.
     await page.goto('/pedido');
@@ -211,7 +211,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByTestId('payment-cash-full').click();
 
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
-    await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('confirm-payment-button')).not.toHaveText('Confirmando...', { timeout: 10000 });
 
     // El stock se descontó: ahora quedan 4 unidades.
     await page.goto('/pedido');

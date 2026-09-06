@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { cn } from '@/lib/utils';
 import { groupProductsByType } from '@/lib/product-grouping';
 import {
@@ -78,7 +78,7 @@ export function StockList() {
     async function load() {
       try {
         const response = await authenticatedFetch(STOCK_API, {});
-        if (!response.ok) throw new Error('Error al cargar stock');
+        if (!response.ok) await throwApiError(response, 'Error al cargar stock');
         const data = (await response.json()) as StockProduct[];
         if (!cancelled) setProducts(data);
       } catch (error) {
@@ -116,8 +116,7 @@ export function StockList() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al ajustar stock');
+        await throwApiError(response, 'Error al ajustar stock');
       }
 
       setSelectedProduct(null);

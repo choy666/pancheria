@@ -23,6 +23,7 @@ import { ValidationError, NotFoundError } from '@/domain/errors';
 jest.mock('@/repositories/cashRegisterRepository');
 jest.mock('@/application/transactionService', () => ({
   executeInTransaction: jest.fn(),
+  getCurrentTransaction: jest.fn().mockReturnValue(undefined),
 }));
 jest.mock('@/db', () => ({
   db: {

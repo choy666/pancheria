@@ -1,6 +1,6 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -35,7 +35,7 @@ export function useCashRegister(): UseCashRegisterResult {
       const response = await authenticatedFetch(CAJA_RESUMEN_API);
 
       if (!response.ok) {
-        throw new Error('Error al cargar caja');
+        await throwApiError(response, 'Error al cargar caja');
       }
 
       const data = (await response.json()) as CashRegister | { status: 'closed' };
@@ -92,8 +92,7 @@ export function useCashRegister(): UseCashRegisterResult {
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al abrir caja');
+        await throwApiError(response, 'Error al abrir caja');
       }
 
       await fetchCaja();
@@ -120,8 +119,7 @@ export function useCashRegister(): UseCashRegisterResult {
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cerrar caja');
+        await throwApiError(response, 'Error al cerrar caja');
       }
 
       await fetchCaja();

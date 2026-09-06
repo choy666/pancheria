@@ -26,7 +26,7 @@ import {
   getVideoMaxSizeMb,
   getVideoAllowedMimeTypes,
 } from '@/config/videos';
-import { getDefaultTimeoutMs } from '@/lib/fetch';
+import { getDefaultTimeoutMs, throwApiError } from '@/lib/fetch';
 import { Upload, FileVideo, X, AlertCircle, CheckCircle2, Video } from 'lucide-react';
 import type { VideoState } from '@/app/(panel)/videos/actions';
 import type { PrepareUploadState } from '@/app/(panel)/videos/actions';
@@ -374,7 +374,10 @@ export function VideoForm({
           )}
 
           {file && !fileUrl && !uploadError && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div
+              data-testid="video-file-ready"
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+            >
               <Video className="h-4 w-4" />
               <span>Archivo listo para subir.</span>
             </div>
@@ -511,7 +514,8 @@ async function uploadToProvider(
       });
 
       if (!response.ok) {
-        throw new Error(
+        await throwApiError(
+          response,
           `Error al subir el archivo: ${response.status} ${response.statusText}`
         );
       }
@@ -534,7 +538,8 @@ async function uploadToProvider(
     });
 
     if (!response.ok) {
-      throw new Error(
+      await throwApiError(
+        response,
         `Error al subir el archivo: ${response.status} ${response.statusText}`
       );
     }

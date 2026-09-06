@@ -72,7 +72,7 @@ test.describe('Pago mixto en el terminal de ventas', () => {
 
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
 
-    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+    await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
     });
 

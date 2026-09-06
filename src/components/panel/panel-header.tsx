@@ -74,7 +74,7 @@ export function PanelHeader({
           Panchería
         </Link>
 
-        <nav data-tour="main-nav" className="hidden items-center gap-1 lg:flex">
+        <nav data-testid="main-nav" data-tour="main-nav" className="hidden items-center gap-1 lg:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}

@@ -96,7 +96,7 @@ test.describe('Flujo completo de un día de operación', () => {
     await adjustStock(page, bebida.id, 5, 'Stock inicial de bebida para flujo', 'restock');
 
     await page.goto('/ventas');
-    await expect(page.getByText('No hay una caja abierta.')).toBeVisible();
+    await expect(page.getByTestId('cash-register-empty-message')).toBeVisible();
 
     await openCashRegisterFromUI(page);
 
@@ -116,7 +116,7 @@ test.describe('Flujo completo de un día de operación', () => {
     await page.getByTestId('payment-transfer-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
 
-    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+    await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
     });
 

@@ -31,18 +31,16 @@ test.describe('Bloqueo de pedido con sucursal cerrada', () => {
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     await page.getByLabel('Nombre').fill('Juan Pérez');
     await page.getByLabel('Teléfono').fill('3415555555');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    const errorMessage = page.getByText(
-      'En este momento no podemos recibir pedidos.'
-    );
+    const errorMessage = page.getByTestId('checkout-error');
     await expect(errorMessage).toBeVisible();
     await expect(errorMessage).toContainText('Horario de atención');
   });

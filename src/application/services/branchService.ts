@@ -1,18 +1,5 @@
-import { and, count, eq, ilike, inArray, not, or } from 'drizzle-orm';
-import { db } from '@/db';
-import {
-  branches,
-  cashRegisters,
-  orderMessages,
-  orders,
-  products,
-  recipes,
-  saleItems,
-  sales,
-  stockMovements,
-  users,
-  videos,
-} from '@/db/schema';
+import { executeInTransaction } from '@/application/transactionService';
+import * as branchRepository from '@/repositories/branchRepository';
 import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import { validateNonEmptyString } from '@/lib/validation-helpers';
 import { validateOpeningHours } from '@/lib/branch-helpers';
@@ -23,15 +10,11 @@ import { deleteVideoFileByUrl } from '@/lib/storage';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
 
 export async function listBranches(): Promise<Branch[]> {
-  return db.query.branches.findMany({
-    orderBy: (branches, { desc }) => [desc(branches.createdAt)],
-  }) as Promise<Branch[]>;
+  return branchRepository.findAllOrderedByCreatedAt() as Promise<Branch[]>;
 }
 
 export async function getBranchById(id: number): Promise<Branch | undefined> {
-  return db.query.branches.findFirst({
-    where: eq(branches.id, id),
-  }) as Promise<Branch | undefined>;
+  return branchRepository.findById(id) as Promise<Branch | undefined>;
 }
 
 export async function createBranch(
@@ -44,24 +27,19 @@ export async function createBranch(
   const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
   validateOpeningHours(openingHours);
 
-  const existing = await db.query.branches.findFirst({
-    where: eq(branches.name, trimmed),
-  });
+  const existing = await branchRepository.findByName(trimmed);
 
   if (existing) {
     throw new ValidationError('Ya existe una sucursal con ese nombre.');
   }
 
-  const [branch] = await db
-    .insert(branches)
-    .values({
-      name: trimmed,
-      openingHours,
-      address: address ?? null,
-      phone: phone ?? null,
-      location: location ?? null,
-    })
-    .returning();
+  const branch = await branchRepository.insert({
+    name: trimmed,
+    openingHours,
+    address: address ?? null,
+    phone: phone ?? null,
+    location: location ?? null,
+  });
 
   if (!branch) {
     throw new DomainError('No se pudo crear la sucursal.');
@@ -81,9 +59,7 @@ export async function updateBranch(
   const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
   validateOpeningHours(openingHours);
 
-  const branch = await db.query.branches.findFirst({
-    where: eq(branches.id, id),
-  });
+  const branch = await branchRepository.findById(id);
 
   if (!branch) {
     throw new NotFoundError('Sucursal', id);
@@ -95,25 +71,22 @@ export async function updateBranch(
   // reforzar la unicidad a nivel de base de datos, es necesario migrar la
   // columna `name` a un tipo case-insensitive (como `citext`) o agregar un
   // índice unique sobre una expresión en minúsculas (`lower(name)`).
-  const existing = await db.query.branches.findFirst({
-    where: and(ilike(branches.name, trimmed), not(eq(branches.id, id))),
-  });
+  const existing = await branchRepository.findByNameCaseInsensitiveExcludingId(
+    trimmed,
+    id
+  );
 
   if (existing) {
     throw new ValidationError('Ya existe otra sucursal con ese nombre.');
   }
 
-  const [updated] = await db
-    .update(branches)
-    .set({
-      name: trimmed,
-      openingHours,
-      address: address ?? null,
-      phone: phone ?? null,
-      location: location ?? null,
-    })
-    .where(eq(branches.id, id))
-    .returning();
+  const updated = await branchRepository.update(id, {
+    name: trimmed,
+    openingHours,
+    address: address ?? null,
+    phone: phone ?? null,
+    location: location ?? null,
+  });
 
   if (!updated) {
     throw new DomainError('No se pudo actualizar la sucursal.');
@@ -123,196 +96,58 @@ export async function updateBranch(
 }
 
 export async function getBranchDeletionSummary(id: number) {
-  const branch = await db.query.branches.findFirst({
-    where: eq(branches.id, id),
-  });
+  const branch = await branchRepository.findById(id);
 
   if (!branch) {
     throw new NotFoundError('Sucursal', id);
   }
 
-  const productRows = await db
-    .select({ id: products.id })
-    .from(products)
-    .where(eq(products.branchId, id));
-  const productIds = productRows.map((row) => row.id);
-
-  const [
-    productCount,
-    saleCount,
-    cashRegisterCount,
-    stockMovementCount,
-    userCount,
-    recipeCount,
-    orderCount,
-    videoCount,
-  ] = await Promise.all([
-    Promise.resolve(productIds.length),
-    db
-      .select({ count: count() })
-      .from(sales)
-      .where(eq(sales.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-    db
-      .select({ count: count() })
-      .from(cashRegisters)
-      .where(eq(cashRegisters.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-    db
-      .select({ count: count() })
-      .from(stockMovements)
-      .where(eq(stockMovements.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-    db
-      .select({ count: count() })
-      .from(users)
-      .where(eq(users.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-    productIds.length > 0
-      ? db
-          .select({ count: count() })
-          .from(recipes)
-          .where(
-            or(
-              inArray(recipes.compoundProductId, productIds),
-              inArray(recipes.supplyId, productIds)
-            )
-          )
-          .then((rows) => rows[0]?.count ?? 0)
-      : Promise.resolve(0),
-    db
-      .select({ count: count() })
-      .from(orders)
-      .where(eq(orders.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-    db
-      .select({ count: count() })
-      .from(videos)
-      .where(eq(videos.branchId, id))
-      .then((rows) => rows[0]?.count ?? 0),
-  ]);
+  const productIds = await branchRepository.findProductIdsByBranch(id);
+  const counts = await branchRepository.countBranchDeletionImpact(
+    id,
+    productIds
+  );
 
   return {
     branch: branch as Branch,
     counts: {
-      products: productCount,
-      sales: saleCount,
-      cashRegisters: cashRegisterCount,
-      stockMovements: stockMovementCount,
-      users: userCount,
-      recipes: recipeCount,
-      orders: orderCount,
-      videos: videoCount,
+      ...counts,
       total:
-        productCount +
-        saleCount +
-        cashRegisterCount +
-        stockMovementCount +
-        userCount +
-        recipeCount +
-        orderCount +
-        videoCount,
+        counts.products +
+        counts.sales +
+        counts.cashRegisters +
+        counts.stockMovements +
+        counts.users +
+        counts.recipes +
+        counts.orders +
+        counts.videos,
     },
   };
 }
 
 export async function deleteBranch(id: number) {
-  const branch = await db.query.branches.findFirst({
-    where: eq(branches.id, id),
-  });
+  const branch = await branchRepository.findById(id);
 
   if (!branch) {
     throw new NotFoundError('Sucursal', id);
   }
 
-  // Archivos vinculados que deben liberarse tras el commit de base de datos.
-  const productImageKeys: string[] = [];
-  const chatAttachmentKeys: string[] = [];
-  const videoFileUrls: string[] = [];
+  const [usernames, productRows, orderIds] = await Promise.all([
+    branchRepository.findUsernamesByBranch(id),
+    branchRepository.findProductImageKeysByBranch(id),
+    branchRepository.findOrderIdsByBranch(id),
+  ]);
 
-  const userRows = await db
-    .select({ username: users.username })
-    .from(users)
-    .where(eq(users.branchId, id));
-  const usernames = userRows.map((row) => row.username);
-
-  const productRows = await db
-    .select({ id: products.id, imageKey: products.imageKey })
-    .from(products)
-    .where(eq(products.branchId, id));
   const productIds = productRows.map((row) => row.id);
+  const productImageKeys = productRows
+    .map((row) => row.imageKey)
+    .filter((key): key is string => Boolean(key));
+  const chatAttachmentKeys =
+    await branchRepository.findAttachmentKeysByOrderIds(orderIds);
+  const videoFileUrls = await branchRepository.findVideoFileUrlsByBranch(id);
 
-  for (const product of productRows) {
-    if (product.imageKey) {
-      productImageKeys.push(product.imageKey);
-    }
-  }
-
-  const orderRows = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(eq(orders.branchId, id));
-  const orderIds = orderRows.map((row) => row.id);
-
-  if (orderIds.length > 0) {
-    const messageRows = await db
-      .select({ attachmentKey: orderMessages.attachmentKey })
-      .from(orderMessages)
-      .where(inArray(orderMessages.orderId, orderIds));
-
-    for (const message of messageRows) {
-      if (message.attachmentKey) {
-        chatAttachmentKeys.push(message.attachmentKey);
-      }
-    }
-  }
-
-  const videoRows = await db
-    .select({ fileUrl: videos.fileUrl })
-    .from(videos)
-    .where(eq(videos.branchId, id));
-
-  for (const video of videoRows) {
-    if (video.fileUrl) {
-      videoFileUrls.push(video.fileUrl);
-    }
-  }
-
-  await db.transaction(async (tx) => {
-    const saleRows = await tx
-      .select({ id: sales.id })
-      .from(sales)
-      .where(eq(sales.branchId, id));
-    const saleIds = saleRows.map((row) => row.id);
-
-    if (productIds.length > 0) {
-      await tx
-        .delete(recipes)
-        .where(
-          or(
-            inArray(recipes.compoundProductId, productIds),
-            inArray(recipes.supplyId, productIds)
-          )
-        );
-    }
-
-    if (saleIds.length > 0) {
-      await tx.delete(saleItems).where(inArray(saleItems.saleId, saleIds));
-    }
-
-    await tx
-      .delete(stockMovements)
-      .where(eq(stockMovements.branchId, id));
-
-    // Eliminación en cascada de pedidos, mensajes, items y reservas.
-    await tx.delete(orders).where(eq(orders.branchId, id));
-
-    await tx.delete(sales).where(eq(sales.branchId, id));
-    await tx.delete(cashRegisters).where(eq(cashRegisters.branchId, id));
-    await tx.delete(videos).where(eq(videos.branchId, id));
-    await tx.delete(products).where(eq(products.branchId, id));
-    await tx.delete(users).where(eq(users.branchId, id));
-    await tx.delete(branches).where(eq(branches.id, id));
+  await executeInTransaction(async (tx) => {
+    await branchRepository.deleteCascade(tx, id, productIds);
   });
 
   // Liberar archivos asociados fuera de la transacción para no bloquear el rollback.

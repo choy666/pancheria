@@ -1,4 +1,4 @@
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 
 interface ProductImageUploadInstructions {
   url: string;
@@ -35,8 +35,7 @@ async function prepareProductImageUpload(
   );
 
   if (!response.ok) {
-    const data = (await response.json()) as { error?: string };
-    throw new Error(data.error || 'Error al preparar la subida de la imagen.');
+    await throwApiError(response, 'Error al preparar la subida de la imagen.');
   }
 
   return (await response.json()) as ProductImageUploadInstructions;
@@ -71,7 +70,8 @@ export async function uploadProductImage(
     });
 
     if (!response.ok) {
-      throw new Error(
+      await throwApiError(
+        response,
         `Error al subir la imagen: ${response.status} ${response.statusText}`
       );
     }
@@ -98,7 +98,8 @@ export async function uploadProductImage(
   });
 
   if (!response.ok) {
-    throw new Error(
+    await throwApiError(
+      response,
       `Error al subir la imagen: ${response.status} ${response.statusText}`
     );
   }

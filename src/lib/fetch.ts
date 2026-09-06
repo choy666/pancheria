@@ -21,6 +21,34 @@ export class FetchAbortError extends Error {
   }
 }
 
+/**
+ * Error de respuesta HTTP del API: conserva el `status` para que la UI
+ * pueda reaccionar por código (p. ej. 401, 409) además del mensaje.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+/**
+ * Lanza un `ApiError` a partir de una respuesta fallida: intenta leer el
+ * campo `error` del body JSON y, si no existe, usa `fallback`.
+ */
+export async function throwApiError(
+  response: Response,
+  fallback: string
+): Promise<never> {
+  const data = (await response.json().catch(() => null)) as {
+    error?: string;
+  } | null;
+  throw new ApiError(data?.error || fallback, response.status);
+}
+
 export function getDefaultTimeoutMs(): number {
   return getApiTimeoutMs();
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
@@ -46,8 +46,7 @@ export function CashRegisterDetailActions({
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al eliminar la caja');
+        await throwApiError(response, 'Error al eliminar la caja');
       }
 
       router.push(routes.ventasHistorial);
@@ -74,8 +73,7 @@ export function CashRegisterDetailActions({
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al restaurar la caja');
+        await throwApiError(response, 'Error al restaurar la caja');
       }
 
       router.push(routes.ventasHistorial);
@@ -102,8 +100,10 @@ export function CashRegisterDetailActions({
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al eliminar la caja permanentemente');
+        await throwApiError(
+          response,
+          'Error al eliminar la caja permanentemente'
+        );
       }
 
       router.push(routes.ventasHistorialEliminadas);

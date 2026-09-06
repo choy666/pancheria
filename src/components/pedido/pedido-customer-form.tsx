@@ -46,6 +46,7 @@ export function PedidoCustomerForm({
     <div className="space-y-4 py-2">
       {checkoutError && (
         <div
+          data-testid="checkout-error"
           role="alert"
           className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive"
         >

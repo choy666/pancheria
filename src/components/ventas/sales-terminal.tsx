@@ -9,7 +9,7 @@ import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import {
   areRecipeSelectionsEqual,
   getDefaultSelectedRecipeItemIds,
@@ -86,7 +86,9 @@ export function SalesTerminal() {
         `${PRODUCTOS_API}?includeAvailability=true`,
         {}
       );
-      if (!response.ok) throw new Error('Error al cargar productos');
+      if (!response.ok) {
+        await throwApiError(response, 'Error al cargar productos');
+      }
 
       const allProducts = (await response.json()) as SellableProduct[];
       const sellable = sortSellableProducts(
@@ -134,7 +136,9 @@ export function SalesTerminal() {
           }),
         });
 
-        if (!response.ok) throw new Error('Error al calcular disponibilidad');
+        if (!response.ok) {
+          await throwApiError(response, 'Error al calcular disponibilidad');
+        }
 
         const data = (await response.json()) as {
           availabilityByProduct: Record<number, number>;
@@ -362,8 +366,7 @@ export function SalesTerminal() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al confirmar la venta');
+        await throwApiError(response, 'Error al confirmar la venta');
       }
 
       setCart([]);

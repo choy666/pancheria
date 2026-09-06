@@ -39,10 +39,10 @@ test.describe('Expiración automática de pedidos', () => {
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     const customerName = unique('Cliente expiración');
     const customerPhone = '3415555555';
@@ -50,7 +50,7 @@ test.describe('Expiración automática de pedidos', () => {
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText('Pedido creado')).toBeVisible();
+    await expect(page.getByTestId('order-success-title')).toBeVisible();
 
     // Abre el chat para obtener el id y el token del pedido.
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();

@@ -401,7 +401,7 @@ export async function openCashRegisterFromUI(page: Page) {
 export async function closeCashRegisterFromUI(page: Page) {
   await page.getByTestId('close-cash-register').click();
   await page.getByTestId('confirm-close-cash-register').click();
-  await expect(page.getByText('No hay una caja abierta.')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('cash-register-empty-message')).toBeVisible({ timeout: 10000 });
 }
 
 export async function createProductViaApi(page: Page, data: Record<string, unknown>) {

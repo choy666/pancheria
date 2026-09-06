@@ -1,7 +1,5 @@
-import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import * as userRepository from '@/repositories/userRepository';
 import { ValidationError } from '@/domain/errors';
 import {
   getRateLimitStore,
@@ -40,12 +38,7 @@ export async function verifyCredentials(
   username: string,
   password: string
 ): Promise<{ id: number; username: string; role: string; branchId: number; branchName: string } | null> {
-  const user = await db.query.users.findFirst({
-    where: eq(users.username, username),
-    with: {
-      branch: true,
-    },
-  });
+  const user = await userRepository.findByUsernameWithBranch(username);
 
   if (!user) {
     await recordFailedAttempt(username);

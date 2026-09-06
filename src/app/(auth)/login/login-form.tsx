@@ -43,6 +43,7 @@ export function LoginForm({ errorQuery }: LoginFormProps = {}) {
           <form action={formAction} className='space-y-5'>
             {displayedError && (
               <p
+                data-testid='login-error'
                 className='rounded-lg bg-destructive/15 p-3 text-base text-destructive'
                 role='alert'
                 aria-live='polite'

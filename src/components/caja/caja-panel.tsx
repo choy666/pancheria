@@ -81,7 +81,7 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
             {error}
           </div>
         )}
-        <p className="text-base text-muted-foreground">
+        <p data-testid="cash-register-empty-message" className="text-base text-muted-foreground">
           No hay una caja abierta. Abrí una caja para comenzar a vender.
         </p>
         <Button

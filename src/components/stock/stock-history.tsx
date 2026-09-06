@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { formatDateTime } from '@/lib/date';
 import {
   Table,
@@ -52,8 +52,7 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
         { signal }
       );
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar historial');
+        await throwApiError(response, 'Error al cargar historial');
       }
       return (await response.json()) as PaginatedResult<StockMovement>;
     },

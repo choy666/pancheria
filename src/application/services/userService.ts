@@ -1,9 +1,8 @@
-import { and, eq, not } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
-import { db } from '@/db';
 import { users } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
+import * as userRepository from '@/repositories/userRepository';
 import { getRateLimitStore } from '@/lib/rate-limit-store';
 import { DomainError, ValidationError, NotFoundError } from '@/domain/errors';
 import {
@@ -14,11 +13,7 @@ import {
 type UserRole = 'admin' | 'operator';
 
 export async function listUsers(branchId?: number) {
-  return db.query.users.findMany({
-    where: branchId ? eq(users.branchId, branchId) : undefined,
-    with: { branch: true },
-    orderBy: (users, { desc }) => [desc(users.createdAt)],
-  });
+  return userRepository.findAll(branchId);
 }
 
 export async function createUser(data: {
@@ -48,9 +43,7 @@ export async function createUser(data: {
     throw new ValidationError('La sucursal seleccionada no existe.');
   }
 
-  const existing = await db.query.users.findFirst({
-    where: eq(users.username, username),
-  });
+  const existing = await userRepository.findByUsername(username);
 
   if (existing) {
     throw new ValidationError('Ya existe un usuario con ese nombre.');
@@ -58,15 +51,12 @@ export async function createUser(data: {
 
   const passwordHash = await bcrypt.hash(data.password, 10);
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      username,
-      passwordHash,
-      role: data.role,
-      branchId: data.branchId,
-    })
-    .returning();
+  const user = await userRepository.insert({
+    username,
+    passwordHash,
+    role: data.role,
+    branchId: data.branchId,
+  });
 
   if (!user) {
     throw new DomainError('No se pudo crear el usuario.');
@@ -83,9 +73,7 @@ export async function updateUser(
     password?: string;
   }
 ) {
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, id),
-  });
+  const user = await userRepository.findById(id);
 
   if (!user) {
     throw new NotFoundError('Usuario', id);
@@ -100,9 +88,10 @@ export async function updateUser(
   if (data.username !== undefined) {
     const username = validateNonEmptyString(data.username, 'El nombre de usuario');
 
-    const existing = await db.query.users.findFirst({
-      where: and(eq(users.username, username), not(eq(users.id, id))),
-    });
+    const existing = await userRepository.findByUsernameExcludingId(
+      username,
+      id
+    );
 
     if (existing) {
       throw new ValidationError('Ya existe otro usuario con ese nombre.');
@@ -135,11 +124,7 @@ export async function updateUser(
     return user;
   }
 
-  const [updated] = await db
-    .update(users)
-    .set(updates)
-    .where(eq(users.id, id))
-    .returning();
+  const updated = await userRepository.update(id, updates);
 
   if (!updated) {
     throw new DomainError('No se pudo actualizar el usuario.');
@@ -149,9 +134,7 @@ export async function updateUser(
 }
 
 export async function deleteUser(id: number) {
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, id),
-  });
+  const user = await userRepository.findById(id);
 
   if (!user) {
     throw new NotFoundError('Usuario', id);
@@ -161,16 +144,14 @@ export async function deleteUser(id: number) {
     throw new ValidationError('No se puede eliminar el administrador inicial.');
   }
 
-  await db.delete(users).where(eq(users.id, id));
+  await userRepository.deleteById(id);
 
   const rateLimitStore = getRateLimitStore();
   await rateLimitStore.remove(user.username);
 }
 
 export async function findById(id: number) {
-  return db.query.users.findFirst({
-    where: eq(users.id, id),
-  });
+  return userRepository.findById(id);
 }
 
 export async function updatePassword(
@@ -180,9 +161,7 @@ export async function updatePassword(
   validateMinLength(newPassword, 6, 'La contraseña');
 
   return executeInTransaction(async (tx) => {
-    const user = await tx.query.users.findFirst({
-      where: eq(users.id, id),
-    });
+    const user = await userRepository.findById(id, tx);
 
     if (!user) {
       throw new NotFoundError('Usuario', id);
@@ -190,11 +169,11 @@ export async function updatePassword(
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    const [updated] = await tx
-      .update(users)
-      .set({ passwordHash })
-      .where(eq(users.id, user.id))
-      .returning();
+    const updated = await userRepository.update(
+      user.id,
+      { passwordHash },
+      tx
+    );
 
     if (!updated) {
       throw new DomainError('No se pudo actualizar la contraseña.');

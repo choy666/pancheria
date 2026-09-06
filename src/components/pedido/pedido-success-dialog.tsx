@@ -66,8 +66,8 @@ export function PedidoSuccessDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Pedido creado</DialogTitle>
-          <DialogDescription>
+          <DialogTitle data-testid="order-success-title">Pedido creado</DialogTitle>
+          <DialogDescription data-testid="order-success-description">
             {`El pedido ${createdOrder?.orderNumber ? '#' + createdOrder.orderNumber : ''} se creó correctamente. Usá el chat para coordinar con la sucursal.`}
           </DialogDescription>
         </DialogHeader>

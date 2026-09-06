@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_LIMIT, DEFAULT_PAGE } from '@/config/pagination';
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import type { PaginatedResult } from '@/domain/types';
 
 export interface UsePaginatedDataResult<T> {
@@ -104,26 +105,14 @@ export function usePaginatedData<T>(
         }
       });
 
-    let interval: ReturnType<typeof setInterval> | undefined;
-
-    if (options.refreshIntervalMs && options.refreshIntervalMs > 0) {
-      interval = setInterval(() => {
-        if (
-          typeof document !== 'undefined' &&
-          document.visibilityState === 'hidden'
-        ) {
-          return;
-        }
-        refresh();
-      }, options.refreshIntervalMs);
-    }
-
     return () => {
-      if (interval) clearInterval(interval);
       abortController.abort();
       isMountedRef.current = false;
     };
-  }, [load, page, limit, refreshKey, options.refreshIntervalMs, refresh]);
+  }, [load, page, limit, refreshKey]);
+
+  const refreshIntervalMs = options.refreshIntervalMs ?? 0;
+  useVisibilityPolling(refresh, refreshIntervalMs, refreshIntervalMs > 0, false);
 
   return {
     items: result.items,

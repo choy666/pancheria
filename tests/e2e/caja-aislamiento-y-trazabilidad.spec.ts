@@ -23,7 +23,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
 
     await openCashRegisterFromUI(page);
 
-    await expect(page.getByText(`Abierta por: ${secondBranch.username}`)).toBeVisible();
+    await expect(page.getByTestId('cash-register-opened-by')).toContainText(secondBranch.username);
 
     await page.goto('/ventas/historial');
     await expect(
@@ -46,7 +46,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
 
     await page.goto('/cierre');
     await openCashRegisterFromUI(page);
-    await expect(page.getByText('Abierta por:')).toBeVisible();
+    await expect(page.getByTestId('cash-register-opened-by')).toContainText('Abierta por:');
 
     const heading = page.getByRole('heading', { name: /Caja #\d+/ });
     const headingText = await heading.textContent();
@@ -61,7 +61,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     await expect(
       page.getByRole('heading', { name: /Caja #/ })
     ).not.toBeVisible();
-    await expect(page.getByText('Esta página no se pudo encontrar')).toBeVisible();
+    await expect(page.getByTestId('not-found-message')).toBeVisible();
   });
 
   test('el admin cambia de sucursal y el catálogo/historial se aíslan', async ({
@@ -85,9 +85,9 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     });
 
     await page.goto('/productos');
-    await expect(page.getByText(productName)).toBeVisible();
+    await expect(page.locator('[data-testid="product-row"][data-product-name="' + productName + '"]')).toBeVisible();
 
-    const selector = page.locator('[aria-label="Sucursal activa"]');
+    const selector = page.getByTestId('branch-selector-trigger');
     await expect(selector).toBeVisible();
     await selector.click();
     const option = page.locator('[data-testid="branch-option"]', {
@@ -97,15 +97,13 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     await expect(selector).toContainText(secondBranch.branchName, { timeout: 15000 });
 
     await page.goto('/productos');
-    await expect(page.getByText(productName)).toHaveCount(0);
+    await expect(page.locator('[data-testid="product-row"][data-product-name="' + productName + '"]')).toHaveCount(0);
 
     await page.goto('/ventas/historial');
     await expect(
       page.getByRole('heading', { name: 'Historial de cajas' })
     ).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
-    await expect(
-      page.locator('th').filter({ hasText: 'Sucursal' })
-    ).toBeVisible();
+    await expect(page.getByTestId('cash-register-branch-header')).toBeVisible();
   });
 });

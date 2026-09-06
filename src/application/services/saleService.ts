@@ -32,6 +32,7 @@ import {
   validatePaymentParts,
 } from '@/lib/payment-helpers';
 import type {
+  PaginationParams,
   PaymentPart,
   ProductRow,
   ProductType,
@@ -637,4 +638,32 @@ export async function cancelSale(
 
     return locked;
   });
+}
+
+export async function listSalesByCashRegister(
+  branchId: number,
+  cashRegisterId: number,
+  pagination?: PaginationParams
+) {
+  return saleRepository.findByCashRegisterId(
+    branchId,
+    cashRegisterId,
+    undefined,
+    pagination
+  );
+}
+
+export async function listSalesByDateRange(
+  branchId: number,
+  start: Date,
+  end: Date,
+  pagination?: PaginationParams
+) {
+  return saleRepository.findByDateRange(
+    branchId,
+    start,
+    end,
+    'active',
+    pagination
+  );
 }

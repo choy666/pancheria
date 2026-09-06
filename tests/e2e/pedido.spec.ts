@@ -25,21 +25,21 @@ test.describe('Pedido público con chat', () => {
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
     await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     await page.getByLabel('Nombre').fill('Juan Pérez');
     await page.getByLabel('Teléfono').fill('3415555555');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText('Pedido creado')).toBeVisible();
+    await expect(page.getByTestId('order-success-title')).toBeVisible();
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
-    await expect(page.getByText('Chat del pedido')).toBeVisible();
+    await expect(page.getByTestId('chat-title')).toHaveText('Chat del pedido');
   });
 
   test('agrega dos variantes del mismo producto con personalizaciones distintas', async ({
@@ -130,7 +130,7 @@ test.describe('Pedido público con chat', () => {
 
     // El checkout muestra ambas líneas.
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
     await expect(
       page.locator('[data-testid="checkout-item"][data-product-id="' + promo.id + '"]')
     ).toHaveCount(2);
@@ -139,7 +139,9 @@ test.describe('Pedido público con chat', () => {
     await page.getByLabel('Teléfono').fill('3415555555');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText('Pedido creado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-success-title')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('edita una línea del pedido y la une con otra idéntica', async ({
@@ -285,14 +287,14 @@ test.describe('Pedido público con chat', () => {
     ).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
     await page.getByLabel('Nombre').fill('Ana García');
     await page.getByLabel('Teléfono').fill('3416666666');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText('Pedido creado')).toBeVisible();
+    await expect(page.getByTestId('order-success-title')).toBeVisible();
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
@@ -381,14 +383,16 @@ test.describe('Pedido público con chat', () => {
 
     // Confirmar el pedido y abrir el chat para capturar el orderId.
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     const customerName = unique('Cliente Panel');
     await page.getByLabel('Nombre').fill(customerName);
     await page.getByLabel('Teléfono').fill('3415555555');
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText('Pedido creado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-success-title')).toBeVisible({
+      timeout: 10000,
+    });
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);

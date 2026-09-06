@@ -47,7 +47,7 @@ export function SalesCart({
         </CardHeader>
         <CardContent className="space-y-5">
           {cart.length === 0 ? (
-            <p className="text-base text-muted-foreground">
+            <p data-testid="empty-cart-message" className="text-base text-muted-foreground">
               El carrito está vacío.
             </p>
           ) : (

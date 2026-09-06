@@ -24,10 +24,10 @@ test.describe('Chat anclado a pedidos', () => {
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
     await page.getByTestId(`add-product-${product.id}`).click();
-    await expect(page.getByText('Tu pedido', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
 
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
-    await expect(page.getByText('Finalizar pedido')).toBeVisible();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
 
     const customerName = unique('Juan Pérez');
     const customerPhone = '3415555555';
@@ -35,7 +35,7 @@ test.describe('Chat anclado a pedidos', () => {
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
-    await expect(page.getByText('Pedido creado')).toBeVisible();
+    await expect(page.getByTestId('order-success-title')).toBeVisible();
     await page.getByRole('button', { name: 'Ir al chat del pedido' }).click();
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
@@ -61,7 +61,9 @@ test.describe('Chat anclado a pedidos', () => {
     await expect(orderRow).toBeVisible({ timeout: 10000 });
     await orderRow.getByRole('link', { name: 'Ver' }).click();
 
-    await expect(page.getByText('Chat con el cliente')).toBeVisible();
+    await expect(page.getByTestId('chat-title')).toHaveText(
+      'Chat con el cliente'
+    );
     await expect(
       page.getByTestId('chat-message-text').filter({ hasText: clientMessage })
     ).toBeVisible({ timeout: 15000 });

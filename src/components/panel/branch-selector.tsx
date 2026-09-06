@@ -65,6 +65,7 @@ export function BranchSelector({
         disabled={isLoading || branches.length === 0}
       >
         <SelectTrigger
+          data-testid="branch-selector-trigger"
           className="w-full max-w-[180px] text-sm"
           aria-label="Sucursal activa"
         >

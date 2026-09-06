@@ -1,6 +1,6 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useCallback, useState } from 'react';
 import { subDays } from 'date-fns';
 import {
@@ -62,8 +62,7 @@ export function useCashRegisterHistory({
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar historial de cajas');
+        await throwApiError(response, 'Error al cargar historial de cajas');
       }
 
       return (await response.json()) as PaginatedResult<CashRegister>;

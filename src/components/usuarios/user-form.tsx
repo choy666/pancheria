@@ -97,6 +97,7 @@ export function UserForm({
             <Input
               id="password"
               name="password"
+              data-testid="user-password-input"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               required={!isEditing}
@@ -132,7 +133,7 @@ export function UserForm({
             onValueChange={(value) => setBranchId(value ?? '')}
             required
           >
-            <SelectTrigger id="branchId">
+            <SelectTrigger id="branchId" data-testid="user-branch-select">
               <SelectValue placeholder="Seleccionar sucursal" />
             </SelectTrigger>
             <SelectContent>

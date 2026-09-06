@@ -87,7 +87,7 @@ export function CajaStatus({
               {error}
             </div>
           )}
-          <p className="text-base text-muted-foreground">
+          <p data-testid="cash-register-empty-message" className="text-base text-muted-foreground">
             No hay una caja abierta. Abrí una caja para comenzar a vender.
           </p>
           <Button
@@ -166,7 +166,7 @@ export function CajaStatus({
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="text-lg">Estado de la caja</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p data-testid="cash-register-opened-by" className="text-sm text-muted-foreground">
             Abierta por {cashRegister.openedBy}
           </p>
         </div>

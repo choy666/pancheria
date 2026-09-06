@@ -139,14 +139,14 @@ test.describe('Responsividad en móvil', () => {
     await ensureLoggedIn(page);
 
     await page.goto('/productos');
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Nueva promo' })).toBeVisible();
 
     await page.goto('/stock');
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
 
     await page.goto('/ventas/historial');
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
 
     await page.goto('/ventas');
     await expect(

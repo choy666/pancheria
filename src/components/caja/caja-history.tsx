@@ -1,6 +1,6 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -81,8 +81,7 @@ export function CajaHistory({
         });
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(data.error || 'Error al eliminar la caja');
+          await throwApiError(response, 'Error al eliminar la caja');
         }
       }
 
@@ -103,8 +102,7 @@ export function CajaHistory({
         });
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(data.error || 'Error al restaurar la caja');
+          await throwApiError(response, 'Error al restaurar la caja');
         }
       }
 
@@ -125,9 +123,9 @@ export function CajaHistory({
         });
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(
-            data.error || 'Error al eliminar la caja permanentemente'
+          await throwApiError(
+            response,
+            'Error al eliminar la caja permanentemente'
           );
         }
       }
@@ -152,8 +150,7 @@ export function CajaHistory({
         );
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(data.error || 'Error al vaciar la papelera');
+          await throwApiError(response, 'Error al vaciar la papelera');
         }
       }
 
@@ -236,7 +233,7 @@ export function CajaHistory({
               <TableHead className="hidden sm:table-cell">Abierta por</TableHead>
               <TableHead className="hidden sm:table-cell">Cerrada por</TableHead>
               {isAdmin && (
-                <TableHead className="hidden md:table-cell">Sucursal</TableHead>
+                <TableHead data-testid="cash-register-branch-header" className="hidden md:table-cell">Sucursal</TableHead>
               )}
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>

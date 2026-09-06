@@ -7,9 +7,7 @@ test('login fallido muestra error', async ({ page }) => {
   await page.getByRole('button', { name: 'Ingresar' }).click();
 
   await expect(page).toHaveURL('/login');
-  await expect(
-    page.getByText('Usuario o contraseña incorrectos.')
-  ).toBeVisible();
+  await expect(page.getByTestId('login-error')).toBeVisible();
 });
 
 test('login exitoso redirige al dashboard', async ({ page }) => {

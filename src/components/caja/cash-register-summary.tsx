@@ -76,6 +76,7 @@ export function CashRegisterSummary({
         </CardHeader>
         <CardContent className="space-y-3">
           <p
+            data-testid="cash-register-opened-by"
             className="text-sm text-muted-foreground"
             suppressHydrationWarning
           >

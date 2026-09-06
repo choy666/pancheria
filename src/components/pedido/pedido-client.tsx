@@ -252,7 +252,7 @@ export function PedidoClient({
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Finalizar pedido</DialogTitle>
+            <DialogTitle data-testid="checkout-dialog-title">Finalizar pedido</DialogTitle>
             <DialogDescription>
               Completá tus datos para hacer el pedido. El stock se confirma cuando el operador acepta el pedido.
             </DialogDescription>
@@ -292,6 +292,7 @@ export function PedidoClient({
             </Button>
             <Button
               type="button"
+              data-testid="confirm-order-button"
               disabled={
                 items.length === 0 ||
                 isSubmitting ||

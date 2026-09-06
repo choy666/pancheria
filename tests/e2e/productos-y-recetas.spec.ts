@@ -56,13 +56,13 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos y promos')).toBeVisible();
+    await expect(page.getByTestId('products-page-heading')).toBeVisible();
 
-    const panRow = page.locator('tr').filter({ hasText: new RegExp(pan.name) });
+    const panRow = page.locator('[data-testid="product-row"][data-product-name="' + pan.name + '"]');
     await expect(panRow).toBeVisible();
     await expect(panRow.getByText('Insumo crítico - Pan')).toBeVisible();
 
-    const compoundRow = page.locator('tr').filter({ hasText: new RegExp(compound.name) });
+    const compoundRow = page.locator('[data-testid="product-row"][data-product-name="' + compound.name + '"]');
     await expect(compoundRow).toBeVisible();
     await expect(compoundRow.getByRole('button', { name: 'Editar' })).toBeVisible();
     await expect(compoundRow.getByRole('link', { name: 'Receta' })).not.toBeVisible();
@@ -71,14 +71,14 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     await expect(page.getByRole('button', { name: 'Actualizar promo' })).toBeVisible();
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos y promos')).toBeVisible();
+    await expect(page.getByTestId('products-page-heading')).toBeVisible();
 
-    const manualRow = page.locator('tr').filter({ hasText: new RegExp(manual.name) });
+    const manualRow = page.locator('[data-testid="product-row"][data-product-name="' + manual.name + '"]');
     await expect(manualRow).toBeVisible({ timeout: 10000 });
     await manualRow.getByRole('button', { name: 'Editar' }).click();
     await expect(page).toHaveURL(/productos\/\d+\/editar/);
 
-    await page.uncheck('#isActive');
+    await page.getByTestId('product-is-active').uncheck();
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
 
@@ -227,7 +227,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto('/productos');
-    const panRow = page.locator('tr').filter({ hasText: new RegExp(pan.name) });
+    const panRow = page.locator('[data-testid="product-row"][data-product-name="' + pan.name + '"]');
     await expect(panRow).toBeVisible();
 
     await panRow.getByRole('button', { name: 'Eliminar' }).click();
@@ -250,7 +250,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
 
   test('agrupa productos por tipo con encabezados visibles', async ({ page }) => {
     await page.goto('/productos');
-    await expect(page.getByText('Productos y promos')).toBeVisible();
+    await expect(page.getByTestId('products-page-heading')).toBeVisible();
 
     const groupHeaders = page.getByRole('rowheader');
     await expect(groupHeaders).toHaveCount(4);
@@ -283,7 +283,7 @@ test.describe('Papelera de productos', () => {
     });
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos y promos')).toBeVisible();
+    await expect(page.getByTestId('products-page-heading')).toBeVisible();
 
     const row = page
       .locator('[data-testid="product-row"]')
@@ -380,8 +380,8 @@ test.describe('Papelera de productos', () => {
     await expect(
       page.getByRole('heading', { name: 'Papelera de productos' })
     ).toBeVisible();
-    await expect(page.getByText(product1.name)).toBeVisible();
-    await expect(page.getByText(product2.name)).toBeVisible();
+    await expect(page.locator('[data-testid="product-trash-row"][data-product-name="' + product1.name + '"]')).toBeVisible();
+    await expect(page.locator('[data-testid="product-trash-row"][data-product-name="' + product2.name + '"]')).toBeVisible();
 
     await page.getByTestId('empty-trash').click();
     await page.getByTestId('confirm-dialog-confirm').click();
@@ -389,8 +389,8 @@ test.describe('Papelera de productos', () => {
     await expect(page.getByTestId('trash-result')).toBeVisible();
     await expect(page.getByTestId('trash-deleted-count')).toHaveText('2');
 
-    await expect(page.getByText(product1.name)).not.toBeVisible();
-    await expect(page.getByText(product2.name)).not.toBeVisible();
+    await expect(page.locator('[data-testid="product-trash-row"][data-product-name="' + product1.name + '"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="product-trash-row"][data-product-name="' + product2.name + '"]')).not.toBeVisible();
 
     const productRes1 = await page.request.get(`/api/productos/${product1.id}`);
     expect(productRes1.status()).toBe(404);
@@ -446,7 +446,7 @@ test.describe('Edición y eliminación de promos', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos y promos')).toBeVisible();
+    await expect(page.getByTestId('products-page-heading')).toBeVisible();
 
     const promoRow = page
       .locator('[data-testid="product-row"]')
@@ -477,7 +477,7 @@ test.describe('Edición y eliminación de promos', () => {
     await page.goto(`/productos/${promo.id}/editar`);
     await expect(page.getByTestId('promo-form-title')).toHaveText('Editar promo');
 
-    const priceInput = page.locator('#promo-price');
+    const priceInput = page.getByTestId('promo-price');
     await expect(priceInput).toHaveValue(String(newPrice));
 
     // La edición de receta por Select fue flaky en la suite completa
@@ -565,7 +565,7 @@ test.describe('Edición y eliminación de promos', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto('/productos');
-    await expect(page.getByText('Productos y promos')).toBeVisible();
+    await expect(page.getByTestId('products-page-heading')).toBeVisible();
 
     const promoRow = page
       .locator('[data-testid="product-row"]')
@@ -631,7 +631,7 @@ test.describe('Edición y eliminación de promos', () => {
     expect(recipeRes.status()).toBe(201);
 
     await page.goto(`/productos/${promo.id}/editar`);
-    await expect(page.getByText('Stock de insumos seleccionados')).toBeVisible();
+    await expect(page.getByTestId('promo-stock-heading')).toBeVisible();
 
     const stockItems = page.locator('[data-testid="promo-stock-item"]');
     await expect(stockItems).toHaveCount(2);
@@ -641,14 +641,10 @@ test.describe('Edición y eliminación de promos', () => {
     await expect(panItem).toContainText('12 unidad en stock');
     await expect(salchichaItem).toContainText('8 unidad en stock');
 
-    await expect(
-      page.getByText(/Con el stock crítico actual se pueden armar aproximadamente/)
-    ).toBeVisible();
+    await expect(page.getByTestId('promo-availability')).toBeVisible();
 
     // min(12/1, 8/2) = 4
-    const availability = page.locator('p').filter({
-      hasText: /Con el stock crítico actual se pueden armar aproximadamente/,
-    });
+    const availability = page.getByTestId('promo-availability');
     await expect(availability).toContainText('4');
   });
 });

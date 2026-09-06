@@ -5,6 +5,7 @@ import { uploadProductImage } from './product-image-upload-client';
 import { authenticatedFetch } from '@/lib/fetch';
 
 jest.mock('@/lib/fetch', () => ({
+  ...jest.requireActual('@/lib/fetch'),
   authenticatedFetch: jest.fn(),
 }));
 

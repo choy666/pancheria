@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saleSchema } from '@/lib/zod-schemas';
 import * as saleService from '@/application/services/saleService';
-import * as saleRepository from '@/repositories/saleRepository';
 import {
   nowUTC,
   parseDateStringUTC,
@@ -28,10 +27,9 @@ export const GET = withApiErrorHandling(
           { status: 400 }
         );
       }
-      const sales = await saleRepository.findByCashRegisterId(
+      const sales = await saleService.listSalesByCashRegister(
         branchId,
         cashRegisterId,
-        undefined,
         pagination
       );
       return NextResponse.json(sales);
@@ -41,11 +39,10 @@ export const GET = withApiErrorHandling(
     const start = startOfDayUTC(date);
     const end = endOfDayUTC(date);
 
-    const sales = await saleRepository.findByDateRange(
+    const sales = await saleService.listSalesByDateRange(
       branchId,
       start,
       end,
-      'active',
       pagination
     );
     return NextResponse.json(sales);

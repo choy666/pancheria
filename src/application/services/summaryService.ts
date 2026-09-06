@@ -1,6 +1,5 @@
-import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products } from '@/db/schema';
+import * as productRepository from '@/repositories/productRepository';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import {
   addItemToSummary,
@@ -107,14 +106,10 @@ export async function calculateSummaryFromSales(
 
   const total = addMoney(cashTotal, transferTotal);
 
-  const criticalSupplies = await dbOrTx.query.products.findMany({
-    where: and(
-      eq(products.branchId, branchId),
-      eq(products.type, 'critical_supply'),
-      eq(products.isActive, true),
-      isNull(products.deletedAt)
-    ),
-  });
+  const criticalSupplies = await productRepository.findActiveCriticalSupplies(
+    branchId,
+    dbOrTx
+  );
 
   fillMissingCriticalSupplies(criticalSuppliesSummary, criticalSupplies);
 

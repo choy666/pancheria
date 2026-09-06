@@ -1,8 +1,8 @@
-import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, sales } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
+import * as productRepository from '@/repositories/productRepository';
+import * as saleRepository from '@/repositories/saleRepository';
 import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
@@ -134,22 +134,11 @@ export async function calculateCashRegisterSummary(
   cashRegisterId: number,
   dbOrTx: typeof db = db
 ) {
-  const activeSales = (await dbOrTx.query.sales.findMany({
-    where: and(
-      eq(sales.status, 'active'),
-      eq(sales.branchId, branchId),
-      eq(sales.cashRegisterId, cashRegisterId)
-    ),
-    with: {
-      items: {
-        with: {
-          product: true,
-          recipeSnapshots: true,
-        },
-      },
-      payments: true,
-    },
-  })) as SaleWithItems[];
+  const activeSales = (await saleRepository.findActiveWithDetailsByCashRegister(
+    dbOrTx,
+    branchId,
+    cashRegisterId
+  )) as SaleWithItems[];
 
   const salesWithSnapshot: SaleWithItems[] = activeSales.map((sale) => ({
     ...sale,
@@ -180,14 +169,8 @@ export async function parseCashRegisterSummary(
     cashRegister.recipeSuppliesSummary ?? {};
 
   if (shouldFillMissingCriticalSupplies) {
-    const activeCriticalSupplies = await db.query.products.findMany({
-      where: and(
-        eq(products.branchId, branchId),
-        eq(products.type, 'critical_supply'),
-        eq(products.isActive, true),
-        isNull(products.deletedAt)
-      ),
-    });
+    const activeCriticalSupplies =
+      await productRepository.findActiveCriticalSupplies(branchId);
 
     fillMissingCriticalSupplies(criticalSuppliesSummary, activeCriticalSupplies);
   }

@@ -40,7 +40,7 @@ test.describe('Historial de cajas con ventas', () => {
 
     await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
-    await expect(page.getByText('El carrito está vacío.')).toBeVisible({
+    await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
     });
 
@@ -60,7 +60,7 @@ test.describe('Historial de cajas con ventas', () => {
 
     await page.getByTestId(`cash-register-row-${caja.id}`).click();
 
-    await expect(page.getByText('Ventas de la caja')).toBeVisible({
+    await expect(page.getByTestId('cash-register-sales-heading')).toBeVisible({
       timeout: 10000,
     });
     await expect(

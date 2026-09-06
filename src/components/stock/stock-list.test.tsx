@@ -37,7 +37,8 @@ describe('StockList', () => {
 
     render(<StockList />);
 
-    await waitFor(() => expect(screen.getByText('Error al cargar stock')).toBeInTheDocument());
+    // El mensaje del servidor se propaga por sobre el fallback genérico.
+    await waitFor(() => expect(screen.getByText('Error del servidor')).toBeInTheDocument());
   });
 
   test('muestra error desconocido cuando fetch rechaza con un valor no Error', async () => {

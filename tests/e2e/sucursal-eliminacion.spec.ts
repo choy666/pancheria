@@ -30,8 +30,8 @@ test.describe('Eliminación de sucursal', () => {
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
-    await page.locator('#password').fill('123456');
-    await page.locator('#branchId').click();
+    await page.getByTestId('user-password-input').fill('123456');
+    await page.getByTestId('user-branch-select').click();
     await expect(page.locator('[role="listbox"]')).toBeVisible();
     await page.locator('[role="option"]', { hasText: branchName }).click();
     await page.getByRole('button', { name: 'Crear usuario' }).click();
@@ -63,9 +63,9 @@ test.describe('Eliminación de sucursal', () => {
     await page.getByLabel('Contraseña').fill('123456');
     await page.getByRole('button', { name: 'Ingresar' }).click();
 
-    await expect(
-      page.getByText('Usuario o contraseña incorrectos.')
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('login-error')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('rechaza crear pedidos en una sucursal eliminada', async ({ page }) => {

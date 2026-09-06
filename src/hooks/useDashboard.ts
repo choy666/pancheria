@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { PANEL_RESUMEN_API } from '@/config/api';
 import { getDashboardRefreshIntervalMs } from '@/config/dashboard';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
@@ -36,8 +36,7 @@ export function useDashboard(): UseDashboardResult {
       const response = await authenticatedFetch(PANEL_RESUMEN_API);
 
       if (!response.ok) {
-        const body = (await response.json()) as { error?: string };
-        throw new Error(body.error || 'Error al cargar el panel');
+        await throwApiError(response, 'Error al cargar el panel');
       }
 
       const result = (await response.json()) as DashboardData;

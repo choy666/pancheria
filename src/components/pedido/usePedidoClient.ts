@@ -13,6 +13,7 @@ import {
   PUBLIC_PEDIDO_API,
   PUBLIC_PEDIDO_CANCELAR_API,
 } from '@/config/api';
+import { throwApiError } from '@/lib/fetch';
 import { useCart } from '@/hooks/useCart';
 import { useRecentOrders } from '@/hooks/useRecentOrders';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
@@ -259,7 +260,9 @@ export function usePedidoClient({
       const response = await fetch(
         `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true&limit=${limit}`
       );
-      if (!response.ok) throw new Error('Error al refrescar el catálogo');
+      if (!response.ok) {
+        await throwApiError(response, 'Error al refrescar el catálogo');
+      }
 
       const data = (await response.json()) as {
         branch: Branch;
@@ -284,7 +287,9 @@ export function usePedidoClient({
         const response = await fetch(
           `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true&limit=${resolvedPageSize}&offset=${offset}`
         );
-        if (!response.ok) throw new Error('Error al cargar más productos');
+        if (!response.ok) {
+          await throwApiError(response, 'Error al cargar más productos');
+        }
 
         const data = (await response.json()) as {
           branch: Branch;
@@ -345,8 +350,7 @@ export function usePedidoClient({
         );
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(data.error ?? 'Error al validar disponibilidad');
+          await throwApiError(response, 'Error al validar disponibilidad');
         }
 
         const data = (await response.json()) as {
@@ -516,8 +520,7 @@ export function usePedidoClient({
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? 'Error al crear el pedido');
+        await throwApiError(response, 'Error al crear el pedido');
       }
 
       const { order } = (await response.json()) as {
@@ -568,8 +571,7 @@ export function usePedidoClient({
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? 'Error al cancelar el pedido');
+        await throwApiError(response, 'Error al cancelar el pedido');
       }
 
       setSuccessDialogOpen(false);

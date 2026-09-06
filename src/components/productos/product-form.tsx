@@ -1,6 +1,6 @@
 'use client';
 
-import { authenticatedFetch } from '@/lib/fetch';
+import { ApiError, authenticatedFetch } from '@/lib/fetch';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -121,7 +121,10 @@ export function ProductForm({ product }: ProductFormProps) {
               )
               .join('. ')
           : data.error;
-        throw new Error(detail || 'Error al guardar el producto');
+        throw new ApiError(
+          detail || 'Error al guardar el producto',
+          response.status
+        );
       }
 
       router.push(routes.productos);
@@ -293,6 +296,7 @@ export function ProductForm({ product }: ProductFormProps) {
       <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-card p-4">
         <input
           id="isActive"
+          data-testid="product-is-active"
           type="checkbox"
           checked={form.isActive}
           onChange={(e) => setForm({ ...form, isActive: e.target.checked })}

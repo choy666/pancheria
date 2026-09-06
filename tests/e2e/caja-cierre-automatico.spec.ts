@@ -31,7 +31,7 @@ test.describe('Cierre automático de caja', () => {
 
     await page.goto('/ventas');
     await expect(
-      page.getByText('No hay una caja abierta. Abrí una caja para comenzar a vender.')
+      page.getByTestId('cash-register-empty-message')
     ).toBeVisible({ timeout: 10000 });
 
     const historyRes = await page.request.get('/api/caja/resumen');

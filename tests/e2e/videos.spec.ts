@@ -61,7 +61,9 @@ test.describe('Videos', () => {
       await page.getByLabel('Archivo de video').setInputFiles(filePath);
 
       await page.getByRole('button', { name: 'Subir archivo' }).click();
-      await expect(page.getByText('Archivo listo')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('video-file-ready')).toBeVisible({
+        timeout: 15000,
+      });
 
       await page.getByRole('button', { name: 'Guardar video' }).click();
       await expect(page).toHaveURL('/videos', { timeout: 15000 });
@@ -71,7 +73,7 @@ test.describe('Videos', () => {
       await page.getByRole('link', { name: 'Video de prueba E2E' }).click();
       await expect(page).toHaveURL(/\/videos\/\d+/);
       await expect(page.getByRole('heading', { name: 'Video de prueba E2E' })).toBeVisible();
-      await expect(page.locator('video')).toBeVisible();
+      await expect(page.getByTestId('video-player')).toBeVisible();
     } finally {
       try {
         unlinkSync(filePath);
@@ -93,7 +95,9 @@ test.describe('Videos', () => {
       await page.getByLabel('Archivo de video').setInputFiles(filePath);
 
       await page.getByRole('button', { name: 'Subir archivo' }).click();
-      await expect(page.getByText('Archivo listo')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('video-file-ready')).toBeVisible({
+        timeout: 15000,
+      });
 
       await page.getByRole('button', { name: 'Guardar video' }).click();
       await expect(page).toHaveURL('/videos', { timeout: 15000 });
@@ -179,7 +183,9 @@ test.describe('Videos', () => {
       await page.getByLabel('Archivo de video').setInputFiles(filePath);
 
       await page.getByRole('button', { name: 'Subir archivo' }).click();
-      await expect(page.getByText('Archivo listo')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('video-file-ready')).toBeVisible({
+        timeout: 15000,
+      });
 
       await page.getByRole('button', { name: 'Guardar video' }).click();
       await expect(page).toHaveURL('/videos', { timeout: 15000 });
@@ -188,7 +194,9 @@ test.describe('Videos', () => {
       await page.getByRole('link', { name: 'Video de streaming E2E' }).click();
       await expect(page).toHaveURL(/\/videos\/\d+/);
 
-      const videoSrc = await page.locator('video source').getAttribute('src');
+      const videoSrc = await page
+        .getByTestId('video-source')
+        .getAttribute('src');
       expect(videoSrc).not.toBeNull();
 
       const full = await page.request.get(videoSrc!);

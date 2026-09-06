@@ -54,3 +54,10 @@ export async function deleteByCompoundProductId(
     .delete(recipes)
     .where(eq(recipes.compoundProductId, compoundProductId));
 }
+
+export async function insertMany(
+  dbOrTx: typeof db = db,
+  values: (typeof recipes.$inferInsert)[]
+) {
+  return dbOrTx.insert(recipes).values(values).returning();
+}

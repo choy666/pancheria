@@ -42,8 +42,12 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
 
-    await expect(page.getByText('Confirmando...')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Pagado')).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByTestId('confirm-payment-button').getByText('Confirmando...')
+    ).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-status')).toHaveText('Pagado', {
+      timeout: 10000,
+    });
   });
 
   test('cancela un pedido público desde el panel', async ({ page }) => {
@@ -77,7 +81,11 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     await page.getByLabel('Motivo de cancelación').fill('Cancelado desde el panel');
     await page.getByRole('button', { name: 'Cancelar pedido' }).click();
 
-    await expect(page.getByText('Cancelando...')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Cancelado')).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByTestId('cancel-order-button').getByText('Cancelando...')
+    ).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-status')).toHaveText('Cancelado', {
+      timeout: 10000,
+    });
   });
 });

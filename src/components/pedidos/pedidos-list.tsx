@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -108,8 +108,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar pedidos');
+        await throwApiError(response, 'Error al cargar pedidos');
       }
 
       return (await response.json()) as {
@@ -179,8 +178,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
         }
       );
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al confirmar el pedido');
+        await throwApiError(response, 'Error al confirmar el pedido');
       }
       await refresh();
     } finally {
@@ -199,8 +197,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
         }
       );
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al finalizar el pedido');
+        await throwApiError(response, 'Error al finalizar el pedido');
       }
       await refresh();
     } finally {
@@ -220,8 +217,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
         }
       );
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cancelar el pedido');
+        await throwApiError(response, 'Error al cancelar el pedido');
       }
       await refresh();
     } finally {

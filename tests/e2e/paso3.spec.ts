@@ -16,7 +16,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     ];
 
     for (const item of menu) {
-      const nav = page.locator('nav');
+      const nav = page.getByTestId('main-nav');
       await nav.getByRole('link', { name: item.name, exact: true }).click();
       await expect(page).toHaveURL(item.url);
     }

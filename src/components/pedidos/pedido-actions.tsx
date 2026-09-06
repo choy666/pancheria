@@ -98,6 +98,7 @@ export function PedidoActions({
           </div>
 
           <Button
+            data-testid="confirm-payment-button"
             className="w-full"
             onClick={onConfirm}
             disabled={!canConfirm || isSubmitting || !isPaymentComplete}
@@ -128,6 +129,7 @@ export function PedidoActions({
           </div>
 
           <Button
+            data-testid="cancel-order-button"
             className="w-full"
             variant="destructive"
             onClick={onCancel}

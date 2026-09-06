@@ -86,7 +86,7 @@ export default async function CashRegisterSalesDetailPage({
       />
 
       <div className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">Ventas de la caja</h2>
+        <h2 data-testid="cash-register-sales-heading" className="text-xl font-semibold tracking-tight">Ventas de la caja</h2>
         <SalesHistory
           cashRegisterId={cashRegister.id}
           allowCancel={!cashRegister.deletedAt}

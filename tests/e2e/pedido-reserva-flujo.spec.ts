@@ -57,7 +57,9 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
     await row.getByRole('link', { name: 'Ver' }).click();
 
     await page.getByRole('button', { name: 'Recibir y reservar' }).click();
-    await expect(page.getByText('En proceso')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-status')).toHaveText('En proceso', {
+      timeout: 10000,
+    });
 
     // La reserva reduce la disponibilidad pública en 1 unidad.
     await page.goto('/pedido');
@@ -77,7 +79,9 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
     await page.getByTestId('payment-cash-full').click();
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
 
-    await expect(page.getByText('Pagado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-status')).toHaveText('Pagado', {
+      timeout: 10000,
+    });
 
     // El stock físico ahora es 4 porque el pago descuenta la reserva.
     await page.goto('/pedido');
@@ -95,6 +99,8 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
       .click();
 
     await page.getByRole('button', { name: 'Finalizar pedido' }).click();
-    await expect(page.getByText('Finalizado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('order-status')).toHaveText('Finalizado', {
+      timeout: 10000,
+    });
   });
 });

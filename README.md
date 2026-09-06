@@ -56,7 +56,8 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `npm run dev` — modo desarrollo
 - `npm run build` — compilar
 - `npm run start` — iniciar servidor de producción
-- `npm run analyze` — analizar bundle
+- `npm run analyze` — analizar bundle (bajo Turbopack el analizador no genera el reporte HTML)
+- `npm run analyze:webpack` — analizar bundle forzando webpack; genera los reportes HTML en `.next/analyze/`
 - `npm run lint` — lint
 - `npx tsc --noEmit` — verificación de tipos
 - `npm test` — tests unitarios

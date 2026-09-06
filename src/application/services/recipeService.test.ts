@@ -12,14 +12,6 @@ type DbTransaction = (callback: (tx: typeof db) => Promise<unknown>) => Promise<
 type RecipeRow = typeof recipes.$inferSelect;
 type RecipeWithSupply = RecipeRow & { supply: ProductRow };
 
-interface MockTx {
-  insert: jest.Mock;
-  delete: jest.Mock;
-  insertValues: jest.Mock;
-  insertReturning: jest.Mock;
-  deleteWhere: jest.Mock;
-}
-
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/recipeRepository');
 jest.mock('@/db', () => ({
@@ -86,31 +78,12 @@ function createRecipeWithSupply(
   return { ...createRecipeRow(), ...rest, supply };
 }
 
-function createMockTransaction(): MockTx {
-  const insertReturning = jest.fn().mockResolvedValue([]);
-  const insertValues = jest
-    .fn()
-    .mockReturnValue({ returning: insertReturning });
-  const insert = jest.fn().mockReturnValue({ values: insertValues });
-  const deleteWhere = jest.fn().mockResolvedValue([]);
-  const deleteFn = jest.fn().mockReturnValue({ where: deleteWhere });
-
-  return {
-    insert,
-    delete: deleteFn,
-    insertValues,
-    insertReturning,
-    deleteWhere,
-  };
-}
-
 describe('recipeService', () => {
-  let mockTx: MockTx;
-
   beforeEach(() => {
-    mockTx = createMockTransaction();
+    // La persistencia ocurre en recipeRepository (mockeado); el tx solo se
+    // propaga como argumento.
     mockedDb.transaction.mockImplementation(async (callback) => {
-      return await callback(mockTx as unknown as typeof db);
+      return await callback({} as unknown as typeof db);
     });
   });
 
@@ -200,7 +173,7 @@ describe('recipeService', () => {
           autoDiscount: true,
         }),
       ];
-      mockTx.insertReturning.mockResolvedValue(returning);
+      mockedRecipeRepository.insertMany.mockResolvedValue(returning);
 
       const items: RecipeItemInsert[] = [
         { supplyId: 2, quantity: 1, autoDiscount: true },
@@ -208,10 +181,15 @@ describe('recipeService', () => {
       const result = await saveRecipe(BRANCH_ID, 1, items);
 
       expect(result).toEqual(returning);
-      expect(mockTx.deleteWhere).toHaveBeenCalled();
-      expect(mockTx.insertValues).toHaveBeenCalledWith([
-        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
-      ]);
+      expect(
+        mockedRecipeRepository.deleteByCompoundProductId
+      ).toHaveBeenCalledWith(expect.anything(), 1);
+      expect(mockedRecipeRepository.insertMany).toHaveBeenCalledWith(
+        expect.anything(),
+        [
+          { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
+        ]
+      );
     });
 
     test('rechaza una receta sin insumos críticos con auto descuento', async () => {
@@ -396,7 +374,7 @@ describe('recipeService', () => {
         }),
       ]);
 
-      mockTx.insertReturning.mockResolvedValue([]);
+      mockedRecipeRepository.insertMany.mockResolvedValue([]);
 
       const items: RecipeItemInsert[] = [
         { supplyId: 2, quantity: 1, autoDiscount: true },
@@ -406,11 +384,14 @@ describe('recipeService', () => {
 
       const result = await saveRecipe(BRANCH_ID, 1, items);
       expect(result).toEqual([]);
-      expect(mockTx.insertValues).toHaveBeenCalledWith([
-        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
-        { compoundProductId: 1, supplyId: 3, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false },
-        { compoundProductId: 1, supplyId: 4, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false },
-      ]);
+      expect(mockedRecipeRepository.insertMany).toHaveBeenCalledWith(
+        expect.anything(),
+        [
+          { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
+          { compoundProductId: 1, supplyId: 3, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false },
+          { compoundProductId: 1, supplyId: 4, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false },
+        ]
+      );
     });
 
     test('permite varios insumos críticos con descuento automático', async () => {
@@ -432,7 +413,7 @@ describe('recipeService', () => {
         }),
       ]);
 
-      mockTx.insertReturning.mockResolvedValue([]);
+      mockedRecipeRepository.insertMany.mockResolvedValue([]);
 
       const items: RecipeItemInsert[] = [
         { supplyId: 2, quantity: 1, autoDiscount: true },
@@ -441,10 +422,13 @@ describe('recipeService', () => {
 
       const result = await saveRecipe(BRANCH_ID, 1, items);
       expect(result).toEqual([]);
-      expect(mockTx.insertValues).toHaveBeenCalledWith([
-        { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
-        { compoundProductId: 1, supplyId: 3, quantity: 2, autoDiscount: true, isOptional: false, selectedByDefault: false },
-      ]);
+      expect(mockedRecipeRepository.insertMany).toHaveBeenCalledWith(
+        expect.anything(),
+        [
+          { compoundProductId: 1, supplyId: 2, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false },
+          { compoundProductId: 1, supplyId: 3, quantity: 2, autoDiscount: true, isOptional: false, selectedByDefault: false },
+        ]
+      );
     });
   });
 });

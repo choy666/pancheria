@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import {
   getChatRefreshIntervalMs,
@@ -207,8 +207,7 @@ export function useOrderChat({
         : await authenticatedFetch(url);
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? 'Error al cargar mensajes');
+        await throwApiError(response, 'Error al cargar mensajes');
       }
 
       const data = (await response.json()) as {
@@ -268,8 +267,7 @@ export function useOrderChat({
           : await authenticatedFetch(url);
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(data.error ?? 'Error al cargar mensajes');
+          await throwApiError(response, 'Error al cargar mensajes');
         }
 
         const data = (await response.json()) as {
@@ -325,8 +323,7 @@ export function useOrderChat({
         : await authenticatedFetch(url);
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? 'Error al cargar mensajes anteriores');
+        await throwApiError(response, 'Error al cargar mensajes anteriores');
       }
 
       const data = (await response.json()) as {
@@ -370,8 +367,7 @@ export function useOrderChat({
         : await authenticatedFetch(readApiUrl, { method: 'POST' });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? 'Error al marcar como leído');
+        await throwApiError(response, 'Error al marcar como leído');
       }
     } catch {
       // No saturar la UI con errores de read receipt.
@@ -520,8 +516,7 @@ export function useOrderChat({
       }
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? 'Error al enviar el mensaje');
+        await throwApiError(response, 'Error al enviar el mensaje');
       }
 
       const data = (await response.json()) as { message: OrderMessage };

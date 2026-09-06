@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { formatMoney } from '@/lib/money';
 import {
   PEDIDOS_CONFIRMAR_API,
@@ -114,8 +114,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       ]);
 
       if (!orderResponse.ok) {
-        const data = (await orderResponse.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar el pedido');
+        await throwApiError(orderResponse, 'Error al cargar el pedido');
       }
 
       const data = (await orderResponse.json()) as {
@@ -168,8 +167,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al recibir el pedido');
+        await throwApiError(response, 'Error al recibir el pedido');
       }
 
       await loadOrder();
@@ -216,8 +214,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al confirmar el pedido');
+        await throwApiError(response, 'Error al confirmar el pedido');
       }
 
       await refreshCashRegister();
@@ -244,8 +241,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al finalizar el pedido');
+        await throwApiError(response, 'Error al finalizar el pedido');
       }
 
       await loadOrder();
@@ -279,8 +275,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       );
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cancelar el pedido');
+        await throwApiError(response, 'Error al cancelar el pedido');
       }
 
       await loadOrder();

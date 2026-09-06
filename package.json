@@ -15,7 +15,8 @@
     "test:e2e": "npx playwright test",
     "test:accessibility": "npx playwright test tests/e2e/accessibility.spec.ts",
     "knip": "knip",
-    "analyze": "cross-env ANALYZE=true next build"
+    "analyze": "cross-env ANALYZE=true next build",
+    "analyze:webpack": "cross-env ANALYZE=true next build --webpack"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1110.0",

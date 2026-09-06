@@ -15,6 +15,7 @@ export function VideoPlayer({ src, mimeType }: VideoPlayerProps) {
     <div className="space-y-2">
       <video
         ref={videoRef}
+        data-testid="video-player"
         controls
         preload="metadata"
         className="w-full rounded-2xl border border-white/8"
@@ -23,7 +24,11 @@ export function VideoPlayer({ src, mimeType }: VideoPlayerProps) {
           setError('No se pudo reproducir el video. Verificá la URL o el formato.')
         }
       >
-        <source src={src} type={mimeType ?? guessMimeTypeFromUrl(src)} />
+        <source
+          data-testid="video-source"
+          src={src}
+          type={mimeType ?? guessMimeTypeFromUrl(src)}
+        />
         Tu navegador no soporta la reproducción de videos.
       </video>
 

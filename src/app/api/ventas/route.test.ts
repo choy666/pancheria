@@ -4,7 +4,6 @@
 import { NextRequest } from 'next/server';
 import { GET, POST } from './route';
 import * as saleService from '@/application/services/saleService';
-import * as saleRepository from '@/repositories/saleRepository';
 import { requireAuth, getCurrentBranchId } from '@/lib/auth';
 import {
   UnauthorizedError,
@@ -14,7 +13,6 @@ import {
 } from '@/domain/errors';
 
 jest.mock('@/application/services/saleService');
-jest.mock('@/repositories/saleRepository');
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
   getCurrentBranchId: jest.fn(),
@@ -30,8 +28,6 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const mockedSaleService = saleService as jest.Mocked<typeof saleService>;
-const mockedSaleRepository =
-  saleRepository as jest.Mocked<typeof saleRepository>;
 const mockedRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>;
 const mockedGetCurrentBranchId =
   getCurrentBranchId as jest.MockedFunction<typeof getCurrentBranchId>;
@@ -81,9 +77,9 @@ describe('ventas /api/ventas', () => {
     });
 
     test('devuelve las ventas por fecha con status 200', async () => {
-      mockedSaleRepository.findByDateRange.mockResolvedValue(
+      mockedSaleService.listSalesByDateRange.mockResolvedValue(
         paginatedResponse as unknown as Awaited<
-          ReturnType<typeof saleRepository.findByDateRange>
+          ReturnType<typeof saleService.listSalesByDateRange>
         >
       );
 
@@ -92,19 +88,18 @@ describe('ventas /api/ventas', () => {
 
       expect(response.status).toBe(200);
       expect(body.items).toEqual([]);
-      expect(mockedSaleRepository.findByDateRange).toHaveBeenCalledWith(
+      expect(mockedSaleService.listSalesByDateRange).toHaveBeenCalledWith(
         BRANCH_ID,
         expect.any(Date),
         expect.any(Date),
-        'active',
         { page: 1, limit: 10 }
       );
     });
 
     test('devuelve las ventas por caja con status 200', async () => {
-      mockedSaleRepository.findByCashRegisterId.mockResolvedValue(
+      mockedSaleService.listSalesByCashRegister.mockResolvedValue(
         paginatedResponse as unknown as Awaited<
-          ReturnType<typeof saleRepository.findByCashRegisterId>
+          ReturnType<typeof saleService.listSalesByCashRegister>
         >
       );
 
@@ -113,10 +108,9 @@ describe('ventas /api/ventas', () => {
 
       expect(response.status).toBe(200);
       expect(body.items).toEqual([]);
-      expect(mockedSaleRepository.findByCashRegisterId).toHaveBeenCalledWith(
+      expect(mockedSaleService.listSalesByCashRegister).toHaveBeenCalledWith(
         BRANCH_ID,
         5,
-        undefined,
         { page: 1, limit: 10 }
       );
     });
@@ -129,8 +123,8 @@ describe('ventas /api/ventas', () => {
       expect(body.error).toBe('El ID de caja debe ser un número positivo.');
     });
 
-    test('devuelve 404 cuando el repositorio lanza NotFoundError', async () => {
-      mockedSaleRepository.findByDateRange.mockRejectedValue(
+    test('devuelve 404 cuando el servicio lanza NotFoundError', async () => {
+      mockedSaleService.listSalesByDateRange.mockRejectedValue(
         new NotFoundError('Venta', 1)
       );
 
@@ -141,8 +135,8 @@ describe('ventas /api/ventas', () => {
       expect(body.error).toBe('Venta con ID 1 no encontrado.');
     });
 
-    test('devuelve 400 ante un ValidationError del repositorio', async () => {
-      mockedSaleRepository.findByDateRange.mockRejectedValue(
+    test('devuelve 400 ante un ValidationError del servicio', async () => {
+      mockedSaleService.listSalesByDateRange.mockRejectedValue(
         new ValidationError('Rango de fechas inválido.')
       );
 
@@ -157,7 +151,7 @@ describe('ventas /api/ventas', () => {
       const dbError = Object.assign(new Error('connection refused'), {
         code: 'ECONNREFUSED',
       });
-      mockedSaleRepository.findByDateRange.mockRejectedValue(dbError);
+      mockedSaleService.listSalesByDateRange.mockRejectedValue(dbError);
 
       const response = await GET(buildRequest('date=2025-01-15'), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
@@ -167,7 +161,7 @@ describe('ventas /api/ventas', () => {
     });
 
     test('devuelve 500 ante cualquier error inesperado', async () => {
-      mockedSaleRepository.findByDateRange.mockRejectedValue(
+      mockedSaleService.listSalesByDateRange.mockRejectedValue(
         new Error('Error desconocido')
       );
 

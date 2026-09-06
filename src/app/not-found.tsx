@@ -5,7 +5,7 @@ export default function NotFoundPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12 text-center">
       <h1 className="text-4xl font-semibold tracking-tight">404</h1>
-      <p className="mt-4 text-lg text-muted-foreground">
+      <p data-testid="not-found-message" className="mt-4 text-lg text-muted-foreground">
         Esta página no se pudo encontrar.
       </p>
       <Link

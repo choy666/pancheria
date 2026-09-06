@@ -37,7 +37,7 @@ test.describe('Rol administrador', () => {
     }
 
     // El navbar de admin muestra todas las secciones.
-    const nav = page.locator('nav[data-tour="main-nav"]');
+    const nav = page.locator('nav[data-testid="main-nav"]');
     for (const label of ['Panel', 'Ventas', 'Historial', 'Productos', 'Stock', 'Caja', 'Sucursales', 'Usuarios']) {
       await expect(nav).toContainText(label);
     }
@@ -60,10 +60,10 @@ test.describe('Rol administrador', () => {
       page.getByTestId('user-username').filter({ hasText: secondBranch.username })
     ).toBeVisible();
 
-    const adminRow = page.locator('tr').filter({ hasText: adminUsername });
+    const adminRow = page.getByTestId('user-row').filter({ hasText: adminUsername });
     await expect(adminRow).toContainText('Todas las sucursales');
 
-    const operatorRow = page.locator('tr').filter({ hasText: secondBranch.username });
+    const operatorRow = page.getByTestId('user-row').filter({ hasText: secondBranch.username });
     await expect(operatorRow).toContainText(secondBranch.branchName);
   });
 
@@ -73,7 +73,7 @@ test.describe('Rol administrador', () => {
 
     await page.goto('/');
 
-    const selector = page.locator('[aria-label="Sucursal activa"]');
+    const selector = page.getByTestId('branch-selector-trigger');
     await expect(selector).toBeVisible();
     await expect(selector).toContainText(defaultBranchName);
 
@@ -98,7 +98,7 @@ test.describe('Rol administrador', () => {
     await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
-    const adminRow = page.locator('tr').filter({ hasText: adminUsername });
+    const adminRow = page.getByTestId('user-row').filter({ hasText: adminUsername });
     await expect(adminRow).toBeVisible();
     await expect(adminRow.getByRole('button', { name: 'Editar' })).toHaveCount(0);
     await expect(adminRow.getByRole('button', { name: 'Eliminar' })).toHaveCount(0);
@@ -116,8 +116,8 @@ test.describe('Rol administrador', () => {
 
     // Crear un operador en la sucursal por defecto.
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
-    await page.locator('#password').fill('123456');
-    await page.locator('#branchId').click();
+    await page.getByRole('textbox', { name: 'Contraseña' }).fill('123456');
+    await page.getByRole('combobox', { name: 'Sucursal', exact: true }).click();
     await expect(page.locator('[role="listbox"]')).toBeVisible();
     await page
       .locator('[role="option"]', { hasText: defaultBranchName })
@@ -130,13 +130,13 @@ test.describe('Rol administrador', () => {
       page.getByTestId('user-username').filter({ hasText: operatorUsername })
     ).toBeVisible({ timeout: 10000 });
 
-    const operatorRow = page.locator('tr').filter({ hasText: operatorUsername });
+    const operatorRow = page.getByTestId('user-row').filter({ hasText: operatorUsername });
 
     // Editar el operador: cambiar nombre, sucursal y contraseña.
     await operatorRow.getByRole('button', { name: 'Editar' }).click();
     await page.getByLabel('Nombre de usuario').fill(editedUsername);
-    await page.locator('#password').fill('nueva1234');
-    await page.locator('#branchId').click();
+    await page.getByRole('textbox', { name: 'Contraseña' }).fill('nueva1234');
+    await page.getByRole('combobox', { name: 'Sucursal', exact: true }).click();
     await expect(page.locator('[role="listbox"]')).toBeVisible();
     await page
       .locator('[role="option"]', { hasText: secondBranch.branchName })
@@ -190,7 +190,7 @@ test.describe('Rol operador', () => {
   });
 
   test('no puede acceder a rutas de administración ni ver su navegación', async ({ page }) => {
-    const nav = page.locator('nav[data-tour="main-nav"]');
+    const nav = page.locator('nav[data-testid="main-nav"]');
 
     // El navbar del operador solo muestra sus secciones permitidas.
     for (const label of ['Panel', 'Ventas', 'Historial', 'Stock', 'Caja']) {
@@ -216,7 +216,7 @@ test.describe('Rol operador', () => {
   });
 
   test('no ve el selector de sucursal', async ({ page }) => {
-    await expect(page.locator('[aria-label="Sucursal activa"]')).toHaveCount(0);
+    await expect(page.getByTestId('branch-selector-trigger')).toHaveCount(0);
   });
 
   test('ve el nombre de su sucursal asignada en la navbar', async ({ page }) => {
@@ -302,7 +302,7 @@ test.describe('Aislamiento de datos por sucursal', () => {
     await expect(page.getByRole('heading', { name: 'Stock' })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByText(ownProduct, { exact: true })).toBeVisible();
-    await expect(page.getByText(otherProduct, { exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-testid="stock-row"][data-product-name="' + ownProduct + '"]')).toBeVisible();
+    await expect(page.locator('[data-testid="stock-row"][data-product-name="' + otherProduct + '"]')).toHaveCount(0);
   });
 });

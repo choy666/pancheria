@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authenticatedFetch } from '@/lib/fetch';
+import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { formatMoney } from '@/lib/money';
 import { formatTime } from '@/lib/date';
 import { Button } from '@/components/ui/button';
@@ -89,8 +89,7 @@ export function SalesHistory({
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error || 'Error al cargar ventas');
+        await throwApiError(response, 'Error al cargar ventas');
       }
 
       return (await response.json()) as PaginatedResult<Sale>;
@@ -132,8 +131,7 @@ export function SalesHistory({
       );
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al anular la venta');
+        await throwApiError(response, 'Error al anular la venta');
       }
 
       setSelectedSale(null);

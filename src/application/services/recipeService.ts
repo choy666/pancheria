@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm';
-import { db } from '@/db';
-import { recipes } from '@/db/schema';
+import { executeInTransaction } from '@/application/transactionService';
 import * as recipeRepository from '@/repositories/recipeRepository';
 import * as productRepository from '@/repositories/productRepository';
 import { NotFoundError, ValidationError } from '@/domain/errors';
@@ -83,10 +81,8 @@ export async function saveRecipe(
     }
   }
 
-  return db.transaction(async (tx) => {
-    await tx
-      .delete(recipes)
-      .where(eq(recipes.compoundProductId, compoundProductId));
+  return executeInTransaction(async (tx) => {
+    await recipeRepository.deleteByCompoundProductId(tx, compoundProductId);
 
     const values = items.map((item) => ({
       compoundProductId,
@@ -98,6 +94,6 @@ export async function saveRecipe(
       selectedByDefault: item.selectedByDefault ?? false,
     }));
 
-    return tx.insert(recipes).values(values).returning();
+    return recipeRepository.insertMany(tx, values);
   });
 }

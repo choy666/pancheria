@@ -151,6 +151,21 @@ export async function findActive(branchId: number): Promise<ProductRow[]> {
   });
 }
 
+export async function findActiveCriticalSupplies(
+  branchId: number,
+  dbOrTx?: typeof db
+): Promise<ProductRow[]> {
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  return client.query.products.findMany({
+    where: and(
+      eq(products.branchId, branchId),
+      eq(products.type, 'critical_supply'),
+      eq(products.isActive, true),
+      isNull(products.deletedAt)
+    ),
+  });
+}
+
 export async function findDeletedInRange(
   branchId: number,
   start: Date,

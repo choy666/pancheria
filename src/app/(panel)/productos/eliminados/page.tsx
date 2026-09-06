@@ -59,7 +59,7 @@ export default async function ProductsTrashPage() {
           </TableHeader>
           <TableBody>
             {deletedProducts.map((product) => (
-              <TableRow key={product.id} data-testid="product-trash-row">
+              <TableRow key={product.id} data-testid="product-trash-row" data-product-name={product.name}>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <Badge variant="outline">{productTypeLabels[product.type]}</Badge>

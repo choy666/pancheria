@@ -32,7 +32,7 @@ export function PedidoHeader({ orderNumber, status }: PedidoHeaderProps) {
         Pedido #{orderNumber}
       </h1>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={statusVariants[status]}>
+        <Badge variant={statusVariants[status]} data-testid="order-status" data-status={status}>
           {statusLabels[status]}
         </Badge>
       </div>

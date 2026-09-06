@@ -320,6 +320,10 @@ class S3R2StorageProvider implements StorageProvider {
     const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
       credentials;
 
+    // Los imports dinámicos con nombre de módulo en variable son intencionales:
+    // evitan cargar los SDK de AWS salvo que se use STORAGE_PROVIDER=s3/r2.
+    // Webpack emite "Critical dependency: the request of a dependency is an
+    // expression" en `next build --webpack`; es un warning esperado, no un error.
     const clientModuleName = '@aws-sdk/client-s3';
     const presignerModuleName = '@aws-sdk/s3-presigned-post';
 

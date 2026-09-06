@@ -28,7 +28,7 @@ export function CartSummary({
   return (
     <Card className="lg:sticky lg:top-24">
       <CardHeader>
-        <CardTitle className="text-lg">Tu pedido</CardTitle>
+        <CardTitle data-testid="cart-title" className="text-lg">Tu pedido</CardTitle>
       </CardHeader>
 
       <CardContent className="space-y-5">

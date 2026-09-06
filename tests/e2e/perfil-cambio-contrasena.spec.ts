@@ -42,7 +42,9 @@ test.describe('Cambio de contraseña desde el perfil', () => {
     await expect(
       page.getByTestId('change-password-success')
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Contraseña actualizada correctamente.')).toBeVisible();
+    await expect(page.getByTestId('change-password-success')).toHaveText(
+      'Contraseña actualizada correctamente.'
+    );
 
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
     await expect(page).toHaveURL('/login', { timeout: 15000 });
