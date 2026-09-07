@@ -113,8 +113,13 @@ test.describe('Flujo completo de un día de operación', () => {
 
     await cardBebida.click();
 
-    await page.getByTestId('payment-transfer-full').click();
-    await page.getByRole('button', { name: 'Confirmar venta' }).click();
+    // El efectivo arranca cubriendo el total; para pagar todo por
+    // transferencia hay que llevarlo a cero antes de cargar el monto.
+    await page.getByTestId('payment-cash-input').fill('0');
+    await page.getByTestId('payment-transfer-input').fill('3800');
+    const confirmButton = page.getByRole('button', { name: 'Confirmar venta' });
+    await expect(confirmButton).toBeEnabled({ timeout: 10000 });
+    await confirmButton.click();
 
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,

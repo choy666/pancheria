@@ -54,7 +54,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await expect(card).toHaveAttribute('data-out-of-stock', 'true');
     await expect(card).toHaveAttribute('aria-disabled', 'true');
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('600');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
@@ -105,7 +105,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       cartItem.getByText('3', { exact: true })
     ).toBeVisible({ timeout: 10000 });
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('750');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
@@ -178,7 +178,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await card.click();
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('1500');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
@@ -254,7 +254,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     await expect(button).toBeEnabled({ timeout: 10000 });
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('1500');
     await button.click();
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,
@@ -353,7 +353,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       page.locator('[data-testid="cart-item"][data-product-name="' + promo.name + '"]')
     ).toHaveCount(2, { timeout: 5000 });
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('3000');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
 
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({

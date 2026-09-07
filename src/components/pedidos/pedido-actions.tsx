@@ -47,9 +47,7 @@ export function PedidoActions({
     (status === 'pending' || status === 'in_process') && !!cashRegister;
   const canFinish = status === 'paid';
   const canCancel =
-    status === 'pending' ||
-    status === 'in_process' ||
-    status === 'paid';
+    status === 'pending' || status === 'in_process' || status === 'paid';
 
   return (
     <div className="space-y-5">
@@ -92,7 +90,9 @@ export function PedidoActions({
               <p className="text-sm text-amber-500">
                 {paymentRemaining > 0
                   ? `Faltan ${formatMoney(paymentRemaining)} para completar el pago.`
-                  : `Sobran ${formatMoney(Math.abs(paymentRemaining))}. Ajustá el pago antes de confirmar.`}
+                  : `Sobran ${formatMoney(
+                      Math.abs(paymentRemaining)
+                    )}. Ajustá el pago antes de confirmar.`}
               </p>
             )}
           </div>

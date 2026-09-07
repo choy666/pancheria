@@ -61,7 +61,7 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
     await page
       .locator(`[data-testid="product-card"][data-product-name="${promo.name}"]`)
       .click();
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('1000');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page).toHaveURL('/ventas', { timeout: 10000 });
   });

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
+import { parseMoneyAmount } from '@/lib/payment-helpers';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -241,16 +243,18 @@ export function ProductForm({ product }: ProductFormProps) {
         {!isManual && (
           <div className="space-y-2">
             <Label htmlFor="price">Precio</Label>
-            <Input
+            <MoneyAmountInput
               id="price"
-              type="number"
-              step="0.01"
-              min={0}
-              value={form.price}
-              onChange={(e) =>
-                setForm({ ...form, price: Number(e.target.value) })
-              }
-              required
+              amount={form.price}
+              decimals={2}
+              onRawChange={(raw) => {
+                const parsed = parseMoneyAmount(raw, 2);
+                if (parsed !== null) {
+                  setForm({ ...form, price: parsed });
+                }
+              }}
+              ariaLabel="Precio de venta"
+              className="bg-background font-mono text-base font-semibold"
             />
             <p className="text-sm text-muted-foreground">
               Precio de venta. Para insumos crudos suele ser 0.

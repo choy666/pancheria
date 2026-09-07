@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { groupPublicProductsByType } from '@/lib/catalog';
 import { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
+import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import { getPedidoRefetchIntervalMs } from '@/config/catalog';
 import {
   PUBLIC_CATALOGO_API,
@@ -113,7 +114,7 @@ export interface UsePedidoClientResult {
   editingLine: { lineId: string; product: PublicCatalogProduct; initialSelectedIds: number[]; dialogKey: string } | null;
   startEditLine: (lineId: string) => void;
   cancelEditLine: () => void;
-  confirmEditLine: (selectedRecipeItemIds: number[]) => void;
+  confirmEditLine: (payload: PromoOptionsConfirmPayload) => void;
 
   recentOrders: RecentOrder[];
   removeRecentOrder: (orderId: number) => void;
@@ -201,6 +202,8 @@ export function usePedidoClient({
     addItem: cartAddItem,
     removeItem,
     updateQuantity,
+    updateItem,
+    splitLine,
     updateSelectedRecipeItemIds,
     clearCart,
   } = useCart({
@@ -414,7 +417,10 @@ export function usePedidoClient({
   }, []);
 
   const confirmEditLine = useCallback(
-    (selectedRecipeItemIds: number[]) => {
+    ({
+      selectedRecipeItemIds,
+      applyQuantity,
+    }: PromoOptionsConfirmPayload) => {
       if (!editingLine) return;
 
       const editedItem = items.find((i) => i.lineId === editingLine.lineId);
@@ -423,18 +429,29 @@ export function usePedidoClient({
         return;
       }
 
+      const applyAll =
+        applyQuantity === null || applyQuantity >= editedItem.quantity;
+
+      if (!applyAll) {
+        splitLine(editingLine.lineId, applyQuantity, selectedRecipeItemIds);
+        setEditingLine(null);
+        return;
+      }
+
       const matchingLine = items.find(
         (i) =>
           i.lineId !== editingLine.lineId &&
           i.id === editedItem.id &&
-          areRecipeSelectionsEqual(i.selectedRecipeItemIds, selectedRecipeItemIds)
+          areRecipeSelectionsEqual(
+            i.selectedRecipeItemIds,
+            selectedRecipeItemIds
+          )
       );
 
       if (matchingLine) {
-        updateQuantity(
-          matchingLine.lineId,
-          matchingLine.quantity + editedItem.quantity
-        );
+        updateItem(matchingLine.lineId, {
+          quantity: matchingLine.quantity + editedItem.quantity,
+        });
         removeItem(editingLine.lineId);
       } else {
         updateSelectedRecipeItemIds(editingLine.lineId, selectedRecipeItemIds);
@@ -442,7 +459,14 @@ export function usePedidoClient({
 
       setEditingLine(null);
     },
-    [editingLine, items, removeItem, updateQuantity, updateSelectedRecipeItemIds]
+    [
+      editingLine,
+      items,
+      removeItem,
+      updateItem,
+      splitLine,
+      updateSelectedRecipeItemIds,
+    ]
   );
 
   function handleBranchChange(branchId: string | null) {

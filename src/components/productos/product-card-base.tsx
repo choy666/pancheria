@@ -95,7 +95,9 @@ export function ProductCardBase({
   const buttonLabel = isOutOfStock
     ? 'Agotado'
     : hasOptions
-      ? 'Personalizar'
+      ? inCartQuantity > 0 || inCart
+        ? 'Personalizar otra'
+        : 'Personalizar'
       : inCartQuantity > 0 || inCart
         ? 'Agregar otro'
         : 'Agregar';
@@ -156,24 +158,25 @@ export function ProductCardBase({
           <CardTitle className="text-lg font-semibold leading-tight">
             {product.name}
           </CardTitle>
-          {isCatalog ? (
-            <Badge
-              className={productTypeBadgeClasses[product.type]}
-              variant="outline"
-            >
-              {typeLabel}
-            </Badge>
-          ) : (
-            inCartQuantity > 0 && (
+          <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5">
+            {isCatalog && (
+              <Badge
+                className={productTypeBadgeClasses[product.type]}
+                variant="outline"
+              >
+                {typeLabel}
+              </Badge>
+            )}
+            {inCartQuantity > 0 && (
               <Badge
                 variant="default"
                 className="shrink-0"
                 data-testid={`product-card-cart-quantity-${product.id}`}
               >
-                {inCartQuantity} en venta
+                {inCartQuantity} {isCatalog ? 'en tu pedido' : 'en venta'}
               </Badge>
-            )
-          )}
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -257,7 +260,9 @@ export function ProductCardBase({
           productPrice={product.price}
           recipe={recipe}
           initialSelectedIds={defaultSelectedIds}
-          onConfirm={onAdd}
+          onConfirm={({ selectedRecipeItemIds }) =>
+            onAdd(selectedRecipeItemIds)
+          }
         />
       )}
     </Card>

@@ -10,8 +10,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { formatMoney } from '@/lib/money';
 import type { RecipeItemConfig } from '@/domain/types';
+
+export interface PromoOptionsConfirmPayload {
+  selectedRecipeItemIds: number[];
+  /** Cantidad de unidades a las que aplica la nueva selección. `null` indica que aplica a todas. */
+  applyQuantity: number | null;
+}
 
 export interface PromoOptionsDialogProps {
   open: boolean;
@@ -20,7 +27,9 @@ export interface PromoOptionsDialogProps {
   productPrice: number;
   recipe: RecipeItemConfig[];
   initialSelectedIds?: number[];
-  onConfirm: (selectedRecipeItemIds: number[]) => void;
+  /** Cantidad de la línea en edición. Si es mayor a 1, se ofrece aplicar solo a una unidad. */
+  editingQuantity?: number;
+  onConfirm: (payload: PromoOptionsConfirmPayload) => void;
   mode?: 'add' | 'edit';
   confirmLabel?: string;
 }
@@ -82,6 +91,7 @@ export function PromoOptionsDialog({
   productPrice,
   recipe,
   initialSelectedIds,
+  editingQuantity,
   onConfirm,
   mode = 'add',
   confirmLabel,
@@ -92,6 +102,9 @@ export function PromoOptionsDialog({
         .filter((item) => item.isOptional && item.selectedByDefault)
         .map((item) => item.supplyId)
   );
+
+  const canApplyToOne = mode === 'edit' && (editingQuantity ?? 0) > 1;
+  const [applyScope, setApplyScope] = useState<'all' | 'one'>('all');
 
   const alwaysIncludeItems = useMemo(
     () => recipe.filter((item) => !item.isOptional),
@@ -135,7 +148,8 @@ export function PromoOptionsDialog({
   };
 
   const handleConfirm = () => {
-    onConfirm(selectedIds);
+    const applyQuantity = canApplyToOne && applyScope === 'one' ? 1 : null;
+    onConfirm({ selectedRecipeItemIds: selectedIds, applyQuantity });
     onOpenChange(false);
   };
 
@@ -175,6 +189,25 @@ export function PromoOptionsDialog({
             selectedIds,
             handleToggle,
             true
+          )}
+
+          {canApplyToOne && (
+            <div className="space-y-2">
+              <Label htmlFor="apply-scope" className="text-sm font-medium">
+                Aplicar personalización a
+              </Label>
+              <select
+                id="apply-scope"
+                value={applyScope}
+                onChange={(event) =>
+                  setApplyScope(event.target.value as 'all' | 'one')
+                }
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
+              >
+                <option value="all">Las {editingQuantity} unidades</option>
+                <option value="one">Solo 1 unidad</option>
+              </select>
+            </div>
           )}
 
           {selectedSummary && (

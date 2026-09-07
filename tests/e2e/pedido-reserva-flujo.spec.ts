@@ -76,7 +76,7 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
       .getByRole('link', { name: 'Ver' })
       .click();
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('1000');
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
 
     await expect(page.getByTestId('order-status')).toHaveText('Pagado', {

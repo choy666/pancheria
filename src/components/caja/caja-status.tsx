@@ -6,9 +6,11 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
+import { parseMoneyAmount } from '@/lib/payment-helpers';
 import {
   Dialog,
   DialogContent,
@@ -35,10 +37,7 @@ interface CajaStatusProps {
 }
 
 function parseAmount(value: string): number {
-  const trimmed = value.trim().replace(',', '.');
-  if (trimmed === '') return 0;
-  const parsed = Number(trimmed);
-  return Number.isNaN(parsed) ? 0 : Math.round(parsed);
+  return parseMoneyAmount(value, 0) ?? 0;
 }
 
 export function CajaStatus({
@@ -110,17 +109,14 @@ export function CajaStatus({
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="initial-amount">Monto inicial de caja</Label>
-                  <Input
+                  <MoneyAmountInput
                     id="initial-amount"
-                    data-testid="initial-amount-input"
-                    type="number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min={0}
-                    step={1}
-                    placeholder="0"
-                    value={initialAmount}
-                    onChange={(e) => setInitialAmount(e.target.value)}
+                    testId="initial-amount-input"
+                    amount={parseMoneyAmount(initialAmount, 0) ?? 0}
+                    decimals={0}
+                    onRawChange={setInitialAmount}
+                    ariaLabel="Monto inicial de caja"
+                    className="bg-background font-mono text-base font-semibold"
                   />
                   <p className="text-sm text-muted-foreground">
                     Dejalo en 0 si no hay monto inicial.
@@ -213,17 +209,14 @@ export function CajaStatus({
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="closing-cash-count">Efectivo contado</Label>
-                <Input
+                <MoneyAmountInput
                   id="closing-cash-count"
-                  data-testid="closing-cash-count-input"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min={0}
-                  step={1}
-                  placeholder="0"
-                  value={closingCashCount}
-                  onChange={(e) => setClosingCashCount(e.target.value)}
+                  testId="closing-cash-count-input"
+                  amount={parseMoneyAmount(closingCashCount, 0) ?? 0}
+                  decimals={0}
+                  onRawChange={setClosingCashCount}
+                  ariaLabel="Efectivo contado al cerrar caja"
+                  className="bg-background font-mono text-base font-semibold"
                 />
                 <p className="text-sm text-muted-foreground">
                   Esperado en efectivo: {formatMoney((cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount))}

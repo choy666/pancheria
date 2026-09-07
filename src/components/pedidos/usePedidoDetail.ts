@@ -86,7 +86,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
   const orderTotal = order?.total ?? 0;
   const {
     paymentParts,
-    setPayments: setPaymentOverrides,
+    setPayments,
     remaining,
     isComplete,
   } = usePaymentParts(orderTotal, {
@@ -207,7 +207,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            payments: paymentParts,
+            payments: paymentParts.filter((p) => p.amount > 0),
             idempotencyKey: nanoid(),
           }),
         }
@@ -297,7 +297,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     loading,
     error,
     payments: paymentParts,
-    setPayments: setPaymentOverrides,
+    setPayments,
     isPaymentComplete: isComplete,
     paymentRemaining: remaining,
     cancelReason,

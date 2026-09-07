@@ -126,7 +126,7 @@ test.describe('Venta con stock compartido entre promos', () => {
       timeout: 10000,
     });
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('9000');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,

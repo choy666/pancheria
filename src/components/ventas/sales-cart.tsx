@@ -140,23 +140,28 @@ export function SalesCart({
             </p>
           ) : (
             <ul className="space-y-4">
-              {cart.map((item) => {
-                const additional = getProductAdditional(
-                  item.product,
-                  cartAvailability,
-                  item.quantity
-                );
-                const canIncrease =
-                  item.product.type === 'service' || additional > 0;
-                const lineSubtotal = moneyToNumber(
-                  multiplyMoney(
-                    parseMoney(item.product.price),
+              {(() => {
+                const shownShortageProductIds = new Set<number>();
+                return cart.map((item) => {
+                  const additional = getProductAdditional(
+                    item.product,
+                    cartAvailability,
                     item.quantity
-                  )
-                );
-                const shortage = cartShortage[item.product.id];
+                  );
+                  const canIncrease =
+                    item.product.type === 'service' || additional > 0;
+                  const lineSubtotal = moneyToNumber(
+                    multiplyMoney(
+                      parseMoney(item.product.price),
+                      item.quantity
+                    )
+                  );
+                  const shortage = cartShortage[item.product.id];
+                  const showShortage =
+                    shortage && !shownShortageProductIds.has(item.product.id);
+                  if (showShortage) shownShortageProductIds.add(item.product.id);
 
-                return (
+                  return (
                   <li
                     key={item.lineId}
                     data-testid="cart-item"
@@ -186,14 +191,14 @@ export function SalesCart({
                           />
                         </p>
                       )}
-                    {shortage && (
+                    {showShortage && (
                       <p
                         data-testid="cart-item-shortage"
                         className="text-xs font-medium text-amber-700"
                       >
-                        Sin insumos suficientes: falta {shortage.supplyName}{' '}
-                        (disponible {shortage.available}, requerido{' '}
-                        {shortage.required}).
+                        Sin insumos suficientes: falta {shortage?.supplyName}{' '}
+                        (disponible {shortage?.available}, requerido{' '}
+                        {shortage?.required}).
                       </p>
                     )}
                     <div className="flex items-center gap-2">
@@ -256,7 +261,8 @@ export function SalesCart({
                     </div>
                   </li>
                 );
-              })}
+              });
+            })()}
             </ul>
           )}
 

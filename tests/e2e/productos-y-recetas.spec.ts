@@ -460,6 +460,11 @@ test.describe('Edición y eliminación de promos', () => {
     );
 
     const newPrice = 1500;
+    // El campo de precio usa formato es-AR con decimales (MoneyAmountInput).
+    const expectedPrice = new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(newPrice);
 
     // Actualizamos el precio por API para evitar depender de eventos del
     // input controlado en UI, que mostró flakiness con el entorno E2E.
@@ -478,7 +483,7 @@ test.describe('Edición y eliminación de promos', () => {
     await expect(page.getByTestId('promo-form-title')).toHaveText('Editar promo');
 
     const priceInput = page.getByTestId('promo-price');
-    await expect(priceInput).toHaveValue(String(newPrice));
+    await expect(priceInput).toHaveValue(expectedPrice);
 
     // La edición de receta por Select fue flaky en la suite completa
     // (el valor no se reflejaba consistentemente), así que actualizamos
@@ -495,7 +500,7 @@ test.describe('Edición y eliminación de promos', () => {
 
     await page.goto(`/productos/${promo.id}/editar`);
     await expect(page.getByTestId('promo-form-title')).toHaveText('Editar promo');
-    await expect(priceInput).toHaveValue(String(newPrice));
+    await expect(priceInput).toHaveValue(expectedPrice);
     await expect(
       page.locator('[data-testid="recipe-item"]').first()
     ).toHaveAttribute('data-supply-name', salchicha.name);

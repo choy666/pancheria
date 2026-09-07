@@ -4,10 +4,17 @@ import { formatMoney } from '@/lib/money';
 import { CartItemRecipeDetails } from './cart-item-recipe-details';
 import type { CartItem } from '@/hooks/useCart';
 
+interface ShortageInfo {
+  available: number;
+  required: number;
+  supplyName: string;
+}
+
 interface CartSummaryProps {
   branchName?: string;
   items: CartItem[];
   total: number;
+  shortageByProduct?: Record<number, ShortageInfo>;
   onUpdateQuantity: (lineId: string, quantity: number) => void;
   onRemove: (lineId: string) => void;
   onEditLine?: (lineId: string) => void;
@@ -19,6 +26,7 @@ export function CartSummary({
   branchName,
   items,
   total,
+  shortageByProduct = {},
   onUpdateQuantity,
   onRemove,
   onEditLine,
@@ -44,85 +52,106 @@ export function CartSummary({
           </p>
         ) : (
           <ul className="space-y-3">
-            {items.map((item) => (
-              <li
-                key={item.lineId}
-                data-testid="cart-item"
-                data-line-id={item.lineId}
-                data-product-id={item.id}
-                data-product-name={item.name}
-                className="flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{item.name}</p>
-                  <p className="font-mono text-sm text-muted-foreground">
-                    {formatMoney(item.price)} x {item.quantity}
-                  </p>
-                  {item.type === 'compound' && item.recipe && item.recipe.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      <CartItemRecipeDetails
-                        recipe={item.recipe}
-                        selectedRecipeItemIds={item.selectedRecipeItemIds}
-                      />
+            {(() => {
+              const shownShortageProductIds = new Set<number>();
+              return items.map((item) => {
+                const shortage = shortageByProduct[item.id];
+                const showShortage =
+                  shortage && !shownShortageProductIds.has(item.id);
+                if (showShortage) shownShortageProductIds.add(item.id);
+                return (
+                <li
+                  key={item.lineId}
+                  data-testid="cart-item"
+                  data-line-id={item.lineId}
+                  data-product-id={item.id}
+                  data-product-name={item.name}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{item.name}</p>
+                    <p className="font-mono text-sm text-muted-foreground">
+                      {formatMoney(item.price)} x {item.quantity}
                     </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Disminuir cantidad"
-                    onClick={() =>
-                      onUpdateQuantity(item.lineId, item.quantity - 1)
-                    }
-                    disabled={disabled}
-                  >
-                    -
-                  </Button>
-                  <span className="min-w-8 text-center font-mono text-base">
-                    {item.quantity}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Aumentar cantidad"
-                    onClick={() =>
-                      onUpdateQuantity(item.lineId, item.quantity + 1)
-                    }
-                    disabled={disabled}
-                  >
-                    +
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Quitar producto"
-                    onClick={() => onRemove(item.lineId)}
-                    disabled={disabled}
-                  >
-                    ×
-                  </Button>
-                  {item.type === 'compound' &&
-                    item.recipe &&
-                    item.recipe.some((r) => r.isOptional) &&
-                    onEditLine && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Editar personalización de ${item.name}`}
-                        onClick={() => onEditLine(item.lineId)}
-                        disabled={disabled}
+                    {item.type === 'compound' &&
+                      item.recipe &&
+                      item.recipe.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          <CartItemRecipeDetails
+                            recipe={item.recipe}
+                            selectedRecipeItemIds={item.selectedRecipeItemIds}
+                          />
+                        </p>
+                      )}
+                    {showShortage && (
+                      <p
+                        data-testid="cart-item-shortage"
+                        className="text-xs font-medium text-amber-700"
                       >
-                        Editar
-                      </Button>
+                        Sin insumos suficientes: falta {shortage?.supplyName}{' '}
+                        (disponible {shortage?.available}, requerido{' '}
+                        {shortage?.required}).
+                      </p>
                     )}
-                </div>
-              </li>
-            ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Disminuir cantidad"
+                      onClick={() =>
+                        onUpdateQuantity(item.lineId, item.quantity - 1)
+                      }
+                      disabled={disabled}
+                    >
+                      -
+                    </Button>
+                    <span className="min-w-8 text-center font-mono text-base">
+                      {item.quantity}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Aumentar cantidad"
+                      onClick={() =>
+                        onUpdateQuantity(item.lineId, item.quantity + 1)
+                      }
+                      disabled={disabled}
+                    >
+                      +
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Quitar producto"
+                      onClick={() => onRemove(item.lineId)}
+                      disabled={disabled}
+                    >
+                      ×
+                    </Button>
+                    {item.type === 'compound' &&
+                      item.recipe &&
+                      item.recipe.some((r) => r.isOptional) &&
+                      onEditLine && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Editar personalización de ${item.name}`}
+                          onClick={() => onEditLine(item.lineId)}
+                          disabled={disabled}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                  </div>
+                </li>
+              );
+            });
+          })()}
           </ul>
         )}
 
@@ -135,12 +164,25 @@ export function CartSummary({
         <Button
           type="button"
           className="w-full"
-          disabled={items.length === 0 || disabled}
+          disabled={
+            items.length === 0 ||
+            disabled ||
+            Object.keys(shortageByProduct).length > 0
+          }
           onClick={onCheckout}
           data-testid="checkout-button"
         >
           Hacer pedido
         </Button>
+        {Object.keys(shortageByProduct).length > 0 && (
+          <p
+            data-testid="checkout-blocker"
+            aria-live="polite"
+            className="text-center text-xs text-muted-foreground"
+          >
+            Hay productos sin insumos suficientes. Revisá las líneas marcadas.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

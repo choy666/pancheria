@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { formatNumber } from '@/lib/money';
 
 interface MoneyAmountInputProps {
   id: string;
-  /** Monto actual en pesos enteros. */
+  /** Monto actual. */
   amount: number;
+  /** Cantidad de decimales a mostrar y parsear (0 por defecto). */
+  decimals?: number;
   /** Recibe el texto crudo mientras se edita; el padre decide el parseo. */
   onRawChange: (raw: string) => void;
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -25,33 +27,58 @@ interface MoneyAmountInputProps {
  * texto crudo mientras el campo está enfocado para no pelear con el caret;
  * al perder el foco vuelve a mostrar el valor formateado.
  */
-export function MoneyAmountInput({
-  id,
-  amount,
-  onRawChange,
-  onKeyDown,
-  disabled,
-  placeholder = '0',
-  className,
-  testId,
-  ariaLabel,
-}: MoneyAmountInputProps) {
+export const MoneyAmountInput = forwardRef<
+  HTMLInputElement,
+  MoneyAmountInputProps
+>(function MoneyAmountInput(
+  {
+    id,
+    amount,
+    decimals = 0,
+    onRawChange,
+    onKeyDown,
+    disabled,
+    placeholder = '',
+    className,
+    testId,
+    ariaLabel,
+  },
+  ref
+) {
   const [draft, setDraft] = useState<string | null>(null);
-  const display = draft ?? (amount > 0 ? formatNumber(amount) : '');
+  const isEditing = draft !== null;
+  const includeCents = decimals > 0;
+  const display = isEditing
+    ? draft
+    : amount > 0
+      ? formatNumber(amount, includeCents)
+      : '';
+
+  // El signo $ se muestra solo cuando el input está vacío y sin foco,
+  // evitando que se superponga con el número ingresado.
+  const showSymbol = !isEditing && amount === 0;
 
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+      <span
+        className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base font-semibold text-foreground ${
+          showSymbol ? '' : 'hidden'
+        }`}
+      >
         $
       </span>
       <Input
+        ref={ref}
         id={id}
         data-testid={testId}
         type="text"
         inputMode="decimal"
+        autoComplete="off"
         value={display}
         aria-label={ariaLabel}
-        onFocus={() => setDraft(amount > 0 ? formatNumber(amount) : '')}
+        onFocus={() =>
+          setDraft(amount > 0 ? formatNumber(amount, includeCents) : '')
+        }
         onChange={(event) => {
           setDraft(event.target.value);
           onRawChange(event.target.value);
@@ -60,8 +87,8 @@ export function MoneyAmountInput({
         onKeyDown={onKeyDown}
         disabled={disabled}
         placeholder={placeholder}
-        className={className ?? 'pl-7'}
+        className={className ?? 'pl-11'}
       />
     </div>
   );
-}
+});

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
+import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import {
@@ -272,15 +273,67 @@ export function SalesTerminal() {
   }, []);
 
   const confirmEditLine = useCallback(
-    (selectedRecipeItemIds: number[]) => {
+    ({
+      selectedRecipeItemIds,
+      applyQuantity,
+    }: PromoOptionsConfirmPayload) => {
       if (!editingLine) return;
 
       setIsCheckingAvailability(true);
       setCart((prev) => {
-        const editedIndex = prev.findIndex((i) => i.lineId === editingLine.lineId);
+        const editedIndex = prev.findIndex(
+          (i) => i.lineId === editingLine.lineId
+        );
         if (editedIndex === -1) return prev;
 
         const editedItem = prev[editedIndex];
+        const applyAll =
+          applyQuantity === null || applyQuantity >= editedItem.quantity;
+
+        if (!applyAll) {
+          const unitsToExtract = applyQuantity;
+          const next = [...prev];
+          next[editedIndex] = {
+            ...editedItem,
+            quantity: editedItem.quantity - unitsToExtract,
+          };
+
+          const matchingIndex = next.findIndex(
+            (i, idx) =>
+              idx !== editedIndex &&
+              i.product.id === editedItem.product.id &&
+              areRecipeSelectionsEqual(
+                i.selectedRecipeItemIds ?? [],
+                selectedRecipeItemIds
+              )
+          );
+
+          if (matchingIndex !== -1) {
+            next[matchingIndex] = {
+              ...next[matchingIndex],
+              quantity: next[matchingIndex].quantity + unitsToExtract,
+            };
+          } else if (
+            areRecipeSelectionsEqual(
+              editedItem.selectedRecipeItemIds ?? [],
+              selectedRecipeItemIds
+            )
+          ) {
+            // La nueva selección es idéntica a la original: no tiene sentido
+            // dividir una unidad para que quede igual.
+            return prev;
+          } else {
+            next.splice(editedIndex + 1, 0, {
+              lineId: nanoid(),
+              product: editedItem.product,
+              quantity: unitsToExtract,
+              selectedRecipeItemIds,
+            });
+          }
+
+          return next;
+        }
+
         const matchingIndex = prev.findIndex(
           (i) =>
             i.lineId !== editingLine.lineId &&
@@ -369,7 +422,7 @@ export function SalesTerminal() {
             quantity: item.quantity,
             selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
           })),
-          payments: paymentParts,
+          payments: paymentParts.filter((p) => p.amount > 0),
           idempotencyKey: nanoid(),
         }),
       });
@@ -504,8 +557,8 @@ export function SalesTerminal() {
           productName={promoDialogProduct.name}
           productPrice={promoDialogProduct.price}
           recipe={promoDialogProduct.recipe ?? []}
-          onConfirm={(selected) => {
-            addToCart(promoDialogProduct, selected);
+          onConfirm={({ selectedRecipeItemIds }) => {
+            addToCart(promoDialogProduct, selectedRecipeItemIds);
             setPromoDialogProduct(null);
           }}
           confirmLabel="Agregar a la venta"
@@ -523,9 +576,10 @@ export function SalesTerminal() {
           productPrice={editingLine.product.price}
           recipe={editingLine.product.recipe ?? []}
           initialSelectedIds={editingLine.initialSelectedIds}
-          onConfirm={(selected) => {
-            confirmEditLine(selected);
-          }}
+          editingQuantity={
+            cart.find((i) => i.lineId === editingLine.lineId)?.quantity
+          }
+          onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"
         />

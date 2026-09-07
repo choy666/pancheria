@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
+import { parseMoneyAmount } from '@/lib/payment-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -353,7 +355,7 @@ export function PromoForm({ product }: PromoFormProps) {
     try {
       const formData = new FormData(e.currentTarget);
       const price =
-        Number(formData.get('promo-price')) || Number(form.price) || 0;
+        parseMoneyAmount(String(formData.get('promo-price') ?? form.price), 2) ?? 0;
 
       let productId = product?.id;
 
@@ -468,23 +470,21 @@ export function PromoForm({ product }: PromoFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="promo-price">Precio</Label>
-        <input
+        <MoneyAmountInput
           id="promo-price"
-          data-testid="promo-price"
-          name="promo-price"
-          type="text"
-          inputMode="decimal"
-          pattern="^[0-9]*\.?[0-9]*$"
-          className="min-h-11 w-full min-w-0 rounded-lg border border-input bg-input/50 px-3 py-2 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9 md:min-h-9 md:px-2.5 md:text-sm"
-          value={form.price}
-          onChange={(e) =>
+          testId="promo-price"
+          amount={parseMoneyAmount(form.price, 2) ?? 0}
+          decimals={2}
+          onRawChange={(raw) =>
             setForm((prev) => ({
               ...prev,
-              price: e.target.value,
+              price: raw,
             }))
           }
-          required
+          ariaLabel="Precio fijo de la promo"
+          className="bg-background font-mono text-base font-semibold"
         />
+        <input type="hidden" name="promo-price" value={form.price} />
         <p className="text-sm text-muted-foreground">
           Precio fijo de la promo. No depende de los insumos.
         </p>

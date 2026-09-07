@@ -39,7 +39,7 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     const row = page.locator('[data-testid^="row-order-"]').filter({ hasText: customerName });
     await row.getByRole('link', { name: 'Ver' }).click();
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('1000');
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
 
     await expect(

@@ -38,7 +38,7 @@ test.describe('Historial de cajas con ventas', () => {
     await expect(card).toBeVisible({ timeout: 10000 });
     await card.click();
 
-    await page.getByTestId('payment-cash-full').click();
+    await page.getByTestId('payment-cash-input').fill('500');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
     await expect(page.getByTestId('empty-cart-message')).toBeVisible({
       timeout: 10000,

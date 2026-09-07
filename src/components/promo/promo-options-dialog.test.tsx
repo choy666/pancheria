@@ -173,7 +173,10 @@ describe('PromoOptionsDialog', () => {
 
     fireEvent.click(screen.getByText('Agregar al pedido'));
 
-    expect(onConfirm).toHaveBeenCalledWith([2, 4]);
+    expect(onConfirm).toHaveBeenCalledWith({
+      selectedRecipeItemIds: [2, 4],
+      applyQuantity: null,
+    });
   });
 
   test('desmarcar un opcional lo excluye de los ids confirmados', () => {
@@ -192,7 +195,40 @@ describe('PromoOptionsDialog', () => {
     fireEvent.click(screen.getByLabelText(/Incluir Ketchup en Promo/));
     fireEvent.click(screen.getByText('Agregar al pedido'));
 
-    expect(onConfirm).toHaveBeenCalledWith([4]);
+    expect(onConfirm).toHaveBeenCalledWith({
+      selectedRecipeItemIds: [4],
+      applyQuantity: null,
+    });
+  });
+
+  test('en modo edición con cantidad mayor a 1 permite aplicar a una sola unidad', () => {
+    const onConfirm = jest.fn();
+    render(
+      <PromoOptionsDialog
+        open
+        onOpenChange={jest.fn()}
+        productName="Promo"
+        productPrice={1500}
+        recipe={baseRecipe}
+        initialSelectedIds={[2, 4]}
+        editingQuantity={3}
+        mode="edit"
+        onConfirm={onConfirm}
+      />
+    );
+
+    expect(screen.getByText('Aplicar personalización a')).toBeInTheDocument();
+
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    expect(select.value).toBe('all');
+
+    fireEvent.change(select, { target: { value: 'one' } });
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    expect(onConfirm).toHaveBeenCalledWith({
+      selectedRecipeItemIds: [2, 4],
+      applyQuantity: 1,
+    });
   });
 
   test('muestra el resumen de ítems seleccionados', () => {

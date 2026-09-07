@@ -5,17 +5,26 @@ import type { PaymentMethod, PaymentPart } from '@/domain/types';
 /**
  * Parsea un monto ingresado por el operador con una regla única es-AR:
  * '.' es siempre separador de miles y ',' es siempre separador decimal
- * (máx. una coma; los decimales se redondean a pesos enteros).
+ * (máx. una coma; los decimales se redondean según `decimals`).
  * Devuelve null si el texto no es un número válido.
  */
-export function parsePaymentAmount(raw: string): number | null {
+export function parseMoneyAmount(
+  raw: string,
+  decimals = 0
+): number | null {
   const value = raw.replace(/\s/g, '');
   if (!value) return null;
 
   const normalized = value.replace(/\./g, '').replace(',', '.');
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return null;
-  return Math.max(0, Math.round(parsed));
+
+  const factor = 10 ** decimals;
+  return Math.max(0, Math.round(parsed * factor) / factor);
+}
+
+export function parsePaymentAmount(raw: string): number | null {
+  return parseMoneyAmount(raw, 0);
 }
 
 export function sumPaymentParts(payments: PaymentPart[]): number {

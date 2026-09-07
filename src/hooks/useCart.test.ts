@@ -227,4 +227,74 @@ describe('useCart', () => {
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0].lineId).not.toBe(firstLineId);
   });
+
+  test('agregar el mismo producto en múltiples líneas respeta el stock total', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      // Cinco unidades con selección [1]
+      for (let i = 0; i < 5; i++) {
+        result.current.addItem(products[0], [1]);
+      }
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].quantity).toBe(5);
+
+    act(() => {
+      // No se puede agregar otra selección porque se agotó el stock.
+      result.current.addItem(products[0], [2]);
+    });
+
+    expect(result.current.items).toHaveLength(1);
+  });
+
+  test('splitLine separa una unidad con selección distinta', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], [1]);
+      result.current.addItem(products[0], [1]);
+    });
+
+    const lineId = result.current.items[0].lineId;
+
+    act(() => {
+      result.current.splitLine(lineId, 1, [2]);
+    });
+
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.items[0].quantity).toBe(1);
+    expect(result.current.items[0].selectedRecipeItemIds).toEqual([1]);
+    expect(result.current.items[1].quantity).toBe(1);
+    expect(result.current.items[1].selectedRecipeItemIds).toEqual([2]);
+  });
+
+  test('splitLine fusiona la unidad extraída con una línea coincidente', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], [1]);
+      result.current.addItem(products[0], [1]);
+      result.current.addItem(products[0], [2]);
+    });
+
+    const lineId = result.current.items[0].lineId;
+
+    act(() => {
+      result.current.splitLine(lineId, 1, [2]);
+    });
+
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.items[0].quantity).toBe(1);
+    expect(result.current.items[0].selectedRecipeItemIds).toEqual([1]);
+    expect(result.current.items[1].quantity).toBe(2);
+    expect(result.current.items[1].selectedRecipeItemIds).toEqual([2]);
+  });
 });

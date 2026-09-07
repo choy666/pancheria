@@ -814,11 +814,10 @@ describe('SalesTerminal', () => {
     await waitFor(() => {
       expect(screen.getByTestId('payment-transfer-input')).toHaveValue('500');
       expect(
-        screen.getByTestId('payment-remaining-badge')
+        screen.getByTestId('payment-remaining-message')
       ).toHaveTextContent('Pago completo');
-      expect(
-        screen.getByTestId('payment-mixed-badge')
-      ).toHaveTextContent('Mixto');
+      const button = screen.getByTestId('confirm-sale-button');
+      expect(button).not.toBeDisabled();
     });
   });
 
@@ -852,34 +851,32 @@ describe('SalesTerminal', () => {
       expect(screen.getByTestId('product-card-cart-quantity-1')).toBeInTheDocument()
     );
 
-    await waitFor(() => {
-      const button = screen.getByTestId('confirm-sale-button');
-      expect(button).toHaveTextContent('Confirmar venta');
-      expect(button).not.toBeDisabled();
-    });
-
     fireEvent.change(screen.getByTestId('payment-cash-input'), {
       target: { value: '1000' },
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId('payment-remaining-badge')).toHaveTextContent(
-        'Faltan: $ 500'
+      expect(screen.getByTestId('payment-remaining-message')).toHaveTextContent(
+        'Faltan $ 500'
       )
     );
 
     const button = screen.getByTestId('confirm-sale-button');
     expect(button).toBeDisabled();
 
-    fireEvent.click(screen.getByTestId('payment-cash-complete-rest'));
+    fireEvent.change(screen.getByTestId('payment-transfer-input'), {
+      target: { value: '500' },
+    });
 
     await waitFor(() =>
       expect(
-        screen.getByTestId('payment-remaining-badge')
+        screen.getByTestId('payment-remaining-message')
       ).toHaveTextContent('Pago completo')
     );
 
-    expect(button).not.toBeDisabled();
+    await waitFor(() =>
+      expect(button).not.toBeDisabled()
+    );
   });
 
   test('permite agregar dos líneas del mismo producto con personalizaciones distintas', async () => {

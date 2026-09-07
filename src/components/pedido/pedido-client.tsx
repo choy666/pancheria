@@ -240,6 +240,7 @@ export function PedidoClient({
             branchName={activeBranch.name}
             items={items}
             total={total}
+            shortageByProduct={shortageByProduct}
             onUpdateQuantity={updateQuantity}
             onRemove={removeItem}
             onEditLine={startEditLine}
@@ -296,7 +297,8 @@ export function PedidoClient({
               disabled={
                 items.length === 0 ||
                 isSubmitting ||
-                isCheckingAvailability
+                isCheckingAvailability ||
+                Object.keys(shortageByProduct).length > 0
               }
               onClick={handleSubmitCheckout}
             >
@@ -317,6 +319,9 @@ export function PedidoClient({
           productPrice={editingLine.product.price}
           recipe={editingLine.product.recipe ?? []}
           initialSelectedIds={editingLine.initialSelectedIds}
+          editingQuantity={
+            items.find((i) => i.lineId === editingLine.lineId)?.quantity
+          }
           onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"

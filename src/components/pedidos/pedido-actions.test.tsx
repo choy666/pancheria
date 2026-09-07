@@ -1,7 +1,8 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { PedidoActions } from './pedido-actions';
 import type { CashRegister } from '@/config/caja';
 
@@ -93,5 +94,52 @@ describe('PedidoActions', () => {
     expect(
       screen.queryByText(/Faltan/)
     ).not.toBeInTheDocument();
+  });
+
+  test('permite ingresar un pago mixto', () => {
+    function TestWrapper() {
+      const [payments, setPayments] = useState([
+        { method: 'cash' as const, amount: 1500 },
+        { method: 'transfer' as const, amount: 0 },
+      ]);
+
+      return (
+        <PedidoActions
+          status="pending"
+          total={1500}
+          cashRegister={openCashRegister}
+          payments={payments}
+          setPayments={setPayments}
+          isPaymentComplete={
+            payments.reduce((sum, p) => sum + p.amount, 0) === 1500
+          }
+          paymentRemaining={
+            1500 - payments.reduce((sum, p) => sum + p.amount, 0)
+          }
+          cancelReason=""
+          setCancelReason={jest.fn()}
+          actionError={null}
+          isSubmitting={false}
+          onReceive={jest.fn()}
+          onConfirm={jest.fn()}
+          onFinish={jest.fn()}
+          onCancel={jest.fn()}
+        />
+      );
+    }
+
+    render(<TestWrapper />);
+
+    const cashInput = screen.getByTestId('payment-cash-input');
+    const transferInput = screen.getByTestId('payment-transfer-input');
+
+    fireEvent.change(cashInput, { target: { value: '1000' } });
+    fireEvent.change(transferInput, { target: { value: '500' } });
+
+    expect(cashInput).toHaveValue('1000');
+    expect(transferInput).toHaveValue('500');
+    expect(
+      screen.getByTestId('payment-remaining-message')
+    ).toHaveTextContent('Pago completo');
   });
 });

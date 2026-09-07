@@ -45,6 +45,16 @@ const storedCartSchema = z.object({
   items: z.array(cartItemSchema),
 });
 
+function getTotalQuantityForProduct(
+  items: CartItem[],
+  productId: number,
+  excludeLineId?: string
+): number {
+  return items
+    .filter((item) => item.id === productId && item.lineId !== excludeLineId)
+    .reduce((sum, item) => sum + item.quantity, 0);
+}
+
 function getDefaultSelectedRecipeItemIds(
   product: CartProduct
 ): number[] {
@@ -191,7 +201,14 @@ export function useCart({
         );
 
         if (existing) {
-          const max = isService ? Number.MAX_SAFE_INTEGER : availability;
+          const otherQuantity = getTotalQuantityForProduct(
+            prev,
+            product.id,
+            existing.lineId
+          );
+          const max = isService
+            ? Number.MAX_SAFE_INTEGER
+            : availability - otherQuantity;
           const nextQuantity = Math.min(existing.quantity + 1, max);
 
           if (!isService && nextQuantity <= existing.quantity) return prev;
@@ -202,6 +219,11 @@ export function useCart({
               : item
           );
         }
+
+        const otherQuantity = getTotalQuantityForProduct(prev, product.id);
+        const max = isService ? Number.MAX_SAFE_INTEGER : availability - otherQuantity;
+
+        if (!isService && max <= 0) return prev;
 
         return [
           ...prev,
@@ -250,10 +272,17 @@ export function useCart({
 
         const isService = item.type === 'service';
         const availability = getAvailability(item.id);
-        const max = isService ? Number.MAX_SAFE_INTEGER : availability;
+        const otherQuantity = getTotalQuantityForProduct(
+          prev,
+          item.id,
+          lineId
+        );
+        const max = isService
+          ? Number.MAX_SAFE_INTEGER
+          : Math.max(0, availability - otherQuantity);
         const nextQuantity = isService
           ? quantity
-          : Math.min(quantity, Math.max(0, max));
+          : Math.min(quantity, max);
 
         if (!isService && nextQuantity <= 0) {
           return prev.filter((i) => i.lineId !== lineId);
@@ -265,6 +294,75 @@ export function useCart({
       });
     },
     [getAvailability, removeItem]
+  );
+
+  const updateItem = useCallback(
+    (lineId: string, updates: Partial<Omit<CartItem, 'lineId' | 'id'>>) => {
+      userInteractedRef.current = true;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.lineId === lineId ? { ...item, ...updates } : item
+        )
+      );
+    },
+    []
+  );
+
+  const splitLine = useCallback(
+    (lineId: string, quantity: number, newSelectedRecipeItemIds: number[]) => {
+      userInteractedRef.current = true;
+      if (quantity <= 0) return;
+
+      setItems((prev) => {
+        const editedIndex = prev.findIndex((i) => i.lineId === lineId);
+        if (editedIndex === -1) return prev;
+
+        const editedItem = prev[editedIndex];
+        if (quantity >= editedItem.quantity) return prev;
+
+        if (
+          areRecipeSelectionsEqual(
+            editedItem.selectedRecipeItemIds,
+            newSelectedRecipeItemIds
+          )
+        ) {
+          return prev;
+        }
+
+        const next = [...prev];
+        next[editedIndex] = {
+          ...editedItem,
+          quantity: editedItem.quantity - quantity,
+        };
+
+        const matchingIndex = next.findIndex(
+          (i, idx) =>
+            idx !== editedIndex &&
+            i.id === editedItem.id &&
+            areRecipeSelectionsEqual(
+              i.selectedRecipeItemIds,
+              newSelectedRecipeItemIds
+            )
+        );
+
+        if (matchingIndex !== -1) {
+          next[matchingIndex] = {
+            ...next[matchingIndex],
+            quantity: next[matchingIndex].quantity + quantity,
+          };
+        } else {
+          next.splice(editedIndex + 1, 0, {
+            ...editedItem,
+            lineId: nanoid(),
+            quantity,
+            selectedRecipeItemIds: newSelectedRecipeItemIds,
+          });
+        }
+
+        return next;
+      });
+    },
+    []
   );
 
   const clearCart = useCallback(() => {
@@ -283,6 +381,8 @@ export function useCart({
     addItem,
     removeItem,
     updateQuantity,
+    updateItem,
+    splitLine,
     updateSelectedRecipeItemIds,
     clearCart,
   };
