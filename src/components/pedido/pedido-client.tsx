@@ -319,9 +319,6 @@ export function PedidoClient({
           productPrice={editingLine.product.price}
           recipe={editingLine.product.recipe ?? []}
           initialSelectedIds={editingLine.initialSelectedIds}
-          editingQuantity={
-            items.find((i) => i.lineId === editingLine.lineId)?.quantity
-          }
           onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"

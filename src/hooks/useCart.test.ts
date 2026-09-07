@@ -10,10 +10,29 @@ const products: CartProduct[] = [
   { id: 1, name: 'Panchuque', price: 1200, unit: 'unidad', type: 'compound' },
   { id: 2, name: 'Gaseosa', price: 500, unit: 'unidad', type: 'critical_supply', criticalSupplyType: 'beverage' },
   { id: 3, name: 'Envío', price: 0, unit: 'unidad', type: 'service' },
+  {
+    id: 4,
+    name: 'Promo personalizable',
+    price: 2000,
+    unit: 'unidad',
+    type: 'compound',
+    recipe: [
+      {
+        supplyId: 10,
+        supplyName: 'Ketchup',
+        supplyType: 'manual_supply',
+        quantity: 1,
+        autoDiscount: false,
+        isOptional: true,
+        selected: true,
+        selectedByDefault: true,
+      },
+    ],
+  },
 ];
 
 function getAvailability(productId: number) {
-  const map: Record<number, number> = { 1: 5, 2: 10 };
+  const map: Record<number, number> = { 1: 5, 2: 10, 4: 3 };
   return map[productId] ?? 0;
 }
 
@@ -251,50 +270,62 @@ describe('useCart', () => {
     expect(result.current.items).toHaveLength(1);
   });
 
-  test('splitLine separa una unidad con selección distinta', async () => {
+  test('los productos personalizables no se fusionan: cada agregado crea una línea', async () => {
     const { result } = renderHook(() =>
       useCart({ branchId: 1, products, getAvailability })
     );
 
     act(() => {
-      result.current.addItem(products[0], [1]);
-      result.current.addItem(products[0], [1]);
-    });
-
-    const lineId = result.current.items[0].lineId;
-
-    act(() => {
-      result.current.splitLine(lineId, 1, [2]);
+      result.current.addItem(products[3], [10]);
+      result.current.addItem(products[3], [10]);
     });
 
     expect(result.current.items).toHaveLength(2);
     expect(result.current.items[0].quantity).toBe(1);
-    expect(result.current.items[0].selectedRecipeItemIds).toEqual([1]);
     expect(result.current.items[1].quantity).toBe(1);
-    expect(result.current.items[1].selectedRecipeItemIds).toEqual([2]);
+    expect(result.current.items[0].lineId).not.toBe(
+      result.current.items[1].lineId
+    );
   });
 
-  test('splitLine fusiona la unidad extraída con una línea coincidente', async () => {
+  test('los productos personalizables respetan el stock total entre líneas', async () => {
     const { result } = renderHook(() =>
       useCart({ branchId: 1, products, getAvailability })
     );
 
     act(() => {
-      result.current.addItem(products[0], [1]);
-      result.current.addItem(products[0], [1]);
-      result.current.addItem(products[0], [2]);
+      for (let i = 0; i < 5; i++) {
+        result.current.addItem(products[3]);
+      }
     });
 
-    const lineId = result.current.items[0].lineId;
+    // Disponibilidad 3: solo se crean 3 líneas de una unidad.
+    expect(result.current.items).toHaveLength(3);
+    expect(
+      result.current.items.every((item) => item.quantity === 1)
+    ).toBe(true);
+  });
 
-    act(() => {
-      result.current.splitLine(lineId, 1, [2]);
-    });
+  test('restaura líneas personalizables agrupadas expandiéndolas por unidad', async () => {
+    const stored = {
+      version: 'pancheria-cart-v1',
+      branchId: 1,
+      items: [
+        { ...products[3], quantity: 2, selectedRecipeItemIds: [10] },
+      ],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 
-    expect(result.current.items).toHaveLength(2);
-    expect(result.current.items[0].quantity).toBe(1);
-    expect(result.current.items[0].selectedRecipeItemIds).toEqual([1]);
-    expect(result.current.items[1].quantity).toBe(2);
-    expect(result.current.items[1].selectedRecipeItemIds).toEqual([2]);
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+
+    expect(
+      result.current.items.every(
+        (item) => item.quantity === 1 && item.id === 4
+      )
+    ).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
+import { hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import { ProductCardImage } from '@/components/productos/product-card-image';
 import { ProductCardPrice } from '@/components/productos/product-card-price';
 import { ProductCardAvailability } from '@/components/productos/product-card-availability';
@@ -86,7 +87,8 @@ export function ProductCardBase({
 
   const recipe = product.recipe ?? [];
   const optionalItems = recipe.filter((item) => item.isOptional);
-  const hasOptions = product.type === 'compound' && optionalItems.length > 0;
+  const hasOptions =
+    product.type === 'compound' && hasOptionalRecipeItems(product);
 
   const typeLabel = product.criticalSupplyType
     ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`

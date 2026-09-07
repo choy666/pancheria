@@ -175,7 +175,6 @@ describe('PromoOptionsDialog', () => {
 
     expect(onConfirm).toHaveBeenCalledWith({
       selectedRecipeItemIds: [2, 4],
-      applyQuantity: null,
     });
   });
 
@@ -197,11 +196,10 @@ describe('PromoOptionsDialog', () => {
 
     expect(onConfirm).toHaveBeenCalledWith({
       selectedRecipeItemIds: [4],
-      applyQuantity: null,
     });
   });
 
-  test('en modo edición con cantidad mayor a 1 permite aplicar a una sola unidad', () => {
+  test('en modo edición confirma la selección de la línea', () => {
     const onConfirm = jest.fn();
     render(
       <PromoOptionsDialog
@@ -211,23 +209,16 @@ describe('PromoOptionsDialog', () => {
         productPrice={1500}
         recipe={baseRecipe}
         initialSelectedIds={[2, 4]}
-        editingQuantity={3}
         mode="edit"
         onConfirm={onConfirm}
       />
     );
 
-    expect(screen.getByText('Aplicar personalización a')).toBeInTheDocument();
-
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('all');
-
-    fireEvent.change(select, { target: { value: 'one' } });
+    fireEvent.click(screen.getByLabelText(/Incluir Mayonesa en Promo/));
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     expect(onConfirm).toHaveBeenCalledWith({
-      selectedRecipeItemIds: [2, 4],
-      applyQuantity: 1,
+      selectedRecipeItemIds: [2, 4, 3],
     });
   });
 

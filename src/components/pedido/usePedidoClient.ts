@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { groupPublicProductsByType } from '@/lib/catalog';
-import { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
+import { groupCartItemsForSubmit } from '@/lib/cart-helpers';
 import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import { getPedidoRefetchIntervalMs } from '@/config/catalog';
 import {
@@ -202,8 +202,6 @@ export function usePedidoClient({
     addItem: cartAddItem,
     removeItem,
     updateQuantity,
-    updateItem,
-    splitLine,
     updateSelectedRecipeItemIds,
     clearCart,
   } = useCart({
@@ -343,11 +341,13 @@ export function usePedidoClient({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              items: items.map((item) => ({
-                productId: item.id,
-                quantity: item.quantity,
-                selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
-              })),
+              items: groupCartItemsForSubmit(
+                items.map((item) => ({
+                  productId: item.id,
+                  quantity: item.quantity,
+                  selectedRecipeItemIds: item.selectedRecipeItemIds,
+                }))
+              ),
             }),
           }
         );
@@ -417,56 +417,12 @@ export function usePedidoClient({
   }, []);
 
   const confirmEditLine = useCallback(
-    ({
-      selectedRecipeItemIds,
-      applyQuantity,
-    }: PromoOptionsConfirmPayload) => {
+    ({ selectedRecipeItemIds }: PromoOptionsConfirmPayload) => {
       if (!editingLine) return;
-
-      const editedItem = items.find((i) => i.lineId === editingLine.lineId);
-      if (!editedItem) {
-        setEditingLine(null);
-        return;
-      }
-
-      const applyAll =
-        applyQuantity === null || applyQuantity >= editedItem.quantity;
-
-      if (!applyAll) {
-        splitLine(editingLine.lineId, applyQuantity, selectedRecipeItemIds);
-        setEditingLine(null);
-        return;
-      }
-
-      const matchingLine = items.find(
-        (i) =>
-          i.lineId !== editingLine.lineId &&
-          i.id === editedItem.id &&
-          areRecipeSelectionsEqual(
-            i.selectedRecipeItemIds,
-            selectedRecipeItemIds
-          )
-      );
-
-      if (matchingLine) {
-        updateItem(matchingLine.lineId, {
-          quantity: matchingLine.quantity + editedItem.quantity,
-        });
-        removeItem(editingLine.lineId);
-      } else {
-        updateSelectedRecipeItemIds(editingLine.lineId, selectedRecipeItemIds);
-      }
-
+      updateSelectedRecipeItemIds(editingLine.lineId, selectedRecipeItemIds);
       setEditingLine(null);
     },
-    [
-      editingLine,
-      items,
-      removeItem,
-      updateItem,
-      splitLine,
-      updateSelectedRecipeItemIds,
-    ]
+    [editingLine, updateSelectedRecipeItemIds]
   );
 
   function handleBranchChange(branchId: string | null) {
@@ -529,11 +485,13 @@ export function usePedidoClient({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map((item) => ({
-            productId: item.id,
-            quantity: item.quantity,
-            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
-          })),
+          items: groupCartItemsForSubmit(
+            items.map((item) => ({
+              productId: item.id,
+              quantity: item.quantity,
+              selectedRecipeItemIds: item.selectedRecipeItemIds,
+            }))
+          ),
           customerName: customerName.trim(),
           customerPhone: phoneCleaned,
           deliveryType,

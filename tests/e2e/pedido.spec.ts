@@ -144,7 +144,7 @@ test.describe('Pedido público con chat', () => {
     });
   });
 
-  test('edita una línea del pedido y la une con otra idéntica', async ({
+  test('edita la personalización de una línea sin fusionarla con otra idéntica', async ({
     page,
   }) => {
     const pan = await createProductViaApi(page, {
@@ -241,14 +241,17 @@ test.describe('Pedido público con chat', () => {
       .check();
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
-    // Debería quedar una sola línea con cantidad 2.
+    // Las líneas personalizables nunca se fusionan: quedan dos líneas y
+    // ambas muestran la cebolla como incluida.
     await expect(page.locator(`[data-product-id="${promo.id}"]`)).toHaveCount(
-      1,
+      2,
       { timeout: 5000 }
     );
     await expect(
-      page.locator(`[data-product-id="${promo.id}"]`).getByText('2', { exact: true })
-    ).toBeVisible({ timeout: 5000 });
+      page
+        .locator(`[data-product-id="${promo.id}"]`)
+        .filter({ hasText: new RegExp(`Incluye:.*${cebolla.name}`) })
+    ).toHaveCount(2);
   });
 
   test('crea un pedido en una sucursal no default y abre el chat', async ({

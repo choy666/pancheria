@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/money';
 import { CartItemRecipeDetails } from './cart-item-recipe-details';
+import { hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import type { CartItem } from '@/hooks/useCart';
 
 interface ShortageInfo {
@@ -55,6 +56,7 @@ export function CartSummary({
             {(() => {
               const shownShortageProductIds = new Set<number>();
               return items.map((item) => {
+                const personalizable = hasOptionalRecipeItems(item);
                 const shortage = shortageByProduct[item.id];
                 const showShortage =
                   shortage && !shownShortageProductIds.has(item.id);
@@ -71,7 +73,9 @@ export function CartSummary({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{item.name}</p>
                     <p className="font-mono text-sm text-muted-foreground">
-                      {formatMoney(item.price)} x {item.quantity}
+                      {personalizable
+                        ? formatMoney(item.price)
+                        : `${formatMoney(item.price)} x ${item.quantity}`}
                     </p>
                     {item.type === 'compound' &&
                       item.recipe &&
@@ -95,33 +99,37 @@ export function CartSummary({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Disminuir cantidad"
-                      onClick={() =>
-                        onUpdateQuantity(item.lineId, item.quantity - 1)
-                      }
-                      disabled={disabled}
-                    >
-                      -
-                    </Button>
-                    <span className="min-w-8 text-center font-mono text-base">
-                      {item.quantity}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Aumentar cantidad"
-                      onClick={() =>
-                        onUpdateQuantity(item.lineId, item.quantity + 1)
-                      }
-                      disabled={disabled}
-                    >
-                      +
-                    </Button>
+                    {!personalizable && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label="Disminuir cantidad"
+                          onClick={() =>
+                            onUpdateQuantity(item.lineId, item.quantity - 1)
+                          }
+                          disabled={disabled}
+                        >
+                          -
+                        </Button>
+                        <span className="min-w-8 text-center font-mono text-base">
+                          {item.quantity}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label="Aumentar cantidad"
+                          onClick={() =>
+                            onUpdateQuantity(item.lineId, item.quantity + 1)
+                          }
+                          disabled={disabled}
+                        >
+                          +
+                        </Button>
+                      </>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
@@ -132,10 +140,7 @@ export function CartSummary({
                     >
                       ×
                     </Button>
-                    {item.type === 'compound' &&
-                      item.recipe &&
-                      item.recipe.some((r) => r.isOptional) &&
-                      onEditLine && (
+                    {personalizable && onEditLine && (
                         <Button
                           type="button"
                           variant="ghost"

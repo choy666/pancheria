@@ -1,4 +1,8 @@
-import { areRecipeSelectionsEqual } from './cart-helpers';
+import {
+  areRecipeSelectionsEqual,
+  groupCartItemsForSubmit,
+  hasOptionalRecipeItems,
+} from './cart-helpers';
 
 describe('cart-helpers', () => {
   describe('areRecipeSelectionsEqual', () => {
@@ -29,6 +33,66 @@ describe('cart-helpers', () => {
     test('devuelve false cuando las repeticiones no coinciden', () => {
       expect(areRecipeSelectionsEqual([1, 1], [1])).toBe(false);
       expect(areRecipeSelectionsEqual([1], [1, 1])).toBe(false);
+    });
+  });
+
+  describe('hasOptionalRecipeItems', () => {
+    test('devuelve true si la receta tiene algún insumo opcional', () => {
+      expect(
+        hasOptionalRecipeItems({
+          recipe: [
+            { isOptional: false },
+            { isOptional: true },
+          ],
+        })
+      ).toBe(true);
+    });
+
+    test('devuelve false sin receta o sin opcionales', () => {
+      expect(hasOptionalRecipeItems({})).toBe(false);
+      expect(hasOptionalRecipeItems({ recipe: [] })).toBe(false);
+      expect(
+        hasOptionalRecipeItems({ recipe: [{ isOptional: false }] })
+      ).toBe(false);
+    });
+  });
+
+  describe('groupCartItemsForSubmit', () => {
+    test('agrupa líneas del mismo producto con selecciones iguales', () => {
+      const result = groupCartItemsForSubmit([
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [2, 3] },
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [3, 2] },
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [2, 3] },
+      ]);
+
+      expect(result).toEqual([
+        { productId: 1, quantity: 3, selectedRecipeItemIds: [2, 3] },
+      ]);
+    });
+
+    test('mantiene separadas las líneas con selecciones distintas', () => {
+      const result = groupCartItemsForSubmit([
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [2] },
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [3] },
+        { productId: 2, quantity: 1, selectedRecipeItemIds: [] },
+      ]);
+
+      expect(result).toEqual([
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [2] },
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [3] },
+        { productId: 2, quantity: 1, selectedRecipeItemIds: [] },
+      ]);
+    });
+
+    test('suma cantidades ya agrupadas y normaliza selecciones ausentes', () => {
+      const result = groupCartItemsForSubmit([
+        { productId: 1, quantity: 2 },
+        { productId: 1, quantity: 1, selectedRecipeItemIds: [] },
+      ]);
+
+      expect(result).toEqual([
+        { productId: 1, quantity: 3, selectedRecipeItemIds: [] },
+      ]);
     });
   });
 });

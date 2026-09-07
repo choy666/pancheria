@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
-import { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
+import {
+  areRecipeSelectionsEqual,
+  hasOptionalRecipeItems,
+} from '@/lib/cart-helpers';
 import type {
   CriticalSupplyType,
   ProductType,
@@ -98,9 +101,9 @@ function getInitialItems(
     const productById = new Map(products.map((p) => [p.id, p]));
 
     return stored.data.items
-      .map((item) => {
+      .flatMap((item) => {
         const product = productById.get(item.id);
-        if (!product) return null;
+        if (!product) return [];
 
         const availability = getAvailability(item.id);
         const isService = product.type === 'service';
@@ -109,16 +112,28 @@ function getInitialItems(
           ? item.quantity
           : Math.min(item.quantity, Math.max(0, max));
 
-        if (!isService && quantity <= 0) return null;
+        if (!isService && quantity <= 0) return [];
 
-        return {
-          ...product,
-          lineId: item.lineId ?? nanoid(),
-          quantity,
-          selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
-        };
-      })
-      .filter((item): item is CartItem => item !== null);
+        // Las líneas personalizables guardadas con el modelo anterior
+        // (varias unidades agrupadas) se expanden en una línea por unidad.
+        if (hasOptionalRecipeItems(product) && quantity > 1) {
+          return Array.from({ length: quantity }, () => ({
+            ...product,
+            lineId: nanoid(),
+            quantity: 1,
+            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+          }));
+        }
+
+        return [
+          {
+            ...product,
+            lineId: item.lineId ?? nanoid(),
+            quantity,
+            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+          },
+        ];
+      });
   } catch {
     return [];
   }
@@ -191,33 +206,37 @@ export function useCart({
         selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
 
       setItems((prev) => {
-        const existing = prev.find(
-          (item) =>
-            item.id === product.id &&
-            areRecipeSelectionsEqual(
-              item.selectedRecipeItemIds,
-              resolvedSelected
-            )
-        );
-
-        if (existing) {
-          const otherQuantity = getTotalQuantityForProduct(
-            prev,
-            product.id,
-            existing.lineId
+        // Los productos personalizables nunca se fusionan: cada unidad ocupa
+        // su propia línea para poder personalizarla por separado.
+        if (!hasOptionalRecipeItems(product)) {
+          const existing = prev.find(
+            (item) =>
+              item.id === product.id &&
+              areRecipeSelectionsEqual(
+                item.selectedRecipeItemIds,
+                resolvedSelected
+              )
           );
-          const max = isService
-            ? Number.MAX_SAFE_INTEGER
-            : availability - otherQuantity;
-          const nextQuantity = Math.min(existing.quantity + 1, max);
 
-          if (!isService && nextQuantity <= existing.quantity) return prev;
+          if (existing) {
+            const otherQuantity = getTotalQuantityForProduct(
+              prev,
+              product.id,
+              existing.lineId
+            );
+            const max = isService
+              ? Number.MAX_SAFE_INTEGER
+              : availability - otherQuantity;
+            const nextQuantity = Math.min(existing.quantity + 1, max);
 
-          return prev.map((item) =>
-            item.lineId === existing.lineId
-              ? { ...item, quantity: nextQuantity }
-              : item
-          );
+            if (!isService && nextQuantity <= existing.quantity) return prev;
+
+            return prev.map((item) =>
+              item.lineId === existing.lineId
+                ? { ...item, quantity: nextQuantity }
+                : item
+            );
+          }
         }
 
         const otherQuantity = getTotalQuantityForProduct(prev, product.id);
@@ -296,75 +315,6 @@ export function useCart({
     [getAvailability, removeItem]
   );
 
-  const updateItem = useCallback(
-    (lineId: string, updates: Partial<Omit<CartItem, 'lineId' | 'id'>>) => {
-      userInteractedRef.current = true;
-      setItems((prev) =>
-        prev.map((item) =>
-          item.lineId === lineId ? { ...item, ...updates } : item
-        )
-      );
-    },
-    []
-  );
-
-  const splitLine = useCallback(
-    (lineId: string, quantity: number, newSelectedRecipeItemIds: number[]) => {
-      userInteractedRef.current = true;
-      if (quantity <= 0) return;
-
-      setItems((prev) => {
-        const editedIndex = prev.findIndex((i) => i.lineId === lineId);
-        if (editedIndex === -1) return prev;
-
-        const editedItem = prev[editedIndex];
-        if (quantity >= editedItem.quantity) return prev;
-
-        if (
-          areRecipeSelectionsEqual(
-            editedItem.selectedRecipeItemIds,
-            newSelectedRecipeItemIds
-          )
-        ) {
-          return prev;
-        }
-
-        const next = [...prev];
-        next[editedIndex] = {
-          ...editedItem,
-          quantity: editedItem.quantity - quantity,
-        };
-
-        const matchingIndex = next.findIndex(
-          (i, idx) =>
-            idx !== editedIndex &&
-            i.id === editedItem.id &&
-            areRecipeSelectionsEqual(
-              i.selectedRecipeItemIds,
-              newSelectedRecipeItemIds
-            )
-        );
-
-        if (matchingIndex !== -1) {
-          next[matchingIndex] = {
-            ...next[matchingIndex],
-            quantity: next[matchingIndex].quantity + quantity,
-          };
-        } else {
-          next.splice(editedIndex + 1, 0, {
-            ...editedItem,
-            lineId: nanoid(),
-            quantity,
-            selectedRecipeItemIds: newSelectedRecipeItemIds,
-          });
-        }
-
-        return next;
-      });
-    },
-    []
-  );
-
   const clearCart = useCallback(() => {
     userInteractedRef.current = true;
     setItems([]);
@@ -381,8 +331,6 @@ export function useCart({
     addItem,
     removeItem,
     updateQuantity,
-    updateItem,
-    splitLine,
     updateSelectedRecipeItemIds,
     clearCart,
   };

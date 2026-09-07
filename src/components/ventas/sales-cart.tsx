@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PaymentPartsInput } from '@/components/pagos/payment-parts-input';
 import { CartItemRecipeDetails } from '@/components/pedido/cart-item-recipe-details';
+import { hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import { getProductAdditional, type CartItem } from '@/lib/ventas-helpers';
 import {
   formatMoney,
@@ -143,6 +144,7 @@ export function SalesCart({
               {(() => {
                 const shownShortageProductIds = new Set<number>();
                 return cart.map((item) => {
+                  const personalizable = hasOptionalRecipeItems(item.product);
                   const additional = getProductAdditional(
                     item.product,
                     cartAvailability,
@@ -179,7 +181,9 @@ export function SalesCart({
                       </p>
                     </div>
                     <p className="font-mono text-xs text-muted-foreground">
-                      {formatMoney(item.product.price)} c/u
+                      {personalizable
+                        ? formatMoney(item.product.price)
+                        : `${formatMoney(item.product.price)} c/u`}
                     </p>
                     {item.product.type === 'compound' &&
                       item.product.recipe &&
@@ -202,36 +206,38 @@ export function SalesCart({
                       </p>
                     )}
                     <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label={`Disminuir cantidad de ${item.product.name}`}
-                        onClick={() =>
-                          onUpdateQuantity(item.lineId, item.quantity - 1)
-                        }
-                        disabled={controlsDisabled}
-                      >
-                        -
-                      </Button>
-                      <span className="min-w-8 text-center font-mono text-base">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label={`Aumentar cantidad de ${item.product.name}`}
-                        onClick={() =>
-                          onUpdateQuantity(item.lineId, item.quantity + 1)
-                        }
-                        disabled={controlsDisabled || !canIncrease}
-                      >
-                        +
-                      </Button>
-                      {item.product.type === 'compound' &&
-                        item.product.recipe &&
-                        item.product.recipe.some((r) => r.isOptional) &&
+                      {!personalizable && (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label={`Disminuir cantidad de ${item.product.name}`}
+                            onClick={() =>
+                              onUpdateQuantity(item.lineId, item.quantity - 1)
+                            }
+                            disabled={controlsDisabled}
+                          >
+                            -
+                          </Button>
+                          <span className="min-w-8 text-center font-mono text-base">
+                            {item.quantity}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label={`Aumentar cantidad de ${item.product.name}`}
+                            onClick={() =>
+                              onUpdateQuantity(item.lineId, item.quantity + 1)
+                            }
+                            disabled={controlsDisabled || !canIncrease}
+                          >
+                            +
+                          </Button>
+                        </>
+                      )}
+                      {personalizable &&
                         onEditLine && (
                           <Button
                             type="button"

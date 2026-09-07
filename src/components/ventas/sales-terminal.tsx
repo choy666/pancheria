@@ -13,6 +13,10 @@ import { isPublicSellableProduct } from '@/lib/catalog';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import {
   areRecipeSelectionsEqual,
+  groupCartItemsForSubmit,
+  hasOptionalRecipeItems,
+} from '@/lib/cart-helpers';
+import {
   getDefaultSelectedRecipeItemIds,
   getProductAdditional,
   isProductOutOfStock,
@@ -128,11 +132,13 @@ export function SalesTerminal() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            items: cart.map((item) => ({
-              productId: item.product.id,
-              quantity: item.quantity,
-              selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
-            })),
+            items: groupCartItemsForSubmit(
+              cart.map((item) => ({
+                productId: item.product.id,
+                quantity: item.quantity,
+                selectedRecipeItemIds: item.selectedRecipeItemIds,
+              }))
+            ),
             productIds: products.map((p) => p.id),
           }),
         });
@@ -188,13 +194,22 @@ export function SalesTerminal() {
     const resolvedSelected =
       selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
 
-    const existing = cart.find(
-      (item) =>
-        item.product.id === product.id &&
-        areRecipeSelectionsEqual(item.selectedRecipeItemIds ?? [], resolvedSelected)
-    );
+    // Los productos personalizables nunca se fusionan: cada unidad ocupa su
+    // propia línea para poder personalizarla por separado.
+    const existing = hasOptionalRecipeItems(product)
+      ? undefined
+      : cart.find(
+          (item) =>
+            item.product.id === product.id &&
+            areRecipeSelectionsEqual(
+              item.selectedRecipeItemIds ?? [],
+              resolvedSelected
+            )
+        );
 
-    const currentQuantity = existing?.quantity ?? 0;
+    const currentQuantity = cart
+      .filter((item) => item.product.id === product.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
     if (isProductOutOfStock(product, cartAvailability, currentQuantity)) return;
 
     setIsCheckingAvailability(true);
@@ -273,93 +288,17 @@ export function SalesTerminal() {
   }, []);
 
   const confirmEditLine = useCallback(
-    ({
-      selectedRecipeItemIds,
-      applyQuantity,
-    }: PromoOptionsConfirmPayload) => {
+    ({ selectedRecipeItemIds }: PromoOptionsConfirmPayload) => {
       if (!editingLine) return;
 
       setIsCheckingAvailability(true);
-      setCart((prev) => {
-        const editedIndex = prev.findIndex(
-          (i) => i.lineId === editingLine.lineId
-        );
-        if (editedIndex === -1) return prev;
-
-        const editedItem = prev[editedIndex];
-        const applyAll =
-          applyQuantity === null || applyQuantity >= editedItem.quantity;
-
-        if (!applyAll) {
-          const unitsToExtract = applyQuantity;
-          const next = [...prev];
-          next[editedIndex] = {
-            ...editedItem,
-            quantity: editedItem.quantity - unitsToExtract,
-          };
-
-          const matchingIndex = next.findIndex(
-            (i, idx) =>
-              idx !== editedIndex &&
-              i.product.id === editedItem.product.id &&
-              areRecipeSelectionsEqual(
-                i.selectedRecipeItemIds ?? [],
-                selectedRecipeItemIds
-              )
-          );
-
-          if (matchingIndex !== -1) {
-            next[matchingIndex] = {
-              ...next[matchingIndex],
-              quantity: next[matchingIndex].quantity + unitsToExtract,
-            };
-          } else if (
-            areRecipeSelectionsEqual(
-              editedItem.selectedRecipeItemIds ?? [],
-              selectedRecipeItemIds
-            )
-          ) {
-            // La nueva selección es idéntica a la original: no tiene sentido
-            // dividir una unidad para que quede igual.
-            return prev;
-          } else {
-            next.splice(editedIndex + 1, 0, {
-              lineId: nanoid(),
-              product: editedItem.product,
-              quantity: unitsToExtract,
-              selectedRecipeItemIds,
-            });
-          }
-
-          return next;
-        }
-
-        const matchingIndex = prev.findIndex(
-          (i) =>
-            i.lineId !== editingLine.lineId &&
-            i.product.id === editedItem.product.id &&
-            areRecipeSelectionsEqual(
-              i.selectedRecipeItemIds ?? [],
-              selectedRecipeItemIds
-            )
-        );
-
-        if (matchingIndex !== -1) {
-          const next = [...prev];
-          next[matchingIndex] = {
-            ...next[matchingIndex],
-            quantity: next[matchingIndex].quantity + editedItem.quantity,
-          };
-          next.splice(editedIndex, 1);
-          return next;
-        }
-
-        return prev.map((i) =>
+      setCart((prev) =>
+        prev.map((i) =>
           i.lineId === editingLine.lineId
-            ? { ...i, selectedRecipeItemIds: selectedRecipeItemIds }
+            ? { ...i, selectedRecipeItemIds }
             : i
-        );
-      });
+        )
+      );
       setEditingLine(null);
     },
     [editingLine]
@@ -417,11 +356,13 @@ export function SalesTerminal() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: cart.map((item) => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
-          })),
+          items: groupCartItemsForSubmit(
+            cart.map((item) => ({
+              productId: item.product.id,
+              quantity: item.quantity,
+              selectedRecipeItemIds: item.selectedRecipeItemIds,
+            }))
+          ),
           payments: paymentParts.filter((p) => p.amount > 0),
           idempotencyKey: nanoid(),
         }),
@@ -576,9 +517,6 @@ export function SalesTerminal() {
           productPrice={editingLine.product.price}
           recipe={editingLine.product.recipe ?? []}
           initialSelectedIds={editingLine.initialSelectedIds}
-          editingQuantity={
-            cart.find((i) => i.lineId === editingLine.lineId)?.quantity
-          }
           onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"
