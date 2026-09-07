@@ -402,10 +402,7 @@ describe('cashRegisterRepository', () => {
 
   describe('hardDelete', () => {
     test('elimina definitivamente una caja previamente marcada como eliminada', async () => {
-      txSelectWhere
-        .mockResolvedValueOnce([{ deletedAt: new Date() }])
-        .mockResolvedValueOnce([{ value: 0 }]);
-      txUpdateWhere.mockResolvedValue(undefined);
+      txSelectWhere.mockResolvedValueOnce([{ deletedAt: new Date() }]);
       txDeleteWhere.mockResolvedValue(undefined);
 
       const result = await cashRegisterRepository.hardDelete(BRANCH_ID, 1);
@@ -413,20 +410,18 @@ describe('cashRegisterRepository', () => {
       expect(result).toEqual({ deleted: true });
       expect(txSelect).toHaveBeenCalled();
       expect(txUpdate).not.toHaveBeenCalled();
-      expect(txDelete).toHaveBeenCalled();
+      // Un delete para las ventas asociadas y otro para la caja.
+      expect(txDelete).toHaveBeenCalledTimes(2);
     });
 
-    test('no elimina si la caja tiene ventas asociadas', async () => {
-      txSelectWhere
-        .mockResolvedValueOnce([{ deletedAt: new Date() }])
-        .mockResolvedValueOnce([{ value: 5 }]);
+    test('elimina la caja junto con sus ventas asociadas', async () => {
+      txSelectWhere.mockResolvedValueOnce([{ deletedAt: new Date() }]);
+      txDeleteWhere.mockResolvedValue(undefined);
 
       const result = await cashRegisterRepository.hardDelete(BRANCH_ID, 1);
 
-      expect(result).toEqual({ deleted: false, hasSales: true });
-      expect(txSelect).toHaveBeenCalled();
-      expect(txUpdate).not.toHaveBeenCalled();
-      expect(txDelete).not.toHaveBeenCalled();
+      expect(result).toEqual({ deleted: true });
+      expect(txDelete).toHaveBeenCalledTimes(2);
     });
 
     test('no elimina si la caja no está marcada como eliminada', async () => {
@@ -472,11 +467,8 @@ describe('cashRegisterRepository', () => {
   });
 
   describe('hardDeleteAllDeleted', () => {
-    test('elimina todas las cajas eliminadas sin ventas', async () => {
-      const groupBy = jest.fn().mockResolvedValue([]);
-      txSelectWhere
-        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-        .mockReturnValueOnce({ groupBy });
+    test('elimina todas las cajas eliminadas junto con sus ventas', async () => {
+      txSelectWhere.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
       txDeleteWhere.mockResolvedValue(undefined);
 
       const result = await cashRegisterRepository.hardDeleteAllDeleted(
@@ -484,44 +476,9 @@ describe('cashRegisterRepository', () => {
       );
 
       expect(result).toEqual({ deleted: 2 });
-      expect(groupBy).toHaveBeenCalled();
       expect(txUpdate).not.toHaveBeenCalled();
-      expect(txDelete).toHaveBeenCalledTimes(1);
-    });
-
-    test('omite cajas con ventas asociadas', async () => {
-      const groupBy = jest.fn().mockResolvedValue([
-        { cashRegisterId: 1, value: 3 },
-        { cashRegisterId: 2, value: 1 },
-      ]);
-      txSelectWhere
-        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-        .mockReturnValueOnce({ groupBy });
-
-      const result = await cashRegisterRepository.hardDeleteAllDeleted(
-        BRANCH_ID
-      );
-
-      expect(result).toEqual({ deleted: 0 });
-      expect(txUpdate).not.toHaveBeenCalled();
-      expect(txDelete).not.toHaveBeenCalled();
-    });
-
-    test('elimina solo las cajas sin ventas asociadas', async () => {
-      const groupBy = jest
-        .fn()
-        .mockResolvedValue([{ cashRegisterId: 1, value: 2 }]);
-      txSelectWhere
-        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
-        .mockReturnValueOnce({ groupBy });
-      txDeleteWhere.mockResolvedValue(undefined);
-
-      const result = await cashRegisterRepository.hardDeleteAllDeleted(
-        BRANCH_ID
-      );
-
-      expect(result).toEqual({ deleted: 1 });
-      expect(txDelete).toHaveBeenCalledTimes(1);
+      // Un delete para las ventas asociadas y otro para las cajas.
+      expect(txDelete).toHaveBeenCalledTimes(2);
     });
 
     test('devuelve deleted: 0 si no hay cajas eliminadas', async () => {

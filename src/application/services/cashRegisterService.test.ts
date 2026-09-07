@@ -15,13 +15,37 @@ import {
   calculateCashRegisterSummary,
 } from './cashRegisterService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
+import * as saleRepository from '@/repositories/saleRepository';
+import * as productRepository from '@/repositories/productRepository';
+import * as stockMovementRepository from '@/repositories/stockMovementRepository';
+import { buildProductContext } from '@/lib/product-helpers';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
 import { cashRegisters } from '@/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
 import { ValidationError, NotFoundError } from '@/domain/errors';
 
+const actualSaleRepository = jest.requireActual<
+  typeof import('@/repositories/saleRepository')
+>('@/repositories/saleRepository');
+
 jest.mock('@/repositories/cashRegisterRepository');
+jest.mock('@/repositories/saleRepository', () => ({
+  ...jest.requireActual('@/repositories/saleRepository'),
+  findActiveWithDetailsByCashRegister: jest.fn(),
+}));
+jest.mock('@/repositories/productRepository', () => ({
+  ...jest.requireActual('@/repositories/productRepository'),
+  incrementStock: jest.fn(),
+  lockForUpdate: jest.fn(),
+}));
+jest.mock('@/repositories/stockMovementRepository', () => ({
+  insertMany: jest.fn(),
+}));
+jest.mock('@/lib/product-helpers', () => ({
+  ...jest.requireActual('@/lib/product-helpers'),
+  buildProductContext: jest.fn(),
+}));
 jest.mock('@/application/transactionService', () => ({
   executeInTransaction: jest.fn(),
   getCurrentTransaction: jest.fn().mockReturnValue(undefined),
@@ -44,6 +68,18 @@ jest.mock('@/db', () => ({
 
 const mockedCashRegisterRepository = cashRegisterRepository as jest.Mocked<
   typeof cashRegisterRepository
+>;
+const mockedSaleRepository = saleRepository as jest.Mocked<
+  typeof saleRepository
+>;
+const mockedProductRepository = productRepository as jest.Mocked<
+  typeof productRepository
+>;
+const mockedStockMovementRepository = stockMovementRepository as jest.Mocked<
+  typeof stockMovementRepository
+>;
+const mockedBuildProductContext = buildProductContext as jest.MockedFunction<
+  typeof buildProductContext
 >;
 const mockedDb = db as jest.Mocked<typeof db>;
 const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
@@ -132,6 +168,19 @@ describe('cashRegisterService', () => {
         return Array.isArray(rows) ? rows[0] ?? null : null;
       }
     );
+
+    // Por defecto la consulta de ventas activas de una caja usa la
+    // implementación real sobre el db mockeado (sin resultados).
+    mockedSaleRepository.findActiveWithDetailsByCashRegister.mockImplementation(
+      actualSaleRepository.findActiveWithDetailsByCashRegister
+    );
+    (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+    mockedBuildProductContext.mockResolvedValue({
+      productsList: [],
+      productById: new Map(),
+      recipesByProduct: new Map(),
+    });
+    mockedProductRepository.lockForUpdate.mockResolvedValue([]);
 
     mockedExecuteInTransaction.mockImplementation(async (fn) =>
       fn({
@@ -908,6 +957,7 @@ describe('cashRegisterService', () => {
 
   describe('emptyTrash', () => {
     test('elimina permanentemente todas las cajas en papelera', async () => {
+      mockedCashRegisterRepository.findDeletedIds.mockResolvedValue([1, 2]);
       mockedCashRegisterRepository.hardDeleteAllDeleted.mockResolvedValue({
         deleted: 2,
       } as any);
@@ -917,7 +967,78 @@ describe('cashRegisterService', () => {
       expect(result).toEqual({ deleted: 2 });
       expect(
         mockedCashRegisterRepository.hardDeleteAllDeleted
-      ).toHaveBeenCalledWith(BRANCH_ID);
+      ).toHaveBeenCalledWith(BRANCH_ID, expect.anything());
+    });
+
+    test('devuelve deleted: 0 sin tocar ventas si la papelera está vacía', async () => {
+      mockedCashRegisterRepository.findDeletedIds.mockResolvedValue([]);
+
+      const result = await emptyTrash(BRANCH_ID);
+
+      expect(result).toEqual({ deleted: 0 });
+      expect(
+        mockedCashRegisterRepository.hardDeleteAllDeleted
+      ).not.toHaveBeenCalled();
+      expect(
+        mockedSaleRepository.findActiveWithDetailsByCashRegister
+      ).not.toHaveBeenCalled();
+    });
+
+    test('restaura el stock de las ventas activas al vaciar la papelera', async () => {
+      mockedCashRegisterRepository.findDeletedIds.mockResolvedValue([1]);
+      mockedCashRegisterRepository.hardDeleteAllDeleted.mockResolvedValue({
+        deleted: 1,
+      } as any);
+      mockedSaleRepository.findActiveWithDetailsByCashRegister.mockResolvedValue([
+        {
+          id: 10,
+          items: [
+            {
+              productId: 5,
+              quantity: 2,
+              unitPrice: 500,
+              subtotal: 1000,
+              product: { name: 'Gaseosa' },
+              recipeSnapshots: [],
+            },
+          ],
+        },
+      ] as any);
+      mockedBuildProductContext.mockResolvedValue({
+        productsList: [],
+        productById: new Map([
+          [
+            5,
+            {
+              id: 5,
+              type: 'critical_supply',
+              criticalSupplyType: 'beverage',
+              name: 'Gaseosa',
+            },
+          ],
+        ]),
+        recipesByProduct: new Map(),
+      } as any);
+
+      const result = await emptyTrash(BRANCH_ID);
+
+      expect(result).toEqual({ deleted: 1 });
+      expect(mockedProductRepository.incrementStock).toHaveBeenCalledWith(
+        expect.anything(),
+        5,
+        2
+      );
+      expect(
+        mockedStockMovementRepository.insertMany
+      ).toHaveBeenCalledWith(expect.anything(), [
+        expect.objectContaining({
+          type: 'cancellation',
+          productId: 5,
+          quantity: 2,
+          saleId: 10,
+          reason: 'Eliminación de caja #1 (venta #10)',
+        }),
+      ]);
     });
   });
 
@@ -1009,7 +1130,72 @@ describe('cashRegisterService', () => {
       const result = await permanentlyDeleteCashRegister(BRANCH_ID, 1);
 
       expect(result).toEqual({ deleted: true });
-      expect(mockedCashRegisterRepository.hardDelete).toHaveBeenCalledWith(BRANCH_ID, 1);
+      expect(mockedCashRegisterRepository.hardDelete).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.anything()
+      );
+    });
+
+    test('restaura el stock de las ventas activas al eliminar definitivamente', async () => {
+      mockedCashRegisterRepository.findById.mockResolvedValue({
+        id: 1,
+        branchId: BRANCH_ID,
+        status: 'closed',
+        deletedAt: new Date(),
+      } as any);
+      mockedCashRegisterRepository.hardDelete.mockResolvedValue({
+        deleted: true,
+      } as any);
+      mockedSaleRepository.findActiveWithDetailsByCashRegister.mockResolvedValue([
+        {
+          id: 10,
+          items: [
+            {
+              productId: 5,
+              quantity: 3,
+              unitPrice: 500,
+              subtotal: 1500,
+              product: { name: 'Gaseosa' },
+              recipeSnapshots: [],
+            },
+          ],
+        },
+      ] as any);
+      mockedBuildProductContext.mockResolvedValue({
+        productsList: [],
+        productById: new Map([
+          [
+            5,
+            {
+              id: 5,
+              type: 'critical_supply',
+              criticalSupplyType: 'beverage',
+              name: 'Gaseosa',
+            },
+          ],
+        ]),
+        recipesByProduct: new Map(),
+      } as any);
+
+      const result = await permanentlyDeleteCashRegister(BRANCH_ID, 1);
+
+      expect(result).toEqual({ deleted: true });
+      expect(mockedProductRepository.incrementStock).toHaveBeenCalledWith(
+        expect.anything(),
+        5,
+        3
+      );
+      expect(
+        mockedStockMovementRepository.insertMany
+      ).toHaveBeenCalledWith(expect.anything(), [
+        expect.objectContaining({
+          type: 'cancellation',
+          productId: 5,
+          quantity: 3,
+          saleId: 10,
+        }),
+      ]);
     });
 
     test('rechaza eliminar definitivamente una caja no eliminada', async () => {

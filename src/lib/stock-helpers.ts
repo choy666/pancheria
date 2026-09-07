@@ -1,4 +1,8 @@
 import type { RecipeItemConfig, StockMovementType } from '@/domain/types';
+import { nowUTC } from '@/lib/date';
+import * as productRepository from '@/repositories/productRepository';
+import * as stockMovementRepository from '@/repositories/stockMovementRepository';
+import type { StockMovementInsert } from '@/repositories/stockMovementRepository';
 
 type ProductLike = {
   id: number;
@@ -113,6 +117,85 @@ export function buildStockMovementReason(
   }
 
   return null;
+}
+
+/**
+ * Reintegra el stock de los ítems dados (insumos de recetas y bebidas) e
+ * inserta los movimientos correspondientes. Se usa al anular ventas y al
+ * eliminar definitivamente cajas con ventas.
+ */
+export async function reintegrateStockForItems(
+  tx: typeof import('@/db').db,
+  branchId: number,
+  items: ItemWithRecipeSnapshot[],
+  productById: Map<number, ProductLike>,
+  recipesByProduct: Map<number, RecipeLike[]>,
+  source: { saleId?: number },
+  movementType: StockMovementType,
+  reasonOverride?: string
+) {
+  const idsToLock = collectStockProductIdsToLock(
+    items,
+    productById,
+    recipesByProduct
+  );
+
+  const reason =
+    reasonOverride ?? buildStockMovementReason(movementType, source.saleId);
+
+  if (idsToLock.length > 0) {
+    await productRepository.lockForUpdate(tx, idsToLock);
+  }
+
+  const movementRows: StockMovementInsert[] = [];
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product) continue;
+
+    if (product.type === 'compound') {
+      const recipeSnapshot = item.recipeSnapshot ?? [];
+      for (const { supplyId, consumed: reintegrated } of iterRecipeConsumptions(
+        product,
+        item.quantity,
+        recipesByProduct,
+        recipeSnapshot
+      )) {
+        await productRepository.incrementStock(tx, supplyId, reintegrated);
+
+        movementRows.push({
+          branchId,
+          productId: supplyId,
+          type: movementType,
+          quantity: reintegrated,
+          saleId: source.saleId ?? null,
+          orderId: null,
+          reason,
+          createdAt: nowUTC(),
+        });
+      }
+    } else if (
+      product.type === 'critical_supply' &&
+      product.criticalSupplyType === 'beverage'
+    ) {
+      await productRepository.incrementStock(tx, product.id, item.quantity);
+
+      movementRows.push({
+        branchId,
+        productId: product.id,
+        type: movementType,
+        quantity: item.quantity,
+        saleId: source.saleId ?? null,
+        orderId: null,
+        reason,
+        createdAt: nowUTC(),
+      });
+    } else if (product.type === 'service' || product.type === 'manual_supply') {
+      // Los servicios y los insumos manuales no reintegran stock al anularse.
+    }
+  }
+
+  await stockMovementRepository.insertMany(tx, movementRows);
 }
 
 export const STOCK_MOVEMENT_TYPES: readonly StockMovementType[] = [

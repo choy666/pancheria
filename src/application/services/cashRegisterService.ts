@@ -38,6 +38,8 @@ import {
   lockCashRegisterById,
   lockOpenCashRegister,
 } from '@/lib/cash-register-helpers';
+import { buildProductContext } from '@/lib/product-helpers';
+import { reintegrateStockForItems } from '@/lib/stock-helpers';
 
 export async function getOpenCashRegister(branchId: number) {
   const cashRegister = await cashRegisterRepository.findOpen(branchId);
@@ -324,6 +326,63 @@ export async function restoreCashRegister(branchId: number, id: number) {
   return cashRegisterRepository.restore(branchId, id);
 }
 
+/**
+ * Reintegra el stock descontado por las ventas activas de las cajas dadas.
+ * Solo se consideran ventas activas: las anuladas ya devolvieron su stock
+ * al momento de anularse. Las ventas se borran después, dentro de la misma
+ * transacción, por lo que el movimiento queda con sale_id en NULL y la
+ * razón conserva la referencia para auditoría.
+ */
+async function restoreStockForDeletedCashRegisters(
+  tx: typeof db,
+  branchId: number,
+  cashRegisterIds: number[]
+) {
+  for (const cashRegisterId of cashRegisterIds) {
+    const activeSales = await saleRepository.findActiveWithDetailsByCashRegister(
+      tx,
+      branchId,
+      cashRegisterId
+    );
+
+    for (const sale of activeSales) {
+      const items = sale.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        recipeSnapshot: item.recipeSnapshots.map(
+          (snapshot): RecipeItemConfig => ({
+            supplyId: snapshot.supplyId,
+            supplyName: snapshot.supplyName,
+            supplyType: snapshot.supplyType,
+            quantity: snapshot.quantity,
+            autoDiscount: snapshot.autoDiscount,
+            isOptional: snapshot.isOptional,
+            selected: snapshot.selected,
+            selectedByDefault: snapshot.selectedByDefault,
+          })
+        ),
+      }));
+
+      const { productById, recipesByProduct } = await buildProductContext(
+        branchId,
+        items.map((item) => item.productId),
+        { dbOrTx: tx, includeDeleted: true }
+      );
+
+      await reintegrateStockForItems(
+        tx,
+        branchId,
+        items,
+        productById,
+        recipesByProduct,
+        { saleId: sale.id },
+        'cancellation',
+        `Eliminación de caja #${cashRegisterId} (venta #${sale.id})`
+      );
+    }
+  }
+}
+
 export async function permanentlyDeleteCashRegister(branchId: number, id: number) {
   const cashRegister = await cashRegisterRepository.findById(branchId, id, true);
 
@@ -331,15 +390,10 @@ export async function permanentlyDeleteCashRegister(branchId: number, id: number
     throw new ValidationError('La caja no está en la papelera.');
   }
 
-  const result = await cashRegisterRepository.hardDelete(branchId, id);
-
-  if ('hasSales' in result && result.hasSales) {
-    throw new ValidationError(
-      'No se puede eliminar la caja porque tiene ventas asociadas.'
-    );
-  }
-
-  return result;
+  return executeInTransaction(async (tx) => {
+    await restoreStockForDeletedCashRegisters(tx, branchId, [id]);
+    return cashRegisterRepository.hardDelete(branchId, id, tx);
+  });
 }
 
 export async function listDeletedCashRegisterHistory(
@@ -356,7 +410,16 @@ export async function deleteAllClosedCashRegisters(branchId: number) {
 }
 
 export async function emptyTrash(branchId: number) {
-  return cashRegisterRepository.hardDeleteAllDeleted(branchId);
+  return executeInTransaction(async (tx) => {
+    const deletedIds = await cashRegisterRepository.findDeletedIds(branchId, tx);
+
+    if (deletedIds.length === 0) {
+      return { deleted: 0 };
+    }
+
+    await restoreStockForDeletedCashRegisters(tx, branchId, deletedIds);
+    return cashRegisterRepository.hardDeleteAllDeleted(branchId, tx);
+  });
 }
 
 export async function autoCloseIfNeeded(branchId: number) {

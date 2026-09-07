@@ -245,7 +245,7 @@ export function CajaHistory({
                 const shouldEmpty = await confirm({
                   title: 'Vaciar papelera',
                   description:
-                    '¿Vaciar la papelera? Se eliminarán definitivamente todas las cajas eliminadas de la sucursal, sin límite de fecha. Las que tengan ventas asociadas se omitirán. Esta acción no se puede deshacer.',
+                    '¿Vaciar la papelera? Se eliminarán definitivamente todas las cajas eliminadas de la sucursal, sin límite de fecha, junto con sus ventas asociadas. El stock descontado por esas ventas se reintegrará al inventario. Esta acción no se puede deshacer.',
                   confirmLabel: 'Vaciar',
                 });
                 if (shouldEmpty) {

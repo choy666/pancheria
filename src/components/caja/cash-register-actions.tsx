@@ -57,7 +57,7 @@ export function CashRegisterActions({
     if (!onPermanentDelete) return;
     const shouldDelete = await confirm({
       title: 'Eliminar definitivamente',
-      description: `¿Eliminar definitivamente la caja #${cashRegister.id}? Esta acción no se puede deshacer.`,
+      description: `¿Eliminar definitivamente la caja #${cashRegister.id}? Sus ventas asociadas también se eliminarán y el stock descontado se reintegrará al inventario. Esta acción no se puede deshacer.`,
       confirmLabel: 'Eliminar definitivamente',
     });
     if (!shouldDelete) return;

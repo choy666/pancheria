@@ -196,8 +196,29 @@ export async function restore(branchId: number, id: number) {
   return result ?? null;
 }
 
-export async function hardDelete(branchId: number, id: number) {
-  return executeInTransaction(async (tx) => {
+export async function findDeletedIds(
+  branchId: number,
+  dbOrTx?: typeof db
+): Promise<number[]> {
+  const client = dbOrTx ?? db;
+  const rows = await client
+    .select({ id: cashRegisters.id })
+    .from(cashRegisters)
+    .where(
+      and(
+        eq(cashRegisters.branchId, branchId),
+        isNotNull(cashRegisters.deletedAt)
+      )
+    );
+  return rows.map((row) => row.id);
+}
+
+export async function hardDelete(
+  branchId: number,
+  id: number,
+  dbOrTx?: typeof db
+) {
+  const run = async (tx: typeof db) => {
     const [row] = await tx
       .select({ deletedAt: cashRegisters.deletedAt })
       .from(cashRegisters)
@@ -209,21 +230,19 @@ export async function hardDelete(branchId: number, id: number) {
       return { deleted: false };
     }
 
-    const [salesCount] = await tx
-      .select({ value: count() })
-      .from(sales)
-      .where(eq(sales.cashRegisterId, id));
-
-    if (Number(salesCount?.value ?? 0) > 0) {
-      return { deleted: false, hasSales: true };
-    }
+    // Las ventas asociadas se eliminan junto con la caja; sale_items,
+    // sale_payments y sale_item_recipes se borran en cascada, y
+    // stock_movements.sale_id / orders.converted_sale_id quedan en NULL.
+    await tx.delete(sales).where(eq(sales.cashRegisterId, id));
 
     await tx
       .delete(cashRegisters)
       .where(and(eq(cashRegisters.id, id), eq(cashRegisters.branchId, branchId)));
 
     return { deleted: true };
-  });
+  };
+
+  return dbOrTx ? run(dbOrTx) : executeInTransaction(run);
 }
 
 export async function lockCashRegisterById(
@@ -290,8 +309,11 @@ export async function softDeleteAllClosed(branchId: number) {
   return { deleted: rows.length };
 }
 
-export async function hardDeleteAllDeleted(branchId: number) {
-  return executeInTransaction(async (tx) => {
+export async function hardDeleteAllDeleted(
+  branchId: number,
+  dbOrTx?: typeof db
+) {
+  const run = async (tx: typeof db) => {
     const rows = await tx
       .select({ id: cashRegisters.id })
       .from(cashRegisters)
@@ -308,35 +330,21 @@ export async function hardDeleteAllDeleted(branchId: number) {
 
     const ids = rows.map((row) => row.id);
 
-    // Una sola consulta agregada para saber qué cajas tienen ventas asociadas,
-    // en lugar de un count() por cada caja (patrón N+1).
-    const salesCountRows = await tx
-      .select({ cashRegisterId: sales.cashRegisterId, value: count() })
-      .from(sales)
-      .where(inArray(sales.cashRegisterId, ids))
-      .groupBy(sales.cashRegisterId);
-
-    const idsWithSales = new Set(
-      salesCountRows
-        .filter((row) => Number(row.value) > 0)
-        .map((row) => row.cashRegisterId)
-    );
-
-    const deletableIds = ids.filter((id) => !idsWithSales.has(id));
-
-    if (deletableIds.length === 0) {
-      return { deleted: 0 };
-    }
+    // Se eliminan también las ventas asociadas a las cajas en papelera;
+    // los ítems, pagos y snapshots de receta se borran en cascada.
+    await tx.delete(sales).where(inArray(sales.cashRegisterId, ids));
 
     await tx
       .delete(cashRegisters)
       .where(
         and(
           eq(cashRegisters.branchId, branchId),
-          inArray(cashRegisters.id, deletableIds)
+          inArray(cashRegisters.id, ids)
         )
       );
 
-    return { deleted: deletableIds.length };
-  });
+    return { deleted: ids.length };
+  };
+
+  return dbOrTx ? run(dbOrTx) : executeInTransaction(run);
 }

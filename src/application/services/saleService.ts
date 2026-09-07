@@ -21,6 +21,7 @@ import {
   collectStockProductIdsToLock,
   iterRecipeConsumptions,
   buildStockMovementReason,
+  reintegrateStockForItems,
 } from '@/lib/stock-helpers';
 import { lockCashRegisterById } from '@/lib/cash-register-helpers';
 import { buildProductContext } from '@/lib/product-helpers';
@@ -267,78 +268,6 @@ async function reintegrateStockAndUpdateCashRegister(
     total,
     operation
   );
-}
-
-async function reintegrateStockForItems(
-  tx: typeof db,
-  branchId: number,
-  items: SaleItemValue[],
-  productById: Map<number, ProductRow>,
-  recipesByProduct: Map<number, RecipeWithSupply[]>,
-  source: { saleId?: number },
-  movementType: StockMovementType
-) {
-  const idsToLock = collectStockProductIdsToLock(
-    items,
-    productById,
-    recipesByProduct
-  );
-
-  const reason = buildStockMovementReason(movementType, source.saleId);
-
-  if (idsToLock.length > 0) {
-    await productRepository.lockForUpdate(tx, idsToLock);
-  }
-
-  const movementRows: StockMovementInsert[] = [];
-
-  for (const item of items) {
-    const product = productById.get(item.productId);
-    if (!product) continue;
-
-    if (product.type === 'compound') {
-      const recipeSnapshot = item.recipeSnapshot ?? [];
-      for (const { supplyId, consumed: reintegrated } of iterRecipeConsumptions(
-        product,
-        item.quantity,
-        recipesByProduct,
-        recipeSnapshot
-      )) {
-        await productRepository.incrementStock(tx, supplyId, reintegrated);
-
-        movementRows.push({
-          branchId,
-          productId: supplyId,
-          type: movementType,
-          quantity: reintegrated,
-          saleId: source.saleId ?? null,
-          orderId: null,
-          reason,
-          createdAt: nowUTC(),
-        });
-      }
-    } else if (
-      product.type === 'critical_supply' &&
-      product.criticalSupplyType === 'beverage'
-    ) {
-      await productRepository.incrementStock(tx, product.id, item.quantity);
-
-      movementRows.push({
-        branchId,
-        productId: product.id,
-        type: movementType,
-        quantity: item.quantity,
-        saleId: source.saleId ?? null,
-        orderId: null,
-        reason,
-        createdAt: nowUTC(),
-      });
-    } else if (product.type === 'service' || product.type === 'manual_supply') {
-      // Los servicios y los insumos manuales no reintegran stock al anularse.
-    }
-  }
-
-  await stockMovementRepository.insertMany(tx, movementRows);
 }
 
 export async function insertSaleAndUpdateCashRegister(
