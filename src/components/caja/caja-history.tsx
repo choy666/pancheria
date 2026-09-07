@@ -17,6 +17,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
+import {
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+} from '@/lib/payment-helpers';
+import type { PaymentMethod } from '@/domain/types';
 import { Pagination } from '@/components/ui/pagination';
 import { routes } from '@/config/routes';
 import { CashRegisterActions } from '@/components/caja/cash-register-actions';
@@ -292,20 +297,42 @@ export function CajaHistory({
                   <TableCell className="hidden lg:table-cell font-mono">
                     {formatMoney(cashRegister.transferTotal)}
                   </TableCell>
-                  <TableCell
-                    className={`hidden lg:table-cell font-mono ${
-                      cashRegister.closingDifference !== undefined && cashRegister.closingDifference !== null
-                        ? cashRegister.closingDifference > 0
-                          ? 'text-green-600'
-                          : cashRegister.closingDifference < 0
-                            ? 'text-destructive'
-                            : ''
-                        : ''
-                    }`}
-                  >
-                    {cashRegister.closingDifference !== undefined && cashRegister.closingDifference !== null
-                      ? `${cashRegister.closingDifference >= 0 ? '+' : ''}${formatMoney(Math.abs(cashRegister.closingDifference))}`
-                      : '-'}
+                  <TableCell className="hidden lg:table-cell font-mono">
+                    {(() => {
+                      const differenceByMethod: Record<
+                        PaymentMethod,
+                        number | null | undefined
+                      > = {
+                        cash: cashRegister.closingDifference,
+                        transfer: cashRegister.closingTransferDifference,
+                      };
+                      const methods = PAYMENT_METHODS.filter(
+                        (method) =>
+                          differenceByMethod[method] !== undefined &&
+                          differenceByMethod[method] !== null
+                      );
+                      if (methods.length === 0) return '-';
+                      return methods.map((method) => {
+                        const difference = differenceByMethod[method] as number;
+                        return (
+                          <div
+                            key={method}
+                            data-testid={`cash-register-${method}-difference-${cashRegister.id}`}
+                            className={
+                              difference > 0
+                                ? 'text-green-600'
+                                : difference < 0
+                                  ? 'text-destructive'
+                                  : ''
+                            }
+                          >
+                            {PAYMENT_METHOD_LABELS[method]}:{' '}
+                            {difference > 0 ? '+' : ''}
+                            {formatMoney(difference)}
+                          </div>
+                        );
+                      });
+                    })()}
                   </TableCell>
                   {showAutoColumn && (
                     <TableCell className="hidden sm:table-cell">

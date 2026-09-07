@@ -3,6 +3,20 @@ import { equal } from 'dinero.js';
 import type { PaymentMethod, PaymentPart } from '@/domain/types';
 
 /**
+ * Catálogo centralizado de medios de pago. Debe mantenerse alineado con
+ * `paymentMethodEnum` del esquema y con el tipo `PaymentMethod` del dominio.
+ */
+export const PAYMENT_METHODS = [
+  'cash',
+  'transfer',
+] as const satisfies readonly PaymentMethod[];
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+};
+
+/**
  * Parsea un monto ingresado por el operador con una regla única es-AR:
  * '.' es siempre separador de miles y ',' es siempre separador decimal
  * (máx. una coma; los decimales se redondean según `decimals`).
@@ -38,7 +52,9 @@ export function sumPaymentParts(payments: PaymentPart[]): number {
 export function amountByPaymentMethod(
   payments: PaymentPart[]
 ): Record<PaymentMethod, number> {
-  const result: Record<PaymentMethod, number> = { cash: 0, transfer: 0 };
+  const result = Object.fromEntries(
+    PAYMENT_METHODS.map((method) => [method, 0])
+  ) as Record<PaymentMethod, number>;
   for (const payment of payments) {
     result[payment.method] = moneyToNumber(
       addMoney(parseMoney(result[payment.method]), parseMoney(payment.amount))

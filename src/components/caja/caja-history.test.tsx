@@ -94,4 +94,44 @@ describe('CajaHistory', () => {
     );
     expect(screen.getByText('Cerrada')).toBeInTheDocument();
   });
+
+  test('muestra las diferencias de efectivo y transferencia al cerrar', () => {
+    mockedUseCashRegisterHistory.mockReturnValue(
+      createMockReturn({
+        data: [
+          {
+            id: 1,
+            branchId: 1,
+            openedAt: '2025-01-15T10:00:00.000Z',
+            closedAt: '2025-01-15T22:00:00.000Z',
+            openedBy: 'admin',
+            closedBy: 'admin',
+            status: 'closed',
+            autoClosed: false,
+            initialAmount: 0,
+            total: 1500,
+            cashTotal: 1000,
+            transferTotal: 500,
+            totalSales: 3,
+            closingCashCount: 1050,
+            closingDifference: 50,
+            closingTransferCount: 450,
+            closingTransferDifference: -50,
+            deletedAt: null,
+            createdAt: '2025-01-15T10:00:00.000Z',
+          },
+        ],
+        total: 1,
+      })
+    );
+
+    render(<CajaHistory />);
+
+    expect(
+      screen.getByTestId('cash-register-cash-difference-1')
+    ).toHaveTextContent('Efectivo: +$ 50');
+    expect(
+      screen.getByTestId('cash-register-transfer-difference-1')
+    ).toHaveTextContent('Transferencia: -$ 50');
+  });
 });

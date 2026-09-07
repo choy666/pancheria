@@ -123,7 +123,7 @@ export function usePaymentParts(
     [remaining]
   );
   const isMixed = useMemo(
-    () => paymentParts.length === 2,
+    () => paymentParts.filter((p) => p.amount > 0).length > 1,
     [paymentParts]
   );
 

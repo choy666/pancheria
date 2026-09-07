@@ -200,11 +200,16 @@ export async function closeCashRegister(
   branchId: number,
   id: number,
   closedBy: string,
-  closingCashCount?: unknown,
-  closingNotes?: unknown
+  closeInput?: {
+    closingCashCount?: unknown;
+    closingTransferCount?: unknown;
+    closingNotes?: unknown;
+  }
 ) {
   validatePositiveInteger(branchId, 'La sucursal');
   const closedByTrimmed = validateNonEmptyString(closedBy, 'El usuario que cierra la caja');
+  const { closingCashCount, closingTransferCount, closingNotes } =
+    closeInput ?? {};
 
   return executeInTransaction(async (tx) => {
     const cashRegister = await lockCashRegisterById(tx, branchId, id, {
@@ -240,6 +245,20 @@ export async function closeCashRegister(
       const counted = parseMoney(countValue);
       const difference = moneyToNumber(subtractMoney(counted, expected));
       closeData.closingDifference = difference;
+    }
+
+    const transferCountValue = validateNonNegativeMoney(
+      closingTransferCount,
+      'La transferencia contada al cerrar'
+    );
+    if (closingTransferCount !== undefined && closingTransferCount !== null && closingTransferCount !== '') {
+      closeData.closingTransferCount = transferCountValue;
+      const expectedTransfer = parseMoney(summary.transferTotal);
+      const countedTransfer = parseMoney(transferCountValue);
+      const transferDifference = moneyToNumber(
+        subtractMoney(countedTransfer, expectedTransfer)
+      );
+      closeData.closingTransferDifference = transferDifference;
     }
 
     const updated = await cashRegisterRepository.update(

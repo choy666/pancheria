@@ -9,7 +9,7 @@ import {
   CAJA_RESUMEN_API,
   getCajaRefreshInterval,
 } from '@/config/caja';
-import type { CashRegister } from '@/config/caja';
+import type { CashRegister, CloseCashRegisterInput } from '@/config/caja';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 
 export interface UseCashRegisterResult {
@@ -18,7 +18,7 @@ export interface UseCashRegisterResult {
   error: string | null;
   lastUpdated: Date | null;
   open: (initialAmount?: number) => Promise<void>;
-  close: (closingCashCount?: number, closingNotes?: string) => Promise<void>;
+  close: (input?: CloseCashRegisterInput) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -102,7 +102,7 @@ export function useCashRegister(): UseCashRegisterResult {
     }
   }, [fetchCaja, router]);
 
-  const close = useCallback(async (closingCashCount?: number, closingNotes?: string) => {
+  const close = useCallback(async (input?: CloseCashRegisterInput) => {
     if (!cashRegister) return;
 
     setError(null);
@@ -113,8 +113,7 @@ export function useCashRegister(): UseCashRegisterResult {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: cashRegister.id,
-          closingCashCount,
-          closingNotes,
+          ...input,
         }),
       });
 

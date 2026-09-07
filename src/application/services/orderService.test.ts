@@ -132,6 +132,8 @@ function createOpenCashRegister(
     recipeSuppliesSummary: {},
     closingCashCount: null,
     closingDifference: null,
+    closingTransferCount: null,
+    closingTransferDifference: null,
     closingNotes: null,
     deletedAt: null,
     createdAt: new Date(),

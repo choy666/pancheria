@@ -82,8 +82,11 @@ describe('POST /api/caja/cerrar', () => {
       BRANCH_ID,
       1,
       'operador',
-      undefined,
-      undefined
+      {
+        closingCashCount: undefined,
+        closingTransferCount: undefined,
+        closingNotes: undefined,
+      }
     );
   });
 
@@ -103,8 +106,11 @@ describe('POST /api/caja/cerrar', () => {
       BRANCH_ID,
       5,
       'operador',
-      undefined,
-      undefined
+      {
+        closingCashCount: undefined,
+        closingTransferCount: undefined,
+        closingNotes: undefined,
+      }
     );
   });
 
@@ -127,8 +133,38 @@ describe('POST /api/caja/cerrar', () => {
       BRANCH_ID,
       1,
       'operador',
-      1050,
-      'sobrante'
+      {
+        closingCashCount: 1050,
+        closingTransferCount: undefined,
+        closingNotes: 'sobrante',
+      }
+    );
+  });
+
+  test('cierra la caja con conteo de transferencia', async () => {
+    const cashRegister = { id: 1, branchId: BRANCH_ID, status: 'closed' };
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
+      id: 1,
+    } as any);
+    mockedCashRegisterService.closeCashRegister.mockResolvedValue(
+      cashRegister as any
+    );
+
+    const response = await POST(
+      buildRequest({ closingTransferCount: 700 }),
+      { params: Promise.resolve({}) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedCashRegisterService.closeCashRegister).toHaveBeenCalledWith(
+      BRANCH_ID,
+      1,
+      'operador',
+      {
+        closingCashCount: undefined,
+        closingTransferCount: 700,
+        closingNotes: undefined,
+      }
     );
   });
 

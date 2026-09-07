@@ -55,12 +55,20 @@ export interface CashRegister {
   cashInDrawer?: number;
   closingCashCount?: number | null;
   closingDifference?: number | null;
+  closingTransferCount?: number | null;
+  closingTransferDifference?: number | null;
   closingNotes?: string | null;
   productsSummary?: Record<string, number>;
   criticalSuppliesSummary?: Record<string, number>;
   recipeSuppliesSummary?: Record<string, number>;
   createdAt: string;
   deletedAt?: string | null;
+}
+
+export interface CloseCashRegisterInput {
+  closingCashCount?: number;
+  closingTransferCount?: number;
+  closingNotes?: string;
 }
 
 export function getCajaRefreshInterval(): number {

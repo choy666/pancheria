@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { VENTAS_API } from '@/config/api';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
 import { formatRecipeSummary } from '@/lib/recipe-helpers';
+import { PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import type { PaginatedResult, PaymentMethod, PaymentPart, RecipeItemConfig, SaleStatus } from '@/domain/types';
 
 interface Sale {
@@ -50,11 +51,6 @@ interface SalesHistoryProps {
   cashRegisterId?: number;
   allowCancel?: boolean;
 }
-
-const paymentLabels: Record<string, string> = {
-  cash: 'Efectivo',
-  transfer: 'Transferencia',
-};
 
 function formatItemRecipeDetails(recipeSnapshot?: RecipeItemConfig[]): string {
   if (!recipeSnapshot || recipeSnapshot.length === 0) return '';
@@ -215,12 +211,12 @@ export function SalesHistory({
                           variant="outline"
                           data-testid={`sale-payment-${p.method}`}
                         >
-                          {paymentLabels[p.method]} {formatMoney(p.amount)}
+                          {PAYMENT_METHOD_LABELS[p.method]} {formatMoney(p.amount)}
                         </Badge>
                       ))
                     ) : (
                       <Badge variant="outline" data-testid="sale-payment">
-                        {paymentLabels[sale.paymentMethod]}
+                        {PAYMENT_METHOD_LABELS[sale.paymentMethod]}
                       </Badge>
                     )}
                   </div>

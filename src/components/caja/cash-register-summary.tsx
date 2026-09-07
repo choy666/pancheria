@@ -4,6 +4,7 @@ import { addHours, intervalToDuration } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAutoCloseHours } from '@/config/caja';
 import { formatMoney } from '@/lib/money';
+import { PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
 
 interface CashRegisterSummaryData {
@@ -22,6 +23,8 @@ interface CashRegisterSummaryData {
   cashInDrawer?: number | null;
   closingCashCount?: number | null;
   closingDifference?: number | null;
+  closingTransferCount?: number | null;
+  closingTransferDifference?: number | null;
   closingNotes?: string | null;
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
@@ -65,8 +68,55 @@ export function CashRegisterSummary({
     cashRegister.cashInDrawer ??
     cashRegister.cashTotal + cashRegister.initialAmount;
 
-  const difference = cashRegister.closingDifference;
-  const hasDifference = difference !== undefined && difference !== null;
+  const countedByMethod: {
+    methodLabel: string;
+    countedLabel: string;
+    counted: number | null | undefined;
+    difference: number | null | undefined;
+  }[] = [
+    {
+      methodLabel: PAYMENT_METHOD_LABELS.cash,
+      countedLabel: `${PAYMENT_METHOD_LABELS.cash} contado`,
+      counted: cashRegister.closingCashCount,
+      difference: cashRegister.closingDifference,
+    },
+    {
+      methodLabel: PAYMENT_METHOD_LABELS.transfer,
+      countedLabel: `${PAYMENT_METHOD_LABELS.transfer} contada`,
+      counted: cashRegister.closingTransferCount,
+      difference: cashRegister.closingTransferDifference,
+    },
+  ];
+
+  function renderCounted(countedLabel: string, counted: number) {
+    return (
+      <p className="text-base" key={`${countedLabel}-counted`}>
+        {countedLabel}:{' '}
+        <span className="font-mono font-semibold">{formatMoney(counted)}</span>
+      </p>
+    );
+  }
+
+  function renderDifference(methodLabel: string, difference: number) {
+    return (
+      <p
+        key={`${methodLabel}-difference`}
+        className={`rounded-lg p-3 text-base font-medium ${
+          difference > 0
+            ? 'bg-green-100 text-green-800'
+            : difference < 0
+              ? 'bg-destructive/15 text-destructive'
+              : 'bg-muted/30'
+        }`}
+      >
+        Diferencia en {methodLabel.toLowerCase()}:{' '}
+        <span className="font-mono">
+          {difference > 0 ? '+' : ''}{formatMoney(difference)}
+        </span>
+        {difference > 0 ? ' (sobrante)' : difference < 0 ? ' (faltante)' : ' (cuadrado)'}
+      </p>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -124,7 +174,7 @@ export function CashRegisterSummary({
           </p>
           <div className="grid grid-cols-2 gap-3 text-base">
             <p className="rounded-lg bg-muted/30 p-3">
-              Efectivo en ventas:{' '}
+              {PAYMENT_METHOD_LABELS.cash} en ventas:{' '}
               <span
                 data-testid="cash-register-cash-total"
                 className="font-mono font-medium"
@@ -133,7 +183,7 @@ export function CashRegisterSummary({
               </span>
             </p>
             <p className="rounded-lg bg-muted/30 p-3">
-              Transferencia:{' '}
+              {PAYMENT_METHOD_LABELS.transfer}:{' '}
               <span
                 data-testid="cash-register-transfer-total"
                 className="font-mono font-medium"
@@ -154,31 +204,16 @@ export function CashRegisterSummary({
               </span>
             </p>
           </div>
-          {hasDifference && (
-            <p
-              className={`rounded-lg p-3 text-base font-medium ${
-                difference > 0
-                  ? 'bg-green-100 text-green-800'
-                  : difference < 0
-                    ? 'bg-destructive/15 text-destructive'
-                    : 'bg-muted/30'
-              }`}
-            >
-              Diferencia:{' '}
-              <span className="font-mono">
-                {difference > 0 ? '+' : ''}{formatMoney(difference)}
-              </span>
-              {difference > 0 ? ' (sobrante)' : difference < 0 ? ' (faltante)' : ' (cuadrado)'}
-            </p>
-          )}
-          {cashRegister.closingCashCount !== undefined && cashRegister.closingCashCount !== null && (
-            <p className="text-base">
-              Efectivo contado:{' '}
-              <span className="font-mono font-semibold">
-                {formatMoney(cashRegister.closingCashCount)}
-              </span>
-            </p>
-          )}
+          {countedByMethod.flatMap(({ methodLabel, countedLabel, counted, difference }) => {
+            const blocks = [];
+            if (difference !== undefined && difference !== null) {
+              blocks.push(renderDifference(methodLabel, difference));
+            }
+            if (counted !== undefined && counted !== null) {
+              blocks.push(renderCounted(countedLabel, counted));
+            }
+            return blocks;
+          })}
           {cashRegister.closingNotes && (
             <p className="text-sm text-muted-foreground">
               Notas: {cashRegister.closingNotes}

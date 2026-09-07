@@ -9,6 +9,8 @@ import { formatMoney } from '@/lib/money';
 import {
   amountByPaymentMethod,
   parsePaymentAmount,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
 } from '@/lib/payment-helpers';
 import type { PaymentMethod, PaymentPart } from '@/domain/types';
 
@@ -19,20 +21,20 @@ interface PaymentPartsInputProps {
   disabled?: boolean;
 }
 
-const METHODS: {
-  method: PaymentMethod;
-  label: string;
-  shortLabel: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { method: 'cash', label: 'Efectivo', shortLabel: 'efectivo', icon: Banknote },
-  {
-    method: 'transfer',
-    label: 'Transferencia',
-    shortLabel: 'transferencia',
-    icon: Landmark,
-  },
-];
+const METHOD_ICONS: Record<
+  PaymentMethod,
+  React.ComponentType<{ className?: string }>
+> = {
+  cash: Banknote,
+  transfer: Landmark,
+};
+
+const METHODS = PAYMENT_METHODS.map((method) => ({
+  method,
+  label: PAYMENT_METHOD_LABELS[method],
+  shortLabel: PAYMENT_METHOD_LABELS[method].toLowerCase(),
+  icon: METHOD_ICONS[method],
+}));
 
 function roundAmount(value: number): number {
   return Math.max(0, Math.round(value));
@@ -57,10 +59,11 @@ export function PaymentPartsInput({
   const paid = byMethod.cash + byMethod.transfer;
   const remaining = totalRounded - paid;
 
-  const inputRefs = useRef<Record<PaymentMethod, HTMLInputElement | null>>({
-    cash: null,
-    transfer: null,
-  });
+  const inputRefs = useRef<Record<PaymentMethod, HTMLInputElement | null>>(
+    Object.fromEntries(
+      PAYMENT_METHODS.map((method) => [method, null])
+    ) as Record<PaymentMethod, HTMLInputElement | null>
+  );
 
   const remainingText =
     remaining > 0

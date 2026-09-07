@@ -8,6 +8,12 @@ export const POST = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { session, branchId }) => {
     const body = await request.json().catch(() => ({}));
     const id = parseId(body.id);
+    const userName = session.user?.name ?? 'Usuario';
+    const closeInput = {
+      closingCashCount: body.closingCashCount,
+      closingTransferCount: body.closingTransferCount,
+      closingNotes: body.closingNotes,
+    };
 
     if (!id) {
       const currentCashRegister = await cashRegisterService.getOpenCashRegister(branchId);
@@ -19,24 +25,20 @@ export const POST = withApiErrorHandling(
         );
       }
 
-      const userName = session.user?.name ?? 'Usuario';
       const cashRegister = await cashRegisterService.closeCashRegister(
         branchId,
         currentCashRegister.id,
         userName,
-        body.closingCashCount,
-        body.closingNotes
+        closeInput
       );
       return NextResponse.json(cashRegister);
     }
 
-    const userName = session.user?.name ?? 'Usuario';
     const cashRegister = await cashRegisterService.closeCashRegister(
       branchId,
       id,
       userName,
-      body.closingCashCount,
-      body.closingNotes
+      closeInput
     );
     return NextResponse.json(cashRegister);
   })

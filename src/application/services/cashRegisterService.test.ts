@@ -574,11 +574,120 @@ describe('cashRegisterService', () => {
         { id: 2, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
       ] as any);
 
-      const result = await closeCashRegister(BRANCH_ID, 1, 'operador', 1050, 'sobrante de vuelto');
+      const result = await closeCashRegister(BRANCH_ID, 1, 'operador', {
+        closingCashCount: 1050,
+        closingNotes: 'sobrante de vuelto',
+      });
 
       expect(result?.closingCashCount).toBe(1050);
       expect(result?.closingDifference).toBe(50);
       expect(result?.closingNotes).toBe('sobrante de vuelto');
+    });
+
+    test('registra el conteo y la diferencia de transferencia al cerrar', async () => {
+      mockUpdate.mockResolvedValue([
+        {
+          ...createMockCashRegister(),
+          transferTotal: 800,
+          closingTransferCount: 700,
+          closingTransferDifference: -100,
+          closedBy: 'operador',
+        },
+      ]);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+          initialAmount: 0,
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          total: 800,
+          paymentMethod: 'transfer',
+          payments: [{ method: 'transfer', amount: 800 }],
+          status: 'active',
+          items: [],
+        },
+      ] as any);
+
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await closeCashRegister(BRANCH_ID, 1, 'operador', {
+        closingTransferCount: 700,
+      });
+
+      expect(mockedCashRegisterRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({
+          closingTransferCount: 700,
+          closingTransferDifference: -100,
+        }),
+        expect.anything()
+      );
+      expect(result?.closingTransferCount).toBe(700);
+      expect(result?.closingTransferDifference).toBe(-100);
+    });
+
+    test('calcula diferencias de efectivo y transferencia con pago mixto', async () => {
+      mockUpdate.mockResolvedValue([createMockCashRegister()]);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+          initialAmount: 200,
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          total: 800,
+          paymentMethod: 'cash',
+          payments: [
+            { method: 'cash', amount: 500 },
+            { method: 'transfer', amount: 300 },
+          ],
+          status: 'active',
+          items: [],
+        },
+      ] as any);
+
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      await closeCashRegister(BRANCH_ID, 1, 'operador', {
+        closingCashCount: 750,
+        closingTransferCount: 300,
+      });
+
+      expect(mockedCashRegisterRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({
+          closingCashCount: 750,
+          closingDifference: 50,
+          closingTransferCount: 300,
+          closingTransferDifference: 0,
+        }),
+        expect.anything()
+      );
     });
 
     test('rechaza un monto contado negativo al cerrar', async () => {
@@ -591,7 +700,28 @@ describe('cashRegisterService', () => {
         },
       ];
 
-      await expect(closeCashRegister(BRANCH_ID, 1, 'operador', -100)).rejects.toThrow(ValidationError);
+      await expect(
+        closeCashRegister(BRANCH_ID, 1, 'operador', { closingCashCount: -100 })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza una transferencia contada negativa al cerrar', async () => {
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          status: 'open',
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      await expect(
+        closeCashRegister(BRANCH_ID, 1, 'operador', { closingTransferCount: -50 })
+      ).rejects.toThrow(ValidationError);
     });
   });
 

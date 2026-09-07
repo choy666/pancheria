@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
-import { parseMoneyAmount } from '@/lib/payment-helpers';
+import { parseMoneyAmount, PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
   const [closeDialog, setCloseDialog] = useState(false);
   const [initialAmount, setInitialAmount] = useState('');
   const [closingCashCount, setClosingCashCount] = useState('');
+  const [closingTransferCount, setClosingTransferCount] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
 
   async function handleOpen() {
@@ -51,11 +52,17 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
   async function handleClose() {
     setIsSubmitting(true);
     const count = closingCashCount.trim() === '' ? undefined : parseAmount(closingCashCount);
+    const transferCount = closingTransferCount.trim() === '' ? undefined : parseAmount(closingTransferCount);
     const notes = closingNotes.trim() === '' ? undefined : closingNotes.trim();
-    await close(count, notes);
+    await close({
+      closingCashCount: count,
+      closingTransferCount: transferCount,
+      closingNotes: notes,
+    });
     setIsSubmitting(false);
     setCloseDialog(false);
     setClosingCashCount('');
+    setClosingTransferCount('');
     setClosingNotes('');
   }
 
@@ -171,12 +178,12 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
             <DialogHeader>
               <DialogTitle>Cerrar caja</DialogTitle>
               <DialogDescription>
-                Ingresá el monto contado en efectivo para calcular la diferencia con el esperado.
+                Ingresá los montos contados para calcular la diferencia con lo esperado en cada medio de pago.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label htmlFor="panel-closing-cash-count">Efectivo contado</Label>
+                <Label htmlFor="panel-closing-cash-count">{PAYMENT_METHOD_LABELS.cash} contado</Label>
                 <MoneyAmountInput
                   id="panel-closing-cash-count"
                   testId="closing-cash-count-input"
@@ -187,7 +194,22 @@ export function CajaPanel({ branchName }: CajaPanelProps) {
                   className="bg-background font-mono text-base font-semibold"
                 />
                 <p className="text-sm text-muted-foreground">
-                  Esperado en efectivo: {formatMoney((cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount))}
+                  Esperado en {PAYMENT_METHOD_LABELS.cash.toLowerCase()}: {formatMoney((cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount))}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="panel-closing-transfer-count">{PAYMENT_METHOD_LABELS.transfer} contada</Label>
+                <MoneyAmountInput
+                  id="panel-closing-transfer-count"
+                  testId="closing-transfer-count-input"
+                  amount={parseMoneyAmount(closingTransferCount, 0) ?? 0}
+                  decimals={0}
+                  onRawChange={setClosingTransferCount}
+                  ariaLabel="Transferencia contada al cerrar caja"
+                  className="bg-background font-mono text-base font-semibold"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Esperado en {PAYMENT_METHOD_LABELS.transfer.toLowerCase()}: {formatMoney(cashRegister.transferTotal)}
                 </p>
               </div>
               <div className="space-y-2">
