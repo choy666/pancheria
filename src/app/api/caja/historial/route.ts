@@ -33,3 +33,10 @@ export const GET = withApiErrorHandling(
     return NextResponse.json(cashRegisters);
   })
 );
+
+export const DELETE = withApiErrorHandling(
+  withAuth(async (_request: NextRequest, _context, { branchId }) => {
+    const result = await cashRegisterService.deleteAllClosedCashRegisters(branchId);
+    return NextResponse.json(result);
+  }, { admin: true })
+);

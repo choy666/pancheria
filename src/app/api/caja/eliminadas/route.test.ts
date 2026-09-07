@@ -103,16 +103,19 @@ describe('DELETE /api/caja/eliminadas', () => {
     mockedRequireAdmin.mockResolvedValue(session);
   });
 
-  test('vacia la papelera de cajas eliminadas', async () => {
+  test('vacia la papelera de todas las cajas eliminadas', async () => {
     mockedEmptyTrash.mockResolvedValue({ deleted: 2 });
     const response = await DELETE(createRequest('DELETE'), emptyContext);
     const body = (await response.json()) as { deleted: number };
     expect(response.status).toBe(200);
     expect(body.deleted).toBe(2);
-    expect(mockedEmptyTrash).toHaveBeenCalledWith(
-      expect.any(Number),
-      expect.any(Date),
-      expect.any(Date)
-    );
+    expect(mockedEmptyTrash).toHaveBeenCalledWith(1);
+  });
+
+  test('devuelve 401 sin autenticación admin', async () => {
+    mockedRequireAdmin.mockRejectedValue(new UnauthorizedError('No admin'));
+    const response = await DELETE(createRequest('DELETE'), emptyContext);
+    expect(response.status).toBe(401);
+    expect(mockedEmptyTrash).not.toHaveBeenCalled();
   });
 });

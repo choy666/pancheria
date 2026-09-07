@@ -37,10 +37,8 @@ export const GET = withApiErrorHandling(
 );
 
 export const DELETE = withApiErrorHandling(
-  withAuth(async (request: NextRequest, _context, { branchId }) => {
-    const { start, end } = getDateRange(request);
-
-    const result = await cashRegisterService.emptyTrash(branchId, start, end);
+  withAuth(async (_request: NextRequest, _context, { branchId }) => {
+    const result = await cashRegisterService.emptyTrash(branchId);
     return NextResponse.json(result);
   }, { admin: true })
 );

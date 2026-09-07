@@ -10,6 +10,7 @@ import {
   autoCloseIfNeeded,
   listCashRegisterHistory,
   listDeletedCashRegisterHistory,
+  deleteAllClosedCashRegisters,
   emptyTrash,
   calculateCashRegisterSummary,
 } from './cashRegisterService';
@@ -890,21 +891,33 @@ describe('cashRegisterService', () => {
     });
   });
 
-  describe('emptyTrash', () => {
-    test('elimina permanentemente las cajas en papelera del rango', async () => {
-      const start = new Date('2025-01-01');
-      const end = new Date('2025-01-31');
+  describe('deleteAllClosedCashRegisters', () => {
+    test('manda a la papelera todas las cajas cerradas', async () => {
+      mockedCashRegisterRepository.softDeleteAllClosed.mockResolvedValue({
+        deleted: 3,
+      } as any);
 
-      mockedCashRegisterRepository.hardDeleteAllDeletedInRange.mockResolvedValue({
+      const result = await deleteAllClosedCashRegisters(BRANCH_ID);
+
+      expect(result).toEqual({ deleted: 3 });
+      expect(
+        mockedCashRegisterRepository.softDeleteAllClosed
+      ).toHaveBeenCalledWith(BRANCH_ID);
+    });
+  });
+
+  describe('emptyTrash', () => {
+    test('elimina permanentemente todas las cajas en papelera', async () => {
+      mockedCashRegisterRepository.hardDeleteAllDeleted.mockResolvedValue({
         deleted: 2,
       } as any);
 
-      const result = await emptyTrash(BRANCH_ID, start, end);
+      const result = await emptyTrash(BRANCH_ID);
 
       expect(result).toEqual({ deleted: 2 });
       expect(
-        mockedCashRegisterRepository.hardDeleteAllDeletedInRange
-      ).toHaveBeenCalledWith(BRANCH_ID, start, end);
+        mockedCashRegisterRepository.hardDeleteAllDeleted
+      ).toHaveBeenCalledWith(BRANCH_ID);
     });
   });
 

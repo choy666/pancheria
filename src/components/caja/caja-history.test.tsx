@@ -1,12 +1,19 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CajaHistory } from './caja-history';
 import * as useCashRegisterHistoryModule from './use-cash-register-history';
+import { authenticatedFetch } from '@/lib/fetch';
+import { CAJA_ELIMINADAS_API, CAJA_HISTORIAL_API } from '@/config/api';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
+}));
+
+jest.mock('@/lib/fetch', () => ({
+  authenticatedFetch: jest.fn(),
+  throwApiError: jest.fn(),
 }));
 
 jest.mock('./use-cash-register-history');
@@ -15,6 +22,10 @@ const mockedUseCashRegisterHistory =
   useCashRegisterHistoryModule.useCashRegisterHistory as jest.MockedFunction<
     typeof useCashRegisterHistoryModule.useCashRegisterHistory
   >;
+
+const mockedAuthenticatedFetch = authenticatedFetch as jest.MockedFunction<
+  typeof authenticatedFetch
+>;
 
 function createMockReturn(
   overrides: Partial<useCashRegisterHistoryModule.UseCashRegisterHistoryReturn> = {}
@@ -133,5 +144,77 @@ describe('CajaHistory', () => {
     expect(
       screen.getByTestId('cash-register-transfer-difference-1')
     ).toHaveTextContent('Transferencia: -$ 50');
+  });
+
+  test('muestra el botón de eliminar cajas cerradas solo a admin', () => {
+    mockedUseCashRegisterHistory.mockReturnValue(createMockReturn());
+
+    const { unmount } = render(<CajaHistory isAdmin />);
+    expect(screen.getByTestId('delete-all-closed')).toBeInTheDocument();
+    unmount();
+
+    render(<CajaHistory />);
+    expect(screen.queryByTestId('delete-all-closed')).not.toBeInTheDocument();
+  });
+
+  test('en la papelera muestra Vaciar papelera en lugar del botón de cerradas', () => {
+    mockedUseCashRegisterHistory.mockReturnValue(createMockReturn());
+
+    render(<CajaHistory deletedOnly isAdmin />);
+
+    expect(screen.getByTestId('empty-trash')).toBeInTheDocument();
+    expect(screen.queryByTestId('delete-all-closed')).not.toBeInTheDocument();
+  });
+
+  test('envía todas las cajas cerradas a la papelera tras confirmar', async () => {
+    const refresh = jest.fn();
+    mockedUseCashRegisterHistory.mockReturnValue(
+      createMockReturn({ refresh })
+    );
+    mockedAuthenticatedFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ deleted: 3 }),
+    } as unknown as Response);
+
+    render(<CajaHistory isAdmin />);
+    fireEvent.click(screen.getByTestId('delete-all-closed'));
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() =>
+      expect(mockedAuthenticatedFetch).toHaveBeenCalledWith(
+        CAJA_HISTORIAL_API,
+        { method: 'DELETE' }
+      )
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(screen.getByTestId('bulk-action-result')).toHaveTextContent(
+      '3 cajas a la papelera'
+    );
+  });
+
+  test('vacia la papelera sin enviar rango de fechas', async () => {
+    const refresh = jest.fn();
+    mockedUseCashRegisterHistory.mockReturnValue(
+      createMockReturn({ refresh })
+    );
+    mockedAuthenticatedFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ deleted: 2 }),
+    } as unknown as Response);
+
+    render(<CajaHistory deletedOnly isAdmin />);
+    fireEvent.click(screen.getByTestId('empty-trash'));
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() =>
+      expect(mockedAuthenticatedFetch).toHaveBeenCalledWith(
+        CAJA_ELIMINADAS_API,
+        { method: 'DELETE' }
+      )
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(screen.getByTestId('bulk-action-result')).toHaveTextContent(
+      'Se eliminaron definitivamente 2 cajas'
+    );
   });
 });

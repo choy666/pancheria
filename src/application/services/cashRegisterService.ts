@@ -351,8 +351,12 @@ export async function listDeletedCashRegisterHistory(
   return cashRegisterRepository.findDeletedInRange(branchId, start, end, pagination);
 }
 
-export async function emptyTrash(branchId: number, start: Date, end: Date) {
-  return cashRegisterRepository.hardDeleteAllDeletedInRange(branchId, start, end);
+export async function deleteAllClosedCashRegisters(branchId: number) {
+  return cashRegisterRepository.softDeleteAllClosed(branchId);
+}
+
+export async function emptyTrash(branchId: number) {
+  return cashRegisterRepository.hardDeleteAllDeleted(branchId);
 }
 
 export async function autoCloseIfNeeded(branchId: number) {

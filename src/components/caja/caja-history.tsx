@@ -4,7 +4,7 @@ import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { CAJA_API, CAJA_ELIMINADAS_API } from '@/config/api';
+import { CAJA_API, CAJA_ELIMINADAS_API, CAJA_HISTORIAL_API } from '@/config/api';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -44,7 +44,8 @@ interface CajaHistoryProps {
   onDelete?: (id: number) => Promise<void>;
   onRestore?: (id: number) => Promise<void>;
   onPermanentDelete?: (id: number) => Promise<void>;
-  onEmptyTrash?: (start: string, end: string) => Promise<void>;
+  onEmptyTrash?: () => Promise<void>;
+  onDeleteAllClosed?: () => Promise<void>;
 }
 
 export function CajaHistory({
@@ -58,17 +59,17 @@ export function CajaHistory({
   onRestore,
   onPermanentDelete,
   onEmptyTrash,
+  onDeleteAllClosed,
 }: CajaHistoryProps) {
   const router = useRouter();
   const { dialog, confirm } = useConfirmDialog();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const {
     data: cashRegisters,
     total,
     page,
     limit,
-    startDate,
-    endDate,
     error,
     isLoading,
     setPage,
@@ -142,26 +143,60 @@ export function CajaHistory({
     }
   }
 
-  async function handleEmptyTrash(startDate: string, endDate: string) {
+  async function handleEmptyTrash() {
     try {
       if (onEmptyTrash) {
-        await onEmptyTrash(startDate, endDate);
+        await onEmptyTrash();
       } else {
-        const response = await authenticatedFetch(
-          `${CAJA_ELIMINADAS_API}?start=${startDate}&end=${endDate}`,
-          {
-            method: 'DELETE',
-          }
-        );
+        const response = await authenticatedFetch(CAJA_ELIMINADAS_API, {
+          method: 'DELETE',
+        });
 
         if (!response.ok) {
           await throwApiError(response, 'Error al vaciar la papelera');
         }
+
+        const data = (await response.json()) as { deleted: number };
+        setActionMessage(
+          data.deleted === 1
+            ? 'Se eliminó definitivamente 1 caja.'
+            : `Se eliminaron definitivamente ${data.deleted} cajas.`
+        );
       }
 
       refresh();
       setActionError(null);
     } catch (error) {
+      setActionMessage(null);
+      setActionError(error instanceof Error ? error.message : 'Error desconocido');
+    }
+  }
+
+  async function handleDeleteAllClosed() {
+    try {
+      if (onDeleteAllClosed) {
+        await onDeleteAllClosed();
+      } else {
+        const response = await authenticatedFetch(CAJA_HISTORIAL_API, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          await throwApiError(response, 'Error al eliminar las cajas cerradas');
+        }
+
+        const data = (await response.json()) as { deleted: number };
+        setActionMessage(
+          data.deleted === 1
+            ? 'Se movió 1 caja a la papelera.'
+            : `Se movieron ${data.deleted} cajas a la papelera.`
+        );
+      }
+
+      refresh();
+      setActionError(null);
+    } catch (error) {
+      setActionMessage(null);
       setActionError(error instanceof Error ? error.message : 'Error desconocido');
     }
   }
@@ -192,28 +227,54 @@ export function CajaHistory({
   return (
     <div className="space-y-5">
       {actionError && <p className="text-destructive">{actionError}</p>}
+      {actionMessage && (
+        <p data-testid="bulk-action-result" className="text-sm text-muted-foreground">
+          {actionMessage}
+        </p>
+      )}
 
-      {deletedOnly && isAdmin && (
+      {isAdmin && (
         <div className="flex justify-end">
           {dialog}
-          <Button
-            variant="destructive"
-            size="sm"
-            data-testid="empty-trash"
-            onClick={async () => {
-              const shouldEmpty = await confirm({
-                title: 'Vaciar papelera',
-                description:
-                  '¿Vaciar la papelera? Se eliminarán definitivamente todas las cajas mostradas en el rango actual.',
-                confirmLabel: 'Vaciar',
-              });
-              if (shouldEmpty) {
-                void handleEmptyTrash(startDate, endDate);
-              }
-            }}
-          >
-            Vaciar papelera
-          </Button>
+          {deletedOnly ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              data-testid="empty-trash"
+              onClick={async () => {
+                const shouldEmpty = await confirm({
+                  title: 'Vaciar papelera',
+                  description:
+                    '¿Vaciar la papelera? Se eliminarán definitivamente todas las cajas eliminadas de la sucursal, sin límite de fecha. Las que tengan ventas asociadas se omitirán. Esta acción no se puede deshacer.',
+                  confirmLabel: 'Vaciar',
+                });
+                if (shouldEmpty) {
+                  void handleEmptyTrash();
+                }
+              }}
+            >
+              Vaciar papelera
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              size="sm"
+              data-testid="delete-all-closed"
+              onClick={async () => {
+                const shouldDelete = await confirm({
+                  title: 'Eliminar cajas cerradas',
+                  description:
+                    '¿Eliminar todas las cajas cerradas? Se moverán a la papelera todas las cajas cerradas de la sucursal, sin límite de fecha. Las cajas abiertas no se eliminan.',
+                  confirmLabel: 'Eliminar',
+                });
+                if (shouldDelete) {
+                  void handleDeleteAllClosed();
+                }
+              }}
+            >
+              Eliminar cajas cerradas
+            </Button>
+          )}
         </div>
       )}
 

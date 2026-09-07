@@ -2,13 +2,14 @@
  * @jest-environment node
  */
 import { NextRequest } from 'next/server';
-import { GET } from './route';
+import { GET, DELETE } from './route';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
-import { requireAuth, getCurrentBranchId } from '@/lib/auth';
+import { requireAuth, requireAdmin, getCurrentBranchId } from '@/lib/auth';
 
 jest.mock('@/application/services/cashRegisterService');
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
+  requireAdmin: jest.fn(),
   getCurrentBranchId: jest.fn(),
 }));
 jest.mock('@/lib/logger', () => ({
@@ -19,6 +20,9 @@ const mockedCashRegisterService = cashRegisterService as jest.Mocked<
   typeof cashRegisterService
 >;
 const mockedRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>;
+const mockedRequireAdmin = requireAdmin as jest.MockedFunction<
+  typeof requireAdmin
+>;
 const mockedGetCurrentBranchId =
   getCurrentBranchId as jest.MockedFunction<typeof getCurrentBranchId>;
 
@@ -118,5 +122,48 @@ describe('GET /api/caja/historial', () => {
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Error interno del servidor');
+  });
+});
+
+describe('DELETE /api/caja/historial', () => {
+  const baseUrl = 'http://localhost:3000/api/caja/historial';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedRequireAdmin.mockResolvedValue({
+      user: { name: 'admin', role: 'admin' },
+    } as Awaited<ReturnType<typeof requireAdmin>>);
+    mockedGetCurrentBranchId.mockResolvedValue(BRANCH_ID);
+  });
+
+  test('devuelve 401 cuando el usuario no es admin', async () => {
+    const { UnauthorizedError } = await import('@/domain/errors');
+    mockedRequireAdmin.mockRejectedValue(
+      new UnauthorizedError('Se requiere rol de administrador.')
+    );
+
+    const response = await DELETE(new NextRequest(baseUrl, { method: 'DELETE' }), { params: Promise.resolve({}) });
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(401);
+    expect(body.error).toBe('Se requiere rol de administrador.');
+    expect(
+      mockedCashRegisterService.deleteAllClosedCashRegisters
+    ).not.toHaveBeenCalled();
+  });
+
+  test('elimina todas las cajas cerradas y devuelve el total', async () => {
+    mockedCashRegisterService.deleteAllClosedCashRegisters.mockResolvedValue({
+      deleted: 4,
+    });
+
+    const response = await DELETE(new NextRequest(baseUrl, { method: 'DELETE' }), { params: Promise.resolve({}) });
+    const body = (await response.json()) as { deleted: number };
+
+    expect(response.status).toBe(200);
+    expect(body.deleted).toBe(4);
+    expect(
+      mockedCashRegisterService.deleteAllClosedCashRegisters
+    ).toHaveBeenCalledWith(BRANCH_ID);
   });
 });

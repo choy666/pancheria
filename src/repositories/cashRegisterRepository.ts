@@ -274,11 +274,23 @@ export async function lockOpenCashRegister(
   return locked ?? null;
 }
 
-export async function hardDeleteAllDeletedInRange(
-  branchId: number,
-  start: Date,
-  end: Date
-) {
+export async function softDeleteAllClosed(branchId: number) {
+  const rows = await db
+    .update(cashRegisters)
+    .set({ deletedAt: nowUTC() })
+    .where(
+      and(
+        eq(cashRegisters.branchId, branchId),
+        eq(cashRegisters.status, 'closed'),
+        isNull(cashRegisters.deletedAt)
+      )
+    )
+    .returning({ id: cashRegisters.id });
+
+  return { deleted: rows.length };
+}
+
+export async function hardDeleteAllDeleted(branchId: number) {
   return executeInTransaction(async (tx) => {
     const rows = await tx
       .select({ id: cashRegisters.id })
@@ -286,9 +298,7 @@ export async function hardDeleteAllDeletedInRange(
       .where(
         and(
           eq(cashRegisters.branchId, branchId),
-          isNotNull(cashRegisters.deletedAt),
-          gte(cashRegisters.deletedAt, start),
-          lte(cashRegisters.deletedAt, end)
+          isNotNull(cashRegisters.deletedAt)
         )
       );
 
