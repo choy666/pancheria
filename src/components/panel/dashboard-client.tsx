@@ -23,6 +23,10 @@ import { routes } from '@/config/routes';
 import { getAutoCloseHours } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
 import { cn } from '@/lib/utils';
+import {
+  isCashRegisterFromPreviousDay,
+  isCashRegisterOverdue,
+} from '@/lib/cash-register-helpers';
 import { formatMoney } from '@/lib/money';
 import type { OrderStatus } from '@/domain/types';
 
@@ -105,8 +109,14 @@ function CajaCard({ data }: { data: NonNullable<ReturnType<typeof useDashboard>[
 
   const openedAt = new Date(cashRegister.openedAt);
   const now = new Date();
-  const autoCloseAt = addHours(openedAt, getAutoCloseHours());
-  const remaining = intervalToDuration({ start: now, end: autoCloseAt });
+  const autoCloseHours = getAutoCloseHours();
+  const autoCloseAt = autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null;
+  const remaining =
+    autoCloseAt && autoCloseAt > now
+      ? intervalToDuration({ start: now, end: autoCloseAt })
+      : null;
+  const isPreviousDay = isCashRegisterFromPreviousDay(cashRegister.openedAt);
+  const isOverdue = isCashRegisterOverdue(cashRegister.openedAt);
 
   return (
     <Card data-tour="dashboard-caja" data-testid="dashboard-caja-card">
@@ -143,10 +153,24 @@ function CajaCard({ data }: { data: NonNullable<ReturnType<typeof useDashboard>[
         <p className="text-sm text-muted-foreground">
           Ventas: <span className="font-mono font-semibold">{cashRegister.totalSales}</span>
         </p>
-        <p className="text-sm text-muted-foreground">
-          Cierre automático en:{' '}
-          <span className="font-mono">{safeFormatDuration(remaining)}</span>
-        </p>
+        {remaining && (
+          <p className="text-sm text-muted-foreground">
+            Cierre automático en:{' '}
+            <span className="font-mono">{safeFormatDuration(remaining)}</span>
+          </p>
+        )}
+        {isPreviousDay && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Caja del día anterior. Cerrala antes de abrir una nueva.</span>
+          </div>
+        )}
+        {!isPreviousDay && isOverdue && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Caja abierta hace más de 12 horas. Recomendamos cerrarla y abrir una nueva.</span>
+          </div>
+        )}
         <Link href={routes.cierre}>
           <Button variant="outline" className="w-full sm:w-auto">
             Ver caja

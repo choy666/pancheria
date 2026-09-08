@@ -86,7 +86,9 @@ describe('POST /api/caja/cerrar', () => {
         closingCashCount: undefined,
         closingTransferCount: undefined,
         closingNotes: undefined,
-      }
+        forcedCloseReason: undefined,
+      },
+      { isAdmin: false }
     );
   });
 
@@ -110,7 +112,9 @@ describe('POST /api/caja/cerrar', () => {
         closingCashCount: undefined,
         closingTransferCount: undefined,
         closingNotes: undefined,
-      }
+        forcedCloseReason: undefined,
+      },
+      { isAdmin: false }
     );
   });
 
@@ -137,7 +141,9 @@ describe('POST /api/caja/cerrar', () => {
         closingCashCount: 1050,
         closingTransferCount: undefined,
         closingNotes: 'sobrante',
-      }
+        forcedCloseReason: undefined,
+      },
+      { isAdmin: false }
     );
   });
 
@@ -164,7 +170,42 @@ describe('POST /api/caja/cerrar', () => {
         closingCashCount: undefined,
         closingTransferCount: 700,
         closingNotes: undefined,
-      }
+        forcedCloseReason: undefined,
+      },
+      { isAdmin: false }
+    );
+  });
+
+  test('envía motivo de cierre forzado cuando el usuario es administrador', async () => {
+    mockedRequireAuth.mockResolvedValue({
+      user: { name: 'admin', role: 'admin', branchId: BRANCH_ID },
+    } as any);
+
+    const cashRegister = { id: 1, branchId: BRANCH_ID, status: 'closed' };
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue({
+      id: 1,
+    } as any);
+    mockedCashRegisterService.closeCashRegister.mockResolvedValue(
+      cashRegister as any
+    );
+
+    const response = await POST(
+      buildRequest({ forcedCloseReason: 'cambio de turno' }),
+      { params: Promise.resolve({}) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedCashRegisterService.closeCashRegister).toHaveBeenCalledWith(
+      BRANCH_ID,
+      1,
+      'admin',
+      {
+        closingCashCount: undefined,
+        closingTransferCount: undefined,
+        closingNotes: undefined,
+        forcedCloseReason: 'cambio de turno',
+      },
+      { isAdmin: true }
     );
   });
 

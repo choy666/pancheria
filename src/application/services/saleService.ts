@@ -23,7 +23,7 @@ import {
   buildStockMovementReason,
   reintegrateStockForItems,
 } from '@/lib/stock-helpers';
-import { lockCashRegisterById } from '@/lib/cash-register-helpers';
+import { lockCashRegisterById } from '@/repositories/cashRegisterRepository';
 import { buildProductContext } from '@/lib/product-helpers';
 import { type SaleItemValue } from '@/lib/sale-helpers';
 import { prepareCart } from '@/lib/cart-pipeline';

@@ -23,7 +23,7 @@ import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
 import { cashRegisters } from '@/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
-import { ValidationError, NotFoundError } from '@/domain/errors';
+import { ValidationError, NotFoundError, ForbiddenError } from '@/domain/errors';
 
 const actualSaleRepository = jest.requireActual<
   typeof import('@/repositories/saleRepository')
@@ -220,6 +220,20 @@ describe('cashRegisterService', () => {
   });
 
   describe('getOpenCashRegister', () => {
+    const originalAutoCloseHours = process.env.CAJA_AUTO_CLOSE_HOURS;
+
+    beforeAll(() => {
+      process.env.CAJA_AUTO_CLOSE_HOURS = '12';
+    });
+
+    afterAll(() => {
+      if (originalAutoCloseHours === undefined) {
+        delete process.env.CAJA_AUTO_CLOSE_HOURS;
+      } else {
+        process.env.CAJA_AUTO_CLOSE_HOURS = originalAutoCloseHours;
+      }
+    });
+
     test('devuelve la caja abierta si no superó las 12 horas', async () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
@@ -267,6 +281,26 @@ describe('cashRegisterService', () => {
 
       expect(result).toBeNull();
       expect(mockedExecuteInTransaction).toHaveBeenCalled();
+    });
+
+    test('no cierra automáticamente cuando el auto-cierre está deshabilitado', async () => {
+      process.env.CAJA_AUTO_CLOSE_HOURS = '0';
+      const openedAt = new Date(Date.now() - 13 * 60 * 60 * 1000);
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        branchId: BRANCH_ID,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+      } as any);
+
+      const result = await getOpenCashRegister(BRANCH_ID);
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe(1);
+      expect(mockedExecuteInTransaction).not.toHaveBeenCalled();
+      process.env.CAJA_AUTO_CLOSE_HOURS = '12';
     });
 
     test('no devuelve una caja de otra sucursal', async () => {
@@ -513,6 +547,7 @@ describe('cashRegisterService', () => {
         {
           id: 1,
           branchId: BRANCH_ID,
+          openedBy: 'admin',
           status: 'closed',
           deletedAt: null,
         },
@@ -551,7 +586,7 @@ describe('cashRegisterService', () => {
           id: 1,
           branchId: BRANCH_ID,
           openedAt: new Date(),
-          openedBy: 'admin',
+          openedBy: 'operador',
           status: 'open',
           deletedAt: null,
         },
@@ -585,7 +620,7 @@ describe('cashRegisterService', () => {
           id: 1,
           branchId: BRANCH_ID,
           openedAt: new Date(),
-          openedBy: 'admin',
+          openedBy: 'operador',
           status: 'open',
           initialAmount: 200,
           deletedAt: null,
@@ -650,7 +685,7 @@ describe('cashRegisterService', () => {
           id: 1,
           branchId: BRANCH_ID,
           openedAt: new Date(),
-          openedBy: 'admin',
+          openedBy: 'operador',
           status: 'open',
           initialAmount: 0,
           deletedAt: null,
@@ -697,7 +732,7 @@ describe('cashRegisterService', () => {
           id: 1,
           branchId: BRANCH_ID,
           openedAt: new Date(),
-          openedBy: 'admin',
+          openedBy: 'operador',
           status: 'open',
           initialAmount: 200,
           deletedAt: null,
@@ -745,6 +780,7 @@ describe('cashRegisterService', () => {
         {
           id: 1,
           branchId: BRANCH_ID,
+          openedBy: 'operador',
           status: 'open',
           deletedAt: null,
         },
@@ -760,6 +796,7 @@ describe('cashRegisterService', () => {
         {
           id: 1,
           branchId: BRANCH_ID,
+          openedBy: 'operador',
           status: 'open',
           deletedAt: null,
         },
@@ -772,6 +809,74 @@ describe('cashRegisterService', () => {
       await expect(
         closeCashRegister(BRANCH_ID, 1, 'operador', { closingTransferCount: -50 })
       ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza que un operador cierre la caja de otro usuario', async () => {
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedBy: 'otro',
+          status: 'open',
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      await expect(
+        closeCashRegister(BRANCH_ID, 1, 'operador')
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    test('permite que un administrador cierre una caja ajena como cierre forzado', async () => {
+      mockUpdate.mockResolvedValue([
+        {
+          ...createMockCashRegister(),
+          openedBy: 'operador',
+          closedBy: 'admin',
+          forcedClosed: true,
+          forcedCloseReason: 'cambio de turno',
+        },
+      ]);
+
+      mockSelectResult = [
+        {
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'operador',
+          status: 'open',
+          deletedAt: null,
+        },
+      ];
+
+      (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.recipes.findMany as jest.Mock).mockResolvedValue([]);
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await closeCashRegister(
+        BRANCH_ID,
+        1,
+        'admin',
+        { forcedCloseReason: 'cambio de turno' },
+        { isAdmin: true }
+      );
+
+      expect(result?.closedBy).toBe('admin');
+      expect(result?.forcedClosed).toBe(true);
+      expect(result?.forcedCloseReason).toBe('cambio de turno');
+      expect(mockedCashRegisterRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({
+          forcedClosed: true,
+          forcedCloseReason: 'cambio de turno',
+        }),
+        expect.anything()
+      );
     });
   });
 
@@ -1213,6 +1318,20 @@ describe('cashRegisterService', () => {
   });
 
   describe('autoCloseIfNeeded', () => {
+    const originalAutoCloseHours = process.env.CAJA_AUTO_CLOSE_HOURS;
+
+    beforeAll(() => {
+      process.env.CAJA_AUTO_CLOSE_HOURS = '12';
+    });
+
+    afterAll(() => {
+      if (originalAutoCloseHours === undefined) {
+        delete process.env.CAJA_AUTO_CLOSE_HOURS;
+      } else {
+        process.env.CAJA_AUTO_CLOSE_HOURS = originalAutoCloseHours;
+      }
+    });
+
     test('devuelve la caja si no superó las 12 horas', async () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({

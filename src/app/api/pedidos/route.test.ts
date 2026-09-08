@@ -108,6 +108,33 @@ describe('GET /api/pedidos', () => {
     );
   });
 
+  test('permite filtrar por todos los estados con status=all', async () => {
+    mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
+
+    const response = await GET(buildRequest('status=all'), { params: Promise.resolve({}) });
+
+    expect(response.status).toBe(200);
+    expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
+      BRANCH_ID,
+      expect.objectContaining({ status: undefined })
+    );
+  });
+
+  test('permite buscar por nombre o teléfono y recorta espacios', async () => {
+    mockedOrderService.getOrders.mockResolvedValue(paginatedResponse as any);
+
+    const response = await GET(
+      buildRequest('status=all&search=  Juan  '),
+      { params: Promise.resolve({}) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedOrderService.getOrders).toHaveBeenCalledWith(
+      BRANCH_ID,
+      expect.objectContaining({ status: undefined, search: 'Juan' })
+    );
+  });
+
   test('devuelve 400 cuando el estado es inválido', async () => {
     const response = await GET(buildRequest('status=invalid'), { params: Promise.resolve({}) });
 

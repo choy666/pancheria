@@ -120,6 +120,8 @@ function createOpenCashRegister(
     closingTransferCount: null,
     closingTransferDifference: null,
     closingNotes: null,
+    forcedClosed: false,
+    forcedCloseReason: null,
     deletedAt: null,
     createdAt: new Date(),
     ...overrides,

@@ -219,7 +219,7 @@ export function CajaHistory({
   // Columnas base: ID, Apertura, Cierre, Estado, Ventas, Total, Inicial,
   // Efectivo, Transferencia, Diferencia, Abierta por, Cerrada por y Acciones.
   const columnCount =
-    13 +
+    14 +
     (deletedOnly ? 1 : 0) +
     (showAutoColumn ? 1 : 0) +
     (isAdmin ? 1 : 0);
@@ -298,6 +298,7 @@ export function CajaHistory({
               )}
               <TableHead className="hidden sm:table-cell">Abierta por</TableHead>
               <TableHead className="hidden sm:table-cell">Cerrada por</TableHead>
+              <TableHead className="hidden sm:table-cell">Forzado</TableHead>
               {isAdmin && (
                 <TableHead data-testid="cash-register-branch-header" className="hidden md:table-cell">Sucursal</TableHead>
               )}
@@ -405,6 +406,12 @@ export function CajaHistory({
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {cashRegister.closedBy ?? '-'}
+                  </TableCell>
+                  <TableCell
+                    className="hidden sm:table-cell"
+                    title={cashRegister.forcedCloseReason ?? undefined}
+                  >
+                    {cashRegister.forcedClosed ? 'Sí' : 'No'}
                   </TableCell>
                   {isAdmin && (
                     <TableCell className="hidden md:table-cell">

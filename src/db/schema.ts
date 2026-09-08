@@ -201,6 +201,8 @@ export const cashRegisters = pgTable(
     closingTransferCount: numeric('closing_transfer_count', { precision: 10, scale: 2, mode: 'number' }),
     closingTransferDifference: numeric('closing_transfer_difference', { precision: 10, scale: 2, mode: 'number' }),
     closingNotes: text('closing_notes'),
+    forcedClosed: boolean('forced_closed').default(false).notNull(),
+    forcedCloseReason: text('forced_close_reason'),
     productsSummary: jsonb('products_summary')
       .$type<Record<string, number>>()
       .default({})

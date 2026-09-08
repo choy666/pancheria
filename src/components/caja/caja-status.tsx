@@ -27,6 +27,11 @@ import {
 import type { CashRegister, CloseCashRegisterInput } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
+import { AlertCircle } from 'lucide-react';
+import {
+  isCashRegisterFromPreviousDay,
+  isCashRegisterOverdue,
+} from '@/lib/cash-register-helpers';
 
 interface CajaStatusProps {
   cashRegister: CashRegister | null;
@@ -34,6 +39,8 @@ interface CajaStatusProps {
   onClose: (input: CloseCashRegisterInput) => Promise<void>;
   loading: boolean;
   error: string | null;
+  role?: 'admin' | 'operator';
+  userName?: string | null;
 }
 
 function parseAmount(value: string): number {
@@ -46,6 +53,8 @@ export function CajaStatus({
   onClose,
   loading,
   error,
+  role = 'operator',
+  userName,
 }: CajaStatusProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
@@ -54,7 +63,13 @@ export function CajaStatus({
   const [closingCashCount, setClosingCashCount] = useState('');
   const [closingTransferCount, setClosingTransferCount] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
+  const [forcedCloseReason, setForcedCloseReason] = useState('');
   const now = useClockInterval(getCajaClockIntervalMs());
+
+  const isAdmin = role === 'admin';
+  const isOwner = cashRegister ? cashRegister.openedBy === userName : false;
+  const canClose = isOwner || isAdmin;
+  const isForcedClose = isAdmin && !isOwner;
 
   async function handleOpen() {
     setIsSubmitting(true);
@@ -69,16 +84,19 @@ export function CajaStatus({
     const count = closingCashCount.trim() === '' ? undefined : parseAmount(closingCashCount);
     const transferCount = closingTransferCount.trim() === '' ? undefined : parseAmount(closingTransferCount);
     const notes = closingNotes.trim() === '' ? undefined : closingNotes.trim();
+    const reason = isForcedClose ? forcedCloseReason.trim() || undefined : undefined;
     await onClose({
       closingCashCount: count,
       closingTransferCount: transferCount,
       closingNotes: notes,
+      forcedCloseReason: reason,
     });
     setIsSubmitting(false);
     setCloseDialog(false);
     setClosingCashCount('');
     setClosingTransferCount('');
     setClosingNotes('');
+    setForcedCloseReason('');
   }
 
   if (!cashRegister || cashRegister.status === 'closed') {
@@ -156,13 +174,19 @@ export function CajaStatus({
   }
 
   const openedAt = new Date(cashRegister.openedAt);
-  const autoCloseAt = addHours(openedAt, getAutoCloseHours());
+  const autoCloseHours = getAutoCloseHours();
+  const autoCloseAt = autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null;
   const current = now;
 
   const elapsed = intervalToDuration({ start: openedAt, end: current });
-  const remaining = intervalToDuration({ start: current, end: autoCloseAt });
+  const remaining =
+    autoCloseAt && autoCloseAt > current
+      ? intervalToDuration({ start: current, end: autoCloseAt })
+      : null;
 
   const openedAtTime = format(openedAt, 'HH:mm', { locale: es });
+  const isPreviousDay = isCashRegisterFromPreviousDay(cashRegister.openedAt);
+  const isOverdue = isCashRegisterOverdue(cashRegister.openedAt);
 
   return (
     <Card className="border-primary/30">
@@ -176,6 +200,30 @@ export function CajaStatus({
         <Badge variant="default">Abierta</Badge>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isPreviousDay && (
+          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-base text-amber-700">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-medium">Caja del día anterior</p>
+              <p className="text-sm">
+                Esta caja fue abierta el día anterior. Cerrala antes de abrir una nueva.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!isPreviousDay && isOverdue && (
+          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-base text-amber-700">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-medium">Caja abierta hace más de 12 horas</p>
+              <p className="text-sm">
+                La caja lleva mucho tiempo abierta. Recomendamos cerrarla y abrir una nueva.
+              </p>
+            </div>
+          </div>
+        )}
+
         <p className="text-base">
           Caja abierta desde{' '}
           <span className="font-mono font-medium">{openedAtTime}</span> (hace{' '}
@@ -189,31 +237,60 @@ export function CajaStatus({
             </span>
           </p>
         )}
-        <p className="text-base text-muted-foreground">
-          Se cierra automáticamente en{' '}
-          <span className="font-mono text-foreground">
-            {safeFormatDuration(remaining)}
-          </span>
-        </p>
-        <Button
-          type="button"
-          data-testid="close-cash-register"
-          variant="outline"
-          disabled={isSubmitting || loading}
-          className="w-full sm:w-auto"
-          onClick={() => setCloseDialog(true)}
-        >
-          {isSubmitting || loading ? 'Cerrando...' : 'Cerrar caja'}
-        </Button>
+        {autoCloseHours > 0 && (
+          <p className="text-base text-muted-foreground">
+            Se cierra automáticamente en{' '}
+            <span className="font-mono text-foreground">
+              {safeFormatDuration(remaining)}
+            </span>
+          </p>
+        )}
+        {canClose ? (
+          <Button
+            type="button"
+            data-testid="close-cash-register"
+            variant={isForcedClose ? 'destructive' : 'outline'}
+            disabled={isSubmitting || loading}
+            className="w-full sm:w-auto"
+            onClick={() => setCloseDialog(true)}
+          >
+            {isSubmitting || loading
+              ? 'Cerrando...'
+              : isForcedClose
+                ? 'Cierre forzado'
+                : 'Cerrar caja'}
+          </Button>
+        ) : (
+          <p className="text-base text-muted-foreground">
+            Esta caja fue abierta por {cashRegister.openedBy}. Solo{' '}
+            {cashRegister.openedBy} o un administrador pueden cerrarla.
+          </p>
+        )}
         <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cerrar caja</DialogTitle>
+              <DialogTitle>
+                {isForcedClose ? 'Cierre forzado de caja' : 'Cerrar caja'}
+              </DialogTitle>
               <DialogDescription>
-                Ingresá los montos contados para calcular la diferencia con lo esperado en cada medio de pago.
+                {isForcedClose
+                  ? 'Vas a cerrar la caja de otro usuario. Podés dejar un motivo para la auditoría.'
+                  : 'Ingresá los montos contados para calcular la diferencia con lo esperado en cada medio de pago.'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
+              {isForcedClose && (
+                <div className="space-y-2">
+                  <Label htmlFor="forced-close-reason">Motivo del cierre forzado (opcional)</Label>
+                  <Textarea
+                    id="forced-close-reason"
+                    data-testid="forced-close-reason-input"
+                    placeholder="Ej.: cambio de turno, ausencia del operador..."
+                    value={forcedCloseReason}
+                    onChange={(e) => setForcedCloseReason(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="closing-cash-count">{PAYMENT_METHOD_LABELS.cash} contado</Label>
                 <MoneyAmountInput
@@ -270,7 +347,11 @@ export function CajaStatus({
                 disabled={isSubmitting}
                 data-testid="confirm-close-cash-register"
               >
-                {isSubmitting ? 'Cerrando...' : 'Cerrar caja'}
+                {isSubmitting
+                  ? 'Cerrando...'
+                  : isForcedClose
+                    ? 'Cierre forzado'
+                    : 'Cerrar caja'}
               </Button>
             </DialogFooter>
           </DialogContent>

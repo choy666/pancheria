@@ -13,10 +13,10 @@ describe('caja config', () => {
     process.env = { ...originalEnv };
   });
 
-  test('getAutoCloseHours usa el valor por defecto', () => {
+  test('getAutoCloseHours está deshabilitado por defecto', () => {
     delete process.env.CAJA_AUTO_CLOSE_HOURS;
     delete process.env.NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS;
-    expect(getAutoCloseHours()).toBe(12);
+    expect(getAutoCloseHours()).toBe(0);
   });
 
   test('getAutoCloseHours respeta la variable privada', () => {
@@ -29,9 +29,14 @@ describe('caja config', () => {
     expect(getAutoCloseHours()).toBe(8);
   });
 
+  test('getAutoCloseHours deshabilita el cierre automático con valor 0', () => {
+    process.env.CAJA_AUTO_CLOSE_HOURS = '0';
+    expect(getAutoCloseHours()).toBe(0);
+  });
+
   test('getAutoCloseHours ignora valores inválidos', () => {
     process.env.CAJA_AUTO_CLOSE_HOURS = 'abc';
-    expect(getAutoCloseHours()).toBe(12);
+    expect(getAutoCloseHours()).toBe(0);
   });
 
   test('getAutoClosedBy usa el valor por defecto', () => {

@@ -160,6 +160,44 @@ test.describe('Búsqueda, filtros y paginación de pedidos', () => {
     ).toHaveCount(0);
   });
 
+  test('el filtro Todos muestra pedidos de todos los estados', async ({ page }) => {
+    const product = await createProductViaApi(page, {
+      name: unique('Producto todos'),
+      type: 'service',
+      price: 1000,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const pendingCustomer = unique('Todos Pendiente');
+    const cancelledCustomer = unique('Todos Cancelado');
+
+    await createPublicOrderViaApi(page, product.id, pendingCustomer);
+    const cancelledOrder = await createPublicOrderViaApi(page, product.id, cancelledCustomer);
+
+    const cancelResponse = await page.request.post(
+      `/api/pedidos/${cancelledOrder.id}/cancelar`,
+      {
+        data: { reason: 'Cancelado para el test de filtro Todos' },
+      }
+    );
+    expect(cancelResponse.status()).toBe(200);
+
+    await page.goto('/pedidos');
+
+    await page.getByTestId('orders-status-filter').click();
+    await page.getByRole('option', { name: 'Todos' }).click();
+
+    await expect(
+      page.getByTestId('order-customer-name').filter({ hasText: pendingCustomer })
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('order-customer-name').filter({ hasText: cancelledCustomer })
+    ).toBeVisible();
+  });
+
   test('navega a la página 2 y el listado cambia', async ({ page }) => {
     const product = await createProductViaApi(page, {
       name: unique('Producto paginación'),

@@ -1,11 +1,16 @@
 'use client';
 
 import { addHours, intervalToDuration } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAutoCloseHours } from '@/config/caja';
 import { formatMoney } from '@/lib/money';
 import { PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
+import {
+  isCashRegisterFromPreviousDay,
+  isCashRegisterOverdue,
+} from '@/lib/cash-register-helpers';
 
 interface CashRegisterSummaryData {
   id: number;
@@ -26,6 +31,8 @@ interface CashRegisterSummaryData {
   closingTransferCount?: number | null;
   closingTransferDifference?: number | null;
   closingNotes?: string | null;
+  forcedClosed?: boolean;
+  forcedCloseReason?: string | null;
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
   recipeSuppliesSummary?: Record<string, number> | null;
@@ -53,12 +60,20 @@ export function CashRegisterSummary({
     end: closedAt ?? now,
   });
 
-  const remaining = isOpen
-    ? intervalToDuration({
-        start: now,
-        end: addHours(openedAt, getAutoCloseHours()),
-      })
-    : null;
+  const autoCloseHours = getAutoCloseHours();
+  const autoCloseAt =
+    isOpen && autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null;
+
+  const remaining =
+    autoCloseAt && autoCloseAt > now
+      ? intervalToDuration({
+          start: now,
+          end: autoCloseAt,
+        })
+      : null;
+
+  const isPreviousDay = isOpen && isCashRegisterFromPreviousDay(cashRegister.openedAt);
+  const isOverdue = isOpen && isCashRegisterOverdue(cashRegister.openedAt);
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
@@ -165,7 +180,30 @@ export function CashRegisterSummary({
                 Cierre automático
               </>
             )}
+            {cashRegister.forcedClosed && (
+              <>
+                <br />
+                Cierre forzado
+              </>
+            )}
           </p>
+          {isPreviousDay && (
+            <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              Caja del día anterior. Cerrala antes de abrir una nueva.
+            </p>
+          )}
+          {!isPreviousDay && isOverdue && (
+            <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              Caja abierta hace más de 12 horas. Recomendamos cerrarla y abrir una nueva.
+            </p>
+          )}
+          {cashRegister.forcedClosed && cashRegister.forcedCloseReason && (
+            <p className="text-sm text-muted-foreground">
+              Motivo del cierre forzado: {cashRegister.forcedCloseReason}
+            </p>
+          )}
           <p
             data-testid="cash-register-total"
             className="font-mono text-2xl font-bold text-primary"

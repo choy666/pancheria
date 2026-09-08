@@ -40,7 +40,12 @@ import {
 } from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
 
-export function SalesTerminal() {
+interface SalesTerminalProps {
+  role?: 'admin' | 'operator';
+  userName?: string | null;
+}
+
+export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProps) {
   const router = useRouter();
   const isMountedRef = useRef(true);
   const [products, setProducts] = useState<SellableProduct[]>([]);
@@ -418,6 +423,8 @@ export function SalesTerminal() {
           onClose={close}
           loading={cashLoading}
           error={cashError}
+          role={role}
+          userName={userName}
         />
       </div>
 

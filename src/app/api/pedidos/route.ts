@@ -10,7 +10,9 @@ import { ForbiddenError, NotFoundError } from '@/domain/errors';
 import type { OrderStatus } from '@/domain/types';
 
 const querySchema = z.object({
-  status: z.enum(['pending', 'in_process', 'paid', 'finished', 'cancelled']).optional(),
+  status: z
+    .enum(['pending', 'in_process', 'paid', 'finished', 'cancelled', 'all'])
+    .optional(),
   branchId: branchIdQueryParamSchema.optional(),
   search: z.string().max(255).optional(),
 });
@@ -21,7 +23,8 @@ export const GET = withApiErrorHandling(
     const query = querySchema.parse(Object.fromEntries(searchParams));
     const pagination = parsePaginationParams(searchParams);
 
-    const status = (query.status as OrderStatus | undefined) ?? 'pending';
+    const status: OrderStatus | undefined =
+      query.status === 'all' ? undefined : (query.status as OrderStatus | undefined) ?? 'pending';
 
     let branchId = currentBranchId;
 

@@ -1,8 +1,8 @@
 export function getAutoCloseHours(): number {
   const raw = process.env.CAJA_AUTO_CLOSE_HOURS ?? process.env.NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS;
-  if (!raw) return 12;
+  if (!raw) return 0;
   const parsed = Number(raw);
-  if (Number.isNaN(parsed) || parsed <= 0) return 12;
+  if (Number.isNaN(parsed) || parsed < 0) return 0;
   return parsed;
 }
 
@@ -58,6 +58,8 @@ export interface CashRegister {
   closingTransferCount?: number | null;
   closingTransferDifference?: number | null;
   closingNotes?: string | null;
+  forcedClosed?: boolean;
+  forcedCloseReason?: string | null;
   productsSummary?: Record<string, number>;
   criticalSuppliesSummary?: Record<string, number>;
   recipeSuppliesSummary?: Record<string, number>;
@@ -69,6 +71,7 @@ export interface CloseCashRegisterInput {
   closingCashCount?: number;
   closingTransferCount?: number;
   closingNotes?: string;
+  forcedCloseReason?: string;
 }
 
 export function getCajaRefreshInterval(): number {

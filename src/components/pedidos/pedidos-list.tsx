@@ -54,7 +54,10 @@ interface OrderListItem {
   }[];
 }
 
-const statusLabels: Record<OrderStatus, string> = {
+type OrderStatusFilter = OrderStatus | 'all';
+
+const statusLabels: Record<OrderStatusFilter, string> = {
+  all: 'Todos',
   pending: 'Pendiente',
   in_process: 'En proceso',
   paid: 'Pagado',
@@ -79,14 +82,14 @@ const deliveryLabels: Record<DeliveryType, string> = {
 };
 
 interface PedidosListProps {
-  status?: OrderStatus;
+  status?: OrderStatusFilter;
   branchId: number;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export function PedidosList({ status = 'pending', branchId }: PedidosListProps) {
-  const [statusFilter, setStatusFilter] = useState<OrderStatus>(status);
+export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>(status);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
@@ -94,10 +97,13 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
     async (page: number, limit: number, signal: AbortSignal) => {
       const params = new URLSearchParams({
         branchId: String(branchId),
-        status: statusFilter,
         page: String(page),
         limit: String(limit),
       });
+
+      if (statusFilter !== 'all') {
+        params.set('status', statusFilter);
+      }
 
       if (search) {
         params.set('search', search);
@@ -227,7 +233,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
 
   function handleStatusChange(value: string | null) {
     if (!value || value === statusFilter) return;
-    setStatusFilter(value as OrderStatus);
+    setStatusFilter(value as OrderStatusFilter);
     if (page !== 1) {
       setPage(1);
     }
@@ -280,7 +286,7 @@ export function PedidosList({ status = 'pending', branchId }: PedidosListProps) 
               <SelectValue placeholder="Seleccionar estado" />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(statusLabels) as OrderStatus[]).map((statusValue) => (
+              {(Object.keys(statusLabels) as OrderStatusFilter[]).map((statusValue) => (
                 <SelectItem key={statusValue} value={statusValue}>
                   {statusLabels[statusValue]}
                 </SelectItem>

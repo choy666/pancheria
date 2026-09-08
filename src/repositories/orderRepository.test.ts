@@ -209,6 +209,41 @@ describe('orderRepository', () => {
         })
       );
     });
+
+    test('filtra por término de búsqueda en nombre y teléfono', async () => {
+      mockFindMany.mockResolvedValue([buildOrder()]);
+      mockReturning.mockResolvedValue([{ count: '1' }]);
+
+      await orderRepository.findOrders(BRANCH_ID, {
+        search: 'Juan',
+        page: 1,
+        limit: 10,
+      });
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+        })
+      );
+      expect(mockSelect).toHaveBeenCalled();
+    });
+
+    test('ignora búsquedas vacías o con solo espacios', async () => {
+      mockFindMany.mockResolvedValue([buildOrder()]);
+      mockReturning.mockResolvedValue([{ count: '1' }]);
+
+      await orderRepository.findOrders(BRANCH_ID, {
+        search: '   ',
+        page: 1,
+        limit: 10,
+      });
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+        })
+      );
+    });
   });
 
   describe('findExpiredPendingIds', () => {

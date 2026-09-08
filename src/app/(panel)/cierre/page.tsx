@@ -11,6 +11,8 @@ export default async function CajaPage() {
   const branchId = await getCurrentBranchIdOrRedirect(session);
   const branch = await branchService.getBranchById(branchId);
   const branchName = branch?.name ?? session?.user?.branchName;
+  const role = session?.user?.role === 'admin' ? 'admin' : 'operator';
+  const userName = session?.user?.name;
 
   return (
     <div className="space-y-8">
@@ -25,7 +27,7 @@ export default async function CajaPage() {
 
       <section className="space-y-5">
         <h2 className="text-xl font-semibold tracking-tight">Caja actual</h2>
-        <CajaPanel branchName={branchName} />
+        <CajaPanel branchName={branchName} role={role} userName={userName} />
       </section>
     </div>
   );

@@ -9,10 +9,12 @@ export const POST = withApiErrorHandling(
     const body = await request.json().catch(() => ({}));
     const id = parseId(body.id);
     const userName = session.user?.name ?? 'Usuario';
+    const isAdmin = session.user?.role === 'admin';
     const closeInput = {
       closingCashCount: body.closingCashCount,
       closingTransferCount: body.closingTransferCount,
       closingNotes: body.closingNotes,
+      forcedCloseReason: body.forcedCloseReason,
     };
 
     if (!id) {
@@ -29,7 +31,8 @@ export const POST = withApiErrorHandling(
         branchId,
         currentCashRegister.id,
         userName,
-        closeInput
+        closeInput,
+        { isAdmin }
       );
       return NextResponse.json(cashRegister);
     }
@@ -38,7 +41,8 @@ export const POST = withApiErrorHandling(
       branchId,
       id,
       userName,
-      closeInput
+      closeInput,
+      { isAdmin }
     );
     return NextResponse.json(cashRegister);
   })

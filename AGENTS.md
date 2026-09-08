@@ -66,7 +66,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
 - `NEW_BRANCH_PASSWORD` (opcional) — contraseña en texto plano del usuario de la segunda sucursal; el seed la hashea con bcrypt.
 - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms; mínimo recomendado 5000 ms).
-- `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` (opcional) — horas de cierre automático de cajas abiertas (por defecto 12 horas).
+- `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` (opcional) — horas de cierre automático de cajas abiertas. Por defecto el cierre automático está deshabilitado (`0`); cualquier valor positivo lo habilita y respeta el número de horas configurado.
 - `CAJA_AUTO_CLOSED_BY` (opcional) — etiqueta del usuario que cierra cajas automáticamente (por defecto `Sistema`).
 - `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` (opcional) — intervalo del reloj de caja en milisegundos (por defecto 60000 ms; mínimo recomendado 10000 ms).
 - `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` (opcional) — días de historial de caja por defecto (por defecto 30 días).

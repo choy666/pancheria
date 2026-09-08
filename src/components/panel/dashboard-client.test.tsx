@@ -179,7 +179,7 @@ describe('DashboardClient', () => {
       expect(within(cajaCard).getByRole('button', { name: 'Abrir caja' })).toBeInTheDocument();
     });
 
-    test('renderiza el estado abierto con totales y cierre automático', () => {
+    test('renderiza el estado abierto con totales', () => {
       mockedUseDashboard.mockReturnValue({
         data: makeDashboardData(),
         loading: false,
@@ -191,12 +191,27 @@ describe('DashboardClient', () => {
 
       const cajaCard = screen.getByTestId('dashboard-caja-card');
       expect(within(cajaCard).getByText('Abierta')).toBeInTheDocument();
-      expect(within(cajaCard).getByText(/Cierre automático en:/)).toBeInTheDocument();
-      expect(within(cajaCard).getByText('12h 30m')).toBeInTheDocument();
       expect(within(cajaCard).getByText(/Efectivo:/)).toBeInTheDocument();
       expect(within(cajaCard).getByText(/Transferencia:/)).toBeInTheDocument();
       expect(within(cajaCard).getByText(/Ventas:/)).toBeInTheDocument();
       expect(within(cajaCard).getByRole('button', { name: 'Ver caja' })).toBeInTheDocument();
+    });
+
+    test('renderiza el cierre automático cuando está configurado', () => {
+      process.env.NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS = '12';
+      mockedUseDashboard.mockReturnValue({
+        data: makeDashboardData(),
+        loading: false,
+        error: null,
+        refresh,
+      });
+
+      render(<DashboardClient branchName="Test" role="admin" />);
+
+      const cajaCard = screen.getByTestId('dashboard-caja-card');
+      expect(within(cajaCard).getByText(/Cierre automático en:/)).toBeInTheDocument();
+      expect(within(cajaCard).getByText('12h 30m')).toBeInTheDocument();
+      delete process.env.NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS;
     });
   });
 

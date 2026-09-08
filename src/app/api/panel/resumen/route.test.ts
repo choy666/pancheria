@@ -66,6 +66,8 @@ function buildCashRegister(status: 'open' | 'closed' = 'open') {
     closingTransferCount: null,
     closingTransferDifference: null,
     closingNotes: null,
+    forcedClosed: false,
+    forcedCloseReason: null,
   };
 }
 

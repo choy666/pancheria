@@ -7,7 +7,7 @@ import { calculateSummaryFromSales, type SaleWithItems } from '@/application/ser
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { parseMoney, moneyToNumber, addMoney, subtractMoney } from '@/lib/money';
-import { NotFoundError, ValidationError } from '@/domain/errors';
+import { ForbiddenError, NotFoundError, ValidationError } from '@/domain/errors';
 import { getAutoCloseHours, getAutoClosedBy } from '@/config/caja';
 
 /**
@@ -37,7 +37,7 @@ import { fillMissingCriticalSupplies } from '@/lib/summary-helpers';
 import {
   lockCashRegisterById,
   lockOpenCashRegister,
-} from '@/lib/cash-register-helpers';
+} from '@/repositories/cashRegisterRepository';
 import { buildProductContext } from '@/lib/product-helpers';
 import { reintegrateStockForItems } from '@/lib/stock-helpers';
 
@@ -46,8 +46,13 @@ export async function getOpenCashRegister(branchId: number) {
 
   if (!cashRegister || cashRegister.branchId !== branchId) return null;
 
+  const autoCloseHours = getAutoCloseHours();
+  if (autoCloseHours <= 0) {
+    return cashRegister;
+  }
+
   const now = nowUTC();
-  const autoCloseAt = addHours(cashRegister.openedAt, getAutoCloseHours());
+  const autoCloseAt = addHours(cashRegister.openedAt, autoCloseHours);
 
   if (autoCloseAt <= now) {
     return executeInTransaction(async (tx) => {
@@ -206,11 +211,13 @@ export async function closeCashRegister(
     closingCashCount?: unknown;
     closingTransferCount?: unknown;
     closingNotes?: unknown;
-  }
+    forcedCloseReason?: unknown;
+  },
+  closeOptions: { isAdmin?: boolean } = {}
 ) {
   validatePositiveInteger(branchId, 'La sucursal');
   const closedByTrimmed = validateNonEmptyString(closedBy, 'El usuario que cierra la caja');
-  const { closingCashCount, closingTransferCount, closingNotes } =
+  const { closingCashCount, closingTransferCount, closingNotes, forcedCloseReason } =
     closeInput ?? {};
 
   return executeInTransaction(async (tx) => {
@@ -226,6 +233,15 @@ export async function closeCashRegister(
       throw new ValidationError('La caja ya está cerrada.');
     }
 
+    const isOwner = cashRegister.openedBy === closedByTrimmed;
+    if (!isOwner && !closeOptions.isAdmin) {
+      throw new ForbiddenError(
+        'Solo el usuario que abrió la caja o un administrador pueden cerrarla.'
+      );
+    }
+
+    const isForced = !isOwner && closeOptions.isAdmin;
+
     const summary = await calculateCashRegisterSummary(branchId, id, tx);
 
     const closeData: Record<string, unknown> = {
@@ -238,6 +254,15 @@ export async function closeCashRegister(
     const rawNotes = typeof closingNotes === 'string' ? closingNotes.trim() : '';
     if (rawNotes) {
       closeData.closingNotes = rawNotes;
+    }
+
+    if (isForced) {
+      closeData.forcedClosed = true;
+      const rawForcedReason =
+        typeof forcedCloseReason === 'string' ? forcedCloseReason.trim() : '';
+      if (rawForcedReason) {
+        closeData.forcedCloseReason = rawForcedReason;
+      }
     }
 
     const countValue = validateNonNegativeMoney(closingCashCount, 'El monto contado al cerrar');

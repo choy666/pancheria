@@ -1,4 +1,11 @@
-import { lockCashRegisterById, lockOpenCashRegister } from './cash-register-helpers';
+import {
+  lockCashRegisterById,
+  lockOpenCashRegister,
+} from '@/repositories/cashRegisterRepository';
+import {
+  isCashRegisterOverdue,
+  isCashRegisterFromPreviousDay,
+} from './cash-register-helpers';
 
 
 var mockFor: jest.Mock;
@@ -98,6 +105,30 @@ describe('cash-register-helpers', () => {
       const result = await lockOpenCashRegister(tx, BRANCH_ID);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('isCashRegisterOverdue', () => {
+    it('devuelve false si la caja lleva menos de 12 horas abierta', () => {
+      const openedAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      expect(isCashRegisterOverdue(openedAt)).toBe(false);
+    });
+
+    it('devuelve true si la caja lleva 12 horas o más abierta', () => {
+      const openedAt = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      expect(isCashRegisterOverdue(openedAt)).toBe(true);
+    });
+  });
+
+  describe('isCashRegisterFromPreviousDay', () => {
+    it('devuelve true si la caja fue abierta el día anterior', () => {
+      const openedAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      expect(isCashRegisterFromPreviousDay(openedAt, 'America/Argentina/Buenos_Aires')).toBe(true);
+    });
+
+    it('devuelve false si la caja fue abierta hoy', () => {
+      const openedAt = new Date();
+      expect(isCashRegisterFromPreviousDay(openedAt, 'America/Argentina/Buenos_Aires')).toBe(false);
     });
   });
 });
