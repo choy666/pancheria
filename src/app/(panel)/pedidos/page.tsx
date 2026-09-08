@@ -13,7 +13,7 @@ export default async function PedidosPage() {
         </p>
       </div>
 
-      <PedidosList status="all" branchId={branchId} />
+      <PedidosList status="pending" branchId={branchId} />
     </div>
   );
 }

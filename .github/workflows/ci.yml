@@ -110,6 +110,9 @@ jobs:
       PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV: true
       PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS: 2
       TRUSTED_PROXY_IP_HEADER: X-Forwarded-For
+      # Requerido por tests/e2e/caja-cierre-automatico.spec.ts: sin esta variable
+      # el cierre automático queda deshabilitado (getAutoCloseHours() = 0).
+      CAJA_AUTO_CLOSE_HOURS: "1"
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4

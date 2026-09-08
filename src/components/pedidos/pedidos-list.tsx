@@ -99,11 +99,8 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
         branchId: String(branchId),
         page: String(page),
         limit: String(limit),
+        status: statusFilter,
       });
-
-      if (statusFilter !== 'all') {
-        params.set('status', statusFilter);
-      }
 
       if (search) {
         params.set('search', search);
