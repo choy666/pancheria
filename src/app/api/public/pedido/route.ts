@@ -5,6 +5,8 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
+import { InsufficientStockError } from '@/domain/errors';
+import { publicShortageMessage } from '@/lib/public-errors';
 import {
   getOrderRateLimitWindowMs,
   getOrderRateLimitMaxRequests,
@@ -43,10 +45,27 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
   }
 
-  const order = await orderService.createOrder({
-    branchId,
-    ...data,
-  });
+  let order;
+  try {
+    order = await orderService.createOrder({
+      branchId,
+      ...data,
+    });
+  } catch (error) {
+    // El flujo público no expone nombres de insumos ni cantidades de stock:
+    // se devuelve un mensaje amigable junto a un código estructurado.
+    if (error instanceof InsufficientStockError) {
+      return NextResponse.json(
+        {
+          error: publicShortageMessage(error.productName),
+          code: 'INSUFFICIENT_STOCK',
+          productName: error.productName,
+        },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
 
   const publicItems: PublicOrderItem[] = order.items.map((item) => ({
     productId: item.productId,

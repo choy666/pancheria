@@ -156,7 +156,7 @@ export function PromoOptionsDialog({
         <div className="space-y-4">
           {renderSection(
             productName,
-            'Siempre incluye',
+            'Incluye',
             alwaysIncludeItems,
             selectedIds,
             handleToggle,
@@ -165,7 +165,7 @@ export function PromoOptionsDialog({
 
           {renderSection(
             productName,
-            'Insumos opcionales',
+            'Podés sacar',
             optionalManualItems,
             selectedIds,
             handleToggle,
@@ -174,7 +174,7 @@ export function PromoOptionsDialog({
 
           {renderSection(
             productName,
-            'Servicios / extras',
+            'Extras',
             optionalServiceItems,
             selectedIds,
             handleToggle,

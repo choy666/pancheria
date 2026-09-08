@@ -73,7 +73,6 @@ function makePublicProduct(
     unit: 'unidad',
     imageUrl,
     availability,
-    breakdown: [],
   };
 }
 
@@ -99,6 +98,8 @@ describe('catalogService', () => {
       );
       expect(result.products[0]).not.toHaveProperty('branchId');
       expect(result.products[0]).not.toHaveProperty('stock');
+      // El desglose de insumos no se transporta al cliente público.
+      expect(result.products[0]).not.toHaveProperty('breakdown');
     });
 
     test('excluye productos no vendibles, inactivos o eliminados (ya filtrados por el repositorio)', async () => {
@@ -240,27 +241,41 @@ describe('catalogService', () => {
 
       expect(result.availabilityByProduct).toEqual({ 1: 5 });
       expect(result.shortageByProduct).toEqual({});
-      expect(result.breakdownByProduct).toEqual({});
       expect(mockedSaleService.validateCartAvailability).toHaveBeenCalledWith(
         BRANCH_ID,
         items
       );
     });
 
-    test('descarta consumedBySupply de la respuesta pública', async () => {
+    test('descarta datos internos de stock de la respuesta pública', async () => {
       mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
       mockedSaleService.validateCartAvailability.mockResolvedValue({
         availabilityByProduct: { 1: 5 },
         consumedBySupply: { 10: 2 },
-        shortageByProduct: {},
-        breakdownByProduct: {},
+        shortageByProduct: {
+          2: { available: 0, required: 2, supplyName: 'Pan interno' },
+        },
+        breakdownByProduct: {
+          2: [
+            {
+              supplyName: 'Pan interno',
+              available: 0,
+              required: 2,
+              isLimiting: true,
+            },
+          ],
+        },
       });
 
       const result = await validatePublicCart(BRANCH_ID, [
         { productId: 1, quantity: 2 },
+        { productId: 2, quantity: 1 },
       ]);
 
       expect(result).not.toHaveProperty('consumedBySupply');
+      expect(result).not.toHaveProperty('breakdownByProduct');
+      // El faltante se expone solo como presencia, sin insumo ni cantidades.
+      expect(result.shortageByProduct).toEqual({ 2: true });
     });
   });
 });

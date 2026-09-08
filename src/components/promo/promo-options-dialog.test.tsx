@@ -69,7 +69,7 @@ describe('PromoOptionsDialog', () => {
     },
   ];
 
-  test('los críticos se renderizan en Siempre incluye y no se pueden desmarcar', () => {
+  test('los críticos se renderizan en Incluye y no se pueden desmarcar', () => {
     render(
       <PromoOptionsDialog
         open
@@ -81,7 +81,7 @@ describe('PromoOptionsDialog', () => {
       />
     );
 
-    expect(screen.getByText('Siempre incluye')).toBeInTheDocument();
+    expect(screen.getByText('Incluye')).toBeInTheDocument();
     expect(screen.getByText('Pan (1)')).toBeInTheDocument();
     expect(screen.getByText('Caja (1)')).toBeInTheDocument();
 
@@ -102,8 +102,8 @@ describe('PromoOptionsDialog', () => {
       />
     );
 
-    expect(screen.getByText('Insumos opcionales')).toBeInTheDocument();
-    expect(screen.getByText('Servicios / extras')).toBeInTheDocument();
+    expect(screen.getByText('Podés sacar')).toBeInTheDocument();
+    expect(screen.getByText('Extras')).toBeInTheDocument();
 
     expect(screen.getByLabelText(/Incluir Ketchup en Promo/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Incluir Mayonesa en Promo/)).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('PromoOptionsDialog', () => {
     expect(screen.getByLabelText(/Incluir Servilleta extra en Promo/)).not.toBeChecked();
   });
 
-  test('un insumo manual o service con isOptional = false aparece en Siempre incluye', () => {
+  test('un insumo manual o service con isOptional = false aparece en Incluye', () => {
     const recipe: RecipeItemConfig[] = [
       ...baseRecipe,
       {

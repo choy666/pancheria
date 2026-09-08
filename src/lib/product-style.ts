@@ -7,6 +7,29 @@ export const productTypeLabels: Record<ProductType, string> = {
   service: 'Servicio / extra',
 };
 
+/**
+ * Etiquetas de grupos para el catálogo público de `/pedido`. Usan lenguaje
+ * de cliente (sin jerga interna de gestión de stock). `manual_supply` no se
+ * lista al público, pero el mapa necesita un fallback seguro por el tipo
+ * `Record<ProductType, string>`.
+ */
+export const publicProductTypeLabels: Record<ProductType, string> = {
+  compound: 'Combos y promos',
+  critical_supply: 'Bebidas',
+  manual_supply: 'Otros productos',
+  service: 'Extras',
+};
+
+/**
+ * Etiquetas cortas para el badge de tipo en la tarjeta pública del catálogo.
+ */
+export const publicProductTypeBadgeLabels: Record<ProductType, string> = {
+  compound: 'Promo',
+  critical_supply: 'Bebida',
+  manual_supply: 'Extra',
+  service: 'Extra',
+};
+
 export const criticalTypeLabels: Record<CriticalSupplyType, string> = {
   bread: 'Pan',
   sausage: 'Salchicha',

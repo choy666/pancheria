@@ -20,6 +20,13 @@ export class ValidationError extends DomainError {
 }
 
 export class InsufficientStockError extends DomainError {
+  /**
+   * Nombre del producto afectado. Se expone para que las rutas públicas
+   * puedan construir un mensaje amigable sin parsear `message`, que mantiene
+   * el detalle interno (insumo y cantidades) para el panel.
+   */
+  readonly productName: string;
+
   constructor(
     productName: string,
     available: number,
@@ -32,6 +39,7 @@ export class InsufficientStockError extends DomainError {
       }. Disponible: ${available}, solicitado: ${requested}.`
     );
     this.name = 'InsufficientStockError';
+    this.productName = productName;
   }
 }
 

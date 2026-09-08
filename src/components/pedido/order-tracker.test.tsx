@@ -84,7 +84,7 @@ describe('OrderTracker', () => {
     fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
       target: { value: 'PED-1-1234567890-abc' },
     });
-    fireEvent.change(screen.getByLabelText(/Nombre del cliente/i), {
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Juan Pérez' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
@@ -122,7 +122,7 @@ describe('OrderTracker', () => {
     fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
       target: { value: 'PED-1-1234567890-abc' },
     });
-    fireEvent.change(screen.getByLabelText(/Nombre del cliente/i), {
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Juan Pérez' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
@@ -130,5 +130,47 @@ describe('OrderTracker', () => {
     await waitFor(() => {
       expect(screen.getByText(/PED-1-1234567890-abc/)).toBeInTheDocument();
     });
+  });
+
+  test('muestra la línea de progreso con el estado actual marcado', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        order: {
+          id: 1,
+          orderNumber: 'PED-1-1234567890-abc',
+          status: 'in_process',
+          total: 1200,
+          customerName: 'Juan Pérez',
+          customerPhone: '3415555555',
+          branchId: 1,
+          branchName: 'Sucursal A',
+        },
+      }),
+    });
+
+    render(<OrderTracker />);
+
+    fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
+      target: { value: 'PED-1-1234567890-abc' },
+    });
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
+      target: { value: 'Juan Pérez' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('order-progress')).toBeInTheDocument();
+    });
+
+    const progress = screen.getByTestId('order-progress');
+    expect(progress).toHaveTextContent('Pendiente');
+    expect(progress).toHaveTextContent('En proceso');
+    expect(progress).toHaveTextContent('Pagado');
+    expect(progress).toHaveTextContent('Finalizado');
+    expect(
+      progress.querySelector('[aria-current="step"]')
+    ).toHaveTextContent('En proceso');
   });
 });

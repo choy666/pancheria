@@ -23,6 +23,8 @@ import {
   getNextOpening,
   formatOpeningHours,
 } from '@/lib/branch-helpers';
+import { formatMoney } from '@/lib/money';
+import { publicShortageMessage } from '@/lib/public-errors';
 import type { Branch } from '@/domain/types';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { BranchStatus } from './usePedidoClient';
@@ -141,11 +143,12 @@ export function PedidoClient({
   const {
     error,
     shortageByProduct,
-    breakdownByProduct,
+
     isCheckingAvailability,
     checkoutOpen,
     setCheckoutOpen,
     branchStatus,
+    branchStatusChecked,
     customerName,
     setCustomerName,
     customerPhone,
@@ -190,6 +193,8 @@ export function PedidoClient({
     handleGoToChat,
   } = usePedidoClient({ branches, activeBranch, initialProducts, initialTotal, pageSize });
 
+  const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
   if (!isActiveBranchValid) {
     return <PedidoError />;
   }
@@ -204,13 +209,11 @@ export function PedidoClient({
 
       {Object.keys(shortageByProduct).length > 0 && (
         <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
-          {Object.entries(shortageByProduct).map(([productId, shortage]) => {
+          {Object.keys(shortageByProduct).map((productId) => {
             const product = products.find((p) => p.id === Number(productId));
             return (
               <p key={productId}>
-                Faltan insumos para {product?.name ?? 'producto'}:{' '}
-                {shortage.supplyName} (disponible {shortage.available},
-                requerido {shortage.required}).
+                {publicShortageMessage(product?.name)}
               </p>
             );
           })}
@@ -225,10 +228,11 @@ export function PedidoClient({
       <PedidoCatalogSection
         branches={branches}
         activeBranch={activeBranch}
+        branchStatus={branchStatus}
+        branchStatusChecked={branchStatusChecked}
         groupedProducts={groupedProducts}
         items={items}
         inCartQuantityByProduct={inCartQuantityByProduct}
-        breakdownByProduct={breakdownByProduct}
         isCheckingAvailability={isCheckingAvailability}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
@@ -246,6 +250,7 @@ export function PedidoClient({
             onEditLine={startEditLine}
             onCheckout={handleOpenCheckout}
             disabled={isCheckingAvailability}
+            isCheckingAvailability={isCheckingAvailability}
           />
         }
       />
@@ -255,8 +260,14 @@ export function PedidoClient({
           <DialogHeader>
             <DialogTitle data-testid="checkout-dialog-title">Finalizar pedido</DialogTitle>
             <DialogDescription>
-              Completá tus datos para hacer el pedido. El stock se confirma cuando el operador acepta el pedido.
+              Completá tus datos para hacer el pedido. El local confirma tu pedido antes de prepararlo.
             </DialogDescription>
+            <p
+              data-testid="checkout-step-indicator"
+              className="text-xs text-muted-foreground"
+            >
+              Paso 3 de 3 — Completá tus datos
+            </p>
           </DialogHeader>
 
           <BranchInfoCard
@@ -337,6 +348,30 @@ export function PedidoClient({
         onCancel={handleCancelOrder}
         onGoToChat={handleGoToChat}
       />
+
+      {items.length > 0 && (
+        <>
+          {/* Espacio para que la barra fija no tape el contenido en mobile. */}
+          <div className="h-16 lg:hidden" aria-hidden="true" />
+          <div
+            data-testid="mobile-cart-bar"
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-background/95 p-3 backdrop-blur lg:hidden"
+          >
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() =>
+                document
+                  .getElementById('pedido-cart')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            >
+              Ver mi pedido · {cartItemCount}{' '}
+              {cartItemCount === 1 ? 'ítem' : 'ítems'} · {formatMoney(total)}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

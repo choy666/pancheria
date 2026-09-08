@@ -24,14 +24,25 @@ export class FetchAbortError extends Error {
 /**
  * Error de respuesta HTTP del API: conserva el `status` para que la UI
  * pueda reaccionar por código (p. ej. 401, 409) además del mensaje.
+ * Los campos opcionales `code` y `productName` permiten que las rutas
+ * públicas devuelvan errores estructurados sin depender del texto.
  */
 export class ApiError extends Error {
   readonly status: number;
+  readonly code?: string;
+  readonly productName?: string;
 
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    productName?: string
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
+    this.productName = productName;
   }
 }
 
@@ -45,8 +56,15 @@ export async function throwApiError(
 ): Promise<never> {
   const data = (await response.json().catch(() => null)) as {
     error?: string;
+    code?: string;
+    productName?: string;
   } | null;
-  throw new ApiError(data?.error || fallback, response.status);
+  throw new ApiError(
+    data?.error || fallback,
+    response.status,
+    data?.code,
+    data?.productName
+  );
 }
 
 export function getDefaultTimeoutMs(): number {

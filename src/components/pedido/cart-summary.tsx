@@ -1,26 +1,29 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ShoppingBag } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
 import { CartItemRecipeDetails } from './cart-item-recipe-details';
 import { hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import type { CartItem } from '@/hooks/useCart';
 
-interface ShortageInfo {
-  available: number;
-  required: number;
-  supplyName: string;
-}
+/**
+ * El API público solo expone qué productos no alcanzan la disponibilidad
+ * (presencia), sin nombres de insumos ni cantidades internas.
+ */
+type ShortageByProduct = Record<number, boolean>;
 
 interface CartSummaryProps {
   branchName?: string;
   items: CartItem[];
   total: number;
-  shortageByProduct?: Record<number, ShortageInfo>;
+  shortageByProduct?: ShortageByProduct;
   onUpdateQuantity: (lineId: string, quantity: number) => void;
   onRemove: (lineId: string) => void;
   onEditLine?: (lineId: string) => void;
   onCheckout: () => void;
   disabled?: boolean;
+  /** `true` mientras se verifica la disponibilidad de los ítems. */
+  isCheckingAvailability?: boolean;
 }
 
 export function CartSummary({
@@ -33,6 +36,7 @@ export function CartSummary({
   onEditLine,
   onCheckout,
   disabled = false,
+  isCheckingAvailability = false,
 }: CartSummaryProps) {
   return (
     <Card className="lg:sticky lg:top-24">
@@ -48,9 +52,15 @@ export function CartSummary({
         )}
 
         {items.length === 0 ? (
-          <p className="text-base text-muted-foreground">
-            El carrito está vacío.
-          </p>
+          <div className="flex flex-col items-center gap-2 py-2 text-center">
+            <ShoppingBag
+              className="size-6 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <p className="text-base text-muted-foreground">
+              Todavía no agregaste productos. Elegí del catálogo para empezar.
+            </p>
+          </div>
         ) : (
           <ul className="space-y-3">
             {(() => {
@@ -92,9 +102,8 @@ export function CartSummary({
                         data-testid="cart-item-shortage"
                         className="text-xs font-medium text-amber-700"
                       >
-                        Sin insumos suficientes: falta {shortage?.supplyName}{' '}
-                        (disponible {shortage?.available}, requerido{' '}
-                        {shortage?.required}).
+                        {item.name}: no alcanza la disponibilidad. Bajá la
+                        cantidad o quitalo.
                       </p>
                     )}
                   </div>
@@ -166,6 +175,15 @@ export function CartSummary({
           </p>
         </div>
 
+        {isCheckingAvailability && items.length > 0 && (
+          <p
+            role="status"
+            className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground"
+          >
+            <span className="inline-block size-2 animate-pulse rounded-full bg-muted-foreground" />
+            Verificando disponibilidad...
+          </p>
+        )}
         <Button
           type="button"
           className="w-full"
@@ -185,7 +203,8 @@ export function CartSummary({
             aria-live="polite"
             className="text-center text-xs text-muted-foreground"
           >
-            Hay productos sin insumos suficientes. Revisá las líneas marcadas.
+            Algunos productos no alcanzan la disponibilidad. Revisá las líneas
+            marcadas.
           </p>
         )}
       </CardContent>

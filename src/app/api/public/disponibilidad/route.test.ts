@@ -42,7 +42,6 @@ describe('POST /api/public/disponibilidad', () => {
     mockedCatalogService.validatePublicCart.mockResolvedValue({
       availabilityByProduct: { 1: 5 },
       shortageByProduct: {},
-      breakdownByProduct: {},
     });
   });
 
@@ -58,7 +57,6 @@ describe('POST /api/public/disponibilidad', () => {
     const body = (await response.json()) as {
       availabilityByProduct: Record<number, number>;
       shortageByProduct: unknown;
-      breakdownByProduct: unknown;
     };
 
     expect(response.status).toBe(200);

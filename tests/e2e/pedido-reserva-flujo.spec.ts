@@ -28,8 +28,10 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
 
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText('Disponible');
 
     await page.getByTestId(`add-product-${product.id}`).click();
     await page.getByRole('button', { name: 'Hacer pedido' }).click();
@@ -43,11 +45,13 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
     await page.getByRole('button', { name: 'Cerrar' }).click();
 
-    // El pedido pending no reserva stock: la disponibilidad sigue en 5.
+    // El pedido pending no reserva stock: la disponibilidad sigue igual.
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText('Disponible');
 
     // Recibir y reservar desde el panel.
     await page.goto('/pedidos');
@@ -61,11 +65,14 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
       timeout: 10000,
     });
 
-    // La reserva reduce la disponibilidad pública en 1 unidad.
+    // La reserva reduce la disponibilidad interna, pero al público solo se
+    // muestra un estado cualitativo.
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 4 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText('Disponible');
 
     // Confirmar el pago: no debe volver a descontar stock.
     await page.goto('/pedidos');
@@ -86,8 +93,10 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
     // El stock físico ahora es 4 porque el pago descuenta la reserva.
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 4 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText('Disponible');
 
     // Finalizar el pedido.
     await page.goto('/pedidos');

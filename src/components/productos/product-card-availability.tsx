@@ -5,6 +5,11 @@ interface ProductCardAvailabilityProps {
   availability: number;
   unit?: string;
   testId?: string;
+  /**
+   * Modo público (`/pedido`): muestra estados cualitativos sin exponer
+   * cantidades de stock al cliente.
+   */
+  qualitative?: boolean;
 }
 
 export function ProductCardAvailability({
@@ -12,9 +17,17 @@ export function ProductCardAvailability({
   availability,
   unit,
   testId = 'product-availability',
+  qualitative = false,
 }: ProductCardAvailabilityProps) {
-  const label =
-    type === 'service'
+  const label = qualitative
+    ? type === 'service'
+      ? 'Disponible'
+      : availability <= 0
+        ? 'Agotado'
+        : availability <= 3
+          ? 'Últimas unidades'
+          : 'Disponible'
+    : type === 'service'
       ? 'Disponible: sin límite'
       : `Disponible: ${availability} ${unit ?? 'unidades'}`;
 

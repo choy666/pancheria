@@ -136,6 +136,8 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ### Prompts archivados
 
+- [Mejoras de UX y lenguaje en el flujo público de pedidos](archivados/mejoras-ux-pedido-publico.md) — resuelto: etiquetas públicas (`publicProductTypeLabels`), disponibilidad cualitativa, estado de sucursal en el encabezado, mensajes sin jerga interna, carrito accesible en mobile, stepper, diálogo de éxito con copiar número y cancelación colapsable, y línea de progreso en seguimiento.
+
 - [Implementación de hallazgos críticos y mayores de la auditoría 2026-09-05](archivados/implementacion-hallazgos-auditoria-2026-09-05.md) — resuelto: transacciones re-entrantes, validación/deducción de recetas con snapshot en `convertOrderToSale`, scope en rate limit, `orderId` en `stock_movements`, `getClientIp` en producción auto-alojada y tests de `cart-pipeline`.
 - [Mejoras de UX en combos y pagos del módulo de ventas](archivados/mejoras-ux-ventas-combos-pagos.md) — resuelto: diálogo de combos con servicios/extras separados, pago adaptado a pesos argentinos, formato de moneda con/sin centavos y `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
 - [Corrección de tests E2E fallidos — caja, stock y entorno](archivados/correccion-tests-e2e-caja-y-entorno.md) — resuelto: entorno, helpers y locators robustos para `npm run test:e2e`.

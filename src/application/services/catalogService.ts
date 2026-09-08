@@ -4,7 +4,6 @@ import * as saleService from '@/application/services/saleService';
 import { NotFoundError } from '@/domain/errors';
 import { resolveProductImage } from '@/lib/product-image-storage';
 import type { Branch, ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
-import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
 export type PublicCatalogProduct = Pick<
   ProductRow,
@@ -18,7 +17,6 @@ export type PublicCatalogProduct = Pick<
   | 'imageUrl'
 > & {
   availability: number;
-  breakdown: RecipeBreakdownItem[];
   recipe?: RecipeItemConfig[];
 };
 
@@ -33,10 +31,14 @@ export interface CatalogPagination {
   offset?: number;
 }
 
+/**
+ * Construye el producto del catálogo público. No se incluye el `breakdown`
+ * de insumos: la UI pública no lo muestra y transportarlo expondría datos
+ * internos de stock en la respuesta HTTP.
+ */
 function toPublicCatalogProduct(
   product: ProductRow,
   availability: number,
-  breakdown: RecipeBreakdownItem[],
   recipe?: RecipeItemConfig[]
 ): PublicCatalogProduct {
   return {
@@ -49,7 +51,6 @@ function toPublicCatalogProduct(
     unit: product.unit,
     imageUrl: resolveProductImage(product),
     availability,
-    breakdown,
     recipe,
   };
 }
@@ -86,7 +87,7 @@ export async function listPublicCatalog(
   const total = await getPublicProductsTotal(branchId, products.length, pagination);
   return {
     branch,
-    products: products.map((product) => toPublicCatalogProduct(product, 0, [], undefined)),
+    products: products.map((product) => toPublicCatalogProduct(product, 0)),
     total,
   };
 }
@@ -110,12 +111,10 @@ export async function listPublicCatalogWithAvailability(
     products: products.map((product) => {
       const entry = availabilityById[product.id] ?? {
         availability: 0,
-        breakdown: [],
       };
       return toPublicCatalogProduct(
         product,
         entry.availability,
-        entry.breakdown,
         entry.recipe
       );
     }),
@@ -123,22 +122,29 @@ export async function listPublicCatalogWithAvailability(
   };
 }
 
+/**
+ * Valida la disponibilidad del carrito del flujo público. A diferencia de
+ * `validateCartAvailability` (usado por el panel), la respuesta pública no
+ * expone nombres de insumos ni cantidades internas: `shortageByProduct` solo
+ * indica qué productos no alcanzan la disponibilidad, y el desglose por
+ * insumo (`breakdownByProduct`) no se transporta.
+ */
 export async function validatePublicCart(
   branchId: number,
   items: SaleItemInput[]
 ): Promise<{
   availabilityByProduct: Record<number, number>;
-  shortageByProduct: Record<
-    number,
-    { available: number; required: number; supplyName: string }
-  >;
-  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
+  shortageByProduct: Record<number, boolean>;
 }> {
   await getBranch(branchId);
   const result = await saleService.validateCartAvailability(branchId, items);
   return {
     availabilityByProduct: result.availabilityByProduct,
-    shortageByProduct: result.shortageByProduct,
-    breakdownByProduct: result.breakdownByProduct,
+    shortageByProduct: Object.fromEntries(
+      Object.keys(result.shortageByProduct).map((productId) => [
+        productId,
+        true,
+      ])
+    ),
   };
 }

@@ -155,6 +155,13 @@ export function OrderTracker() {
     cancelled: 'Cancelado',
   };
 
+  const progressSteps: OrderStatus[] = [
+    'pending',
+    'in_process',
+    'paid',
+    'finished',
+  ];
+
   return (
     <div className="mx-auto max-w-xl space-y-6 p-4">
       <Button
@@ -191,18 +198,29 @@ export function OrderTracker() {
                 id="orderNumber"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
-                placeholder="Ej: PED-1-1234567890-abcdef12"
+                placeholder="Ej: PED-..."
                 required
+                aria-describedby="orderNumber-help"
               />
+              <p id="orderNumber-help" className="text-xs text-muted-foreground">
+                Lo recibiste al confirmar el pedido.
+              </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerName">Nombre del cliente</Label>
+              <Label htmlFor="customerName">Tu nombre</Label>
               <Input
                 id="customerName"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Tu nombre"
+                aria-describedby="customerName-help"
               />
+              <p
+                id="customerName-help"
+                className="text-xs text-muted-foreground"
+              >
+                Completá tu nombre o tu teléfono; alcanza con uno de los dos.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="customerPhone">Teléfono</Label>
@@ -246,6 +264,50 @@ export function OrderTracker() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {order.status === 'cancelled' ? (
+              <p
+                data-testid="order-progress"
+                className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                Este pedido fue cancelado.
+              </p>
+            ) : (
+              <ol
+                data-testid="order-progress"
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+              >
+                {progressSteps.map((step, index) => {
+                  const currentIndex = progressSteps.indexOf(order.status);
+                  const isDone = currentIndex > -1 && index < currentIndex;
+                  const isCurrent = index === currentIndex;
+                  return (
+                    <li key={step} className="flex items-center gap-2">
+                      {index > 0 && (
+                        <span
+                          aria-hidden="true"
+                          className="text-muted-foreground"
+                        >
+                          →
+                        </span>
+                      )}
+                      <span
+                        aria-current={isCurrent ? 'step' : undefined}
+                        className={
+                          isCurrent
+                            ? 'rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary'
+                            : isDone
+                              ? 'text-green-400'
+                              : 'text-muted-foreground'
+                        }
+                      >
+                        {statusLabel[step]}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">Estado</p>

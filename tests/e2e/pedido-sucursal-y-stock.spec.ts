@@ -172,7 +172,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
       page
         .getByTestId(`product-card-${product.id}`)
         .getByTestId('product-availability')
-    ).toHaveText(`Disponible: ${initialStock} unidades`);
+    ).toHaveText('Disponible');
 
     await page.getByTestId(`add-product-${product.id}`).click();
     await expect(page.locator(`[data-testid="cart-item"][data-product-id="${product.id}"]`)).toBeVisible();
@@ -192,11 +192,13 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByRole('button', { name: 'Cerrar' }).click();
     await expect(page.getByTestId('order-success-description')).not.toBeVisible();
 
-    // El pedido pending no reserva stock: la disponibilidad sigue en 5.
+    // El pedido pending no reserva stock: la disponibilidad sigue igual.
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 5 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText('Disponible');
 
     // Confirmar el pedido desde el panel.
     await page.goto('/pedidos');
@@ -213,10 +215,12 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await page.getByRole('button', { name: 'Confirmar pago' }).click();
     await expect(page.getByTestId('confirm-payment-button')).not.toHaveText('Confirmando...', { timeout: 10000 });
 
-    // El stock se descontó: ahora quedan 4 unidades.
+    // El stock se descontó, pero al público solo se muestra un estado cualitativo.
     await page.goto('/pedido');
     await expect(
-      page.getByTestId(`product-card-${product.id}`).getByText('Disponible: 4 unidades')
-    ).toBeVisible();
+      page
+        .getByTestId(`product-card-${product.id}`)
+        .getByTestId('product-availability')
+    ).toHaveText('Disponible');
   });
 });

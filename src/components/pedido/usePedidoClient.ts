@@ -15,6 +15,7 @@ import {
   PUBLIC_PEDIDO_CANCELAR_API,
 } from '@/config/api';
 import { throwApiError } from '@/lib/fetch';
+import { toPublicErrorMessage } from '@/lib/public-errors';
 import { useCart } from '@/hooks/useCart';
 import { useRecentOrders } from '@/hooks/useRecentOrders';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
@@ -25,14 +26,7 @@ import type { RecentOrder } from '@/lib/recent-orders';
 import type { ProductGroup } from '@/lib/product-grouping';
 import type { Branch } from '@/domain/types';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
-import type { RecipeBreakdownItem } from '@/application/services/saleService';
 import type { PublicOrderItem } from '@/domain/types';
-
-interface ShortageInfo {
-  available: number;
-  required: number;
-  supplyName: string;
-}
 
 export interface CreatedOrder {
   id: number;
@@ -74,13 +68,18 @@ export interface BranchStatus {
 export interface UsePedidoClientResult {
   products: PublicCatalogProduct[];
   error: string | null;
-  shortageByProduct: Record<number, ShortageInfo>;
-  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
+  /**
+   * Productos cuyo carrito no alcanza la disponibilidad. El API público solo
+   * expone la presencia del faltante, sin nombres de insumos ni cantidades.
+   */
+  shortageByProduct: Record<number, boolean>;
   isCheckingAvailability: boolean;
 
   checkoutOpen: boolean;
   setCheckoutOpen: (value: boolean) => void;
   branchStatus: BranchStatus | null;
+  /** `true` cuando ya se consultó el estado de la sucursal al menos una vez. */
+  branchStatusChecked: boolean;
   customerName: string;
   setCustomerName: (value: string) => void;
   customerPhone: string;
@@ -158,15 +157,13 @@ export function usePedidoClient({
   }, [products.length]);
   const [error, setError] = useState<string | null>(null);
   const [shortageByProduct, setShortageByProduct] = useState<
-    Record<number, ShortageInfo>
-  >({});
-  const [breakdownByProduct, setBreakdownByProduct] = useState<
-    Record<number, RecipeBreakdownItem[]>
+    Record<number, boolean>
   >({});
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [branchStatus, setBranchStatus] = useState<BranchStatus | null>(null);
+  const [branchStatusChecked, setBranchStatusChecked] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('pickup');
@@ -253,6 +250,37 @@ export function usePedidoClient({
   const { orders: recentOrders, add: addRecentOrder, remove: removeRecentOrder } =
     useRecentOrders();
 
+  // Consulta el estado de la sucursal (horarios + caja abierta). Se usa al
+  // montar el catálogo, junto al refresco del catálogo por polling (para
+  // reflejar cierres mientras el cliente navega) y al abrir el checkout,
+  // donde actúa como segunda verificación.
+  const fetchBranchStatus = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${PUBLIC_SUCURSAL_ESTADO_API}?branchId=${activeBranch.id}`
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as BranchStatus;
+      if (!isMountedRef.current) return;
+      if (typeof data?.isOpen === 'boolean') {
+        setBranchStatus(data);
+      }
+    } catch {
+      // Si no se puede consultar, no bloqueamos el flujo;
+      // la validación final ocurre al enviar el pedido.
+    } finally {
+      if (isMountedRef.current) setBranchStatusChecked(true);
+    }
+  }, [activeBranch.id]);
+
+  // Consulta inicial del estado de la sucursal al montar, diferida con
+  // `queueMicrotask` para no actualizar estado de forma síncrona en el efecto.
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchBranchStatus();
+    });
+  }, [fetchBranchStatus]);
+
   const refreshCatalog = useCallback(async () => {
     try {
       // Refresca todos los productos ya cargados para no perder páginas
@@ -316,7 +344,10 @@ export function usePedidoClient({
   }, [activeBranch.id, isLoadingMore, products.length, totalProducts, resolvedPageSize]);
 
   useVisibilityPolling(
-    refreshCatalog,
+    () => {
+      void refreshCatalog();
+      void fetchBranchStatus();
+    },
     getPedidoRefetchIntervalMs(),
     true,
     false
@@ -326,7 +357,6 @@ export function usePedidoClient({
     if (items.length === 0) {
       queueMicrotask(() => {
         setShortageByProduct({});
-        setBreakdownByProduct({});
       });
       return;
     }
@@ -358,16 +388,18 @@ export function usePedidoClient({
 
         const data = (await response.json()) as {
           availabilityByProduct: Record<number, number>;
-          shortageByProduct: Record<number, ShortageInfo>;
-          breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
+          shortageByProduct: Record<number, boolean>;
         };
 
         if (!isMountedRef.current) return;
         setShortageByProduct(data.shortageByProduct ?? {});
-        setBreakdownByProduct(data.breakdownByProduct ?? {});
       } catch (err) {
         if (!isMountedRef.current) return;
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        setError(
+          err instanceof Error
+            ? toPublicErrorMessage(err)
+            : 'Error desconocido'
+        );
       } finally {
         if (isMountedRef.current) setIsCheckingAvailability(false);
       }
@@ -438,22 +470,7 @@ export function usePedidoClient({
   async function handleOpenCheckout() {
     setCheckoutOpen(true);
     setCheckoutError(null);
-    setBranchStatus(null);
-
-    try {
-      const response = await fetch(
-        `${PUBLIC_SUCURSAL_ESTADO_API}?branchId=${activeBranch.id}`
-      );
-      if (response.ok) {
-        const data = (await response.json()) as BranchStatus;
-        if (isMountedRef.current) {
-          setBranchStatus(data);
-        }
-      }
-    } catch {
-      // Si no se puede consultar, no bloqueamos el flujo;
-      // la validación final ocurre al enviar el pedido.
-    }
+    await fetchBranchStatus();
   }
 
   async function handleSubmitCheckout() {
@@ -527,7 +544,9 @@ export function usePedidoClient({
       setAddress('');
       setNotes('');
     } catch (err) {
-      setCheckoutError(err instanceof Error ? err.message : 'Error desconocido');
+      setCheckoutError(
+        err instanceof Error ? toPublicErrorMessage(err) : 'Error desconocido'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -561,7 +580,7 @@ export function usePedidoClient({
       setCancellationReason('');
     } catch (err) {
       setCancellationError(
-        err instanceof Error ? err.message : 'Error desconocido'
+        err instanceof Error ? toPublicErrorMessage(err) : 'Error desconocido'
       );
     } finally {
       setIsCancelling(false);
@@ -579,12 +598,12 @@ export function usePedidoClient({
     products,
     error,
     shortageByProduct,
-    breakdownByProduct,
     isCheckingAvailability,
 
     checkoutOpen,
     setCheckoutOpen,
     branchStatus,
+    branchStatusChecked,
     customerName,
     setCustomerName,
     customerPhone,

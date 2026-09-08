@@ -50,7 +50,7 @@ export {
   calculateAvailabilityForProductIds,
 } from '@/lib/product-helpers';
 
-export type { ProductAvailability, RecipeBreakdownItem } from '@/lib/product-helpers';
+export type { ProductAvailability } from '@/lib/product-helpers';
 
 async function updateCashRegisterSummary(
   tx: typeof db,

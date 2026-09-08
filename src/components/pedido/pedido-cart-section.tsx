@@ -1,22 +1,17 @@
 import { CartSummary } from './cart-summary';
 import type { CartItem } from '@/hooks/useCart';
 
-interface ShortageInfo {
-  available: number;
-  required: number;
-  supplyName: string;
-}
-
 interface PedidoCartSectionProps {
   branchName: string;
   items: CartItem[];
   total: number;
-  shortageByProduct?: Record<number, ShortageInfo>;
+  shortageByProduct?: Record<number, boolean>;
   onUpdateQuantity: (lineId: string, quantity: number) => void;
   onRemove: (lineId: string) => void;
   onEditLine?: (lineId: string) => void;
   onCheckout: () => void;
   disabled: boolean;
+  isCheckingAvailability?: boolean;
 }
 
 export function PedidoCartSection({
@@ -29,6 +24,7 @@ export function PedidoCartSection({
   onEditLine,
   onCheckout,
   disabled,
+  isCheckingAvailability,
 }: PedidoCartSectionProps) {
   return (
     <CartSummary
@@ -41,6 +37,7 @@ export function PedidoCartSection({
       onEditLine={onEditLine}
       onCheckout={onCheckout}
       disabled={disabled}
+      isCheckingAvailability={isCheckingAvailability}
     />
   );
 }

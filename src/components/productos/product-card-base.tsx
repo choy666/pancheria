@@ -13,11 +13,11 @@ import { ProductCardRecipeIncluded } from '@/components/productos/product-card-r
 import { ProductCardSalesExtra } from '@/components/productos/product-card-sales-extra';
 import {
   productTypeLabels,
+  publicProductTypeBadgeLabels,
   criticalTypeLabels,
   productTypeBadgeClasses,
 } from '@/lib/product-style';
 import type { CriticalSupplyType, ProductType, RecipeItemConfig } from '@/domain/types';
-import type { RecipeBreakdownItem } from '@/application/services/saleService';
 
 /**
  * Campos mínimos que necesita la tarjeta de producto en ambos contextos.
@@ -46,8 +46,6 @@ interface ProductCardBaseProps {
   inCart?: boolean;
   inCartQuantity?: number;
   disabled?: boolean;
-  breakdown?: RecipeBreakdownItem[];
-  showBreakdown?: boolean;
   maxAdditional?: number;
   onAdd: (selectedRecipeItemIds?: number[]) => void;
 }
@@ -56,9 +54,9 @@ interface ProductCardBaseProps {
  * Componente base unificado de la tarjeta de producto.
  *
  * - `variant="catalog"`: catálogo público de `/pedido`. Muestra imagen,
- *   descripción, badge de tipo, desglose opcional de insumos y un botón de
- *   acción que abre el diálogo de personalización cuando la promo tiene
- *   ítems opcionales.
+ *   descripción, badge de tipo con etiqueta pública, disponibilidad
+ *   cualitativa y un botón de acción que abre el diálogo de personalización
+ *   cuando la promo tiene ítems opcionales.
  * - `variant="sales"`: terminal de `/ventas`. Toda la tarjeta actúa como
  *   botón, muestra el badge de cantidad en el pedido y el stock restante
  *   calculado por el padre (`isOutOfStock`/`maxAdditional`).
@@ -74,8 +72,6 @@ export function ProductCardBase({
   inCart = false,
   inCartQuantity = 0,
   disabled = false,
-  breakdown = [],
-  showBreakdown = false,
   maxAdditional,
   onAdd,
 }: ProductCardBaseProps) {
@@ -90,9 +86,13 @@ export function ProductCardBase({
   const hasOptions =
     product.type === 'compound' && hasOptionalRecipeItems(product);
 
-  const typeLabel = product.criticalSupplyType
-    ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
-    : productTypeLabels[product.type];
+  const typeLabel = isCatalog
+    ? (product.criticalSupplyType
+        ? criticalTypeLabels[product.criticalSupplyType]
+        : publicProductTypeBadgeLabels[product.type])
+    : product.criticalSupplyType
+      ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
+      : productTypeLabels[product.type];
 
   const buttonLabel = isOutOfStock
     ? 'Agotado'
@@ -171,8 +171,9 @@ export function ProductCardBase({
             )}
             {inCartQuantity > 0 && (
               <Badge
+                key={inCartQuantity}
                 variant="default"
-                className="shrink-0"
+                className={`shrink-0${isCatalog ? ' animate-in zoom-in-50 duration-200' : ''}`}
                 data-testid={`product-card-cart-quantity-${product.id}`}
               >
                 {inCartQuantity} {isCatalog ? 'en tu pedido' : 'en venta'}
@@ -202,6 +203,7 @@ export function ProductCardBase({
           type={product.type}
           availability={product.availability}
           unit={isCatalog ? undefined : product.unit}
+          qualitative={isCatalog}
         />
 
         {product.type === 'compound' && recipe.length > 0 && (
@@ -210,28 +212,6 @@ export function ProductCardBase({
             showOptionalHint={isCatalog && optionalItems.length > 0}
           />
         )}
-
-        {isCatalog &&
-          showBreakdown &&
-          product.type === 'compound' &&
-          breakdown.length > 0 && (
-            <details className="text-sm text-muted-foreground">
-              <summary className="cursor-pointer text-foreground hover:text-primary">
-                Ver insumos
-              </summary>
-              <ul className="mt-2 space-y-1 pl-4">
-                {breakdown.map((item) => (
-                  <li
-                    key={item.supplyName}
-                    className={item.isLimiting ? 'font-medium text-foreground' : ''}
-                  >
-                    {item.supplyName}: {item.available} disp., {item.required} req.
-                    {item.isLimiting && ' (limitante)'}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
 
         {!isCatalog && product.type !== 'service' && maxAdditional !== undefined && (
           <ProductCardSalesExtra

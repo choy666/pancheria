@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +64,20 @@ export function PedidoSuccessDialog({
   onCancel,
   onGoToChat,
 }: PedidoSuccessDialogProps) {
+  const [numberCopied, setNumberCopied] = useState(false);
+
+  async function handleCopyOrderNumber() {
+    if (!createdOrder) return;
+
+    try {
+      await navigator.clipboard.writeText(createdOrder.orderNumber);
+      setNumberCopied(true);
+      setTimeout(() => setNumberCopied(false), 2000);
+    } catch {
+      // Si el portapapeles no está disponible, el número sigue visible.
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -76,6 +92,36 @@ export function PedidoSuccessDialog({
           {cancellationError && (
             <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
               {cancellationError}
+            </div>
+          )}
+
+          {createdOrder && (
+            <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-center">
+              <p className="text-xs text-muted-foreground">Número de pedido</p>
+              <p
+                data-testid="order-success-number"
+                className="font-mono text-lg font-semibold text-foreground"
+              >
+                #{createdOrder.orderNumber}
+              </p>
+              <div className="mt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyOrderNumber}
+                >
+                  {numberCopied ? (
+                    <Check className="size-4" aria-hidden="true" />
+                  ) : (
+                    <Copy className="size-4" aria-hidden="true" />
+                  )}
+                  {numberCopied ? 'Copiado' : 'Copiar número'}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Guardalo para seguir tu pedido desde &quot;Seguimiento&quot;.
+              </p>
             </div>
           )}
 
@@ -130,12 +176,25 @@ export function PedidoSuccessDialog({
                     </a>
                   </p>
                 )}
-                <p>
-                  Horario de retiro estimado:{' '}
-                  <span className="text-foreground">
-                    {getCurrentOrNextOpening(branch)}
-                  </span>
-                </p>
+                {createdOrder.deliveryType === 'delivery' ? (
+                  createdOrder.address && (
+                    <p>
+                      Enviaremos tu pedido a:{' '}
+                      <span className="text-foreground">
+                        {createdOrder.address}
+                      </span>
+                    </p>
+                  )
+                ) : (
+                  <p>
+                    Horario de retiro estimado:{' '}
+                    <span className="text-foreground">
+                      {branch.openingHours && branch.openingHours.length > 0
+                        ? getCurrentOrNextOpening(branch)
+                        : 'Consultá el horario por el chat'}
+                    </span>
+                  </p>
+                )}
                 <p>
                   Total:{' '}
                   <span className="font-mono text-foreground">
@@ -169,29 +228,34 @@ export function PedidoSuccessDialog({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="cancellation-reason">
-              Motivo de cancelación (opcional)
-            </Label>
-            <Textarea
-              id="cancellation-reason"
-              value={cancellationReason}
-              onChange={(e) => setCancellationReason(e.target.value)}
-              placeholder="Por qué querés cancelar el pedido"
-            />
-          </div>
+          <details className="rounded-lg border border-border p-3 text-sm">
+            <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+              ¿Necesitás cancelar el pedido?
+            </summary>
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="cancellation-reason">
+                Motivo de cancelación (opcional)
+              </Label>
+              <Textarea
+                id="cancellation-reason"
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                placeholder="Por qué querés cancelar el pedido"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={onCancel}
+                disabled={isCancelling || !createdOrder}
+                className="w-full sm:w-auto"
+              >
+                {isCancelling ? 'Cancelando...' : 'Cancelar pedido'}
+              </Button>
+            </div>
+          </details>
         </div>
 
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onCancel}
-            disabled={isCancelling || !createdOrder}
-            className="w-full sm:w-auto"
-          >
-            {isCancelling ? 'Cancelando...' : 'Cancelar pedido'}
-          </Button>
           <Button
             type="button"
             variant="outline"

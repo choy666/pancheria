@@ -102,7 +102,7 @@ describe('ProductCardBase', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    test('usa la unidad genérica "unidades" en el catálogo', () => {
+    test('muestra la disponibilidad cualitativa sin unidades ni cantidades en el catálogo', () => {
       render(
         <ProductCardBase
           variant="catalog"
@@ -113,7 +113,13 @@ describe('ProductCardBase', () => {
       );
 
       expect(screen.getByTestId('product-availability')).toHaveTextContent(
-        'Disponible: 5 unidades'
+        'Disponible'
+      );
+      expect(screen.getByTestId('product-availability')).not.toHaveTextContent(
+        'porción'
+      );
+      expect(screen.getByTestId('product-availability')).not.toHaveTextContent(
+        '5'
       );
     });
   });

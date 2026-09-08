@@ -13,7 +13,9 @@ export function CheckoutSummary({ items, total }: CheckoutSummaryProps) {
       <h3 className="font-semibold">Resumen del pedido</h3>
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">El carrito está vacío.</p>
+        <p className="text-sm text-muted-foreground">
+          Todavía no agregaste productos.
+        </p>
       ) : (
         <ul className="space-y-2">
           {items.map((item) => (

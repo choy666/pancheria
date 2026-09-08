@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ProductCard } from './product-card';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
@@ -32,76 +32,85 @@ function makeProduct(
     price: 1200,
     unit: 'unidad',
     availability: 5,
-    breakdown: [],
     ...overrides,
   };
 }
 
 describe('ProductCard', () => {
-  test('muestra la disponibilidad en unidades', () => {
+  test('muestra la disponibilidad como estado cualitativo, sin cantidades', () => {
     render(
       <ProductCard
         product={makeProduct()}
         inCart={false}
-        breakdown={[]}
         onAdd={jest.fn()}
       />
     );
 
     expect(screen.getByTestId('product-availability')).toHaveTextContent(
-      'Disponible: 5 unidades'
+      'Disponible'
+    );
+    expect(screen.getByTestId('product-availability')).not.toHaveTextContent(
+      'unidades'
     );
     expect(screen.getByRole('button', { name: 'Agregar' })).toBeInTheDocument();
   });
 
-  test('muestra el desglose de insumos de una promo', () => {
-    const product = makeProduct({
-      breakdown: [
-        { supplyName: 'Pan', available: 12, required: 1, isLimiting: false },
-        { supplyName: 'Salchicha', available: 8, required: 2, isLimiting: true },
-      ],
-    });
-
+  test('muestra "Últimas unidades" cuando quedan 3 o menos', () => {
     render(
       <ProductCard
-        product={product}
+        product={makeProduct({ availability: 3 })}
         inCart={false}
-        breakdown={product.breakdown}
         onAdd={jest.fn()}
-        showBreakdown={true}
       />
     );
 
-    fireEvent.click(screen.getByText('Ver insumos'));
-    expect(screen.getByText('Pan: 12 disp., 1 req.')).toBeInTheDocument();
-    expect(
-      screen.getByText('Salchicha: 8 disp., 2 req. (limitante)')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('product-availability')).toHaveTextContent(
+      'Últimas unidades'
+    );
   });
 
-  test('oculta el desglose de insumos de una promo cuando showBreakdown es false', () => {
-    const product = makeProduct({
-      breakdown: [
-        { supplyName: 'Pan', available: 12, required: 1, isLimiting: false },
-        { supplyName: 'Salchicha', available: 8, required: 2, isLimiting: true },
-      ],
-    });
-
+  test('muestra "Agotado" cuando no hay disponibilidad', () => {
     render(
       <ProductCard
-        product={product}
+        product={makeProduct({ availability: 0 })}
         inCart={false}
-        breakdown={product.breakdown}
         onAdd={jest.fn()}
-        showBreakdown={false}
       />
     );
 
-    expect(screen.queryByText('Ver insumos')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pan: 12 disp., 1 req.')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Salchicha: 8 disp., 2 req. (limitante)')
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('product-availability')).toHaveTextContent(
+      'Agotado'
+    );
+    expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+  });
+
+  test('usa la etiqueta pública en el badge de tipo', () => {
+    render(
+      <ProductCard
+        product={makeProduct()}
+        inCart={false}
+        onAdd={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Promo')).toBeInTheDocument();
+
+    const { unmount } = render(
+      <ProductCard
+        product={makeProduct({
+          id: 2,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+        })}
+        inCart={false}
+        onAdd={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Bebida')).toBeInTheDocument();
+    expect(screen.queryByText(/Insumo/)).not.toBeInTheDocument();
+    unmount();
   });
 
   test('muestra "Agregar otro" cuando el producto ya está en el carrito', () => {
@@ -109,7 +118,6 @@ describe('ProductCard', () => {
       <ProductCard
         product={makeProduct()}
         inCart={true}
-        breakdown={[]}
         onAdd={jest.fn()}
       />
     );
@@ -122,7 +130,6 @@ describe('ProductCard', () => {
       <ProductCard
         product={makeProduct()}
         inCart={false}
-        breakdown={[]}
         onAdd={jest.fn()}
       />
     );
@@ -136,7 +143,6 @@ describe('ProductCard', () => {
         product={makeProduct()}
         inCart={true}
         inCartQuantity={3}
-        breakdown={[]}
         onAdd={jest.fn()}
       />
     );

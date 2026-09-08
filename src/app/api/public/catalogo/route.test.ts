@@ -45,7 +45,6 @@ describe('GET /api/public/catalogo', () => {
           price: 1200,
           unit: 'unidad',
           availability: 5,
-          breakdown: [],
         },
       ],
       total: 1,

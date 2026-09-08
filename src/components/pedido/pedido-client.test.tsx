@@ -78,7 +78,6 @@ function makeProduct(overrides: Partial<PublicCatalogProduct> = {}): PublicCatal
     price: 1200,
     unit: 'unidad',
     availability: 5,
-    breakdown: [],
     ...overrides,
   };
 }
@@ -363,7 +362,6 @@ describe('PedidoClient', () => {
           return createFetchResponse({
             availabilityByProduct: { 1: 5 },
             shortageByProduct: {},
-            breakdownByProduct: {},
           });
         }
 
@@ -518,7 +516,8 @@ describe('PedidoClient', () => {
     test('muestra la información de la sucursal al abrir el checkout', async () => {
       await openCheckoutDialog();
 
-      expect(screen.getByText('Abierto ahora')).toBeInTheDocument();
+      // El estado también se muestra en el encabezado del catálogo.
+      expect(screen.getAllByText('Abierto ahora').length).toBeGreaterThan(0);
       expect(
         screen.getByText('Horario de hoy: Hoy de 08:00 a 18:00')
       ).toBeInTheDocument();
@@ -536,7 +535,7 @@ describe('PedidoClient', () => {
           'La sucursal está cerrada. Próxima apertura: Mañana de 09:00 a 14:00.',
       });
 
-      expect(screen.getByText(/Cerrado/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Cerrado/).length).toBeGreaterThan(0);
       expect(
         screen.getByText(/La sucursal está cerrada/)
       ).toBeInTheDocument();
@@ -654,6 +653,132 @@ describe('PedidoClient', () => {
       expect(summary).toHaveTextContent('Resumen del pedido');
       expect(summary).toHaveTextContent('Panchuque x 1');
       expect(summary).toHaveTextContent('Total: $ 1.200');
+    });
+
+    test('muestra el estado de la sucursal en el encabezado del catálogo', async () => {
+      setupFetchMocks();
+
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('branch-status-chip')).toHaveTextContent(
+          'Abierto ahora'
+        )
+      );
+    });
+
+    test('muestra un mensaje de falta de disponibilidad sin datos internos', async () => {
+      global.fetch = jest.fn().mockImplementation(async (url) => {
+        const urlString = String(url);
+        if (urlString.includes('/api/public/disponibilidad')) {
+          // El API público solo expone qué productos faltan, sin datos internos.
+          return createFetchResponse({
+            availabilityByProduct: { 1: 0 },
+            shortageByProduct: { 1: true },
+          });
+        }
+        return createFetchResponse({
+          branch: makeBranch(1, 'Sucursal A'),
+          products: [makeProduct()],
+        });
+      });
+
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-product-1'));
+        await Promise.resolve();
+      });
+
+      await waitFor(
+        () =>
+          expect(
+            screen.getByText(/No hay suficiente Panchuque por el momento/)
+          ).toBeInTheDocument(),
+        { timeout: 3000 }
+      );
+
+      // No se exponen nombres de insumos ni cantidades internas.
+      expect(screen.queryByText(/Pan interno/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/disponible 0/i)).not.toBeInTheDocument();
+      expect(
+        screen.getAllByTestId('cart-item-shortage')[0]
+      ).toHaveTextContent(/no alcanza la disponibilidad/);
+    });
+
+    test('muestra un estado vacío amigable cuando la sucursal no tiene productos', async () => {
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('catalog-empty-state')).toHaveTextContent(
+        'No hay productos disponibles en esta sucursal por ahora'
+      );
+    });
+
+    test('muestra el stepper y la barra de carrito mobile al agregar productos', async () => {
+      const branches = [makeBranch(1, 'Sucursal A')];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('pedido-steps')).toHaveTextContent(
+        '1. Elegí tus productos'
+      );
+      expect(
+        screen.queryByTestId('mobile-cart-bar')
+      ).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-product-1'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('mobile-cart-bar')).toBeInTheDocument()
+      );
+      expect(screen.getByTestId('mobile-cart-bar')).toHaveTextContent(
+        'Ver mi pedido'
+      );
     });
 
     test('muestra el banner de pedidos recientes guardados previamente', async () => {

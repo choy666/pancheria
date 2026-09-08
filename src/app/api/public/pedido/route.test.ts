@@ -171,18 +171,28 @@ describe('POST /api/public/pedido', () => {
     expect(body.error).toContain('Sucursal');
   });
 
-  test('devuelve 409 cuando no hay stock suficiente', async () => {
+  test('devuelve 409 con mensaje amigable y código cuando no hay stock suficiente', async () => {
     mockedOrderService.createOrder.mockRejectedValue(
-      new InsufficientStockError('Gaseosa', 2, 5)
+      new InsufficientStockError('Gaseosa', 2, 5, 'Insumo interno')
     );
 
     const response = await POST(
       buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
     );
-    const body = (await response.json()) as { error: string };
+    const body = (await response.json()) as {
+      error: string;
+      code: string;
+      productName: string;
+    };
 
     expect(response.status).toBe(409);
-    expect(body.error).toContain('Stock insuficiente');
+    expect(body.code).toBe('INSUFFICIENT_STOCK');
+    expect(body.productName).toBe('Gaseosa');
+    expect(body.error).toContain('No hay suficiente Gaseosa');
+    // No se exponen insumos ni cantidades internas en la respuesta pública.
+    expect(body.error).not.toContain('insumo');
+    expect(body.error).not.toContain('Disponible');
+    expect(body.error).not.toContain('solicitado');
   });
 
   test('devuelve 400 ante un ValidationError del servicio', async () => {

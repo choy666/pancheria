@@ -12,14 +12,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ProductCard } from './product-card';
+import { BranchStatusChip } from './branch-status-chip';
 import {
   productTypeGroupClasses,
-  productTypeLabels,
+  publicProductTypeLabels,
 } from '@/lib/product-style';
 import { routes } from '@/config/routes';
 import type { Branch } from '@/domain/types';
+import type { BranchStatus } from './usePedidoClient';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
-import type { RecipeBreakdownItem } from '@/application/services/saleService';
 import type { CartItem } from '@/hooks/useCart';
 import type { ProductGroup } from '@/lib/product-grouping';
 import type { ReactNode } from 'react';
@@ -27,10 +28,11 @@ import type { ReactNode } from 'react';
 interface PedidoCatalogSectionProps {
   branches: Branch[];
   activeBranch: Branch;
+  branchStatus: BranchStatus | null;
+  branchStatusChecked: boolean;
   groupedProducts: ProductGroup<PublicCatalogProduct>[];
   items: CartItem[];
   inCartQuantityByProduct?: Record<number, number>;
-  breakdownByProduct: Record<number, RecipeBreakdownItem[]>;
   isCheckingAvailability: boolean;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -43,10 +45,11 @@ interface PedidoCatalogSectionProps {
 export function PedidoCatalogSection({
   branches,
   activeBranch,
+  branchStatus,
+  branchStatusChecked,
   groupedProducts,
   items,
   inCartQuantityByProduct: inCartQuantityByProductProp,
-  breakdownByProduct,
   isCheckingAvailability,
   hasMore = false,
   isLoadingMore = false,
@@ -75,6 +78,16 @@ export function PedidoCatalogSection({
             <p className="text-base text-muted-foreground">
               Elegí los productos y armá tu pedido.
             </p>
+            <ol
+              data-testid="pedido-steps"
+              className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+            >
+              <li>1. Elegí tus productos</li>
+              <li aria-hidden="true">→</li>
+              <li>2. Revisá tu pedido</li>
+              <li aria-hidden="true">→</li>
+              <li>3. Completá tus datos</li>
+            </ol>
             <p className="mt-1 text-sm">
               <Link
                 href={routes.pedidoSeguimiento}
@@ -85,60 +98,76 @@ export function PedidoCatalogSection({
             </p>
           </div>
 
-          {branches.length > 1 ? (
-            <div className="w-full sm:w-auto">
-              <Label
-                htmlFor="branchSelect"
-                className="mb-1 block text-sm font-medium"
-                data-testid="branch-select-label"
-              >
-                Sucursal
-              </Label>
-              <Select
-                value={String(activeBranch.id)}
-                onValueChange={onBranchChange}
-              >
-                <SelectTrigger
-                  id="branchSelect"
-                  data-testid="branch-select-trigger"
-                  className="w-full sm:w-[260px]"
+          <div className="w-full space-y-2 sm:w-auto">
+            {branches.length > 1 ? (
+              <div className="w-full sm:w-auto">
+                <Label
+                  htmlFor="branchSelect"
+                  className="mb-1 block text-sm font-medium"
+                  data-testid="branch-select-label"
                 >
-                  <SelectValue placeholder="Seleccionar sucursal">
-                    {(value) =>
-                      branches.find((b) => String(b.id) === value)?.name ??
-                      activeBranch.name
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={String(b.id)} label={b.name}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <div
-              className="flex items-center gap-2"
-              data-testid="single-branch-indicator"
-            >
-              <span className="text-sm text-muted-foreground">Sucursal</span>
-              <Badge variant="secondary">{activeBranch.name}</Badge>
-            </div>
-          )}
+                  Sucursal
+                </Label>
+                <Select
+                  value={String(activeBranch.id)}
+                  onValueChange={onBranchChange}
+                >
+                  <SelectTrigger
+                    id="branchSelect"
+                    data-testid="branch-select-trigger"
+                    className="w-full sm:w-[260px]"
+                  >
+                    <SelectValue placeholder="Seleccionar sucursal">
+                      {(value) =>
+                        branches.find((b) => String(b.id) === value)?.name ??
+                        activeBranch.name
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={String(b.id)} label={b.name}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-2"
+                data-testid="single-branch-indicator"
+              >
+                <span className="text-sm text-muted-foreground">Sucursal</span>
+                <Badge variant="secondary">{activeBranch.name}</Badge>
+              </div>
+            )}
+            <BranchStatusChip
+              branchStatus={branchStatus}
+              activeBranch={activeBranch}
+              checked={branchStatusChecked}
+            />
+          </div>
         </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {groupedProducts.length === 0 && (
+            <p
+              data-testid="catalog-empty-state"
+              className="rounded-lg border border-white/8 p-4 text-sm text-muted-foreground"
+            >
+              No hay productos disponibles en esta sucursal por ahora. Probá más
+              tarde o elegí otra sucursal.
+            </p>
+          )}
           {groupedProducts.map((group) => (
             <div key={group.type} className="space-y-3">
               <h2
                 className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium ${productTypeGroupClasses[group.type]}`}
               >
-                {productTypeLabels[group.type]}
+                {publicProductTypeLabels[group.type]}
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {group.items.map((product) => (
@@ -147,12 +176,8 @@ export function PedidoCatalogSection({
                     product={product}
                     inCart={inCartIds.has(product.id)}
                     inCartQuantity={inCartQuantityByProduct[product.id] ?? 0}
-                    breakdown={
-                      breakdownByProduct[product.id] ?? product.breakdown ?? []
-                    }
                     onAdd={(selected) => onAdd(product, selected)}
                     disabled={isCheckingAvailability}
-                    showBreakdown={false}
                   />
                 ))}
               </div>
@@ -174,7 +199,9 @@ export function PedidoCatalogSection({
           )}
         </div>
 
-        <div className="space-y-4">{cart}</div>
+        <div id="pedido-cart" className="scroll-mt-4 space-y-4">
+          {cart}
+        </div>
       </div>
     </div>
   );
