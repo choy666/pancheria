@@ -7,13 +7,6 @@ export interface SellableProduct extends ProductRow {
   recipe?: RecipeItemConfig[];
 }
 
-export interface CartItem {
-  lineId: string;
-  product: SellableProduct;
-  quantity: number;
-  selectedRecipeItemIds?: number[];
-}
-
 function sellablePriority(product: SellableProduct): number {
   if (product.type === 'compound') return 1;
   if (
@@ -35,16 +28,6 @@ export function sortSellableProducts(
     if (priorityA !== priorityB) return priorityA - priorityB;
     return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
   });
-}
-
-export function getDefaultSelectedRecipeItemIds(
-  product: SellableProduct
-): number[] {
-  return (
-    product.recipe
-      ?.filter((item) => item.isOptional && item.selectedByDefault)
-      .map((item) => item.supplyId) ?? []
-  );
 }
 
 export function getProductAdditional(

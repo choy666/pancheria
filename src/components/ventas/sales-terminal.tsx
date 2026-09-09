@@ -7,21 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
+import { useSellableCart } from '@/hooks/useSellableCart';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
+import { groupCartItemsForSubmit, hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import {
-  areRecipeSelectionsEqual,
-  groupCartItemsForSubmit,
-  hasOptionalRecipeItems,
-} from '@/lib/cart-helpers';
-import {
-  getDefaultSelectedRecipeItemIds,
-  getProductAdditional,
-  isProductOutOfStock,
   sortSellableProducts,
-  type CartItem,
   type SellableProduct,
 } from '@/lib/ventas-helpers';
 import { SalesProductCard } from '@/components/ventas/sales-product-card';
@@ -31,13 +24,7 @@ import {
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
-import {
-  addMoney,
-  formatMoney,
-  moneyToNumber,
-  multiplyMoney,
-  parseMoney,
-} from '@/lib/money';
+import { formatMoney } from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
 
 interface SalesTerminalProps {
@@ -49,7 +36,6 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   const router = useRouter();
   const isMountedRef = useRef(true);
   const [products, setProducts] = useState<SellableProduct[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [promoDialogProduct, setPromoDialogProduct] =
     useState<SellableProduct | null>(null);
@@ -71,6 +57,37 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   >({});
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const availabilityRequestIdRef = useRef(0);
+  const lastAvailabilityCartRef = useRef<Record<number, number>>({});
+
+  const getAvailability = useCallback(
+    (productId: number) => {
+      const product = products.find((p) => p.id === productId);
+      if (!product) return 0;
+      if (product.type === 'service') return Number.MAX_SAFE_INTEGER;
+      const inCartRequest = lastAvailabilityCartRef.current[productId] ?? 0;
+      const additional = cartAvailability[productId] ?? product.availability;
+      return inCartRequest + additional;
+    },
+    [products, cartAvailability]
+  );
+
+  const handleOutOfStock = useCallback(
+    () => setIsCheckingAvailability(false),
+    []
+  );
+
+  const {
+    lines,
+    total,
+    addItem: addLine,
+    updateQuantity: updateLineQuantity,
+    removeItem: removeLine,
+    updateSelectedRecipeItemIds: updateLineSelection,
+    clearCart: clearLines,
+  } = useSellableCart<SellableProduct>({
+    getAvailability,
+    onOutOfStock: handleOutOfStock,
+  });
 
   const {
     cashRegister,
@@ -132,18 +149,20 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     const timer = setTimeout(async () => {
       if (requestId !== availabilityRequestIdRef.current) return;
 
+      const requestItems = groupCartItemsForSubmit(
+        lines.map((line) => ({
+          productId: line.product.id,
+          quantity: line.quantity,
+          selectedRecipeItemIds: line.selectedRecipeItemIds,
+        }))
+      );
+
       try {
         const response = await authenticatedFetch(VENTAS_DISPONIBILIDAD_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            items: groupCartItemsForSubmit(
-              cart.map((item) => ({
-                productId: item.product.id,
-                quantity: item.quantity,
-                selectedRecipeItemIds: item.selectedRecipeItemIds,
-              }))
-            ),
+            items: requestItems,
             productIds: products.map((p) => p.id),
           }),
         });
@@ -164,6 +183,13 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         if (!isMountedRef.current) return;
         setCartAvailability(data.availabilityByProduct ?? {});
         setCartShortage(data.shortageByProduct ?? {});
+
+        const requestCart: Record<number, number> = {};
+        for (const item of requestItems) {
+          requestCart[item.productId] =
+            (requestCart[item.productId] ?? 0) + item.quantity;
+        }
+        lastAvailabilityCartRef.current = requestCart;
       } catch {
         // No saturar la UI con errores de disponibilidad; el confirm mostrará el problema real.
       } finally {
@@ -179,7 +205,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     return () => {
       clearTimeout(timer);
     };
-  }, [cart, products]);
+  }, [lines, products]);
 
   function addToCart(
     product: SellableProduct,
@@ -188,66 +214,27 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     if (!cashRegister || cashRegister.status !== 'open') return;
     setError(null);
 
-    const optionalItems =
-      product.recipe?.filter((item) => item.isOptional) ?? [];
-    if (optionalItems.length > 0 && selectedRecipeItemIds === undefined) {
+    if (hasOptionalRecipeItems(product) && selectedRecipeItemIds === undefined) {
       setPromoDialogKey((prev) => prev + 1);
       setPromoDialogProduct(product);
       return;
     }
 
-    const resolvedSelected =
-      selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
-
-    // Los productos personalizables nunca se fusionan: cada unidad ocupa su
-    // propia línea para poder personalizarla por separado.
-    const existing = hasOptionalRecipeItems(product)
-      ? undefined
-      : cart.find(
-          (item) =>
-            item.product.id === product.id &&
-            areRecipeSelectionsEqual(
-              item.selectedRecipeItemIds ?? [],
-              resolvedSelected
-            )
-        );
-
-    const currentQuantity = cart
-      .filter((item) => item.product.id === product.id)
-      .reduce((sum, item) => sum + item.quantity, 0);
-    if (isProductOutOfStock(product, cartAvailability, currentQuantity)) return;
-
     setIsCheckingAvailability(true);
-    setCart((prev) => {
-      if (existing) {
-        return prev.map((i) =>
-          i.lineId === existing.lineId
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
-      }
-      return [
-        ...prev,
-        {
-          lineId: nanoid(),
-          product,
-          quantity: 1,
-          selectedRecipeItemIds: resolvedSelected,
-        },
-      ];
-    });
+    addLine(product, selectedRecipeItemIds);
   }
 
   function removeFromCart(lineId: string) {
     setError(null);
     setIsCheckingAvailability(true);
-    setCart((prev) => prev.filter((item) => item.lineId !== lineId));
+    removeLine(lineId);
   }
 
   function clearCart() {
     setError(null);
     setCustomPayments(null);
-    setCart([]);
+    setIsCheckingAvailability(true);
+    clearLines();
   }
 
   function updateQuantity(lineId: string, quantity: number) {
@@ -258,35 +245,23 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
 
     setError(null);
     setIsCheckingAvailability(true);
-    setCart((prev) =>
-      prev.map((item) => {
-        if (item.lineId !== lineId) return item;
-        const additional = getProductAdditional(
-          item.product,
-          cartAvailability,
-          item.quantity
-        );
-        const max = item.quantity + additional;
-        const nextQuantity =
-          quantity > item.quantity ? Math.min(quantity, max) : quantity;
-        return { ...item, quantity: nextQuantity };
-      })
-    );
+    updateLineQuantity(lineId, quantity);
   }
 
   const startEditLine = useCallback((lineId: string) => {
-    const item = cart.find((i) => i.lineId === lineId);
+    const item = lines.find((i) => i.lineId === lineId);
     if (!item) return;
 
-    const product = products.find((p) => p.id === item.product.id) ?? item.product;
+    const product =
+      products.find((p) => p.id === item.product.id) ?? item.product;
     setEditingLine({
       lineId,
       product,
-      initialSelectedIds: item.selectedRecipeItemIds ?? [],
+      initialSelectedIds: item.selectedRecipeItemIds,
       dialogKey: nanoid(),
     });
     setPromoDialogProduct(null);
-  }, [cart, products]);
+  }, [lines, products]);
 
   const cancelEditLine = useCallback(() => {
     setEditingLine(null);
@@ -297,29 +272,11 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
       if (!editingLine) return;
 
       setIsCheckingAvailability(true);
-      setCart((prev) =>
-        prev.map((i) =>
-          i.lineId === editingLine.lineId
-            ? { ...i, selectedRecipeItemIds }
-            : i
-        )
-      );
+      updateLineSelection(editingLine.lineId, selectedRecipeItemIds);
       setEditingLine(null);
     },
-    [editingLine]
+    [editingLine, updateLineSelection]
   );
-
-  const total = useMemo(() => {
-    const totalMoney = cart.reduce(
-      (sum, item) =>
-        addMoney(
-          sum,
-          multiplyMoney(parseMoney(item.product.price), item.quantity)
-        ),
-      parseMoney(0)
-    );
-    return moneyToNumber(totalMoney);
-  }, [cart]);
 
   const {
     paymentParts,
@@ -329,7 +286,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   } = usePaymentParts(total, { redistributeOnTotalChange: true });
 
   async function confirmSale() {
-    if (cart.length === 0) {
+    if (lines.length === 0) {
       setError('El carrito está vacío.');
       return;
     }
@@ -362,10 +319,10 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: groupCartItemsForSubmit(
-            cart.map((item) => ({
-              productId: item.product.id,
-              quantity: item.quantity,
-              selectedRecipeItemIds: item.selectedRecipeItemIds,
+            lines.map((line) => ({
+              productId: line.product.id,
+              quantity: line.quantity,
+              selectedRecipeItemIds: line.selectedRecipeItemIds,
             }))
           ),
           payments: paymentParts.filter((p) => p.amount > 0),
@@ -377,7 +334,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         await throwApiError(response, 'Error al confirmar la venta');
       }
 
-      setCart([]);
+      clearLines();
       setCustomPayments(null);
       router.refresh();
       await refresh();
@@ -449,10 +406,10 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             {displayProducts.map((product) => {
-              const inCartQuantity = cart.reduce(
-                (sum, item) =>
-                  item.product.id === product.id
-                    ? sum + item.quantity
+              const inCartQuantity = lines.reduce(
+                (sum, line) =>
+                  line.product.id === product.id
+                    ? sum + line.quantity
                     : sum,
                 0
               );
@@ -472,7 +429,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         </div>
 
         <SalesCart
-          cart={cart}
+          cart={lines}
           cartAvailability={cartAvailability}
           cartShortage={cartShortage}
           cartDisabled={cartDisabled}

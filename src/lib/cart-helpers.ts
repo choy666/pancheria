@@ -27,6 +27,26 @@ export function hasOptionalRecipeItems(product: {
   return product.recipe?.some((item) => item.isOptional) ?? false;
 }
 
+interface RecipeItemDefaultSelection {
+  isOptional: boolean;
+  selectedByDefault: boolean;
+  supplyId: number;
+}
+
+/**
+ * Devuelve los `supplyId` de los insumos opcionales de una receta que estén
+ * marcados como seleccionados por defecto.
+ */
+export function getDefaultSelectedRecipeItemIds(product: {
+  recipe?: RecipeItemDefaultSelection[];
+}): number[] {
+  return (
+    product.recipe
+      ?.filter((item) => item.isOptional && item.selectedByDefault)
+      .map((item) => item.supplyId) ?? []
+  );
+}
+
 export interface CartSubmitLine {
   productId: number;
   quantity: number;

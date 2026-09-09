@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
-import {
-  areRecipeSelectionsEqual,
-  hasOptionalRecipeItems,
-} from '@/lib/cart-helpers';
+import { hasOptionalRecipeItems } from '@/lib/cart-helpers';
+import { useSellableCart, type SellableCartLine } from './useSellableCart';
 import type {
   CriticalSupplyType,
   ProductType,
@@ -48,26 +46,6 @@ const storedCartSchema = z.object({
   items: z.array(cartItemSchema),
 });
 
-function getTotalQuantityForProduct(
-  items: CartItem[],
-  productId: number,
-  excludeLineId?: string
-): number {
-  return items
-    .filter((item) => item.id === productId && item.lineId !== excludeLineId)
-    .reduce((sum, item) => sum + item.quantity, 0);
-}
-
-function getDefaultSelectedRecipeItemIds(
-  product: CartProduct
-): number[] {
-  return (
-    product.recipe
-      ?.filter((item) => item.isOptional && item.selectedByDefault)
-      .map((item) => item.supplyId) ?? []
-  );
-}
-
 const STORAGE_KEY = 'pancheria-cart-v1';
 
 function getStorage() {
@@ -79,6 +57,27 @@ function getStorage() {
     setItem: () => {},
     removeItem: () => {},
   } as Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+}
+
+function cartProductFromItem(item: CartItem): CartProduct {
+  return {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    unit: item.unit,
+    type: item.type,
+    criticalSupplyType: item.criticalSupplyType,
+    recipe: item.recipe,
+  };
+}
+
+function lineToCartItem(line: SellableCartLine<CartProduct>): CartItem {
+  return {
+    ...line.product,
+    lineId: line.lineId,
+    quantity: line.quantity,
+    selectedRecipeItemIds: line.selectedRecipeItemIds,
+  };
 }
 
 function getInitialItems(
@@ -150,16 +149,23 @@ export function useCart({
   products,
   getAvailability,
 }: UseCartOptions) {
-  // Inicializamos con un arreglo vacío para que el primer render coincida
-  // entre SSR y cliente. Esto evita errores de hydration cuando el carrito
-  // se persiste en localStorage y se restaura en el cliente.
-  const [items, setItems] = useState<CartItem[]>([]);
+  const {
+    lines,
+    setLines,
+    total: cartTotal,
+    addItem: addLine,
+    removeItem: removeLine,
+    updateQuantity: updateLineQuantity,
+    updateSelectedRecipeItemIds: updateLineSelection,
+    clearCart: clearLines,
+  } = useSellableCart<CartProduct>({ getAvailability });
+
   const previousBranchIdRef = useRef<number | null>(null);
   const userInteractedRef = useRef(false);
 
-  // Carga inicial y reinicialización al cambiar de sucursal. Se ejecuta en
-  // un efecto porque localStorage no está disponible durante el render del
-  // servidor y no queremos que el HTML inicial dependa de él.
+  // Inicializamos con un arreglo vacío para que el primer render coincida
+  // entre SSR y cliente. Esto evita errores de hydration cuando el carrito
+  // se persiste en localStorage y se restaura en el cliente.
   // Si el usuario ya interactuó antes de que este efecto corra (por ejemplo,
   // un click muy rápido en E2E), no pise el carrito que ya armó.
   useEffect(() => {
@@ -172,14 +178,22 @@ export function useCart({
       return;
     }
 
-    setItems(getInitialItems(branchId, products, getAvailability));
+    const initialItems = getInitialItems(branchId, products, getAvailability);
+    setLines(
+      initialItems.map((item) => ({
+        lineId: item.lineId,
+        product: cartProductFromItem(item),
+        quantity: item.quantity,
+        selectedRecipeItemIds: item.selectedRecipeItemIds,
+      }))
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
 
   useEffect(() => {
     const storage = getStorage();
 
-    if (items.length === 0) {
+    if (lines.length === 0) {
       storage.removeItem(STORAGE_KEY);
       return;
     }
@@ -187,143 +201,55 @@ export function useCart({
     const stored = {
       version: 'pancheria-cart-v1' as const,
       branchId,
-      items,
+      items: lines.map(lineToCartItem),
     };
 
     storage.setItem(STORAGE_KEY, JSON.stringify(stored));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
+  }, [lines, branchId]);
+
+  const items = useMemo<CartItem[]>(
+    () => lines.map((line) => lineToCartItem(line)),
+    [lines]
+  );
+
+  const total = cartTotal;
 
   const addItem = useCallback(
     (product: CartProduct, selectedRecipeItemIds?: number[]) => {
       userInteractedRef.current = true;
-      const isService = product.type === 'service';
-      const availability = getAvailability(product.id);
-
-      if (!isService && availability <= 0) return;
-
-      const resolvedSelected =
-        selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
-
-      setItems((prev) => {
-        // Los productos personalizables nunca se fusionan: cada unidad ocupa
-        // su propia línea para poder personalizarla por separado.
-        if (!hasOptionalRecipeItems(product)) {
-          const existing = prev.find(
-            (item) =>
-              item.id === product.id &&
-              areRecipeSelectionsEqual(
-                item.selectedRecipeItemIds,
-                resolvedSelected
-              )
-          );
-
-          if (existing) {
-            const otherQuantity = getTotalQuantityForProduct(
-              prev,
-              product.id,
-              existing.lineId
-            );
-            const max = isService
-              ? Number.MAX_SAFE_INTEGER
-              : availability - otherQuantity;
-            const nextQuantity = Math.min(existing.quantity + 1, max);
-
-            if (!isService && nextQuantity <= existing.quantity) return prev;
-
-            return prev.map((item) =>
-              item.lineId === existing.lineId
-                ? { ...item, quantity: nextQuantity }
-                : item
-            );
-          }
-        }
-
-        const otherQuantity = getTotalQuantityForProduct(prev, product.id);
-        const max = isService ? Number.MAX_SAFE_INTEGER : availability - otherQuantity;
-
-        if (!isService && max <= 0) return prev;
-
-        return [
-          ...prev,
-          {
-            ...product,
-            lineId: nanoid(),
-            quantity: 1,
-            selectedRecipeItemIds: resolvedSelected,
-          },
-        ];
-      });
+      addLine(product, selectedRecipeItemIds);
     },
-    [getAvailability]
+    [addLine]
+  );
+
+  const updateQuantity = useCallback(
+    (lineId: string, quantity: number) => {
+      userInteractedRef.current = true;
+      updateLineQuantity(lineId, quantity);
+    },
+    [updateLineQuantity]
+  );
+
+  const removeItem = useCallback(
+    (lineId: string) => {
+      userInteractedRef.current = true;
+      removeLine(lineId);
+    },
+    [removeLine]
   );
 
   const updateSelectedRecipeItemIds = useCallback(
     (lineId: string, selectedRecipeItemIds: number[]) => {
       userInteractedRef.current = true;
-      setItems((prev) =>
-        prev.map((item) =>
-          item.lineId === lineId
-            ? { ...item, selectedRecipeItemIds }
-            : item
-        )
-      );
+      updateLineSelection(lineId, selectedRecipeItemIds);
     },
-    []
-  );
-
-  const removeItem = useCallback((lineId: string) => {
-    userInteractedRef.current = true;
-    setItems((prev) => prev.filter((item) => item.lineId !== lineId));
-  }, []);
-
-  const updateQuantity = useCallback(
-    (lineId: string, quantity: number) => {
-      userInteractedRef.current = true;
-      if (quantity <= 0) {
-        removeItem(lineId);
-        return;
-      }
-
-      setItems((prev) => {
-        const item = prev.find((i) => i.lineId === lineId);
-        if (!item) return prev;
-
-        const isService = item.type === 'service';
-        const availability = getAvailability(item.id);
-        const otherQuantity = getTotalQuantityForProduct(
-          prev,
-          item.id,
-          lineId
-        );
-        const max = isService
-          ? Number.MAX_SAFE_INTEGER
-          : Math.max(0, availability - otherQuantity);
-        const nextQuantity = isService
-          ? quantity
-          : Math.min(quantity, max);
-
-        if (!isService && nextQuantity <= 0) {
-          return prev.filter((i) => i.lineId !== lineId);
-        }
-
-        return prev.map((i) =>
-          i.lineId === lineId ? { ...i, quantity: nextQuantity } : i
-        );
-      });
-    },
-    [getAvailability, removeItem]
+    [updateLineSelection]
   );
 
   const clearCart = useCallback(() => {
     userInteractedRef.current = true;
-    setItems([]);
-  }, []);
-
-  const total = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+    clearLines();
+  }, [clearLines]);
 
   return {
     items,

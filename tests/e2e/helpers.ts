@@ -438,6 +438,85 @@ export async function restockProductViaApi(
 }
 
 /**
+ * Crea un producto compuesto con receta para tests E2E.
+ *
+ * Genera un insumo crítico (pan), un insumo manual opcional y un promo que los
+ * consume. Valida que la receta se haya guardado correctamente.
+ */
+export async function createPromoWithRecipeViaApi(
+  page: Page,
+  {
+    baseName,
+    price = 1500,
+    restock = 10,
+    manualSelectedByDefault = false,
+  }: {
+    baseName: string;
+    price?: number;
+    restock?: number;
+    manualSelectedByDefault?: boolean;
+  }
+) {
+  const pan = await createProductViaApi(page, {
+    name: unique(`${baseName} pan`),
+    type: 'critical_supply',
+    criticalSupplyType: 'bread',
+    price: 0,
+    unit: 'unidad',
+    minStock: 0,
+    isActive: true,
+  });
+  await restockProductViaApi(page, pan.id, restock);
+
+  const manual = await createProductViaApi(page, {
+    name: unique(`${baseName} insumo`),
+    type: 'manual_supply',
+    price: 0,
+    unit: 'unidad',
+    minStock: 0,
+    isActive: true,
+  });
+  await restockProductViaApi(page, manual.id, restock);
+
+  const items: Record<string, unknown>[] = [
+    {
+      supplyId: pan.id,
+      quantity: 1,
+      autoDiscount: true,
+      isOptional: false,
+      supplyType: 'critical_supply',
+    },
+    {
+      supplyId: manual.id,
+      quantity: 1,
+      autoDiscount: false,
+      isOptional: true,
+      selectedByDefault: manualSelectedByDefault,
+      supplyType: 'manual_supply',
+    },
+  ];
+
+  const promo = await createProductViaApi(page, {
+    name: unique(baseName),
+    type: 'compound',
+    price,
+    unit: 'unidad',
+    minStock: 0,
+    isActive: true,
+  });
+
+  const recipeRes = await page.request.post('/api/recetas', {
+    data: {
+      compoundProductId: promo.id,
+      items,
+    },
+  });
+  expect(recipeRes.status()).toBe(201);
+
+  return { promo, pan, manual };
+}
+
+/**
  * Actualiza la fecha de creación de un pedido en la base de datos.
  * Útil para forzar la expiración de pedidos pending sin esperar el tiempo real.
  */

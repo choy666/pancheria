@@ -1,10 +1,10 @@
 import {
   areRecipeSelectionsEqual,
   sortSellableProducts,
-  getDefaultSelectedRecipeItemIds,
   getProductAdditional,
   isProductOutOfStock,
 } from './ventas-helpers';
+import { getDefaultSelectedRecipeItemIds } from '@/lib/cart-helpers';
 import type { SellableProduct } from './ventas-helpers';
 import type { ProductType, CriticalSupplyType, RecipeItemConfig } from '@/domain/types';
 
