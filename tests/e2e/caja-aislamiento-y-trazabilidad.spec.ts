@@ -6,10 +6,22 @@ import {
   unique,
   createProductViaApi,
   openCashRegisterFromUI,
+  ensureCashRegisterClosed,
   clearSession,
 } from './helpers';
 
 test.describe('Trazabilidad de caja por sucursal y operador', () => {
+  test.beforeEach(async ({ page }) => {
+    const secondBranch = await getTestSecondBranch();
+    await clearSession(page);
+    await loginAsAdmin(page);
+    await ensureCashRegisterClosed(page);
+    await clearSession(page);
+    await loginAs(page, secondBranch.username, secondBranch.password);
+    await ensureCashRegisterClosed(page);
+    await clearSession(page);
+  });
+
   test('el operador ve su nombre al abrir caja y en el historial', async ({
     page,
   }) => {

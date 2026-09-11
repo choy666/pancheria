@@ -1,6 +1,7 @@
 import {
   sendClientMessage,
   sendOperatorMessage,
+  sendBranchLocationMessage,
   listClientMessages,
   listOperatorMessages,
   markClientMessagesAsRead,
@@ -345,6 +346,109 @@ describe('chatService', () => {
       await expect(getOrderChatStatus(ORDER_ID, 'wrong-token')).rejects.toThrow(
         NotFoundError
       );
+    });
+  });
+
+  describe('sendBranchLocationMessage', () => {
+    test('envía la ubicación de la sucursal para un pedido de retiro', async () => {
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ deliveryType: 'pickup' })
+      );
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal A',
+        openingHours: [],
+        location: 'https://maps.example.com/sucursal-a',
+        createdAt: new Date(),
+      } as any);
+      mockedOrderMessageRepository.insertMessage.mockResolvedValue(
+        buildMessage({
+          senderType: 'operator',
+          senderName: 'Juan',
+          content: 'https://maps.example.com/sucursal-a',
+        })
+      );
+
+      const result = await sendBranchLocationMessage(ORDER_ID, BRANCH_ID, 'Juan');
+
+      expect(result.content).toBe('https://maps.example.com/sucursal-a');
+      expect(mockedOrderMessageRepository.insertMessage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          content: 'https://maps.example.com/sucursal-a',
+          senderType: 'operator',
+          senderName: 'Juan',
+        })
+      );
+    });
+
+    test('rechaza pedidos que no son de retiro', async () => {
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ deliveryType: 'delivery' })
+      );
+
+      await expect(
+        sendBranchLocationMessage(ORDER_ID, BRANCH_ID)
+      ).rejects.toThrow(ValidationError);
+
+      expect(mockedOrderMessageRepository.insertMessage).not.toHaveBeenCalled();
+    });
+
+    test('rechaza si la sucursal no tiene ubicación', async () => {
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ deliveryType: 'pickup' })
+      );
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal A',
+        openingHours: [],
+        location: null,
+        createdAt: new Date(),
+      } as any);
+
+      await expect(
+        sendBranchLocationMessage(ORDER_ID, BRANCH_ID)
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza una ubicación insegura', async () => {
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ deliveryType: 'pickup' })
+      );
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal A',
+        openingHours: [],
+        location: 'javascript:alert(1)',
+        createdAt: new Date(),
+      } as any);
+
+      await expect(
+        sendBranchLocationMessage(ORDER_ID, BRANCH_ID)
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('convierte coordenadas de la sucursal en URL de mapas', async () => {
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ deliveryType: 'pickup' })
+      );
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal A',
+        openingHours: [],
+        location: '-34.6037,-58.3816',
+        createdAt: new Date(),
+      } as any);
+      mockedOrderMessageRepository.insertMessage.mockResolvedValue(
+        buildMessage({
+          senderType: 'operator',
+          content: 'https://www.openstreetmap.org/?mlat=-34.6037&mlon=-58.3816',
+        })
+      );
+
+      const result = await sendBranchLocationMessage(ORDER_ID, BRANCH_ID);
+
+      expect(result.content).toContain('openstreetmap.org');
     });
   });
 });

@@ -7,7 +7,21 @@ import {
   getChatRefreshIntervalMs,
   getChatPageSize,
 } from '@/config/chat';
-import type { OrderMessage, OrderMessageSenderType, OrderStatus } from '@/domain/types';
+import { buildMapCoordinatesUrl } from '@/lib/maps';
+import type { DeliveryType, OrderMessage, OrderMessageSenderType, OrderStatus } from '@/domain/types';
+
+function getGeolocationErrorMessage(error: GeolocationPositionError): string {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return 'No se concedió permiso para acceder a la ubicación.';
+    case error.POSITION_UNAVAILABLE:
+      return 'La ubicación no está disponible en este momento.';
+    case error.TIMEOUT:
+      return 'Se agotó el tiempo para obtener la ubicación.';
+    default:
+      return 'No se pudo obtener la ubicación.';
+  }
+}
 
 interface ScrollIntent {
   type: 'bottom' | 'preserve';
@@ -23,7 +37,10 @@ export interface UseOrderChatOptions {
   initialIsExpired?: boolean;
   readOnly?: boolean;
   isClient?: boolean;
+  deliveryType?: DeliveryType;
+  branchLocation?: string | null;
   chatApiUrl: string;
+  branchLocationApiUrl?: string;
   readApiUrl?: string;
   uploadApiUrl?: string;
   unreadCount?: number;
@@ -46,12 +63,18 @@ export interface UseOrderChatResult {
   isExpired: boolean;
   hasFetched: boolean;
   isReadOnly: boolean;
+  deliveryType: DeliveryType | null;
+  branchLocation: string | null;
+  canSendClientLocation: boolean;
+  canSendBranchLocation: boolean;
   otherSenderType: OrderMessageSenderType;
   displayedUnreadCount: number;
   isOwnMessage: (senderType: OrderMessageSenderType) => boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleSend: () => Promise<void>;
+  requestClientLocation: () => Promise<void>;
+  sendBranchLocation: () => Promise<void>;
   handleFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleRemoveFile: () => void;
   loadOlderMessages: () => Promise<void>;
@@ -88,7 +111,10 @@ export function useOrderChat({
   initialIsExpired = false,
   readOnly = false,
   isClient = false,
+  deliveryType: initialDeliveryType,
+  branchLocation: initialBranchLocation,
   chatApiUrl,
+  branchLocationApiUrl,
   readApiUrl,
   uploadApiUrl,
   unreadCount = 0,
@@ -125,6 +151,12 @@ export function useOrderChat({
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
   const [isExpired, setIsExpired] = useState(initialIsExpired);
   const [hasMore, setHasMore] = useState(initialHasMore ?? false);
+  const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(
+    initialDeliveryType ?? null
+  );
+  const [branchLocation, setBranchLocation] = useState<string | null>(
+    initialBranchLocation ?? null
+  );
 
   const isReadOnly =
     orderStatus !== null
@@ -136,6 +168,19 @@ export function useOrderChat({
   const otherSenderType: OrderMessageSenderType = isClient
     ? 'operator'
     : 'client';
+
+  const canSendClientLocation =
+    !isReadOnly &&
+    isClient &&
+    deliveryType === 'delivery' &&
+    typeof navigator !== 'undefined' &&
+    'geolocation' in navigator;
+
+  const canSendBranchLocation =
+    !isReadOnly &&
+    !isClient &&
+    deliveryType === 'pickup' &&
+    Boolean(branchLocation);
 
   const unreadFromMessages = messages.filter(
     (m) => m.senderType === otherSenderType && !m.readAt
@@ -213,6 +258,8 @@ export function useOrderChat({
       const data = (await response.json()) as {
         messages: OrderMessage[];
         status: OrderStatus;
+        deliveryType: DeliveryType;
+        branchLocation: string | null;
         total: number;
         hasMore: boolean;
         isExpired: boolean;
@@ -224,6 +271,13 @@ export function useOrderChat({
       addMessages(data.messages, 'replace', { type: 'bottom' });
       setHasMore(data.hasMore);
       setIsExpired(data.isExpired);
+
+      if (data.deliveryType) {
+        setDeliveryType(data.deliveryType);
+      }
+      if (data.branchLocation !== undefined) {
+        setBranchLocation(data.branchLocation);
+      }
 
       if (data.status) {
         setOrderStatus(data.status);
@@ -273,6 +327,8 @@ export function useOrderChat({
         const data = (await response.json()) as {
           messages: OrderMessage[];
           status: OrderStatus;
+          deliveryType: DeliveryType;
+          branchLocation: string | null;
           total: number;
           hasMore: boolean;
           isExpired: boolean;
@@ -284,6 +340,13 @@ export function useOrderChat({
           addMessages(data.messages, 'append', { type: 'bottom' });
         }
         setIsExpired(data.isExpired);
+
+        if (data.deliveryType) {
+          setDeliveryType(data.deliveryType);
+        }
+        if (data.branchLocation !== undefined) {
+          setBranchLocation(data.branchLocation);
+        }
 
         if (data.status) {
           setOrderStatus(data.status);
@@ -329,6 +392,8 @@ export function useOrderChat({
       const data = (await response.json()) as {
         messages: OrderMessage[];
         status: OrderStatus;
+        deliveryType: DeliveryType;
+        branchLocation: string | null;
         total: number;
         hasMore: boolean;
         expiresAt: string;
@@ -345,6 +410,13 @@ export function useOrderChat({
       }
       setHasMore(data.hasMore);
       setIsExpired(data.isExpired);
+
+      if (data.deliveryType) {
+        setDeliveryType(data.deliveryType);
+      }
+      if (data.branchLocation !== undefined) {
+        setBranchLocation(data.branchLocation);
+      }
 
       if (data.status) {
         setOrderStatus(data.status);
@@ -576,6 +648,83 @@ export function useOrderChat({
     return isClient ? senderType === 'client' : senderType === 'operator';
   }
 
+  async function requestClientLocation() {
+    if (
+      !canSendClientLocation ||
+      typeof navigator === 'undefined' ||
+      !navigator.geolocation
+    ) {
+      setError('La geolocalización no está disponible.');
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10_000,
+          maximumAge: 60_000,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      const url = buildMapCoordinatesUrl(latitude, longitude);
+      setContent(url);
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      const message =
+        err instanceof GeolocationPositionError
+          ? getGeolocationErrorMessage(err)
+          : 'No se pudo obtener la ubicación.';
+      setError(message);
+    }
+  }
+
+  async function sendBranchLocation() {
+    if (!canSendBranchLocation || !branchLocationApiUrl) {
+      setError('No se puede enviar la ubicación de la sucursal.');
+      return;
+    }
+
+    isSendingRef.current = true;
+    setIsSending(true);
+    setError(null);
+
+    try {
+      const response = await authenticatedFetch(branchLocationApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        await throwApiError(response, 'Error al enviar la ubicación');
+      }
+
+      const data = (await response.json()) as { message: OrderMessage };
+
+      if (!isMountedRef.current) return;
+
+      addMessages([data.message], 'append', { type: 'bottom' });
+      setContent('');
+      chatEmptyRef.current = false;
+      void markAsRead();
+
+      if (isMountedRef.current) {
+        consecutiveErrorsRef.current = 0;
+        nextAllowedAtRef.current = 0;
+        void pollNewMessages(data.message.id);
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      isSendingRef.current = false;
+      if (isMountedRef.current) setIsSending(false);
+    }
+  }
+
   return {
     messages,
     content,
@@ -592,12 +741,18 @@ export function useOrderChat({
     isExpired,
     hasFetched,
     isReadOnly,
+    deliveryType,
+    branchLocation,
+    canSendClientLocation,
+    canSendBranchLocation,
     otherSenderType,
     displayedUnreadCount,
     isOwnMessage,
     scrollRef,
     fileInputRef,
     handleSend,
+    requestClientLocation,
+    sendBranchLocation,
     handleFileSelect,
     handleRemoveFile,
     loadOlderMessages,

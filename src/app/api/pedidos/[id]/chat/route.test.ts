@@ -45,6 +45,8 @@ describe('GET /api/pedidos/[id]/chat', () => {
     mockedChatService.listOperatorMessages.mockResolvedValue({
       messages: [{ id: 1, content: 'Hola' }] as any,
       status: 'pending',
+      deliveryType: 'pickup',
+      branchLocation: null,
       total: 1,
       hasMore: false,
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),

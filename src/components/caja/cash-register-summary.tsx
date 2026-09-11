@@ -4,6 +4,7 @@ import { addHours, intervalToDuration } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAutoCloseHours } from '@/config/caja';
+import { getBranchTimezone } from '@/config/branch';
 import { formatMoney } from '@/lib/money';
 import { PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
@@ -42,18 +43,19 @@ interface CashRegisterSummaryProps {
   cashRegister: CashRegisterSummaryData;
   branchName?: string | null;
   isOpen?: boolean;
+  now?: Date;
 }
 
 export function CashRegisterSummary({
   cashRegister,
   branchName,
   isOpen = cashRegister.status === 'open',
+  now = new Date(),
 }: CashRegisterSummaryProps) {
   const openedAt = new Date(cashRegister.openedAt);
   const closedAt = cashRegister.closedAt
     ? new Date(cashRegister.closedAt)
     : null;
-  const now = new Date();
 
   const duration = intervalToDuration({
     start: openedAt,
@@ -72,8 +74,8 @@ export function CashRegisterSummary({
         })
       : null;
 
-  const isPreviousDay = isOpen && isCashRegisterFromPreviousDay(cashRegister.openedAt);
-  const isOverdue = isOpen && isCashRegisterOverdue(cashRegister.openedAt);
+  const isPreviousDay = isOpen && isCashRegisterFromPreviousDay(cashRegister.openedAt, getBranchTimezone(), now);
+  const isOverdue = isOpen && isCashRegisterOverdue(cashRegister.openedAt, 12, now);
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
@@ -300,7 +302,7 @@ export function CashRegisterSummary({
               <li
                 key={name}
                 data-testid="cash-register-supply-item"
-                data-supply-name={name}
+                data-product-name={name}
                 className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
               >
                 <span>{name}</span>
@@ -327,7 +329,7 @@ export function CashRegisterSummary({
               <li
                 key={name}
                 data-testid="cash-register-recipe-supply-item"
-                data-supply-name={name}
+                data-product-name={name}
                 className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
               >
                 <span>{name}</span>

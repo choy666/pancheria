@@ -51,6 +51,8 @@ export default async function PedidoChatPage({
         initialIsExpired={context.isExpired}
         readOnly={context.status === 'finished' || context.status === 'cancelled'}
         isClient
+        deliveryType={context.deliveryType}
+        branchLocation={context.branchLocation}
         chatApiUrl={PUBLIC_PEDIDO_CHAT_API(orderId)}
         readApiUrl={PUBLIC_PEDIDO_CHAT_LEIDO_API(orderId)}
         uploadApiUrl={PUBLIC_PEDIDO_CHAT_UPLOAD_API(orderId)}

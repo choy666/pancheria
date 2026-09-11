@@ -32,6 +32,8 @@ export const PEDIDOS_CANCELAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/cancelar`;
 export const PEDIDOS_CHAT_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/chat`;
+export const PEDIDOS_CHAT_UBICACION_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/chat/ubicacion`;
 export const PEDIDOS_CHAT_LEIDO_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/chat/leido`;
 export const PEDIDOS_CHAT_UPLOAD_API = (orderId: number | string) =>

@@ -6,6 +6,7 @@ import { orderMessages } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { isValidLocationUrl, tryBuildLocationUrl } from '@/lib/maps';
 import {
   getChatMaxTextLength,
   getChatImageMaxSizeBytes,
@@ -44,6 +45,8 @@ export interface ChatContext {
   branchName: string | null;
   status: OrderWithItems['status'];
   customerName: string;
+  deliveryType: OrderWithItems['deliveryType'];
+  branchLocation: string | null;
   messages: OrderMessage[];
   total: number;
   hasMore: boolean;
@@ -54,6 +57,8 @@ export interface ChatContext {
 export interface ChatMessagesResult {
   messages: OrderMessage[];
   status: OrderStatus;
+  deliveryType: OrderWithItems['deliveryType'];
+  branchLocation: string | null;
   total: number;
   hasMore: boolean;
   expiresAt: string;
@@ -151,6 +156,8 @@ export async function getChatContext(
     branchName: branch?.name ?? null,
     status: order.status,
     customerName: order.customerName,
+    deliveryType: order.deliveryType,
+    branchLocation: branch?.location ?? null,
     messages,
     total,
     hasMore: messages.length < total,
@@ -223,7 +230,8 @@ export async function listClientMessages(
     throw new NotFoundError('Pedido', orderId);
   }
 
-  const [{ rows: messages, hasMore }, total] = await Promise.all([
+  const [branch, { rows: messages, hasMore }, total] = await Promise.all([
+    branchService.getBranchById(order.branchId),
     listMessages(orderId, options),
     orderMessageRepository.countByOrderId(orderId),
   ]);
@@ -237,6 +245,8 @@ export async function listClientMessages(
   return {
     messages: updatedMessages,
     status: order.status,
+    deliveryType: order.deliveryType,
+    branchLocation: branch?.location ?? null,
     total,
     hasMore,
     expiresAt: getOrderExpiresAt(order),
@@ -269,6 +279,8 @@ export async function listOperatorMessages(
   return {
     messages: updatedMessages,
     status: order.status,
+    deliveryType: order.deliveryType,
+    branchLocation: order.branch?.location ?? null,
     total,
     hasMore,
     expiresAt: getOrderExpiresAt(order),
@@ -351,6 +363,61 @@ export async function sendOperatorMessage(
     }
 
     const values = normalizeMessageValues(orderId, 'operator', input);
+    return orderMessageRepository.insertMessage(tx, values);
+  });
+}
+
+export async function sendBranchLocationMessage(
+  orderId: number,
+  branchId: number,
+  senderName?: string | null
+): Promise<OrderMessage> {
+  return executeInTransaction(async (tx) => {
+    const order = await orderRepository.findByIdForUpdate(
+      tx,
+      branchId,
+      orderId
+    );
+
+    if (!order) {
+      throw new NotFoundError('Pedido', orderId);
+    }
+
+    if (order.status === 'finished' || order.status === 'cancelled') {
+      throw new ValidationError(
+        'El pedido está finalizado o cancelado, no se pueden enviar mensajes.'
+      );
+    }
+
+    if (isOrderExpired(order)) {
+      throw new ValidationError('El pedido expiró, no se pueden enviar mensajes.');
+    }
+
+    if (order.deliveryType !== 'pickup') {
+      throw new ValidationError(
+        'La ubicación de la sucursal solo puede compartirse en pedidos de retiro.'
+      );
+    }
+
+    const branch = await branchService.getBranchById(order.branchId);
+    const rawLocation = branch?.location?.trim();
+
+    if (!rawLocation) {
+      throw new ValidationError('La sucursal no tiene ubicación configurada.');
+    }
+
+    const locationUrl = tryBuildLocationUrl(rawLocation);
+
+    if (!locationUrl || !isValidLocationUrl(locationUrl)) {
+      throw new ValidationError(
+        'La ubicación de la sucursal no es una URL ni coordenadas válidas.'
+      );
+    }
+
+    const values = normalizeMessageValues(orderId, 'operator', {
+      content: locationUrl,
+      senderName,
+    });
     return orderMessageRepository.insertMessage(tx, values);
   });
 }

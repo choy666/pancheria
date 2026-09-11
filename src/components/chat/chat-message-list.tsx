@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, MapPin } from 'lucide-react';
 import { ChatAttachment } from './chat-attachment';
+import { isKnownMapUrl } from '@/lib/maps';
 import { formatTime } from '@/lib/date';
 import type { OrderMessage, OrderMessageSenderType } from '@/domain/types';
 
@@ -60,6 +61,36 @@ function MessageStatusIcon({
     >
       <Check className="size-3 shrink-0 opacity-70" />
     </span>
+  );
+}
+
+function ChatLocationMessage({ content }: { content: string }) {
+  return (
+    <a
+      href={content}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background/50 px-3 py-2 text-sm text-primary hover:underline"
+      data-testid="chat-location-link"
+    >
+      <MapPin className="size-4" aria-hidden="true" />
+      <span>Ver ubicación</span>
+    </a>
+  );
+}
+
+function ChatMessageContent({ content }: { content: string | null }) {
+  if (!content) return null;
+
+  const trimmed = content.trim();
+  if (isKnownMapUrl(trimmed)) {
+    return <ChatLocationMessage content={trimmed} />;
+  }
+
+  return (
+    <p data-testid="chat-message-text" className="whitespace-pre-wrap text-sm">
+      {content}
+    </p>
   );
 }
 
@@ -131,11 +162,7 @@ export function ChatMessageList({
                 {message.senderName && (
                   <p className="mb-1 text-xs opacity-80">{message.senderName}</p>
                 )}
-                {message.content && (
-                  <p data-testid="chat-message-text" className="whitespace-pre-wrap text-sm">
-                    {message.content}
-                  </p>
-                )}
+                <ChatMessageContent content={message.content} />
                 {message.attachmentUrl && (
                   <ChatAttachment message={message} token={token} />
                 )}

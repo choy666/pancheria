@@ -44,9 +44,15 @@ const mockUpdateReturning = jest.fn();
 
 describe('branchService', () => {
   beforeEach(() => {
+    mockedDb.query.branches.findFirst.mockReset();
+    mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+    mockedDb.query.branches.findMany.mockReset();
+    mockedDb.query.branches.findMany.mockResolvedValue([]);
+    mockedDb.insert.mockReset();
     mockedDb.insert.mockReturnValue({
       values: jest.fn().mockReturnValue({ returning: mockReturning }),
     });
+    mockedDb.update.mockReset();
     mockedDb.update.mockReturnValue({
       set: jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
@@ -54,6 +60,7 @@ describe('branchService', () => {
         }),
       }),
     });
+    mockedDb.select.mockReset();
     mockedDb.select.mockReturnValue({
       from: jest.fn().mockReturnValue({
         where: jest.fn().mockResolvedValue([]),
@@ -67,6 +74,7 @@ describe('branchService', () => {
       delete: jest.fn().mockReturnThis(),
     };
 
+    mockedDb.transaction.mockReset();
     mockedDb.transaction.mockImplementation(async (callback) => {
       await callback(mockTx);
     });
@@ -140,13 +148,92 @@ describe('branchService', () => {
         'Ya existe una sucursal con ese nombre.'
       );
     });
+
+    test('rechaza una ubicación inválida', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      await expect(
+        createBranch('Sucursal', [], null, null, 'javascript:alert(1)')
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        createBranch('Sucursal', [], null, null, 'javascript:alert(1)')
+      ).rejects.toThrow('La ubicación no es una URL ni coordenadas válidas.');
+    });
+
+    test('rechaza una ubicación con esquema no http/https', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      await expect(
+        createBranch('Sucursal', [], null, null, 'ftp://example.com')
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('guarda null cuando la ubicación está vacía o solo tiene espacios', async () => {
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal', openingHours: [] }]);
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
+      mockedDb.insert.mockReturnValue({ values: valuesFn });
+
+      await createBranch('Sucursal', [], null, null, '   ');
+
+      expect(valuesFn).toHaveBeenCalledWith(
+        expect.objectContaining({ location: null })
+      );
+    });
+
+    test('guarda una URL de mapas válida tal cual', async () => {
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal', openingHours: [] }]);
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
+      mockedDb.insert.mockReturnValue({ values: valuesFn });
+
+      await createBranch(
+        'Sucursal',
+        [],
+        null,
+        null,
+        'https://maps.ejemplo.com'
+      );
+
+      expect(valuesFn).toHaveBeenCalledWith(
+        expect.objectContaining({ location: 'https://maps.ejemplo.com' })
+      );
+    });
+
+    test('convierte coordenadas en URL de mapas', async () => {
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal', openingHours: [] }]);
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
+      mockedDb.insert.mockReturnValue({ values: valuesFn });
+
+      await createBranch('Sucursal', [], null, null, '-34.6,-58.3');
+
+      expect(valuesFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: expect.stringContaining('openstreetmap.org'),
+        })
+      );
+    });
   });
 
   describe('updateBranch', () => {
+    function mockFindFirstSequence(values: (typeof mockedDb.query.branches.findFirst)[]) {
+      let callCount = 0;
+      mockedDb.query.branches.findFirst.mockImplementation(() => {
+        const value = values[callCount] ?? undefined;
+        callCount += 1;
+        return value as any;
+      });
+    }
+
     test('actualiza una sucursal existente', async () => {
-      mockedDb.query.branches.findFirst
-        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A', openingHours: [] })
-        .mockResolvedValueOnce(undefined);
+      mockFindFirstSequence([
+        { id: 1, name: 'Sucursal A', openingHours: [] } as any,
+        undefined,
+      ]);
       mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva', openingHours: [] }]);
 
       const result = await updateBranch(1, 'Sucursal Nueva');
@@ -164,22 +251,21 @@ describe('branchService', () => {
     });
 
     test('rechaza un nombre duplicado con otra sucursal', async () => {
-      mockedDb.query.branches.findFirst
-        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A', openingHours: [] })
-        .mockResolvedValueOnce({ id: 2, name: 'Sucursal B', openingHours: [] });
+      mockFindFirstSequence([
+        { id: 1, name: 'Sucursal A', openingHours: [] } as any,
+        { id: 2, name: 'Sucursal B', openingHours: [] } as any,
+      ]);
 
-      await expect(updateBranch(1, 'Sucursal B')).rejects.toThrow(
-        ValidationError
-      );
       await expect(updateBranch(1, 'Sucursal B')).rejects.toThrow(
         'Ya existe otra sucursal con ese nombre.'
       );
     });
 
     test('permite guardar el mismo nombre de la sucursal que se está editando', async () => {
-      mockedDb.query.branches.findFirst
-        .mockResolvedValueOnce({ id: 1, name: 'Sucursal A', openingHours: [] })
-        .mockResolvedValueOnce(undefined);
+      mockFindFirstSequence([
+        { id: 1, name: 'Sucursal A', openingHours: [] } as any,
+        undefined,
+      ]);
       mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal A', openingHours: [] }]);
 
       const result = await updateBranch(1, 'Sucursal A');
@@ -196,6 +282,40 @@ describe('branchService', () => {
       );
       await expect(updateBranch(999, 'Sucursal Inexistente')).rejects.toThrow(
         'Sucursal con ID 999 no encontrado.'
+      );
+    });
+
+    test('rechaza una ubicación inválida', async () => {
+      mockFindFirstSequence([
+        { id: 1, name: 'Sucursal A', openingHours: [] } as any,
+        undefined,
+      ]);
+
+      await expect(
+        updateBranch(1, 'Sucursal A', [], null, null, 'javascript:alert(1)')
+      ).rejects.toThrow('La ubicación no es una URL ni coordenadas válidas.');
+    });
+
+    test('convierte coordenadas en URL de mapas', async () => {
+      mockFindFirstSequence([
+        { id: 1, name: 'Sucursal A', openingHours: [] } as any,
+        undefined,
+      ]);
+      mockUpdateReturning.mockResolvedValue([
+        { id: 1, name: 'Sucursal A', openingHours: [] },
+      ]);
+
+      const setFn = jest
+        .fn()
+        .mockReturnValue({ where: jest.fn().mockReturnValue({ returning: mockUpdateReturning }) });
+      mockedDb.update.mockReturnValue({ set: setFn });
+
+      await updateBranch(1, 'Sucursal A', [], null, null, '-34.6,-58.3');
+
+      expect(setFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: expect.stringContaining('openstreetmap.org'),
+        })
       );
     });
   });

@@ -83,6 +83,7 @@ export default async function CashRegisterSalesDetailPage({
         cashRegister={{ ...cashRegister, ...summary }}
         branchName={branchName}
         isOpen={isOpen}
+        now={new Date()}
       />
 
       <div className="space-y-3">

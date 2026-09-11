@@ -41,7 +41,7 @@ interface OrderDetail {
   status: OrderStatus;
   convertedSaleId: number | null;
   createdAt: string;
-  branch: { name: string } | null;
+  branch: { name: string; location?: string | null } | null;
   items: OrderDetailItem[];
 }
 

@@ -1,4 +1,4 @@
-# Guía de funcionamiento y manejo de la aplicación — Panchería
+﻿# Guía de funcionamiento y manejo de la aplicación — Panchería
 
 **Fecha:** 2026-08-23  
 **Proyecto:** `pancheria`  
@@ -283,13 +283,14 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - **No se reserva ni descuenta stock**.
    - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
    - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo.
-9. El cliente coordina con la sucursal por el chat (texto e imágenes). El pedido queda `pending` hasta que el operador actúe.
-10. El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
+9. El cliente coordina con la sucursal por el chat (texto, imágenes y ubicación). El pedido queda `pending` hasta que el operador actúe.
+   - Si el pedido es `delivery`, el cliente puede compartir su ubicación actual desde el chat; el navegador solicita permiso y genera un enlace de mapas usando `NEXT_PUBLIC_MAPS_PROVIDER`.
+   - El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
 
 ### 7.2 Flujo del operador
 
 1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado muestra `unreadCount` de mensajes sin leer. Si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0, el listado hace polling automático; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
-2. Al abrir un pedido, ve detalle, el chat con el cliente, el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
+2. Al abrir un pedido, ve detalle, el chat con el cliente (texto, imágenes y ubicación), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
 3. **Recibir y reservar**
    - No requiere caja abierta.
    - Valida disponibilidad considerando reservas ajenas.
@@ -307,9 +308,16 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - Si el pedido está `in_process`, libera la reserva; si está `paid`, anula la venta y reintegra stock.
    - El pedido pasa a `cancelled`.
 
+### 7.2.1 Compartir ubicación en el chat
+
+- El cliente con pedido `delivery` puede enviar su ubicación actual desde el chat público; el enlace se genera con `navigator.geolocation` y el proveedor de mapas configurado (`NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`).
+- El operador, para pedidos `pickup`, puede enviar la ubicación de la sucursal (`branch.location`) desde el panel mediante `POST /api/pedidos/[id]/chat/ubicacion`, sujeto a rate limit por `branchId`.
+- El panel (`PedidoInfo`) convierte la dirección de envío del cliente en un enlace de búsqueda de mapas.
+
 ### 7.3 Rate limiting
 
 - `POST /api/public/pedido` y los endpoints del chat público (`GET/POST /api/public/pedido/[id]/chat`) limitan por IP.
+- El envío de ubicación de la sucursal desde el panel (`POST /api/pedidos/[id]/chat/ubicacion`) limita por `branchId` usando `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` y `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS` (por defecto 60 s y 5 envíos).
 - El proveedor de almacenamiento se configura con `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`:
   - `memory`: usa un `Map` en el proceso de Node.
   - `db`: usa PostgreSQL (`public_order_rate_limits`) y es recomendado para producción con múltiples instancias.
@@ -491,7 +499,10 @@ Disponibilidad = infinita.
 | `NEXT_PUBLIC_CHAT_PAGE_SIZE` | Mensajes de chat por página | `50` (máximo `100`) |
 | `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño máximo de imagen en chat | `5` MB |
 | `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout por defecto de requests al API | `30000` ms |
-| `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
+|| `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
+|| `CHAT_BRANCH_LOCATION_RATE_LIMIT_*` | Rate limit del envío de ubicación de sucursal por chat | `60s`, `5` envíos |
+|| `NEXT_PUBLIC_MAPS_PROVIDER` | Proveedor de mapas para enlaces de ubicación | `openstreetmap` |
+|| `NEXT_PUBLIC_MAPS_BASE_URL` | URL base personalizada para mapas (opcional) | — |
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
 | `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
 | `CRON_SECRET` | Protección de endpoints de cron | — |
@@ -579,6 +590,6 @@ Disponibilidad = infinita.
 
 ## 17. Conclusión
 
-Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado (único canal de comunicación con el cliente). El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock al crearse; al recibirse (`in_process`) se reserva stock, al confirmarse el pago se libera la reserva y se descuenta stock físico, y al finalizar se marca entregado/retirado.
+Panchería es una aplicación multi-sucursal con aislamiento estricto de datos, stock transaccional, caja diaria y pedidos públicos a través del catálogo `/pedido` y su chat integrado (único canal de comunicación con el cliente, ahora con soporte de ubicación por mapas). El flujo central es: **abrir caja → vender o recibir/reservar/pagar/finalizar pedido → descontar stock → cerrar caja → generar cierre diario**. Los pedidos no reservan stock al crearse; al recibirse (`in_process`) se reserva stock, al confirmarse el pago se libera la reserva y se descuenta stock físico, y al finalizar se marca entregado/retirado.
 
 Para producción se recomienda ejecutar las verificaciones estándar, completar el checklist de configuración manual y, si se espera alta concurrencia con múltiples instancias, configurar `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=db`.

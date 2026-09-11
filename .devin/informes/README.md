@@ -7,9 +7,8 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente,
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
 - [Checklist pre-push](checklist-pre-push.md) — verificaciones y consejos para evitar errores de CI antes de subir a Git.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
-- [Auditoría del carrito de ventas (2026-09-06)](auditoria-carrito-ventas-2026-09-06.md) — hallazgos priorizados del terminal `/ventas`, propuesta de rediseño del carrito y de los inputs de pago, y detalle de lo implementado.
 - [Plan de limpieza — hard delete y cachés en memoria (resuelto)](archivados/plan-limpieza-hard-delete-cache-2026-09-01.md) — plan detallado para implementar hard delete de productos/videos con liberación de archivos e invalidación de cachés del servidor.
-- [Archivo de informes históricos](archivados/) — reportes anteriores (`reporte-estado-YYYY-MM-DD.md`) y planes resueltos (incluye el plan de acción de 2026-08-27 y el snapshot `reporte-estado-historico-2026-08-30.md`).
+- [Archivo de informes históricos y auditorías resueltas](archivados/) — reportes de estado anteriores, planes resueltos y auditorías implementadas (incluye el plan de acción de 2026-08-27, el snapshot `reporte-estado-historico-2026-08-30.md`, la auditoría del carrito de ventas 2026-09-06 y la auditoría de ubicación en chat 2026-09-09).
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 
 ## Cómo usar este directorio

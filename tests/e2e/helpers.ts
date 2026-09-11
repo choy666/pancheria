@@ -539,6 +539,20 @@ export async function expireOrderById(orderId: number): Promise<void> {
 }
 
 /**
+ * Actualiza la ubicación (URL o coordenadas) de una sucursal.
+ * Útil para tests de chat que requieren enviar la ubicación del local.
+ */
+export async function setBranchLocation(
+  branchId: number,
+  location: string
+): Promise<void> {
+  await db
+    .update(branches)
+    .set({ location: location.trim() || null })
+    .where(eq(branches.id, branchId));
+}
+
+/**
  * Actualiza la fecha de apertura de una caja en la base de datos.
  * Útil para forzar el cierre automático sin esperar las horas reales.
  */

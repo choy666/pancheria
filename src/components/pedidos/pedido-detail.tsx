@@ -97,6 +97,8 @@ export function PedidoDetail({ orderId }: PedidoDetailProps) {
       <PedidoChatSection
         orderId={order.id}
         status={order.status}
+        deliveryType={order.deliveryType}
+        branchLocation={order.branch?.location ?? null}
         initialMessages={initialMessages}
         chatTotal={chatTotal}
         chatHasMore={chatHasMore}

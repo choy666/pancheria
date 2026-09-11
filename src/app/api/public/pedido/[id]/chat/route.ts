@@ -48,7 +48,7 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const { messages, status, total, hasMore, expiresAt, isExpired } =
+    const { messages, status, deliveryType, branchLocation, total, hasMore, expiresAt, isExpired } =
       await chatService.listClientMessages(orderId, query.token, {
         limit: query.limit,
         before: query.before,
@@ -58,6 +58,8 @@ export const GET = withApiErrorHandling(
     return NextResponse.json({
       messages,
       status,
+      deliveryType,
+      branchLocation,
       total,
       hasMore,
       expiresAt,

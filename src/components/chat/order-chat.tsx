@@ -3,7 +3,7 @@
 import { useOrderChat } from './useOrderChat';
 import { ChatMessageList } from './chat-message-list';
 import { ChatComposer } from './chat-composer';
-import type { OrderMessage } from '@/domain/types';
+import type { DeliveryType, OrderMessage } from '@/domain/types';
 
 interface OrderChatProps {
   orderId: number;
@@ -14,7 +14,10 @@ interface OrderChatProps {
   initialIsExpired?: boolean;
   readOnly?: boolean;
   isClient?: boolean;
+  deliveryType?: DeliveryType;
+  branchLocation?: string | null;
   chatApiUrl: string;
+  branchLocationApiUrl?: string;
   readApiUrl?: string;
   uploadApiUrl?: string;
   title?: string;
@@ -31,7 +34,10 @@ export function OrderChat({
   initialIsExpired = false,
   readOnly = false,
   isClient = false,
+  deliveryType,
+  branchLocation,
   chatApiUrl,
+  branchLocationApiUrl,
   readApiUrl,
   uploadApiUrl,
   title = 'Chat del pedido',
@@ -51,11 +57,15 @@ export function OrderChat({
     previewUrl,
     hasMore,
     isReadOnly,
+    canSendClientLocation,
+    canSendBranchLocation,
     displayedUnreadCount,
     isOwnMessage,
     scrollRef,
     fileInputRef,
     handleSend,
+    requestClientLocation,
+    sendBranchLocation,
     handleFileSelect,
     handleRemoveFile,
     loadOlderMessages,
@@ -67,7 +77,10 @@ export function OrderChat({
     initialIsExpired,
     readOnly,
     isClient,
+    deliveryType,
+    branchLocation,
     chatApiUrl,
+    branchLocationApiUrl,
     readApiUrl,
     uploadApiUrl,
     unreadCount,
@@ -108,6 +121,10 @@ export function OrderChat({
         onFileSelect={handleFileSelect}
         onRemoveFile={handleRemoveFile}
         fileInputRef={fileInputRef}
+        canSendClientLocation={canSendClientLocation}
+        canSendBranchLocation={canSendBranchLocation}
+        onRequestClientLocation={requestClientLocation}
+        onSendBranchLocation={sendBranchLocation}
       />
     </div>
   );

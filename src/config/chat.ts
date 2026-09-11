@@ -83,3 +83,23 @@ export function getChatPageSize(): number {
 
   return Math.min(parsed, 100);
 }
+
+export function getChatBranchLocationRateLimitWindowMs(): number {
+  const raw = process.env.CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS;
+  if (!raw) return 60_000;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1_000) return 60_000;
+
+  return parsed;
+}
+
+export function getChatBranchLocationRateLimitMaxRequests(): number {
+  const raw = process.env.CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS;
+  if (!raw) return 5;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return 5;
+
+  return parsed;
+}

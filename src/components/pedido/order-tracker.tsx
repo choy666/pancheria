@@ -118,7 +118,7 @@ export function OrderTracker() {
       }
 
       if (!data.order) {
-        throw new Error('No se encontró el pedido.');
+        throw new ApiError('No se encontró el pedido.', 404);
       }
 
       const tracked = data.order;

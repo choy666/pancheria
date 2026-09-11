@@ -7,7 +7,24 @@ import { getRateLimitStore } from '@/lib/rate-limit-store';
 import { deleteProductImage } from '@/lib/product-image-storage';
 import { deleteChatAttachment } from '@/lib/chat-storage';
 import { deleteVideoFileByUrl } from '@/lib/storage';
+import { isValidLocationUrl, tryBuildLocationUrl } from '@/lib/maps';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
+
+function normalizeLocation(
+  location: string | null | undefined
+): string | null {
+  if (location === null || location === undefined) return null;
+  const trimmed = location.trim();
+  if (!trimmed) return null;
+
+  const normalized = tryBuildLocationUrl(trimmed);
+  if (!normalized || !isValidLocationUrl(normalized)) {
+    throw new ValidationError(
+      'La ubicación no es una URL ni coordenadas válidas.'
+    );
+  }
+  return normalized;
+}
 
 export async function listBranches(): Promise<Branch[]> {
   return branchRepository.findAllOrderedByCreatedAt() as Promise<Branch[]>;
@@ -33,12 +50,14 @@ export async function createBranch(
     throw new ValidationError('Ya existe una sucursal con ese nombre.');
   }
 
+  const normalizedLocation = normalizeLocation(location);
+
   const branch = await branchRepository.insert({
     name: trimmed,
     openingHours,
     address: address ?? null,
     phone: phone ?? null,
-    location: location ?? null,
+    location: normalizedLocation,
   });
 
   if (!branch) {
@@ -80,12 +99,14 @@ export async function updateBranch(
     throw new ValidationError('Ya existe otra sucursal con ese nombre.');
   }
 
+  const normalizedLocation = normalizeLocation(location);
+
   const updated = await branchRepository.update(id, {
     name: trimmed,
     openingHours,
     address: address ?? null,
     phone: phone ?? null,
-    location: location ?? null,
+    location: normalizedLocation,
   });
 
   if (!updated) {

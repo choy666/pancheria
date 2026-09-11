@@ -84,6 +84,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de mensajes de chat por IP en la ventana (por defecto 60).
 - `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen en el chat en MB (por defecto 5).
 - `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos en el chat separados por coma (por defecto `image/jpeg,image/png,image/webp`).
+- `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de envío de ubicación de sucursal por chat en milisegundos (por defecto 60000 ms). Se aplica por `branchId` en `POST /api/pedidos/[id]/chat/ubicacion`.
+- `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de envíos de ubicación de sucursal por ventana (por defecto 5).
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos y del chat público: `memory` o `db` (PostgreSQL). En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`. `db` es recomendado para producción con múltiples instancias. Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
@@ -114,8 +116,11 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PRODUCT_IMAGE_LOCAL_STORAGE_PATH` (opcional) — ruta local específica para imágenes de productos; si no se define, usa `LOCAL_STORAGE_PATH` como fallback (por defecto `tmp/videos/product-images`).
 - `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` (opcional) — lista de dominios permitidos para URLs externas de imágenes separados por coma; si está vacía, se aceptan todos los dominios HTTPS. También se usa en `src/lib/csp-helpers.ts` para extender `img-src` en la CSP.
 - `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH` / `PRODUCT_IMAGE_URL_MAX_LENGTH` (opcional) — longitud máxima de una URL externa de imagen (por defecto 2048); la variable pública tiene prioridad.
-- `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` (opcional) — valores de los botones de denominación rápida en el ingreso de pagos, separados por coma. Por defecto `1000,2000,5000,10000,20000`.
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` (opcional) — si se define como `true`, se inyecta el script de Vercel Web Analytics en todas las páginas. En desarrollo no envía datos aunque esté habilitado; también es necesario activar Web Analytics en el dashboard de Vercel.
+- `NEXT_PUBLIC_MAPS_PROVIDER` (opcional) — proveedor de mapas para compartir ubicaciones por chat: `openstreetmap` (por defecto), `google`, `waze` o `raw`.
+- `NEXT_PUBLIC_MAPS_BASE_URL` (opcional) — URL base personalizada del proveedor de mapas. Si se define, tiene prioridad sobre las URLs por defecto. Útil para usar un dominio propio o una instancia privada.
+
+> **Geolocalización y HTTPS:** `navigator.geolocation` solo funciona en contextos seguros (`https://` o `http://localhost`). En desarrollo remoto sin HTTPS, el botón de "Compartir ubicación" del cliente no obtendrá la posición. Asegurate de usar `localhost`, HTTPS con certificado local o un túnel seguro (por ejemplo Cloudflare Tunnel) al probar geolocalización.
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
 
@@ -388,8 +393,16 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
 - Backoff de errores: si un poll de mensajes nuevos falla, `OrderChat` duplica el tiempo de espera hasta un máximo de 8 veces el intervalo base (`NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`) para evitar saturar al servidor. El polling se retoma en el momento cuando el usuario vuelve a la pestaña (`visibilitychange` o `pageshow`).
 - SSR de `/pedido/[id]/chat`: `dynamic = 'force-dynamic'` es suficiente para evitar cacheos de la página; no se requieren `unstable_noStore`, `revalidate = 0` ni `fetchCache = 'force-no-store'` adicionales.
 - Rate limit del chat: `createRateLimiter` en `src/lib/rate-limit.ts` comparte el mismo store que el rate limit de pedidos públicos (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`). La ventana y el máximo se configuran con `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
+- Rate limit de ubicación de sucursal: `POST /api/pedidos/[id]/chat/ubicacion` aplica `createRateLimiter` por `branchId` para evitar spam de ubicaciones. La ventana y el máximo se configuran con `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` y `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS` (por defecto 60 s y 5 envíos).
 - Limpieza de adjuntos huérfanos: el cron `GET /api/cron/chat-attachments-cleanup` (configurado en `vercel.json` y protegido por `CRON_SECRET`) elimina archivos bajo el prefijo `chat/` que no tengan un `attachmentKey` asociado en `order_messages`.
-- Variables relacionadas: `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `CRON_SECRET`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`.
+- Compartir ubicación: el chat soporta compartir ubicaciones sin migrar el esquema.
+  - Cliente con `delivery`: `OrderChat` muestra un botón que usa `navigator.geolocation` para obtener la posición y genera un enlace a mapas usando `src/lib/maps.ts`. El enlace se carga en el textarea para que el usuario lo revise y envíe manualmente.
+  - Operador con `pickup`: si la sucursal tiene `branch.location` validada, `OrderChat` muestra un botón que envía la ubicación a través de `POST /api/pedidos/[id]/chat/ubicacion`, implementado en `chatService.sendBranchLocationMessage`.
+  - Ambos flujos generan un mensaje de texto con una URL de mapas; `ChatMessageList` detecta URLs conocidas y las renderiza como enlaces "Ver ubicación" con `target="_blank"`.
+  - `PedidoInfo` convierte la dirección de envío del cliente en un enlace de búsqueda de mapas.
+  - El proveedor de mapas y la URL base se configuran con `NEXT_PUBLIC_MAPS_PROVIDER` y `NEXT_PUBLIC_MAPS_BASE_URL` (ver `.env.example`). Los valores por defecto usan dominios públicos (OpenStreetMap, Google Maps, Waze) y pueden sobrescribirse sin modificar el código.
+  - `src/lib/maps.ts` valida URLs seguras (`http`/`https`), rechaza esquemas inseguros y acepta coordenadas en formato texto convertidas a URL.
+- Variables relacionadas: `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS`, `CRON_SECRET`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`.
 - La integración con WhatsApp fue eliminada; el chat del pedido es el único canal de comunicación con el cliente.
 
 ### Lineamientos para futuros chats

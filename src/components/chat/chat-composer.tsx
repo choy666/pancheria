@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { Send, X, ImageIcon } from 'lucide-react';
+import { Send, X, ImageIcon, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { getChatMaxTextLength } from '@/config/chat';
@@ -17,6 +17,10 @@ interface ChatComposerProps {
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveFile: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  canSendClientLocation?: boolean;
+  canSendBranchLocation?: boolean;
+  onRequestClientLocation?: () => Promise<void>;
+  onSendBranchLocation?: () => Promise<void>;
 }
 
 export function ChatComposer({
@@ -32,6 +36,10 @@ export function ChatComposer({
   onFileSelect,
   onRemoveFile,
   fileInputRef,
+  canSendClientLocation = false,
+  canSendBranchLocation = false,
+  onRequestClientLocation,
+  onSendBranchLocation,
 }: ChatComposerProps) {
   return (
     <div className="border-t border-white/8 p-3">
@@ -80,6 +88,36 @@ export function ChatComposer({
               <ImageIcon className="size-4" aria-hidden="true" />
             </label>
           </>
+        )}
+
+        {canSendClientLocation && onRequestClientLocation && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => void onRequestClientLocation()}
+            disabled={isSending || isUploading}
+            aria-label="Compartir ubicación"
+            title="Compartir ubicación"
+            data-testid="chat-client-location-button"
+          >
+            <MapPin className="size-4" />
+          </Button>
+        )}
+
+        {canSendBranchLocation && onSendBranchLocation && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => void onSendBranchLocation()}
+            disabled={isSending || isUploading}
+            aria-label="Enviar ubicación de la sucursal"
+            title="Enviar ubicación de la sucursal"
+            data-testid="chat-branch-location-button"
+          >
+            <MapPin className="size-4" />
+          </Button>
         )}
 
         <Textarea

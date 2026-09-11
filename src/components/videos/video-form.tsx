@@ -26,7 +26,7 @@ import {
   getVideoMaxSizeMb,
   getVideoAllowedMimeTypes,
 } from '@/config/videos';
-import { getDefaultTimeoutMs, throwApiError } from '@/lib/fetch';
+import { ApiError, getDefaultTimeoutMs, throwApiError } from '@/lib/fetch';
 import { Upload, FileVideo, X, AlertCircle, CheckCircle2, Video } from 'lucide-react';
 import type { VideoState } from '@/app/(panel)/videos/actions';
 import type { PrepareUploadState } from '@/app/(panel)/videos/actions';
@@ -559,7 +559,7 @@ async function uploadToProvider(
       return location;
     }
 
-    throw new Error('No se pudo obtener la URL pública del archivo.');
+    throw new ApiError('No se pudo obtener la URL pública del archivo.', 502);
   } finally {
     if (progressTimer) clearInterval(progressTimer);
   }

@@ -8,8 +8,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Guía de escritura de prompts](prompts/README.md)
 - [Auditoría masiva integral del proyecto](prompts/auditoria-masiva.md)
 - [Resumen ejecutivo — Auditoría masiva integral](prompts/auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento.
+- [Auditoría integral pre-release](prompts/auditoria-pre-release.md) — prompt consolidado para auditar antes de un release o deploy a producción.
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
-- [Auditoría del estado actual y sincronización de documentación](prompts/auditoria-estado-actual-y-documentacion.md) — revisión de `reporte-estado.md` y los prompts de auditoría masiva contra el estado real del proyecto.
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
 
@@ -22,7 +22,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
-- [Plan de limpieza — hard delete y cachés en memoria (resuelto)](informes/archivados/plan-limpieza-hard-delete-cache-2026-09-01.md) — plan detallado para los pendientes de limpieza.
+- [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
+- [Auditoría de ubicación en el chat de pedidos (2026-09-09, resuelta)](informes/archivados/auditoria-chat-ubicacion-2026-09-09.md) — auditoría de compartir ubicación por chat; la funcionalidad ya fue implementada.
 - [Índice de informes](informes/README.md)
 
 > **Plan de acción cerrado:** el plan de acción de 2026-08-27 fue resuelto y se archivó en `informes/archivados/plan-de-accion-2026-08-27.md`.
@@ -45,14 +46,14 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── README.md                 # Índice de informes
-│   └── archivados/               # Reportes históricos y planes resueltos
+│   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas
 └── prompts/
     ├── pancheria.prompt.md       # Prompt maestro
     ├── README.md                 # Guía para escribir prompts
     ├── auditoria-masiva.md       # Auditoría masiva integral (9 áreas)
     ├── auditoria-masiva-resumen.md  # Guía de uso rápida de la auditoría masiva
+    ├── auditoria-pre-release.md  # Auditoría integral pre-release/pre-deploy
     ├── auditoria-y-documentacion.md
-    ├── auditoria-estado-actual-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos (incluye plan de pedidos personalizados y auditoria-fallos-e2e-caja-y-rate-limit.md)

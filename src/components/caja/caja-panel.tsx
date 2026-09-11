@@ -319,7 +319,7 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
         </Dialog>
       </div>
 
-      <CashRegisterSummary cashRegister={cashRegister} branchName={branchName} />
+      <CashRegisterSummary cashRegister={cashRegister} branchName={branchName} now={new Date()} />
 
       <p className="text-xs text-muted-foreground">
         Última actualización: {formatLastUpdated(lastUpdated)}

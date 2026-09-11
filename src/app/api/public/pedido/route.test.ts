@@ -209,6 +209,34 @@ describe('POST /api/public/pedido', () => {
     expect(body.error).toBe('El producto no está activo.');
   });
 
+  test('devuelve 400 cuando la sucursal está cerrada', async () => {
+    mockedOrderService.createOrder.mockRejectedValue(
+      new ValidationError(
+        'La sucursal está cerrada. Horario de atención: 10:00 a 22:00.'
+      )
+    );
+
+    const response = await POST(
+      buildRequest('', { method: 'POST', body: JSON.stringify(validBody) })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('Horario de atención');
+  });
+
+  test('devuelve 400 cuando branchId no es positivo', async () => {
+    const response = await POST(
+      buildRequest('branchId=0', {
+        method: 'POST',
+        body: JSON.stringify(validBody),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedOrderService.createOrder).not.toHaveBeenCalled();
+  });
+
   test('devuelve 503 ante un error de conexión a la base de datos', async () => {
     const dbError = Object.assign(new Error('connection refused'), {
       code: 'ECONNREFUSED',

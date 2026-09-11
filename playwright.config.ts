@@ -73,6 +73,10 @@ export default defineConfig({
           PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER:
             process.env.PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER ?? '',
           TRUSTED_PROXY_IP_HEADER: process.env.TRUSTED_PROXY_IP_HEADER ?? '',
+          CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS:
+            process.env.CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS ?? '',
+          CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS:
+            process.env.CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS ?? '',
         },
       }
     : undefined,

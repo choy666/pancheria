@@ -1,4 +1,4 @@
-import { authenticatedFetch, throwApiError } from '@/lib/fetch';
+import { ApiError, authenticatedFetch, throwApiError } from '@/lib/fetch';
 
 interface ProductImageUploadInstructions {
   url: string;
@@ -119,7 +119,7 @@ export async function uploadProductImage(
   }
 
   if (!imageUrl) {
-    throw new Error('No se pudo obtener la URL pública de la imagen.');
+    throw new ApiError('No se pudo obtener la URL pública de la imagen.', 502);
   }
 
   return {
