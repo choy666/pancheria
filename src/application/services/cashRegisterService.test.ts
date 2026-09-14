@@ -67,6 +67,10 @@ jest.mock('@/db', () => ({
     },
   },
 }));
+jest.mock('@/config/branch', () => ({
+  ...jest.requireActual('@/config/branch'),
+  getBranchTimezone: jest.fn(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+}));
 
 const mockedCashRegisterRepository = cashRegisterRepository as jest.Mocked<
   typeof cashRegisterRepository
@@ -424,13 +428,9 @@ describe('cashRegisterService', () => {
       const close = new Date(now.getTime() + 2 * 60 * 60 * 1000);
       const toHHmm = (d: Date) =>
         `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      // El día local se toma del servidor de tests; la timezone de sucursal
-      // por defecto es America/Argentina/Buenos_Aires (UTC-3, sin DST).
-      const tzDay = new Date(
-        now.toLocaleString('en-US', {
-          timeZone: 'America/Argentina/Buenos_Aires',
-        })
-      ).getDay();
+      // El día local se toma del servidor de tests usando la timezone local
+      // (mockeada por getBranchTimezone).
+      const tzDay = now.getDay();
 
       mockedBranchRepository.findById.mockResolvedValue({
         id: BRANCH_ID,
@@ -467,12 +467,8 @@ describe('cashRegisterService', () => {
       const openedAt = new Date(now.getTime() - 20 * 60 * 60 * 1000);
       const toHHmm = (d: Date) =>
         `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      const tzNow = new Date(
-        now.toLocaleString('en-US', {
-          timeZone: 'America/Argentina/Buenos_Aires',
-        })
-      );
-      const dayOfWeek = tzNow.getDay();
+      // Usar la timezone local del servidor (mockeada por getBranchTimezone).
+      const dayOfWeek = now.getDay();
       const openingHours = [
         {
           dayOfWeek,
