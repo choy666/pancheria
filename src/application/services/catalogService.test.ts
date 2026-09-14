@@ -51,6 +51,8 @@ function makeBranch() {
     id: BRANCH_ID,
     name: 'Sucursal Test',
     openingHours: [],
+    phones: [],
+    socialLinks: [],
     createdAt: NOW,
   };
 }

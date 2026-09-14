@@ -53,6 +53,8 @@ describe('GET /api/pedidos', () => {
       id: BRANCH_ID,
       name: 'Sucursal Test',
       openingHours: [],
+      phones: [],
+      socialLinks: [],
       createdAt: new Date(),
     });
   });

@@ -2,13 +2,31 @@ import { executeInTransaction } from '@/application/transactionService';
 import * as branchRepository from '@/repositories/branchRepository';
 import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import { validateNonEmptyString } from '@/lib/validation-helpers';
-import { validateOpeningHours } from '@/lib/branch-helpers';
+import {
+  normalizeBranchPhones,
+  normalizeSocialLinks,
+  validateOpeningHours,
+} from '@/lib/branch-helpers';
 import { getRateLimitStore } from '@/lib/rate-limit-store';
 import { deleteProductImage } from '@/lib/product-image-storage';
 import { deleteChatAttachment } from '@/lib/chat-storage';
 import { deleteVideoFileByUrl } from '@/lib/storage';
 import { isValidLocationUrl, tryBuildLocationUrl } from '@/lib/maps';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
+
+/**
+ * Datos de entrada para crear o actualizar una sucursal. `phones` y
+ * `socialLinks` se aceptan como `unknown` porque pueden venir parseados de un
+ * FormData o de una variable de entorno JSON; se validan/normalizan acá.
+ */
+export interface BranchInput {
+  name: string;
+  openingHours?: BranchOpeningHours[];
+  address?: string | null;
+  phones?: unknown;
+  socialLinks?: unknown;
+  location?: string | null;
+}
 
 function normalizeLocation(
   location: string | null | undefined
@@ -34,15 +52,12 @@ export async function getBranchById(id: number): Promise<Branch | undefined> {
   return branchRepository.findById(id) as Promise<Branch | undefined>;
 }
 
-export async function createBranch(
-  name: string,
-  openingHours: BranchOpeningHours[] = [],
-  address?: string | null,
-  phone?: string | null,
-  location?: string | null
-) {
-  const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
+export async function createBranch(input: BranchInput) {
+  const trimmed = validateNonEmptyString(input.name, 'El nombre de la sucursal');
+  const openingHours = input.openingHours ?? [];
   validateOpeningHours(openingHours);
+  const phones = normalizeBranchPhones(input.phones);
+  const socialLinks = normalizeSocialLinks(input.socialLinks);
 
   const existing = await branchRepository.findByName(trimmed);
 
@@ -50,13 +65,14 @@ export async function createBranch(
     throw new ValidationError('Ya existe una sucursal con ese nombre.');
   }
 
-  const normalizedLocation = normalizeLocation(location);
+  const normalizedLocation = normalizeLocation(input.location);
 
   const branch = await branchRepository.insert({
     name: trimmed,
     openingHours,
-    address: address ?? null,
-    phone: phone ?? null,
+    address: input.address ?? null,
+    phones,
+    socialLinks,
     location: normalizedLocation,
   });
 
@@ -67,16 +83,12 @@ export async function createBranch(
   return branch as Branch;
 }
 
-export async function updateBranch(
-  id: number,
-  name: string,
-  openingHours: BranchOpeningHours[] = [],
-  address?: string | null,
-  phone?: string | null,
-  location?: string | null
-) {
-  const trimmed = validateNonEmptyString(name, 'El nombre de la sucursal');
+export async function updateBranch(id: number, input: BranchInput) {
+  const trimmed = validateNonEmptyString(input.name, 'El nombre de la sucursal');
+  const openingHours = input.openingHours ?? [];
   validateOpeningHours(openingHours);
+  const phones = normalizeBranchPhones(input.phones);
+  const socialLinks = normalizeSocialLinks(input.socialLinks);
 
   const branch = await branchRepository.findById(id);
 
@@ -99,13 +111,14 @@ export async function updateBranch(
     throw new ValidationError('Ya existe otra sucursal con ese nombre.');
   }
 
-  const normalizedLocation = normalizeLocation(location);
+  const normalizedLocation = normalizeLocation(input.location);
 
   const updated = await branchRepository.update(id, {
     name: trimmed,
     openingHours,
-    address: address ?? null,
-    phone: phone ?? null,
+    address: input.address ?? null,
+    phones,
+    socialLinks,
     location: normalizedLocation,
   });
 

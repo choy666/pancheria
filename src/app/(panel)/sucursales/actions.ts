@@ -5,7 +5,10 @@ import * as branchService from '@/application/services/branchService';
 import { requireAdmin } from '@/lib/auth';
 import { DomainError, NotFoundError } from '@/domain/errors';
 import { routes } from '@/config/routes';
-import { parseOpeningHoursForm } from '@/lib/branch-helpers';
+import {
+  parseContactsForm,
+  parseOpeningHoursForm,
+} from '@/lib/branch-helpers';
 
 export type BranchState = { error: string } | null;
 
@@ -16,12 +19,19 @@ export async function createBranch(
   await requireAdmin();
   const name = formData.get('name')?.toString() ?? '';
   const openingHours = parseOpeningHoursForm(formData);
+  const { phones, socialLinks } = parseContactsForm(formData);
   const address = formData.get('address')?.toString() || null;
-  const phone = formData.get('phone')?.toString() || null;
   const location = formData.get('location')?.toString() || null;
 
   try {
-    await branchService.createBranch(name, openingHours, address, phone, location);
+    await branchService.createBranch({
+      name,
+      openingHours,
+      address,
+      phones,
+      socialLinks,
+      location,
+    });
   } catch (error) {
     if (error instanceof DomainError) {
       return { error: error.message };
@@ -42,12 +52,19 @@ export async function updateBranchAction(
   const id = Number(formData.get('id'));
   const name = formData.get('name')?.toString() ?? '';
   const openingHours = parseOpeningHoursForm(formData);
+  const { phones, socialLinks } = parseContactsForm(formData);
   const address = formData.get('address')?.toString() || null;
-  const phone = formData.get('phone')?.toString() || null;
   const location = formData.get('location')?.toString() || null;
 
   try {
-    await branchService.updateBranch(id, name, openingHours, address, phone, location);
+    await branchService.updateBranch(id, {
+      name,
+      openingHours,
+      address,
+      phones,
+      socialLinks,
+      location,
+    });
   } catch (error) {
     if (error instanceof DomainError) {
       return { error: error.message };

@@ -34,7 +34,7 @@ describe('GET /api/public/catalogo', () => {
     jest.clearAllMocks();
     mockedGetDefaultBranchId.mockResolvedValue(BRANCH_ID);
     mockedCatalogService.listPublicCatalogWithAvailability.mockResolvedValue({
-      branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
+      branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], phones: [], socialLinks: [], createdAt: new Date() },
       products: [
         {
           id: 1,

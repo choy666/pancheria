@@ -8,6 +8,7 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import * as branchService from '@/application/services/branchService';
 import { auth } from '@/auth';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
+import { resolveCashRegisterAlert } from '@/lib/cash-register-helpers';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -42,10 +43,17 @@ export default async function CashRegisterSalesDetailPage({
     isOpen
   );
 
-  const branchName =
-    session?.user?.role === 'admin'
-      ? (await branchService.getBranchById(cashRegister.branchId))?.name
-      : null;
+  const branch = await branchService.getBranchById(cashRegister.branchId);
+  const branchName = session?.user?.role === 'admin' ? branch?.name : null;
+
+  // Aviso calculado en el servidor contra los horarios vigentes de la
+  // sucursal (misma fuente de verdad que los paneles de caja).
+  const alertaCaja = isOpen
+    ? resolveCashRegisterAlert(
+        cashRegister.openedAt,
+        branch?.openingHours ?? []
+      )
+    : null;
 
   return (
     <div className="space-y-5">
@@ -83,6 +91,7 @@ export default async function CashRegisterSalesDetailPage({
         cashRegister={{ ...cashRegister, ...summary }}
         branchName={branchName}
         isOpen={isOpen}
+        alerta={alertaCaja}
         now={new Date()}
       />
 

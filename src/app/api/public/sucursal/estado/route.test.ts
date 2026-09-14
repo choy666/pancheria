@@ -56,8 +56,10 @@ const BRANCH = {
   name: 'Sucursal Test',
   openingHours: [],
   address: 'Calle 123',
-  phone: '3415555555',
+  phones: [{ label: 'Pedidos', number: '3415555555' }],
+  socialLinks: [{ network: 'instagram', url: '@sucursal.test' }],
   location: 'Rosario',
+  createdAt: new Date(),
 };
 
 describe('GET /api/public/sucursal/estado', () => {
@@ -73,10 +75,20 @@ describe('GET /api/public/sucursal/estado', () => {
   });
 
   test('devuelve el estado de una sucursal abierta', async () => {
+    mockedBranchService.getBranchById.mockResolvedValue({
+      ...BRANCH,
+      openingHours: [{ dayOfWeek: 1, open: '20:00', close: '23:00' }],
+    } as any);
+
     const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
     const body = (await response.json()) as {
       isOpen: boolean;
-      branch: { id: number; name: string };
+      branch: {
+        id: number;
+        name: string;
+        phones: { label: string; number: string }[];
+        socialLinks: { network: string; url: string }[];
+      };
     };
 
     expect(response.status).toBe(200);
@@ -84,6 +96,8 @@ describe('GET /api/public/sucursal/estado', () => {
     expect(body.branch).toMatchObject({
       id: BRANCH_ID,
       name: 'Sucursal Test',
+      phones: [{ label: 'Pedidos', number: '3415555555' }],
+      socialLinks: [{ network: 'instagram', url: '@sucursal.test' }],
     });
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(BRANCH_ID);
     expect(mockedCashRegisterService.getOpenCashRegister).toHaveBeenCalledWith(
@@ -92,7 +106,32 @@ describe('GET /api/public/sucursal/estado', () => {
   });
 
   test('devuelve el estado de una sucursal cerrada', async () => {
+    mockedBranchService.getBranchById.mockResolvedValue({
+      ...BRANCH,
+      openingHours: [{ dayOfWeek: 1, open: '20:00', close: '23:00' }],
+    } as any);
     mockedIsBranchOpen.mockReturnValue(false);
+
+    const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
+    const body = (await response.json()) as { isOpen: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.isOpen).toBe(false);
+  });
+
+  test('marca abierta una sucursal sin horarios si hay caja abierta', async () => {
+    // BRANCH no tiene openingHours: isBranchOpen no debería evaluarse.
+    mockedIsBranchOpen.mockReturnValue(false);
+
+    const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
+    const body = (await response.json()) as { isOpen: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.isOpen).toBe(true);
+  });
+
+  test('marca cerrada una sucursal sin horarios si no hay caja abierta', async () => {
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
 
     const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
     const body = (await response.json()) as { isOpen: boolean };

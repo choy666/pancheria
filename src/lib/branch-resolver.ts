@@ -33,6 +33,10 @@ export async function listPublicBranches(): Promise<Branch[]> {
     id: b.id,
     name: b.name,
     openingHours: b.openingHours ?? [],
+    address: b.address ?? null,
+    phones: b.phones ?? [],
+    socialLinks: b.socialLinks ?? [],
+    location: b.location ?? null,
     createdAt: b.createdAt,
   }));
 }

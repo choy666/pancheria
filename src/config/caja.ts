@@ -10,6 +10,22 @@ export function getAutoClosedBy(): string {
   return process.env.CAJA_AUTO_CLOSED_BY ?? 'Sistema';
 }
 
+const DEFAULT_CAJA_OVERDUE_HOURS = 12;
+
+/**
+ * Umbral en horas para el aviso de "caja abierta hace mucho tiempo" cuando la
+ * sucursal no tiene horarios configurados (fallback legacy). Con horarios
+ * configurados no se usa: el aviso depende de los turnos.
+ */
+export function getCajaOverdueHours(): number {
+  const raw =
+    process.env.CAJA_OVERDUE_HOURS ?? process.env.NEXT_PUBLIC_CAJA_OVERDUE_HOURS;
+  if (!raw) return DEFAULT_CAJA_OVERDUE_HOURS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) return DEFAULT_CAJA_OVERDUE_HOURS;
+  return parsed;
+}
+
 const DEFAULT_CAJA_REFRESH_INTERVAL_MS = 5000;
 const MIN_CAJA_REFRESH_INTERVAL_MS = 5000;
 
@@ -33,6 +49,11 @@ export function getDefaultCajaHistoryDays(): number {
   if (Number.isNaN(parsed) || parsed <= 0) return 30;
   return parsed;
 }
+
+import type {
+  CashRegisterAlert,
+  CashRegisterShiftInfoDTO,
+} from '@/domain/types';
 
 export const CAJA_RESUMEN_API = '/api/caja/resumen';
 export const CAJA_OPEN_API = '/api/caja/abrir';
@@ -63,6 +84,17 @@ export interface CashRegister {
   productsSummary?: Record<string, number>;
   criticalSuppliesSummary?: Record<string, number>;
   recipeSuppliesSummary?: Record<string, number>;
+  /**
+   * Estado del turno calculado en el servidor contra los horarios vigentes de
+   * la sucursal. Presente en los payloads de `/api/caja/resumen`,
+   * `/api/panel/resumen` y en el detalle SSR de caja.
+   */
+  estadoTurno?: CashRegisterShiftInfoDTO | null;
+  /**
+   * Aviso a mostrar para la caja (única fuente de verdad calculada en el
+   * servidor). `null` cuando no hay aviso; `undefined` en payloads viejos.
+   */
+  alertaCaja?: CashRegisterAlert | null;
   createdAt: string;
   deletedAt?: string | null;
 }

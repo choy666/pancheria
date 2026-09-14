@@ -82,6 +82,22 @@ export type BranchOpeningHours = {
   close: string;
 };
 
+export type BranchPhone = {
+  label: string;
+  number: string;
+};
+
+export type BranchSocialLink = {
+  network:
+    | 'instagram'
+    | 'facebook'
+    | 'whatsapp'
+    | 'tiktok'
+    | 'x'
+    | 'otro';
+  url: string;
+};
+
 export const branches = pgTable('branches', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(),
@@ -90,7 +106,11 @@ export const branches = pgTable('branches', {
     .default([])
     .notNull(),
   address: text('address'),
-  phone: varchar('phone', { length: 50 }),
+  phones: jsonb('phones').$type<BranchPhone[]>().default([]).notNull(),
+  socialLinks: jsonb('social_links')
+    .$type<BranchSocialLink[]>()
+    .default([])
+    .notNull(),
   location: text('location'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

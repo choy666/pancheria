@@ -12,8 +12,13 @@ export function getDefaultBranchAddress(): string | undefined {
   return process.env.DEFAULT_BRANCH_ADDRESS;
 }
 
-export function getDefaultBranchPhone(): string | undefined {
-  return process.env.DEFAULT_BRANCH_PHONE;
+export function getDefaultBranchPhones(): { label: string; number: string }[] {
+  const phone = process.env.DEFAULT_BRANCH_PHONE?.trim();
+  return phone ? [{ label: 'Principal', number: phone }] : [];
+}
+
+export function getDefaultBranchSocialLinksJson(): string | undefined {
+  return process.env.DEFAULT_BRANCH_SOCIAL_LINKS;
 }
 
 export function getDefaultBranchLocation(): string | undefined {
@@ -36,8 +41,13 @@ export function getNewBranchAddress(): string | undefined {
   return process.env.NEW_BRANCH_ADDRESS;
 }
 
-export function getNewBranchPhone(): string | undefined {
-  return process.env.NEW_BRANCH_PHONE;
+export function getNewBranchPhones(): { label: string; number: string }[] {
+  const phone = process.env.NEW_BRANCH_PHONE?.trim();
+  return phone ? [{ label: 'Principal', number: phone }] : [];
+}
+
+export function getNewBranchSocialLinksJson(): string | undefined {
+  return process.env.NEW_BRANCH_SOCIAL_LINKS;
 }
 
 export function getNewBranchLocation(): string | undefined {

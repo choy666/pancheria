@@ -7,7 +7,15 @@ import type { CreatedOrder } from './usePedidoClient';
 import type { Branch } from '@/domain/types';
 
 function makeBranch(overrides: Partial<Branch> = {}): Branch {
-  return { id: 1, name: 'Sucursal A', openingHours: [], createdAt: new Date(), ...overrides };
+  return {
+    id: 1,
+    name: 'Sucursal A',
+    openingHours: [],
+    phones: [],
+    socialLinks: [],
+    createdAt: new Date(),
+    ...overrides,
+  };
 }
 
 function makeOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {

@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatMoney } from '@/lib/money';
 import {
   getCurrentOrNextOpening,
+  getSocialLinkHref,
+  getSocialNetworkLabel,
 } from '@/lib/branch-helpers';
 import type { CreatedOrder } from './usePedidoClient';
 import type { PublicOrderItem } from '@/domain/types';
@@ -158,10 +160,37 @@ export function PedidoSuccessDialog({
                     <span className="text-foreground">{branch.address}</span>
                   </p>
                 )}
-                {branch.phone && (
+                {branch.phones?.map((phone, index) => (
+                  <p key={`${phone.label}-${index}`}>
+                    {phone.label}:{' '}
+                    <span className="font-mono text-foreground">
+                      {phone.number}
+                    </span>
+                  </p>
+                ))}
+                {branch.socialLinks && branch.socialLinks.length > 0 && (
                   <p>
-                    Teléfono:{' '}
-                    <span className="text-foreground">{branch.phone}</span>
+                    {branch.socialLinks.map((link, index) => {
+                      const href = getSocialLinkHref(link);
+                      const label = getSocialNetworkLabel(link.network);
+                      return (
+                        <span key={`${link.network}-${index}`}>
+                          {index > 0 && ' · '}
+                          {href ? (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              {label}
+                            </a>
+                          ) : (
+                            `${label}: ${link.url}`
+                          )}
+                        </span>
+                      );
+                    })}
                   </p>
                 )}
                 {branch.location && (

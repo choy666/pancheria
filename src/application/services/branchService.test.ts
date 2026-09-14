@@ -124,14 +124,14 @@ describe('branchService', () => {
       mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva', openingHours: [] }]);
       mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
 
-      const result = await createBranch('Sucursal Nueva');
+      const result = await createBranch({ name: 'Sucursal Nueva' });
 
       expect(result).toEqual({ id: 1, name: 'Sucursal Nueva', openingHours: [] });
     });
 
     test('rechaza un nombre vacío', async () => {
-      await expect(createBranch('   ')).rejects.toThrow(ValidationError);
-      await expect(createBranch('   ')).rejects.toThrow(
+      await expect(createBranch({ name: '   ' })).rejects.toThrow(ValidationError);
+      await expect(createBranch({ name: '   ' })).rejects.toThrow(
         'El nombre de la sucursal es obligatorio.'
       );
     });
@@ -143,8 +143,8 @@ describe('branchService', () => {
         openingHours: [],
       });
 
-      await expect(createBranch('Existente')).rejects.toThrow(ValidationError);
-      await expect(createBranch('Existente')).rejects.toThrow(
+      await expect(createBranch({ name: 'Existente' })).rejects.toThrow(ValidationError);
+      await expect(createBranch({ name: 'Existente' })).rejects.toThrow(
         'Ya existe una sucursal con ese nombre.'
       );
     });
@@ -153,10 +153,10 @@ describe('branchService', () => {
       mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
 
       await expect(
-        createBranch('Sucursal', [], null, null, 'javascript:alert(1)')
+        createBranch({ name: 'Sucursal', location: 'javascript:alert(1)' })
       ).rejects.toThrow(ValidationError);
       await expect(
-        createBranch('Sucursal', [], null, null, 'javascript:alert(1)')
+        createBranch({ name: 'Sucursal', location: 'javascript:alert(1)' })
       ).rejects.toThrow('La ubicación no es una URL ni coordenadas válidas.');
     });
 
@@ -164,7 +164,7 @@ describe('branchService', () => {
       mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
 
       await expect(
-        createBranch('Sucursal', [], null, null, 'ftp://example.com')
+        createBranch({ name: 'Sucursal', location: 'ftp://example.com' })
       ).rejects.toThrow(ValidationError);
     });
 
@@ -175,10 +175,90 @@ describe('branchService', () => {
       const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
       mockedDb.insert.mockReturnValue({ values: valuesFn });
 
-      await createBranch('Sucursal', [], null, null, '   ');
+      await createBranch({ name: 'Sucursal', location: '   ' });
 
       expect(valuesFn).toHaveBeenCalledWith(
         expect.objectContaining({ location: null })
+      );
+    });
+
+    test('guarda teléfonos y redes sociales normalizados', async () => {
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal' }]);
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
+      mockedDb.insert.mockReturnValue({ values: valuesFn });
+
+      await createBranch({
+        name: 'Sucursal',
+        phones: [{ label: '  Pedidos  ', number: '341 555 5555' }],
+        socialLinks: [
+          { network: 'instagram', url: 'https://instagram.com/pancheria' },
+        ],
+      });
+
+      expect(valuesFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phones: [{ label: 'Pedidos', number: '341 555 5555' }],
+          socialLinks: [
+            { network: 'instagram', url: 'https://instagram.com/pancheria' },
+          ],
+        })
+      );
+    });
+
+    test('rechaza un teléfono sin número', async () => {
+      await expect(
+        createBranch({
+          name: 'Sucursal',
+          phones: [{ label: 'Pedidos', number: '' }],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza un teléfono con caracteres inválidos', async () => {
+      await expect(
+        createBranch({
+          name: 'Sucursal',
+          phones: [{ label: 'Pedidos', number: 'abc-###' }],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza una red social con enlace inseguro', async () => {
+      await expect(
+        createBranch({
+          name: 'Sucursal',
+          socialLinks: [{ network: 'instagram', url: 'javascript:alert(1)' }],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('rechaza una red social desconocida', async () => {
+      await expect(
+        createBranch({
+          name: 'Sucursal',
+          socialLinks: [{ network: 'myspace', url: 'https://example.com' }],
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test('acepta un handle de red social sin URL', async () => {
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal' }]);
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
+      mockedDb.insert.mockReturnValue({ values: valuesFn });
+
+      await createBranch({
+        name: 'Sucursal',
+        socialLinks: [{ network: 'instagram', url: '@pancheria' }],
+      });
+
+      expect(valuesFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          socialLinks: [{ network: 'instagram', url: '@pancheria' }],
+        })
       );
     });
 
@@ -189,13 +269,10 @@ describe('branchService', () => {
       const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
       mockedDb.insert.mockReturnValue({ values: valuesFn });
 
-      await createBranch(
-        'Sucursal',
-        [],
-        null,
-        null,
-        'https://maps.ejemplo.com'
-      );
+      await createBranch({
+        name: 'Sucursal',
+        location: 'https://maps.ejemplo.com',
+      });
 
       expect(valuesFn).toHaveBeenCalledWith(
         expect.objectContaining({ location: 'https://maps.ejemplo.com' })
@@ -209,7 +286,7 @@ describe('branchService', () => {
       const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
       mockedDb.insert.mockReturnValue({ values: valuesFn });
 
-      await createBranch('Sucursal', [], null, null, '-34.6,-58.3');
+      await createBranch({ name: 'Sucursal', location: '-34.6,-58.3' });
 
       expect(valuesFn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -236,7 +313,7 @@ describe('branchService', () => {
       ]);
       mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal Nueva', openingHours: [] }]);
 
-      const result = await updateBranch(1, 'Sucursal Nueva');
+      const result = await updateBranch(1, { name: 'Sucursal Nueva' });
 
       expect(result).toEqual({ id: 1, name: 'Sucursal Nueva', openingHours: [] });
       expect(mockedDb.query.branches.findFirst).toHaveBeenCalledTimes(2);
@@ -244,8 +321,8 @@ describe('branchService', () => {
     });
 
     test('rechaza un nombre vacío', async () => {
-      await expect(updateBranch(1, '   ')).rejects.toThrow(ValidationError);
-      await expect(updateBranch(1, '   ')).rejects.toThrow(
+      await expect(updateBranch(1, { name: '   ' })).rejects.toThrow(ValidationError);
+      await expect(updateBranch(1, { name: '   ' })).rejects.toThrow(
         'El nombre de la sucursal es obligatorio.'
       );
     });
@@ -256,7 +333,7 @@ describe('branchService', () => {
         { id: 2, name: 'Sucursal B', openingHours: [] } as any,
       ]);
 
-      await expect(updateBranch(1, 'Sucursal B')).rejects.toThrow(
+      await expect(updateBranch(1, { name: 'Sucursal B' })).rejects.toThrow(
         'Ya existe otra sucursal con ese nombre.'
       );
     });
@@ -268,7 +345,7 @@ describe('branchService', () => {
       ]);
       mockUpdateReturning.mockResolvedValue([{ id: 1, name: 'Sucursal A', openingHours: [] }]);
 
-      const result = await updateBranch(1, 'Sucursal A');
+      const result = await updateBranch(1, { name: 'Sucursal A' });
 
       expect(result).toEqual({ id: 1, name: 'Sucursal A', openingHours: [] });
       expect(mockedDb.query.branches.findFirst).toHaveBeenCalledTimes(2);
@@ -277,12 +354,12 @@ describe('branchService', () => {
     test('lanza NotFoundError para un ID inexistente', async () => {
       mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
 
-      await expect(updateBranch(999, 'Sucursal Inexistente')).rejects.toThrow(
-        NotFoundError
-      );
-      await expect(updateBranch(999, 'Sucursal Inexistente')).rejects.toThrow(
-        'Sucursal con ID 999 no encontrado.'
-      );
+      await expect(
+        updateBranch(999, { name: 'Sucursal Inexistente' })
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        updateBranch(999, { name: 'Sucursal Inexistente' })
+      ).rejects.toThrow('Sucursal con ID 999 no encontrado.');
     });
 
     test('rechaza una ubicación inválida', async () => {
@@ -292,7 +369,7 @@ describe('branchService', () => {
       ]);
 
       await expect(
-        updateBranch(1, 'Sucursal A', [], null, null, 'javascript:alert(1)')
+        updateBranch(1, { name: 'Sucursal A', location: 'javascript:alert(1)' })
       ).rejects.toThrow('La ubicación no es una URL ni coordenadas válidas.');
     });
 
@@ -310,7 +387,10 @@ describe('branchService', () => {
         .mockReturnValue({ where: jest.fn().mockReturnValue({ returning: mockUpdateReturning }) });
       mockedDb.update.mockReturnValue({ set: setFn });
 
-      await updateBranch(1, 'Sucursal A', [], null, null, '-34.6,-58.3');
+      await updateBranch(1, {
+        name: 'Sucursal A',
+        location: '-34.6,-58.3',
+      });
 
       expect(setFn).toHaveBeenCalledWith(
         expect.objectContaining({

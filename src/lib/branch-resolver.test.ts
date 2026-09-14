@@ -23,7 +23,14 @@ function restoreDefaultBranchName() {
 }
 
 function makeBranch(id: number, name: string): Branch {
-  return { id, name, openingHours: [], createdAt: new Date() };
+  return {
+    id,
+    name,
+    openingHours: [],
+    phones: [],
+    socialLinks: [],
+    createdAt: new Date(),
+  };
 }
 
 describe('branch-resolver', () => {
@@ -103,7 +110,25 @@ describe('branch-resolver', () => {
 
       const result = await listPublicBranches();
 
-      expect(result).toEqual(branches);
+      // El DTO público normaliza los opcionales a null.
+      expect(result).toEqual([
+        { ...branches[0], address: null, location: null },
+      ]);
+    });
+
+    test('expone teléfonos y redes sociales de la sucursal', async () => {
+      const branch: Branch = {
+        ...makeBranch(2, 'Sucursal B'),
+        address: 'Calle 123',
+        phones: [{ label: 'Pedidos', number: '3415555555' }],
+        socialLinks: [{ network: 'instagram', url: '@sucursal.b' }],
+        location: 'https://maps.example.com/b',
+      };
+      mockedBranchService.listBranches.mockResolvedValue([branch]);
+
+      const result = await listPublicBranches();
+
+      expect(result).toEqual([branch]);
     });
   });
 });

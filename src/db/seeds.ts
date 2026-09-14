@@ -12,27 +12,54 @@ import type { BranchOpeningHours } from '@/domain/types';
 import {
   getDefaultBranchName,
   getDefaultBranchAddress,
-  getDefaultBranchPhone,
+  getDefaultBranchPhones,
+  getDefaultBranchSocialLinksJson,
   getDefaultBranchLocation,
   getNewBranchName,
   getNewBranchUsername,
   getNewBranchPassword,
   getNewBranchAddress,
-  getNewBranchPhone,
+  getNewBranchPhones,
+  getNewBranchSocialLinksJson,
   getNewBranchLocation,
 } from '@/config/branch';
 import { getAdminUsername, getAdminPassword } from '@/config/auth';
+import { normalizeSocialLinks } from '@/lib/branch-helpers';
+
+/**
+ * Parsea una variable de entorno JSON con redes sociales
+ * (`[{"network":"instagram","url":"https://..."}]`). Un JSON inválido se
+ * ignora con aviso; las entradas mal formadas las rechaza
+ * `normalizeSocialLinks` con error explícito.
+ */
+function parseSocialLinksEnv(raw: string | undefined): unknown {
+  if (!raw?.trim()) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.warn(
+      'La variable de redes sociales de la sucursal no es un JSON válido; se ignora.'
+    );
+    return [];
+  }
+}
 
 const DEFAULT_BRANCH_NAME = getDefaultBranchName() ?? 'Sucursal por defecto';
 const DEFAULT_BRANCH_ADDRESS = getDefaultBranchAddress() ?? null;
-const DEFAULT_BRANCH_PHONE = getDefaultBranchPhone() ?? null;
+const DEFAULT_BRANCH_PHONES = getDefaultBranchPhones();
+const DEFAULT_BRANCH_SOCIAL_LINKS = normalizeSocialLinks(
+  parseSocialLinksEnv(getDefaultBranchSocialLinksJson())
+);
 const DEFAULT_BRANCH_LOCATION = getDefaultBranchLocation() ?? null;
 
 const NEW_BRANCH_NAME = getNewBranchName();
 const NEW_BRANCH_USERNAME = getNewBranchUsername();
 const NEW_BRANCH_PASSWORD = getNewBranchPassword();
 const NEW_BRANCH_ADDRESS = getNewBranchAddress() ?? null;
-const NEW_BRANCH_PHONE = getNewBranchPhone() ?? null;
+const NEW_BRANCH_PHONES = getNewBranchPhones();
+const NEW_BRANCH_SOCIAL_LINKS = normalizeSocialLinks(
+  parseSocialLinksEnv(getNewBranchSocialLinksJson())
+);
 const NEW_BRANCH_LOCATION = getNewBranchLocation() ?? null;
 
 const DEFAULT_OPENING_HOURS: BranchOpeningHours[] = [
@@ -61,7 +88,8 @@ async function seedDefaultBranch(): Promise<number> {
       name: DEFAULT_BRANCH_NAME,
       openingHours: DEFAULT_OPENING_HOURS,
       address: DEFAULT_BRANCH_ADDRESS,
-      phone: DEFAULT_BRANCH_PHONE,
+      phones: DEFAULT_BRANCH_PHONES,
+      socialLinks: DEFAULT_BRANCH_SOCIAL_LINKS,
       location: DEFAULT_BRANCH_LOCATION,
     })
     .returning({ id: branches.id });
@@ -139,7 +167,8 @@ async function seedOptionalBranch(defaultBranchId: number) {
       name: NEW_BRANCH_NAME,
       openingHours: DEFAULT_OPENING_HOURS,
       address: NEW_BRANCH_ADDRESS,
-      phone: NEW_BRANCH_PHONE,
+      phones: NEW_BRANCH_PHONES,
+      socialLinks: NEW_BRANCH_SOCIAL_LINKS,
       location: NEW_BRANCH_LOCATION,
     })
     .returning({ id: branches.id });

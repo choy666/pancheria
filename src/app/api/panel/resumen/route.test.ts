@@ -68,6 +68,13 @@ function buildCashRegister(status: 'open' | 'closed' = 'open') {
     closingNotes: null,
     forcedClosed: false,
     forcedCloseReason: null,
+    estadoTurno: {
+      status: 'en_turno' as const,
+      aperturaEnTurno: true,
+      currentShift: null,
+      nextShiftStart: null,
+    },
+    alertaCaja: null,
   };
 }
 

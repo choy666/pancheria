@@ -59,17 +59,20 @@ Copiar `.env.example` a `.env.local` y completar:
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
 - `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (usado por el seed).
 - `DEFAULT_BRANCH_ADDRESS` (opcional) — dirección de la sucursal por defecto (usado por el seed).
-- `DEFAULT_BRANCH_PHONE` (opcional) — teléfono de la sucursal por defecto (usado por el seed).
+- `DEFAULT_BRANCH_PHONE` (opcional) — teléfono de la sucursal por defecto (usado por el seed; se guarda como el contacto "Principal" en `phones`).
+- `DEFAULT_BRANCH_SOCIAL_LINKS` (opcional) — redes sociales de la sucursal por defecto en JSON `[{"network":"instagram","url":"..."}]`; redes válidas: `instagram`, `facebook`, `whatsapp`, `tiktok`, `x`, `otro`. La URL acepta también un handle (en `whatsapp`, un número).
 - `DEFAULT_BRANCH_LOCATION` (opcional) — URL de ubicación de la sucursal por defecto (usado por el seed).
 - `NEXT_PUBLIC_BRANCH_TIMEZONE` (opcional) — zona horaria para calcular horarios de apertura de sucursales. Si no se define, se usa `America/Argentina/Buenos_Aires`.
 - `NEW_BRANCH_NAME` (opcional) — nombre de una segunda sucursal a crear vía seed.
 - `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
 - `NEW_BRANCH_PASSWORD` (opcional) — contraseña en texto plano del usuario de la segunda sucursal; el seed la hashea con bcrypt.
+- `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`, `NEW_BRANCH_SOCIAL_LINKS` (opcionales) — datos de la segunda sucursal; `NEW_BRANCH_PHONE` se guarda como contacto "Principal" en `phones` y `NEW_BRANCH_SOCIAL_LINKS` usa el mismo formato JSON que `DEFAULT_BRANCH_SOCIAL_LINKS`.
 - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms; mínimo recomendado 5000 ms).
 - `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` (opcional) — horas de cierre automático de cajas abiertas. Por defecto el cierre automático está deshabilitado (`0`); cualquier valor positivo lo habilita y respeta el número de horas configurado.
 - `CAJA_AUTO_CLOSED_BY` (opcional) — etiqueta del usuario que cierra cajas automáticamente (por defecto `Sistema`).
 - `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` (opcional) — intervalo del reloj de caja en milisegundos (por defecto 60000 ms; mínimo recomendado 10000 ms).
 - `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` (opcional) — días de historial de caja por defecto (por defecto 30 días).
+- `CAJA_OVERDUE_HOURS` / `NEXT_PUBLIC_CAJA_OVERDUE_HOURS` (opcional) — umbral en horas del aviso "caja abierta hace mucho tiempo" para sucursales **sin** horarios configurados (por defecto 12). Con horarios configurados los avisos de caja se calculan contra los turnos vigentes en `getCashRegisterShiftStatus`/`resolveCashRegisterAlert` (`src/lib/cash-register-helpers.ts`): `fuera_de_horario` al terminar el turno (info, no bloquea) y `cierre_recomendado` cuando comienza el primer turno posterior a la apertura (warning). Los turnos overnight (`close < open`, ej. `20:00–02:00`) están soportados y el estado viaja calculado en el payload de `/api/caja/resumen` y `/api/panel/resumen` (`estadoTurno`, `alertaCaja`).
 - `TRUSTED_PROXY_IP_HEADER` (opcional) — header confiable para obtener la IP real del cliente en rate limiting. Si no se define, en producción se usa el header `x-vercel-forwarded-for` y en desarrollo se usa `X-Forwarded-For` como fallback.
 - `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` (opcional) — si se define como `true`, permite usar `X-Forwarded-For` en producción cuando no hay proxy confiable configurado. Puede ser vulnerable a IP spoofing; usalo solo si un proxy sanitiza el header.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).

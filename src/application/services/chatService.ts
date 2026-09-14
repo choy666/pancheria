@@ -14,6 +14,8 @@ import {
   getChatPageSize,
 } from '@/config/chat';
 import type {
+  BranchPhone,
+  BranchSocialLink,
   OrderMessage,
   OrderMessageSenderType,
   OrderStatus,
@@ -47,6 +49,9 @@ export interface ChatContext {
   customerName: string;
   deliveryType: OrderWithItems['deliveryType'];
   branchLocation: string | null;
+  /** Contactos públicos de la sucursal para mostrar en el encabezado del chat. */
+  branchPhones: BranchPhone[];
+  branchSocialLinks: BranchSocialLink[];
   messages: OrderMessage[];
   total: number;
   hasMore: boolean;
@@ -158,6 +163,8 @@ export async function getChatContext(
     customerName: order.customerName,
     deliveryType: order.deliveryType,
     branchLocation: branch?.location ?? null,
+    branchPhones: branch?.phones ?? [],
+    branchSocialLinks: branch?.socialLinks ?? [],
     messages,
     total,
     hasMore: messages.length < total,

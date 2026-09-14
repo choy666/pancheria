@@ -18,6 +18,7 @@ import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import * as saleRepository from '@/repositories/saleRepository';
 import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
+import * as branchRepository from '@/repositories/branchRepository';
 import { buildProductContext } from '@/lib/product-helpers';
 import { executeInTransaction } from '@/application/transactionService';
 import { db } from '@/db';
@@ -42,6 +43,7 @@ jest.mock('@/repositories/productRepository', () => ({
 jest.mock('@/repositories/stockMovementRepository', () => ({
   insertMany: jest.fn(),
 }));
+jest.mock('@/repositories/branchRepository');
 jest.mock('@/lib/product-helpers', () => ({
   ...jest.requireActual('@/lib/product-helpers'),
   buildProductContext: jest.fn(),
@@ -77,6 +79,9 @@ const mockedProductRepository = productRepository as jest.Mocked<
 >;
 const mockedStockMovementRepository = stockMovementRepository as jest.Mocked<
   typeof stockMovementRepository
+>;
+const mockedBranchRepository = branchRepository as jest.Mocked<
+  typeof branchRepository
 >;
 const mockedBuildProductContext = buildProductContext as jest.MockedFunction<
   typeof buildProductContext
@@ -181,6 +186,17 @@ describe('cashRegisterService', () => {
       recipesByProduct: new Map(),
     });
     mockedProductRepository.lockForUpdate.mockResolvedValue([]);
+
+    // Por defecto la sucursal no tiene horarios configurados: el estado de
+    // turno cae en el fallback legacy.
+    mockedBranchRepository.findById.mockResolvedValue({
+      id: BRANCH_ID,
+      name: 'Sucursal Test',
+      openingHours: [],
+      phones: [],
+      socialLinks: [],
+      createdAt: new Date(),
+    } as any);
 
     mockedExecuteInTransaction.mockImplementation(async (fn) =>
       fn({
@@ -398,6 +414,105 @@ describe('cashRegisterService', () => {
       const result = await getOpenCashRegisterSummary(BRANCH_ID);
 
       expect(result).toBeNull();
+    });
+
+    test('incluye el estado de turno calculado contra los horarios vigentes', async () => {
+      const now = new Date();
+      const openedAt = new Date(now.getTime() - 60 * 60 * 1000);
+      // Turno diario que cubre la hora actual (ventana amplia alrededor de ahora).
+      const open = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+      const close = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const toHHmm = (d: Date) =>
+        `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      // El día local se toma del servidor de tests; la timezone de sucursal
+      // por defecto es America/Argentina/Buenos_Aires (UTC-3, sin DST).
+      const tzDay = new Date(
+        now.toLocaleString('en-US', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+        })
+      ).getDay();
+
+      mockedBranchRepository.findById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal Test',
+        openingHours: [
+          { dayOfWeek: tzDay, open: toHHmm(open), close: toHHmm(close) },
+        ],
+        phones: [],
+        socialLinks: [],
+        createdAt: new Date(),
+      } as any);
+
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        branchId: BRANCH_ID,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+      } as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
+
+      expect(result.estadoTurno.status).toBe('en_turno');
+      expect(result.alertaCaja).toBeNull();
+    });
+
+    test('recomienda el cierre cuando ya comenzó el turno posterior', async () => {
+      const now = new Date();
+      // Caja abierta hace ~20 horas; turno diario de una hora que terminó
+      // hace ~19 horas y otro turno vigente ahora.
+      const openedAt = new Date(now.getTime() - 20 * 60 * 60 * 1000);
+      const toHHmm = (d: Date) =>
+        `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const tzNow = new Date(
+        now.toLocaleString('en-US', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+        })
+      );
+      const dayOfWeek = tzNow.getDay();
+      const openingHours = [
+        {
+          dayOfWeek,
+          open: toHHmm(new Date(now.getTime() - 21 * 60 * 60 * 1000)),
+          close: toHHmm(new Date(now.getTime() - 19 * 60 * 60 * 1000)),
+        },
+        {
+          dayOfWeek,
+          open: toHHmm(new Date(now.getTime() - 60 * 60 * 1000)),
+          close: toHHmm(new Date(now.getTime() + 60 * 60 * 1000)),
+        },
+      ];
+
+      mockedBranchRepository.findById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal Test',
+        openingHours,
+        phones: [],
+        socialLinks: [],
+        createdAt: new Date(),
+      } as any);
+
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        branchId: BRANCH_ID,
+        openedAt,
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+      } as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
+
+      expect(result.estadoTurno.status).toBe('recomendar_cierre');
+      expect(result.alertaCaja).toMatchObject({
+        code: 'cierre_recomendado',
+        severity: 'warning',
+      });
     });
   });
 

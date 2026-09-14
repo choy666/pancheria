@@ -48,14 +48,85 @@ export type BranchOpeningHours = {
   close: string;
 };
 
+export type BranchPhone = {
+  label: string;
+  number: string;
+};
+
+export type BranchSocialNetwork =
+  | 'instagram'
+  | 'facebook'
+  | 'whatsapp'
+  | 'tiktok'
+  | 'x'
+  | 'otro';
+
+export type BranchSocialLink = {
+  network: BranchSocialNetwork;
+  url: string;
+};
+
 export type Branch = {
   id: number;
   name: string;
   openingHours: BranchOpeningHours[];
   address?: string | null;
-  phone?: string | null;
+  phones: BranchPhone[];
+  socialLinks: BranchSocialLink[];
   location?: string | null;
   createdAt: Date;
+};
+
+/**
+ * Estado de una caja abierta evaluado contra los turnos configurados de la
+ * sucursal (horarios vigentes, timezone de sucursal):
+ * - `en_turno`: la caja se abrió dentro del turno que sigue vigente.
+ * - `fuera_de_horario`: el turno terminó (o la caja se abrió en un hueco) y
+ *   todavía no comenzó el siguiente turno.
+ * - `recomendar_cierre`: ya comenzó el primer turno posterior a la apertura;
+ *   equivale al aviso anterior de "caja del día anterior".
+ * - `sin_horarios`: la sucursal no tiene horarios configurados; se aplica el
+ *   fallback por fecha calendario y umbral de horas.
+ */
+export type CashRegisterShiftStatus =
+  | 'en_turno'
+  | 'fuera_de_horario'
+  | 'recomendar_cierre'
+  | 'sin_horarios';
+
+type CashRegisterAlertCode =
+  | 'fuera_de_horario'
+  | 'cierre_recomendado'
+  | 'dia_anterior'
+  | 'excedida';
+
+export type CashRegisterAlert = {
+  code: CashRegisterAlertCode;
+  severity: 'info' | 'warning';
+  detalle?: {
+    horasUmbral?: number;
+    aperturaEnTurno?: boolean;
+    proximoTurno?: string;
+  };
+};
+
+/**
+ * Versión serializada del estado de turno que viaja en los payloads JSON
+ * (`/api/caja/resumen`, `/api/panel/resumen`). Las fechas llegan como ISO.
+ */
+type CashRegisterShiftSlotDTO = {
+  dayOfWeek: number;
+  open: string;
+  close: string;
+  start: string;
+  end: string;
+};
+
+export type CashRegisterShiftInfoDTO = {
+  status: CashRegisterShiftStatus;
+  aperturaEnTurno: boolean;
+  currentShift: CashRegisterShiftSlotDTO | null;
+  nextShiftStart: string | null;
 };
 
 export type ProductRow = {

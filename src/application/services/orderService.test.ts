@@ -373,6 +373,8 @@ describe('orderService', () => {
       id: BRANCH_ID,
       name: 'Sucursal Test',
       openingHours: [],
+      phones: [],
+      socialLinks: [],
       createdAt: new Date(),
     });
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);

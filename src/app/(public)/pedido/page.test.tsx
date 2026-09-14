@@ -51,7 +51,14 @@ const mockedCatalogService = catalogService as jest.Mocked<typeof catalogService
 const mockedRedirect = redirect as jest.MockedFunction<typeof redirect>;
 
 function makeBranch(id: number, name: string) {
-  return { id, name, openingHours: [], createdAt: new Date() };
+  return {
+    id,
+    name,
+    openingHours: [],
+    phones: [],
+    socialLinks: [],
+    createdAt: new Date(),
+  };
 }
 
 function makeCatalog(branchId: number) {

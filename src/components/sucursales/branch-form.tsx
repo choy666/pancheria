@@ -12,18 +12,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 import { type BranchState } from '@/app/(panel)/sucursales/actions';
-import type { BranchOpeningHours } from '@/domain/types';
-
-interface Branch {
-  id: number;
-  name: string;
-  openingHours: BranchOpeningHours[];
-  address?: string | null;
-  phone?: string | null;
-  location?: string | null;
-}
+import { SOCIAL_NETWORK_OPTIONS } from '@/lib/branch-helpers';
+import type {
+  Branch,
+  BranchOpeningHours,
+  BranchSocialNetwork,
+} from '@/domain/types';
 
 type Slot = BranchOpeningHours & { _id: string };
+type PhoneRow = { _id: string; label: string; number: string };
+type SocialRow = { _id: string; network: BranchSocialNetwork; url: string };
 
 const DAYS = [
   'Domingo',
@@ -76,6 +74,14 @@ export function BranchForm({
   );
 
   const [openingHours, setOpeningHours] = useState<Slot[]>(initialHours);
+  const [phones, setPhones] = useState<PhoneRow[]>(
+    () =>
+      branch?.phones?.map((p) => ({ ...p, _id: generateSlotId() })) ?? []
+  );
+  const [socialLinks, setSocialLinks] = useState<SocialRow[]>(
+    () =>
+      branch?.socialLinks?.map((s) => ({ ...s, _id: generateSlotId() })) ?? []
+  );
 
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
@@ -93,6 +99,8 @@ export function BranchForm({
         if (result === null) {
           formRef.current?.reset();
           setOpeningHours([]);
+          setPhones([]);
+          setSocialLinks([]);
           if (branch) {
             onCancel?.();
           }
@@ -155,6 +163,54 @@ export function BranchForm({
     );
   }
 
+  function addPhone() {
+    setPhones((prev) => [
+      ...prev,
+      { _id: generateSlotId(), label: '', number: '' },
+    ]);
+  }
+
+  function removePhone(rowId: string) {
+    setPhones((prev) => prev.filter((row) => row._id !== rowId));
+  }
+
+  function updatePhone(rowId: string, field: 'label' | 'number', value: string) {
+    setPhones((prev) =>
+      prev.map((row) => (row._id === rowId ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function addSocialLink() {
+    setSocialLinks((prev) => [
+      ...prev,
+      { _id: generateSlotId(), network: 'instagram', url: '' },
+    ]);
+  }
+
+  function removeSocialLink(rowId: string) {
+    setSocialLinks((prev) => prev.filter((row) => row._id !== rowId));
+  }
+
+  function updateSocialLink(
+    rowId: string,
+    field: 'network' | 'url',
+    value: string
+  ) {
+    setSocialLinks((prev) =>
+      prev.map((row) =>
+        row._id === rowId
+          ? {
+              ...row,
+              [field]:
+                field === 'network'
+                  ? (value as BranchSocialNetwork)
+                  : value,
+            }
+          : row
+      )
+    );
+  }
+
   return (
     <form
       ref={formRef}
@@ -190,15 +246,63 @@ export function BranchForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone">Teléfono (opcional)</Label>
-        <Input
-          id="phone"
-          name="phone"
-          type="text"
-          defaultValue={branch?.phone ?? ''}
-          placeholder="Ej: 3415555555"
-          data-testid="branch-phone"
-        />
+        <Label>Teléfonos (opcional)</Label>
+        <p className="text-sm text-muted-foreground">
+          Agregá uno o más números con su etiqueta, por ejemplo
+          &quot;Pedidos&quot; o &quot;WhatsApp&quot;. Se muestran en el catálogo
+          público.
+        </p>
+        <div className="space-y-2">
+          {phones.map((phone, index) => (
+            <div key={phone._id} className="flex items-center gap-2">
+              <Input
+                type="text"
+                value={phone.label}
+                onChange={(e) =>
+                  updatePhone(phone._id, 'label', e.target.value)
+                }
+                name={`phones[${index}][label]`}
+                placeholder="Etiqueta"
+                aria-label={`Etiqueta del teléfono ${index + 1}`}
+                data-testid={`branch-phone-label-${index}`}
+                className="w-32"
+              />
+              <Input
+                type="text"
+                value={phone.number}
+                onChange={(e) =>
+                  updatePhone(phone._id, 'number', e.target.value)
+                }
+                name={`phones[${index}][number]`}
+                placeholder="Ej: 3415555555"
+                aria-label={`Número del teléfono ${index + 1}`}
+                data-testid={`branch-phone-number-${index}`}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                data-testid={`branch-remove-phone-${index}`}
+                onClick={() => removePhone(phone._id)}
+                className="size-8 text-destructive"
+                aria-label={`Eliminar teléfono ${index + 1}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-testid="branch-add-phone"
+          onClick={addPhone}
+        >
+          <Plus className="mr-1 size-4" />
+          Agregar teléfono
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -213,11 +317,75 @@ export function BranchForm({
         />
       </div>
 
+      <div className="space-y-2">
+        <Label>Redes sociales (opcional)</Label>
+        <p className="text-sm text-muted-foreground">
+          URL completa (https://...) o nombre de usuario. En WhatsApp, el
+          número con código de país. Se muestran en el catálogo público.
+        </p>
+        <div className="space-y-2">
+          {socialLinks.map((link, index) => (
+            <div key={link._id} className="flex items-center gap-2">
+              <select
+                value={link.network}
+                onChange={(e) =>
+                  updateSocialLink(link._id, 'network', e.target.value)
+                }
+                name={`socialLinks[${index}][network]`}
+                aria-label={`Red social ${index + 1}`}
+                data-testid={`branch-social-network-${index}`}
+                className="h-11 rounded-lg border border-input bg-input/50 px-3 text-base md:text-sm"
+              >
+                {SOCIAL_NETWORK_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <Input
+                type="text"
+                value={link.url}
+                onChange={(e) =>
+                  updateSocialLink(link._id, 'url', e.target.value)
+                }
+                name={`socialLinks[${index}][url]`}
+                placeholder="URL o usuario"
+                aria-label={`Enlace de la red social ${index + 1}`}
+                data-testid={`branch-social-url-${index}`}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                data-testid={`branch-remove-social-${index}`}
+                onClick={() => removeSocialLink(link._id)}
+                className="size-8 text-destructive"
+                aria-label={`Eliminar red social ${index + 1}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-testid="branch-add-social"
+          onClick={addSocialLink}
+        >
+          <Plus className="mr-1 size-4" />
+          Agregar red social
+        </Button>
+      </div>
+
       <div className="space-y-3">
         <Label>Horarios de apertura</Label>
         <p className="text-sm text-muted-foreground">
           Marcá los días y agregá una o más franjas horarias en las que la
-          sucursal atiende pedidos.
+          sucursal atiende pedidos. Si el cierre es menor que la apertura, la
+          franja termina al día siguiente (ej. 20:00 a 02:00).
         </p>
         <div className="space-y-4">
           {DAYS.map((day, dayOfWeek) => {

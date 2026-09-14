@@ -3,12 +3,17 @@ import { executeInTransaction } from '@/application/transactionService';
 import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import * as productRepository from '@/repositories/productRepository';
 import * as saleRepository from '@/repositories/saleRepository';
+import * as branchRepository from '@/repositories/branchRepository';
 import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { parseMoney, moneyToNumber, addMoney, subtractMoney } from '@/lib/money';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/domain/errors';
 import { getAutoCloseHours, getAutoClosedBy } from '@/config/caja';
+import {
+  getCashRegisterShiftStatus,
+  resolveCashRegisterAlert,
+} from '@/lib/cash-register-helpers';
 
 /**
  * Nota sobre integridad referencial:
@@ -190,16 +195,36 @@ export async function getOpenCashRegisterSummary(branchId: number) {
 
   if (!cashRegister) return null;
 
-  const summary = await parseCashRegisterSummary(branchId, cashRegister, true);
+  const [summary, branch] = await Promise.all([
+    parseCashRegisterSummary(branchId, cashRegister, true),
+    branchRepository.findById(branchId),
+  ]);
 
   const cashInDrawer = moneyToNumber(
     addMoney(parseMoney(cashRegister.initialAmount ?? 0), parseMoney(cashRegister.cashTotal ?? 0))
+  );
+
+  // El estado de turno y el aviso se calculan en el servidor contra los
+  // horarios vigentes de la sucursal: el cliente no recomputa la lógica.
+  const now = nowUTC();
+  const openingHours = branch?.openingHours ?? [];
+  const estadoTurno = getCashRegisterShiftStatus(
+    cashRegister.openedAt,
+    openingHours,
+    now
+  );
+  const alertaCaja = resolveCashRegisterAlert(
+    cashRegister.openedAt,
+    openingHours,
+    now
   );
 
   return {
     ...cashRegister,
     ...summary,
     cashInDrawer,
+    estadoTurno,
+    alertaCaja,
   };
 }
 

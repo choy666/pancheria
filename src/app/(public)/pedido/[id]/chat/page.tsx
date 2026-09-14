@@ -2,6 +2,10 @@ import { notFound } from 'next/navigation';
 import * as chatService from '@/application/services/chatService';
 import { OrderChat } from '@/components/chat/order-chat';
 import {
+  getSocialLinkHref,
+  getSocialNetworkLabel,
+} from '@/lib/branch-helpers';
+import {
   PUBLIC_PEDIDO_CHAT_API,
   PUBLIC_PEDIDO_CHAT_LEIDO_API,
   PUBLIC_PEDIDO_CHAT_UPLOAD_API,
@@ -40,6 +44,36 @@ export default async function PedidoChatPage({
         <p className="text-sm text-muted-foreground">
           {context.branchName ? `Sucursal: ${context.branchName}` : 'Chat con la sucursal'}
         </p>
+        {context.branchPhones.map((phone, index) => (
+          <p key={`phone-${index}`} className="text-sm text-muted-foreground">
+            {phone.label}: {phone.number}
+          </p>
+        ))}
+        {context.branchSocialLinks.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {context.branchSocialLinks.map((link, index) => {
+              const href = getSocialLinkHref(link);
+              const label = getSocialNetworkLabel(link.network);
+              return (
+                <span key={`${link.network}-${index}`}>
+                  {index > 0 && ' · '}
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    `${label}: ${link.url}`
+                  )}
+                </span>
+              );
+            })}
+          </p>
+        )}
       </div>
 
       <OrderChat
