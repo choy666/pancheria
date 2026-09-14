@@ -71,6 +71,20 @@ En **Vercel → Environment Variables → Production** debe existir:
 - **Los workflows de GitHub Actions reciben strings**: valores como `true` o `2` llegan como strings a `process.env`; el código compara con `'true'`.
 - **El job de E2E usa `next dev`**: cualquier comportamiento condicionado por `NODE_ENV=development` o `NODE_ENV=test` debe verificarse en ambos modos.
 
+## Problemas conocidos de tests y soluciones
+
+### Race conditions en tests con `new Date()`
+
+- **Problema**: Tests que dependen de `new Date()` o cálculos de tiempo pueden fallar por race conditions al cruzar cambios de minuto o segundo.
+- **Solución**: Usar ventanas de tiempo con buffers (ej. ±3 horas) en lugar de ventanas estrictas que dependan del tiempo exacto actual.
+- **Ejemplo**: En `src/application/services/cashRegisterService.test.ts`, el test de estado de turno usa buffers de ±3 horas para asegurar que el turno siempre cubra el tiempo actual.
+
+### Locators de Playwright con múltiples coincidencias
+
+- **Problema**: Locators como `getByRole('heading', { name: /Caja #\d+/ })` pueden encontrar múltiples elementos, violando el modo estricto de Playwright.
+- **Solución**: Usar `.first()` para seleccionar explícitamente el primer elemento cuando se espera múltiples coincidencias.
+- **Ejemplo**: En `tests/e2e/caja-aislamiento-y-trazabilidad.spec.ts`, el locator usa `.first()` para evitar errores por múltiples headings con el mismo patrón.
+
 ## Referencias
 
 - `AGENTS.md` — comandos, variables de entorno y reglas generales.

@@ -60,7 +60,7 @@ test.describe('Trazabilidad de caja por sucursal y operador', () => {
     await openCashRegisterFromUI(page);
     await expect(page.getByTestId('cash-register-opened-by')).toContainText('Abierta por:');
 
-    const heading = page.getByRole('heading', { name: /Caja #\d+/ });
+    const heading = page.getByRole('heading', { name: /Caja #\d+/ }).first();
     const headingText = await heading.textContent();
     const cashRegisterId = headingText?.match(/Caja #(\d+)/)?.[1];
     expect(cashRegisterId).toBeDefined();

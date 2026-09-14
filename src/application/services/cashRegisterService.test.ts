@@ -462,8 +462,8 @@ describe('cashRegisterService', () => {
 
     test('recomienda el cierre cuando ya comenzó el turno posterior', async () => {
       const now = new Date();
-      // Caja abierta hace ~20 horas; turno diario de una hora que terminó
-      // hace ~19 horas y otro turno vigente ahora.
+      // Caja abierta hace ~20 horas; turno diario con buffer de ±3 horas
+      // para evitar race conditions por cambios de minuto.
       const openedAt = new Date(now.getTime() - 20 * 60 * 60 * 1000);
       const toHHmm = (d: Date) =>
         `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -481,8 +481,8 @@ describe('cashRegisterService', () => {
         },
         {
           dayOfWeek,
-          open: toHHmm(new Date(now.getTime() - 60 * 60 * 1000)),
-          close: toHHmm(new Date(now.getTime() + 60 * 60 * 1000)),
+          open: toHHmm(new Date(now.getTime() - 3 * 60 * 60 * 1000)),
+          close: toHHmm(new Date(now.getTime() + 3 * 60 * 60 * 1000)),
         },
       ];
 
