@@ -156,6 +156,8 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Plan de mejoras — flujo de pedidos, chat, caja y sucursales](archivados/plan-mejoras-flujo-pedidos-chat-caja-sucursales-2026-08-27.md) — resuelto: captura de teléfono, horarios de sucursal, estados de pedido, chat con estados y reservas transaccionales.
 - [Arquitectura y buenas prácticas del flujo de pedidos, sucursales y stock](archivados/recomendaciones-pedidos-sucursal-stock-2026-08-27.md) — archivado: reglas de negocio, aislamiento por `branchId`, reutilización de helpers y decisiones arquitectónicas del flujo.
 
+> **Nota sobre `auditoria-estado-actual-y-documentacion.md`:** este prompt fue archivado como `archivados/auditoria-estado-actual-y-documentacion.md` (versión histórica del flujo de auditoría documental); el equivalente vigente es [`auditoria-y-documentacion.md`](auditoria-y-documentacion.md).
+
 > **Regla de índices:** al crear o archivar un prompt o informe, actualizar en el mismo cambio este `README.md`, `.devin/informes/README.md` (si aplica) y el bloque **Estructura** de `.devin/README.md`. El desfasaje del índice es el error más común detectado en auditorías de `.devin`.
 
 ## Véase también

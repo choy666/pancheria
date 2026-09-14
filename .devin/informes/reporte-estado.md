@@ -112,6 +112,24 @@ Se ejecutó el prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prom
 | Integridad de datos y flujos de negocio | OK | Tests de `orderService`, `saleService`, `stockService`, `cashRegisterService` pasan. |
 | Configuración de despliegue, CI/CD y entornos | OK | `vercel.json`, `next.config.ts`, `.github/workflows/ci.yml` y `playwright.config.ts` consistentes con la documentación. |
 
+## 5.4 Auditoría del directorio `.devin` 2026-09-11
+
+### 5.4.1 Hallazgos
+
+| Hallazgo | Clasificación | Estado | Evidencia / Acción |
+|---|---|---|---|
+| `auditoria-estado-actual-y-documentacion.md` archivado no aparecía en `prompts/README.md` | Menor | Resuelto | Se agregó nota en `.devin/prompts/README.md` y se mantiene el prompt en `prompts/archivados/`. |
+| Tabla de configuración en `guia-funcionamiento-pancheria.md` tenía filas con celda vacía para `PUBLIC_CHAT_RATE_LIMIT_*`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_*`, `NEXT_PUBLIC_MAPS_PROVIDER` y `NEXT_PUBLIC_MAPS_BASE_URL` | Menor | Resuelto | Se corrigieron las 4 filas para que el nombre de variable esté en la primera columna. |
+| `checklist-pre-push.md` referenciaba `lecciones-aprendidas.md` sección 11, que no existe | Menor | Resuelto | Se cambió a sección 12 ("Eliminación de WhatsApp y prioridad del chat propio"). |
+| Referencias rotas en informes/prompts archivados (p. ej. `src/lib/whatsapp.ts`, `plan-de-accion-pendientes.md`, prompts movidos a `archivados/`) | Informativo | Documentado | Son documentos históricos; se recomienda no usarlos como fuente de verdad y consultar la documentación vigente. |
+
+### 5.4.2 Archivos afectados
+
+- **Actualizados:**
+  - `.devin/prompts/README.md`
+  - `.devin/informes/guia-funcionamiento-pancheria.md`
+  - `.devin/informes/checklist-pre-push.md`
+
 ## 6. Plan de acción
 
 | Prioridad | Acción | Responsable sugerido |
@@ -119,11 +137,12 @@ Se ejecutó el prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prom
 | Baja | Ejecutar `npx drizzle-kit check` sobre la base de `.env.e2e` si hay cambios de esquema. | Equipo de desarrollo |
 | Baja | Ejecutar `npm run test:e2e` en base descartable antes del próximo release para confirmar los flujos de chat/ubicación y carrito. | Equipo de desarrollo |
 | Baja | Considerar tests E2E para el envío de ubicación del cliente y de la sucursal. | Equipo de desarrollo |
+| Baja | Revisar periódicamente los informes y prompts archivados; si se convierten en fuente de confusión por referencias rotas, agregar una cabecera de "documento histórico" o consolidar su contenido en `lecciones-aprendidas.md`. | Equipo de desarrollo |
 
 ## 7. Cierre
 
 - Baseline: `7cdf2864cd327c46d34ea0f635a9bc6c72d7c889` en `main`; auditoría ejecutada sobre el `working tree` actual.
 - Verificaciones base ejecutadas sobre el estado final: `npm run lint`, `npx tsc --noEmit`, `npm test` (155 suites / 1582 tests), `npm run build` (88 rutas/páginas), `npm run analyze:webpack`, `npm run knip` y `npx drizzle-kit check` — todas pasan.
-- Pendientes recomendados aplicados en esta sesión: eliminación de `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` de documentación y `.env.example`; reemplazo de `throw new Error` por `ApiError` en cliente; creación de `branchRepository.test.ts` y `userRepository.test.ts`; agregado a `lecciones-aprendidas.md` la lección sobre compartir ubicación por chat.
+- Pendientes recomendados aplicados en esta sesión: eliminación de `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` de documentación y `.env.example`; reemplazo de `throw new Error` por `ApiError` en cliente; creación de `branchRepository.test.ts` y `userRepository.test.ts`; agregado a `lecciones-aprendidas.md` la lección sobre compartir ubicación por chat; corrección de índices y tablas en `.devin`.
 - No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate`, `npx drizzle-kit migrate`, `npx vercel env pull` ni `npm run test:e2e` por requerir confirmación explícita o base de prueba.
 - Se advirtió al usuario sobre secretos en `.env.local` y `.env.e2e`; la rotación queda fuera del alcance de esta auditoría.

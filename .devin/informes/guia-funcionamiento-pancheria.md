@@ -499,10 +499,10 @@ Disponibilidad = infinita.
 | `NEXT_PUBLIC_CHAT_PAGE_SIZE` | Mensajes de chat por página | `50` (máximo `100`) |
 | `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño máximo de imagen en chat | `5` MB |
 | `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout por defecto de requests al API | `30000` ms |
-|| `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
-|| `CHAT_BRANCH_LOCATION_RATE_LIMIT_*` | Rate limit del envío de ubicación de sucursal por chat | `60s`, `5` envíos |
-|| `NEXT_PUBLIC_MAPS_PROVIDER` | Proveedor de mapas para enlaces de ubicación | `openstreetmap` |
-|| `NEXT_PUBLIC_MAPS_BASE_URL` | URL base personalizada para mapas (opcional) | — |
+| `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
+| `CHAT_BRANCH_LOCATION_RATE_LIMIT_*` | Rate limit del envío de ubicación de sucursal por chat | `60s`, `5` envíos |
+| `NEXT_PUBLIC_MAPS_PROVIDER` | Proveedor de mapas para enlaces de ubicación | `openstreetmap` |
+| `NEXT_PUBLIC_MAPS_BASE_URL` | URL base personalizada para mapas (opcional) | — |
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
 | `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
 | `CRON_SECRET` | Protección de endpoints de cron | — |

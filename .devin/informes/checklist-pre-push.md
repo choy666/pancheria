@@ -39,7 +39,7 @@ Antes de hacer push, revisar mentalmente estos puntos si se editó `.github/work
 - [ ] `.env.e2e.example` refleja las variables necesarias para reproducir el entorno localmente.
 - [ ] Si se agregó una variable nueva, también se agregó en `AGENTS.md` y `.devin/informes/entornos.md` si aplica.
 - [ ] No hay credenciales, secretos, URLs privadas ni `.env.*` commiteados por accidente.
-- [ ] No se modificó `.github/workflows/ci.yml` solo para silenciar advertencias del IDE (ver `lecciones-aprendidas.md`, sección 11).
+- [ ] No se modificó `.github/workflows/ci.yml` solo para silenciar advertencias del IDE (ver `lecciones-aprendidas.md`, sección 12).
 
 ## Secretos de GitHub Actions y Vercel
 
