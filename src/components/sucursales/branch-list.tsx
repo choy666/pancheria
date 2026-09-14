@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { BranchOpeningHours } from '@/domain/types';
+import type { Branch } from '@/domain/types';
 import {
   Table,
   TableBody,
@@ -16,15 +16,6 @@ import {
   createBranch,
   updateBranchAction,
 } from '@/app/(panel)/sucursales/actions';
-
-interface Branch {
-  id: number;
-  name: string;
-  openingHours: BranchOpeningHours[];
-  address?: string | null;
-  phone?: string | null;
-  location?: string | null;
-}
 
 interface BranchListProps {
   branches: Branch[];
@@ -45,40 +36,63 @@ export function BranchList({ branches }: BranchListProps) {
         />
       </div>
 
-      <div className="rounded-2xl border border-white/8">
+      <div className="rounded-2xl border border-white/8 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
+              <TableHead>Dirección</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead className="text-center">Horarios</TableHead>
               <TableHead className="text-right">ID</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {branches.map((branch) => (
-              <TableRow
-                key={branch.id}
-                data-testid="branch-row"
-                data-branch-id={branch.id}
-                data-branch-name={branch.name}
-              >
-                <TableCell data-testid="branch-name">{branch.name}</TableCell>
-                <TableCell className="text-right font-mono">
-                  {branch.id}
-                </TableCell>
-                <TableCell className="text-right">
-                  <BranchActions
-                    branchId={branch.id}
-                    branchName={branch.name}
-                    onEdit={() => setEditingBranch(branch)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
+            {branches.map((branch) => {
+              const hasOpeningHours = branch.openingHours && branch.openingHours.length > 0;
+              const openingHoursCount = branch.openingHours?.length ?? 0;
+              const firstPhone = branch.phones?.[0];
+              const address = branch.address ?? null;
+
+              return (
+                <TableRow
+                  key={branch.id}
+                  data-testid="branch-row"
+                  data-branch-id={branch.id}
+                  data-branch-name={branch.name}
+                >
+                  <TableCell data-testid="branch-name">{branch.name}</TableCell>
+                  <TableCell data-testid="branch-address" className="max-w-[200px] truncate">
+                    {address || '-'}
+                  </TableCell>
+                  <TableCell data-testid="branch-phone" className="max-w-[150px] truncate">
+                    {firstPhone ? `${firstPhone.label}: ${firstPhone.number}` : '-'}
+                  </TableCell>
+                  <TableCell data-testid="branch-opening-hours" className="text-center">
+                    {hasOpeningHours ? (
+                      <span className="text-green-400">{openingHoursCount} días</span>
+                    ) : (
+                      <span className="text-amber-400">Sin horarios</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {branch.id}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <BranchActions
+                      branchId={branch.id}
+                      branchName={branch.name}
+                      onEdit={() => setEditingBranch(branch)}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {branches.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={3}
+                  colSpan={6}
                   className="text-center text-muted-foreground"
                 >
                   No hay sucursales registradas.

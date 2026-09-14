@@ -21,11 +21,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CashRegisterSummary } from '@/components/caja/cash-register-summary';
 import { formatLastUpdated } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
-import { AlertCircle } from 'lucide-react';
-import {
-  isCashRegisterFromPreviousDay,
-  isCashRegisterOverdue,
-} from '@/lib/cash-register-helpers';
+import { resolveDisplayedCashRegisterAlert } from '@/lib/cash-register-helpers';
+import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
+import { CashRegisterShiftBadge } from '@/components/caja/cash-register-shift-badge';
 
 interface CajaPanelProps {
   branchName?: string | null;
@@ -165,8 +163,12 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
     );
   }
 
-  const isPreviousDay = isCashRegisterFromPreviousDay(cashRegister.openedAt);
-  const isOverdue = isCashRegisterOverdue(cashRegister.openedAt);
+  // El aviso llega calculado desde el servidor; el fallback cubre payloads
+  // que todavía no lo incluyen.
+  const alerta = resolveDisplayedCashRegisterAlert(
+    cashRegister.alertaCaja,
+    cashRegister.openedAt
+  );
 
   return (
     <div data-tour="caja-panel" className="space-y-5">
@@ -176,31 +178,14 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
         </div>
       )}
 
-      {isPreviousDay && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-base text-amber-700">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          <div>
-            <p className="font-medium">Caja del día anterior</p>
-            <p>
-              Esta caja fue abierta el día anterior. Cerrala antes de abrir una nueva.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {!isPreviousDay && isOverdue && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-base text-amber-700">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          <div>
-            <p className="font-medium">Caja abierta hace más de 12 horas</p>
-            <p>
-              La caja lleva mucho tiempo abierta. Recomendamos cerrarla y abrir una nueva.
-            </p>
-          </div>
-        </div>
-      )}
+      <CashRegisterAlertBanner alerta={alerta} />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold">Caja #{cashRegister.id}</h2>
+          <Badge variant="default">Abierta</Badge>
+          <CashRegisterShiftBadge estadoTurno={cashRegister.estadoTurno} />
+        </div>
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-semibold">Caja #{cashRegister.id}</h2>
           <Badge variant="default">Abierta</Badge>
@@ -319,7 +304,7 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
         </Dialog>
       </div>
 
-      <CashRegisterSummary cashRegister={cashRegister} branchName={branchName} now={new Date()} />
+      <CashRegisterSummary cashRegister={cashRegister} branchName={branchName} alerta={alerta} now={new Date()} />
 
       <p className="text-xs text-muted-foreground">
         Última actualización: {formatLastUpdated(lastUpdated)}

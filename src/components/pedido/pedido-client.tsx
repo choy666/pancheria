@@ -22,6 +22,8 @@ import {
   getTodayOpening,
   getNextOpening,
   formatOpeningHours,
+  getSocialLinkHref,
+  getSocialNetworkLabel,
 } from '@/lib/branch-helpers';
 import { formatMoney } from '@/lib/money';
 import { publicShortageMessage } from '@/lib/public-errors';
@@ -83,12 +85,41 @@ function BranchInfoCard({ branchStatus, activeBranch }: BranchInfoCardProps) {
             Dirección: {branch.address}
           </p>
         )}
-        {branch.phone && (
+        {branch.phones?.map((phone, index) => (
           <p
-            data-testid="branch-phone"
+            key={`${phone.label}-${index}`}
+            data-testid={index === 0 ? 'branch-phone' : undefined}
             className="mt-1 text-muted-foreground"
           >
-            Teléfono: {branch.phone}
+            {phone.label}: {phone.number}
+          </p>
+        ))}
+        {branch.socialLinks && branch.socialLinks.length > 0 && (
+          <p
+            data-testid="branch-social-links"
+            className="mt-1 text-muted-foreground"
+          >
+            {branch.socialLinks.map((link, index) => {
+              const href = getSocialLinkHref(link);
+              const label = getSocialNetworkLabel(link.network);
+              return (
+                <span key={`${link.network}-${index}`}>
+                  {index > 0 && ' · '}
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    `${label}: ${link.url}`
+                  )}
+                </span>
+              );
+            })}
           </p>
         )}
         {branch.location && (
@@ -118,7 +149,7 @@ function BranchInfoCard({ branchStatus, activeBranch }: BranchInfoCardProps) {
           className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200"
           role="status"
         >
-          Sucursal abierta. {currentOpening}.
+          Sucursal abierta: {currentOpening}.
         </div>
       )}
     </div>

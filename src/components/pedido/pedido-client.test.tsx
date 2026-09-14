@@ -65,7 +65,15 @@ function makeBranch(
   name: string,
   overrides: Partial<Branch> = {}
 ): Branch {
-  return { id, name, openingHours: [], createdAt: new Date(), ...overrides };
+  return {
+    id,
+    name,
+    openingHours: [],
+    phones: [],
+    socialLinks: [],
+    createdAt: new Date(),
+    ...overrides,
+  };
 }
 
 function makeProduct(overrides: Partial<PublicCatalogProduct> = {}): PublicCatalogProduct {
@@ -370,7 +378,7 @@ describe('PedidoClient', () => {
             isOpen: true,
             currentOpening: 'Hoy de 08:00 a 18:00',
             nextOpening: 'Mañana de 08:00 a 18:00',
-            message: 'Sucursal abierta. Horario de hoy: Hoy de 08:00 a 18:00.',
+            message: 'Sucursal abierta: Horario de hoy: Hoy de 08:00 a 18:00.',
             branch: makeBranch(1, 'Sucursal A'),
             ...overrides.branchStatus,
           });
@@ -522,7 +530,7 @@ describe('PedidoClient', () => {
         screen.getByText('Horario de hoy: Hoy de 08:00 a 18:00')
       ).toBeInTheDocument();
       expect(
-        screen.getByText('Sucursal abierta. Hoy de 08:00 a 18:00.')
+        screen.getByText('Sucursal abierta: Hoy de 08:00 a 18:00.')
       ).toBeInTheDocument();
     });
 
@@ -541,10 +549,13 @@ describe('PedidoClient', () => {
       ).toBeInTheDocument();
     });
 
-    test('muestra dirección, teléfono y enlace al mapa cuando la sucursal los tiene', async () => {
+    test('muestra dirección, teléfonos y enlace al mapa cuando la sucursal los tiene', async () => {
       const branch = makeBranch(1, 'Sucursal A', {
         address: 'Av. Pellegrini 1234, Rosario',
-        phone: '3415555555',
+        phones: [
+          { label: 'Pedidos', number: '3415555555' },
+          { label: 'WhatsApp', number: '3416666666' },
+        ],
         location: 'https://maps.example.com/sucursal-a',
       });
 
@@ -556,8 +567,9 @@ describe('PedidoClient', () => {
         screen.getByText('Dirección: Av. Pellegrini 1234, Rosario')
       ).toBeInTheDocument();
       expect(screen.getByTestId('branch-phone')).toHaveTextContent(
-        `Teléfono: ${branch.phone}`
+        'Pedidos: 3415555555'
       );
+      expect(screen.getByText('WhatsApp: 3416666666')).toBeInTheDocument();
       const mapLink = screen.getByText('Ver en mapa');
       expect(mapLink).toBeInTheDocument();
       expect(mapLink).toHaveAttribute(

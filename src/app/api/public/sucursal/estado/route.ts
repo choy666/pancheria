@@ -25,13 +25,17 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
   }
 
   const cashRegister = await cashRegisterService.getOpenCashRegister(query.branchId);
-  const open = cashRegister !== null && isBranchOpen(branch);
+  // Sin horarios configurados no se puede evaluar la franja vigente: basta
+  // con que haya una caja abierta para considerar la sucursal abierta.
+  const hasOpeningHours = (branch.openingHours ?? []).length > 0;
+  const open =
+    cashRegister !== null && (!hasOpeningHours || isBranchOpen(branch));
 
   const currentOpening = getTodayOpening(branch);
   const nextOpening = getNextOpening(branch);
 
   const message = open
-    ? `Sucursal abierta. ${currentOpening}.`
+    ? `Sucursal abierta: ${currentOpening}.`
     : `La sucursal está cerrada. Próxima apertura: ${nextOpening}.`;
 
   return NextResponse.json({
@@ -43,8 +47,10 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
       name: branch.name,
       openingHours: branch.openingHours,
       address: branch.address ?? null,
-      phone: branch.phone ?? null,
+      phones: branch.phones ?? [],
+      socialLinks: branch.socialLinks ?? [],
       location: branch.location ?? null,
+      createdAt: branch.createdAt,
     },
     message,
   });

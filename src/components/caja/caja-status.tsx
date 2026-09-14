@@ -27,11 +27,9 @@ import {
 import type { CashRegister, CloseCashRegisterInput } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
-import { AlertCircle } from 'lucide-react';
-import {
-  isCashRegisterFromPreviousDay,
-  isCashRegisterOverdue,
-} from '@/lib/cash-register-helpers';
+import { resolveDisplayedCashRegisterAlert } from '@/lib/cash-register-helpers';
+import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
+import { CashRegisterShiftBadge } from '@/components/caja/cash-register-shift-badge';
 
 interface CajaStatusProps {
   cashRegister: CashRegister | null;
@@ -185,8 +183,11 @@ export function CajaStatus({
       : null;
 
   const openedAtTime = format(openedAt, 'HH:mm', { locale: es });
-  const isPreviousDay = isCashRegisterFromPreviousDay(cashRegister.openedAt);
-  const isOverdue = isCashRegisterOverdue(cashRegister.openedAt);
+  const alerta = resolveDisplayedCashRegisterAlert(
+    cashRegister.alertaCaja,
+    cashRegister.openedAt,
+    now
+  );
 
   return (
     <Card className="border-primary/30">
@@ -197,32 +198,13 @@ export function CajaStatus({
             Abierta por {cashRegister.openedBy}
           </p>
         </div>
-        <Badge variant="default">Abierta</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="default">Abierta</Badge>
+          <CashRegisterShiftBadge estadoTurno={cashRegister.estadoTurno} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isPreviousDay && (
-          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-base text-amber-700">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-medium">Caja del día anterior</p>
-              <p className="text-sm">
-                Esta caja fue abierta el día anterior. Cerrala antes de abrir una nueva.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!isPreviousDay && isOverdue && (
-          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-base text-amber-700">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-medium">Caja abierta hace más de 12 horas</p>
-              <p className="text-sm">
-                La caja lleva mucho tiempo abierta. Recomendamos cerrarla y abrir una nueva.
-              </p>
-            </div>
-          </div>
-        )}
+        <CashRegisterAlertBanner alerta={alerta} />
 
         <p className="text-base">
           Caja abierta desde{' '}

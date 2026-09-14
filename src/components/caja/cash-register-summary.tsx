@@ -1,17 +1,15 @@
 'use client';
 
+import { useMemo } from 'react';
 import { addHours, intervalToDuration } from 'date-fns';
-import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAutoCloseHours } from '@/config/caja';
-import { getBranchTimezone } from '@/config/branch';
 import { formatMoney } from '@/lib/money';
 import { PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
-import {
-  isCashRegisterFromPreviousDay,
-  isCashRegisterOverdue,
-} from '@/lib/cash-register-helpers';
+import { resolveDisplayedCashRegisterAlert } from '@/lib/cash-register-helpers';
+import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
+import type { CashRegisterAlert } from '@/domain/types';
 
 interface CashRegisterSummaryData {
   id: number;
@@ -37,12 +35,26 @@ interface CashRegisterSummaryData {
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
   recipeSuppliesSummary?: Record<string, number> | null;
+  /**
+   * Aviso calculado en el servidor contra los horarios vigentes de la
+   * sucursal (presente en los payloads de `/api/caja/resumen` y
+   * `/api/panel/resumen`). El prop `alerta` tiene prioridad cuando se pasa
+   * explícito (detalle SSR de historial).
+   */
+  alertaCaja?: CashRegisterAlert | null;
 }
 
 interface CashRegisterSummaryProps {
   cashRegister: CashRegisterSummaryData;
   branchName?: string | null;
   isOpen?: boolean;
+  /**
+   * Aviso calculado en el servidor contra los horarios vigentes de la
+   * sucursal. Si no se provee se usa `cashRegister.alertaCaja`; si tampoco
+   * está presente, se aplica el fallback legacy (fecha calendario + umbral
+   * de horas) sobre `cashRegister.openedAt`.
+   */
+  alerta?: CashRegisterAlert | null;
   now?: Date;
 }
 
@@ -50,32 +62,42 @@ export function CashRegisterSummary({
   cashRegister,
   branchName,
   isOpen = cashRegister.status === 'open',
+  alerta,
   now = new Date(),
 }: CashRegisterSummaryProps) {
-  const openedAt = new Date(cashRegister.openedAt);
-  const closedAt = cashRegister.closedAt
-    ? new Date(cashRegister.closedAt)
-    : null;
+  const openedAt = useMemo(() => new Date(cashRegister.openedAt), [cashRegister.openedAt]);
+  const closedAt = useMemo(() => cashRegister.closedAt ? new Date(cashRegister.closedAt) : null, [cashRegister.closedAt]);
 
-  const duration = intervalToDuration({
-    start: openedAt,
-    end: closedAt ?? now,
-  });
+  // Calcular duración en el cliente para evitar warning de hidratación
+  const duration = useMemo(() => {
+    return intervalToDuration({
+      start: openedAt,
+      end: closedAt ?? now,
+    });
+  }, [openedAt, closedAt, now]);
 
   const autoCloseHours = getAutoCloseHours();
-  const autoCloseAt =
-    isOpen && autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null;
+  const autoCloseAt = useMemo(() =>
+    isOpen && autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null,
+    [isOpen, autoCloseHours, openedAt]
+  );
 
-  const remaining =
-    autoCloseAt && autoCloseAt > now
-      ? intervalToDuration({
-          start: now,
-          end: autoCloseAt,
-        })
-      : null;
+  // Calcular remaining en el cliente para evitar warning de hidratación
+  const remaining = useMemo(() => {
+    if (!autoCloseAt || autoCloseAt <= now) return null;
+    return intervalToDuration({
+      start: now,
+      end: autoCloseAt,
+    });
+  }, [autoCloseAt, now]);
 
-  const isPreviousDay = isOpen && isCashRegisterFromPreviousDay(cashRegister.openedAt, getBranchTimezone(), now);
-  const isOverdue = isOpen && isCashRegisterOverdue(cashRegister.openedAt, 12, now);
+  const resolvedAlerta = !isOpen
+    ? null
+    : resolveDisplayedCashRegisterAlert(
+        alerta !== undefined ? alerta : cashRegister.alertaCaja,
+        cashRegister.openedAt,
+        now
+      );
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
@@ -145,7 +167,6 @@ export function CashRegisterSummary({
           <p
             data-testid="cash-register-opened-by"
             className="text-sm text-muted-foreground"
-            suppressHydrationWarning
           >
             {branchName && (
               <>
@@ -189,18 +210,7 @@ export function CashRegisterSummary({
               </>
             )}
           </p>
-          {isPreviousDay && (
-            <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              Caja del día anterior. Cerrala antes de abrir una nueva.
-            </p>
-          )}
-          {!isPreviousDay && isOverdue && (
-            <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              Caja abierta hace más de 12 horas. Recomendamos cerrarla y abrir una nueva.
-            </p>
-          )}
+          <CashRegisterAlertBanner alerta={resolvedAlerta} compact />
           {cashRegister.forcedClosed && cashRegister.forcedCloseReason && (
             <p className="text-sm text-muted-foreground">
               Motivo del cierre forzado: {cashRegister.forcedCloseReason}
