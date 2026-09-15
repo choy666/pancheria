@@ -51,11 +51,19 @@ Verificar que existan en **Settings → Secrets and variables → Actions** del 
 - [ ] `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales del administrador del seed.
 - [ ] `CRON_SECRET` — token usado por `.github/workflows/expire-orders.yml` para llamar a `/api/cron/expire-orders`.
 
+Verificar también en **Settings → Secrets and variables → Actions → Variables** (variables de repositorio, no secretos):
+
+- [ ] `VERCEL_PRODUCTION_URL` — dominio de producción usado por `.github/workflows/expire-orders.yml` para construir la URL del cron. Si falta o queda desactualizada tras un cambio de dominio, el workflow falla (ver `informes/auditoria-deploy-vercel-2026-09-14.md`).
+
 En **Vercel → Environment Variables → Production** debe existir:
 
 - [ ] `CRON_SECRET` con el **mismo valor** que en GitHub Actions (el endpoint lo requiere para autorizar llamadas).
 - [ ] `CRON_SECRET` no debe tener espacios, saltos de línea ni comillas al inicio o final, porque Vercel valida el header `Authorization` en build time.
+- [ ] `NEXTAUTH_URL` (o `AUTH_URL`) apuntando al dominio real de producción.
+- [ ] `NEXTAUTH_SECRET` (o `AUTH_SECRET`), una URL de base de datos (`DATABASE_URL`/`POSTGRES_URL`/`POSTGRES_PRISMA_URL`) y `STORAGE_PROVIDER` distinto de `local`.
 
+> Si falta alguna de estas variables, el build de producción en Vercel **falla** en `next.config.ts` (`assertVercelProductionEnv`): es intencional para evitar deploys rotos. La validación solo corre cuando `VERCEL_ENV=production` y `CI=1`, por lo que no afecta builds locales ni el CI de GitHub.
+>
 > Nota: el cron `expire-orders` ya no vive en `vercel.json`; se dispara desde `.github/workflows/expire-orders.yml` cada 5 minutos.
 
 ## Revisión de diff

@@ -1,8 +1,10 @@
 # Plan de acción — Observaciones de la auditoría de sucursales y caja por turnos
 
 > Fecha: 2026-09-13
-> Estado: Pendiente de priorización por el equipo
-> Fuente: §8.3 de `auditoria-sucursales-y-caja-por-turnos.md`
+> Estado: **Resuelto** — las cinco observaciones se implementaron el 2026-09-14
+> (commit `a3d70d5` para §1, §2, §3 y §5; el §4 se resolvió con el commit
+> documental `73f1af5`). Archivado el 2026-09-15.
+> Fuente: §8.3 de `auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`
 
 Este documento define un plan estructurado para abordar las observaciones de la
 auditoría que no requirieron acción inmediata pero tienen valor de mejora

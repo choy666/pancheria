@@ -351,6 +351,8 @@ export async function findByImageKey(
 
   const result = await db.query.products.findFirst({
     where: and(...conditions),
+    // `imageKey` no es unique: orden determinista ante colisiones.
+    orderBy: (products, { asc }) => [asc(products.id)],
   });
 
   return result ?? null;

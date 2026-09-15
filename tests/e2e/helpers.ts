@@ -6,6 +6,7 @@ import { db } from '../../src/db';
 import { branches, cashRegisters, orders, users } from '../../src/db/schema';
 import { copyCatalogToBranch } from '../../src/db/catalog-copy';
 import { getOrderExpirationMs } from '../../src/config/orders';
+import type { BranchOpeningHours } from '../../src/domain/types';
 
 const adminUsername = process.env.ADMIN_USERNAME || '';
 const adminPassword = process.env.ADMIN_PASSWORD || '';
@@ -536,6 +537,34 @@ export async function expireOrderById(orderId: number): Promise<void> {
   const expirationMs = getOrderExpirationMs();
   const expiredCreatedAt = new Date(Date.now() - expirationMs - 1000);
   await setOrderCreatedAt(orderId, expiredCreatedAt);
+}
+
+/**
+ * Lee los horarios de apertura actuales de una sucursal.
+ * Útil para restaurarlos después de un test que los modifica.
+ */
+export async function getBranchOpeningHours(
+  branchId: number
+): Promise<BranchOpeningHours[]> {
+  const branch = await db.query.branches.findFirst({
+    where: eq(branches.id, branchId),
+  });
+  return branch?.openingHours ?? [];
+}
+
+/**
+ * Actualiza los horarios de apertura de una sucursal.
+ * Útil para forzar estados de turno (`en_turno`, `fuera_de_horario`,
+ * `recomendar_cierre`) sin depender de la hora real.
+ */
+export async function setBranchOpeningHours(
+  branchId: number,
+  openingHours: BranchOpeningHours[]
+): Promise<void> {
+  await db
+    .update(branches)
+    .set({ openingHours })
+    .where(eq(branches.id, branchId));
 }
 
 /**

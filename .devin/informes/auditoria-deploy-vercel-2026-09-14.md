@@ -45,28 +45,24 @@ Se realizó una auditoría completa del deploy de Vercel del proyecto Panchería
    - **Riesgo**: Si se cambia el dominio de producción y no se actualiza esta variable, el cron fallará
    - **Recomendación**: Documentar este requisito claramente en el README y checklist pre-push
 
-2. **Configuración de Analytics**
+2. **Configuración de Analytics** — ✅ Resuelto (2026-09-15)
    - Vercel Analytics está condicionado a `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS=true`
    - Requiere activación manual en el dashboard de Vercel
-   - No hay validación automática de que el script se carga correctamente
-   - **Recomendación**: Agregar monitoreo de carga del script de analytics
+   - ~~No hay validación automática de que el script se carga correctamente~~ → `ConditionalAnalytics` ahora registra `logger.warn` en `onerror` del script
 
-3. **Storage Provider en Producción**
-   - No hay validación automática de que `STORAGE_PROVIDER` no sea `local` en producción
-   - Solo hay un warning en `getStorageProvider()` cuando es `local` en producción
-   - **Riesgo**: Si alguien configura erróneamente `STORAGE_PROVIDER=local` en producción, los archivos se perderán
-   - **Recomendación**: Considerar hacer esta validación más estricta en build time
+3. **Storage Provider en Producción** — ✅ Resuelto (2026-09-15)
+   - ~~No hay validación automática de que `STORAGE_PROVIDER` no sea `local` en producción~~ → `next.config.ts` falla el build de producción en Vercel (`VERCEL_ENV=production` + `CI`) si `STORAGE_PROVIDER=local`
+   - El warning en `getStorageProvider()` se mantiene como defensa en runtime
+   - **Riesgo**: mitigado — un deploy con `local` ya no compila
 
-4. **Sincronización de URLs**
+4. **Sincronización de URLs** — ✅ Resuelto (2026-09-15)
    - Las URLs públicas dependen de `NEXT_PUBLIC_APP_URL` → `NEXTAUTH_URL` → `AUTH_URL`
-   - Si estas variables no están configuradas correctamente en producción, las URLs de videos/adjuntos apuntarán a `localhost:3000`
-   - **Recomendación**: Agregar validación en build time para URLs críticas en producción
+   - ~~Si estas variables no están configuradas correctamente en producción, las URLs de videos/adjuntos apuntarán a `localhost:3000`~~ → el build de producción en Vercel falla si falta `NEXTAUTH_URL`/`AUTH_URL`
 
-5. **Consistencia de Variables entre Entornos**
+5. **Consistencia de Variables entre Entornos** — ✅ Resuelto (2026-09-15)
    - Algunas variables tienen diferentes valores por defecto según el entorno
    - `RATE_LIMIT_STORE_PROVIDER` cambia automáticamente entre `memory` (dev) y `db` (prod)
-   - Esto puede causar comportamientos inconsistentes si no se prueba en ambos entornos
-   - **Recomendación**: Documentar explícitamente estas diferencias en AGENTS.md
+   - ~~**Recomendación**: Documentar explícitamente estas diferencias en AGENTS.md~~ → sección "Variables con comportamiento distinto por entorno" agregada en `AGENTS.md`
 
 ### 🔴 Problemas Identificados
 
@@ -77,10 +73,10 @@ Se realizó una auditoría completa del deploy de Vercel del proyecto Panchería
    - **Solución**: Ejecutar `npx drizzle-kit migrate` para aplicar migraciones pendientes
    - **Estado**: ✅ Resuelto
 
-2. **Falta de Validación Build-Time para Secretos Críticos**
+2. **Falta de Validación Build-Time para Secretos Críticos** — ✅ Resuelto (2026-09-15)
    - **Problema**: No hay validación de que `CRON_SECRET` esté configurado en build time
    - **Impacto**: Los endpoints de cron fallarán silenciosamente en producción si falta el secreto
-   - **Recomendación**: Agregar validación en `next.config.ts` o script de build
+   - **Solución**: `next.config.ts` valida en build time (`VERCEL_ENV=production` + `CI`, es decir, solo en builds reales de Vercel) `CRON_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `NEXTAUTH_SECRET`/`AUTH_SECRET`, URL de base de datos y `STORAGE_PROVIDER≠local`
 
 ## Recomendaciones
 

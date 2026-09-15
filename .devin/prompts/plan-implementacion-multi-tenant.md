@@ -109,7 +109,6 @@ Agregar `tenantId` (nullable inicialmente para la migración de datos, not null 
 - `order_stock_reservations`
 - `order_messages`
 - `stock_movements`
-- `daily_closures`
 - `videos`
 - `public_order_rate_limits` (cambiar la clave primaria a `(tenantId, ip)`)
 - `login_attempts` (cambiar la clave primaria a `(tenantId, username)`)
@@ -130,7 +129,6 @@ Agregar `tenantId` (nullable inicialmente para la migración de datos, not null 
 - Reemplazar `uniqueIndex` existentes que usen solo `branchId` por `tenantId + branchId` cuando aplique. Por ejemplo:
   - `orders_order_number_unique_idx` → `(tenantId, branchId, orderNumber)`.
   - `sales_idempotency_branch_unique_idx` → `(tenantId, branchId, idempotencyKey)`.
-  - `daily_closures_branch_date_unique_idx` → `(tenantId, branchId, date)`.
   - `cash_registers_open_status_idx` → `(tenantId, branchId, status)` where open.
 - `users.username`: el unique debe ser por `(tenantId, username)`.
 

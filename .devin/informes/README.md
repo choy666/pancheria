@@ -7,9 +7,8 @@ Este directorio contiene las lecciones aprendidas, el informe de estado vigente,
 - [Reporte de estado](reporte-estado.md) — estado actual del proyecto, verificaciones y documentación.
 - [Checklist pre-push](checklist-pre-push.md) — verificaciones y consejos para evitar errores de CI antes de subir a Git.
 - [Guía de funcionamiento](guia-funcionamiento-pancheria.md) — conceptos de negocio, roles, flujos y decisiones arquitectónicas.
-- [Plan de observaciones — auditoría de sucursales y caja por turnos (pendiente)](plan-observaciones-auditoria-sucursales-caja.md) — plan de acción para las observaciones §8.3 que no requirieron corrección inmediata (UX de branch-list, doble punto en message, consumo de estadoTurno, etc.).
-- [Plan de limpieza — hard delete y cachés en memoria (resuelto)](archivados/plan-limpieza-hard-delete-cache-2026-09-01.md) — plan detallado para implementar hard delete de productos/videos con liberación de archivos e invalidación de cachés del servidor.
-- [Archivo de informes históricos y auditorías resueltas](archivados/) — reportes de estado anteriores, planes resueltos y auditorías implementadas (incluye el plan de acción de 2026-08-27, el snapshot `reporte-estado-historico-2026-08-30.md`, la auditoría del carrito de ventas 2026-09-06 y la auditoría de ubicación en chat 2026-09-09).
+- [Auditoría del deploy de Vercel (2026-09-14)](auditoria-deploy-vercel-2026-09-14.md) — estado del deploy y variables críticas. Sus recomendaciones de validación build-time, `STORAGE_PROVIDER`, Analytics y documentación por entorno fueron implementadas el 2026-09-15; queda abierta la verificación periódica de `VERCEL_PRODUCTION_URL`.
+- [Archivo de informes históricos y auditorías resueltas](archivados/) — reportes de estado anteriores, planes resueltos y auditorías implementadas. Incluye la auditoría de sucursales y caja por turnos (`auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`, con su plan de observaciones ya implementado), el plan de limpieza de hard delete y cachés (`plan-limpieza-hard-delete-cache-2026-09-01.md`), el plan de acción de 2026-08-27, la auditoría del carrito de ventas 2026-09-06 y la de ubicación en chat 2026-09-09.
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.
 
 ## Cómo usar este directorio

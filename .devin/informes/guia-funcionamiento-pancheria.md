@@ -19,8 +19,9 @@ Antes de pasar a producción conviene completar el checklist de configuración m
 ### 2.1 Multi-sucursal
 
 - Todo dato de negocio (productos, usuarios, ventas, pedidos, cajas, movimientos, cierres, videos) está aislado por `branchId`.
-- La tabla `branches` tiene las sucursales, incluyendo `opening_hours` (horarios de apertura en formato JSON).
-- Los horarios se crean/editan desde `/sucursales` y se usan para mostrar el próximo horario de atención cuando la caja está cerrada.
+- La tabla `branches` tiene las sucursales, incluyendo `opening_hours` (horarios de apertura en formato JSON), `address`, `location`, `phones` (JSONB con etiqueta y número) y `social_links` (JSONB con red y URL normalizada).
+- Los horarios se crean/editan desde `/sucursales`, se interpretan en `NEXT_PUBLIC_BRANCH_TIMEZONE` (por defecto `America/Argentina/Buenos_Aires`) y soportan turnos overnight (`close < open`, p. ej. `20:00–02:00`). Se usan para mostrar el próximo horario de atención cuando la caja está cerrada y para los avisos de caja por turnos (ver §5).
+- Los teléfonos y redes se exponen públicamente en `/pedido` (tarjeta de sucursal), en el diálogo de pedido creado y en el encabezado del chat. El seed los configura con `DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_SOCIAL_LINKS` y `NEW_BRANCH_PHONE`/`NEW_BRANCH_SOCIAL_LINKS`.
 - Los usuarios pertenecen a una única sucursal (`users.branchId`).
 - El `admin` puede cambiar de sucursal activa desde el panel; la selección se guarda en la cookie `activeBranchId`.
 - El `operator` siempre opera en su sucursal asignada.
@@ -215,9 +216,15 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - Se calcula el resumen final y se graba en el registro (`status = 'closed'`, `closedAt`, `closedBy`).
 
 4. **Cierre automático**
-   - Si la caja lleva abierta más de `CAJA_AUTO_CLOSE_HOURS` (12 horas por defecto, configurable en <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" />), al consultarla se cierra automáticamente (`autoClosed = true`, `closedBy = 'Sistema'`).
+   - Deshabilitado por defecto (`CAJA_AUTO_CLOSE_HOURS = 0`). Si se configura un valor positivo, al consultar una caja que supere ese umbral se cierra automáticamente (`autoClosed = true`, `closedBy = 'Sistema'` o `CAJA_AUTO_CLOSED_BY`). Ver <ref_file file="C:/developer/paginas/pancheria/src/config/caja.ts" />.
 
-5. **Papelera**
+5. **Avisos por turnos**
+   - Si la sucursal tiene horarios configurados, el servidor calcula `estadoTurno` y `alertaCaja` (`getCashRegisterShiftStatus` / `resolveCashRegisterAlert` en `src/lib/cash-register-helpers.ts`) y los envía en `/api/caja/resumen` y `/api/panel/resumen`.
+   - Avisos: `fuera_de_horario` (info, caja abierta fuera de todo turno) y `cierre_recomendado` (warning, al iniciar el primer turno posterior a la apertura). El flag `aperturaEnTurno` distingue "caja de un turno anterior" de "caja abierta fuera del turno vigente".
+   - Si la sucursal **no** tiene horarios, se usa el fallback legacy: `dia_anterior` (apertura en fecha civil previa) y `excedida` (más de `CAJA_OVERDUE_HOURS`, por defecto 12 h).
+   - La UI muestra los avisos con `CashRegisterAlertBanner` y el detalle del turno con `CashRegisterShiftBadge` en el panel, `/ventas` y `/cierre`.
+
+6. **Papelera**
    - Las cajas cerradas pueden eliminarse (soft delete).
    - Desde la papelera se pueden restaurar o eliminar permanentemente.
    - No se puede eliminar una caja abierta.
@@ -490,8 +497,13 @@ Disponibilidad = infinita.
 | ----------------- | ------------ | ----------------- |
 | `DEFAULT_BRANCH_NAME` | Seed y resolución de sucursal por defecto | `Sucursal por defecto` |
 | `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` | Refresco del estado de caja en panel | `5000` ms |
-| `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` | Cierre automático de caja | `12` h |
+| `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` | Cierre automático de caja | `0` (deshabilitado; un valor positivo lo habilita) |
 | `CAJA_AUTO_CLOSED_BY` | Label de cierre automático de caja | `'Sistema'` |
+| `CAJA_OVERDUE_HOURS` / `NEXT_PUBLIC_CAJA_OVERDUE_HOURS` | Umbral del aviso "caja abierta hace mucho tiempo" sin horarios | `12` h |
+| `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` | Intervalo del reloj de caja | `60000` ms |
+| `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` | Días de historial de caja | `30` |
+| `NEXT_PUBLIC_BRANCH_TIMEZONE` | Zona horaria para horarios de sucursal | `America/Argentina/Buenos_Aires` |
+| `DEFAULT_BRANCH_SOCIAL_LINKS` / `NEW_BRANCH_SOCIAL_LINKS` | Redes sociales de sucursal en el seed (JSON) | — |
 | `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo público | `30000` ms |
 | `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` | Refresco del listado de pedidos del operador | `0` (deshabilitado; definir > 0 para habilitar) |
 | `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat del pedido | `5000` ms |
@@ -549,7 +561,7 @@ Disponibilidad = infinita.
 
 4. **Cierre de caja**
    - Cerrar la caja al finalizar el turno.
-   - Si se olvida, el sistema la cierra automáticamente después de 12 horas.
+   - Si se olvida y `CAJA_AUTO_CLOSE_HOURS` está configurado con un valor positivo, el sistema la cierra automáticamente al superar ese umbral (deshabilitado por defecto). Con horarios de sucursal configurados, el panel muestra avisos por turno (`fuera_de_horario`, `cierre_recomendado`) en lugar del cierre automático.
 
 5. **Cierre diario**
    - Generar el cierre diario al final del día para cuadrar totales.
@@ -575,7 +587,7 @@ Disponibilidad = infinita.
 
 - [ ] Configurar `NEXTAUTH_URL` y `NEXTAUTH_SECRET` en Vercel.
 - [ ] Configurar `DATABASE_URL` y `DATABASE_URL_UNPOOLED` con base de producción.
-- [ ] Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
+- [ ] Ejecutar `npx drizzle-kit migrate` y `npx tsx src/db/seeds.ts` en producción (ver `entornos.md`; si se usó `push`, correr `npx tsx scripts/drizzle-baseline.ts`).
 - [ ] Ejecutar `npm run build`, `npm run test:e2e` en base de prueba.
 - [ ] Rotar secretos si `.env.local` fue expuesto.
 - [ ] Verificar que `STORAGE_PROVIDER` y credenciales de videos estén configuradas si se usa `/videos`.

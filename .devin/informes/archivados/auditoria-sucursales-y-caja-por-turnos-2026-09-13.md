@@ -1,10 +1,13 @@
 # Auditoría y plan: sección Sucursales y avisos de caja por turnos
 
-> Estado: **Fase 1 implementada, auditada y corregida** (D1–D6 aplicadas;
-> hallazgos de la re-auditoría en §8).
+> Estado: **Resuelto e implementado por completo** (D1–D6 aplicadas;
+> hallazgos de la re-auditoría en §8). Las observaciones de §8.3 se
+> implementaron el 2026-09-14 (commit `a3d70d5`): doble punto en `message`,
+> columnas de resumen en `branch-list`, badge `CashRegisterShiftBadge` que
+> consume `estadoTurno` en la UI y corrección del warning de hidratación.
 > Migración `drizzle/0030_branch_contacts.sql` aplicada en desarrollo y E2E.
 > Actualizado el 2026-09-13 con las decisiones del usuario, el estado final y
-> la auditoría post-implementación.
+> la auditoría post-implementación; archivado el 2026-09-15.
 > Alcance: `src/app/(panel)/sucursales`, `src/components/sucursales`,
 > `src/lib/branch-helpers.ts`, `src/lib/cash-register-helpers.ts`,
 > `src/config/{branch,caja}.ts`, servicios y los 4 componentes con avisos.

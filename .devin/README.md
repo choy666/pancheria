@@ -22,12 +22,15 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
+- [Auditoría del deploy de Vercel (2026-09-14)](informes/auditoria-deploy-vercel-2026-09-14.md) — estado del deploy, variables críticas en Vercel/GitHub Actions y recomendaciones pendientes.
 - [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
 - [Auditoría de ubicación en el chat de pedidos (2026-09-09, resuelta)](informes/archivados/auditoria-chat-ubicacion-2026-09-09.md) — auditoría de compartir ubicación por chat; la funcionalidad ya fue implementada.
+- [Auditoría de sucursales y caja por turnos (2026-09-13, resuelta)](informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md) — contactos de sucursal (`phones`, `social_links`) y avisos de caja por turnos; incluye su plan de observaciones ya implementado (`plan-observaciones-auditoria-sucursales-caja-2026-09-13.md`).
 - [Índice de informes](informes/README.md)
 
 > **Plan de acción cerrado:** el plan de acción de 2026-08-27 fue resuelto y se archivó en `informes/archivados/plan-de-accion-2026-08-27.md`.
 > **Plan de limpieza — hard delete y cachés cerrado:** el plan de limpieza de hard delete, papelera y cachés en memoria fue resuelto y se archivó en `informes/archivados/plan-limpieza-hard-delete-cache-2026-09-01.md`.
+> **Auditoría de sucursales cerrada:** la auditoría de sucursales y caja por turnos (2026-09-13) y su plan de observaciones fueron implementados (commit `a3d70d5`) y archivados en `informes/archivados/`.
 
 ## Configuración del entorno
 
@@ -45,6 +48,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
+│   ├── auditoria-deploy-vercel-2026-09-14.md  # Auditoría del deploy de Vercel
 │   ├── README.md                 # Índice de informes
 │   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas
 └── prompts/

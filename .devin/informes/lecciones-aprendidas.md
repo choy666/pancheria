@@ -142,14 +142,6 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **El historial de ventas (`sales-history.tsx`) y el detalle de pedidos (`pedido-items-list.tsx`) muestran el detalle de preparación.** Se renderizan los insumos incluidos (`Incluye: ...`) y los opcionales quitados (`Sin: ...`).
 - **`promo-form.tsx` permite configurar complementos opcionales.** La interfaz de administración carga todos los productos activos (no solo críticos), valida que haya al menos un insumo crítico con descuento automático y permite marcar manuales/servicios como opcionales y preseleccionados.
 
-## 15. Formato de moneda y pagos en pesos argentinos
-
-- **Los montos en la UI se muestran en pesos argentinos enteros, con separador de miles y sin centavos.** `src/lib/money.ts` expone `formatMoney(amount)` (`$ 1.500`) y `formatNumber(amount)` (`1.500`) usando `Intl.NumberFormat('es-AR')`, reemplazando el espacio duro (`U+00A0`) por espacio simple para consistencia en tests y DOM.
-- **`PaymentPartsInput` trabaja con montos enteros.** Los inputs usan `type="number" inputMode="numeric" pattern="[0-9]*" step={1} min={0}`, y los valores ingresados se redondean con `Math.round`. El badge de resto usa `formatMoney`.
-- **El botón "Completar resto" rellena el método activo con el monto faltante.** Si el pago ya cubre o supera el total, el botón se deshabilita.
-- **La validación de pagos usa redondeo para mantener consistencia con la UI.** `sales-terminal.tsx` y `payment-helpers.ts` comparan `Math.round(paid) === Math.round(total)`. El almacenamiento interno sigue usando `numeric(10, 2)` para compatibilidad.
-- **El monto inicial y el cierre de caja usan pesos enteros.** Los inputs de `caja-status.tsx` y `caja-panel.tsx` usan `type="number" inputMode="numeric" pattern="[0-9]*" step={1} min={0}` y `validateNonNegativeMoney` redondea con `Math.round`. El resumen de caja, el historial de cajas y el dashboard muestran `$ 1.500` sin centavos.
-
 ## 14. Módulo de ventas (`/ventas`)
 
 - **Los productos agotados se ocultan por defecto en el catálogo del terminal.** Los servicios (`type === 'service'`) siempre se muestran porque no tienen límite de stock. Se agregó un toggle "Mostrar agotados" para casos excepcionales.
@@ -158,3 +150,24 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 - **El método de pago activo se distingue visualmente con `aria-pressed`, iconos y badge "Mixto".** El historial de ventas muestra los pagos como chips/badges separados en lugar de texto concatenado.
 - **`updateQuantity` ahora usa la misma lógica de disponibilidad adicional que `addToCart`** (`getProductAdditional`), evitando el límite inconsistente cuando el cálculo de disponibilidad aún no regresó.
 - **`SalesTerminal` conserva los pagos editados en `PaymentPartsInput` mientras el operador ajusta los montos.** La validación de que la suma coincida con el total queda en `confirmSale`, evitando que el componente resetee los inputs durante la edición de pagos mixtos.
+
+## 15. Formato de moneda y pagos en pesos argentinos
+
+- **Los montos en la UI se muestran en pesos argentinos enteros, con separador de miles y sin centavos.** `src/lib/money.ts` expone `formatMoney(amount)` (`$ 1.500`) y `formatNumber(amount)` (`1.500`) usando `Intl.NumberFormat('es-AR')`, reemplazando el espacio duro (`U+00A0`) por espacio simple para consistencia en tests y DOM.
+- **`PaymentPartsInput` trabaja con montos enteros.** Los inputs usan `type="number" inputMode="numeric" pattern="[0-9]*" step={1} min={0}`, y los valores ingresados se redondean con `Math.round`. El badge de resto usa `formatMoney`.
+- **El botón "Completar resto" rellena el método activo con el monto faltante.** Si el pago ya cubre o supera el total, el botón se deshabilita.
+- **La validación de pagos usa redondeo para mantener consistencia con la UI.** `sales-terminal.tsx` y `payment-helpers.ts` comparan `Math.round(paid) === Math.round(total)`. El almacenamiento interno sigue usando `numeric(10, 2)` para compatibilidad.
+- **El monto inicial y el cierre de caja usan pesos enteros.** Los inputs de `caja-status.tsx` y `caja-panel.tsx` usan `type="number" inputMode="numeric" pattern="[0-9]*" step={1} min={0}` y `validateNonNegativeMoney` redondea con `Math.round`. El resumen de caja, el historial de cajas y el dashboard muestran `$ 1.500` sin centavos.
+
+## 16. Sucursales: contactos y avisos de caja por turnos
+
+- **Las sucursales exponen teléfonos y redes sociales como JSONB** (`branches.phones`, `branches.social_links`; migración `0030_branch_contacts`). La columna `phone` fue migrada a `phones[0]` (label "Principal") y eliminada. Las redes se normalizan por proveedor en `normalizeSocialLinks` (`src/lib/branch-helpers.ts`): aceptan URL completa o handle, y `whatsapp` se reduce a `wa.me/<dígitos>`. El seed lee `DEFAULT_BRANCH_SOCIAL_LINKS`/`NEW_BRANCH_SOCIAL_LINKS` (JSON) y `DEFAULT_BRANCH_PHONE`/`NEW_BRANCH_PHONE` se guardan como contacto "Principal".
+- **Los turnos overnight (`close < open`) están soportados.** `validateOpeningHours` verifica solapamientos sobre intervalos absolutos de la semana (incluido el wraparound Dom→Lun) y `buildShiftIntervals` expande franjas a `Date` absolutos incluyendo el día previo al rango, para capturar turnos que siguen vigentes. Todo el cálculo usa `getBranchTimezone()` (`NEXT_PUBLIC_BRANCH_TIMEZONE`).
+- **Los avisos de caja se calculan en el servidor, no en el cliente.** `getCashRegisterShiftStatus` y `resolveCashRegisterAlert` (`src/lib/cash-register-helpers.ts`) producen `estadoTurno` y `alertaCaja`, que viajan en `/api/caja/resumen` y `/api/panel/resumen`. La UI consume `CashRegisterAlertBanner` (avisos) y `CashRegisterShiftBadge` (turno en curso / próximo turno); el fallback legacy (`dia_anterior`, `excedida` con `CAJA_OVERDUE_HOURS`, default 12 h) solo aplica cuando la sucursal no tiene horarios.
+- **La semántica del aviso de cierre es literal (decisión D2).** El aviso `cierre_recomendado` dispara al inicio del primer turno posterior a la apertura, incluso si la caja se abrió en un hueco; el flag `aperturaEnTurno` ajusta el texto ("de un turno anterior" vs "abierta fuera del turno vigente"). Si resulta ruidosa en producción, el cambio a semántica por ancla es localizado en `getCashRegisterShiftStatus` + tests (ver auditoría archivada `informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`, §4).
+- **Los textos dependientes de `now` (duraciones, timestamps) se computan en el cliente.** En `cash-register-summary.tsx` el cálculo de duración y tiempo restante se movió a `useMemo` del lado del cliente para eliminar el warning de hidratación; mantener este patrón al renderizar tiempos relativos en SSR.
+
+## 17. Validación de producción y E2E
+
+- **Las validaciones build-time de Vercel deben discriminar el build real.** `next.config.ts` solo valida cuando `VERCEL_ENV=production` **y** `CI` está definido: el `.env.local` del proyecto replica `VERCEL_ENV=production` (descargado con `vercel env pull`), así que sin `CI` el check rompería `npm run build` local. `CI=1` es variable de sistema que Vercel inyecta en build.
+- **`CAJA_AUTO_CLOSE_HOURS=1` está habilitado en `.env.e2e`.** Tests E2E que retrocedan `openedAt` más de 1 hora disparan el autocierre (la caja aparece cerrada). Para simular `recomendar_cierre` conviene crear un turno que haya comenzado hace pocos minutos en la TZ de la sucursal (`getBranchTimezone()`) y retroceder `openedAt` solo lo necesario — ver `tests/e2e/sucursal-contactos-y-turnos.spec.ts`.

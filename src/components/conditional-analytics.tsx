@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { isVercelAnalyticsEnabled } from '@/config/analytics';
+import { logger } from '@/lib/logger';
 
 function injectAnalyticsScript() {
   if (typeof window === 'undefined') {
@@ -17,6 +18,17 @@ function injectAnalyticsScript() {
   script.src = src;
   script.defer = true;
   script.dataset.sdkn = '@vercel/analytics/next';
+  // El endpoint `/_vercel/*` solo existe en deploys de Vercel: en
+  // desarrollo/test el script siempre falla, así que solo se loguea en
+  // producción para no ensuciar la consola.
+  if (process.env.NODE_ENV === 'production') {
+    script.onerror = () => {
+      logger.warn(
+        'No se pudo cargar el script de Vercel Analytics. Verificá que Analytics esté habilitado en el dashboard de Vercel.',
+        { source: 'ConditionalAnalytics', src }
+      );
+    };
+  }
   document.head.appendChild(script);
 }
 

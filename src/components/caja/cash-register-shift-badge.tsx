@@ -44,7 +44,12 @@ export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgePr
 
   if (status === 'sin_horarios') {
     return (
-      <Badge variant="outline" className="text-muted-foreground">
+      <Badge
+        variant="outline"
+        className="text-muted-foreground"
+        data-testid="cash-register-shift-badge"
+        data-shift-status={status}
+      >
         Sin horarios configurados
       </Badge>
     );
@@ -52,7 +57,12 @@ export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgePr
 
   if (currentShift) {
     return (
-      <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30">
+      <Badge
+        variant="default"
+        className="bg-green-500/20 text-green-400 border-green-500/30"
+        data-testid="cash-register-shift-badge"
+        data-shift-status={status}
+      >
         En turno: {formatShiftSlot(currentShift)}
       </Badge>
     );
@@ -61,7 +71,12 @@ export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgePr
   if (nextShiftStart) {
     const nextShiftText = formatNextShiftStart(nextShiftStart);
     return (
-      <Badge variant="outline" className="text-amber-400 border-amber-500/30">
+      <Badge
+        variant="outline"
+        className="text-amber-400 border-amber-500/30"
+        data-testid="cash-register-shift-badge"
+        data-shift-status={status}
+      >
         Próximo turno: {nextShiftText}
       </Badge>
     );

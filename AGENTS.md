@@ -127,6 +127,21 @@ Copiar `.env.example` a `.env.local` y completar:
 
 > **Importante:** para que el comportamiento sea idéntico en desarrollo y producción, `DATABASE_URL` debe apuntar a la misma base de datos (o a una réplica/branch de Neon) en ambos entornos. No dejar `DATABASE_URL` apuntando a `localhost` si no hay un PostgreSQL local corriendo; en ese caso usá el mismo URL de Neon que en Vercel.
 
+### Variables con comportamiento distinto por entorno
+
+Variables cuyo valor, default o comportamiento depende del entorno (detalle completo en `.devin/informes/entornos.md`):
+
+- `NODE_ENV` — `test` silencia `logger` y usa cookie de sesión no-secure; `production` emite logs en JSON y endurece validaciones de runtime.
+- `VERCEL_ENV` (inyectada por Vercel: `production`/`preview`/`development`) — cuando es `production`, `next.config.ts` **falla el build** si falta `CRON_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `NEXTAUTH_SECRET`/`AUTH_SECRET`, una URL de base de datos, o si `STORAGE_PROVIDER=local`. En preview/development no aplica, así los builds locales y de CI no se rompen.
+- `DATABASE_URL` / `POSTGRES_URL` / `POSTGRES_PRISMA_URL` — en Vercel vienen de la integración Neon (`POSTGRES_URL`, `POSTGRES_PRISMA_URL`); en local se usa `DATABASE_URL` con URL directa.
+- `NEXTAUTH_URL` / `AUTH_URL` — producción debe apuntar al dominio real; en local y en CI se usa `http://localhost:3000`.
+- `STORAGE_PROVIDER` — `local` solo es válido en desarrollo; en producción usar `vercel-blob`, `s3` o `r2` (rechazado en el build de Vercel producción).
+- `NEXT_PUBLIC_APP_URL` — se setea por deploy en Vercel/CI; en local cae al fallback de `NEXTAUTH_URL`.
+- `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` — solo tiene sentido en producción de Vercel; `ConditionalAnalytics` inyecta el script únicamente si está habilitado y el entorno es producción.
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD` — solo se usan en el seed y en E2E; no aplican a producción.
+- `CRON_SECRET` y `VERCEL_PRODUCTION_URL` — se configuran en **GitHub** (secret y variable de repositorio) para el workflow `expire-orders.yml`; no son variables de entorno de Vercel, aunque `CRON_SECRET` también debe existir en Vercel producción porque los endpoints `/api/cron/*` lo validan en runtime.
+- `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` / `RATE_LIMIT_STORE_PROVIDER` — en producción con `DATABASE_URL`/`POSTGRES_URL` definidas el default es `db`; en desarrollo/test el default es `memory`.
+
 ## Configuración del blueprint de Devin
 - El blueprint para el snapshot de Devin vive en `.devin/environment.yaml`.
 - Para subirlo a Devin Cloud se requiere autenticación con `devin.exe auth login` y un repositorio en GitHub.

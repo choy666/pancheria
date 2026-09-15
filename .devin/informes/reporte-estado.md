@@ -1,21 +1,24 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-09-11
+**Fecha:** 2026-09-15
 **Proyecto:** `pancheria`
-**Baseline:** `7cdf2864cd327c46d34ea0f635a9bc6c72d7c889` (`main`)
-**Auditoría:** Pre-release integral sobre el working tree (2026-09-11)
-**Histórico:** Fase anterior en `.devin/informes/archivados/reporte-estado-2026-09-06.md`
+**Baseline:** `cfb1b41358bb06b51937660467e6674590837622` (`main`)
+**Auditoría:** Documental sobre `.devin` y documentación vigente (2026-09-15)
+**Histórico:** Fase anterior en `.devin/informes/archivados/reporte-estado-2026-09-11.md`
 
 ---
 
 ## 1. Resumen ejecutivo
 
-El proyecto se encuentra en estado operativo y todas las verificaciones base pasan sobre el `working tree` actual. Se completaron e integraron dos funcionalidades principales desde el último informe:
+El proyecto se mantiene operativo y todas las verificaciones base pasan sobre el `working tree` actual (limpio, `main` al día). Desde el informe anterior (2026-09-11) se integraron:
 
-1. **Rediseño del carrito de ventas y cobro** (`/ventas`) — implementado el 2026-09-06. Incluye inputs de monto con formato es-AR, campo de "Efectivo recibido" con vuelto, subtotales por línea, quitar ítem, vaciar carrito, shortage por línea y terminología "venta" en lugar de "pedido".
-2. **Compartir ubicación por el chat de pedidos** — implementado el 2026-09-09/11. El cliente puede enviar su ubicación (`delivery`) y el operador puede enviar la ubicación de la sucursal (`pickup`) como mensajes de texto con URLs de mapas. Se agregaron `src/config/maps.ts`, `src/lib/maps.ts`, `POST /api/pedidos/[id]/chat/ubicacion` y las variables `NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` y `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS`.
+1. **Contactos de sucursal** (commit `9741f7f`): las sucursales ahora tienen `phones` (etiqueta + número) y `social_links` (red + URL normalizada) en JSONB, con migración `0030_branch_contacts` que migró `phone` → `phones[0]` y eliminó la columna. Se exponen en `/pedido`, en el diálogo de pedido creado y en el encabezado del chat. El seed los configura con `DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_SOCIAL_LINKS` y `NEW_BRANCH_PHONE`/`NEW_BRANCH_SOCIAL_LINKS`.
+2. **Avisos de caja por turnos** (mismo commit): `getCashRegisterShiftStatus`/`resolveCashRegisterAlert` calculan `estadoTurno` y `alertaCaja` en el servidor contra los horarios vigentes de la sucursal, con soporte de turnos overnight (`close < open`) y timezone `NEXT_PUBLIC_BRANCH_TIMEZONE`. Fallback legacy (`dia_anterior`, `excedida` con `CAJA_OVERDUE_HOURS`, default 12 h) solo cuando la sucursal no tiene horarios.
+3. **Plan de observaciones implementado** (commit `a3d70d5`): doble punto en `message` corregido, `branch-list` con columnas de resumen (dirección, teléfono, horarios), `CashRegisterShiftBadge` consumiendo `estadoTurno` en UI y warning de hidratación corregido en `cash-register-summary.tsx`.
+4. **Corrección de flakiness en tests de caja** por timezone mismatch (commits `cba7e1c`, `5206be5`).
+5. **Auditoría del deploy de Vercel** documentada en `.devin/informes/auditoria-deploy-vercel-2026-09-14.md` (recomendaciones pendientes en §6).
 
-También se realizó una **auditoría documental** que corrigió índices, eliminó una referencia rota, archivó informes y prompts resueltos, y actualizó este `reporte-estado.md`. El histórico anterior queda archivado en `.devin/informes/archivados/reporte-estado-2026-09-06.md`.
+Esta sesión ejecutó una **auditoría documental de `.devin` y la documentación vigente**: se archivaron dos informes ya resueltos, se sincronizaron los índices, se corrigieron defaults desactualizados y se actualizó este reporte.
 
 ## 2. Stack y arquitectura
 
@@ -24,19 +27,19 @@ También se realizó una **auditoría documental** que corrigió índices, elimi
 - Drizzle ORM `0.45.2`, PostgreSQL (Neon / `pg`)
 - NextAuth v5 (`5.0.0-beta.32`)
 - Jest `30.x`, Playwright `1.62.x`
-- `@next/bundle-analyzer` y `eslint-config-next` alineados a `16.3.3`
 - Vercel (despliegue recomendado)
 
 La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/application/` (servicios/casos de uso), `src/repositories/` (acceso a datos), `src/lib/` (utilidades transversales), `src/config/` (getters de variables de entorno), `src/domain/` (tipos y errores) y `src/db/` (esquema y seeds).
 
 ## 3. Estado funcional
 
-- **Panel de control (`/`)**: resumen de caja, pedidos por estado, alertas de stock, accesos rápidos filtrados por rol.
+- **Panel de control (`/`)**: resumen de caja con avisos por turno y badge de turno, pedidos por estado, alertas de stock, accesos rápidos filtrados por rol.
 - **Ventas (`/ventas`)**: terminal con productos, carrito rediseñado, pagos mixtos (`cash` + `transfer`), historial y anulaciones.
 - **Pedidos**: flujo `pending` → `in_process` → `paid` → `finished` / `cancelled`, con reservas de stock al recibir el pedido (`receiveOrder`), chat integrado (texto, imágenes y ubicación) y pagos mixtos.
 - **Productos/promos**: tipos `critical_supply`, `manual_supply`, `compound`, `service`; imágenes ilustrativas en catálogo público; snapshots de receta en `sale_item_recipes` y `order_item_recipes`.
-- **Stock y caja**: movimientos con razones, cierre automático, cierres diarios históricos, soft delete de cajas, vaciado masivo de papelera.
-- **Chat de pedidos**: texto, imágenes (con validación de magic bytes), paginación con cursores, polling con pausa por visibilidad, **compartir ubicación del cliente y de la sucursal**.
+- **Stock y caja**: movimientos con razones, cierre automático opcional (`CAJA_AUTO_CLOSE_HOURS`, deshabilitado por defecto), avisos por turnos con fallback por umbral, cierres diarios históricos, soft delete de cajas, vaciado masivo de papelera.
+- **Sucursales**: horarios con turnos overnight, dirección, ubicación, teléfonos con etiqueta y redes sociales expuestos públicamente; eliminación en cascada con liberación de archivos.
+- **Chat de pedidos**: texto, imágenes (con validación de magic bytes), paginación con cursores, polling con pausa por visibilidad, compartir ubicación del cliente y de la sucursal.
 - **Almacenamiento**: `local`, `vercel-blob`, `s3` y `r2` para videos, adjuntos de chat e imágenes de productos.
 - **Multi-sucursal**: aislamiento por `branchId`; admin puede operar sobre cualquier sucursal.
 
@@ -46,103 +49,68 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 |---|---|
 | `npm run lint` | Pasa (0 errores, 0 advertencias) |
 | `npx tsc --noEmit` | Pasa |
-| `npm test` | **155 suites, 1582 tests pasan** |
-| `npm run build` | Build exitoso, 88 rutas/páginas (incluye `ƒ Proxy (Middleware)`) |
-| `npm run analyze:webpack` | OK, reportes generados en `.next/analyze/` |
+| `npm test` | **155 suites, 1640 tests pasan** (ejecutado 2026-09-15) |
 | `npm run knip` | Pasa (sin exports/dependencias sin uso) |
-| `npx drizzle-kit check` | Pasa (sin drift respecto al journal) |
-| `npm run test:e2e` | No ejecutado (requiere base descartable y confirmación) |
+| `npm run build` | Pasa (ejecutado 2026-09-15 tras agregar la validación de `next.config.ts`); la validación de producción se verificó con `CI=1 VERCEL_ENV=production` (falla correctamente por `CRON_SECRET` ausente en `.env.local`) |
+| `npx drizzle-kit check` | No ejecutado (sin cambios de esquema desde `0030`) |
+| `npm run test:e2e` | **121 tests** sobre `neondb_e2e` (base remota descartable): 120 pasan + el spec nuevo `sucursal-contactos-y-turnos` (3 tests) verde tras ajustar el escenario `cierre_recomendado` para no disparar `CAJA_AUTO_CLOSE_HOURS=1` |
 
-El esquema Drizzle cuenta con **30 migraciones** (`0000`–`0029`) y el journal termina en `0029_past_pretty_boy`, consistente con `src/db/schema.ts`.
+El esquema Drizzle cuenta con **31 migraciones** (`0000`–`0030`) y el journal termina en `0030_branch_contacts`, consistente con `src/db/schema.ts`. La suite E2E cuenta con **35 specs**.
 
-## 5. Auditoría documental 2026-09-11
+## 5. Auditoría documental 2026-09-15
 
-### 5.1 Hallazgos documentales
+### 5.1 Hallazgos
 
 | Hallazgo | Clasificación | Estado | Evidencia / Acción |
 |---|---|---|---|
-| `reporte-estado.md` desactualizado (fecha 2026-09-06, conteos de tests y rutas obsoletos) | Mayor | Resuelto | Archivado en `.devin/informes/archivados/reporte-estado-2026-09-06.md`; creado este informe vigente con baseline y conteos actuales. |
-| Referencia rota a `auditoria-estado-actual-y-documentacion.md` en `.devin/README.md`, `.devin/prompts/README.md` y `.devin/prompts/auditoria-masiva.md` | Menor | Resuelto | Eliminada la referencia de los índices y del prompt masivo; el prompt no existía. |
-| Prompts e informes resueltos listados como activos | Menor | Resuelto | Archivados: `auditoria-chat-ubicacion.md`, `auditoria-chat-ubicacion-2026-09-09.md`, `auditoria-carrito-ventas-2026-09-06.md`. Índices actualizados. |
-| `README.md` raíz no mencionaba la funcionalidad de mapas/ubicación en chat | Menor | Resuelto | Se agregó sección "Compartir ubicación en el chat" con las variables y el endpoint. |
-| Variables `NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_*` ya estaban en `.env.example` y `AGENTS.md` (working tree) | OK | Vigente | Verificadas contra `src/config/maps.ts` y `src/config/chat.ts`. |
-| `.env.e2e.example` no documentaba `NO_WEB_SERVER` ni `E2E_OPERATOR_USERNAME`/`E2E_OPERATOR_PASSWORD`/`E2E_SECOND_*` | Informativo | Documentado en informe | Estas variables son internas de tests E2E (`playwright.config.ts`, `tests/e2e/helpers.ts`) y no requieren valores iniciales. `NO_WEB_SERVER` ya se menciona en el comentario. |
+| `plan-observaciones-auditoria-sucursales-caja.md` figuraba como **pendiente** pero sus 5 ítems ya estaban implementados (commits `a3d70d5` y `73f1af5`) | Menor | Resuelto | Archivado en `informes/archivados/plan-observaciones-auditoria-sucursales-caja-2026-09-13.md` con nota de resolución. |
+| `auditoria-sucursales-y-caja-por-turnos.md` estaba implementada y auditada (§8 confirma D1–D6) pero seguía como vigente | Menor | Resuelto | Archivada en `informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`; sus decisiones quedaron resumidas en `lecciones-aprendidas.md` §16. |
+| `informes/README.md` no listaba `auditoria-deploy-vercel-2026-09-14.md` ni la auditoría de sucursales; `.devin/README.md` tampoco las reflejaba | Menor | Resuelto | Índices actualizados en ambos README (entradas nuevas y bloque de estructura). |
+| `reporte-estado.md` desactualizado: baseline `7cdf286` (7 commits atrás), 1582 tests, 30 migraciones, sin las features de sucursales | Mayor | Resuelto | Reescrito con baseline `cfb1b41`, 1640 tests, 31 migraciones y las funcionalidades nuevas. Versión anterior en `archivados/reporte-estado-2026-09-11.md`. |
+| `guia-funcionamiento-pancheria.md` documentaba `CAJA_AUTO_CLOSE_HOURS` con default `12 h` y "cierre automático después de 12 horas" | Menor | Resuelto | El código usa `0` (deshabilitado) en `src/config/caja.ts`. Corregido en §5.2, §13 y §15; agregadas secciones de avisos por turno y contactos de sucursal. |
+| `lecciones-aprendidas.md` tenía numeración desordenada (§13 → §15 → §14) | Informativo | Resuelto | Reordenado a §14 (ventas) → §15 (moneda) preservando la referencia histórica "sección 14 = ventas" usada por prompts archivados; agregada §16 (sucursales/turnos). |
+| `.devin/environment.yaml` no listaba `CAJA_OVERDUE_HOURS`, `NEXT_PUBLIC_CAJA_OVERDUE_HOURS`, `NEXT_PUBLIC_BRANCH_TIMEZONE`, `DEFAULT_BRANCH_SOCIAL_LINKS` ni `NEW_BRANCH_SOCIAL_LINKS`, y declaraba default `12 h` para el cierre automático | Menor | Resuelto | Agregadas al knowledge `database` (vars de seed y caja/sucursal) y `deploy`; lista de informes actualizada. |
+| `checklist-pre-push.md` no mencionaba la variable de repositorio `VERCEL_PRODUCTION_URL` requerida por `expire-orders.yml` | Menor | Resuelto | Agregada la verificación en la sección de secretos/variables de GitHub Actions (recomendación pendiente de la auditoría de Vercel). |
+| `prompts/plan-implementacion-multi-tenant.md` referenciaba `daily_closures`, tabla eliminada en la migración `0025` | Menor | Resuelto | Eliminadas las dos referencias obsoletas (lista de tablas e índice `daily_closures_branch_date_unique_idx`). |
+| `README.md` no listaba las variables nuevas de sucursal ni los avisos por turno | Menor | Resuelto | Agregadas `DEFAULT_BRANCH_SOCIAL_LINKS`, `NEW_BRANCH_SOCIAL_LINKS`, `NEXT_PUBLIC_BRANCH_TIMEZONE`, `CAJA_OVERDUE_HOURS`/`NEXT_PUBLIC_CAJA_OVERDUE_HOURS` y descripción de contactos/avisos en la sección multi-sucursal. |
 
 ### 5.2 Archivos afectados en esta auditoría
 
-- **Creado:** `.devin/informes/reporte-estado.md` (reemplazo del vigente).
 - **Archivados:**
-  - `.devin/informes/archivados/reporte-estado-2026-09-06.md`
-  - `.devin/informes/archivados/auditoria-carrito-ventas-2026-09-06.md`
-  - `.devin/informes/archivados/auditoria-chat-ubicacion-2026-09-09.md`
-  - `.devin/prompts/archivados/auditoria-chat-ubicacion.md`
+  - `.devin/informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`
+  - `.devin/informes/archivados/plan-observaciones-auditoria-sucursales-caja-2026-09-13.md`
+  - `.devin/informes/archivados/reporte-estado-2026-09-11.md`
 - **Actualizados:**
-  - `.devin/README.md` (índice y estructura).
-  - `.devin/informes/README.md` (índice).
-  - `.devin/prompts/README.md` (índice).
-  - `README.md` (sección de chat/ubicación).
-
-## 5.3 Auditoría pre-release 2026-09-11
-
-Se ejecutó el prompt <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-pre-release.md" /> sobre el `working tree` actual, con baseline `7cdf2864cd327c46d34ea0f635a9bc6c72d7c889` y entorno `.env.local` → `neondb_dev`, `.env.e2e` → `neondb_e2e`.
-
-### 5.3.1 Hallazgos
-
-| Hallazgo | Área | Clasificación | Evidencia / Acción |
-|---|---|---|---|
-| `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` documentada en `.env.example`, `README.md`, `AGENTS.md` y `.devin/environment.yaml`, pero no se consumía en `src/` | Documentación / variables de entorno | Menor | **Resuelto**: eliminada de `.env.example`, `README.md`, `AGENTS.md`, `.devin/environment.yaml` y `.devin/informes/lecciones-aprendidas.md`. |
-| `src/lib/maps.ts` y `src/lib/storage.ts` contienen URLs base hardcodeadas de servicios públicos (`openstreetmap.org`, `google.com/maps`, `waze.com`, `blob.vercel-storage.com`) | Seguridad / arquitectura | Menor / Informativo | Son plantillas por defecto; el usuario puede sobrescribirlas con `NEXT_PUBLIC_MAPS_BASE_URL` o proveedores alternativos. Se recomienda documentar en `lecciones-aprendidas.md` que estos defaults son intencionales y no contienen secretos. |
-| `throw new Error` en componentes de cliente (`order-tracker.tsx`, `video-form.tsx`) y helpers (`product-image-upload-client.ts`) | Calidad de código / UX | Menor | **Resuelto**: reemplazados por `ApiError` con status 404/502, manteniendo el mensaje y permitiendo que el `catch` de la UI lo muestre correctamente. |
-| Faltan tests unitarios para `branchRepository.ts` y `userRepository.ts` | Cobertura de pruebas | Menor | **Resuelto**: creados `src/repositories/branchRepository.test.ts` (17 tests) y `src/repositories/userRepository.test.ts` (15 tests). |
-| `productRepository.findByImageKey` no ordena resultados | Integridad de datos | Informativo | Filtra por `isActive` y `deletedAt` pero `imageKey` no es único; si hubiera colisiones, el resultado sería no determinista. Considerar orden o constraint `unique` en `products.image_key`. |
-| Build actual genera 88 rutas; el informe vigente reportaba 91 | Documentación | Menor | Actualizado en este informe. La diferencia se debe a que el build anterior contaba páginas estáticas y dinámicas de forma distinta; el número real es 88 rutas dinámicas + páginas estáticas. |
-| `reporte-estado.md` tenía conteos y referencias desactualizadas | Documentación | Menor | Resuelto en esta auditoría: actualizada tabla de verificaciones, sección de auditoría y cierre. |
-
-### 5.3.2 Áreas verificadas
-
-| Área | Estado | Notas |
-|---|---|---|
-| Calidad de código y consistencia | OK | `lint`, `tsc`, `test`, `build`, `knip` pasan. |
-| Seguridad | OK | No se detectaron credenciales/secretos hardcodeados en `src/`. Variables sensibles leídas desde `process.env` a través de `src/config/`. |
-| Arquitectura | Advertencia menor | URLs de servicios públicos hardcodeadas como defaults; capas bien separadas. |
-| Cobertura de pruebas | OK | 155 suites unitarias, 34 specs E2E. Faltan 0 tests de repositorio y 1 de `product-style.ts` (trivial, informativo). |
-| Documentación y variables de entorno | OK | `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` eliminada de `.env.example`, `README.md`, `AGENTS.md`, `.devin/environment.yaml` y `lecciones-aprendidas.md`. |
-| Rendimiento y bundle | OK | `npm run analyze:webpack` ejecutado; reportes en `.next/analyze/`. Sin chunks críticos detectados. |
-| Accesibilidad y UX | OK | Existe `tests/e2e/accessibility.spec.ts` y `responsive.spec.ts`; no se ejecutaron en esta sesión. |
-| Integridad de datos y flujos de negocio | OK | Tests de `orderService`, `saleService`, `stockService`, `cashRegisterService` pasan. |
-| Configuración de despliegue, CI/CD y entornos | OK | `vercel.json`, `next.config.ts`, `.github/workflows/ci.yml` y `playwright.config.ts` consistentes con la documentación. |
-
-## 5.4 Auditoría del directorio `.devin` 2026-09-11
-
-### 5.4.1 Hallazgos
-
-| Hallazgo | Clasificación | Estado | Evidencia / Acción |
-|---|---|---|---|
-| `auditoria-estado-actual-y-documentacion.md` archivado no aparecía en `prompts/README.md` | Menor | Resuelto | Se agregó nota en `.devin/prompts/README.md` y se mantiene el prompt en `prompts/archivados/`. |
-| Tabla de configuración en `guia-funcionamiento-pancheria.md` tenía filas con celda vacía para `PUBLIC_CHAT_RATE_LIMIT_*`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_*`, `NEXT_PUBLIC_MAPS_PROVIDER` y `NEXT_PUBLIC_MAPS_BASE_URL` | Menor | Resuelto | Se corrigieron las 4 filas para que el nombre de variable esté en la primera columna. |
-| `checklist-pre-push.md` referenciaba `lecciones-aprendidas.md` sección 11, que no existe | Menor | Resuelto | Se cambió a sección 12 ("Eliminación de WhatsApp y prioridad del chat propio"). |
-| Referencias rotas en informes/prompts archivados (p. ej. `src/lib/whatsapp.ts`, `plan-de-accion-pendientes.md`, prompts movidos a `archivados/`) | Informativo | Documentado | Son documentos históricos; se recomienda no usarlos como fuente de verdad y consultar la documentación vigente. |
-
-### 5.4.2 Archivos afectados
-
-- **Actualizados:**
-  - `.devin/prompts/README.md`
+  - `.devin/informes/reporte-estado.md` (este archivo)
+  - `.devin/informes/README.md`
+  - `.devin/README.md`
+  - `.devin/informes/lecciones-aprendidas.md`
   - `.devin/informes/guia-funcionamiento-pancheria.md`
   - `.devin/informes/checklist-pre-push.md`
+  - `.devin/environment.yaml`
+  - `.devin/prompts/plan-implementacion-multi-tenant.md`
+  - `README.md`
 
-## 6. Plan de acción
+## 6. Pendientes por abordar
 
-| Prioridad | Acción | Responsable sugerido |
+Pendientes abiertos provenientes de la auditoría del deploy de Vercel (`informes/auditoria-deploy-vercel-2026-09-14.md`) y de auditorías previas. Los ítems implementados después se marcan como **resueltos**:
+
+| Prioridad | Pendiente | Estado |
 |---|---|---|
-| Baja | Ejecutar `npx drizzle-kit check` sobre la base de `.env.e2e` si hay cambios de esquema. | Equipo de desarrollo |
-| Baja | Ejecutar `npm run test:e2e` en base descartable antes del próximo release para confirmar los flujos de chat/ubicación y carrito. | Equipo de desarrollo |
-| Baja | Considerar tests E2E para el envío de ubicación del cliente y de la sucursal. | Equipo de desarrollo |
-| Baja | Revisar periódicamente los informes y prompts archivados; si se convierten en fuente de confusión por referencias rotas, agregar una cabecera de "documento histórico" o consolidar su contenido en `lecciones-aprendidas.md`. | Equipo de desarrollo |
+| Media | Validación build-time de variables críticas en producción | **Resuelto** — `next.config.ts` falla el build cuando `VERCEL_ENV=production` si falta `CRON_SECRET`, `NEXTAUTH_URL`/`AUTH_URL`, `NEXTAUTH_SECRET`/`AUTH_SECRET`, URL de base de datos, o si `STORAGE_PROVIDER=local`. No aplica en preview/development, por lo que no rompe builds locales ni CI |
+| Media | Endurecer la validación de `STORAGE_PROVIDER=local` en producción | **Resuelto** — cubierto por la misma validación de `next.config.ts`; el warning de `src/config/videos.ts` se mantiene como defensa en runtime |
+| Baja | Verificar periódicamente que `VERCEL_PRODUCTION_URL` (variable de repo) siga apuntando al dominio productivo, sobre todo tras cambios de dominio | Abierto (recurrente) — documentada en `checklist-pre-push.md` |
+| Baja | Monitoreo de carga del script de Vercel Analytics (`NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS`) | **Resuelto** — `ConditionalAnalytics` registra `logger.warn` en `onerror` del script |
+| Baja | Documentar en `AGENTS.md` una sección de variables con comportamiento distinto por entorno | **Resuelto** — sección "Variables con comportamiento distinto por entorno" en `AGENTS.md` |
+| Baja | Script pre-commit que valide variables críticas en `.env.local`; endpoint interno de estado de configuración (sin valores) | Abierto (largo plazo) |
+| Baja | Ejecutar `npm run test:e2e` en base descartable antes del próximo release | **Resuelto** — ejecutado 2026-09-15 sobre `neondb_e2e`: 121 tests, todos en verde |
+| Baja | Specs E2E para contactos y avisos/turnos de sucursal | **Resuelto** — `tests/e2e/sucursal-contactos-y-turnos.spec.ts` cubre alta/edición de teléfonos y redes sociales, exposición en listado y API pública, badge `En turno` y aviso `cierre_recomendado`. La cobertura de ubicación por chat ya existía en `pedido-chat.spec.ts` |
+| Baja | `productRepository.findByImageKey` sin orden determinista (`image_key` no es unique) | **Resuelto** — `orderBy: asc(products.id)` agregado |
+| Baja | Plan multi-tenant (`prompts/plan-implementacion-multi-tenant.md`): propuesta futura, no iniciada; recordar que `daily_closures` ya no existe al retomarla | Abierto (propuesta futura) |
 
 ## 7. Cierre
 
-- Baseline: `7cdf2864cd327c46d34ea0f635a9bc6c72d7c889` en `main`; auditoría ejecutada sobre el `working tree` actual.
-- Verificaciones base ejecutadas sobre el estado final: `npm run lint`, `npx tsc --noEmit`, `npm test` (155 suites / 1582 tests), `npm run build` (88 rutas/páginas), `npm run analyze:webpack`, `npm run knip` y `npx drizzle-kit check` — todas pasan.
-- Pendientes recomendados aplicados en esta sesión: eliminación de `NEXT_PUBLIC_PAYMENT_DENOMINATIONS` de documentación y `.env.example`; reemplazo de `throw new Error` por `ApiError` en cliente; creación de `branchRepository.test.ts` y `userRepository.test.ts`; agregado a `lecciones-aprendidas.md` la lección sobre compartir ubicación por chat; corrección de índices y tablas en `.devin`.
-- No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate`, `npx drizzle-kit migrate`, `npx vercel env pull` ni `npm run test:e2e` por requerir confirmación explícita o base de prueba.
-- Se advirtió al usuario sobre secretos en `.env.local` y `.env.e2e`; la rotación queda fuera del alcance de esta auditoría.
+- Baseline: `cfb1b41358bb06b51937660467e6674590837622` en `main`; auditoría ejecutada sobre el `working tree` limpio.
+- Verificaciones ejecutadas en esta sesión: `npm run lint`, `npx tsc --noEmit`, `npm test` (155 suites / 1640 tests), `npm run knip`, `npm run build` y `npm run test:e2e` (121 tests sobre `neondb_e2e`) — todas pasan. `npx drizzle-kit check` no se ejecutó (sin cambios de esquema).
+- Los únicos informes vigentes además de este son `auditoria-deploy-vercel-2026-09-14.md` (con recomendaciones pendientes) y los documentos de referencia (`lecciones-aprendidas.md`, `entornos.md`, `checklist-pre-push.md`, `guia-funcionamiento-pancheria.md`).
+- No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate`, `npx drizzle-kit migrate` ni `npm run test:e2e` por requerir confirmación explícita o base de prueba.
