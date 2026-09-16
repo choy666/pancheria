@@ -27,3 +27,34 @@ export function getPublicOrderRateLimitEnableInDev(): boolean {
 export function getPublicRateLimitTrustPrivateIps(): boolean {
   return process.env.PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS === 'true';
 }
+
+const DEFAULT_LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
+const DEFAULT_LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Cantidad máxima de intentos fallidos de login antes del bloqueo temporal
+ * (`LOGIN_RATE_LIMIT_MAX_ATTEMPTS`, por defecto 5).
+ */
+export function getLoginRateLimitMaxAttempts(): number {
+  const raw = process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS;
+  if (!raw) return DEFAULT_LOGIN_RATE_LIMIT_MAX_ATTEMPTS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_LOGIN_RATE_LIMIT_MAX_ATTEMPTS;
+  }
+  return Math.floor(parsed);
+}
+
+/**
+ * Ventana del rate limit de login en milisegundos
+ * (`LOGIN_RATE_LIMIT_WINDOW_MS`, por defecto 15 minutos).
+ */
+export function getLoginRateLimitWindowMs(): number {
+  const raw = process.env.LOGIN_RATE_LIMIT_WINDOW_MS;
+  if (!raw) return DEFAULT_LOGIN_RATE_LIMIT_WINDOW_MS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_LOGIN_RATE_LIMIT_WINDOW_MS;
+  }
+  return parsed;
+}

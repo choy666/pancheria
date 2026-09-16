@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { addHours, format, intervalToDuration } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addHours, intervalToDuration } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +24,7 @@ import {
   getCajaClockIntervalMs,
 } from '@/config/caja';
 import type { CashRegister, CloseCashRegisterInput } from '@/config/caja';
-import { safeFormatDuration } from '@/lib/date';
+import { safeFormatDuration, formatTime } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
 import { resolveDisplayedCashRegisterAlert } from '@/lib/cash-register-helpers';
 import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
@@ -182,7 +181,7 @@ export function CajaStatus({
       ? intervalToDuration({ start: current, end: autoCloseAt })
       : null;
 
-  const openedAtTime = format(openedAt, 'HH:mm', { locale: es });
+  const openedAtTime = formatTime(openedAt);
   const alerta = resolveDisplayedCashRegisterAlert(
     cashRegister.alertaCaja,
     cashRegister.openedAt,

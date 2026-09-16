@@ -186,10 +186,6 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
           <Badge variant="default">Abierta</Badge>
           <CashRegisterShiftBadge estadoTurno={cashRegister.estadoTurno} />
         </div>
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold">Caja #{cashRegister.id}</h2>
-          <Badge variant="default">Abierta</Badge>
-        </div>
         {canClose ? (
           <Button
             data-tour="caja-action"

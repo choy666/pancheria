@@ -12,14 +12,20 @@ import {
 describe('date helpers', () => {
   describe('formatDateTime', () => {
     test('formatea una fecha como dd/MM/yyyy HH:mm', () => {
-      const date = new Date('2025-06-15T14:30:00');
+      const date = new Date('2025-06-15T14:30:00-03:00');
       const result = formatDateTime(date);
       expect(result).toMatch(/^15\/06\/2025 14:30$/);
     });
 
     test('formatea una fecha pasada como string', () => {
-      const result = formatDateTime('2025-06-15T09:05:00');
+      const result = formatDateTime('2025-06-15T09:05:00-03:00');
       expect(result).toMatch(/^15\/06\/2025 09:05$/);
+    });
+
+    test('convierte el instante a la timezone de sucursal', () => {
+      // 02:30 UTC del 16/06 = 23:30 del 15/06 en America/Argentina/Buenos_Aires
+      const result = formatDateTime('2025-06-16T02:30:00Z');
+      expect(result).toMatch(/^15\/06\/2025 23:30$/);
     });
 
     test('devuelve guión para fechas nulas', () => {
@@ -47,7 +53,7 @@ describe('date helpers', () => {
 
   describe('formatLastUpdated', () => {
     test('formatea una fecha como HH:mm:ss', () => {
-      const date = new Date('2025-06-15T14:05:30');
+      const date = new Date('2025-06-15T14:05:30-03:00');
       const result = formatLastUpdated(date);
       expect(result).toMatch(/^14:05:30$/);
     });
@@ -59,12 +65,17 @@ describe('date helpers', () => {
 
   describe('formatTime', () => {
     test('formatea un objeto Date como HH:mm', () => {
-      const date = new Date('2025-06-15T08:30:00');
+      const date = new Date('2025-06-15T08:30:00-03:00');
       expect(formatTime(date)).toBe('08:30');
     });
 
     test('formatea una fecha ISO como HH:mm', () => {
-      expect(formatTime('2025-06-15T23:05:00')).toBe('23:05');
+      expect(formatTime('2025-06-15T23:05:00-03:00')).toBe('23:05');
+    });
+
+    test('convierte el instante a la timezone de sucursal', () => {
+      // 02:30 UTC del 16/06 = 23:30 del 15/06 en America/Argentina/Buenos_Aires
+      expect(formatTime('2025-06-16T02:30:00Z')).toBe('23:30');
     });
   });
 

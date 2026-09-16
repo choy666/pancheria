@@ -1,8 +1,12 @@
 'use client';
 
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { getBranchTimezone } from '@/config/branch';
+import {
+  dateKeyInTimezone,
+  formatTime,
+  weekdayNameInTimezone,
+} from '@/lib/date';
 import type { CashRegisterShiftInfoDTO } from '@/domain/types';
 
 interface CashRegisterShiftBadgeProps {
@@ -19,20 +23,24 @@ function formatNextShiftStart(isoDate: string | null): string {
   if (!isoDate) return '';
   const date = new Date(isoDate);
   const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const isTomorrow = new Date(now);
-  isTomorrow.setDate(isTomorrow.getDate() + 1);
-  const isTomorrowDate = date.toDateString() === isTomorrow.toDateString();
-  
-  const time = format(date, 'HH:mm', { locale: es });
-  
+  const timeZone = getBranchTimezone();
+  // Las comparaciones de día y la hora se evalúan en la timezone de
+  // sucursal: los turnos se calculan server-side en esa misma timezone.
+  const isToday =
+    dateKeyInTimezone(date, timeZone) === dateKeyInTimezone(now, timeZone);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const isTomorrowDate =
+    dateKeyInTimezone(date, timeZone) === dateKeyInTimezone(tomorrow, timeZone);
+
+  const time = formatTime(date, timeZone);
+
   if (isToday) {
     return `Hoy a las ${time}`;
   }
   if (isTomorrowDate) {
     return `Mañana a las ${time}`;
   }
-  return format(date, "EEEE 'a las' HH:mm", { locale: es });
+  return `${weekdayNameInTimezone(date, timeZone)} a las ${time}`;
 }
 
 export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgeProps) {

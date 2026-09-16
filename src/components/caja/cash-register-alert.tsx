@@ -20,12 +20,21 @@ function resolveText(alerta: CashRegisterAlert): {
             ? 'La caja fue abierta fuera del turno vigente. Cerrala antes de abrir una nueva.'
             : 'La caja quedó abierta desde un turno anterior. Cerrala antes de abrir una nueva.',
       };
-    case 'dia_anterior':
+    case 'dia_anterior': {
+      const dias = alerta.detalle?.diasAbierta;
+      if (dias !== undefined && dias > 1) {
+        return {
+          titulo: `Caja abierta hace ${dias} días`,
+          mensaje:
+            'Esta caja quedó abierta desde un día anterior. Cerrala antes de abrir una nueva.',
+        };
+      }
       return {
         titulo: 'Caja del día anterior',
         mensaje:
           'Esta caja fue abierta el día anterior. Cerrala antes de abrir una nueva.',
       };
+    }
     case 'excedida': {
       const horas = alerta.detalle?.horasUmbral;
       return {

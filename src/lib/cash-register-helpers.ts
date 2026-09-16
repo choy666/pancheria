@@ -40,6 +40,23 @@ export function isCashRegisterFromPreviousDay(
   return openedDate !== today;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Días calendario transcurridos entre dos instantes, evaluados en la timezone
+ * de sucursal (no en la del runtime). `formatDateInTimezone` devuelve
+ * 'YYYY-MM-DD', que `Date.parse` interpreta como medianoche UTC.
+ */
+function calendarDaysBetweenInTimezone(
+  start: Date,
+  end: Date,
+  timeZone: string
+): number {
+  const startDay = Date.parse(formatDateInTimezone(start, timeZone));
+  const endDay = Date.parse(formatDateInTimezone(end, timeZone));
+  return Math.round((endDay - startDay) / MS_PER_DAY);
+}
+
 /**
  * Estado de una caja abierta respecto de los turnos vigentes de la sucursal.
  * `currentShift`/`nextShiftStart` son instantes reales (Date); al serializarse
@@ -150,7 +167,17 @@ function legacyCashRegisterAlert(
   timeZone = getBranchTimezone()
 ): CashRegisterAlert | null {
   if (isCashRegisterFromPreviousDay(openedAt, timeZone, now)) {
-    return { code: 'dia_anterior', severity: 'warning' };
+    return {
+      code: 'dia_anterior',
+      severity: 'warning',
+      detalle: {
+        diasAbierta: calendarDaysBetweenInTimezone(
+          new Date(openedAt),
+          now,
+          timeZone
+        ),
+      },
+    };
   }
 
   const horasUmbral = getCajaOverdueHours();

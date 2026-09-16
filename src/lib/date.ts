@@ -1,5 +1,6 @@
-import { format, formatDuration, type Duration } from 'date-fns';
+import { formatDuration, type Duration } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getBranchTimezone } from '@/config/branch';
 
 /**
  * Normaliza un valor de fecha al inicio del día en UTC.
@@ -49,9 +50,66 @@ export function nowUTC(): Date {
   return new Date();
 }
 
-export function formatDateTime(date: Date | string | null): string {
+/**
+ * Partes de fecha/hora de un instante en una timezone dada. Las fechas de
+ * negocio se muestran en la timezone de sucursal
+ * (`NEXT_PUBLIC_BRANCH_TIMEZONE`, default America/Argentina/Buenos_Aires)
+ * para coincidir con la lógica de turnos y alertas de caja, que la usa.
+ */
+function dateTimePartsInTimezone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+  };
+}
+
+/**
+ * Clave de día calendario 'YYYY-MM-DD' en la timezone dada. Sirve para
+ * comparar "mismo día / día siguiente" sin depender de la timezone del
+ * runtime (navegador o servidor).
+ */
+export function dateKeyInTimezone(
+  date: Date | string,
+  timeZone = getBranchTimezone()
+): string {
+  const p = dateTimePartsInTimezone(new Date(date), timeZone);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/** Nombre del día de la semana en español, en la timezone dada. */
+export function weekdayNameInTimezone(
+  date: Date | string,
+  timeZone = getBranchTimezone()
+): string {
+  return new Intl.DateTimeFormat('es', {
+    timeZone,
+    weekday: 'long',
+  }).format(new Date(date));
+}
+
+export function formatDateTime(
+  date: Date | string | null,
+  timeZone = getBranchTimezone()
+): string {
   if (!date) return '-';
-  return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: es });
+  const p = dateTimePartsInTimezone(new Date(date), timeZone);
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
 }
 
 export function safeFormatDuration(duration: Duration | null, emptyLabel = '0m'): string {
@@ -63,16 +121,21 @@ export function safeFormatDuration(duration: Duration | null, emptyLabel = '0m')
   return text || emptyLabel;
 }
 
-export function formatLastUpdated(date: Date | null): string {
+export function formatLastUpdated(
+  date: Date | null,
+  timeZone = getBranchTimezone()
+): string {
   if (!date) return '-';
-  return format(date, 'HH:mm:ss', { locale: es });
+  const p = dateTimePartsInTimezone(date, timeZone);
+  return `${p.hour}:${p.minute}:${p.second}`;
 }
 
-export function formatTime(date: Date | string): string {
-  const d = new Date(date);
-  const hours = d.getHours().toString().padStart(2, '0');
-  const minutes = d.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes}`;
+export function formatTime(
+  date: Date | string,
+  timeZone = getBranchTimezone()
+): string {
+  const p = dateTimePartsInTimezone(new Date(date), timeZone);
+  return `${p.hour}:${p.minute}`;
 }
 
 

@@ -324,7 +324,25 @@ describe('cash-register-helpers', () => {
         new Date('2025-06-02T10:00:00-03:00'),
         TZ
       );
-      expect(alert).toEqual({ code: 'dia_anterior', severity: 'warning' });
+      expect(alert).toEqual({
+        code: 'dia_anterior',
+        severity: 'warning',
+        detalle: { diasAbierta: 1 },
+      });
+    });
+
+    it('fallback sin horarios: informa los días calendario desde la apertura', () => {
+      const alert = resolveCashRegisterAlert(
+        '2025-05-30T20:00:00-03:00',
+        [],
+        new Date('2025-06-02T10:00:00-03:00'),
+        TZ
+      );
+      expect(alert).toEqual({
+        code: 'dia_anterior',
+        severity: 'warning',
+        detalle: { diasAbierta: 3 },
+      });
     });
 
     it('fallback sin horarios: caja excedida por umbral el mismo día', () => {
@@ -386,7 +404,11 @@ describe('cash-register-helpers', () => {
         new Date('2025-06-02T10:00:00-03:00'),
         TZ
       );
-      expect(alert).toEqual({ code: 'dia_anterior', severity: 'warning' });
+      expect(alert).toEqual({
+        code: 'dia_anterior',
+        severity: 'warning',
+        detalle: { diasAbierta: 1 },
+      });
     });
   });
 });

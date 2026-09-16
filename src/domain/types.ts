@@ -107,6 +107,8 @@ export type CashRegisterAlert = {
     horasUmbral?: number;
     aperturaEnTurno?: boolean;
     proximoTurno?: string;
+    /** Días calendario (en timezone de sucursal) desde la apertura de la caja. */
+    diasAbierta?: number;
   };
 };
 

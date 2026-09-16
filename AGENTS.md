@@ -104,6 +104,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).
   - `db`: en PostgreSQL usando la tabla `login_attempts` (por defecto en producción cuando `DATABASE_URL` o `POSTGRES_URL` están definidas; configurable explícitamente con `RATE_LIMIT_STORE_PROVIDER=db`).
+- `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` (opcional) — cantidad máxima de intentos fallidos de login antes del bloqueo temporal (por defecto 5).
+- `LOGIN_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de login en milisegundos (por defecto 900000 ms = 15 minutos).
 - `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` (opcional) — ID de la aplicación receptora de Google Cast (por defecto `CC1AD845`).
 - `NEXT_PUBLIC_CAST_SENDER_SDK_URL` (opcional) — URL del SDK de Cast (por defecto `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`).
 - `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; descomentar en `.env.example` para sobrescribir).

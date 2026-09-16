@@ -6,9 +6,10 @@ import {
   setRateLimitStore as setRateLimitStoreBase,
   type RateLimitStore,
 } from '@/lib/rate-limit-store';
-
-const MAX_FAILED_ATTEMPTS = 5;
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+import {
+  getLoginRateLimitMaxAttempts,
+  getLoginRateLimitWindowMs,
+} from '@/config/rate-limit';
 
 const rateLimitStore = getRateLimitStore();
 
@@ -23,8 +24,8 @@ async function clearFailedAttempts(username: string) {
 async function recordFailedAttempt(username: string) {
   const blocked = await rateLimitStore.recordFailedAttempt(
     username,
-    RATE_LIMIT_WINDOW_MS,
-    MAX_FAILED_ATTEMPTS
+    getLoginRateLimitWindowMs(),
+    getLoginRateLimitMaxAttempts()
   );
 
   if (blocked) {
