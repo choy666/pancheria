@@ -95,6 +95,14 @@ export interface CashRegister {
    * servidor). `null` cuando no hay aviso; `undefined` en payloads viejos.
    */
   alertaCaja?: CashRegisterAlert | null;
+  /**
+   * Horas de cierre automático resueltas en el servidor
+   * (`CAJA_AUTO_CLOSE_HOURS` ?? `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`). El
+   * cliente debe preferir este valor sobre leer la env local: la variable
+   * sin prefijo no existe en el bundle del navegador y divergiría del
+   * comportamiento real del servidor (y del HTML en páginas SSR).
+   */
+  autoCloseHours?: number | null;
   createdAt: string;
   deletedAt?: string | null;
 }

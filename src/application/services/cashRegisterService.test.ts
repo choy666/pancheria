@@ -378,6 +378,33 @@ describe('cashRegisterService', () => {
       });
     });
 
+    test('incluye autoCloseHours resuelto en el servidor en el payload', async () => {
+      const previous = process.env.CAJA_AUTO_CLOSE_HOURS;
+      process.env.CAJA_AUTO_CLOSE_HOURS = '8';
+      try {
+        mockedCashRegisterRepository.findOpen.mockResolvedValue({
+          id: 1,
+          branchId: BRANCH_ID,
+          openedAt: new Date(),
+          openedBy: 'admin',
+          status: 'open',
+          autoClosed: false,
+        } as any);
+
+        (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
+
+        const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
+
+        expect(result.autoCloseHours).toBe(8);
+      } finally {
+        if (previous === undefined) {
+          delete process.env.CAJA_AUTO_CLOSE_HOURS;
+        } else {
+          process.env.CAJA_AUTO_CLOSE_HOURS = previous;
+        }
+      }
+    });
+
     test('completa los insumos críticos activos faltantes en una caja sin ventas', async () => {
       const openedAt = new Date(Date.now() - 60 * 60 * 1000);
       mockedCashRegisterRepository.findOpen.mockResolvedValue({

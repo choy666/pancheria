@@ -75,6 +75,7 @@ function buildCashRegister(status: 'open' | 'closed' = 'open') {
       nextShiftStart: null,
     },
     alertaCaja: null,
+    autoCloseHours: 0,
   };
 }
 

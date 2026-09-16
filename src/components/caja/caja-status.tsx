@@ -171,7 +171,7 @@ export function CajaStatus({
   }
 
   const openedAt = new Date(cashRegister.openedAt);
-  const autoCloseHours = getAutoCloseHours();
+  const autoCloseHours = cashRegister.autoCloseHours ?? getAutoCloseHours();
   const autoCloseAt = autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null;
   const current = now;
 

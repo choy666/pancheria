@@ -9,6 +9,7 @@ import * as branchService from '@/application/services/branchService';
 import { auth } from '@/auth';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { resolveCashRegisterAlert } from '@/lib/cash-register-helpers';
+import { getAutoCloseHours } from '@/config/caja';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -88,7 +89,13 @@ export default async function CashRegisterSalesDetailPage({
       )}
 
       <CashRegisterSummary
-        cashRegister={{ ...cashRegister, ...summary }}
+        cashRegister={{
+          ...cashRegister,
+          ...summary,
+          // Resuelto en el servidor: `CAJA_AUTO_CLOSE_HOURS` no existe en el
+          // bundle del cliente; pasarlo evita mismatch de hidratación.
+          autoCloseHours: getAutoCloseHours(),
+        }}
         branchName={branchName}
         isOpen={isOpen}
         alerta={alertaCaja}

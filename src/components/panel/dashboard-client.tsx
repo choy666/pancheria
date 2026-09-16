@@ -110,7 +110,7 @@ function CajaCard({ data }: { data: NonNullable<ReturnType<typeof useDashboard>[
 
   const openedAt = new Date(cashRegister.openedAt);
   const now = new Date();
-  const autoCloseHours = getAutoCloseHours();
+  const autoCloseHours = cashRegister.autoCloseHours ?? getAutoCloseHours();
   const autoCloseAt = autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null;
   const remaining =
     autoCloseAt && autoCloseAt > now

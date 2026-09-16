@@ -42,6 +42,11 @@ interface CashRegisterSummaryData {
    * explícito (detalle SSR de historial).
    */
   alertaCaja?: CashRegisterAlert | null;
+  /**
+   * Horas de cierre automático resueltas en el servidor. Prioridad sobre la
+   * env local: `CAJA_AUTO_CLOSE_HOURS` no existe en el bundle del cliente.
+   */
+  autoCloseHours?: number | null;
 }
 
 interface CashRegisterSummaryProps {
@@ -76,7 +81,7 @@ export function CashRegisterSummary({
     });
   }, [openedAt, closedAt, now]);
 
-  const autoCloseHours = getAutoCloseHours();
+  const autoCloseHours = cashRegister.autoCloseHours ?? getAutoCloseHours();
   const autoCloseAt = useMemo(() =>
     isOpen && autoCloseHours > 0 ? addHours(openedAt, autoCloseHours) : null,
     [isOpen, autoCloseHours, openedAt]

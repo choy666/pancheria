@@ -225,6 +225,9 @@ export async function getOpenCashRegisterSummary(branchId: number) {
     cashInDrawer,
     estadoTurno,
     alertaCaja,
+    // Valor resuelto en el servidor: `CAJA_AUTO_CLOSE_HOURS` no existe en el
+    // bundle del cliente, así que viajar en el payload evita divergencias.
+    autoCloseHours: getAutoCloseHours(),
   };
 }
 
