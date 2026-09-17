@@ -1,10 +1,18 @@
 import { AlertCircle } from 'lucide-react';
 import type { CashRegisterAlert } from '@/domain/types';
+import { formatDateTime } from '@/lib/date';
 
-function resolveText(alerta: CashRegisterAlert): {
+function resolveText(
+  alerta: CashRegisterAlert,
+  openedAt: Date | string
+): {
   titulo: string;
   mensaje: string;
 } {
+  // `formatDateTime` devuelve "dd/mm/aaaa hh:mm" en la timezone de sucursal.
+  const [fechaApertura, horaApertura] = formatDateTime(openedAt).split(' ');
+  const diaMesApertura = fechaApertura.slice(0, 5);
+
   switch (alerta.code) {
     case 'fuera_de_horario':
       return {
@@ -15,34 +23,20 @@ function resolveText(alerta: CashRegisterAlert): {
     case 'cierre_recomendado':
       return {
         titulo: 'Se recomienda cerrar esta caja',
-        mensaje:
-          alerta.detalle?.aperturaEnTurno === false
-            ? 'La caja fue abierta fuera del turno vigente. Cerrala antes de abrir una nueva.'
-            : 'La caja quedó abierta desde un turno anterior. Cerrala antes de abrir una nueva.',
+        mensaje: `Esta caja está abierta desde el ${fechaApertura} a las ${horaApertura}. Cerrala antes de abrir una nueva.`,
       };
-    case 'dia_anterior': {
-      const dias = alerta.detalle?.diasAbierta;
-      if (dias !== undefined && dias > 1) {
-        return {
-          titulo: `Caja abierta hace ${dias} días`,
-          mensaje:
-            'Esta caja quedó abierta desde un día anterior. Cerrala antes de abrir una nueva.',
-        };
-      }
+    case 'dia_anterior':
       return {
-        titulo: 'Caja del día anterior',
-        mensaje:
-          'Esta caja fue abierta el día anterior. Cerrala antes de abrir una nueva.',
+        titulo: `Caja abierta desde el ${diaMesApertura}`,
+        mensaje: `Se abrió el ${fechaApertura} a las ${horaApertura} y sigue abierta. Cerrala antes de abrir una nueva.`,
       };
-    }
     case 'excedida': {
       const horas = alerta.detalle?.horasUmbral;
       return {
         titulo: horas
           ? `Caja abierta hace más de ${horas} horas`
           : 'Caja abierta hace mucho tiempo',
-        mensaje:
-          'La caja lleva mucho tiempo abierta. Recomendamos cerrarla y abrir una nueva.',
+        mensaje: `Se abrió el ${fechaApertura} a las ${horaApertura}. Recomendamos cerrarla y abrir una nueva.`,
       };
     }
   }
@@ -50,6 +44,8 @@ function resolveText(alerta: CashRegisterAlert): {
 
 interface CashRegisterAlertBannerProps {
   alerta: CashRegisterAlert | null | undefined;
+  /** Momento de apertura de la caja; se menciona en el texto del aviso. */
+  openedAt: Date | string;
   /**
    * `compact` renderiza una sola línea (dashboard / resumen); por defecto
    * muestra título + mensaje (panel y estado de caja).
@@ -64,11 +60,12 @@ interface CashRegisterAlertBannerProps {
  */
 export function CashRegisterAlertBanner({
   alerta,
+  openedAt,
   compact = false,
 }: CashRegisterAlertBannerProps) {
   if (!alerta) return null;
 
-  const { titulo, mensaje } = resolveText(alerta);
+  const { titulo, mensaje } = resolveText(alerta, openedAt);
   const isWarning = alerta.severity === 'warning';
   const palette = isWarning
     ? 'border-amber-500/30 bg-amber-500/10 text-amber-700'

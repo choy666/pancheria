@@ -215,7 +215,11 @@ export function CashRegisterSummary({
               </>
             )}
           </p>
-          <CashRegisterAlertBanner alerta={resolvedAlerta} compact />
+          <CashRegisterAlertBanner
+            alerta={resolvedAlerta}
+            openedAt={cashRegister.openedAt}
+            compact
+          />
           {cashRegister.forcedClosed && cashRegister.forcedCloseReason && (
             <p className="text-sm text-muted-foreground">
               Motivo del cierre forzado: {cashRegister.forcedCloseReason}

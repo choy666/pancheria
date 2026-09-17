@@ -164,7 +164,11 @@ function CajaCard({ data }: { data: NonNullable<ReturnType<typeof useDashboard>[
             <span className="font-mono">{safeFormatDuration(remaining)}</span>
           </p>
         )}
-        <CashRegisterAlertBanner alerta={alerta} compact />
+        <CashRegisterAlertBanner
+          alerta={alerta}
+          openedAt={cashRegister.openedAt}
+          compact
+        />
         <Link href={routes.cierre}>
           <Button variant="outline" className="w-full sm:w-auto">
             Ver caja

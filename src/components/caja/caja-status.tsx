@@ -203,7 +203,7 @@ export function CajaStatus({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <CashRegisterAlertBanner alerta={alerta} />
+        <CashRegisterAlertBanner alerta={alerta} openedAt={cashRegister.openedAt} />
 
         <p className="text-base">
           Caja abierta desde{' '}
