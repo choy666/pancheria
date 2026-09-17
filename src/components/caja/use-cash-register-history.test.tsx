@@ -64,8 +64,23 @@ describe('useCashRegisterHistory', () => {
     expect(result.current.total).toBe(1);
     expect(result.current.page).toBe(1);
     expect(result.current.limit).toBe(10);
-    expect(result.current.startDate).toBeDefined();
-    expect(result.current.endDate).toBeDefined();
+  });
+
+  test('no envía start ni end en la URL (el servidor aplica el default)', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(createPaginatedResponse([]) as unknown as Response);
+
+    renderHook(() => useCashRegisterHistory());
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    const url = new URL(
+      (global.fetch as jest.Mock).mock.calls[0][0] as string,
+      'http://localhost'
+    );
+    expect(url.searchParams.has('start')).toBe(false);
+    expect(url.searchParams.has('end')).toBe(false);
   });
 
   test('expone el error cuando la API devuelve un error de servidor (500)', async () => {

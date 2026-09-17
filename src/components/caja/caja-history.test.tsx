@@ -35,8 +35,6 @@ function createMockReturn(
     total: 0,
     page: 1,
     limit: 10,
-    startDate: '2025-01-01T00:00:00.000Z',
-    endDate: '2025-01-31T23:59:59.999Z',
     error: null,
     isLoading: false,
     setPage: jest.fn(),

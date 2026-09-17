@@ -16,10 +16,13 @@ const DEFAULT_CAJA_OVERDUE_HOURS = 12;
  * Umbral en horas para el aviso de "caja abierta hace mucho tiempo" cuando la
  * sucursal no tiene horarios configurados (fallback legacy). Con horarios
  * configurados no se usa: el aviso depende de los turnos.
+ *
+ * Server-only: solo lee `CAJA_OVERDUE_HOURS`. En el bundle del cliente la
+ * variable no existe y devuelve el default, que es la semántica deseada para
+ * payloads viejos sin `alertaCaja` (ver `resolveDisplayedCashRegisterAlert`).
  */
 export function getCajaOverdueHours(): number {
-  const raw =
-    process.env.CAJA_OVERDUE_HOURS ?? process.env.NEXT_PUBLIC_CAJA_OVERDUE_HOURS;
+  const raw = process.env.CAJA_OVERDUE_HOURS;
   if (!raw) return DEFAULT_CAJA_OVERDUE_HOURS;
   const parsed = Number(raw);
   if (Number.isNaN(parsed) || parsed <= 0) return DEFAULT_CAJA_OVERDUE_HOURS;
@@ -42,8 +45,14 @@ export function getCajaClockIntervalMs(): number {
   return parsed;
 }
 
+/**
+ * Días de historial de caja por defecto cuando la request no trae `start`.
+ *
+ * Server-only: solo lee `CAJA_DEFAULT_HISTORY_DAYS` y solo lo usan las rutas
+ * API. En el bundle del cliente la variable no existe y devuelve el default.
+ */
 export function getDefaultCajaHistoryDays(): number {
-  const raw = process.env.CAJA_DEFAULT_HISTORY_DAYS ?? process.env.NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS;
+  const raw = process.env.CAJA_DEFAULT_HISTORY_DAYS;
   if (!raw) return 30;
   const parsed = Number(raw);
   if (Number.isNaN(parsed) || parsed <= 0) return 30;

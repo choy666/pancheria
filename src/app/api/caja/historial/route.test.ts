@@ -16,6 +16,11 @@ jest.mock('@/lib/logger', () => ({
   logError: jest.fn(),
 }));
 
+jest.mock('@/config/caja', () => ({
+  ...jest.requireActual('@/config/caja'),
+  getDefaultCajaHistoryDays: jest.fn().mockReturnValue(30),
+}));
+
 const mockedCashRegisterService = cashRegisterService as jest.Mocked<
   typeof cashRegisterService
 >;
@@ -77,6 +82,24 @@ describe('GET /api/caja/historial', () => {
       undefined,
       { page: 1, limit: 10 }
     );
+  });
+
+  test('sin start aplica el rango por defecto del servidor', async () => {
+    mockedCashRegisterService.listCashRegisterHistory.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+    });
+
+    const response = await GET(buildRequest(''), {
+      params: Promise.resolve({}),
+    });
+
+    expect(response.status).toBe(200);
+    const [, start, end] =
+      mockedCashRegisterService.listCashRegisterHistory.mock.calls[0];
+    expect(end.getTime() - start.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
   });
 
   test('propaga el filtro de estado al servicio', async () => {

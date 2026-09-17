@@ -499,9 +499,9 @@ Disponibilidad = infinita.
 | `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` | Refresco del estado de caja en panel | `5000` ms |
 | `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` | Cierre automático de caja | `0` (deshabilitado; un valor positivo lo habilita) |
 | `CAJA_AUTO_CLOSED_BY` | Label de cierre automático de caja | `'Sistema'` |
-| `CAJA_OVERDUE_HOURS` / `NEXT_PUBLIC_CAJA_OVERDUE_HOURS` | Umbral del aviso "caja abierta hace mucho tiempo" sin horarios | `12` h |
+| `CAJA_OVERDUE_HOURS` (solo servidor) | Umbral del aviso "caja abierta hace mucho tiempo" sin horarios | `12` h |
 | `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS` | Intervalo del reloj de caja | `60000` ms |
-| `CAJA_DEFAULT_HISTORY_DAYS` / `NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS` | Días de historial de caja | `30` |
+| `CAJA_DEFAULT_HISTORY_DAYS` (solo servidor) | Días de historial de caja | `30` |
 | `NEXT_PUBLIC_BRANCH_TIMEZONE` | Zona horaria para horarios de sucursal | `America/Argentina/Buenos_Aires` |
 | `DEFAULT_BRANCH_SOCIAL_LINKS` / `NEW_BRANCH_SOCIAL_LINKS` | Redes sociales de sucursal en el seed (JSON) | — |
 | `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` | Refresco del catálogo público | `30000` ms |

@@ -2,6 +2,7 @@ import {
   getAutoCloseHours,
   getAutoClosedBy,
   getCajaClockIntervalMs,
+  getCajaOverdueHours,
   getDefaultCajaHistoryDays,
   getCajaRefreshInterval,
 } from './caja';
@@ -74,15 +75,43 @@ describe('caja config', () => {
     expect(getCajaClockIntervalMs()).toBe(10000);
   });
 
+  test('getCajaOverdueHours usa el valor por defecto', () => {
+    delete process.env.CAJA_OVERDUE_HOURS;
+    delete process.env.NEXT_PUBLIC_CAJA_OVERDUE_HOURS;
+    expect(getCajaOverdueHours()).toBe(12);
+  });
+
+  test('getCajaOverdueHours respeta la variable de servidor', () => {
+    process.env.CAJA_OVERDUE_HOURS = '24';
+    expect(getCajaOverdueHours()).toBe(24);
+  });
+
+  test('getCajaOverdueHours ignora la variable pública (server-only)', () => {
+    delete process.env.CAJA_OVERDUE_HOURS;
+    process.env.NEXT_PUBLIC_CAJA_OVERDUE_HOURS = '48';
+    expect(getCajaOverdueHours()).toBe(12);
+  });
+
+  test('getCajaOverdueHours ignora valores inválidos', () => {
+    process.env.CAJA_OVERDUE_HOURS = 'abc';
+    expect(getCajaOverdueHours()).toBe(12);
+  });
+
   test('getDefaultCajaHistoryDays usa el valor por defecto', () => {
     delete process.env.CAJA_DEFAULT_HISTORY_DAYS;
     delete process.env.NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS;
     expect(getDefaultCajaHistoryDays()).toBe(30);
   });
 
-  test('getDefaultCajaHistoryDays respeta la variable pública', () => {
-    process.env.NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS = '90';
+  test('getDefaultCajaHistoryDays respeta la variable de servidor', () => {
+    process.env.CAJA_DEFAULT_HISTORY_DAYS = '90';
     expect(getDefaultCajaHistoryDays()).toBe(90);
+  });
+
+  test('getDefaultCajaHistoryDays ignora la variable pública (server-only)', () => {
+    delete process.env.CAJA_DEFAULT_HISTORY_DAYS;
+    process.env.NEXT_PUBLIC_CAJA_DEFAULT_HISTORY_DAYS = '90';
+    expect(getDefaultCajaHistoryDays()).toBe(30);
   });
 
   test('getDefaultCajaHistoryDays ignora valores inválidos', () => {

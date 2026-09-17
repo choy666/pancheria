@@ -1,14 +1,12 @@
 'use client';
 
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
-import { useCallback, useState } from 'react';
-import { subDays } from 'date-fns';
+import { useCallback } from 'react';
 import {
   CAJA_HISTORIAL_API,
   CAJA_ELIMINADAS_API,
 } from '@/config/api';
-import { getDefaultCajaHistoryDays, type CashRegister } from '@/config/caja';
-import { nowUTC, startOfDayUTC, endOfDayUTC } from '@/lib/date';
+import { type CashRegister } from '@/config/caja';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
 import type { PaginatedResult } from '@/domain/types';
 
@@ -22,8 +20,6 @@ export interface UseCashRegisterHistoryReturn {
   total: number;
   page: number;
   limit: number;
-  startDate: string;
-  endDate: string;
   error: string | null;
   isLoading: boolean;
   setPage: (page: number) => void;
@@ -35,18 +31,9 @@ export function useCashRegisterHistory({
   statusFilter = 'closed',
   deletedOnly = false,
 }: UseCashRegisterHistoryOptions = {}): UseCashRegisterHistoryReturn {
-  const [dateRange] = useState(() => {
-    const now = nowUTC();
-    const end = endOfDayUTC(now);
-    const start = startOfDayUTC(subDays(now, getDefaultCajaHistoryDays()));
-    return { startDate: start.toISOString(), endDate: end.toISOString() };
-  });
-
   const load = useCallback(
     async (page: number, limit: number, signal: AbortSignal) => {
       const params = new URLSearchParams({
-        start: dateRange.startDate,
-        end: dateRange.endDate,
         page: String(page),
         limit: String(limit),
       });
@@ -67,7 +54,7 @@ export function useCashRegisterHistory({
 
       return (await response.json()) as PaginatedResult<CashRegister>;
     },
-    [dateRange, deletedOnly, statusFilter]
+    [deletedOnly, statusFilter]
   );
 
   const {
@@ -87,8 +74,6 @@ export function useCashRegisterHistory({
     total,
     page,
     limit,
-    startDate: dateRange.startDate,
-    endDate: dateRange.endDate,
     error,
     isLoading,
     setPage,
