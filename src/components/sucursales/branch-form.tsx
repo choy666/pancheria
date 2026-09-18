@@ -10,9 +10,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { type BranchState } from '@/app/(panel)/sucursales/actions';
-import { SOCIAL_NETWORK_OPTIONS } from '@/lib/branch-helpers';
+import {
+  SOCIAL_NETWORK_OPTIONS,
+  getSocialNetworkLabel,
+} from '@/lib/branch-helpers';
 import type {
   Branch,
   BranchOpeningHours,
@@ -312,9 +322,22 @@ export function BranchForm({
           name="location"
           type="text"
           defaultValue={branch?.location ?? ''}
-          placeholder="URL del mapa o coordenadas"
+          placeholder="Ej: -32.9468, -60.6393 o URL del mapa"
           data-testid="branch-location"
         />
+        <p className="text-sm text-muted-foreground">
+          Para que el mapa se vea embebido en el catálogo, lo mejor son las{' '}
+          <strong>coordenadas</strong> <code>lat,lng</code> (en Google Maps:
+          clic derecho sobre el punto → clic en las coordenadas para
+          copiarlas): funcionan con cualquier proveedor. También sirve la
+          URL completa de openstreetmap.org o el enlace{' '}
+          <strong>&quot;Insertar mapa&quot;</strong> de Google Maps
+          (Compartir → Insertar un mapa → copiar solo la URL del{' '}
+          <code>src</code>), siempre que correspondan al proveedor de mapas
+          configurado. Los enlaces cortos (<code>maps.app.goo.gl/…</code>) y
+          otras URLs se muestran como &quot;Ver en mapa&quot; sin mapa
+          embebido.
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -326,22 +349,34 @@ export function BranchForm({
         <div className="space-y-2">
           {socialLinks.map((link, index) => (
             <div key={link._id} className="flex items-center gap-2">
-              <select
+              <Select
                 value={link.network}
-                onChange={(e) =>
-                  updateSocialLink(link._id, 'network', e.target.value)
-                }
                 name={`socialLinks[${index}][network]`}
-                aria-label={`Red social ${index + 1}`}
-                data-testid={`branch-social-network-${index}`}
-                className="h-11 rounded-lg border border-input bg-input/50 px-3 text-base md:text-sm"
+                onValueChange={(value) => {
+                  if (value) updateSocialLink(link._id, 'network', value);
+                }}
               >
-                {SOCIAL_NETWORK_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  aria-label={`Red social ${index + 1}`}
+                  data-testid={`branch-social-network-${index}`}
+                  className="w-full sm:w-[160px]"
+                >
+                  <SelectValue>
+                    {(value) => getSocialNetworkLabel(value)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SOCIAL_NETWORK_OPTIONS.map((option) => (
+                    <SelectItem
+                      key={option.value}
+                      value={option.value}
+                      label={option.label}
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 type="text"
                 value={link.url}

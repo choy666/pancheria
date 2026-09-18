@@ -1,4 +1,9 @@
-import { getMapsProvider, getMapsBaseUrl, type MapProvider } from '@/config/maps';
+import {
+  getMapsProvider,
+  getMapsBaseUrl,
+  getMapsFrameOrigins,
+  type MapProvider,
+} from '@/config/maps';
 
 interface MapTemplate {
   baseUrl: string;
@@ -163,6 +168,156 @@ export function tryBuildLocationUrl(input: string): string | null {
   }
 
   return null;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Mapa embebido (iframe)                                                    */
+/* ------------------------------------------------------------------------ */
+
+interface MapEmbedTemplate {
+  /** Base sobre la que se construye la URL embebible del proveedor. */
+  baseUrl: string;
+  buildCoordinatesEmbed: (base: string, lat: number, lng: number) => string;
+}
+
+/** Semiancho del bbox del embed de OSM (≈ zoom 17). */
+const OSM_EMBED_BBOX_DELTA = 0.005;
+
+function buildOsmEmbed(base: string, lat: number, lng: number): string {
+  const west = roundCoordinate(lng - OSM_EMBED_BBOX_DELTA);
+  const south = roundCoordinate(lat - OSM_EMBED_BBOX_DELTA);
+  const east = roundCoordinate(lng + OSM_EMBED_BBOX_DELTA);
+  const north = roundCoordinate(lat + OSM_EMBED_BBOX_DELTA);
+  return `${base}/export/embed.html?bbox=${west},${south},${east},${north}&layer=mapnik&marker=${lat},${lng}`;
+}
+
+/**
+ * Plantillas de iframe por proveedor. Los proveedores sin embed público
+ * (Waze) no figuran: sus ubicaciones se muestran solo como enlace.
+ * Una `NEXT_PUBLIC_MAPS_BASE_URL` personalizada reemplaza a `baseUrl`
+ * (debe exponer la ruta de embed del proveedor, p. ej. una instancia
+ * propia de OpenStreetMap).
+ */
+const EMBED_TEMPLATES: Partial<Record<MapProvider, MapEmbedTemplate>> = {
+  openstreetmap: {
+    baseUrl: 'https://www.openstreetmap.org',
+    buildCoordinatesEmbed: buildOsmEmbed,
+  },
+  google: {
+    baseUrl: 'https://maps.google.com',
+    buildCoordinatesEmbed: (base, lat, lng) =>
+      `${base}/maps?q=${lat},${lng}&z=16&output=embed`,
+  },
+  raw: {
+    baseUrl: 'https://www.openstreetmap.org',
+    buildCoordinatesEmbed: buildOsmEmbed,
+  },
+};
+
+function isAllowedEmbedOrigin(origin: string): boolean {
+  return getMapsFrameOrigins().includes(origin);
+}
+
+function coordinatesFromParams(
+  url: URL,
+  latParam: string,
+  lngParam: string
+): { lat: number; lng: number } | null {
+  const latRaw = url.searchParams.get(latParam);
+  const lngRaw = url.searchParams.get(lngParam);
+  if (latRaw === null || lngRaw === null) return null;
+  return tryParseCoordinates(`${latRaw},${lngRaw}`);
+}
+
+/**
+ * Extrae coordenadas de una URL de mapa conocida: `mlat`/`mlon` y el
+ * fragmento `#map=zoom/lat/lng` de OpenStreetMap, y el parámetro `query`
+ * con `lat,lng` que genera `buildMapCoordinatesUrl` para Google.
+ */
+function coordinatesFromMapUrl(url: URL): { lat: number; lng: number } | null {
+  const fromMarker = coordinatesFromParams(url, 'mlat', 'mlon');
+  if (fromMarker) return fromMarker;
+
+  const hashMatch = url.hash.match(
+    /^#map=\d+(?:\.\d+)?\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)/
+  );
+  if (hashMatch) {
+    const fromHash = tryParseCoordinates(`${hashMatch[1]},${hashMatch[2]}`);
+    if (fromHash) return fromHash;
+  }
+
+  const query = url.searchParams.get('query');
+  if (query) return tryParseCoordinates(query);
+
+  return null;
+}
+
+/**
+ * Devuelve la URL embebible (iframe) para `location`, o `null` cuando debe
+ * mostrarse el enlace externo. Solo devuelve URLs cuyo origen está en
+ * `getMapsFrameOrigins()`, para que la CSP (`frame-src`) siempre lo permita.
+ *
+ * Casos:
+ * - Coordenadas `lat,lng` → embed del proveedor configurado.
+ * - URL ya embebible (`/export/embed.html`, `/maps/embed`, `output=embed`)
+ *   en un origen permitido → se devuelve tal cual.
+ * - URL de mapa con coordenadas (`mlat`/`mlon`, `#map=`, `query=lat,lng`)
+ *   en un origen permitido → se traduce al embed del mismo origen.
+ * - Short links (`maps.app.goo.gl`, `goo.gl/maps`), Waze y cualquier otro
+ *   origen → `null`.
+ */
+export function buildMapEmbedUrl(location: string): string | null {
+  const trimmed = location.trim();
+  if (!trimmed) return null;
+
+  const embedTemplate = EMBED_TEMPLATES[getMapsProvider()];
+
+  const coordinates = tryParseCoordinates(trimmed);
+  if (coordinates) {
+    if (!embedTemplate) return null;
+    const base = getMapsBaseUrl() ?? embedTemplate.baseUrl;
+    const embedUrl = embedTemplate.buildCoordinatesEmbed(
+      base,
+      roundCoordinate(coordinates.lat),
+      roundCoordinate(coordinates.lng)
+    );
+    try {
+      return isAllowedEmbedOrigin(new URL(embedUrl).origin) ? embedUrl : null;
+    } catch {
+      return null;
+    }
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return null;
+  }
+  if (!isAllowedEmbedOrigin(parsed.origin)) return null;
+
+  // URL ya embebible: `/export/embed.html` (OSM), `/maps/embed*` u
+  // `output=embed` (Google).
+  if (
+    parsed.pathname.toLowerCase().includes('embed') ||
+    parsed.searchParams.get('output') === 'embed'
+  ) {
+    return trimmed;
+  }
+
+  if (!embedTemplate) return null;
+
+  const urlCoordinates = coordinatesFromMapUrl(parsed);
+  if (!urlCoordinates) return null;
+
+  return embedTemplate.buildCoordinatesEmbed(
+    parsed.origin,
+    roundCoordinate(urlCoordinates.lat),
+    roundCoordinate(urlCoordinates.lng)
+  );
 }
 
 

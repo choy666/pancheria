@@ -63,6 +63,7 @@
 
 - **Incluir siempre una sección de seguridad y entorno** cuando se trabaje con `.env.local`, credenciales o bases de datos. Recordar que `.env.local` no debe commitearse y que las credenciales deben rotarse si se expusieron.
 - **Revisar imports obsoletos antes de incluirlos en un checklist.** Pueden haber sido resueltos en iteraciones anteriores; no ejecutar limpiezas sin verificar.
+- **Los iframes de terceros se derivan de configuración, se validan contra la CSP y se montan solo con interacción.** El mapa embebido de `/pedido` usa orígenes de `getMapsFrameOrigins` (`src/config/maps.ts`) tanto para `frame-src` como para validar `buildMapEmbedUrl` (`src/lib/maps.ts`): CSP y renderer nunca se desincronizan. El `<iframe>` se monta solo al abrir el `<details>` (handler `onToggle`), no basta `loading="lazy"`: así el proveedor no recibe requests sin consentimiento del cliente. El `Select` de base-ui muestra el valor crudo en el trigger salvo que `SelectValue` reciba una función `(value) => label` o `items` en `Select.Root` — seguir el patrón del selector de sucursal del catálogo.
 
 ## 6. Documentación del proyecto
 

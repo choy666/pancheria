@@ -16,145 +16,13 @@ import { PedidoCartSection } from './pedido-cart-section';
 import { PedidoCustomerForm } from './pedido-customer-form';
 import { PedidoSuccessDialog } from './pedido-success-dialog';
 import { CheckoutSummary } from './checkout-summary';
+import { BranchInfoCard } from './branch-info-card';
 import { usePedidoClient } from './usePedidoClient';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
-import {
-  getTodayOpening,
-  getNextOpening,
-  formatOpeningHours,
-  getSocialLinkHref,
-  getSocialNetworkLabel,
-} from '@/lib/branch-helpers';
 import { formatMoney } from '@/lib/money';
 import { publicShortageMessage } from '@/lib/public-errors';
 import type { Branch } from '@/domain/types';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
-import type { BranchStatus } from './usePedidoClient';
-
-interface BranchInfoCardProps {
-  branchStatus: BranchStatus | null;
-  activeBranch: Branch;
-}
-
-function BranchInfoCard({ branchStatus, activeBranch }: BranchInfoCardProps) {
-  const isStatusKnown = branchStatus !== null;
-  const currentOpening =
-    branchStatus?.currentOpening ?? getTodayOpening(activeBranch);
-  const nextOpening =
-    branchStatus?.nextOpening ?? getNextOpening(activeBranch);
-  const isOpen = branchStatus?.isOpen ?? false;
-  const branch = branchStatus?.branch ?? activeBranch;
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-border p-3 text-sm">
-        <p className="font-medium text-foreground">{branch.name}</p>
-        {isStatusKnown ? (
-          <p
-            className={`mt-1 flex items-center gap-1 ${
-              isOpen ? 'text-green-400' : 'text-amber-400'
-            }`}
-          >
-            <span
-              className={`inline-block size-2 rounded-full ${
-                isOpen ? 'bg-green-400' : 'bg-amber-400'
-              }`}
-            />
-            {isOpen ? 'Abierto ahora' : 'Cerrado'}
-            {!isOpen && nextOpening && ` · Próxima apertura: ${nextOpening}`}
-          </p>
-        ) : (
-          <p className="mt-1 flex items-center gap-1 text-muted-foreground">
-            <span className="inline-block size-2 animate-pulse rounded-full bg-muted-foreground" />
-            Consultando disponibilidad...
-          </p>
-        )}
-        <p className="mt-1 text-muted-foreground">
-          Horario de hoy: {currentOpening}
-        </p>
-        {branch.openingHours && branch.openingHours.length > 0 && (
-          <details className="mt-1 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Ver todos los horarios</summary>
-            <p className="pt-1">
-              {formatOpeningHours(branch.openingHours)}
-            </p>
-          </details>
-        )}
-        {branch.address && (
-          <p className="mt-1 text-muted-foreground">
-            Dirección: {branch.address}
-          </p>
-        )}
-        {branch.phones?.map((phone, index) => (
-          <p
-            key={`${phone.label}-${index}`}
-            data-testid={index === 0 ? 'branch-phone' : undefined}
-            className="mt-1 text-muted-foreground"
-          >
-            {phone.label}: {phone.number}
-          </p>
-        ))}
-        {branch.socialLinks && branch.socialLinks.length > 0 && (
-          <p
-            data-testid="branch-social-links"
-            className="mt-1 text-muted-foreground"
-          >
-            {branch.socialLinks.map((link, index) => {
-              const href = getSocialLinkHref(link);
-              const label = getSocialNetworkLabel(link.network);
-              return (
-                <span key={`${link.network}-${index}`}>
-                  {index > 0 && ' · '}
-                  {href ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    `${label}: ${link.url}`
-                  )}
-                </span>
-              );
-            })}
-          </p>
-        )}
-        {branch.location && (
-          <a
-            href={branch.location}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 inline-block text-primary hover:underline"
-          >
-            Ver en mapa
-          </a>
-        )}
-      </div>
-
-      {isStatusKnown && !isOpen && (
-        <div
-          className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200"
-          role="alert"
-        >
-          La sucursal está cerrada. Tu pedido se preparará cuando abra:{' '}
-          {nextOpening}.
-        </div>
-      )}
-
-      {isStatusKnown && isOpen && (
-        <div
-          className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200"
-          role="status"
-        >
-          Sucursal abierta: {currentOpening}.
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface PedidoClientProps {
   branches: Branch[];
@@ -302,6 +170,7 @@ export function PedidoClient({
           </DialogHeader>
 
           <BranchInfoCard
+            variant="checkout"
             branchStatus={branchStatus}
             activeBranch={activeBranch}
           />

@@ -20,6 +20,8 @@ El proyecto se mantiene operativo y todas las verificaciones base pasan sobre el
 
 Esta sesión ejecutó una **auditoría documental de `.devin` y la documentación vigente**: se archivaron dos informes ya resueltos, se sincronizaron los índices, se corrigieron defaults desactualizados y se actualizó este reporte.
 
+Además se implementó el prompt `datos-sucursal-y-mapa-en-pedido` (archivado en `prompts/archivados/`): la tarjeta de datos de sucursal (`BranchInfoCard`) se muestra al inicio del catálogo `/pedido`, la ubicación se embebe como iframe lazy dentro de un `<details>` cuando `buildMapEmbedUrl` la valida contra `getMapsFrameOrigins` (con fallback "Ver en mapa" para short links y orígenes no soportados), `frame-src` deriva sus orígenes de la configuración de mapas y el select de redes sociales del formulario de sucursal migró a `Select` de base-ui.
+
 ## 2. Stack y arquitectura
 
 - Next.js `16.3.3` (App Router + Turbopack)
@@ -38,7 +40,7 @@ La arquitectura mantiene la separación por capas: `src/app/` (UI y API), `src/a
 - **Pedidos**: flujo `pending` → `in_process` → `paid` → `finished` / `cancelled`, con reservas de stock al recibir el pedido (`receiveOrder`), chat integrado (texto, imágenes y ubicación) y pagos mixtos.
 - **Productos/promos**: tipos `critical_supply`, `manual_supply`, `compound`, `service`; imágenes ilustrativas en catálogo público; snapshots de receta en `sale_item_recipes` y `order_item_recipes`.
 - **Stock y caja**: movimientos con razones, cierre automático opcional (`CAJA_AUTO_CLOSE_HOURS`, deshabilitado por defecto), avisos por turnos con fallback por umbral, cierres diarios históricos, soft delete de cajas, vaciado masivo de papelera.
-- **Sucursales**: horarios con turnos overnight, dirección, ubicación, teléfonos con etiqueta y redes sociales expuestos públicamente; eliminación en cascada con liberación de archivos.
+- **Sucursales**: horarios con turnos overnight, dirección, ubicación (con mapa embebido en `/pedido` para orígenes soportados y fallback "Ver en mapa" para el resto), teléfonos con etiqueta y redes sociales expuestos públicamente; eliminación en cascada con liberación de archivos.
 - **Chat de pedidos**: texto, imágenes (con validación de magic bytes), paginación con cursores, polling con pausa por visibilidad, compartir ubicación del cliente y de la sucursal.
 - **Almacenamiento**: `local`, `vercel-blob`, `s3` y `r2` para videos, adjuntos de chat e imágenes de productos.
 - **Multi-sucursal**: aislamiento por `branchId`; admin puede operar sobre cualquier sucursal.

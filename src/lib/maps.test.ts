@@ -1,5 +1,6 @@
 import {
   buildMapCoordinatesUrl,
+  buildMapEmbedUrl,
   buildMapSearchUrl,
   isKnownMapUrl,
   isValidLocationUrl,
@@ -126,6 +127,92 @@ describe('maps helpers', () => {
 
     test('devuelve null para valores inválidos', () => {
       expect(tryBuildLocationUrl('no es una ubicación')).toBeNull();
+    });
+  });
+
+  describe('buildMapEmbedUrl', () => {
+    test('convierte coordenadas en embed de OpenStreetMap por defecto', () => {
+      const url = buildMapEmbedUrl('-34.6037, -58.3816');
+      expect(url).not.toBeNull();
+      expect(url).toContain('openstreetmap.org/export/embed.html');
+      expect(url).toContain('marker=-34.6037,-58.3816');
+      expect(url).toContain('bbox=');
+    });
+
+    test('convierte coordenadas en embed de Google cuando el proveedor es google', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      const url = buildMapEmbedUrl('-34.6037,-58.3816');
+      expect(url).toContain('google.com');
+      expect(url).toContain('q=-34.6037,-58.3816');
+      expect(url).toContain('output=embed');
+    });
+
+    test('devuelve null para coordenadas cuando el proveedor es waze (sin embed)', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'waze';
+      expect(buildMapEmbedUrl('-34.6037,-58.3816')).toBeNull();
+    });
+
+    test('usa NEXT_PUBLIC_MAPS_BASE_URL como base del embed', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'raw';
+      process.env.NEXT_PUBLIC_MAPS_BASE_URL = 'https://maps.ejemplo.com';
+      const url = buildMapEmbedUrl('-34.6037,-58.3816');
+      expect(url).toContain('https://maps.ejemplo.com/export/embed.html');
+    });
+
+    test('traduce una URL de OSM con mlat/mlon al embed', () => {
+      const location =
+        'https://www.openstreetmap.org/?mlat=-34.6037&mlon=-58.3816#map=18/-34.6037/-58.3816';
+      const url = buildMapEmbedUrl(location);
+      expect(url).toContain('openstreetmap.org/export/embed.html');
+      expect(url).toContain('marker=-34.6037,-58.3816');
+    });
+
+    test('traduce una URL de OSM con solo el fragmento #map al embed', () => {
+      const url = buildMapEmbedUrl(
+        'https://www.openstreetmap.org/#map=18/-34.6037/-58.3816'
+      );
+      expect(url).toContain('openstreetmap.org/export/embed.html');
+      expect(url).toContain('marker=-34.6037,-58.3816');
+    });
+
+    test('devuelve tal cual una URL ya embebible de un origen permitido', () => {
+      const embed =
+        'https://www.openstreetmap.org/export/embed.html?bbox=-58.4,-34.7,-58.3,-34.6&layer=mapnik';
+      expect(buildMapEmbedUrl(embed)).toBe(embed);
+    });
+
+    test('traduce una URL de Google con query=lat,lng al embed', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      const url = buildMapEmbedUrl(
+        'https://www.google.com/maps/search/?api=1&query=-34.6037,-58.3816'
+      );
+      expect(url).toContain('google.com/maps?q=-34.6037,-58.3816');
+      expect(url).toContain('output=embed');
+    });
+
+    test('devuelve null para short links y orígenes no permitidos', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      expect(buildMapEmbedUrl('https://maps.app.goo.gl/abc123')).toBeNull();
+      expect(buildMapEmbedUrl('https://goo.gl/maps/abc123')).toBeNull();
+      expect(buildMapEmbedUrl('https://wa.me/5493415555555')).toBeNull();
+      expect(buildMapEmbedUrl('https://example.com/mapa')).toBeNull();
+    });
+
+    test('devuelve null para URL del proveedor sin coordenadas embebibles', () => {
+      expect(buildMapEmbedUrl('https://www.openstreetmap.org/')).toBeNull();
+    });
+
+    test('devuelve null para URLs de Waze aunque el proveedor sea waze', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'waze';
+      expect(
+        buildMapEmbedUrl('https://waze.com/ul?ll=-34.6037,-58.3816')
+      ).toBeNull();
+    });
+
+    test('devuelve null para valores inválidos o esquemas inseguros', () => {
+      expect(buildMapEmbedUrl('no es una ubicación')).toBeNull();
+      expect(buildMapEmbedUrl('javascript:alert(1)')).toBeNull();
+      expect(buildMapEmbedUrl('   ')).toBeNull();
     });
   });
 });

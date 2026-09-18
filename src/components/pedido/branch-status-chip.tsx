@@ -13,8 +13,8 @@ interface BranchStatusChipProps {
 /**
  * Versión compacta del estado de la sucursal para el encabezado del catálogo
  * público: avisa si el local está abierto antes de que el cliente arme todo
- * el pedido. El detalle completo se sigue mostrando con `BranchInfoCard`
- * dentro del modal de checkout.
+ * el pedido. El detalle completo se muestra con `BranchInfoCard` debajo del
+ * encabezado (variante `header`) y dentro del modal de checkout.
  */
 export function BranchStatusChip({
   branchStatus,

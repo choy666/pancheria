@@ -77,10 +77,12 @@ test.describe('Contactos de sucursal', () => {
     await page.getByTestId('branch-phone-label-1').fill('WhatsApp');
     await page.getByTestId('branch-phone-number-1').fill('3415550002');
 
+    await page.getByTestId('branch-location').fill('-32.9468, -60.6393');
+
     await page.getByTestId('branch-add-social').click();
-    await page
-      .getByTestId('branch-social-network-0')
-      .selectOption('instagram');
+    // El select de redes usa el componente base-ui: trigger + opción.
+    await page.getByTestId('branch-social-network-0').click();
+    await page.getByRole('option', { name: 'Instagram' }).click();
     await page.getByTestId('branch-social-url-0').fill(socialUrl);
 
     await page.getByRole('button', { name: 'Crear sucursal' }).click();
@@ -127,8 +129,8 @@ test.describe('Contactos de sucursal', () => {
     await expect(page.getByTestId('branch-phone-label-1')).toHaveValue(
       'WhatsApp'
     );
-    await expect(page.getByTestId('branch-social-network-0')).toHaveValue(
-      'instagram'
+    await expect(page.getByTestId('branch-social-network-0')).toContainText(
+      'Instagram'
     );
     await expect(page.getByTestId('branch-social-url-0')).toHaveValue(
       socialUrl
@@ -143,6 +145,23 @@ test.describe('Contactos de sucursal', () => {
     await expect(row.getByTestId('branch-phone')).toHaveText(
       `Pedidos: ${updatedNumber}`,
       { timeout: 10000 }
+    );
+
+    // El catálogo público muestra los datos de la sucursal al inicio, antes
+    // del checkout: teléfonos, redes y el mapa embebido para coordenadas.
+    await page.goto(`/pedido?branchId=${branchId}`);
+    const infoCard = page.getByTestId('branch-info-card');
+    await expect(infoCard).toBeVisible();
+    await expect(infoCard.getByTestId('branch-phone')).toHaveText(
+      `Pedidos: ${updatedNumber}`
+    );
+    await expect(
+      infoCard.getByTestId('branch-social-links')
+    ).toContainText('Instagram');
+    await infoCard.getByText('Ver mapa').click();
+    await expect(page.getByTestId('branch-map-frame')).toHaveAttribute(
+      'src',
+      /export\/embed\.html/
     );
   });
 });

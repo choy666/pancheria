@@ -6,6 +6,11 @@ import { getCspHeader } from './csp-helpers';
 describe('csp-helpers', () => {
   const originalEnv = { ...process.env };
 
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_MAPS_PROVIDER;
+    delete process.env.NEXT_PUBLIC_MAPS_BASE_URL;
+  });
+
   afterEach(() => {
     process.env = { ...originalEnv };
   });
@@ -21,12 +26,38 @@ describe('csp-helpers', () => {
         "media-src 'self' blob:; " +
         "connect-src 'self' https://www.gstatic.com; " +
         "font-src 'self'; " +
-        "frame-src 'self'; " +
+        "frame-src 'self' https://www.openstreetmap.org https://openstreetmap.org; " +
         "object-src 'none'; " +
         "base-uri 'self'; " +
         "form-action 'self'; " +
         "frame-ancestors 'none'"
     );
+  });
+
+  test('frame-src incluye los orígenes de Google cuando el proveedor es google', () => {
+    process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+
+    const header = getCspHeader('nonce');
+
+    expect(header).toContain(
+      "frame-src 'self' https://maps.google.com https://www.google.com https://google.com"
+    );
+  });
+
+  test('frame-src no incluye orígenes externos cuando el proveedor es waze', () => {
+    process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'waze';
+
+    const header = getCspHeader('nonce');
+
+    expect(header).toContain("frame-src 'self';");
+  });
+
+  test('frame-src agrega el origen de NEXT_PUBLIC_MAPS_BASE_URL', () => {
+    process.env.NEXT_PUBLIC_MAPS_BASE_URL = 'https://maps.ejemplo.com/mapa';
+
+    const header = getCspHeader('nonce');
+
+    expect(header).toContain('https://maps.ejemplo.com');
   });
 
   test('en producción elimina unsafe-eval y agrega upgrade-insecure-requests', () => {

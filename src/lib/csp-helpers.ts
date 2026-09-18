@@ -12,6 +12,7 @@
  */
 
 import { isProduction } from '@/config/env';
+import { getMapsFrameOrigins } from '@/config/maps';
 import { getProductImageAllowedExternalDomains } from '@/config/product-images';
 import {
   getStorageImageOrigins,
@@ -49,7 +50,7 @@ export function getCspHeader(nonce: string): string {
     `media-src ${mediaSources.join(' ')}`,
     `connect-src ${connectSources.join(' ')}`,
     "font-src 'self'",
-    "frame-src 'self'",
+    `frame-src ${["'self'", ...getMapsFrameOrigins()].join(' ')}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

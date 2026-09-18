@@ -527,8 +527,8 @@ describe('PedidoClient', () => {
       // El estado también se muestra en el encabezado del catálogo.
       expect(screen.getAllByText('Abierto ahora').length).toBeGreaterThan(0);
       expect(
-        screen.getByText('Horario de hoy: Hoy de 08:00 a 18:00')
-      ).toBeInTheDocument();
+        screen.getAllByText('Horario de hoy: Hoy de 08:00 a 18:00').length
+      ).toBeGreaterThan(0);
       expect(
         screen.getByText('Sucursal abierta: Hoy de 08:00 a 18:00.')
       ).toBeInTheDocument();
@@ -563,16 +563,20 @@ describe('PedidoClient', () => {
         branch,
       });
 
+      // La tarjeta se muestra en el encabezado y en el checkout.
       expect(
-        screen.getByText('Dirección: Av. Pellegrini 1234, Rosario')
-      ).toBeInTheDocument();
-      expect(screen.getByTestId('branch-phone')).toHaveTextContent(
+        screen.getAllByText('Dirección: Av. Pellegrini 1234, Rosario').length
+      ).toBeGreaterThan(0);
+      expect(screen.getAllByTestId('branch-phone')[0]).toHaveTextContent(
         'Pedidos: 3415555555'
       );
-      expect(screen.getByText('WhatsApp: 3416666666')).toBeInTheDocument();
-      const mapLink = screen.getByText('Ver en mapa');
-      expect(mapLink).toBeInTheDocument();
-      expect(mapLink).toHaveAttribute(
+      expect(
+        screen.getAllByText('WhatsApp: 3416666666').length
+      ).toBeGreaterThan(0);
+      const mapLinks = screen.getAllByTestId('branch-map-link');
+      expect(mapLinks.length).toBeGreaterThan(0);
+      expect(mapLinks[0]).toHaveTextContent('Ver en mapa');
+      expect(mapLinks[0]).toHaveAttribute(
         'href',
         'https://maps.example.com/sucursal-a'
       );
@@ -825,6 +829,113 @@ describe('PedidoClient', () => {
       const banner = screen.getByTestId('recent-orders-banner');
       expect(banner).toBeInTheDocument();
       expect(banner).toHaveTextContent('PED-1-1234567890-abc');
+    });
+  });
+
+  describe('tarjeta de sucursal en el encabezado', () => {
+    async function renderPedido(branch: Branch) {
+      const branches = [branch];
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branch}
+            initialProducts={[makeProduct()]}
+          />
+        );
+        await Promise.resolve();
+      });
+    }
+
+    test('muestra los datos de la sucursal al montar, sin abrir el checkout', async () => {
+      await renderPedido(
+        makeBranch(1, 'Sucursal A', {
+          address: 'Av. Pellegrini 1234, Rosario',
+          phones: [{ label: 'Pedidos', number: '3415555555' }],
+          socialLinks: [
+            { network: 'instagram', url: 'https://instagram.com/pancheria' },
+            { network: 'whatsapp', url: '5493415555555' },
+          ],
+          location: 'https://maps.example.com/sucursal-a',
+        })
+      );
+
+      const card = screen.getByTestId('branch-info-card');
+      expect(card).toBeInTheDocument();
+      expect(card).toHaveTextContent(/Pedí por acá/);
+      expect(card).toHaveTextContent('Dirección: Av. Pellegrini 1234, Rosario');
+      expect(screen.getByTestId('branch-phone')).toHaveTextContent(
+        'Pedidos: 3415555555'
+      );
+
+      const socials = screen.getByTestId('branch-social-links');
+      expect(socials).toHaveTextContent('Instagram');
+      // WhatsApp se muestra como dato informativo, sin enlace wa.me.
+      expect(socials).toHaveTextContent('WhatsApp: 5493415555555');
+      expect(socials.querySelector('a[href*="wa.me"]')).not.toBeInTheDocument();
+
+      // La ubicación no embebible se muestra como enlace externo.
+      const mapLink = screen.getByTestId('branch-map-link');
+      expect(mapLink).toHaveTextContent('Ver en mapa');
+      expect(mapLink).toHaveAttribute(
+        'href',
+        'https://maps.example.com/sucursal-a'
+      );
+      expect(
+        screen.queryByTestId('branch-map-frame')
+      ).not.toBeInTheDocument();
+    });
+
+    test('muestra el mapa embebido solo al abrir la sección cuando la ubicación lo permite', async () => {
+      await renderPedido(
+        makeBranch(1, 'Sucursal A', {
+          location:
+            'https://www.openstreetmap.org/?mlat=-32.9468&mlon=-60.6393#map=18/-32.9468/-60.6393',
+        })
+      );
+
+      const details = screen.getByTestId('branch-map-details');
+      expect(details).toBeInTheDocument();
+      // El iframe no se monta hasta que el cliente abre la sección.
+      expect(
+        screen.queryByTestId('branch-map-frame')
+      ).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Ver mapa'));
+        await Promise.resolve();
+      });
+
+      const frame = await screen.findByTestId('branch-map-frame');
+      expect(frame).toHaveAttribute(
+        'src',
+        expect.stringContaining('openstreetmap.org/export/embed.html')
+      );
+      expect(frame).toHaveAttribute('title', 'Mapa de Sucursal A');
+      expect(frame).toHaveAttribute('loading', 'lazy');
+      expect(screen.getByTestId('branch-map-link')).toHaveTextContent(
+        'Abrir en el mapa'
+      );
+    });
+
+    test('muestra solo el enlace externo cuando la ubicación no es embebible', async () => {
+      await renderPedido(
+        makeBranch(1, 'Sucursal A', {
+          location: 'https://maps.app.goo.gl/abc123',
+        })
+      );
+
+      expect(screen.getByTestId('branch-map-link')).toHaveAttribute(
+        'href',
+        'https://maps.app.goo.gl/abc123'
+      );
+      expect(
+        screen.queryByTestId('branch-map-details')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('branch-map-frame')
+      ).not.toBeInTheDocument();
     });
   });
 });

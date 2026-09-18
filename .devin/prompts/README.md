@@ -134,6 +134,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ### Prompts archivados
 
+- [Datos de sucursal al inicio de `/pedido`, mapa embebido y select de redes](archivados/datos-sucursal-y-mapa-en-pedido.md) — resuelto: `BranchInfoCard` extraído a `branch-info-card.tsx` con variantes `header`/`checkout` y visible al inicio de `/pedido`; `branch-map.tsx` con `buildMapEmbedUrl` (`src/lib/maps.ts`), iframe montado solo al abrir el `<details>` y orígenes de `getMapsFrameOrigins` (`src/config/maps.ts`) en `frame-src`; select de redes migrado a base-ui; E2E `sucursal-contactos-y-turnos` y `pedido-sucursal-y-stock`: 8 passed.
 - [Destacar el botón de cierre de caja](archivados/destacar-boton-cierre-caja.md) — resuelto: "Cerrar caja" pasó de `variant="outline"` a `default` con icono `LockKeyhole` (y `size="lg"` en `/cierre`); el cierre forzado mantiene `destructive`, también en el botón de confirmación del diálogo. Se preservaron `data-testid` y `data-tour`; E2E de caja y tour: 14 passed.
 - [Mejoras de UX y lenguaje en el flujo público de pedidos](archivados/mejoras-ux-pedido-publico.md) — resuelto: etiquetas públicas (`publicProductTypeLabels`), disponibilidad cualitativa, estado de sucursal en el encabezado, mensajes sin jerga interna, carrito accesible en mobile, stepper, diálogo de éxito con copiar número y cancelación colapsable, y línea de progreso en seguimiento.
 

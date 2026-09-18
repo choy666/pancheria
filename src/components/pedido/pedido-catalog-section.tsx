@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { ProductCard } from './product-card';
 import { BranchStatusChip } from './branch-status-chip';
+import { BranchInfoCard } from './branch-info-card';
 import {
   productTypeGroupClasses,
   publicProductTypeLabels,
@@ -149,6 +150,12 @@ export function PedidoCatalogSection({
             />
           </div>
         </div>
+
+        <BranchInfoCard
+          variant="header"
+          branchStatus={branchStatus}
+          activeBranch={activeBranch}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">

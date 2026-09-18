@@ -60,7 +60,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── plan-implementacion-multi-tenant.md
-    └── archivados/               # Prompts resueltos (incluye plan de pedidos personalizados y auditoria-fallos-e2e-caja-y-rate-limit.md)
+    └── archivados/               # Prompts resueltos (incluye plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, destacar-boton-cierre-caja.md y auditoria-fallos-e2e-caja-y-rate-limit.md)
 ```
 
 ## Reglas de uso
