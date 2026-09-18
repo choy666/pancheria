@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { addHours, intervalToDuration } from 'date-fns';
+import { LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -230,11 +231,12 @@ export function CajaStatus({
           <Button
             type="button"
             data-testid="close-cash-register"
-            variant={isForcedClose ? 'destructive' : 'outline'}
+            variant={isForcedClose ? 'destructive' : 'default'}
             disabled={isSubmitting || loading}
             className="w-full sm:w-auto"
             onClick={() => setCloseDialog(true)}
           >
+            <LockKeyhole className="h-4 w-4" />
             {isSubmitting || loading
               ? 'Cerrando...'
               : isForcedClose
@@ -326,6 +328,7 @@ export function CajaStatus({
                 type="button"
                 onClick={handleClose}
                 disabled={isSubmitting}
+                variant={isForcedClose ? 'destructive' : 'default'}
                 data-testid="confirm-close-cash-register"
               >
                 {isSubmitting

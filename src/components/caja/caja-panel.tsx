@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -192,10 +193,12 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
             data-testid="close-cash-register"
             type="button"
             disabled={isSubmitting}
-            variant={isForcedClose ? 'destructive' : 'outline'}
+            variant={isForcedClose ? 'destructive' : 'default'}
+            size="lg"
             className="w-full sm:w-auto"
             onClick={() => setCloseDialog(true)}
           >
+            <LockKeyhole className="h-4 w-4" />
             {isSubmitting
               ? 'Cerrando...'
               : isForcedClose
@@ -287,6 +290,7 @@ export function CajaPanel({ branchName, role = 'operator', userName }: CajaPanel
                 type="button"
                 onClick={handleClose}
                 disabled={isSubmitting}
+                variant={isForcedClose ? 'destructive' : 'default'}
                 data-testid="confirm-close-cash-register"
               >
                 {isSubmitting

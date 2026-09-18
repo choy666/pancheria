@@ -134,6 +134,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 ### Prompts archivados
 
+- [Destacar el botón de cierre de caja](archivados/destacar-boton-cierre-caja.md) — resuelto: "Cerrar caja" pasó de `variant="outline"` a `default` con icono `LockKeyhole` (y `size="lg"` en `/cierre`); el cierre forzado mantiene `destructive`, también en el botón de confirmación del diálogo. Se preservaron `data-testid` y `data-tour`; E2E de caja y tour: 14 passed.
 - [Mejoras de UX y lenguaje en el flujo público de pedidos](archivados/mejoras-ux-pedido-publico.md) — resuelto: etiquetas públicas (`publicProductTypeLabels`), disponibilidad cualitativa, estado de sucursal en el encabezado, mensajes sin jerga interna, carrito accesible en mobile, stepper, diálogo de éxito con copiar número y cancelación colapsable, y línea de progreso en seguimiento.
 
 - [Implementación de hallazgos críticos y mayores de la auditoría 2026-09-05](archivados/implementacion-hallazgos-auditoria-2026-09-05.md) — resuelto: transacciones re-entrantes, validación/deducción de recetas con snapshot en `convertOrderToSale`, scope en rate limit, `orderId` en `stock_movements`, `getClientIp` en producción auto-alojada y tests de `cart-pipeline`.
