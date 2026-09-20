@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   ensureCashRegisterClosed,
   ensureCashRegisterOpen,
+  listAllProductsViaApi,
   login,
 } from './helpers';
 
@@ -16,17 +17,9 @@ test.describe('Historial de cajas con ventas', () => {
   }) => {
     await ensureCashRegisterOpen(page);
 
-    const productsResponse = await page.request.get(
-      '/api/productos?includeAvailability=true&limit=100'
-    );
-    const { items: products } = (await productsResponse.json()) as {
-      items: {
-        id: number;
-        name: string;
-        price: number;
-        type: string;
-      }[];
-    };
+    const products = await listAllProductsViaApi(page, {
+      includeAvailability: true,
+    });
     const product = products.find(
       (p) => p.type === 'service' && p.price === 500
     );

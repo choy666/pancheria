@@ -7,6 +7,7 @@ import {
   loginAsOperator,
   getTestSecondBranch,
   getDefaultBranchId,
+  gotoStockWithProduct,
   unique,
 } from './helpers';
 
@@ -45,7 +46,7 @@ test.describe('Rol administrador', () => {
 
   test('en /usuarios lista todos los usuarios del sistema', async ({ page }) => {
     const secondBranch = await getTestSecondBranch();
-    await page.goto('/usuarios');
+    await page.goto('/usuarios?limit=100');
 
     await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
 
@@ -93,7 +94,7 @@ test.describe('Rol administrador', () => {
 
   test('en /usuarios no puede editar ni eliminar al administrador inicial', async ({ page }) => {
     const adminUsername = process.env.ADMIN_USERNAME ?? 'admin';
-    await page.goto('/usuarios');
+    await page.goto('/usuarios?limit=100');
 
     await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
@@ -110,7 +111,7 @@ test.describe('Rol administrador', () => {
     const operatorUsername = unique('operador-e2e');
     const editedUsername = unique('operador-editado');
 
-    await page.goto('/usuarios');
+    await page.goto('/usuarios?limit=100');
     await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
@@ -300,7 +301,9 @@ test.describe('Aislamiento de datos por sucursal', () => {
       description: null,
     });
 
-    await page.goto('/stock');
+    // Listado paginado: el helper ubica la página donde está el producto
+    // propio y navega directo a ella.
+    await gotoStockWithProduct(page, ownProduct);
     await expect(page.getByRole('heading', { name: 'Stock' })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 

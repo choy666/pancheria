@@ -95,6 +95,26 @@ describe('GET /api/public/pedido/[id]/chat/stream', () => {
     });
   });
 
+  test('`Last-Event-ID` tiene prioridad sobre `after` de la query', async () => {
+    mockedChatService.getChatStreamState.mockResolvedValue(buildState());
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/public/pedido/${ORDER_ID}/chat/stream?token=${TOKEN}&after=42&budget=600`,
+        { headers: { 'last-event-id': '17' } }
+      ),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+    await readAll(response);
+
+    expect(mockedChatService.pollChatStreamTick).toHaveBeenCalledWith(
+      ORDER_ID,
+      { token: TOKEN },
+      'operator',
+      17
+    );
+  });
+
   test('exige el token del pedido', async () => {
     const response = await GET(
       new NextRequest(

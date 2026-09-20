@@ -32,12 +32,16 @@ let clientIpCounter = 1;
 
 /**
  * Asigna un IP de cliente único a la página para aislar el rate limit
- * entre tests de pedidos públicos.
+ * entre tests de pedidos públicos. Devuelve el IP asignado por si el test
+ * necesita enviarlo explícito en `page.request` (que no hereda los headers
+ * extra de la página, sí los del contexto).
  */
-export async function setUniqueClientIp(page: Page): Promise<void> {
+export async function setUniqueClientIp(page: Page): Promise<string> {
   const ip = `203.0.113.${clientIpCounter % 254}`;
   clientIpCounter += 1;
   await page.setExtraHTTPHeaders({ 'X-Forwarded-For': ip });
+  await page.context().setExtraHTTPHeaders({ 'X-Forwarded-For': ip });
+  return ip;
 }
 
 const LOGIN_NAVIGATION_TIMEOUT = 60_000;
@@ -593,4 +597,88 @@ export async function setCashRegisterOpenedAt(
     .update(cashRegisters)
     .set({ openedAt })
     .where(eq(cashRegisters.id, cashRegisterId));
+}
+
+/**
+ * Ítem de producto tal como lo devuelve `GET /api/productos`. Se tipa de
+ * forma laxa porque distintos specs consumen distintos campos.
+ */
+export interface E2EProductListItem {
+  id: number;
+  name: string;
+  type: string;
+  price?: number;
+  unit?: string;
+  criticalSupplyType?: string | null;
+  availability?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Lista todos los productos activos de la sucursal paginando
+ * `GET /api/productos`. El endpoint devuelve 10 ítems por defecto y hasta
+ * 100 por página: los tests que buscan un producto por nombre deben usar
+ * este helper en lugar de una sola página, porque el orden es alfabético y
+ * el producto buscado puede quedar fuera de la primera página a medida que
+ * la suite crea datos.
+ */
+export async function listAllProductsViaApi(
+  page: Page,
+  options: { includeAvailability?: boolean } = {}
+): Promise<E2EProductListItem[]> {
+  const items: E2EProductListItem[] = [];
+  const limit = 100;
+  let pageNum = 1;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (items.length < total) {
+    const params = new URLSearchParams({
+      page: String(pageNum),
+      limit: String(limit),
+      includeAvailability: options.includeAvailability ? 'true' : 'false',
+    });
+    const response = await page.request.get(`/api/productos?${params}`);
+    expect(response.status()).toBe(200);
+    const data = (await response.json()) as {
+      items: E2EProductListItem[];
+      total: number;
+    };
+    items.push(...data.items);
+    total = data.total;
+    if (data.items.length === 0) break;
+    pageNum += 1;
+  }
+
+  return items;
+}
+
+/**
+ * Navega a la página de `/stock` que contiene al producto indicado. El
+ * listado está paginado y ordenado por nombre, así que un `?limit=100`
+ * fijo deja de alcanzar cuando la sucursal acumula más de 100 insumos: el
+ * helper ubica la página correcta consultando `/api/stock` y navega
+ * directo a ella.
+ */
+export async function gotoStockWithProduct(
+  page: Page,
+  productName: string
+): Promise<void> {
+  const limit = 100;
+  for (let pageNum = 1; ; pageNum += 1) {
+    const response = await page.request.get(
+      `/api/stock?page=${pageNum}&limit=${limit}`
+    );
+    expect(response.status()).toBe(200);
+    const data = (await response.json()) as {
+      items: { name: string }[];
+      total: number;
+    };
+    if (data.items.some((item) => item.name === productName)) {
+      await page.goto(`/stock?page=${pageNum}&limit=${limit}`);
+      return;
+    }
+    if (data.items.length === 0 || pageNum * limit >= data.total) {
+      throw new Error(`"${productName}" no aparece en el stock de la sucursal`);
+    }
+  }
 }

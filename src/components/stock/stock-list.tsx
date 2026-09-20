@@ -28,8 +28,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Pagination } from '@/components/ui/pagination';
-import { DEFAULT_LIMIT, DEFAULT_PAGE } from '@/config/pagination';
+import { ServerPagination } from '@/components/ui/server-pagination';
+import { parsePaginationParams } from '@/lib/pagination';
+import { useSearchParams } from 'next/navigation';
 import type { PaginatedResult } from '@/domain/types';
 import { STOCK_API, STOCK_AJUSTAR_API } from '@/config/api';
 import {
@@ -54,8 +55,12 @@ interface StockProduct {
 
 export function StockList() {
   const [products, setProducts] = useState<StockProduct[]>([]);
-  const [page, setPage] = useState(DEFAULT_PAGE);
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  // Paginación URL-driven como el resto del panel: `/stock?page=&limit=`
+  // queda compartible y `ServerPagination` navega actualizando la query.
+  const searchParams = useSearchParams();
+  const { page, limit } = parsePaginationParams(
+    new URLSearchParams(searchParams.toString())
+  );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<StockProduct | null>(
@@ -299,16 +304,7 @@ export function StockList() {
         </Table>
       </div>
 
-      <Pagination
-        page={page}
-        limit={limit}
-        total={total}
-        onPageChange={setPage}
-        onLimitChange={(nextLimit) => {
-          setLimit(nextLimit);
-          setPage(DEFAULT_PAGE);
-        }}
-      />
+      <ServerPagination page={page} limit={limit} total={total} />
 
       <Dialog
         open={dialogMode === 'adjust' && selectedProduct !== null}

@@ -25,7 +25,7 @@ test.describe('Eliminación de sucursal', () => {
     const branchId = await row.getAttribute('data-branch-id');
     expect(branchId).not.toBeNull();
 
-    await page.goto('/usuarios');
+    await page.goto('/usuarios?limit=100');
     await expect(page.getByRole('heading', { name: 'Usuarios' })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
@@ -96,6 +96,9 @@ test.describe('Eliminación de sucursal', () => {
         idempotencyKey: unique('idempotency-archivo'),
       },
       params: { branchId: Number(branchId) },
+      // `page.request` no hereda los extraHTTPHeaders de la página: IP
+      // explícita para no compartir el bucket de rate limit con otros tests.
+      headers: { 'X-Forwarded-For': `203.0.113.${Date.now() % 254}` },
     });
     expect(orderRes.status()).toBe(404);
   });

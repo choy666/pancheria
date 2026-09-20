@@ -8,6 +8,12 @@ jest.mock('./stock-history', () => ({
   StockHistory: () => <div data-testid="stock-history" />,
 }));
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => '/stock',
+  useSearchParams: () => new URLSearchParams(''),
+}));
+
 const originalFetch = global.fetch;
 
 function createFetchResponse<T>(body: T, ok = true, status = 200) {

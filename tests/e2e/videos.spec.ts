@@ -67,6 +67,9 @@ test.describe('Videos', () => {
 
       await page.getByRole('button', { name: 'Guardar video' }).click();
       await expect(page).toHaveURL('/videos', { timeout: 15000 });
+      // El listado está paginado (default 10): con limit=100 el video
+      // recién subido queda visible en la primera página.
+      await page.goto('/videos?limit=100');
       await expect(page.getByText('Video de prueba E2E')).toBeVisible();
 
       // Navegar al detalle y verificar el reproductor.
@@ -102,6 +105,9 @@ test.describe('Videos', () => {
       await page.getByRole('button', { name: 'Guardar video' }).click();
       await expect(page).toHaveURL('/videos', { timeout: 15000 });
 
+      // El listado está paginado (default 10): con limit=100 el video
+      // recién subido queda visible en la primera página.
+      await page.goto('/videos?limit=100');
       const row = page
         .locator('[data-testid="video-row"]')
         .filter({ hasText: new RegExp(videoTitle) });
@@ -117,6 +123,8 @@ test.describe('Videos', () => {
       await expect(page).toHaveURL('/videos/eliminados');
       await expect(page.getByRole('heading', { name: 'Papelera de videos' })).toBeVisible();
 
+      // La papelera también está paginada: limit=100 asegura la fila.
+      await page.goto('/videos/eliminados?limit=100');
       const trashRow = page
         .locator('[data-testid="video-row"]')
         .filter({ hasText: new RegExp(videoTitle) });
@@ -128,7 +136,7 @@ test.describe('Videos', () => {
       await expect(trashRow).toHaveCount(0, { timeout: 10000 });
 
       // Volver al listado y ver activo
-      await page.goto('/videos');
+      await page.goto('/videos?limit=100');
       const restoredRow = page
         .locator('[data-testid="video-row"]')
         .filter({ hasText: new RegExp(videoTitle) });
@@ -141,6 +149,7 @@ test.describe('Videos', () => {
 
       await page.getByTestId('videos-trash-link').click();
       await expect(page).toHaveURL('/videos/eliminados');
+      await page.goto('/videos/eliminados?limit=100');
 
       const trashRow2 = page
         .locator('[data-testid="video-row"]')
@@ -153,11 +162,11 @@ test.describe('Videos', () => {
       await expect(trashRow2).toHaveCount(0, { timeout: 10000 });
 
       // Confirmar por API
-      await page.goto('/videos');
+      await page.goto('/videos?limit=100');
       await expect(
         page.locator('[data-testid="video-row"]').filter({ hasText: new RegExp(videoTitle) })
       ).toHaveCount(0);
-      await expect(page).toHaveURL('/videos');
+      await expect(page).toHaveURL(/\/videos/);
     } finally {
       try {
         unlinkSync(filePath);

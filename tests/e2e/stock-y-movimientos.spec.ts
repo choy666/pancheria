@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   ensureCashRegisterClosed,
   ensureCashRegisterOpen,
+  gotoStockWithProduct,
   login,
   unique,
   createProductViaApi,
@@ -36,7 +37,9 @@ test.describe('Stock, ajustes y movimientos', () => {
     });
     expect(stockInicial.status()).toBe(200);
 
-    await page.goto('/stock');
+    // El listado está paginado: el helper ubica la página donde está el
+    // producto y navega directo a ella.
+    await gotoStockWithProduct(page, producto.name);
     const row = page
       .getByTestId('stock-row')
       .filter({ hasText: new RegExp(producto.name) });
@@ -59,7 +62,7 @@ test.describe('Stock, ajustes y movimientos', () => {
     });
     expect(ajuste.status()).toBe(200);
 
-    await page.goto('/stock');
+    await gotoStockWithProduct(page, producto.name);
     const updatedRow = page
       .getByTestId('stock-row')
       .filter({ hasText: new RegExp(producto.name) });

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ensureCashRegisterOpen, login } from './helpers';
+import { ensureCashRegisterOpen, login, listAllProductsViaApi, gotoStockWithProduct } from './helpers';
 
 test.describe('Paso 4 - Flujos avanzados', () => {
   test.beforeEach(async ({ page }) => {
@@ -9,17 +9,7 @@ test.describe('Paso 4 - Flujos avanzados', () => {
   test('anula una venta y verifica reintegro de stock', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 
-    const productsResponse = await page.request.get(
-      '/api/productos?limit=100'
-    );
-    const { items: products } = (await productsResponse.json()) as {
-      items: {
-        id: number;
-        name: string;
-        type: string;
-        price: number;
-      }[];
-    };
+    const products = await listAllProductsViaApi(page);
     const product = products.find(
       (p) => p.type === 'compound' && p.price === 1000
     );
@@ -48,30 +38,22 @@ test.describe('Paso 4 - Flujos avanzados', () => {
   });
 
   test('muestra historial de stock tras un ajuste', async ({ page }) => {
-    const productsResponse = await page.request.get(
-      '/api/productos?includeAvailability=false&limit=100'
-    );
-    const { items: products } = (await productsResponse.json()) as {
-      items: {
-        id: number;
-        name: string;
-        type: string;
-        criticalSupplyType: string | null;
-      }[];
-    };
+    const products = await listAllProductsViaApi(page);
     const pan = products.find(
       (p) => p.type === 'critical_supply' && p.criticalSupplyType === 'bread'
     );
     if (!pan) throw new Error('No se encontró el insumo Pan');
 
-    await page.goto('/stock');
+    // El listado de stock está paginado: el helper ubica la página donde
+    // está el insumo y navega directo a ella.
+    await gotoStockWithProduct(page, pan.name);
     await page.getByTestId(`adjust-stock-${pan.id}`).click();
     await page.getByLabel(/Cantidad/).fill('5');
     await page.getByLabel('Motivo').fill('Ajuste de prueba historial');
     await page.getByRole('button', { name: 'Guardar ajuste' }).click();
-    await expect(page).toHaveURL('/stock', { timeout: 10000 });
+    await expect(page).toHaveURL(/\/stock/, { timeout: 10000 });
 
-    await page.goto('/stock');
+    await gotoStockWithProduct(page, pan.name);
     await page.getByTestId(`stock-history-${pan.id}`).click();
     await expect(
       page

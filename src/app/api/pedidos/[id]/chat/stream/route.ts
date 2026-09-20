@@ -30,10 +30,11 @@ export const GET = withApiErrorHandling(
     const { searchParams } = new URL(request.url);
     const query = chatStreamQuerySchema.parse(Object.fromEntries(searchParams));
 
-    // EventSource envía `Last-Event-ID` al reconectar; `?after=` lo usa el
-    // primer connect y los clientes sin soporte de ese header.
+    // `Last-Event-ID` (reconexión automática de EventSource) tiene
+    // prioridad sobre `?after=`: la query conserva el cursor del primer
+    // connect y queda desactualizado tras cada cierre por budget.
     const lastEventId = parseId(request.headers.get('last-event-id'));
-    const after = query.after ?? lastEventId ?? 0;
+    const after = lastEventId ?? query.after ?? 0;
 
     const intervalMs = Math.max(
       500,

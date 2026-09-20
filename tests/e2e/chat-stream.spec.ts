@@ -23,7 +23,8 @@ interface PublicOrder {
 
 async function createPublicOrderViaApi(
   page: Page,
-  productId: number
+  productId: number,
+  clientIp: string
 ): Promise<PublicOrder> {
   const response = await page.request.post('/api/public/pedido', {
     data: {
@@ -33,6 +34,9 @@ async function createPublicOrderViaApi(
       deliveryType: 'pickup',
       idempotencyKey: `stream-${Date.now()}-${Math.random()}`,
     },
+    // `page.request` no hereda los extraHTTPHeaders de la página: el rate
+    // limit público se aísla por IP explícita como en concurrencia-stock.
+    headers: { 'X-Forwarded-For': clientIp },
   });
 
   expect(response.status()).toBe(201);
@@ -41,9 +45,11 @@ async function createPublicOrderViaApi(
 }
 
 test.describe('SSE del chat de pedidos (spike T13)', () => {
+  let clientIp = '';
+
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await setUniqueClientIp(page);
+    clientIp = await setUniqueClientIp(page);
   });
 
   test('el stream público emite estado inicial y mensajes nuevos', async ({
@@ -56,7 +62,7 @@ test.describe('SSE del chat de pedidos (spike T13)', () => {
       unit: 'unidad',
       isActive: true,
     });
-    const order = await createPublicOrderViaApi(page, product.id);
+    const order = await createPublicOrderViaApi(page, product.id, clientIp);
     const token = encodeURIComponent(order.cancellationToken);
 
     const streamPromise = page.request.get(
@@ -92,7 +98,7 @@ test.describe('SSE del chat de pedidos (spike T13)', () => {
       unit: 'unidad',
       isActive: true,
     });
-    const order = await createPublicOrderViaApi(page, product.id);
+    const order = await createPublicOrderViaApi(page, product.id, clientIp);
     const token = encodeURIComponent(order.cancellationToken);
 
     const streamPromise = page.request.get(
@@ -124,7 +130,7 @@ test.describe('SSE del chat de pedidos (spike T13)', () => {
       unit: 'unidad',
       isActive: true,
     });
-    const order = await createPublicOrderViaApi(page, product.id);
+    const order = await createPublicOrderViaApi(page, product.id, clientIp);
 
     const response = await page.request.get(
       `/api/public/pedido/${order.id}/chat/stream?token=token-invalido&budget=1000`

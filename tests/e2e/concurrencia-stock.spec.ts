@@ -113,10 +113,12 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
   }) => {
     const STOCK = 10;
 
+    // Bebida: `critical_supply` vendible por el canal público (los demás
+    // insumos críticos no se venden directamente y el POST devuelve 400).
     const pan = await createProductViaApi(page, {
       name: unique('Insumo reserva'),
       type: 'critical_supply',
-      criticalSupplyType: 'bread',
+      criticalSupplyType: 'beverage',
       price: 0,
       unit: 'unidad',
       isActive: true,
@@ -142,8 +144,11 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
     expect(await getOrderStatus(page, order.id)).toBe('in_process');
 
     // La disponibilidad descuenta la reserva una sola vez: queda STOCK-1.
+    // Se consulta el endpoint público: `/api/ventas/disponibilidad` usa
+    // `validateCartAvailability`, que solo descuenta reservas dentro de una
+    // transacción (el preview del terminal no las resta).
     const disponibilidad = await page.request.post(
-      '/api/ventas/disponibilidad',
+      '/api/public/disponibilidad',
       { data: { items: [], productIds: [pan.id] } }
     );
     expect(disponibilidad.status()).toBe(200);
@@ -161,7 +166,7 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
     const pan = await createProductViaApi(page, {
       name: unique('Insumo carrera'),
       type: 'critical_supply',
-      criticalSupplyType: 'bread',
+      criticalSupplyType: 'beverage',
       price: 0,
       unit: 'unidad',
       isActive: true,
@@ -196,9 +201,10 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
     );
     expect(tardio.status()).toBe(400);
 
-    // Sin fuga de reservas: la disponibilidad vuelve al stock completo.
+    // Sin fuga de reservas: la disponibilidad vuelve al stock completo
+    // (mismo endpoint público que descuenta reservas activas).
     const disponibilidad = await page.request.post(
-      '/api/ventas/disponibilidad',
+      '/api/public/disponibilidad',
       { data: { items: [], productIds: [pan.id] } }
     );
     const body = (await disponibilidad.json()) as {

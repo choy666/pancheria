@@ -3,6 +3,7 @@ import {
   login,
   unique,
   createProductViaApi,
+  listAllProductsViaApi,
   restockProductViaApi,
 } from './helpers';
 
@@ -99,8 +100,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
   }) => {
     await login(page);
 
-    const suppliesResponse = (await page.request.get('/api/productos?includeAvailability=false&limit=100')).json() as Promise<{ items: { id: number; name: string; type: string }[] }>;
-    const { items: all } = await suppliesResponse;
+    const all = await listAllProductsViaApi(page);
     const pan = all.find((p) => p.name === 'Pan');
     const salchicha = all.find((p) => p.name === 'Salchichas');
     const bebida = all.find((p) => p.name === 'Coca de 1L');
