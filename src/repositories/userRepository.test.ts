@@ -10,6 +10,9 @@ var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockDeleteWhere: jest.Mock;
 var mockDelete: jest.Mock;
+var mockSelectWhere: jest.Mock;
+var mockSelectFrom: jest.Mock;
+var mockSelect: jest.Mock;
 var mockGetCurrentTransaction: jest.Mock;
 
 jest.mock('@/db', () => {
@@ -23,12 +26,16 @@ jest.mock('@/db', () => {
   mockUpdate = jest.fn(() => ({ set: mockSet }));
   mockDeleteWhere = jest.fn();
   mockDelete = jest.fn(() => ({ where: mockDeleteWhere }));
+  mockSelectWhere = jest.fn();
+  mockSelectFrom = jest.fn(() => ({ where: mockSelectWhere }));
+  mockSelect = jest.fn(() => ({ from: mockSelectFrom }));
 
   return {
     db: {
       query: {
         users: { findFirst: mockFindFirst, findMany: mockFindMany },
       },
+      select: mockSelect,
       insert: mockInsert,
       update: mockUpdate,
       delete: mockDelete,
@@ -49,13 +56,19 @@ describe('userRepository', () => {
   });
 
   describe('findAll', () => {
+    beforeEach(() => {
+      mockSelectWhere.mockResolvedValue([{ count: 2 }]);
+    });
+
     test('devuelve todos los usuarios ordenados por createdAt', async () => {
       const expected = [{ id: 1, username: 'admin' }];
       mockFindMany.mockResolvedValue(expected);
 
       const result = await userRepository.findAll();
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.total).toBe(2);
+      expect(result.page).toBe(1);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({ with: { branch: true }, orderBy: expect.anything() })
       );
@@ -67,13 +80,25 @@ describe('userRepository', () => {
 
       const result = await userRepository.findAll(BRANCH_ID);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           with: { branch: true },
           orderBy: expect.anything(),
         })
+      );
+    });
+
+    test('aplica limit y offset según la paginación', async () => {
+      mockFindMany.mockResolvedValue([]);
+
+      const result = await userRepository.findAll(BRANCH_ID, { page: 3, limit: 10 });
+
+      expect(result.page).toBe(3);
+      expect(result.limit).toBe(10);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 10, offset: 20 })
       );
     });
   });

@@ -18,6 +18,10 @@ function createFetchResponse<T>(body: T, ok = true, status = 200) {
   } as Response;
 }
 
+function paginated<T>(items: T[], page = 1, limit = 10) {
+  return { items, total: items.length, page, limit };
+}
+
 describe('StockList', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -72,7 +76,7 @@ describe('StockList', () => {
         isLow: true,
       },
     ];
-    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(products));
+    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(paginated(products)));
 
     render(<StockList />);
 
@@ -100,7 +104,7 @@ describe('StockList', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)))
       .mockResolvedValueOnce(createFetchResponse({ productId: 1, newStock: 15 }))
       .mockResolvedValueOnce(createFetchResponse({ error: 'No se pudo recargar' }, false, 500));
 
@@ -124,7 +128,7 @@ describe('StockList', () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(global.fetch).toHaveBeenLastCalledWith(
-      '/api/stock',
+      expect.stringContaining('/api/stock?'),
       expect.objectContaining({ credentials: 'include' })
     );
   });
@@ -145,7 +149,7 @@ describe('StockList', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)))
       .mockResolvedValueOnce(createFetchResponse({ productId: 1, newStock: 15 }))
       .mockResolvedValueOnce(createFetchResponse({ error: 'No se pudo recargar' }, false, 500));
 
@@ -185,7 +189,7 @@ describe('StockList', () => {
       },
     ];
 
-    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(products));
+    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(paginated(products)));
 
     render(<StockList />);
 
@@ -213,7 +217,7 @@ describe('StockList', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)))
       .mockResolvedValueOnce(createFetchResponse({}, false, 403));
 
     render(<StockList />);
@@ -253,7 +257,7 @@ describe('StockList', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)))
       .mockResolvedValueOnce(createFetchResponse({ error: 'No autorizado' }, false, 403));
 
     render(<StockList />);
@@ -293,7 +297,7 @@ describe('StockList', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)))
       .mockRejectedValueOnce('Error de red');
 
     render(<StockList />);
@@ -333,9 +337,9 @@ describe('StockList', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(createFetchResponse(products))
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)))
       .mockResolvedValueOnce(createFetchResponse({ productId: 1, newStock: 10 }))
-      .mockResolvedValueOnce(createFetchResponse(products));
+      .mockResolvedValueOnce(createFetchResponse(paginated(products)));
 
     render(<StockList />);
 
@@ -382,7 +386,7 @@ describe('StockList', () => {
       },
     ];
 
-    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(products));
+    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(paginated(products)));
 
     render(<StockList />);
 
@@ -411,7 +415,7 @@ describe('StockList', () => {
       },
     ];
 
-    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(products));
+    global.fetch = jest.fn().mockResolvedValue(createFetchResponse(paginated(products)));
 
     render(<StockList />);
 

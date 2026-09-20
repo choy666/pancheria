@@ -12,6 +12,7 @@ import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { groupCartItemsForSubmit, hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import {
   sortSellableProducts,
@@ -26,6 +27,7 @@ import {
 } from '@/config/api';
 import { formatMoney } from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
+import type { PaginatedResult } from '@/domain/types';
 
 interface SalesTerminalProps {
   role?: 'admin' | 'operator';
@@ -109,15 +111,20 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
 
   async function fetchProducts() {
     try {
-      const response = await authenticatedFetch(
-        `${PRODUCTOS_API}?includeAvailability=true`,
-        {}
+      // El endpoint está paginado: el terminal necesita el catálogo completo
+      // para precalcular disponibilidad, así que recorre todas las páginas.
+      const allProducts = await fetchAllPages<SellableProduct>(
+        async (page, limit) => {
+          const response = await authenticatedFetch(
+            `${PRODUCTOS_API}?includeAvailability=true&page=${page}&limit=${limit}`,
+            {}
+          );
+          if (!response.ok) {
+            await throwApiError(response, 'Error al cargar productos');
+          }
+          return (await response.json()) as PaginatedResult<SellableProduct>;
+        }
       );
-      if (!response.ok) {
-        await throwApiError(response, 'Error al cargar productos');
-      }
-
-      const allProducts = (await response.json()) as SellableProduct[];
       const sellable = sortSellableProducts(
         allProducts.filter(isPublicSellableProduct)
       );

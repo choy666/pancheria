@@ -103,7 +103,12 @@ describe('PromoForm', () => {
       if (url.includes('/api/recetas?productId=')) {
         return buildFetchResponse(recipe);
       }
-      return buildFetchResponse(supplies);
+      return buildFetchResponse({
+        items: supplies,
+        total: supplies.length,
+        page: 1,
+        limit: 100,
+      });
     });
 
     render(
@@ -178,7 +183,12 @@ describe('PromoForm', () => {
       if (url.includes('/api/recetas?productId=')) {
         return buildFetchResponse(recipe);
       }
-      return buildFetchResponse(supplies);
+      return buildFetchResponse({
+        items: supplies,
+        total: supplies.length,
+        page: 1,
+        limit: 100,
+      });
     });
 
     render(

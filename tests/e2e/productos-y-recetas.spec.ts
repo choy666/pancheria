@@ -99,8 +99,8 @@ test.describe('Ciclo de vida de productos y recetas', () => {
   }) => {
     await login(page);
 
-    const supplies = (await page.request.get('/api/productos?includeAvailability=false')).json() as Promise<{ id: number; name: string; type: string }[]>;
-    const all = await supplies;
+    const suppliesResponse = (await page.request.get('/api/productos?includeAvailability=false&limit=100')).json() as Promise<{ items: { id: number; name: string; type: string }[] }>;
+    const { items: all } = await suppliesResponse;
     const pan = all.find((p) => p.name === 'Pan');
     const salchicha = all.find((p) => p.name === 'Salchichas');
     const bebida = all.find((p) => p.name === 'Coca de 1L');

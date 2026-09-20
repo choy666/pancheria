@@ -17,6 +17,7 @@ jest.mock('@/db', () => ({
         findFirst: jest.fn(),
       },
     },
+    select: jest.fn(),
     insert: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -33,6 +34,7 @@ const mockedDb = db as unknown as {
       findFirst: jest.Mock;
     };
   };
+  select: jest.Mock;
   insert: jest.Mock;
   update: jest.Mock;
   delete: jest.Mock;
@@ -83,6 +85,11 @@ describe('userService', () => {
     mockedDb.delete.mockReturnValue({
       where: mockDeleteWhere,
     });
+    mockedDb.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue([{ count: 1 }]),
+      }),
+    });
     mockedBcrypt.hash.mockResolvedValue('hashed');
   });
 
@@ -105,13 +112,26 @@ describe('userService', () => {
 
       const result = await listUsers(1);
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.total).toBe(1);
       expect(mockedDb.query.users.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           with: expect.objectContaining({ branch: true }),
           orderBy: expect.anything(),
         })
+      );
+    });
+
+    test('propaga la paginación al repositorio', async () => {
+      mockedDb.query.users.findMany.mockResolvedValue([] as any);
+
+      const result = await listUsers(1, { page: 2, limit: 10 });
+
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(mockedDb.query.users.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 10, offset: 10 })
       );
     });
   });

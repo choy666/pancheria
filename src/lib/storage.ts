@@ -477,7 +477,7 @@ export async function deleteStorageFile(key: string): Promise<void> {
 
 const LOCAL_VIDEO_STREAM_PATTERN = /\/api\/videos\/(.+?)\/stream$/;
 
-function extractVideoKeyFromUrl(fileUrl: string): string | null {
+export function extractVideoKeyFromUrl(fileUrl: string): string | null {
   if (
     !fileUrl.startsWith('http://') &&
     !fileUrl.startsWith('https://')

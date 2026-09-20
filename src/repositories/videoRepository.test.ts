@@ -11,6 +11,9 @@ var mockWhereReturning: jest.Mock;
 var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockDelete: jest.Mock;
+var mockSelectWhere: jest.Mock;
+var mockSelectFrom: jest.Mock;
+var mockSelect: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
@@ -22,12 +25,16 @@ jest.mock('@/db', () => {
   mockSet = jest.fn(() => ({ where: mockWhereReturning }));
   mockUpdate = jest.fn(() => ({ set: mockSet }));
   mockDelete = jest.fn(() => ({ where: mockWhereReturning }));
+  mockSelectWhere = jest.fn();
+  mockSelectFrom = jest.fn(() => ({ where: mockSelectWhere }));
+  mockSelect = jest.fn(() => ({ from: mockSelectFrom }));
 
   return {
     db: {
       query: {
         videos: { findFirst: mockFindFirst, findMany: mockFindMany },
       },
+      select: mockSelect,
       insert: mockInsert,
       update: mockUpdate,
       delete: mockDelete,
@@ -42,29 +49,59 @@ describe('videoRepository', () => {
     jest.clearAllMocks();
   });
 
-  describe('findAll', () => {
-    test('devuelve todos los videos activos por defecto', async () => {
+  describe('findAllPage', () => {
+    test('devuelve una página de videos activos por defecto', async () => {
       const expected = [{ id: 1, title: 'Promo' }];
       mockFindMany.mockResolvedValue(expected);
+      mockSelectWhere.mockResolvedValue([{ count: 1 }]);
 
-      const result = await videoRepository.findAll(BRANCH_ID);
+      const result = await videoRepository.findAllPage(BRANCH_ID, {
+        page: 1,
+        limit: 20,
+      });
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
           orderBy: expect.anything(),
+          limit: 20,
+          offset: 0,
         })
       );
     });
 
-    test('devuelve todos los videos incluyendo eliminados', async () => {
-      const expected = [{ id: 1, title: 'Promo' }];
+    test('aplica offset y limit según la paginación', async () => {
+      mockFindMany.mockResolvedValue([]);
+      mockSelectWhere.mockResolvedValue([{ count: 0 }]);
+
+      const result = await videoRepository.findAllPage(
+        BRANCH_ID,
+        { page: 3, limit: 10 },
+        'all'
+      );
+
+      expect(result.page).toBe(3);
+      expect(result.limit).toBe(10);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 10, offset: 20 })
+      );
+    });
+
+    test('puede listar solo videos eliminados', async () => {
+      const expected = [{ id: 1, title: 'Promo', deletedAt: new Date() }];
       mockFindMany.mockResolvedValue(expected);
+      mockSelectWhere.mockResolvedValue([{ count: 1 }]);
 
-      const result = await videoRepository.findAll(BRANCH_ID, true);
+      const result = await videoRepository.findAllPage(
+        BRANCH_ID,
+        { page: 1, limit: 20 },
+        'deleted'
+      );
 
-      expect(result).toEqual(expected);
+      expect(result.items).toEqual(expected);
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: expect.anything(),
@@ -72,12 +109,17 @@ describe('videoRepository', () => {
       );
     });
 
-    test('devuelve un array vacío cuando no hay videos', async () => {
+    test('devuelve una página vacía cuando no hay videos', async () => {
       mockFindMany.mockResolvedValue([]);
+      mockSelectWhere.mockResolvedValue([{ count: 0 }]);
 
-      const result = await videoRepository.findAll(BRANCH_ID);
+      const result = await videoRepository.findAllPage(BRANCH_ID, {
+        page: 1,
+        limit: 20,
+      });
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 

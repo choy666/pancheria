@@ -32,15 +32,19 @@ test.describe('Caja y cierre con estados vacíos', () => {
   test('la caja abierta sin ventas muestra totales en cero y todos los insumos críticos activos', async ({
     page,
   }) => {
-    const productsResponse = await page.request.get('/api/productos');
+    const productsResponse = await page.request.get(
+      '/api/productos?limit=100'
+    );
     expect(productsResponse.status()).toBe(200);
-    const allProducts = (await productsResponse.json()) as {
-      id: number;
-      name: string;
-      type: string;
-      isActive: boolean;
-      deletedAt: string | null;
-    }[];
+    const { items: allProducts } = (await productsResponse.json()) as {
+      items: {
+        id: number;
+        name: string;
+        type: string;
+        isActive: boolean;
+        deletedAt: string | null;
+      }[];
+    };
     const criticalSupplies = allProducts.filter(
       (p) => p.type === 'critical_supply' && p.isActive && !p.deletedAt
     );

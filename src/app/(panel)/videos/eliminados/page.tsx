@@ -6,6 +6,8 @@ import * as videoService from '@/application/services/videoService';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { VideoList } from '@/components/videos/video-list';
+import { ServerPagination } from '@/components/ui/server-pagination';
+import { parsePaginationParams } from '@/lib/pagination';
 import {
   deleteVideoAction,
   restoreVideoAction,
@@ -13,16 +15,30 @@ import {
   permanentlyDeleteVideoAction,
 } from '@/app/(panel)/videos/actions';
 
-export default async function VideosTrashPage() {
+interface VideosTrashPageProps {
+  searchParams: Promise<{ page?: string; limit?: string }>;
+}
+
+export default async function VideosTrashPage({
+  searchParams,
+}: VideosTrashPageProps) {
   const session = await auth();
 
   if (session?.user?.role !== 'admin') {
     redirect(routes.home);
   }
 
+  const params = await searchParams;
+  const pagination = parsePaginationParams(
+    new URLSearchParams({ page: params.page ?? '', limit: params.limit ?? '' })
+  );
+
   const branchId = await getCurrentBranchIdOrRedirect(session);
-  const allVideos = await videoService.listVideos(branchId, true);
-  const deletedVideos = allVideos.filter((video) => video.deletedAt !== null);
+  const deletedVideos = await videoService.listVideos(
+    branchId,
+    pagination,
+    'deleted'
+  );
 
   return (
     <div data-tour="videos-trash-page" className="space-y-5">
@@ -34,12 +50,18 @@ export default async function VideosTrashPage() {
       </div>
 
       <VideoList
-        videos={deletedVideos}
+        videos={deletedVideos.items}
         deleteVideoAction={deleteVideoAction}
         restoreVideoAction={restoreVideoAction}
         toggleVideoStatusAction={toggleVideoStatusAction}
         permanentlyDeleteVideoAction={permanentlyDeleteVideoAction}
         emptyMessage="No hay videos en la papelera."
+      />
+
+      <ServerPagination
+        page={deletedVideos.page}
+        limit={deletedVideos.limit}
+        total={deletedVideos.total}
       />
     </div>
   );

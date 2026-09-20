@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { productSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
+import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 
@@ -8,12 +9,16 @@ export const GET = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { branchId }) => {
     const { searchParams } = new URL(request.url);
     const includeAvailability = searchParams.get('includeAvailability') === 'true';
+    const pagination = parsePaginationParams(searchParams);
 
-    const products = includeAvailability
-      ? await productService.listActiveProductsWithAvailability(branchId)
-      : await productService.listActiveProducts(branchId);
+    const result = includeAvailability
+      ? await productService.listActiveProductsWithAvailabilityPage(
+          branchId,
+          pagination
+        )
+      : await productService.listActiveProductsPage(branchId, pagination);
 
-    return NextResponse.json(products);
+    return NextResponse.json(result);
   })
 );
 

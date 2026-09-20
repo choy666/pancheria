@@ -10,6 +10,15 @@ import type { PaginationParams, StockMovementType } from '@/domain/types';
 import { validateMinLength } from '@/lib/validation-helpers';
 import { STOCK_MOVEMENT_TYPES } from '@/lib/stock-helpers';
 
+function withLowFlag<T extends { minStock: number; stock: number }>(
+  product: T
+) {
+  return {
+    ...product,
+    isLow: product.minStock > 0 && product.stock <= product.minStock,
+  };
+}
+
 export async function listStockAlerts(branchId: number) {
   const allProducts = await productRepository.findActive(branchId);
 
@@ -18,11 +27,28 @@ export async function listStockAlerts(branchId: number) {
       (product) =>
         product.type === 'critical_supply' || product.type === 'manual_supply'
     )
-    .map((product) => ({
-      ...product,
-      isLow:
-        product.minStock > 0 && product.stock <= product.minStock,
-    }));
+    .map(withLowFlag);
+}
+
+/**
+ * Variante paginada de `listStockAlerts` para `GET /api/stock`: el filtro de
+ * insumos vive en la consulta del repositorio, así `total` refleja solo los
+ * insumos activos. El resumen del panel sigue usando `listStockAlerts`
+ * completo para contar alertas sobre todo el set.
+ */
+export async function listStockAlertsPage(
+  branchId: number,
+  pagination: PaginationParams
+) {
+  const page = await productRepository.findActiveSuppliesPage(
+    branchId,
+    pagination
+  );
+
+  return {
+    ...page,
+    items: page.items.map(withLowFlag),
+  };
 }
 
 export async function adjustStock(

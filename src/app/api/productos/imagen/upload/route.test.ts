@@ -101,7 +101,8 @@ describe('POST /api/productos/imagen/upload', () => {
     expect(mockedSaveProductImage).toHaveBeenCalledWith(
       file,
       1,
-      'product-images/1/abc123.jpg'
+      'product-images/1/abc123.jpg',
+      BRANCH_ID
     );
   });
 

@@ -11,9 +11,14 @@ import { videoSchema, videoUpdateSchema } from '@/lib/zod-schemas';
 import { ZodError } from 'zod';
 import type { VideoInsert, VideoUpdate } from '@/repositories/videoRepository';
 import type { FileInfo } from '@/lib/storage';
+import type { PaginationParams } from '@/domain/types';
 
-export async function listVideos(branchId: number, includeDeleted = false) {
-  return videoRepository.findAll(branchId, includeDeleted);
+export async function listVideos(
+  branchId: number,
+  pagination: PaginationParams,
+  filter: 'active' | 'deleted' | 'all' = 'active'
+) {
+  return videoRepository.findAllPage(branchId, pagination, filter);
 }
 
 export async function getVideoById(

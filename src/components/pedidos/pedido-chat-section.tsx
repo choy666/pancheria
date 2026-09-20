@@ -4,7 +4,9 @@ import {
   PEDIDOS_CHAT_UBICACION_API,
   PEDIDOS_CHAT_LEIDO_API,
   PEDIDOS_CHAT_UPLOAD_API,
+  PEDIDOS_CHAT_STREAM_API,
 } from '@/config/api';
+import { getChatStreamEnabled } from '@/config/chat';
 import type { DeliveryType, OrderMessage, OrderStatus } from '@/domain/types';
 
 interface PedidoChatSectionProps {
@@ -45,6 +47,9 @@ export function PedidoChatSection({
         branchLocationApiUrl={PEDIDOS_CHAT_UBICACION_API(orderId)}
         readApiUrl={PEDIDOS_CHAT_LEIDO_API(orderId)}
         uploadApiUrl={PEDIDOS_CHAT_UPLOAD_API(orderId)}
+        streamApiUrl={
+          getChatStreamEnabled() ? PEDIDOS_CHAT_STREAM_API(orderId) : undefined
+        }
         unreadCount={unreadCount}
         title="Chat con el cliente"
       />

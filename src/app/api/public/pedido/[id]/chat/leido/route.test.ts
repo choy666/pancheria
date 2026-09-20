@@ -7,6 +7,12 @@ import * as chatService from '@/application/services/chatService';
 
 jest.mock('@/application/services/chatService');
 jest.mock('@/lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
   logError: jest.fn(),
 }));
 

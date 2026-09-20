@@ -36,22 +36,36 @@ export async function getProductById(
   return product;
 }
 
-export async function listActiveProducts(branchId: number) {
-  return productRepository.findActive(branchId);
+export async function listActiveProductsPage(
+  branchId: number,
+  pagination: PaginationParams
+) {
+  return productRepository.findActivePage(branchId, pagination);
 }
 
-export async function listActiveProductsWithAvailability(branchId: number) {
-  const active = await listActiveProducts(branchId);
-  const ids = active.map((product) => product.id);
+/**
+ * Listado paginado de productos activos con disponibilidad: el cálculo se
+ * hace solo para los productos de la página pedida.
+ */
+export async function listActiveProductsWithAvailabilityPage(
+  branchId: number,
+  pagination: PaginationParams
+) {
+  const page = await productRepository.findActivePage(branchId, pagination);
+  const ids = page.items.map((product) => product.id);
   const availability = await saleService.calculateAvailabilityForProductIds(
     branchId,
     ids
   );
-  return active.map((product) => ({
-    ...product,
-    availability: availability[product.id]?.availability ?? 0,
-    recipe: availability[product.id]?.recipe ?? [],
-  }));
+
+  return {
+    ...page,
+    items: page.items.map((product) => ({
+      ...product,
+      availability: availability[product.id]?.availability ?? 0,
+      recipe: availability[product.id]?.recipe ?? [],
+    })),
+  };
 }
 
 function normalizeImageFields(

@@ -28,6 +28,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
+import { DEFAULT_LIMIT, DEFAULT_PAGE } from '@/config/pagination';
+import type { PaginatedResult } from '@/domain/types';
 import { STOCK_API, STOCK_AJUSTAR_API } from '@/config/api';
 import {
   Dialog,
@@ -51,6 +54,9 @@ interface StockProduct {
 
 export function StockList() {
   const [products, setProducts] = useState<StockProduct[]>([]);
+  const [page, setPage] = useState(DEFAULT_PAGE);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<StockProduct | null>(
     null
@@ -77,10 +83,16 @@ export function StockList() {
 
     async function load() {
       try {
-        const response = await authenticatedFetch(STOCK_API, {});
+        const response = await authenticatedFetch(
+          `${STOCK_API}?page=${page}&limit=${limit}`,
+          {}
+        );
         if (!response.ok) await throwApiError(response, 'Error al cargar stock');
-        const data = (await response.json()) as StockProduct[];
-        if (!cancelled) setProducts(data);
+        const data = (await response.json()) as PaginatedResult<StockProduct>;
+        if (!cancelled) {
+          setProducts(data.items);
+          setTotal(data.total);
+        }
       } catch (error) {
         if (!cancelled) {
           setError(error instanceof Error ? error.message : 'Error desconocido');
@@ -95,7 +107,7 @@ export function StockList() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, limit]);
 
   async function handleSubmit() {
     if (!selectedProduct) return;
@@ -125,8 +137,15 @@ export function StockList() {
       setReason('');
       setAdjustmentType('manual_adjustment');
 
-      const reload = await authenticatedFetch(STOCK_API, {});
-      if (reload.ok) setProducts((await reload.json()) as StockProduct[]);
+      const reload = await authenticatedFetch(
+        `${STOCK_API}?page=${page}&limit=${limit}`,
+        {}
+      );
+      if (reload.ok) {
+        const data = (await reload.json()) as PaginatedResult<StockProduct>;
+        setProducts(data.items);
+        setTotal(data.total);
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
@@ -279,6 +298,17 @@ export function StockList() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={(nextLimit) => {
+          setLimit(nextLimit);
+          setPage(DEFAULT_PAGE);
+        }}
+      />
 
       <Dialog
         open={dialogMode === 'adjust' && selectedProduct !== null}

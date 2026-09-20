@@ -9,7 +9,9 @@ import {
   PUBLIC_PEDIDO_CHAT_API,
   PUBLIC_PEDIDO_CHAT_LEIDO_API,
   PUBLIC_PEDIDO_CHAT_UPLOAD_API,
+  PUBLIC_PEDIDO_CHAT_STREAM_API,
 } from '@/config/api';
+import { getChatStreamEnabled } from '@/config/chat';
 
 interface ChatPageProps {
   params: Promise<{ id: string }>;
@@ -90,6 +92,11 @@ export default async function PedidoChatPage({
         chatApiUrl={PUBLIC_PEDIDO_CHAT_API(orderId)}
         readApiUrl={PUBLIC_PEDIDO_CHAT_LEIDO_API(orderId)}
         uploadApiUrl={PUBLIC_PEDIDO_CHAT_UPLOAD_API(orderId)}
+        streamApiUrl={
+          getChatStreamEnabled()
+            ? PUBLIC_PEDIDO_CHAT_STREAM_API(orderId)
+            : undefined
+        }
         title="Chat del pedido"
       />
     </div>

@@ -4,12 +4,20 @@ import * as cashRegisterRepository from '@/repositories/cashRegisterRepository';
 import * as productRepository from '@/repositories/productRepository';
 import * as saleRepository from '@/repositories/saleRepository';
 import * as branchRepository from '@/repositories/branchRepository';
-import { calculateSummaryFromSales, type SaleWithItems } from '@/application/services/summaryService';
+import {
+  calculatePagedSummaryFromSales,
+  type SaleWithItems,
+} from '@/application/services/summaryService';
 import { addHours } from 'date-fns';
 import { nowUTC } from '@/lib/date';
 import { parseMoney, moneyToNumber, addMoney, subtractMoney } from '@/lib/money';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/domain/errors';
-import { getAutoCloseHours, getAutoClosedBy } from '@/config/caja';
+import {
+  getAutoCloseHours,
+  getAutoClosedBy,
+  getTrashRestoreBatchSize,
+} from '@/config/caja';
+import { logger } from '@/lib/logger';
 import {
   getCashRegisterShiftStatus,
   resolveCashRegisterAlert,
@@ -146,21 +154,27 @@ export async function calculateCashRegisterSummary(
   cashRegisterId: number,
   dbOrTx: typeof db = db
 ) {
-  const activeSales = (await saleRepository.findActiveWithDetailsByCashRegister(
-    dbOrTx,
+  return calculatePagedSummaryFromSales(
     branchId,
-    cashRegisterId
-  )) as SaleWithItems[];
+    async (offset, limit) => {
+      const sales = (await saleRepository.findActiveWithDetailsByCashRegister(
+        dbOrTx,
+        branchId,
+        cashRegisterId,
+        { limit, offset }
+      )) as SaleWithItems[];
 
-  const salesWithSnapshot: SaleWithItems[] = activeSales.map((sale) => ({
-    ...sale,
-    items: sale.items.map((item) => ({
-      ...item,
-      recipeSnapshot: (item as { recipeSnapshots?: RecipeItemConfig[] }).recipeSnapshots,
-    })),
-  }));
-
-  return calculateSummaryFromSales(branchId, salesWithSnapshot, dbOrTx);
+      return sales.map((sale) => ({
+        ...sale,
+        items: sale.items.map((item) => ({
+          ...item,
+          recipeSnapshot: (item as { recipeSnapshots?: RecipeItemConfig[] })
+            .recipeSnapshots,
+        })),
+      }));
+    },
+    { dbOrTx }
+  );
 }
 
 type CashRegisterSummaryInput = Pick<
@@ -462,17 +476,53 @@ export async function deleteAllClosedCashRegisters(branchId: number) {
   return cashRegisterRepository.softDeleteAllClosed(branchId);
 }
 
+/**
+ * Vacía la papelera de cajas procesando en lotes de
+ * `TRASH_RESTORE_BATCH_SIZE`. Cada lote corre en su propia transacción
+ * (restauración de stock + borrado físico), por lo que un corte a mitad de
+ * camino deja íntegros los lotes ya procesados y la operación puede
+ * reintentarse de forma segura.
+ */
 export async function emptyTrash(branchId: number) {
-  return executeInTransaction(async (tx) => {
-    const deletedIds = await cashRegisterRepository.findDeletedIds(branchId, tx);
+  const batchSize = getTrashRestoreBatchSize();
+  const deletedIds = await cashRegisterRepository.findDeletedIds(branchId);
 
-    if (deletedIds.length === 0) {
-      return { deleted: 0 };
-    }
+  if (deletedIds.length === 0) {
+    return { deleted: 0 };
+  }
 
-    await restoreStockForDeletedCashRegisters(tx, branchId, deletedIds);
-    return cashRegisterRepository.hardDeleteAllDeleted(branchId, tx);
-  });
+  let deleted = 0;
+  for (let i = 0; i < deletedIds.length; i += batchSize) {
+    const idsBatch = deletedIds.slice(i, i + batchSize);
+
+    const result = await executeInTransaction(async (tx) => {
+      // Re-lectura dentro de la transacción: los ids ya borrados por una
+      // corrida previa (o por otra instancia) se saltan.
+      const stillDeleted = await cashRegisterRepository.findDeletedIds(
+        branchId,
+        tx
+      );
+      const stillDeletedSet = new Set(stillDeleted);
+      const active = idsBatch.filter((id) => stillDeletedSet.has(id));
+
+      if (active.length === 0) {
+        return { deleted: 0 };
+      }
+
+      await restoreStockForDeletedCashRegisters(tx, branchId, active);
+      return cashRegisterRepository.hardDeleteMany(branchId, active, tx);
+    });
+
+    deleted += result.deleted;
+    logger.info('emptyTrash: lote de cajas eliminadas procesado', {
+      branchId,
+      batchSize: idsBatch.length,
+      batchDeleted: result.deleted,
+      totalDeleted: deleted,
+    });
+  }
+
+  return { deleted };
 }
 
 export async function autoCloseIfNeeded(branchId: number) {

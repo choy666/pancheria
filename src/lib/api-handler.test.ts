@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withApiErrorHandling } from './api-handler';
+import { logger } from './logger';
 import {
   DomainError,
   ForbiddenError,
@@ -18,6 +19,8 @@ jest.mock('./logger', () => ({
     error: jest.fn(),
   },
 }));
+
+const mockedLogger = logger as jest.Mocked<typeof logger>;
 
 function createRequest(): NextRequest {
   return new NextRequest('http://localhost:3000/api/test');
@@ -38,6 +41,49 @@ describe('withApiErrorHandling', () => {
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('ok');
+  });
+
+  test('loggea info con duración usando el routeLabel explícito', async () => {
+    const handler = jest.fn().mockResolvedValue(new Response('ok'));
+    const wrapped = withApiErrorHandling(handler, 'test-route');
+
+    await wrapped(createRequest());
+
+    expect(mockedLogger.info).toHaveBeenCalledWith(
+      'test-route',
+      expect.objectContaining({
+        method: 'GET',
+        status: 200,
+        durationMs: expect.any(Number),
+      })
+    );
+  });
+
+  test('deriva el label de method + pathname cuando no se pasa routeLabel', async () => {
+    const handler = jest.fn().mockResolvedValue(new Response('ok'));
+    const wrapped = withApiErrorHandling(handler);
+
+    await wrapped(createRequest());
+
+    expect(mockedLogger.info).toHaveBeenCalledWith(
+      'GET /api/test',
+      expect.objectContaining({
+        status: 200,
+        durationMs: expect.any(Number),
+      })
+    );
+  });
+
+  test('loggea warn con el label derivado ante errores de dominio', async () => {
+    const handler = jest.fn().mockRejectedValue(new NotFoundError('Producto', 1));
+    const wrapped = withApiErrorHandling(handler);
+
+    await wrapped(createRequest());
+
+    expect(mockedLogger.warn).toHaveBeenCalledWith(
+      'GET /api/test',
+      expect.objectContaining({ status: 404 })
+    );
   });
 
   test('convierte UnauthorizedError en 401', async () => {

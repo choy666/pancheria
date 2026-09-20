@@ -123,6 +123,43 @@ export interface CloseCashRegisterInput {
   forcedCloseReason?: string;
 }
 
+const DEFAULT_TRASH_RESTORE_BATCH_SIZE = 20;
+
+/**
+ * Cantidad máxima de cajas eliminadas que se procesan por transacción al
+ * vaciar la papelera (`emptyTrash`). Cada lote restaura el stock y borra la
+ * caja en una transacción propia: un corte no deja estados a medias y la
+ * operación puede reintentarse de forma segura.
+ */
+export function getTrashRestoreBatchSize(): number {
+  const raw = process.env.TRASH_RESTORE_BATCH_SIZE;
+  if (!raw) return DEFAULT_TRASH_RESTORE_BATCH_SIZE;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return DEFAULT_TRASH_RESTORE_BATCH_SIZE;
+
+  return Math.floor(parsed);
+}
+
+const DEFAULT_CAJA_SUMMARY_PAGE_SIZE = 500;
+const MIN_CAJA_SUMMARY_PAGE_SIZE = 50;
+
+/**
+ * Cantidad de ventas activas que se cargan por página al calcular el resumen
+ * de una caja. Evita materializar items, snapshots de receta y pagos de todo
+ * el historial de la caja en memoria cuando el volumen es grande.
+ */
+export function getCashRegisterSummaryPageSize(): number {
+  const raw = process.env.CAJA_SUMMARY_PAGE_SIZE;
+  if (!raw) return DEFAULT_CAJA_SUMMARY_PAGE_SIZE;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) return DEFAULT_CAJA_SUMMARY_PAGE_SIZE;
+  if (parsed < MIN_CAJA_SUMMARY_PAGE_SIZE) return MIN_CAJA_SUMMARY_PAGE_SIZE;
+
+  return Math.floor(parsed);
+}
+
 export function getCajaRefreshInterval(): number {
   const env = process.env.NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS;
   if (!env) return DEFAULT_CAJA_REFRESH_INTERVAL_MS;

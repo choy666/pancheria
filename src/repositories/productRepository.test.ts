@@ -12,6 +12,9 @@ var mockSet: jest.Mock;
 var mockUpdate: jest.Mock;
 var mockDeleteWhere: jest.Mock;
 var mockDelete: jest.Mock;
+var mockSelectWhere: jest.Mock;
+var mockSelectFrom: jest.Mock;
+var mockSelect: jest.Mock;
 
 jest.mock('@/db', () => {
   mockFindFirst = jest.fn();
@@ -24,12 +27,16 @@ jest.mock('@/db', () => {
   mockUpdate = jest.fn(() => ({ set: mockSet }));
   mockDeleteWhere = jest.fn(() => ({ returning: mockReturning }));
   mockDelete = jest.fn(() => ({ where: mockDeleteWhere }));
+  mockSelectWhere = jest.fn();
+  mockSelectFrom = jest.fn(() => ({ where: mockSelectWhere }));
+  mockSelect = jest.fn(() => ({ from: mockSelectFrom }));
 
   return {
     db: {
       query: {
         products: { findFirst: mockFindFirst, findMany: mockFindMany },
       },
+      select: mockSelect,
       insert: mockInsert,
       update: mockUpdate,
       delete: mockDelete,
@@ -157,6 +164,73 @@ describe('productRepository', () => {
           where: expect.anything(),
           orderBy: expect.anything(),
         })
+      );
+    });
+  });
+
+  describe('findActivePage', () => {
+    beforeEach(() => {
+      mockSelectWhere.mockResolvedValue([{ count: 7 }]);
+    });
+
+    test('devuelve una página de productos activos con el total', async () => {
+      const expected = [{ id: 1, name: 'Pan', isActive: true, deletedAt: null }];
+      mockFindMany.mockResolvedValue(expected);
+
+      const result = await productRepository.findActivePage(BRANCH_ID, {
+        page: 1,
+        limit: 20,
+      });
+
+      expect(result.items).toEqual(expected);
+      expect(result.total).toBe(7);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(20);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          orderBy: expect.anything(),
+          limit: 20,
+          offset: 0,
+        })
+      );
+    });
+
+    test('aplica offset según la página', async () => {
+      mockFindMany.mockResolvedValue([]);
+
+      const result = await productRepository.findActivePage(BRANCH_ID, {
+        page: 3,
+        limit: 10,
+      });
+
+      expect(result.page).toBe(3);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 10, offset: 20 })
+      );
+    });
+  });
+
+  describe('findActiveSuppliesPage', () => {
+    beforeEach(() => {
+      mockSelectWhere.mockResolvedValue([{ count: 4 }]);
+    });
+
+    test('devuelve una página de insumos activos con el total', async () => {
+      const expected = [{ id: 1, name: 'Pan', type: 'critical_supply' }];
+      mockFindMany.mockResolvedValue(expected);
+
+      const result = await productRepository.findActiveSuppliesPage(BRANCH_ID, {
+        page: 2,
+        limit: 10,
+      });
+
+      expect(result.items).toEqual(expected);
+      expect(result.total).toBe(4);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 10, offset: 10 })
       );
     });
   });

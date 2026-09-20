@@ -1,6 +1,6 @@
-import { eq, and, isNull, isNotNull, asc, desc, sql, gt, lt, count } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, asc, desc, sql, gt, lt, count, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { orderMessages } from '@/db/schema';
+import { orderMessages, orders } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { nowUTC } from '@/lib/date';
 import type { OrderMessageSenderType } from '@/domain/types';
@@ -124,6 +124,44 @@ export async function countUnreadByOrderAndSender(
     );
 
   return Number(rows[0]?.count ?? 0);
+}
+
+/**
+ * Devuelve ids y claves de adjunto de mensajes pertenecientes a pedidos en
+ * estado terminal (`finished`/`cancelled`) creados antes de `cutoff`. Se
+ * usa para la purga por retención; `attachmentKey` permite liberar el
+ * archivo asociado después de borrar la fila.
+ */
+export async function findExpiredForTerminalOrders(
+  cutoff: Date,
+  limit: number
+): Promise<{ id: number; attachmentKey: string | null }[]> {
+  return db
+    .select({
+      id: orderMessages.id,
+      attachmentKey: orderMessages.attachmentKey,
+    })
+    .from(orderMessages)
+    .innerJoin(orders, eq(orderMessages.orderId, orders.id))
+    .where(
+      and(
+        inArray(orders.status, ['finished', 'cancelled']),
+        lt(orderMessages.createdAt, cutoff)
+      )
+    )
+    .orderBy(asc(orderMessages.id))
+    .limit(limit);
+}
+
+export async function deleteByIds(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0;
+
+  const result = await db
+    .delete(orderMessages)
+    .where(inArray(orderMessages.id, ids))
+    .returning({ id: orderMessages.id });
+
+  return result.length;
 }
 
 export async function findAllAttachmentKeys(

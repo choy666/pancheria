@@ -17,9 +17,12 @@ import {
 export type BranchInsert = typeof branches.$inferInsert;
 export type BranchUpdate = Partial<BranchInsert>;
 
-export async function findAllOrderedByCreatedAt() {
+export async function findAllOrderedByCreatedAt(
+  options: { limit?: number } = {}
+) {
   return db.query.branches.findMany({
     orderBy: (branches, { desc }) => [desc(branches.createdAt)],
+    limit: options.limit,
   });
 }
 

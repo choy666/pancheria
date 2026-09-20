@@ -44,12 +44,22 @@ function normalizeLocation(
   return normalized;
 }
 
-export async function listBranches(): Promise<Branch[]> {
-  return branchRepository.findAllOrderedByCreatedAt() as Promise<Branch[]>;
+export async function listBranches(
+  options: { limit?: number } = {}
+): Promise<Branch[]> {
+  return branchRepository.findAllOrderedByCreatedAt(options) as Promise<
+    Branch[]
+  >;
 }
 
 export async function getBranchById(id: number): Promise<Branch | undefined> {
   return branchRepository.findById(id) as Promise<Branch | undefined>;
+}
+
+export async function getBranchByName(
+  name: string
+): Promise<Branch | undefined> {
+  return branchRepository.findByName(name) as Promise<Branch | undefined>;
 }
 
 export async function createBranch(input: BranchInput) {

@@ -1,7 +1,16 @@
 # Plan de implementación — Auditoría de escalabilidad
 
 > **Fecha:** 2026-09-19
-> **Estado:** Fase 0 implementada y verificada + Fase M ejecutada (2026-09-19, migración `0031` aplicada en desarrollo y E2E); Fases 1–2 pendientes
+> **Estado:** Fase 0 implementada, verificada y commiteada (`90b7c54`) + Fase M ejecutada (2026-09-19, migración `0031` aplicada en desarrollo y E2E). **Fase 1 implementada** (T7–T13; suite unitaria 163/163 verde, `lint`/`tsc`/`knip` limpios) — pendiente la corrida E2E completa sobre base descartable y el aprovisionamiento de bases extra si se activa el sharding. Fase 2 pendiente.
+>
+> **Estado de ejecución de la Fase 1 (2026-09-19):**
+> - **T7 Paginación** ✅ — `GET /api/productos` y `GET /api/stock` aceptan `page`/`limit` (contrato `{items,total,page,limit}`); usuarios y videos paginan por `searchParams` con `ServerPagination`; filtro de stock en SQL; `fetchAllPages` conserva el catálogo completo para el terminal de ventas y `PromoForm`; `listPublicBranches` con límite defensivo y `getDefaultBranchId` por lookup directo.
+> - **T8 Batching/presupuesto** ✅ — `EXPIRE_ORDERS_TIME_BUDGET_MS` en `expirePendingOrders`, `CAJA_SUMMARY_PAGE_SIZE` paginando el resumen de caja, `TRASH_RESTORE_BATCH_SIZE` por transacción al vaciar la papelera.
+> - **T9 Retención + huérfanos** ✅ — `ORDER_MESSAGES_RETENTION_DAYS` (opt-in, solo pedidos terminales, libera `attachmentKey`); cleanup de huérfanos cubre `chat/`, `products/` y `videos/` en `chat-attachments-cleanup`.
+> - **T10 Observabilidad** ✅ — `GET /api/health`; `withApiErrorHandling` deriva el label de `method + pathname` y loguea `durationMs` siempre; los tres crons usan `withCronAuth` (`CRON_SECRET`) con logs estructurados.
+> - **T11 Concurrencia + sharding** ✅ spec `tests/e2e/concurrencia-stock.spec.ts` (oversell, carrera recibir/cancelar, reserva única); CI con reporter `blob` + `merge-reports` y matriz `E2E_SHARDS` opt-in (default 1 shard — cada shard requiere su propia base descartable porque `global-setup.ts` trunca). E2E pendiente de corrida completa.
+> - **T12 Lookups con scope** ✅ — `findByOrderNumberAndCustomer` exige `branchId`; seguimiento público propaga `branchId` del cliente; `GET /api/productos/imagen/[key]` exige `branchId` y las URLs locales lo incluyen (provider `local`; remotos apuntan directo al storage).
+> - **T13 Spike SSE** ✅ — endpoints `.../chat/stream` (operador + público) con heartbeat, `budget` acotado por `CHAT_STREAM_BUDGET_MS` y `maxDuration=60`; `useOrderChat` usa `EventSource` con `Last-Event-ID` solo si `NEXT_PUBLIC_CHAT_STREAM_ENABLED=true`, con fallback automático a polling y cierre en pestañas ocultas. **Decisión: SSE implementado como opt-in deshabilitado; el polling REST sigue siendo el default** (ver `informes/spike-sse-chat-2026-09-19.md`).
 > **Revisión:** 2026-09-19 — correcciones verificadas contra el código en T2 (seguimiento es POST), T6-B (cableado de `productIds`), T9 (prefijo `product-images/`), T10.2 (la duración ya se loguea con `routeLabel`) y T12 (propagación de `branchId`).
 > **Fuente:** `informes/auditoria-escalabilidad-2026-09-19.md` §2 (cuadro de riesgo), §4 (orden de quiebre) y §5 (plan de acción)
 > **Baseline de la auditoría:** `62a644dd95d047a4a92c9215d74023fcf5e0e06b` (`main`)
@@ -412,3 +421,4 @@ Orden sugerido dentro de Fase 0 (minimiza riesgo y da alivio inmediato): **T4 �
 - `informes/entornos.md` — procedimiento de migraciones por entorno.
 - `informes/checklist-pre-push.md` — verificaciones y variables de CI/E2E.
 - `informes/lecciones-aprendidas.md` — patrones obligatorios (paginación en repositorio, errores por tipo, stores atómicos, E2E seguro).
+- `informes/spike-sse-chat-2026-09-19.md` — spike T13: implementación SSE del chat, modelo de costo y decisión (opt-in deshabilitado).

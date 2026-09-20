@@ -1,8 +1,8 @@
 import {
   listProducts,
   getProductById,
-  listActiveProducts,
-  listActiveProductsWithAvailability,
+  listActiveProductsPage,
+  listActiveProductsWithAvailabilityPage,
   listDeletedProducts,
   createProduct,
   updateProduct,
@@ -19,7 +19,7 @@ import * as productImageStorage from '@/lib/product-image-storage';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import { ValidationError, NotFoundError } from '@/domain/errors';
-import type { ProductRow } from '@/domain/types';
+import type { PaginatedResult, ProductRow } from '@/domain/types';
 
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/recipeRepository');
@@ -142,42 +142,69 @@ describe('productService', () => {
     });
   });
 
-  describe('listActiveProducts', () => {
-    test('lista los productos activos', async () => {
-      mockedProductRepository.findActive.mockResolvedValue([
-        { id: 1, name: 'Pan', isActive: true },
-      ] as ProductRow[]);
+  describe('listActiveProductsPage', () => {
+    test('devuelve la página de productos activos', async () => {
+      mockedProductRepository.findActivePage.mockResolvedValue({
+        items: [{ id: 1, name: 'Pan', isActive: true }],
+        total: 1,
+        page: 1,
+        limit: 10,
+      } as PaginatedResult<ProductRow>);
 
-      const result = await listActiveProducts(BRANCH_ID);
+      const result = await listActiveProductsPage(BRANCH_ID, {
+        page: 1,
+        limit: 10,
+      });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('Pan');
-      expect(mockedProductRepository.findActive).toHaveBeenCalledWith(BRANCH_ID);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].name).toBe('Pan');
+      expect(result.total).toBe(1);
+      expect(mockedProductRepository.findActivePage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 1, limit: 10 }
+      );
     });
   });
 
-  describe('listActiveProductsWithAvailability', () => {
-    test('devuelve productos activos con su disponibilidad calculada', async () => {
-      mockedProductRepository.findActive.mockResolvedValue([
-        { id: 1, name: 'Panchuque', type: 'compound' },
-        { id: 2, name: 'Pritty', type: 'critical_supply', criticalSupplyType: 'beverage' },
-        { id: 3, name: 'Aderezo', type: 'service' },
-      ] as ProductRow[]);
+  describe('listActiveProductsWithAvailabilityPage', () => {
+    test('devuelve la página de activos con disponibilidad de los ítems de la página', async () => {
+      mockedProductRepository.findActivePage.mockResolvedValue({
+        items: [
+          { id: 1, name: 'Panchuque', type: 'compound' },
+          {
+            id: 2,
+            name: 'Pritty',
+            type: 'critical_supply',
+            criticalSupplyType: 'beverage',
+          },
+        ],
+        total: 5,
+        page: 2,
+        limit: 2,
+      } as PaginatedResult<ProductRow>);
 
       mockedSaleService.calculateAvailabilityForProductIds.mockResolvedValue({
-        1: { availability: 4, breakdown: [] },
-        2: { availability: 12, breakdown: [] },
-        3: { availability: Number.MAX_SAFE_INTEGER, breakdown: [] },
+        1: { availability: 4 },
+        2: { availability: 12 },
+      } as never);
+
+      const result = await listActiveProductsWithAvailabilityPage(BRANCH_ID, {
+        page: 2,
+        limit: 2,
       });
 
-      const result = await listActiveProductsWithAvailability(BRANCH_ID);
-
-      expect(result).toHaveLength(3);
-      expect(result[0].availability).toBe(4);
-      expect(result[1].availability).toBe(12);
-      expect(result[2].availability).toBe(Number.MAX_SAFE_INTEGER);
-      expect(mockedProductRepository.findActive).toHaveBeenCalledWith(BRANCH_ID);
-      expect(mockedSaleService.calculateAvailabilityForProductIds).toHaveBeenCalledWith(BRANCH_ID, [1, 2, 3]);
+      expect(result.total).toBe(5);
+      expect(result.page).toBe(2);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].availability).toBe(4);
+      expect(result.items[1].availability).toBe(12);
+      expect(mockedProductRepository.findActivePage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 2, limit: 2 }
+      );
+      expect(
+        mockedSaleService.calculateAvailabilityForProductIds
+      ).toHaveBeenCalledWith(BRANCH_ID, [1, 2]);
     });
   });
 

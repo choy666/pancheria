@@ -44,13 +44,17 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
   });
 
   test('registra una venta', async ({ page }) => {
-    const productsResponse = await page.request.get('/api/productos');
-    const products = (await productsResponse.json()) as {
-      id: number;
-      name: string;
-      type: string;
-      price: number;
-    }[];
+    const productsResponse = await page.request.get(
+      '/api/productos?limit=100'
+    );
+    const { items: products } = (await productsResponse.json()) as {
+      items: {
+        id: number;
+        name: string;
+        type: string;
+        price: number;
+      }[];
+    };
     const promo = products.find(
       (p) => p.type === 'compound' && p.price === 1000
     );
@@ -68,14 +72,16 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
 
   test('ajusta stock', async ({ page }) => {
     const productsResponse = await page.request.get(
-      '/api/productos?includeAvailability=false'
+      '/api/productos?includeAvailability=false&limit=100'
     );
-    const products = (await productsResponse.json()) as {
-      id: number;
-      name: string;
-      type: string;
-      criticalSupplyType: string | null;
-    }[];
+    const { items: products } = (await productsResponse.json()) as {
+      items: {
+        id: number;
+        name: string;
+        type: string;
+        criticalSupplyType: string | null;
+      }[];
+    };
     const pan = products.find(
       (p) => p.type === 'critical_supply' && p.criticalSupplyType === 'bread'
     );

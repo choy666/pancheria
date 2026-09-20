@@ -17,6 +17,30 @@ export function getOrderExpirationMs(): number {
   return parsed;
 }
 
+const DEFAULT_EXPIRE_ORDERS_TIME_BUDGET_MS = 240_000;
+const MIN_EXPIRE_ORDERS_TIME_BUDGET_MS = 5_000;
+
+/**
+ * Presupuesto de tiempo para una corrida del cron `expire-orders`. Al
+ * agotarse, la corrida se corta dejando el resto para la próxima invocación
+ * (la operación es reentrante). Default 4 minutos: queda dentro del
+ * `maxDuration` de la ruta (300 s) con margen para responder.
+ */
+export function getExpireOrdersTimeBudgetMs(): number {
+  const raw = process.env.EXPIRE_ORDERS_TIME_BUDGET_MS;
+  if (!raw) return DEFAULT_EXPIRE_ORDERS_TIME_BUDGET_MS;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_EXPIRE_ORDERS_TIME_BUDGET_MS;
+  }
+  if (parsed < MIN_EXPIRE_ORDERS_TIME_BUDGET_MS) {
+    return MIN_EXPIRE_ORDERS_TIME_BUDGET_MS;
+  }
+
+  return parsed;
+}
+
 export function getOrderRateLimitWindowMs(): number {
   const raw = process.env.PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS;
   if (!raw) return 60_000;

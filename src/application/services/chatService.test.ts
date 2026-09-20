@@ -7,6 +7,8 @@ import {
   markClientMessagesAsRead,
   markOperatorMessagesAsRead,
   getOrderChatStatus,
+  getChatStreamState,
+  pollChatStreamTick,
 } from './chatService';
 import { executeInTransaction } from '@/application/transactionService';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
@@ -346,6 +348,116 @@ describe('chatService', () => {
       await expect(getOrderChatStatus(ORDER_ID, 'wrong-token')).rejects.toThrow(
         NotFoundError
       );
+    });
+  });
+
+  describe('getChatStreamState', () => {
+    test('devuelve el estado inicial con la ubicación de la sucursal', async () => {
+      mockedOrderRepository.findChatStreamState.mockResolvedValue({
+        status: 'pending',
+        deliveryType: 'pickup',
+        createdAt: new Date(),
+        branchId: BRANCH_ID,
+      });
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        location: 'https://maps.example.com/sucursal-a',
+      } as any);
+
+      const result = await getChatStreamState(ORDER_ID, { branchId: BRANCH_ID });
+
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe('pending');
+      expect(result!.branchLocation).toBe(
+        'https://maps.example.com/sucursal-a'
+      );
+      expect(mockedOrderRepository.findChatStreamState).toHaveBeenCalledWith(
+        ORDER_ID,
+        { branchId: BRANCH_ID }
+      );
+    });
+
+    test('devuelve null si el pedido no pertenece al scope', async () => {
+      mockedOrderRepository.findChatStreamState.mockResolvedValue(undefined);
+
+      const result = await getChatStreamState(ORDER_ID, { token: 'wrong' });
+
+      expect(result).toBeNull();
+      expect(mockedOrderRepository.findChatStreamState).toHaveBeenCalledWith(
+        ORDER_ID,
+        { token: 'wrong' }
+      );
+    });
+  });
+
+  describe('pollChatStreamTick', () => {
+    test('devuelve mensajes nuevos y los marca como entregados', async () => {
+      mockedOrderRepository.findChatStreamState.mockResolvedValue({
+        status: 'in_process',
+        deliveryType: 'pickup',
+        createdAt: new Date(),
+        branchId: BRANCH_ID,
+      });
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([
+        buildMessage({ id: 8, senderType: 'client', deliveredAt: null }),
+      ]);
+      mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender.mockResolvedValue(1);
+
+      const result = await pollChatStreamTick(
+        ORDER_ID,
+        { branchId: BRANCH_ID },
+        'client',
+        7
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.messages).toHaveLength(1);
+      expect(result!.status).toBe('in_process');
+      expect(
+        mockedOrderMessageRepository.findByOrderId
+      ).toHaveBeenCalledWith(
+        ORDER_ID,
+        expect.objectContaining({ after: 7 })
+      );
+      expect(
+        mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender
+      ).toHaveBeenCalledWith(ORDER_ID, 'client');
+    });
+
+    test('no escribe en la base cuando no hay mensajes nuevos', async () => {
+      mockedOrderRepository.findChatStreamState.mockResolvedValue({
+        status: 'pending',
+        deliveryType: 'delivery',
+        createdAt: new Date(),
+        branchId: BRANCH_ID,
+      });
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([]);
+
+      const result = await pollChatStreamTick(
+        ORDER_ID,
+        { token: TOKEN },
+        'operator',
+        0
+      );
+
+      expect(result!.messages).toHaveLength(0);
+      expect(
+        mockedOrderMessageRepository.markAllAsDeliveredByOrderAndSender
+      ).not.toHaveBeenCalled();
+    });
+
+    test('devuelve null si el pedido salió del scope', async () => {
+      mockedOrderRepository.findChatStreamState.mockResolvedValue(undefined);
+      mockedOrderMessageRepository.findByOrderId.mockResolvedValue([]);
+
+      const result = await pollChatStreamTick(
+        ORDER_ID,
+        { branchId: 999 },
+        'client',
+        0
+      );
+
+      expect(result).toBeNull();
     });
   });
 

@@ -1,5 +1,6 @@
 import {
   calculateCompoundAvailability,
+  calculatePagedSummaryFromSales,
   calculateSummaryFromSales,
 } from './summaryService';
 import { findRecipesForProducts, groupRecipesByProduct } from '@/lib/recipe-helpers';
@@ -259,6 +260,121 @@ describe('summaryService', () => {
       expect(result.totalSales).toBe(1);
       expect(result.productsSummary).toEqual({});
       expect(result.criticalSuppliesSummary).toEqual({});
+    });
+  });
+
+  describe('calculatePagedSummaryFromSales', () => {
+    test('acumula ventas página a página y consulta recetas una sola vez por producto', async () => {
+      const page1 = [
+        {
+          total: 1500,
+          payments: [{ method: 'cash' as const, amount: 1500 }],
+          items: [
+            {
+              quantity: 1,
+              product: {
+                id: 1,
+                name: 'Promo',
+                type: 'compound',
+                criticalSupplyType: null,
+              },
+            },
+          ],
+        },
+      ];
+      const page2 = [
+        {
+          total: 800,
+          payments: [{ method: 'transfer' as const, amount: 800 }],
+          items: [
+            {
+              quantity: 2,
+              product: {
+                id: 3,
+                name: 'Gaseosa',
+                type: 'critical_supply',
+                criticalSupplyType: 'beverage',
+              },
+            },
+            {
+              quantity: 1,
+              product: {
+                id: 1,
+                name: 'Promo',
+                type: 'compound',
+                criticalSupplyType: null,
+              },
+            },
+          ],
+        },
+      ];
+
+      const loadPage = jest
+        .fn()
+        .mockResolvedValueOnce(page1)
+        .mockResolvedValueOnce(page2)
+        .mockResolvedValueOnce([]);
+
+      mockedDb.query.recipes.findMany.mockResolvedValue([
+        {
+          compoundProductId: 1,
+          supplyId: 2,
+          quantity: 1,
+          autoDiscount: true,
+          supply: { id: 2, branchId: BRANCH_ID, name: 'Pan' },
+        },
+      ]);
+      mockedDb.query.products.findMany.mockResolvedValue([
+        {
+          id: 2,
+          branchId: BRANCH_ID,
+          name: 'Pan',
+          type: 'critical_supply',
+          isActive: true,
+        },
+        {
+          id: 3,
+          branchId: BRANCH_ID,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          isActive: true,
+        },
+      ]);
+
+      const result = await calculatePagedSummaryFromSales(
+        BRANCH_ID,
+        loadPage,
+        { pageSize: 1, dbOrTx: db }
+      );
+
+      expect(loadPage).toHaveBeenCalledTimes(3);
+      expect(loadPage).toHaveBeenNthCalledWith(1, 0, 1);
+      expect(loadPage).toHaveBeenNthCalledWith(2, 1, 1);
+      // El producto compuesto #1 aparece en ambas páginas pero sus recetas
+      // se consultan solo en la primera.
+      expect(mockedDb.query.recipes.findMany).toHaveBeenCalledTimes(1);
+
+      expect(result.totalSales).toBe(2);
+      expect(result.total).toBe(2300);
+      expect(result.cashTotal).toBe(1500);
+      expect(result.transferTotal).toBe(800);
+      expect(result.productsSummary).toEqual({ Promo: 2, Gaseosa: 2 });
+    });
+
+    test('devuelve resumen vacío cuando no hay ventas', async () => {
+      const loadPage = jest.fn().mockResolvedValue([]);
+      mockedDb.query.products.findMany.mockResolvedValue([]);
+
+      const result = await calculatePagedSummaryFromSales(
+        BRANCH_ID,
+        loadPage,
+        { pageSize: 1, dbOrTx: db }
+      );
+
+      expect(loadPage).toHaveBeenCalledTimes(1);
+      expect(result.totalSales).toBe(0);
+      expect(result.total).toBe(0);
+      expect(mockedDb.query.recipes.findMany).not.toHaveBeenCalled();
     });
   });
 });

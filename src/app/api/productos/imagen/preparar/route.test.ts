@@ -91,6 +91,11 @@ describe('POST /api/productos/imagen/preparar', () => {
     expect(mockedValidateProductImage).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'foto.jpg', type: 'image/jpeg', size: 1000 })
     );
+    expect(mockedPrepareProductImageUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'foto.jpg' }),
+      1,
+      BRANCH_ID
+    );
   });
 
   test('devuelve 401 cuando el usuario no está autenticado', async () => {

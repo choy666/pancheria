@@ -39,26 +39,60 @@ describe('videoService', () => {
 
   describe('listVideos', () => {
     test('lista videos activos por defecto', async () => {
-      mockedVideoRepository.findAll.mockResolvedValue([
-        { id: 1, title: 'Promo 1' },
-      ] as VideoRow[]);
+      mockedVideoRepository.findAllPage.mockResolvedValue({
+        items: [{ id: 1, title: 'Promo 1' }] as VideoRow[],
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
 
-      const result = await listVideos(BRANCH_ID);
+      const result = await listVideos(BRANCH_ID, { page: 1, limit: 20 });
 
-      expect(result).toHaveLength(1);
-      expect(mockedVideoRepository.findAll).toHaveBeenCalledWith(BRANCH_ID, false);
+      expect(result.items).toHaveLength(1);
+      expect(mockedVideoRepository.findAllPage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 1, limit: 20 },
+        'active'
+      );
     });
 
-    test('puede incluir videos eliminados', async () => {
-      mockedVideoRepository.findAll.mockResolvedValue([
-        { id: 1, title: 'Promo', deletedAt: null },
-        { id: 2, title: 'Promo vieja', deletedAt: new Date() },
-      ] as VideoRow[]);
+    test('puede listar solo los eliminados', async () => {
+      mockedVideoRepository.findAllPage.mockResolvedValue({
+        items: [
+          { id: 2, title: 'Promo vieja', deletedAt: new Date() },
+        ] as VideoRow[],
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
 
-      const result = await listVideos(BRANCH_ID, true);
+      const result = await listVideos(BRANCH_ID, { page: 1, limit: 20 }, 'deleted');
 
-      expect(result).toHaveLength(2);
-      expect(mockedVideoRepository.findAll).toHaveBeenCalledWith(BRANCH_ID, true);
+      expect(result.items).toHaveLength(1);
+      expect(mockedVideoRepository.findAllPage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 1, limit: 20 },
+        'deleted'
+      );
+    });
+
+    test('propaga la paginación al repositorio', async () => {
+      mockedVideoRepository.findAllPage.mockResolvedValue({
+        items: [{ id: 3, title: 'Promo 3' }] as VideoRow[],
+        total: 5,
+        page: 2,
+        limit: 2,
+      });
+
+      const result = await listVideos(BRANCH_ID, { page: 2, limit: 2 });
+
+      expect(result.page).toBe(2);
+      expect(result.total).toBe(5);
+      expect(mockedVideoRepository.findAllPage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 2, limit: 2 },
+        'active'
+      );
     });
   });
 

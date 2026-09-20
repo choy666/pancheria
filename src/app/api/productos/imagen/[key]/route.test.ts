@@ -40,9 +40,10 @@ const mockedIsPublicSellableProduct = catalog.isPublicSellableProduct as jest.Mo
   typeof catalog.isPublicSellableProduct
 >;
 
-function buildRequest(key: string): NextRequest {
+function buildRequest(key: string, branchId?: string): NextRequest {
+  const query = branchId ? `?branchId=${branchId}` : '';
   return new NextRequest(
-    `http://localhost:3000/api/productos/imagen/${encodeURIComponent(key)}`
+    `http://localhost:3000/api/productos/imagen/${encodeURIComponent(key)}${query}`
   );
 }
 
@@ -63,7 +64,7 @@ describe('GET /api/productos/imagen/[key]', () => {
       mimeType: 'image/jpeg',
     });
 
-    const response = await GET(buildRequest(key), {
+    const response = await GET(buildRequest(key, '1'), {
       params: Promise.resolve({ key }),
     });
 
@@ -74,7 +75,7 @@ describe('GET /api/productos/imagen/[key]', () => {
   });
 
   test('devuelve 400 si la clave no tiene un productId válido', async () => {
-    const response = await GET(buildRequest('invalid'), {
+    const response = await GET(buildRequest('invalid', '1'), {
       params: Promise.resolve({ key: 'invalid' }),
     });
     const body = (await response.json()) as { error: string };
@@ -83,12 +84,51 @@ describe('GET /api/productos/imagen/[key]', () => {
     expect(body.error).toBe('Clave de imagen inválida.');
   });
 
+  test('devuelve 400 si falta el branchId', async () => {
+    const key = 'product-images/1/abc123.jpg';
+
+    const response = await GET(buildRequest(key), {
+      params: Promise.resolve({ key }),
+    });
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Falta el parámetro branchId.');
+    expect(mockedDb.query.products.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 400 si el branchId es inválido', async () => {
+    const key = 'product-images/1/abc123.jpg';
+
+    const response = await GET(buildRequest(key, 'abc'), {
+      params: Promise.resolve({ key }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockedDb.query.products.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 404 si el producto pertenece a otra sucursal', async () => {
+    const key = 'product-images/1/abc123.jpg';
+    // El repositorio filtra por branchId: para la sucursal pedida no hay
+    // producto con esa clave y se responde como si no existiera.
+    mockedDb.query.products.findFirst.mockResolvedValue(null);
+
+    const response = await GET(buildRequest(key, '2'), {
+      params: Promise.resolve({ key }),
+    });
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('Imagen no encontrada.');
+  });
+
   test('devuelve 404 si el producto no es público vendible', async () => {
     const key = 'product-images/1/abc123.jpg';
     mockedDb.query.products.findFirst.mockResolvedValue({ id: 1 });
     mockedIsPublicSellableProduct.mockReturnValue(false);
 
-    const response = await GET(buildRequest(key), {
+    const response = await GET(buildRequest(key, '1'), {
       params: Promise.resolve({ key }),
     });
     const body = (await response.json()) as { error: string };
@@ -105,7 +145,7 @@ describe('GET /api/productos/imagen/[key]', () => {
     });
     mockedReadProductImage.mockResolvedValue(null);
 
-    const response = await GET(buildRequest(key), {
+    const response = await GET(buildRequest(key, '1'), {
       params: Promise.resolve({ key }),
     });
     const body = (await response.json()) as { error: string };

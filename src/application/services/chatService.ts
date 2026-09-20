@@ -295,6 +295,85 @@ export async function listOperatorMessages(
   };
 }
 
+export interface ChatStreamState {
+  status: OrderStatus;
+  deliveryType: OrderWithItems['deliveryType'];
+  branchLocation: string | null;
+  isExpired: boolean;
+  expiresAt: string;
+}
+
+export interface ChatStreamTick {
+  messages: OrderMessage[];
+  status: OrderStatus;
+  isExpired: boolean;
+}
+
+/**
+ * Estado inicial del stream SSE de chat. Devuelve `null` si el pedido no
+ * existe o no pertenece al scope (`branchId` del operador o `token` del
+ * cliente). Incluye `branchLocation`, que es estático por pedido.
+ */
+export async function getChatStreamState(
+  orderId: number,
+  scope: { branchId: number } | { token: string }
+): Promise<ChatStreamState | null> {
+  const order = await orderRepository.findChatStreamState(orderId, scope);
+
+  if (!order) {
+    return null;
+  }
+
+  const branch = await branchService.getBranchById(order.branchId);
+
+  return {
+    status: order.status,
+    deliveryType: order.deliveryType,
+    branchLocation: branch?.location ?? null,
+    isExpired: isOrderExpired(order),
+    expiresAt: getOrderExpiresAt(order),
+  };
+}
+
+/**
+ * Tick del poll interno del stream SSE: una query ligera de estado + la query
+ * indexada de mensajes nuevos (`after` = cursor). Solo escribe en la base
+ * cuando llegan mensajes del otro emisor aún sin `deliveredAt` — a diferencia
+ * del polling REST, que escribe en cada poll aunque no haya novedades.
+ * Devuelve `null` si el pedido dejó de pertenecer al scope (p. ej. borrado):
+ * la ruta debe cerrar el stream.
+ */
+export async function pollChatStreamTick(
+  orderId: number,
+  scope: { branchId: number } | { token: string },
+  deliveredSender: OrderMessageSenderType,
+  cursor: number
+): Promise<ChatStreamTick | null> {
+  const [order, messages] = await Promise.all([
+    orderRepository.findChatStreamState(orderId, scope),
+    orderMessageRepository.findByOrderId(orderId, {
+      after: cursor,
+      limit: getChatPageSize(),
+    }),
+  ]);
+
+  if (!order) {
+    return null;
+  }
+
+  const updatedMessages = await markMessagesAsDelivered(
+    orderId,
+    deliveredSender,
+    messages
+  );
+
+  return {
+    messages: updatedMessages,
+    status: order.status,
+    isExpired: isOrderExpired(order),
+  };
+}
+
 export async function getOrderChatStatus(
   orderId: number,
   token: string

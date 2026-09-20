@@ -97,6 +97,50 @@ describe('OrderTracker', () => {
     });
   });
 
+  test('envía el branchId guardado en localStorage al buscar', async () => {
+    const getItem = window.localStorage.getItem as jest.MockedFunction<
+      typeof window.localStorage.getItem
+    >;
+    getItem.mockImplementation((key: string) =>
+      key === 'pancheria-branch-id' ? '7' : null
+    );
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        order: {
+          id: 1,
+          orderNumber: 'PED-7-1',
+          status: 'pending',
+          total: 1200,
+          customerName: 'Ana',
+          customerPhone: '',
+          branchId: 7,
+          branchName: 'Sucursal B',
+        },
+      }),
+    });
+
+    render(<OrderTracker />);
+
+    fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
+      target: { value: 'PED-7-1' },
+    });
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
+      target: { value: 'Ana' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as { branchId?: number };
+    expect(body.branchId).toBe(7);
+  });
+
   test('muestra el resultado cuando encuentra el pedido', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

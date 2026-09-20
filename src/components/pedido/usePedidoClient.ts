@@ -20,6 +20,7 @@ import { useCart } from '@/hooks/useCart';
 import { useRecentOrders } from '@/hooks/useRecentOrders';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import { cleanupRecentOrdersForBranches } from '@/lib/recent-orders';
+import { BRANCH_STORAGE_KEY } from '@/lib/selected-branch';
 import { routes } from '@/config/routes';
 import type { CartItem } from '@/hooks/useCart';
 import type { RecentOrder } from '@/lib/recent-orders';
@@ -54,8 +55,6 @@ export interface UsePedidoClientProps {
   /** Tamaño de página para las cargas incrementales del catálogo. */
   pageSize?: number;
 }
-
-const BRANCH_STORAGE_KEY = 'pancheria-branch-id';
 
 export interface BranchStatus {
   isOpen: boolean;

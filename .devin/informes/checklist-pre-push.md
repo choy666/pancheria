@@ -47,6 +47,7 @@ Verificar que existan en **Settings → Secrets and variables → Actions** del 
 
 - [ ] `E2E_DATABASE_URL` — URL con pooler de la base descartable para E2E.
 - [ ] `E2E_DATABASE_URL_UNPOOLED` — URL sin pooler de la misma base.
+- [ ] Solo si se activa el sharding de E2E (variable `E2E_SHARDS` con más de un shard, p. ej. `[1, 2]`): `E2E_DATABASE_URL_SHARD<N>` y `E2E_DATABASE_URL_SHARD<N>_UNPOOLED` para **cada** shard N ≥ 2. Cada shard necesita su propia base descartable porque `global-setup.ts` trunca todas las tablas; dos shards sobre la misma base se corrompen mutuamente.
 - [ ] `NEXTAUTH_SECRET` — secreto de autenticación de al menos 32 bytes.
 - [ ] `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales del administrador del seed.
 - [ ] `CRON_SECRET` — token usado por `.github/workflows/expire-orders.yml` para llamar a `/api/cron/expire-orders`.

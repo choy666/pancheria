@@ -6,21 +6,32 @@ import * as videoService from '@/application/services/videoService';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { VideoList } from '@/components/videos/video-list';
+import { ServerPagination } from '@/components/ui/server-pagination';
+import { parsePaginationParams } from '@/lib/pagination';
 import {
   deleteVideoAction,
   restoreVideoAction,
   toggleVideoStatusAction,
 } from '@/app/(panel)/videos/actions';
 
-export default async function VideosPage() {
+interface VideosPageProps {
+  searchParams: Promise<{ page?: string; limit?: string }>;
+}
+
+export default async function VideosPage({ searchParams }: VideosPageProps) {
   const session = await auth();
 
   if (session?.user?.role !== 'admin') {
     redirect(routes.home);
   }
 
+  const params = await searchParams;
+  const pagination = parsePaginationParams(
+    new URLSearchParams({ page: params.page ?? '', limit: params.limit ?? '' })
+  );
+
   const branchId = await getCurrentBranchIdOrRedirect(session);
-  const videos = await videoService.listVideos(branchId);
+  const videos = await videoService.listVideos(branchId, pagination);
 
   return (
     <div data-tour="videos-page" className="space-y-5">
@@ -39,10 +50,16 @@ export default async function VideosPage() {
       </div>
 
       <VideoList
-        videos={videos}
+        videos={videos.items}
         deleteVideoAction={deleteVideoAction}
         restoreVideoAction={restoreVideoAction}
         toggleVideoStatusAction={toggleVideoStatusAction}
+      />
+
+      <ServerPagination
+        page={videos.page}
+        limit={videos.limit}
+        total={videos.total}
       />
     </div>
   );

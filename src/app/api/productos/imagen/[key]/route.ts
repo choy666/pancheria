@@ -3,6 +3,7 @@ import * as productRepository from '@/repositories/productRepository';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { readProductImage } from '@/lib/product-image-storage';
 import { isPublicSellableProduct } from '@/lib/catalog';
+import { parseBranchId } from '@/lib/branch-resolver';
 
 interface RouteParams {
   params: Promise<{ key: string }>;
@@ -29,7 +30,19 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const product = await productRepository.findByImageKey(decodedKey);
+    // La clave se valida contra la sucursal para no servir imágenes de
+    // otra sucursal (las URLs generadas incluyen `?branchId=`).
+    const branchId = parseBranchId(
+      new URL(request.url).searchParams.get('branchId')
+    );
+    if (!branchId) {
+      return NextResponse.json(
+        { error: 'Falta el parámetro branchId.' },
+        { status: 400 }
+      );
+    }
+
+    const product = await productRepository.findByImageKey(decodedKey, branchId);
 
     if (!product || product.id !== productId || !isPublicSellableProduct(product)) {
       return NextResponse.json(

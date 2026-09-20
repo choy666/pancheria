@@ -35,7 +35,10 @@ export default defineConfig({
   // protegidas como /stock o /ventas.
   timeout: 60_000,
   workers: 1,
-  reporter: process.env.CI ? 'line' : 'html',
+  // En CI se emite `blob` para que el job de merge consolide los reportes de
+  // todos los shards (`npx playwright merge-reports`); `line` mantiene el
+  // progreso legible en el log del job.
+  reporter: process.env.CI ? [['blob'], ['line']] : 'html',
   use: {
     baseURL,
     trace: 'on-first-retry',

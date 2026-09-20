@@ -1,6 +1,7 @@
 'use client';
 
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ import {
   type Supply,
   type SupplyGroupKey,
 } from './supply-searchable-select';
+import type { PaginatedResult } from '@/domain/types';
 
 interface RecipeItem {
   supplyId: number;
@@ -143,13 +145,18 @@ export function PromoForm({ product }: PromoFormProps) {
   useEffect(() => {
     async function load() {
       try {
-        const productsRes = await authenticatedFetch(PRODUCTOS_API, {});
+        const all = await fetchAllPages<Supply>(async (page, limit) => {
+          const productsRes = await authenticatedFetch(
+            `${PRODUCTOS_API}?page=${page}&limit=${limit}`,
+            {}
+          );
 
-        if (!productsRes.ok) {
-          await throwApiError(productsRes, 'Error al cargar productos');
-        }
+          if (!productsRes.ok) {
+            await throwApiError(productsRes, 'Error al cargar productos');
+          }
 
-        const all = (await productsRes.json()) as Supply[];
+          return (await productsRes.json()) as PaginatedResult<Supply>;
+        });
         setSupplies(all);
 
         const base: PromoFormData = product

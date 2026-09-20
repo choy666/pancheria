@@ -61,6 +61,16 @@ describe('branchRepository', () => {
         expect.objectContaining({ orderBy: expect.anything() })
       );
     });
+
+    test('propaga el límite a la consulta', async () => {
+      mockFindMany.mockResolvedValue([]);
+
+      await branchRepository.findAllOrderedByCreatedAt({ limit: 50 });
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 50 })
+      );
+    });
   });
 
   describe('findById', () => {

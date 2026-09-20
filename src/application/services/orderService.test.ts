@@ -18,6 +18,7 @@ import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
+import { logger } from '@/lib/logger';
 import { db } from '@/db';
 import {
   orders,
@@ -1477,6 +1478,80 @@ describe('orderService', () => {
       expect(count).toBe(0);
       expect(mockedDb.query.orders.findFirst).not.toHaveBeenCalled();
     });
+
+    test('corta la corrida sin procesar nada si el presupuesto ya está agotado', async () => {
+      const loggerSpy = jest
+        .spyOn(logger, 'info')
+        .mockImplementation(() => {});
+
+      const count = await expirePendingOrders(BRANCH_ID, {
+        timeBudgetMs: 0,
+      });
+
+      expect(count).toBe(0);
+      expect(mockedDb.query.orders.findMany).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'expirePendingOrders: presupuesto de tiempo agotado',
+        expect.objectContaining({ expired: 0, timeBudgetMs: 0 })
+      );
+      loggerSpy.mockRestore();
+    });
+
+    test('corta a mitad del lote al agotarse el presupuesto y devuelve lo procesado', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findMany.mockResolvedValue([
+        { id: 1, branchId: BRANCH_ID },
+        { id: 2, branchId: BRANCH_ID },
+      ]);
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({
+          createdAt: new Date(Date.now() - 120_000),
+        }),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+
+      // Date.now: cutoff (1), deadline (2), chequeo del loop (3) y chequeo
+      // del primer pedido (4) dentro del presupuesto; el chequeo del segundo
+      // pedido (5) ya venció.
+      const realNow = Date.now();
+      let nowCalls = 0;
+      const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => {
+        nowCalls += 1;
+        return realNow + (nowCalls <= 4 ? 0 : 60_000);
+      });
+      const loggerSpy = jest
+        .spyOn(logger, 'info')
+        .mockImplementation(() => {});
+
+      try {
+        const count = await expirePendingOrders(BRANCH_ID, {
+          timeBudgetMs: 10_000,
+        });
+
+        expect(count).toBe(1);
+        // El lote se pidió una sola vez y solo se canceló el primer pedido.
+        expect(mockedDb.query.orders.findMany).toHaveBeenCalledTimes(1);
+        expect(findCapturedUpdate(orders)).toHaveLength(1);
+        expect(loggerSpy).toHaveBeenCalledWith(
+          'expirePendingOrders: presupuesto de tiempo agotado',
+          expect.objectContaining({ expired: 1, timeBudgetMs: 10_000 })
+        );
+      } finally {
+        nowSpy.mockRestore();
+        loggerSpy.mockRestore();
+      }
+    });
   });
 
   describe('trackOrder', () => {
@@ -1488,6 +1563,7 @@ describe('orderService', () => {
       });
 
       const result = await trackOrder(
+        BRANCH_ID,
         'PED-1-1234567890-abcdef',
         'Juan Pérez'
       );
@@ -1507,6 +1583,7 @@ describe('orderService', () => {
       });
 
       const result = await trackOrder(
+        BRANCH_ID,
         'PED-1-1234567890-abcdef',
         'Juan Pérez'
       );
@@ -1520,7 +1597,7 @@ describe('orderService', () => {
     test('devuelve null si no encuentra el pedido', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue(undefined);
 
-      const result = await trackOrder('PED-999', 'Juan Pérez');
+      const result = await trackOrder(BRANCH_ID, 'PED-999', 'Juan Pérez');
 
       expect(result).toBeNull();
     });

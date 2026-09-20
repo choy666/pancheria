@@ -21,6 +21,8 @@ export const PUBLIC_PEDIDO_CHAT_LEIDO_API = (orderId: number | string) =>
   `/api/public/pedido/${orderId}/chat/leido`;
 export const PUBLIC_PEDIDO_CHAT_UPLOAD_API = (orderId: number | string) =>
   `/api/public/pedido/${orderId}/chat/upload`;
+export const PUBLIC_PEDIDO_CHAT_STREAM_API = (orderId: number | string) =>
+  `/api/public/pedido/${orderId}/chat/stream`;
 export const PEDIDOS_API = '/api/pedidos';
 export const PEDIDOS_CONFIRMAR_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/confirmar`;
@@ -38,6 +40,8 @@ export const PEDIDOS_CHAT_LEIDO_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/chat/leido`;
 export const PEDIDOS_CHAT_UPLOAD_API = (orderId: number | string) =>
   `/api/pedidos/${orderId}/chat/upload`;
+export const PEDIDOS_CHAT_STREAM_API = (orderId: number | string) =>
+  `/api/pedidos/${orderId}/chat/stream`;
 export const CAJA_API = '/api/caja';
 export const CAJA_HISTORIAL_API = '/api/caja/historial';
 export const CAJA_ELIMINADAS_API = '/api/caja/eliminadas';

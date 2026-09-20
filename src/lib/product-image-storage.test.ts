@@ -111,5 +111,19 @@ describe('product-image-storage', () => {
 
       expect(resolveProductImage(product)).toBeNull();
     });
+
+    test('incluye el branchId en la URL local cuando hay imageKey', () => {
+      const product = {
+        id: 1,
+        branchId: 3,
+        imageUrl: null,
+        imageKey: 'product-images/1/abc123.jpg',
+      } as unknown as import('@/domain/types').ProductRow;
+
+      const url = resolveProductImage(product);
+
+      expect(url).toContain('/api/productos/imagen/');
+      expect(url).toContain('branchId=3');
+    });
   });
 });

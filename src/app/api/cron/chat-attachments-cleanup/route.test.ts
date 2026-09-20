@@ -3,32 +3,33 @@
  */
 import { NextRequest } from 'next/server';
 import { GET } from './route';
-import * as orderMessageRepository from '@/repositories/orderMessageRepository';
-import { getStorageProvider } from '@/config/videos';
+import * as cleanupService from '@/application/services/cleanupService';
 
-jest.mock('@/repositories/orderMessageRepository');
-jest.mock('@/config/videos', () => ({
-  getStorageProvider: jest.fn(),
-}));
-jest.mock('@/lib/chat-storage', () => ({
-  getChatLocalStorageBasePath: jest.fn().mockReturnValue('/tmp/videos'),
+jest.mock('@/application/services/cleanupService', () => ({
+  cleanupOrphanedChatAttachments: jest.fn(),
+  cleanupOrphanedProductImages: jest.fn(),
+  cleanupOrphanedVideos: jest.fn(),
+  cleanupExpiredOrderMessages: jest.fn(),
 }));
 
-const mockedOrderMessageRepository =
-  orderMessageRepository as jest.Mocked<typeof orderMessageRepository>;
-const mockedGetStorageProvider = getStorageProvider as jest.MockedFunction<
-  typeof getStorageProvider
+const mockedCleanupService = cleanupService as jest.Mocked<
+  typeof cleanupService
 >;
 
-const mockReaddir = jest.fn();
-const mockUnlink = jest.fn();
+const ORIGINAL_ENV = {
+  CRON_SECRET: process.env.CRON_SECRET,
+  ORDER_MESSAGES_RETENTION_DAYS: process.env.ORDER_MESSAGES_RETENTION_DAYS,
+};
 
-jest.mock('fs', () => ({
-  promises: {
-    readdir: (...args: unknown[]) => mockReaddir(...args),
-    unlink: (...args: unknown[]) => mockUnlink(...args),
-  },
-}));
+beforeAll(() => {
+  process.env.CRON_SECRET = 'secreto-cron';
+});
+
+afterAll(() => {
+  process.env.CRON_SECRET = ORIGINAL_ENV.CRON_SECRET;
+  process.env.ORDER_MESSAGES_RETENTION_DAYS =
+    ORIGINAL_ENV.ORDER_MESSAGES_RETENTION_DAYS;
+});
 
 function buildRequest(authHeader?: string): NextRequest {
   return new NextRequest(
@@ -39,73 +40,67 @@ function buildRequest(authHeader?: string): NextRequest {
   );
 }
 
-function createDirent(name: string, isDir: boolean) {
-  return {
-    name,
-    isDirectory: () => isDir,
-    isFile: () => !isDir,
-  } as any;
-}
-
 describe('GET /api/cron/chat-attachments-cleanup', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...originalEnv, CRON_SECRET: 'test-secret' };
-    mockedGetStorageProvider.mockReturnValue('local');
-    mockedOrderMessageRepository.findAllAttachmentKeys.mockResolvedValue([]);
-    mockReaddir.mockResolvedValue([]);
-    mockUnlink.mockResolvedValue(undefined);
-  });
-
-  afterAll(() => {
-    process.env = originalEnv;
-  });
-
-  test('rechaza llamadas sin CRON_SECRET configurado', async () => {
-    delete process.env.CRON_SECRET;
-
-    const response = await GET(buildRequest('Bearer test-secret'));
-
-    expect(response.status).toBe(401);
-  });
-
-  test('rechaza autorización incorrecta', async () => {
-    const response = await GET(buildRequest('Bearer wrong-secret'));
-
-    expect(response.status).toBe(401);
-  });
-
-  test('limpia archivos locales huérfanos', async () => {
-    mockedOrderMessageRepository.findAllAttachmentKeys.mockResolvedValue([
-      'chat/10/abc123.jpg',
-    ]);
-
-    mockReaddir.mockImplementation((dir: string) => {
-      if (typeof dir !== 'string') return Promise.resolve([]);
-      const normalized = dir.replace(/\\/g, '/');
-      if (normalized.endsWith('/chat')) {
-        return Promise.resolve([createDirent('10', true)]);
-      }
-      if (normalized.includes('chat/10')) {
-        return Promise.resolve([
-          createDirent('abc123.jpg', false),
-          createDirent('orphan.jpg', false),
-        ]);
-      }
-      return Promise.resolve([]);
+    delete process.env.ORDER_MESSAGES_RETENTION_DAYS;
+    mockedCleanupService.cleanupOrphanedChatAttachments.mockResolvedValue({
+      listed: 10,
+      deleted: 2,
     });
+    mockedCleanupService.cleanupOrphanedProductImages.mockResolvedValue({
+      listed: 5,
+      deleted: 1,
+    });
+    mockedCleanupService.cleanupOrphanedVideos.mockResolvedValue({
+      listed: 3,
+      deleted: 0,
+    });
+    mockedCleanupService.cleanupExpiredOrderMessages.mockResolvedValue(4);
+  });
 
-    const response = await GET(buildRequest('Bearer test-secret'));
-    const body = (await response.json()) as { ok: boolean; deleted: number };
+  test('devuelve 401 sin autorización', async () => {
+    const response = await GET(buildRequest());
+
+    expect(response.status).toBe(401);
+    expect(
+      mockedCleanupService.cleanupOrphanedChatAttachments
+    ).not.toHaveBeenCalled();
+  });
+
+  test('ejecuta los cleanups de los tres dominios sin retención por defecto', async () => {
+    const response = await GET(buildRequest('Bearer secreto-cron'));
+    const body = (await response.json()) as {
+      ok: boolean;
+      chatAttachments: { deleted: number };
+      productImages: { deleted: number };
+      videos: { deleted: number };
+      deletedMessages: number;
+    };
 
     expect(response.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.deleted).toBe(1);
-    expect(mockUnlink).toHaveBeenCalledTimes(1);
-    expect(mockUnlink).toHaveBeenCalledWith(
-      expect.stringMatching(/chat[/\\]10[/\\]orphan\.jpg/)
-    );
+    expect(body).toEqual({
+      ok: true,
+      chatAttachments: { listed: 10, deleted: 2 },
+      productImages: { listed: 5, deleted: 1 },
+      videos: { listed: 3, deleted: 0 },
+      deletedMessages: 0,
+    });
+    expect(
+      mockedCleanupService.cleanupExpiredOrderMessages
+    ).not.toHaveBeenCalled();
+  });
+
+  test('purga mensajes cuando ORDER_MESSAGES_RETENTION_DAYS está definido', async () => {
+    process.env.ORDER_MESSAGES_RETENTION_DAYS = '30';
+
+    const response = await GET(buildRequest('Bearer secreto-cron'));
+    const body = (await response.json()) as { deletedMessages: number };
+
+    expect(response.status).toBe(200);
+    expect(
+      mockedCleanupService.cleanupExpiredOrderMessages
+    ).toHaveBeenCalledWith(30);
+    expect(body.deletedMessages).toBe(4);
   });
 });

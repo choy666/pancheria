@@ -44,7 +44,8 @@ export const POST = withApiErrorHandling(
 
     const instructions = await prepareProductImageUpload(
       fileInfo,
-      data.productId
+      data.productId,
+      branchId
     );
 
     return NextResponse.json(instructions);

@@ -6,15 +6,12 @@ import {
   chatMessageContentSchema,
   chatPaginationQuerySchema,
 } from '@/lib/zod-schemas';
-import { getClientIp, createRateLimiter, createPollRateLimiter } from '@/lib/rate-limit';
+import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import {
   getChatRateLimitWindowMs,
   getChatRateLimitMaxRequests,
 } from '@/config/chat';
-import {
-  getPublicPollRateLimitWindowMs,
-  getPublicPollRateLimitMaxRequests,
-} from '@/config/rate-limit';
+import { isChatPollRateLimited } from '@/lib/chat-poll-rate-limit';
 import { parseId } from '@/lib/id';
 
 const querySchema = chatPaginationQuerySchema.extend({
@@ -28,12 +25,9 @@ const isRateLimited = createRateLimiter(
 );
 
 // El GET es el poll dominante del chat (cada 5 s por chat abierto): va por
-// el limiter en memoria para no escribir una fila por poll en la DB.
-const isPollRateLimited = createPollRateLimiter(
-  'chat_poll',
-  getPublicPollRateLimitWindowMs(),
-  getPublicPollRateLimitMaxRequests()
-);
+// el limiter en memoria compartido con `.../chat/stream` para no escribir
+// una fila por poll en la DB.
+const isPollRateLimited = isChatPollRateLimited;
 
 export const GET = withApiErrorHandling(
   async (

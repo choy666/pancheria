@@ -67,8 +67,17 @@ function mockFetch(
   shortage: Record<number, Shortage> = {}
 ) {
   global.fetch = jest.fn().mockImplementation((url: string) => {
-    if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
-      return createFetchResponse(products);
+    if (
+      typeof url === 'string' &&
+      url.startsWith(`${PRODUCTOS_API}?`) &&
+      url.includes('includeAvailability=true')
+    ) {
+      return createFetchResponse({
+        items: products,
+        total: products.length,
+        page: 1,
+        limit: 100,
+      });
     }
     if (url === VENTAS_DISPONIBILIDAD_API) {
       return createFetchResponse({
@@ -230,7 +239,7 @@ describe('SalesTerminal', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/productos?includeAvailability=true',
+        expect.stringContaining('/api/productos?includeAvailability=true'),
         expect.objectContaining({ credentials: 'include' })
       );
     });
@@ -430,8 +439,17 @@ describe('SalesTerminal', () => {
     ];
 
     global.fetch = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
-        return createFetchResponse(products);
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        return createFetchResponse({
+          items: products,
+          total: products.length,
+          page: 1,
+          limit: 100,
+        });
       }
       if (url === VENTAS_DISPONIBILIDAD_API) {
         const body = JSON.parse(
@@ -520,8 +538,19 @@ describe('SalesTerminal', () => {
     let availabilityCallCount = 0;
 
     global.fetch = jest.fn().mockImplementation((url: string) => {
-      if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
-        return Promise.resolve(createFetchResponse(products));
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        return Promise.resolve(
+          createFetchResponse({
+            items: products,
+            total: products.length,
+            page: 1,
+            limit: 100,
+          })
+        );
       }
       if (url === VENTAS_DISPONIBILIDAD_API) {
         availabilityCallCount++;
@@ -596,8 +625,19 @@ describe('SalesTerminal', () => {
     let availabilityCallCount = 0;
 
     global.fetch = jest.fn().mockImplementation((url: string) => {
-      if (url === `${PRODUCTOS_API}?includeAvailability=true`) {
-        return Promise.resolve(createFetchResponse(products));
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        return Promise.resolve(
+          createFetchResponse({
+            items: products,
+            total: products.length,
+            page: 1,
+            limit: 100,
+          })
+        );
       }
       if (url === VENTAS_DISPONIBILIDAD_API) {
         availabilityCallCount++;

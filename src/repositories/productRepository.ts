@@ -151,6 +151,72 @@ export async function findActive(branchId: number): Promise<ProductRow[]> {
   });
 }
 
+export async function findActivePage(
+  branchId: number,
+  pagination: PaginationParams
+): Promise<PaginatedResult<ProductRow>> {
+  const conditions = [
+    eq(products.branchId, branchId),
+    eq(products.isActive, true),
+    isNull(products.deletedAt),
+  ];
+
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(products)
+    .where(and(...conditions));
+
+  const items = await db.query.products.findMany({
+    where: and(...conditions),
+    orderBy: (products, { asc }) => [asc(products.name)],
+    limit: pagination.limit,
+    offset: (pagination.page - 1) * pagination.limit,
+  });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination.page,
+    limit: pagination.limit,
+  };
+}
+
+/**
+ * Insumos activos (`critical_supply`/`manual_supply`) paginados: el listado
+ * de stock del panel. El filtro por tipo vive en la consulta para que
+ * `total` refleje los insumos y no todo el catálogo.
+ */
+export async function findActiveSuppliesPage(
+  branchId: number,
+  pagination: PaginationParams
+): Promise<PaginatedResult<ProductRow>> {
+  const conditions = [
+    eq(products.branchId, branchId),
+    eq(products.isActive, true),
+    isNull(products.deletedAt),
+    inArray(products.type, ['critical_supply', 'manual_supply']),
+  ];
+
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(products)
+    .where(and(...conditions));
+
+  const items = await db.query.products.findMany({
+    where: and(...conditions),
+    orderBy: (products, { asc }) => [asc(products.name)],
+    limit: pagination.limit,
+    offset: (pagination.page - 1) * pagination.limit,
+  });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination.page,
+    limit: pagination.limit,
+  };
+}
+
 export async function findActiveCriticalSupplies(
   branchId: number,
   dbOrTx?: typeof db
@@ -333,6 +399,33 @@ export async function incrementStock(
     .update(products)
     .set({ stock: sql`${products.stock} + ${quantity}` })
     .where(eq(products.id, productId));
+}
+
+/**
+ * Devuelve todas las `image_key` referenciadas por productos (incluye
+ * eliminados: la imagen se conserva hasta el hard-delete). La usa el
+ * cleanup de archivos huérfanos para no borrar imágenes vivas.
+ */
+export async function findAllImageKeys(
+  options: { limit?: number; offset?: number } = {}
+): Promise<string[]> {
+  let query = db
+    .select({ imageKey: products.imageKey })
+    .from(products)
+    .where(isNotNull(products.imageKey))
+    .$dynamic();
+
+  if (options.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+
+  if (options.offset !== undefined) {
+    query = query.offset(options.offset);
+  }
+
+  const rows = await query;
+
+  return rows.map((row) => row.imageKey as string);
 }
 
 export async function findByImageKey(

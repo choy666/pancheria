@@ -9,13 +9,17 @@ test.describe('Paso 4 - Flujos avanzados', () => {
   test('anula una venta y verifica reintegro de stock', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 
-    const productsResponse = await page.request.get('/api/productos');
-    const products = (await productsResponse.json()) as {
-      id: number;
-      name: string;
-      type: string;
-      price: number;
-    }[];
+    const productsResponse = await page.request.get(
+      '/api/productos?limit=100'
+    );
+    const { items: products } = (await productsResponse.json()) as {
+      items: {
+        id: number;
+        name: string;
+        type: string;
+        price: number;
+      }[];
+    };
     const product = products.find(
       (p) => p.type === 'compound' && p.price === 1000
     );
@@ -45,14 +49,16 @@ test.describe('Paso 4 - Flujos avanzados', () => {
 
   test('muestra historial de stock tras un ajuste', async ({ page }) => {
     const productsResponse = await page.request.get(
-      '/api/productos?includeAvailability=false'
+      '/api/productos?includeAvailability=false&limit=100'
     );
-    const products = (await productsResponse.json()) as {
-      id: number;
-      name: string;
-      type: string;
-      criticalSupplyType: string | null;
-    }[];
+    const { items: products } = (await productsResponse.json()) as {
+      items: {
+        id: number;
+        name: string;
+        type: string;
+        criticalSupplyType: string | null;
+      }[];
+    };
     const pan = products.find(
       (p) => p.type === 'critical_supply' && p.criticalSupplyType === 'bread'
     );

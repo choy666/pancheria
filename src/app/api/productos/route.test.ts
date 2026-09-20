@@ -19,7 +19,12 @@ jest.mock('@/lib/auth', () => ({
   getCurrentBranchId: jest.fn(),
 }));
 jest.mock('@/lib/logger', () => ({
-  logError: jest.fn(),
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 const mockedProductService = productService as jest.Mocked<typeof productService>;
@@ -72,46 +77,79 @@ describe('productos /api/productos', () => {
       expect(body.error).toBe('Se requiere iniciar sesión.');
     });
 
-    test('devuelve la lista de productos activos con status 200', async () => {
-      const products = [{ id: 1, name: 'Pancho', branchId: BRANCH_ID }];
-      mockedProductService.listActiveProducts.mockResolvedValue(
-        products as unknown as Awaited<
-          ReturnType<typeof productService.listActiveProducts>
+    test('devuelve la página de productos activos con status 200', async () => {
+      const result = {
+        items: [{ id: 1, name: 'Pancho', branchId: BRANCH_ID }],
+        total: 1,
+        page: 1,
+        limit: 10,
+      };
+      mockedProductService.listActiveProductsPage.mockResolvedValue(
+        result as unknown as Awaited<
+          ReturnType<typeof productService.listActiveProductsPage>
         >
       );
 
       const response = await GET(buildRequest(), { params: Promise.resolve({}) });
-      const body = (await response.json()) as unknown[];
+      const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(200);
-      expect(body).toEqual(products);
-      expect(mockedProductService.listActiveProducts).toHaveBeenCalledWith(
-        BRANCH_ID
+      expect(body).toEqual(result);
+      expect(mockedProductService.listActiveProductsPage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 1, limit: 10 }
+      );
+    });
+
+    test('propaga page y limit de la query al servicio', async () => {
+      mockedProductService.listActiveProductsPage.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 3,
+        limit: 25,
+      } as unknown as Awaited<
+        ReturnType<typeof productService.listActiveProductsPage>
+      >);
+
+      const response = await GET(buildRequest('?page=3&limit=25'), {
+        params: Promise.resolve({}),
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockedProductService.listActiveProductsPage).toHaveBeenCalledWith(
+        BRANCH_ID,
+        { page: 3, limit: 25 }
       );
     });
 
     test('incluye disponibilidad cuando se solicita', async () => {
-      const products = [
-        { id: 1, name: 'Pancho', availability: 5, branchId: BRANCH_ID },
-      ];
-      mockedProductService.listActiveProductsWithAvailability.mockResolvedValue(
-        products as unknown as Awaited<
-          ReturnType<typeof productService.listActiveProductsWithAvailability>
+      const result = {
+        items: [{ id: 1, name: 'Pancho', availability: 5, branchId: BRANCH_ID }],
+        total: 1,
+        page: 2,
+        limit: 50,
+      };
+      mockedProductService.listActiveProductsWithAvailabilityPage.mockResolvedValue(
+        result as unknown as Awaited<
+          ReturnType<typeof productService.listActiveProductsWithAvailabilityPage>
         >
       );
 
-      const response = await GET(buildRequest('?includeAvailability=true'), { params: Promise.resolve({}) });
-      const body = (await response.json()) as unknown[];
+      const response = await GET(
+        buildRequest('?includeAvailability=true&page=2&limit=50'),
+        { params: Promise.resolve({}) }
+      );
+      const body = (await response.json()) as unknown;
 
       expect(response.status).toBe(200);
-      expect(body).toEqual(products);
+      expect(body).toEqual(result);
       expect(
-        mockedProductService.listActiveProductsWithAvailability
-      ).toHaveBeenCalledWith(BRANCH_ID);
+        mockedProductService.listActiveProductsWithAvailabilityPage
+      ).toHaveBeenCalledWith(BRANCH_ID, { page: 2, limit: 50 });
     });
 
     test('devuelve 404 cuando el servicio lanza NotFoundError', async () => {
-      mockedProductService.listActiveProducts.mockRejectedValue(
+      mockedProductService.listActiveProductsPage.mockRejectedValue(
         new NotFoundError('Producto', 1)
       );
 
@@ -126,7 +164,7 @@ describe('productos /api/productos', () => {
       const dbError = Object.assign(new Error('connection refused'), {
         code: 'ECONNREFUSED',
       });
-      mockedProductService.listActiveProducts.mockRejectedValue(dbError);
+      mockedProductService.listActiveProductsPage.mockRejectedValue(dbError);
 
       const response = await GET(buildRequest(), { params: Promise.resolve({}) });
       const body = (await response.json()) as { error: string };
@@ -136,7 +174,7 @@ describe('productos /api/productos', () => {
     });
 
     test('devuelve 500 ante cualquier error inesperado del servicio', async () => {
-      mockedProductService.listActiveProducts.mockRejectedValue(
+      mockedProductService.listActiveProductsPage.mockRejectedValue(
         new Error('Error desconocido')
       );
 

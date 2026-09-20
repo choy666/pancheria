@@ -1,4 +1,9 @@
-import { listStockAlerts, adjustStock, getStockHistory } from './stockService';
+import {
+  listStockAlerts,
+  listStockAlertsPage,
+  adjustStock,
+  getStockHistory,
+} from './stockService';
 import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
 import { db } from '@/db';
@@ -222,6 +227,29 @@ describe('stockService', () => {
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe('Pan');
     expect(result[1].name).toBe('Mayonesa');
+  });
+
+  test('listStockAlertsPage devuelve la página marcando stock bajo', async () => {
+    mockedProductRepository.findActiveSuppliesPage.mockResolvedValue({
+      items: [
+        createProductRow({ id: 1, name: 'Pan', stock: 2, minStock: 5 }),
+        createProductRow({ id: 2, name: 'Salchicha', stock: 10, minStock: 5 }),
+      ],
+      total: 8,
+      page: 2,
+      limit: 2,
+    });
+
+    const result = await listStockAlertsPage(BRANCH_ID, { page: 2, limit: 2 });
+
+    expect(result.total).toBe(8);
+    expect(result.page).toBe(2);
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0].isLow).toBe(true);
+    expect(result.items[1].isLow).toBe(false);
+    expect(
+      mockedProductRepository.findActiveSuppliesPage
+    ).toHaveBeenCalledWith(BRANCH_ID, { page: 2, limit: 2 });
   });
 
   test('adjustStock lanza NotFoundError cuando el producto no existe', async () => {

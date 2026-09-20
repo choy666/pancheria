@@ -18,6 +18,12 @@ jest.mock('@/lib/rate-limit', () => {
   };
 });
 jest.mock('@/lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
   logError: jest.fn(),
 }));
 

@@ -1199,9 +1199,19 @@ describe('cashRegisterService', () => {
   });
 
   describe('emptyTrash', () => {
+    const ORIGINAL_BATCH_SIZE = process.env.TRASH_RESTORE_BATCH_SIZE;
+
+    afterEach(() => {
+      if (ORIGINAL_BATCH_SIZE === undefined) {
+        delete process.env.TRASH_RESTORE_BATCH_SIZE;
+      } else {
+        process.env.TRASH_RESTORE_BATCH_SIZE = ORIGINAL_BATCH_SIZE;
+      }
+    });
+
     test('elimina permanentemente todas las cajas en papelera', async () => {
       mockedCashRegisterRepository.findDeletedIds.mockResolvedValue([1, 2]);
-      mockedCashRegisterRepository.hardDeleteAllDeleted.mockResolvedValue({
+      mockedCashRegisterRepository.hardDeleteMany.mockResolvedValue({
         deleted: 2,
       } as any);
 
@@ -1209,8 +1219,60 @@ describe('cashRegisterService', () => {
 
       expect(result).toEqual({ deleted: 2 });
       expect(
-        mockedCashRegisterRepository.hardDeleteAllDeleted
-      ).toHaveBeenCalledWith(BRANCH_ID, expect.anything());
+        mockedCashRegisterRepository.hardDeleteMany
+      ).toHaveBeenCalledWith(BRANCH_ID, [1, 2], expect.anything());
+    });
+
+    test('procesa en lotes una transacción por lote', async () => {
+      process.env.TRASH_RESTORE_BATCH_SIZE = '2';
+      mockedCashRegisterRepository.findDeletedIds.mockResolvedValue([
+        1, 2, 3, 4, 5,
+      ]);
+      mockedCashRegisterRepository.hardDeleteMany.mockResolvedValue({
+        deleted: 2,
+      } as any);
+
+      const result = await emptyTrash(BRANCH_ID);
+
+      expect(result).toEqual({ deleted: 6 });
+      expect(mockedExecuteInTransaction).toHaveBeenCalledTimes(3);
+      expect(mockedCashRegisterRepository.hardDeleteMany).toHaveBeenNthCalledWith(
+        1,
+        BRANCH_ID,
+        [1, 2],
+        expect.anything()
+      );
+      expect(mockedCashRegisterRepository.hardDeleteMany).toHaveBeenNthCalledWith(
+        2,
+        BRANCH_ID,
+        [3, 4],
+        expect.anything()
+      );
+      expect(mockedCashRegisterRepository.hardDeleteMany).toHaveBeenNthCalledWith(
+        3,
+        BRANCH_ID,
+        [5],
+        expect.anything()
+      );
+    });
+
+    test('salta los ids que ya no están en papelera dentro de la transacción', async () => {
+      mockedCashRegisterRepository.findDeletedIds
+        .mockResolvedValueOnce([1, 2])
+        .mockResolvedValueOnce([2]);
+      mockedCashRegisterRepository.hardDeleteMany.mockResolvedValue({
+        deleted: 0,
+      } as any);
+
+      const result = await emptyTrash(BRANCH_ID);
+
+      expect(result).toEqual({ deleted: 0 });
+      expect(
+        mockedCashRegisterRepository.hardDeleteMany
+      ).toHaveBeenCalledWith(BRANCH_ID, [2], expect.anything());
+      expect(
+        mockedSaleRepository.findActiveWithDetailsByCashRegister
+      ).toHaveBeenCalledTimes(1);
     });
 
     test('devuelve deleted: 0 sin tocar ventas si la papelera está vacía', async () => {
@@ -1220,7 +1282,7 @@ describe('cashRegisterService', () => {
 
       expect(result).toEqual({ deleted: 0 });
       expect(
-        mockedCashRegisterRepository.hardDeleteAllDeleted
+        mockedCashRegisterRepository.hardDeleteMany
       ).not.toHaveBeenCalled();
       expect(
         mockedSaleRepository.findActiveWithDetailsByCashRegister
@@ -1229,7 +1291,7 @@ describe('cashRegisterService', () => {
 
     test('restaura el stock de las ventas activas al vaciar la papelera', async () => {
       mockedCashRegisterRepository.findDeletedIds.mockResolvedValue([1]);
-      mockedCashRegisterRepository.hardDeleteAllDeleted.mockResolvedValue({
+      mockedCashRegisterRepository.hardDeleteMany.mockResolvedValue({
         deleted: 1,
       } as any);
       mockedSaleRepository.findActiveWithDetailsByCashRegister.mockResolvedValue([

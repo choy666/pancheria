@@ -60,7 +60,7 @@ const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
 const BRANCH_ID = 1;
 
 describe('cashRegisterRepository', () => {
-  // Mocks para la transacción usada en `hardDelete` y `hardDeleteAllDeleted`.
+  // Mocks para la transacción usada en `hardDelete` y `hardDeleteMany`.
   let txSelectWhere: jest.Mock;
   let txFrom: jest.Mock;
   let txSelect: jest.Mock;
@@ -466,13 +466,15 @@ describe('cashRegisterRepository', () => {
     });
   });
 
-  describe('hardDeleteAllDeleted', () => {
-    test('elimina todas las cajas eliminadas junto con sus ventas', async () => {
+  describe('hardDeleteMany', () => {
+    test('elimina las cajas del lote que siguen en papelera junto con sus ventas', async () => {
+      // De los ids pedidos solo 1 y 2 siguen eliminadas.
       txSelectWhere.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
       txDeleteWhere.mockResolvedValue(undefined);
 
-      const result = await cashRegisterRepository.hardDeleteAllDeleted(
-        BRANCH_ID
+      const result = await cashRegisterRepository.hardDeleteMany(
+        BRANCH_ID,
+        [1, 2, 3]
       );
 
       expect(result).toEqual({ deleted: 2 });
@@ -481,15 +483,24 @@ describe('cashRegisterRepository', () => {
       expect(txDelete).toHaveBeenCalledTimes(2);
     });
 
-    test('devuelve deleted: 0 si no hay cajas eliminadas', async () => {
+    test('devuelve deleted: 0 si ningún id sigue en papelera', async () => {
       txSelectWhere.mockResolvedValue([]);
 
-      const result = await cashRegisterRepository.hardDeleteAllDeleted(
-        BRANCH_ID
+      const result = await cashRegisterRepository.hardDeleteMany(
+        BRANCH_ID,
+        [1, 2]
       );
 
       expect(result).toEqual({ deleted: 0 });
       expect(txUpdate).not.toHaveBeenCalled();
+      expect(txDelete).not.toHaveBeenCalled();
+    });
+
+    test('con ids vacíos no consulta la base', async () => {
+      const result = await cashRegisterRepository.hardDeleteMany(BRANCH_ID, []);
+
+      expect(result).toEqual({ deleted: 0 });
+      expect(txSelect).not.toHaveBeenCalled();
       expect(txDelete).not.toHaveBeenCalled();
     });
   });

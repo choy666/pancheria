@@ -9,11 +9,15 @@ import {
   validateNonEmptyString,
   validateMinLength,
 } from '@/lib/validation-helpers';
+import type { PaginationParams } from '@/domain/types';
 
 type UserRole = 'admin' | 'operator';
 
-export async function listUsers(branchId?: number) {
-  return userRepository.findAll(branchId);
+export async function listUsers(
+  branchId?: number,
+  pagination?: PaginationParams
+) {
+  return userRepository.findAll(branchId, pagination);
 }
 
 export async function createUser(data: {

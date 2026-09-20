@@ -49,6 +49,24 @@ function extractRequestContext(args: unknown[]): {
   return { method: 'UNKNOWN', url: 'unknown' };
 }
 
+/**
+ * Etiqueta para los logs de la ruta: la explícita si se pasa, o
+ * `METHOD /pathname` derivada de la request. Así todas las rutas loguean
+ * duración y estado aunque no declaren `routeLabel`.
+ */
+function resolveRouteLabel(
+  routeLabel: string | undefined,
+  context: { method: string; url: string }
+): string {
+  if (routeLabel) return routeLabel;
+
+  try {
+    return `${context.method} ${new URL(context.url).pathname}`;
+  } catch {
+    return `${context.method} ${context.url}`;
+  }
+}
+
 export function withApiErrorHandling<TArgs extends unknown[]>(
   handler: (...args: TArgs) => Promise<Response>,
   routeLabel?: string
@@ -56,17 +74,16 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
   return async (...args: TArgs): Promise<Response> => {
     const start = Date.now();
     const context = extractRequestContext(args);
+    const label = resolveRouteLabel(routeLabel, context);
 
     try {
       const response = await handler(...args);
 
-      if (routeLabel) {
-        logger.info(routeLabel, {
-          ...context,
-          status: response.status,
-          durationMs: Date.now() - start,
-        });
-      }
+      logger.info(label, {
+        ...context,
+        status: response.status,
+        durationMs: Date.now() - start,
+      });
 
       return response;
     } catch (error) {
@@ -77,7 +94,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: error.message },
           { status: 401 }
         );
-        logApiWarning(routeLabel, { ...context, durationMs, status: 401 });
+        logApiWarning(label, { ...context, durationMs, status: 401 });
         return response;
       }
 
@@ -86,7 +103,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: error.message },
           { status: 403 }
         );
-        logApiWarning(routeLabel, { ...context, durationMs, status: 403 });
+        logApiWarning(label, { ...context, durationMs, status: 403 });
         return response;
       }
 
@@ -96,7 +113,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: message, details: error.issues },
           { status: 400 }
         );
-        logApiWarning(routeLabel, { ...context, durationMs, status: 400 });
+        logApiWarning(label, { ...context, durationMs, status: 400 });
         return response;
       }
 
@@ -105,7 +122,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: error.message },
           { status: 404 }
         );
-        logApiWarning(routeLabel, { ...context, durationMs, status: 404 });
+        logApiWarning(label, { ...context, durationMs, status: 404 });
         return response;
       }
 
@@ -114,7 +131,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: error.message },
           { status: 409 }
         );
-        logApiWarning(routeLabel, { ...context, durationMs, status: 409 });
+        logApiWarning(label, { ...context, durationMs, status: 409 });
         return response;
       }
 
@@ -123,7 +140,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: error.message },
           { status: 400 }
         );
-        logApiWarning(routeLabel, { ...context, durationMs, status: 400 });
+        logApiWarning(label, { ...context, durationMs, status: 400 });
         return response;
       }
 
@@ -132,7 +149,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
           { error: 'Error de conexión con la base de datos' },
           { status: 503 }
         );
-        logApiError(routeLabel, {
+        logApiError(label, {
           ...context,
           durationMs,
           status: 503,
@@ -150,7 +167,7 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
         return new Response(null, { status: 499 });
       }
 
-      logApiError(routeLabel, { ...context, durationMs, status: 500, error });
+      logApiError(label, { ...context, durationMs, status: 500, error });
       return NextResponse.json(
         { error: 'Error interno del servidor' },
         { status: 500 }
@@ -160,19 +177,15 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
 }
 
 function logApiWarning(
-  routeLabel: string | undefined,
+  label: string,
   context: Record<string, unknown>
 ): void {
-  if (routeLabel) {
-    logger.warn(routeLabel, context);
-  }
+  logger.warn(label, context);
 }
 
 function logApiError(
-  routeLabel: string | undefined,
+  label: string,
   context: Record<string, unknown>
 ): void {
-  if (routeLabel) {
-    logger.error(routeLabel, context);
-  }
+  logger.error(label, context);
 }

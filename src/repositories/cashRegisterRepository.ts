@@ -309,17 +309,29 @@ export async function softDeleteAllClosed(branchId: number) {
   return { deleted: rows.length };
 }
 
-export async function hardDeleteAllDeleted(
+/**
+ * Borrado físico acotado a los ids dados, limitado a cajas que sigan en
+ * papelera al momento de ejecutarse. Pensado para `emptyTrash` por lotes:
+ * cada lote corre en su propia transacción y una re-ejecución tras un corte
+ * simplemente ignora los ids ya procesados.
+ */
+export async function hardDeleteMany(
   branchId: number,
+  ids: number[],
   dbOrTx?: typeof db
 ) {
   const run = async (tx: typeof db) => {
+    if (ids.length === 0) {
+      return { deleted: 0 };
+    }
+
     const rows = await tx
       .select({ id: cashRegisters.id })
       .from(cashRegisters)
       .where(
         and(
           eq(cashRegisters.branchId, branchId),
+          inArray(cashRegisters.id, ids),
           isNotNull(cashRegisters.deletedAt)
         )
       );
@@ -328,23 +340,23 @@ export async function hardDeleteAllDeleted(
       return { deleted: 0 };
     }
 
-    const ids = rows.map((row) => row.id);
+    const deletedIds = rows.map((row) => row.id);
 
-    // Se eliminan también las ventas asociadas a las cajas en papelera;
-    // los ítems, pagos y snapshots de receta se borran en cascada.
-    await tx.delete(sales).where(inArray(sales.cashRegisterId, ids));
+    await tx.delete(sales).where(inArray(sales.cashRegisterId, deletedIds));
 
     await tx
       .delete(cashRegisters)
       .where(
         and(
           eq(cashRegisters.branchId, branchId),
-          inArray(cashRegisters.id, ids)
+          inArray(cashRegisters.id, deletedIds)
         )
       );
 
-    return { deleted: ids.length };
+    return { deleted: deletedIds.length };
   };
 
   return dbOrTx ? run(dbOrTx) : executeInTransaction(run);
 }
+
+

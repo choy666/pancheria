@@ -43,6 +43,12 @@ export interface UseOrderChatOptions {
   branchLocationApiUrl?: string;
   readApiUrl?: string;
   uploadApiUrl?: string;
+  /**
+   * Endpoint SSE (`.../chat/stream`) para recibir mensajes sin polling. Si
+   * está definido y el navegador soporta `EventSource`, el stream reemplaza
+   * al poll; ante falla permanente se vuelve al polling automáticamente.
+   */
+  streamApiUrl?: string;
   unreadCount?: number;
   disablePollingOnMount?: boolean;
 }
@@ -117,6 +123,7 @@ export function useOrderChat({
   branchLocationApiUrl,
   readApiUrl,
   uploadApiUrl,
+  streamApiUrl,
   unreadCount = 0,
   disablePollingOnMount = false,
 }: UseOrderChatOptions): UseOrderChatResult {
@@ -135,6 +142,10 @@ export function useOrderChat({
   const scrollIntentRef = useRef<ScrollIntent | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const nextAllowedAtRef = useRef(0);
+  // `streamFailed` = el SSE falló de forma permanente: el polling retoma el
+  // relevo hasta desmontar. `eventSourceRef` guarda la conexión viva.
+  const streamFailedRef = useRef(false);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const [messages, setMessages] = useState<OrderMessage[]>(() =>
     mergeMessages([], initialMessages, 'replace')
@@ -451,6 +462,9 @@ export function useOrderChat({
 
   const runScheduledPoll = useCallback(() => {
     if (!isMountedRef.current) return;
+    // Con SSE sano el stream cubre las novedades (reconecta con
+    // `Last-Event-ID` ante cortes); solo se pollea si el stream falló.
+    if (streamApiUrl && !streamFailedRef.current) return;
     if (Date.now() < nextAllowedAtRef.current) return;
     if (isSendingRef.current || isFetchingRef.current) return;
 
@@ -472,7 +486,123 @@ export function useOrderChat({
         nextAllowedAtRef.current = Date.now() + delay;
       }
     });
-  }, [intervalMs, maxBackoffMs, pollNewMessages]);
+  }, [intervalMs, maxBackoffMs, pollNewMessages, streamApiUrl]);
+
+  // Spike SSE (T13): si `streamApiUrl` está definido, el chat recibe mensajes
+  // por `EventSource` en lugar del poll periódico. El servidor cierra el
+  // stream al agotar su presupuesto y `EventSource` reconecta solo con
+  // `Last-Event-ID`; al ocultar la pestaña se cierra la conexión para no
+  // facturar duración de función sin nadie mirando (mismo criterio que el
+  // polling, que pausa en pestañas ocultas).
+  useEffect(() => {
+    if (!streamApiUrl || disablePollingOnMount) return;
+    if (typeof EventSource === 'undefined') {
+      streamFailedRef.current = true;
+      return;
+    }
+
+    let consecutiveStreamErrors = 0;
+
+    const closeStream = () => {
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+    };
+
+    const failStream = () => {
+      streamFailedRef.current = true;
+      closeStream();
+    };
+
+    const openStream = () => {
+      if (streamFailedRef.current || !isMountedRef.current) return;
+      closeStream();
+      const after = lastMessageIdRef.current ?? 0;
+      const es = new EventSource(
+        buildUrl(`${streamApiUrl}?after=${after}`, token)
+      );
+      eventSourceRef.current = es;
+
+      es.onopen = () => {
+        consecutiveStreamErrors = 0;
+      };
+
+      es.addEventListener('messages', (event) => {
+        consecutiveStreamErrors = 0;
+        try {
+          const data = JSON.parse((event as MessageEvent).data) as {
+            messages?: OrderMessage[];
+          };
+          if (!isMountedRef.current) return;
+          if (data.messages?.length) {
+            chatEmptyRef.current = false;
+            addMessages(data.messages, 'append', { type: 'bottom' });
+          }
+        } catch {
+          // Payload malformado: se ignora el frame.
+        }
+      });
+
+      es.addEventListener('state', (event) => {
+        consecutiveStreamErrors = 0;
+        try {
+          const data = JSON.parse((event as MessageEvent).data) as {
+            status?: OrderStatus;
+            isExpired?: boolean;
+            deliveryType?: DeliveryType;
+            branchLocation?: string | null;
+          };
+          if (!isMountedRef.current) return;
+          if (data.status) setOrderStatus(data.status);
+          if (data.isExpired !== undefined) setIsExpired(data.isExpired);
+          if (data.deliveryType) setDeliveryType(data.deliveryType);
+          if (data.branchLocation !== undefined) {
+            setBranchLocation(data.branchLocation);
+          }
+        } catch {
+          // Payload malformado: se ignora el frame.
+        }
+      });
+
+      es.addEventListener('error', (event) => {
+        // `event: error` del servidor (scope inválido) llega como
+        // MessageEvent con `data`: es terminal para el stream.
+        if (typeof (event as MessageEvent).data === 'string' &&
+            (event as MessageEvent).data) {
+          failStream();
+          return;
+        }
+        // `readyState === CLOSED`: el navegador abandonó los reintentos
+        // (endpoint caído o respuesta no-SSE) → fallback a polling.
+        if (es.readyState === EventSource.CLOSED) {
+          failStream();
+          return;
+        }
+        // CONNECTING: EventSource reintenta solo con `Last-Event-ID`; se
+        // corta si los errores se encadenan demasiadas veces seguidas.
+        consecutiveStreamErrors += 1;
+        if (consecutiveStreamErrors >= 8) {
+          failStream();
+        }
+      });
+    };
+
+    openStream();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        closeStream();
+      } else {
+        consecutiveStreamErrors = 0;
+        openStream();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      closeStream();
+    };
+  }, [streamApiUrl, token, disablePollingOnMount, addMessages]);
 
   // Al volver a visible se resetea el backoff de errores para que el poll
   // inmediato de `useVisibilityPolling` no quede bloqueado por un reintento

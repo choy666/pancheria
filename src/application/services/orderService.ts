@@ -13,7 +13,11 @@ import * as cashRegisterService from '@/application/services/cashRegisterService
 import * as idempotencyService from '@/application/idempotencyService';
 
 import { nowUTC } from '@/lib/date';
-import { getOrderExpirationMs } from '@/config/orders';
+import {
+  getOrderExpirationMs,
+  getExpireOrdersTimeBudgetMs,
+} from '@/config/orders';
+import { logger } from '@/lib/logger';
 import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
 import type {
@@ -723,18 +727,27 @@ export async function getOrderCountsByStatus(
 }
 
 export async function expirePendingOrders(
-  branchId?: number
+  branchId?: number,
+  options: { timeBudgetMs?: number } = {}
 ): Promise<number> {
   const expirationMs = getOrderExpirationMs();
   const cutoff = new Date(Date.now() - expirationMs);
+  const timeBudgetMs = options.timeBudgetMs ?? getExpireOrdersTimeBudgetMs();
+  const deadline = Date.now() + timeBudgetMs;
 
   let expiredCount = 0;
+  let budgetExhausted = false;
   // Los pedidos que cambian de estado salen del resultado en la siguiente
   // página; los que fallan quedan registrados para no reintentarlos en esta
   // corrida (la consulta los excluye y este set es la guarda de corte).
   const attemptedOrderIds = new Set<number>();
 
   for (;;) {
+    if (Date.now() >= deadline) {
+      budgetExhausted = true;
+      break;
+    }
+
     const batch = await orderRepository.findExpiredPendingIds(cutoff, {
       branchId,
       limit: EXPIRED_ORDERS_BATCH_SIZE,
@@ -745,6 +758,11 @@ export async function expirePendingOrders(
     if (fresh.length === 0) break;
 
     for (const order of fresh) {
+      if (Date.now() >= deadline) {
+        budgetExhausted = true;
+        break;
+      }
+
       attemptedOrderIds.add(order.id);
       try {
         const cancelled = await cancelExpiredOrder(
@@ -764,6 +782,22 @@ export async function expirePendingOrders(
         throw error;
       }
     }
+
+    if (budgetExhausted) break;
+  }
+
+  if (budgetExhausted) {
+    // La corrida es reentrante: los pendientes que quedan se procesan en la
+    // próxima invocación del cron. Se reporta el trabajo restante para que
+    // el operador pueda dimensionar la frecuencia o el presupuesto.
+    const remaining = await orderRepository.countExpiredPending(cutoff, {
+      branchId,
+    });
+    logger.info('expirePendingOrders: presupuesto de tiempo agotado', {
+      expired: expiredCount,
+      remaining,
+      timeBudgetMs,
+    });
   }
 
   return expiredCount;
@@ -827,6 +861,7 @@ export interface TrackOrderResult {
 }
 
 export async function trackOrder(
+  branchId: number,
   orderNumber: string,
   customerName?: string,
   customerPhone?: string
@@ -836,6 +871,7 @@ export async function trackOrder(
   }
 
   const order = await orderRepository.findByOrderNumberAndCustomer(
+    branchId,
     orderNumber,
     customerName,
     customerPhone

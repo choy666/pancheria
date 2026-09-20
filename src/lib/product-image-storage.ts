@@ -158,8 +158,13 @@ export function validateProductImageUrl(url: string): void {
   }
 }
 
-function getProductImagePublicUrlForLocal(key: string): string {
-  return `${getPublicBaseUrl()}/api/productos/imagen/${encodeURIComponent(key)}`;
+function getProductImagePublicUrlForLocal(
+  key: string,
+  branchId: number
+): string {
+  // El branchId viaja en la URL porque el servido local valida la clave
+  // contra la sucursal del producto (GET /api/productos/imagen/[key]).
+  return `${getPublicBaseUrl()}/api/productos/imagen/${encodeURIComponent(key)}?branchId=${branchId}`;
 }
 
 function getProductImagePublicUrlForVercelBlob(key: string): string {
@@ -178,7 +183,10 @@ function getProductImagePublicUrlForS3R2(kind: 's3' | 'r2', key: string): string
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 }
 
-function getProductImagePublicUrl(keyOrUrl: string): string {
+function getProductImagePublicUrl(
+  keyOrUrl: string,
+  branchId: number
+): string {
   if (
     keyOrUrl.startsWith('http://') ||
     keyOrUrl.startsWith('https://')
@@ -190,7 +198,7 @@ function getProductImagePublicUrl(keyOrUrl: string): string {
 
   switch (provider) {
     case 'local':
-      return getProductImagePublicUrlForLocal(keyOrUrl);
+      return getProductImagePublicUrlForLocal(keyOrUrl, branchId);
     case 'vercel-blob':
       return getProductImagePublicUrlForVercelBlob(keyOrUrl);
     case 's3':
@@ -206,14 +214,15 @@ function getProductImagePublicUrl(keyOrUrl: string): string {
 
 export function resolveProductImage(product: ProductRow): string | null {
   if (product.imageKey) {
-    return getProductImagePublicUrl(product.imageKey);
+    return getProductImagePublicUrl(product.imageKey, product.branchId);
   }
   return product.imageUrl ?? null;
 }
 
 export async function prepareProductImageUpload(
   file: ProductImageFileInfo,
-  productId: number
+  productId: number,
+  branchId: number
 ): Promise<ProductImageUploadInstructions> {
   validateProductImage(file);
 
@@ -222,7 +231,7 @@ export async function prepareProductImageUpload(
 
   switch (provider) {
     case 'local': {
-      const publicUrl = getProductImagePublicUrlForLocal(key);
+      const publicUrl = getProductImagePublicUrlForLocal(key, branchId);
       return {
         url: `${getPublicBaseUrl()}/api/productos/imagen/upload`,
         method: 'POST',
@@ -331,7 +340,8 @@ async function prepareS3R2Upload(
 export async function saveProductImage(
   file: File,
   productId: number,
-  providedKey?: string
+  providedKey: string | undefined,
+  branchId: number
 ): Promise<SavedProductImage> {
   const info: ProductImageFileInfo = {
     name: file.name,
@@ -354,7 +364,7 @@ export async function saveProductImage(
 
   switch (provider) {
     case 'local':
-      return saveProductImageLocal(file, key, info, productId);
+      return saveProductImageLocal(file, key, info, productId, branchId);
     case 'vercel-blob':
       return saveProductImageVercelBlob(file, key, info);
     case 's3':
@@ -372,7 +382,8 @@ async function saveProductImageLocal(
   file: File,
   key: string,
   info: ProductImageFileInfo,
-  productId: number
+  productId: number,
+  branchId: number
 ): Promise<SavedProductImage> {
   if (!isValidProductImageKey(key)) {
     throw new ValidationError('Clave de imagen de producto inválida.');
@@ -397,7 +408,7 @@ async function saveProductImageLocal(
 
   return {
     key,
-    publicUrl: getProductImagePublicUrlForLocal(key),
+    publicUrl: getProductImagePublicUrlForLocal(key, branchId),
     mimeType: info.type,
     size: info.size,
   };

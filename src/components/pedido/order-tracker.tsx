@@ -29,6 +29,7 @@ import {
   getLastCustomerPhone,
   setLastCustomerPhone,
 } from '@/lib/last-customer-phone';
+import { getStoredBranchId } from '@/lib/selected-branch';
 
 interface TrackedOrder {
   id: number;
@@ -102,6 +103,9 @@ export function OrderTracker() {
           orderNumber: orderNumber.trim(),
           customerName: customerName.trim() || undefined,
           customerPhone: customerPhone.trim().replace(/\s/g, '') || undefined,
+          // La numeración de pedidos es única por sucursal: se envía la
+          // sucursal seleccionada en el catálogo cuando existe.
+          branchId: getStoredBranchId() ?? undefined,
         }),
       });
 

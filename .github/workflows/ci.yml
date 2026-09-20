@@ -88,12 +88,26 @@ jobs:
     name: Tests end-to-end y accesibilidad
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      # Sharding opt-in: por defecto corre todo en un solo shard. Para partir
+      # la suite, definir la repository variable E2E_SHARDS (p. ej. "[1, 2]")
+      # y un par de secrets de base descartable POR SHARD
+      # (E2E_DATABASE_URL_SHARD<N> / E2E_DATABASE_URL_SHARD<N>_UNPOOLED):
+      # global-setup.ts trunca todas las tablas, así que dos shards sobre la
+      # misma base se pisan entre sí. Criterio de N: partir cuando la suite
+      # supere ~10 min de reloj; cada shard adicional necesita su propia base.
+      matrix:
+        shard: ${{ fromJSON(vars.E2E_SHARDS || '[1]') }}
     env:
+      SHARD: ${{ matrix.shard }}
       # La base de datos para E2E ahora es una base remota de Neon descartable,
       # configurada a través de repository secrets. El nombre de la base termina
       # en _e2e para cumplir la validación de tests/e2e/global-setup.ts.
-      DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.E2E_DATABASE_URL_UNPOOLED }}
+      # Con sharding, cada shard usa su propio secret; el shard 1 conserva los
+      # secrets históricos E2E_DATABASE_URL / E2E_DATABASE_URL_UNPOOLED.
+      DATABASE_URL: ${{ matrix.shard == 1 && secrets.E2E_DATABASE_URL || secrets[format('E2E_DATABASE_URL_SHARD{0}', matrix.shard)] }}
+      DATABASE_URL_UNPOOLED: ${{ matrix.shard == 1 && secrets.E2E_DATABASE_URL_UNPOOLED || secrets[format('E2E_DATABASE_URL_SHARD{0}_UNPOOLED', matrix.shard)] }}
       NEXTAUTH_URL: http://localhost:3000
       AUTH_URL: http://localhost:3000
       BASE_URL: http://localhost:3000
@@ -125,12 +139,14 @@ jobs:
       - name: Verificar secretos de E2E
         run: |
           node -e "
+          const shard = process.env.SHARD || '1';
+          const suffix = shard === '1' ? '' : `_SHARD${shard}`;
           const required = [
             { key: 'NEXTAUTH_SECRET', label: 'NEXTAUTH_SECRET', type: 'secret' },
             { key: 'ADMIN_USERNAME', label: 'ADMIN_USERNAME', type: 'secret o variable' },
             { key: 'ADMIN_PASSWORD', label: 'ADMIN_PASSWORD', type: 'secret' },
-            { key: 'DATABASE_URL', label: 'E2E_DATABASE_URL', type: 'secret' },
-            { key: 'DATABASE_URL_UNPOOLED', label: 'E2E_DATABASE_URL_UNPOOLED', type: 'secret' },
+            { key: 'DATABASE_URL', label: `E2E_DATABASE_URL${suffix}`, type: 'secret' },
+            { key: 'DATABASE_URL_UNPOOLED', label: `E2E_DATABASE_URL${suffix}_UNPOOLED`, type: 'secret' },
           ];
 
           let missing = false;
@@ -156,6 +172,49 @@ jobs:
       - run: npx playwright install --with-deps
         timeout-minutes: 10
 
-      - name: Ejecutar tests E2E y accesibilidad con axe-core
-        run: npx playwright test --reporter=line
+      - name: Ejecutar tests E2E y accesibilidad con axe-core (shard ${{ matrix.shard }})
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         timeout-minutes: 18
+
+      - name: Subir reporte blob del shard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report
+          if-no-files-found: ignore
+          retention-days: 5
+
+  e2e-report:
+    name: Reporte E2E consolidado
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Consolidar reporte HTML
+        # Si ningún shard produjo blobs (falla de infra previa a los tests),
+        # merge-reports fallaría con "no input reports found" sin aportar
+        # información; en ese caso se omite y el resultado queda en el job e2e.
+        run: |
+          if [ -n "$(find ./all-blob-reports -name '*.zip' -print -quit)" ]; then
+            npx playwright merge-reports --reporter=html ./all-blob-reports
+          else
+            echo "Sin reportes blob para consolidar."
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 14

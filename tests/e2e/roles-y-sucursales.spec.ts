@@ -252,10 +252,12 @@ test.describe('Rol operador', () => {
   });
 
   test('puede listar productos de su sucursal desde la API', async ({ page }) => {
-    const res = await page.request.get('/api/productos?includeAvailability=true');
+    const res = await page.request.get(
+      '/api/productos?includeAvailability=true&limit=100'
+    );
     expect(res.status()).toBe(200);
-    const data = await res.json();
-    expect(Array.isArray(data)).toBe(true);
+    const data = (await res.json()) as { items: unknown[] };
+    expect(Array.isArray(data.items)).toBe(true);
   });
 });
 

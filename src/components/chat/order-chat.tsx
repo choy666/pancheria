@@ -20,6 +20,7 @@ interface OrderChatProps {
   branchLocationApiUrl?: string;
   readApiUrl?: string;
   uploadApiUrl?: string;
+  streamApiUrl?: string;
   title?: string;
   unreadCount?: number;
   disablePollingOnMount?: boolean;
@@ -40,6 +41,7 @@ export function OrderChat({
   branchLocationApiUrl,
   readApiUrl,
   uploadApiUrl,
+  streamApiUrl,
   title = 'Chat del pedido',
   unreadCount = 0,
   disablePollingOnMount = false,
@@ -83,6 +85,7 @@ export function OrderChat({
     branchLocationApiUrl,
     readApiUrl,
     uploadApiUrl,
+    streamApiUrl,
     unreadCount,
     disablePollingOnMount,
   });

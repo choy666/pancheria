@@ -1,7 +1,8 @@
-import { and, eq, not } from 'drizzle-orm';
+import { and, count, eq, not } from 'drizzle-orm';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { getCurrentTransaction } from '@/application/transactionService';
+import type { PaginationParams } from '@/domain/types';
 
 export type UserInsert = typeof users.$inferInsert;
 export type UserUpdate = Partial<UserInsert>;
@@ -10,12 +11,31 @@ function resolveClient(dbOrTx?: typeof db) {
   return dbOrTx ?? getCurrentTransaction() ?? db;
 }
 
-export async function findAll(branchId?: number) {
-  return db.query.users.findMany({
-    where: branchId ? eq(users.branchId, branchId) : undefined,
+export async function findAll(
+  branchId?: number,
+  pagination?: PaginationParams
+) {
+  const where = branchId ? eq(users.branchId, branchId) : undefined;
+
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(users)
+    .where(where);
+
+  const items = await db.query.users.findMany({
+    where,
     with: { branch: true },
     orderBy: (users, { desc }) => [desc(users.createdAt)],
+    limit: pagination?.limit,
+    offset: pagination ? (pagination.page - 1) * pagination.limit : undefined,
   });
+
+  return {
+    items,
+    total: Number(total),
+    page: pagination?.page ?? 1,
+    limit: pagination?.limit ?? Number(total),
+  };
 }
 
 export async function findById(id: number, dbOrTx?: typeof db) {

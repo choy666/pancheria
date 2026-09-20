@@ -307,8 +307,20 @@ export const chatPaginationQuerySchema = z
     message: 'No se puede usar before y after al mismo tiempo.',
   });
 
+/**
+ * Parámetros del stream SSE de chat (`.../chat/stream`). `interval` y
+ * `budget` permiten acotar la conexión en tests; los valores efectivos se
+ * clampean contra la configuración del servidor en la ruta.
+ */
+export const chatStreamQuerySchema = z.object({
+  after: z.coerce.number().int().nonnegative().optional(),
+  interval: z.coerce.number().int().positive().optional(),
+  budget: z.coerce.number().int().positive().optional(),
+});
+
 export const orderTrackingSchema = z.object({
   orderNumber: z.string().min(1),
+  branchId: z.coerce.number().int().positive().optional(),
   customerName: z.string().optional(),
   customerPhone: z
     .string()

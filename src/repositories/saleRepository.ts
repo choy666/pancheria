@@ -140,7 +140,8 @@ export async function findByCashRegisterId(
 export async function findActiveWithDetailsByCashRegister(
   dbOrTx: typeof db,
   branchId: number,
-  cashRegisterId: number
+  cashRegisterId: number,
+  pagination?: { limit?: number; offset?: number }
 ) {
   return dbOrTx.query.sales.findMany({
     where: and(
@@ -148,6 +149,11 @@ export async function findActiveWithDetailsByCashRegister(
       eq(sales.branchId, branchId),
       eq(sales.cashRegisterId, cashRegisterId)
     ),
+    // Orden estable para que la paginación por offset no repita ni salte
+    // ventas entre páginas.
+    orderBy: (sale, { asc }) => [asc(sale.id)],
+    limit: pagination?.limit,
+    offset: pagination?.offset,
     with: {
       items: {
         with: {

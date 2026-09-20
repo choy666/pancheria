@@ -61,30 +61,31 @@ describe('branch-resolver', () => {
   describe('getDefaultBranchId', () => {
     test('devuelve null si DEFAULT_BRANCH_NAME no está configurado', async () => {
       delete process.env.DEFAULT_BRANCH_NAME;
-      mockedBranchService.listBranches.mockResolvedValue([]);
 
       const result = await getDefaultBranchId();
 
       expect(result).toBeNull();
+      expect(mockedBranchService.getBranchByName).not.toHaveBeenCalled();
       expect(mockedBranchService.listBranches).not.toHaveBeenCalled();
     });
 
     test('devuelve null si la sucursal no existe', async () => {
       process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
-      mockedBranchService.listBranches.mockResolvedValue([
-        makeBranch(1, 'Otra sucursal'),
-      ]);
+      mockedBranchService.getBranchByName.mockResolvedValue(undefined);
 
       const result = await getDefaultBranchId();
 
       expect(result).toBeNull();
+      expect(mockedBranchService.getBranchByName).toHaveBeenCalledWith(
+        DEFAULT_BRANCH_NAME
+      );
     });
 
     test('devuelve el id de la sucursal configurada', async () => {
       process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
-      mockedBranchService.listBranches.mockResolvedValue([
-        makeBranch(1, DEFAULT_BRANCH_NAME),
-      ]);
+      mockedBranchService.getBranchByName.mockResolvedValue(
+        makeBranch(1, DEFAULT_BRANCH_NAME)
+      );
 
       const result = await getDefaultBranchId();
 
@@ -93,13 +94,16 @@ describe('branch-resolver', () => {
 
     test('ignora espacios en DEFAULT_BRANCH_NAME', async () => {
       process.env.DEFAULT_BRANCH_NAME = `  ${DEFAULT_BRANCH_NAME}  `;
-      mockedBranchService.listBranches.mockResolvedValue([
-        makeBranch(1, DEFAULT_BRANCH_NAME),
-      ]);
+      mockedBranchService.getBranchByName.mockResolvedValue(
+        makeBranch(1, DEFAULT_BRANCH_NAME)
+      );
 
       const result = await getDefaultBranchId();
 
       expect(result).toBe(1);
+      expect(mockedBranchService.getBranchByName).toHaveBeenCalledWith(
+        DEFAULT_BRANCH_NAME
+      );
     });
   });
 

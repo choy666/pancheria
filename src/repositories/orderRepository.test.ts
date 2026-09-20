@@ -116,6 +116,48 @@ describe('orderRepository', () => {
     });
   });
 
+  describe('findChatStreamState', () => {
+    test('devuelve solo las columnas del estado filtrando por sucursal', async () => {
+      const expected = {
+        status: 'pending',
+        deliveryType: 'pickup',
+        createdAt: new Date('2024-01-01'),
+        branchId: BRANCH_ID,
+      };
+      mockFindFirst.mockResolvedValue(expected);
+
+      const result = await orderRepository.findChatStreamState(ORDER_ID, {
+        branchId: BRANCH_ID,
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.anything(),
+          columns: {
+            status: true,
+            deliveryType: true,
+            createdAt: true,
+            branchId: true,
+          },
+        })
+      );
+    });
+
+    test('acepta scope por token del cliente', async () => {
+      mockFindFirst.mockResolvedValue(undefined);
+
+      const result = await orderRepository.findChatStreamState(ORDER_ID, {
+        token: 'abc',
+      });
+
+      expect(result).toBeUndefined();
+      expect(mockFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.anything() })
+      );
+    });
+  });
+
   describe('findByIdForCancel', () => {
     test('devuelve pedido con items simples', async () => {
       const expected = {

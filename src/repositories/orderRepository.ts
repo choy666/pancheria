@@ -118,6 +118,42 @@ export async function findById(
   return normalizeOrder(order);
 }
 
+/**
+ * Estado mínimo del pedido para el stream SSE de chat. Valida el scope
+ * (`branchId` del operador o `token` del cliente) y evita cargar ítems ni
+ * relaciones: es la query que corre en cada tick del poll interno.
+ */
+export async function findChatStreamState(
+  orderId: number,
+  scope: { branchId: number } | { token: string }
+): Promise<
+  | {
+      status: (typeof orders.$inferSelect)['status'];
+      deliveryType: (typeof orders.$inferSelect)['deliveryType'];
+      createdAt: Date;
+      branchId: number;
+    }
+  | undefined
+> {
+  const conditions = [eq(orders.id, orderId), isNull(orders.deletedAt)];
+
+  if ('branchId' in scope) {
+    conditions.push(eq(orders.branchId, scope.branchId));
+  } else {
+    conditions.push(eq(orders.cancellationToken, scope.token));
+  }
+
+  return db.query.orders.findFirst({
+    where: and(...conditions),
+    columns: {
+      status: true,
+      deliveryType: true,
+      createdAt: true,
+      branchId: true,
+    },
+  });
+}
+
 export async function findByIdForCancel(
   branchId: number,
   id: number
@@ -298,6 +334,33 @@ export async function findExpiredPendingIds(
   });
 }
 
+/**
+ * Cantidad de pedidos `pending` vencidos a la fecha de corte. Se usa para
+ * reportar el trabajo restante cuando una corrida de expiración se corta
+ * por presupuesto de tiempo.
+ */
+export async function countExpiredPending(
+  expirationDate: Date,
+  options: { branchId?: number } = {}
+): Promise<number> {
+  const conditions = [
+    eq(orders.status, 'pending'),
+    isNull(orders.deletedAt),
+    lt(orders.createdAt, expirationDate),
+  ];
+
+  if (options.branchId !== undefined) {
+    conditions.push(eq(orders.branchId, options.branchId));
+  }
+
+  const [row] = await db
+    .select({ count: count() })
+    .from(orders)
+    .where(and(...conditions));
+
+  return row?.count ?? 0;
+}
+
 export async function insertOrder(
   tx: typeof db,
   values: typeof orders.$inferInsert
@@ -406,11 +469,13 @@ export async function cancel(
 }
 
 export async function findByOrderNumberAndCustomer(
+  branchId: number,
   orderNumber: string,
   customerName?: string,
   customerPhone?: string
 ): Promise<OrderWithItems | undefined> {
   const conditions: ReturnType<typeof and>[] = [
+    eq(orders.branchId, branchId),
     eq(orders.orderNumber, orderNumber),
     isNull(orders.deletedAt),
   ];
@@ -425,8 +490,8 @@ export async function findByOrderNumberAndCustomer(
 
   const order = await db.query.orders.findFirst({
     where: and(...conditions),
-    // Orden determinista: orderNumber es único por sucursal, pero la consulta
-    // no filtra por sucursal, así que ante duplicados se toma el más reciente.
+    // Orden determinista: orderNumber es único por sucursal y la consulta
+    // filtra por ella, así que ante duplicados se toma el más reciente.
     orderBy: (o, { desc }) => [desc(o.createdAt), desc(o.id)],
     with: { branch: true, items: { with: { product: true, recipeSnapshots: true } } },
   });

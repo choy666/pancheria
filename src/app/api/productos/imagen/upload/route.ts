@@ -45,7 +45,7 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const saved = await saveProductImage(file, productId, key);
+    const saved = await saveProductImage(file, productId, key, branchId);
 
     return NextResponse.json({
       key: saved.key,

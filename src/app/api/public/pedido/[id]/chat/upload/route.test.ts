@@ -14,6 +14,12 @@ jest.mock('@/lib/rate-limit', () => ({
   createRateLimiter: jest.fn().mockReturnValue(jest.fn().mockResolvedValue(false)),
 }));
 jest.mock('@/lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
   logError: jest.fn(),
 }));
 
