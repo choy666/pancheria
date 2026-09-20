@@ -58,3 +58,54 @@ export function getLoginRateLimitWindowMs(): number {
   }
   return parsed;
 }
+
+const DEFAULT_LOGIN_ATTEMPTS_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Retención de `login_attempts` en milisegundos
+ * (`LOGIN_ATTEMPTS_RETENTION_MS`, por defecto 7 días). El cron
+ * `rate-limit-cleanup` borra los intentos cuyo `last_attempt` supere el
+ * período para acotar el crecimiento de la tabla.
+ */
+export function getLoginAttemptsRetentionMs(): number {
+  const raw = process.env.LOGIN_ATTEMPTS_RETENTION_MS;
+  if (!raw) return DEFAULT_LOGIN_ATTEMPTS_RETENTION_MS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_LOGIN_ATTEMPTS_RETENTION_MS;
+  }
+  return parsed;
+}
+
+const DEFAULT_PUBLIC_POLL_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS = 240;
+
+/**
+ * Ventana del rate limit de polls GET públicos en milisegundos
+ * (`PUBLIC_POLL_RATE_LIMIT_WINDOW_MS`, por defecto 60000). Es un veto
+ * anti-abuso generoso aplicado en memoria por instancia, no un límite de
+ * negocio: los defaults toleran el poll de 5 s del chat con margen.
+ */
+export function getPublicPollRateLimitWindowMs(): number {
+  const raw = process.env.PUBLIC_POLL_RATE_LIMIT_WINDOW_MS;
+  if (!raw) return DEFAULT_PUBLIC_POLL_RATE_LIMIT_WINDOW_MS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1_000) {
+    return DEFAULT_PUBLIC_POLL_RATE_LIMIT_WINDOW_MS;
+  }
+  return parsed;
+}
+
+/**
+ * Cantidad máxima de requests de polls GET públicos por IP en la ventana
+ * (`PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS`, por defecto 240).
+ */
+export function getPublicPollRateLimitMaxRequests(): number {
+  const raw = process.env.PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS;
+  if (!raw) return DEFAULT_PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return DEFAULT_PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS;
+  }
+  return parsed;
+}

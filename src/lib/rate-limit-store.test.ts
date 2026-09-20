@@ -75,6 +75,27 @@ describe('InMemoryRateLimitStore', () => {
     const blocked = await store.recordFailedAttempt('admin', 60_000, 5);
     expect(blocked).toBe(false);
   });
+
+  test('cleanupStale borra solo los intentos que superan la retención', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    nowSpy.mockReturnValue(1_000);
+    await store.recordFailedAttempt('viejo', 60_000, 5);
+
+    nowSpy.mockReturnValue(10_000);
+    await store.recordFailedAttempt('nuevo', 60_000, 5);
+
+    const deleted = await store.cleanupStale(5_000);
+    expect(deleted).toBe(1);
+
+    // 'nuevo' sigue vigente: su siguiente intento continúa el contador.
+    const blocked = await store.recordFailedAttempt('nuevo', 60_000, 5);
+    expect(blocked).toBe(false);
+
+    const deletedAgain = await store.cleanupStale(5_000);
+    expect(deletedAgain).toBe(0);
+
+    nowSpy.mockRestore();
+  });
 });
 
 describe('DbRateLimitStore (vía createRateLimitStore)', () => {
@@ -128,6 +149,18 @@ describe('DbRateLimitStore (vía createRateLimitStore)', () => {
 
     expect(mockedDb.delete).toHaveBeenCalled();
     expect(mockedDb.where).toHaveBeenCalled();
+  });
+
+  test('cleanupStale elimina por lastAttempt y devuelve la cantidad', async () => {
+    mockedDb.returning.mockResolvedValue([{ username: 'a' }, { username: 'b' }]);
+
+    const store = createRateLimitStore();
+    const deleted = await store.cleanupStale(604_800_000);
+
+    expect(deleted).toBe(2);
+    expect(mockedDb.delete).toHaveBeenCalled();
+    expect(mockedDb.where).toHaveBeenCalled();
+    expect(mockedDb.returning).toHaveBeenCalled();
   });
 });
 

@@ -63,7 +63,27 @@ describe('POST /api/public/disponibilidad', () => {
     expect(body.availabilityByProduct).toEqual({ 1: 5 });
     expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
       BRANCH_ID,
-      [{ productId: 1, quantity: 2, selectedRecipeItemIds: [] }]
+      [{ productId: 1, quantity: 2, selectedRecipeItemIds: [] }],
+      undefined
+    );
+  });
+
+  test('reenvía productIds al servicio para consultas de disponibilidad', async () => {
+    const response = await POST(
+      buildRequest(`branchId=${BRANCH_ID}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          items: [],
+          productIds: [4, 5, 6],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
+      BRANCH_ID,
+      [],
+      [4, 5, 6]
     );
   });
 
@@ -78,7 +98,8 @@ describe('POST /api/public/disponibilidad', () => {
     expect(mockedGetDefaultBranchId).not.toHaveBeenCalled();
     expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
       2,
-      []
+      [],
+      undefined
     );
   });
 
@@ -93,7 +114,8 @@ describe('POST /api/public/disponibilidad', () => {
     expect(mockedGetDefaultBranchId).toHaveBeenCalled();
     expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
       BRANCH_ID,
-      []
+      [],
+      undefined
     );
   });
 

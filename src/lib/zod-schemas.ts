@@ -211,7 +211,7 @@ export const saleSchema = z.object({
 
 export const cartAvailabilitySchema = z.object({
   items: z.array(saleItemSchema),
-  productIds: z.array(z.number().int().positive()).optional(),
+  productIds: z.array(z.number().int().positive()).max(500).optional(),
 });
 
 const stockMovementTypeSchema = z.enum([

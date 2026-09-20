@@ -4,12 +4,16 @@
 import { NextRequest } from 'next/server';
 import { GET } from './route';
 import * as chatService from '@/application/services/chatService';
+import * as rateLimit from '@/lib/rate-limit';
 
 jest.mock('@/application/services/chatService');
-jest.mock('@/lib/rate-limit', () => ({
-  getClientIp: jest.fn().mockReturnValue('127.0.0.1'),
-  createRateLimiter: jest.fn().mockReturnValue(jest.fn().mockResolvedValue(false)),
-}));
+jest.mock('@/lib/rate-limit', () => {
+  const pollLimiter = jest.fn().mockResolvedValue(false);
+  return {
+    getClientIp: jest.fn().mockReturnValue('127.0.0.1'),
+    createPollRateLimiter: jest.fn().mockReturnValue(pollLimiter),
+  };
+});
 jest.mock('@/lib/logger', () => ({
   logError: jest.fn(),
 }));
@@ -77,5 +81,18 @@ describe('GET /api/public/pedido/[id]/estado', () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  test('devuelve 429 cuando el limiter de poll veta la IP', async () => {
+    const pollLimiter = (rateLimit.createPollRateLimiter as jest.Mock)() as jest.Mock;
+    pollLimiter.mockResolvedValueOnce(true);
+
+    const response = await GET(
+      buildRequest(`?token=${TOKEN}`),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(429);
+    expect(mockedChatService.getOrderChatStatus).not.toHaveBeenCalled();
   });
 });

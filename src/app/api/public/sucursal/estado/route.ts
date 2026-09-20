@@ -8,6 +8,11 @@ import {
   getTodayOpening,
   getNextOpening,
 } from '@/lib/branch-helpers';
+import { buildCdnCacheControlHeaders } from '@/lib/cache-control';
+import {
+  getPublicBranchStatusCacheSMaxage,
+  getPublicBranchStatusCacheSwr,
+} from '@/config/branch';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive(),
@@ -38,20 +43,28 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     ? `Sucursal abierta: ${currentOpening}.`
     : `La sucursal está cerrada. Próxima apertura: ${nextOpening}.`;
 
-  return NextResponse.json({
-    isOpen: open,
-    currentOpening,
-    nextOpening,
-    branch: {
-      id: branch.id,
-      name: branch.name,
-      openingHours: branch.openingHours,
-      address: branch.address ?? null,
-      phones: branch.phones ?? [],
-      socialLinks: branch.socialLinks ?? [],
-      location: branch.location ?? null,
-      createdAt: branch.createdAt,
+  return NextResponse.json(
+    {
+      isOpen: open,
+      currentOpening,
+      nextOpening,
+      branch: {
+        id: branch.id,
+        name: branch.name,
+        openingHours: branch.openingHours,
+        address: branch.address ?? null,
+        phones: branch.phones ?? [],
+        socialLinks: branch.socialLinks ?? [],
+        location: branch.location ?? null,
+        createdAt: branch.createdAt,
+      },
+      message,
     },
-    message,
-  });
+    {
+      headers: buildCdnCacheControlHeaders(
+        getPublicBranchStatusCacheSMaxage(),
+        getPublicBranchStatusCacheSwr()
+      ),
+    }
+  );
 }, 'GET /api/public/sucursal/estado');

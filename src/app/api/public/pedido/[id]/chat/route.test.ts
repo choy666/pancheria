@@ -8,10 +8,15 @@ import * as rateLimit from '@/lib/rate-limit';
 import { ValidationError } from '@/domain/errors';
 
 jest.mock('@/application/services/chatService');
-jest.mock('@/lib/rate-limit', () => ({
-  getClientIp: jest.fn().mockReturnValue('127.0.0.1'),
-  createRateLimiter: jest.fn().mockReturnValue(jest.fn().mockResolvedValue(false)),
-}));
+jest.mock('@/lib/rate-limit', () => {
+  const writeLimiter = jest.fn().mockResolvedValue(false);
+  const pollLimiter = jest.fn().mockResolvedValue(false);
+  return {
+    getClientIp: jest.fn().mockReturnValue('127.0.0.1'),
+    createRateLimiter: jest.fn().mockReturnValue(writeLimiter),
+    createPollRateLimiter: jest.fn().mockReturnValue(pollLimiter),
+  };
+});
 jest.mock('@/lib/logger', () => ({
   logError: jest.fn(),
 }));
@@ -87,6 +92,19 @@ describe('GET /api/public/pedido/[id]/chat', () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  test('devuelve 429 cuando el limiter de poll veta la IP', async () => {
+    const pollLimiter = (rateLimit.createPollRateLimiter as jest.Mock)() as jest.Mock;
+    pollLimiter.mockResolvedValueOnce(true);
+
+    const response = await GET(
+      buildRequest(`?token=${TOKEN}`),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(429);
+    expect(mockedChatService.listClientMessages).not.toHaveBeenCalled();
   });
 });
 
@@ -182,5 +200,21 @@ describe('POST /api/public/pedido/[id]/chat', () => {
     } finally {
       process.env.NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH = original;
     }
+  });
+
+  test('devuelve 429 cuando el limiter de escrituras veta la IP', async () => {
+    const writeLimiter = (rateLimit.createRateLimiter as jest.Mock)() as jest.Mock;
+    writeLimiter.mockResolvedValueOnce(true);
+
+    const response = await POST(
+      buildRequest(`?token=${TOKEN}`, {
+        method: 'POST',
+        body: JSON.stringify({ content: 'Hola' }),
+      }),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(429);
+    expect(mockedChatService.sendClientMessage).not.toHaveBeenCalled();
   });
 });

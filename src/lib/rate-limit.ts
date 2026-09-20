@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { DomainError } from '@/domain/errors';
-import { createPublicOrderRateLimitStore } from '@/lib/public-order-rate-limit-store';
+import {
+  createPublicOrderRateLimitStore,
+  InMemoryPublicOrderRateLimitStore,
+} from '@/lib/public-order-rate-limit-store';
 import {
   isProduction,
   isTest,
@@ -63,6 +66,21 @@ export function getClientIp(request: NextRequest): string {
   return 'unknown';
 }
 
+function shouldBypassRateLimit(): boolean {
+  if (isTest() && !getE2eEnableRateLimit()) {
+    return true;
+  }
+
+  // En desarrollo se desactiva por defecto para evitar falsos positivos
+  // por la IP compartida de loopback (127.0.0.1 / ::1). Se puede activar
+  // explícitamente para pruebas manuales de rate limit.
+  if (isDevelopment() && !getPublicOrderRateLimitEnableInDev()) {
+    return true;
+  }
+
+  return false;
+}
+
 export function createRateLimiter(
   scope: string,
   windowMs: number,
@@ -71,14 +89,30 @@ export function createRateLimiter(
   const store = createPublicOrderRateLimitStore();
 
   return async function isRateLimited(ip: string): Promise<boolean> {
-    if (isTest() && !getE2eEnableRateLimit()) {
+    if (shouldBypassRateLimit()) {
       return false;
     }
 
-    // En desarrollo se desactiva por defecto para evitar falsos positivos
-    // por la IP compartida de loopback (127.0.0.1 / ::1). Se puede activar
-    // explícitamente para pruebas manuales de rate limit.
-    if (isDevelopment() && !getPublicOrderRateLimitEnableInDev()) {
+    return store.recordRequest(scope, ip, windowMs, maxRequests);
+  };
+}
+
+/**
+ * Limiter liviano para GETs de polling públicos: usa el store en memoria
+ * por instancia (veto anti-abuso) en lugar del store DB, para no escribir
+ * una fila en `public_order_rate_limits` por cada poll. Que el límite se
+ * divida entre instancias es aceptable: es un veto, no la frontera de
+ * seguridad (las escrituras conservan `createRateLimiter` con store DB).
+ */
+export function createPollRateLimiter(
+  scope: string,
+  windowMs: number,
+  maxRequests: number
+) {
+  const store = new InMemoryPublicOrderRateLimitStore();
+
+  return async function isRateLimited(ip: string): Promise<boolean> {
+    if (shouldBypassRateLimit()) {
       return false;
     }
 

@@ -151,10 +151,14 @@ export function usePedidoClient({
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadedCountRef = useRef(initialProducts.length);
+  const loadedIdsRef = useRef<number[]>(
+    initialProducts.map((product) => product.id)
+  );
 
   useEffect(() => {
     loadedCountRef.current = products.length;
-  }, [products.length]);
+    loadedIdsRef.current = products.map((product) => product.id);
+  }, [products]);
   const [error, setError] = useState<string | null>(null);
   const [shortageByProduct, setShortageByProduct] = useState<
     Record<number, boolean>
@@ -283,11 +287,12 @@ export function usePedidoClient({
 
   const refreshCatalog = useCallback(async () => {
     try {
-      // Refresca todos los productos ya cargados para no perder páginas
-      // traídas con "Cargar más".
-      const limit = Math.max(loadedCountRef.current, resolvedPageSize);
+      // Refresca solo la primera página del catálogo (productos nuevos o
+      // actualizados) y la disponibilidad de los ya cargados con "Cargar
+      // más" por el endpoint liviano, en lugar de re-descargar todas las
+      // páginas en cada poll.
       const response = await fetch(
-        `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true&limit=${limit}`
+        `${PUBLIC_CATALOGO_API}?branchId=${activeBranch.id}&includeAvailability=true&limit=${resolvedPageSize}`
       );
       if (!response.ok) {
         await throwApiError(response, 'Error al refrescar el catálogo');
@@ -298,8 +303,45 @@ export function usePedidoClient({
         products: PublicCatalogProduct[];
         total?: number;
       };
+
+      const firstPageIds = new Set(data.products.map((product) => product.id));
+      const extraIds = loadedIdsRef.current.filter(
+        (id) => !firstPageIds.has(id)
+      );
+
+      let availabilityById: Record<number, number> = {};
+      if (extraIds.length > 0) {
+        const availabilityResponse = await fetch(
+          `${PUBLIC_DISPONIBILIDAD_API}?branchId=${activeBranch.id}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: [], productIds: extraIds }),
+          }
+        );
+        if (availabilityResponse.ok) {
+          const availabilityData = (await availabilityResponse.json()) as {
+            availabilityByProduct?: Record<number, number>;
+          };
+          availabilityById = availabilityData.availabilityByProduct ?? {};
+        }
+      }
+
       if (!isMountedRef.current) return;
-      setProducts(data.products);
+
+      setProducts((prev) => {
+        // La primera página es autoritativa. Los productos de páginas
+        // posteriores se conservan con disponibilidad fresca: el endpoint
+        // devuelve 0 para los que ya no existen; si la consulta falló se
+        // mantiene el valor anterior.
+        const extras = prev
+          .filter((product) => !firstPageIds.has(product.id))
+          .map((product) => ({
+            ...product,
+            availability: availabilityById[product.id] ?? product.availability,
+          }));
+        return [...data.products, ...extras];
+      });
       if (data.total !== undefined) setTotalProducts(data.total);
     } catch {
       // No saturar la UI con errores de fondo.

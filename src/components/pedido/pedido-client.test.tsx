@@ -353,6 +353,171 @@ describe('PedidoClient', () => {
     expect(screen.queryByTestId('catalog-load-more')).not.toBeInTheDocument();
   });
 
+  test('el refresco pide solo la primera página y disponibilidad de los ya cargados', async () => {
+    const p1 = makeProduct({ id: 1, name: 'Panchuque' });
+    const p2 = makeProduct({
+      id: 2,
+      name: 'Gaseosa',
+      type: 'critical_supply',
+      criticalSupplyType: 'beverage',
+    });
+    const p1Updated = makeProduct({
+      id: 1,
+      name: 'Panchuque XL',
+      availability: 7,
+    });
+
+    const fetchMock = jest.fn().mockImplementation(async (url) => {
+      const urlString = String(url);
+      if (urlString.includes('/api/public/disponibilidad')) {
+        return createFetchResponse({
+          availabilityByProduct: { 2: 3 },
+          shortageByProduct: {},
+        });
+      }
+      if (urlString.includes('offset=')) {
+        return createFetchResponse({
+          branch: makeBranch(1, 'Sucursal A'),
+          products: [p2],
+          total: 2,
+        });
+      }
+      return createFetchResponse({
+        branch: makeBranch(1, 'Sucursal A'),
+        products: [p1Updated],
+        total: 2,
+      });
+    });
+    global.fetch = fetchMock;
+
+    const branches = [makeBranch(1, 'Sucursal A')];
+
+    await act(async () => {
+      render(
+        <PedidoClient
+          branches={branches}
+          activeBranch={branches[0]}
+          initialProducts={[p1]}
+          initialTotal={2}
+          pageSize={1}
+        />
+      );
+      await Promise.resolve();
+    });
+
+    // "Cargar más" trae la segunda página (producto 2).
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('catalog-load-more'));
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-2')).toBeInTheDocument()
+    );
+
+    fetchMock.mockClear();
+
+    // El polling se dispara también cuando la pestaña vuelve a ser visible.
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const catalogCalls = fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes('/api/public/catalogo')
+      );
+      expect(catalogCalls).toHaveLength(1);
+      // No re-descarga las páginas ya cargadas: solo la primera.
+      expect(String(catalogCalls[0][0])).toContain('limit=1');
+      expect(String(catalogCalls[0][0])).not.toContain('offset=');
+    });
+
+    // Pide disponibilidad liviana solo para los IDs de páginas posteriores.
+    const availabilityCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes('/api/public/disponibilidad')
+    );
+    expect(availabilityCalls).toHaveLength(1);
+    const availabilityInit = availabilityCalls[0][1] as RequestInit;
+    expect(availabilityInit.method).toBe('POST');
+    expect(JSON.parse(String(availabilityInit.body))).toEqual({
+      items: [],
+      productIds: [2],
+    });
+
+    // La primera página se reemplaza con datos frescos y el producto
+    // extra cargado se conserva.
+    await waitFor(() => {
+      expect(screen.getByText('Panchuque XL')).toBeInTheDocument();
+      expect(screen.getByTestId('product-card-2')).toBeInTheDocument();
+    });
+  });
+
+  test('el refresco conserva la disponibilidad previa si falla la consulta liviana', async () => {
+    const p1 = makeProduct({ id: 1, name: 'Panchuque' });
+    const p2 = makeProduct({
+      id: 2,
+      name: 'Gaseosa',
+      type: 'critical_supply',
+      criticalSupplyType: 'beverage',
+      availability: 9,
+    });
+
+    const fetchMock = jest.fn().mockImplementation(async (url) => {
+      const urlString = String(url);
+      if (urlString.includes('/api/public/disponibilidad')) {
+        return createFetchResponse({ error: 'boom' }, false, 500);
+      }
+      if (urlString.includes('offset=')) {
+        return createFetchResponse({
+          branch: makeBranch(1, 'Sucursal A'),
+          products: [p2],
+          total: 2,
+        });
+      }
+      return createFetchResponse({
+        branch: makeBranch(1, 'Sucursal A'),
+        products: [p1],
+        total: 2,
+      });
+    });
+    global.fetch = fetchMock;
+
+    const branches = [makeBranch(1, 'Sucursal A')];
+
+    await act(async () => {
+      render(
+        <PedidoClient
+          branches={branches}
+          activeBranch={branches[0]}
+          initialProducts={[p1]}
+          initialTotal={2}
+          pageSize={1}
+        />
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('catalog-load-more'));
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('product-card-2')).toBeInTheDocument()
+    );
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+    });
+
+    // Los productos cargados no desaparecen ante un error transitorio del
+    // endpoint de disponibilidad.
+    await waitFor(() => {
+      expect(screen.getByTestId('product-card-1')).toBeInTheDocument();
+      expect(screen.getByTestId('product-card-2')).toBeInTheDocument();
+    });
+  });
+
   describe('flujo de checkout', () => {
     function setupFetchMocks(overrides: {
       createBody?: { order: CreatedOrder };

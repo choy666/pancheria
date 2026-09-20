@@ -245,8 +245,71 @@ describe('catalogService', () => {
       expect(result.shortageByProduct).toEqual({});
       expect(mockedSaleService.validateCartAvailability).toHaveBeenCalledWith(
         BRANCH_ID,
-        items
+        items,
+        undefined
       );
+    });
+
+    test('reenvía productIds junto al carrito al servicio de ventas', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
+      mockedSaleService.validateCartAvailability.mockResolvedValue({
+        availabilityByProduct: { 1: 5, 9: 3 },
+        consumedBySupply: {},
+        shortageByProduct: {},
+        breakdownByProduct: {},
+      });
+
+      const items = [{ productId: 1, quantity: 2 }];
+
+      const result = await validatePublicCart(BRANCH_ID, items, [9]);
+
+      expect(result.availabilityByProduct).toEqual({ 1: 5, 9: 3 });
+      expect(mockedSaleService.validateCartAvailability).toHaveBeenCalledWith(
+        BRANCH_ID,
+        items,
+        [9]
+      );
+    });
+
+    test('sin ítems de carrito calcula disponibilidad pura como el catálogo', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
+      mockedSaleService.calculateAvailabilityForProductIds.mockResolvedValue({
+        4: { availability: 7, breakdown: [] },
+        5: { availability: 0, breakdown: [] },
+      });
+
+      const result = await validatePublicCart(BRANCH_ID, [], [4, 5, 6]);
+
+      // Usa el mismo cálculo que el catálogo (con reservas descontadas) y
+      // no el validador de carrito.
+      expect(
+        mockedSaleService.calculateAvailabilityForProductIds
+      ).toHaveBeenCalledWith(BRANCH_ID, [4, 5, 6]);
+      expect(
+        mockedSaleService.validateCartAvailability
+      ).not.toHaveBeenCalled();
+      // Los IDs sin entrada devuelven 0 (productos eliminados o sin stock).
+      expect(result.availabilityByProduct).toEqual({ 4: 7, 5: 0, 6: 0 });
+      expect(result.shortageByProduct).toEqual({});
+    });
+
+    test('sin ítems ni productIds delega en el validador de carrito', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue(makeBranch());
+      mockedSaleService.validateCartAvailability.mockResolvedValue({
+        availabilityByProduct: {},
+        consumedBySupply: {},
+        shortageByProduct: {},
+        breakdownByProduct: {},
+      });
+
+      const result = await validatePublicCart(BRANCH_ID, []);
+
+      expect(mockedSaleService.validateCartAvailability).toHaveBeenCalledWith(
+        BRANCH_ID,
+        [],
+        undefined
+      );
+      expect(result.availabilityByProduct).toEqual({});
     });
 
     test('descarta datos internos de stock de la respuesta pública', async () => {

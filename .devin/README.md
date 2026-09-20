@@ -6,9 +6,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 
 - [Prompt maestro — Proyecto Panchería](prompts/pancheria.prompt.md)
 - [Guía de escritura de prompts](prompts/README.md)
-- [Auditoría masiva integral del proyecto](prompts/auditoria-masiva.md)
-- [Resumen ejecutivo — Auditoría masiva integral](prompts/auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento.
 - [Auditoría integral pre-release](prompts/auditoria-pre-release.md) — prompt consolidado para auditar antes de un release o deploy a producción.
+- [Auditoría de escalabilidad](prompts/auditoria-escalabilidad.md) — prompt para auditar escalabilidad a futuro (DB, API, polling, caching, auth, storage, observabilidad, CI/CD y negocio).
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
@@ -22,7 +21,9 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
-- [Auditoría del deploy de Vercel (2026-09-14)](informes/auditoria-deploy-vercel-2026-09-14.md) — estado del deploy, variables críticas en Vercel/GitHub Actions y recomendaciones pendientes.
+- [Auditoría de escalabilidad (2026-09-19)](informes/auditoria-escalabilidad-2026-09-19.md) — veredicto, cuadro de riesgo, orden de quiebre estimado y plan de acción; hallazgos pendientes volcados en `reporte-estado.md` §6.
+- [Plan de implementación de la auditoría de escalabilidad (2026-09-19)](informes/plan-implementacion-escalabilidad-2026-09-19.md) — plan ejecutable por fases (T1–T16) derivado de la auditoría; propuesto, no iniciado.
+- [Auditoría del deploy de Vercel (2026-09-14, resuelta)](informes/archivados/auditoria-deploy-vercel-2026-09-14.md) — estado del deploy, variables críticas en Vercel/GitHub Actions y recomendaciones ya implementadas; queda abierta solo la verificación periódica de `VERCEL_PRODUCTION_URL` (en `checklist-pre-push.md`).
 - [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
 - [Auditoría de ubicación en el chat de pedidos (2026-09-09, resuelta)](informes/archivados/auditoria-chat-ubicacion-2026-09-09.md) — auditoría de compartir ubicación por chat; la funcionalidad ya fue implementada.
 - [Auditoría de sucursales y caja por turnos (2026-09-13, resuelta)](informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md) — contactos de sucursal (`phones`, `social_links`) y avisos de caja por turnos; incluye su plan de observaciones ya implementado (`plan-observaciones-auditoria-sucursales-caja-2026-09-13.md`).
@@ -48,19 +49,19 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
-│   ├── auditoria-deploy-vercel-2026-09-14.md  # Auditoría del deploy de Vercel
+│   ├── auditoria-escalabilidad-2026-09-19.md  # Auditoría de escalabilidad (veredicto, riesgos, plan)
+│   ├── plan-implementacion-escalabilidad-2026-09-19.md  # Plan de implementación por fases de la auditoría
 │   ├── README.md                 # Índice de informes
-│   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas
+│   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas (incluye auditoria-deploy-vercel-2026-09-14.md)
 └── prompts/
     ├── pancheria.prompt.md       # Prompt maestro
     ├── README.md                 # Guía para escribir prompts
-    ├── auditoria-masiva.md       # Auditoría masiva integral (9 áreas)
-    ├── auditoria-masiva-resumen.md  # Guía de uso rápida de la auditoría masiva
     ├── auditoria-pre-release.md  # Auditoría integral pre-release/pre-deploy
+    ├── auditoria-escalabilidad.md  # Auditoría de escalabilidad a futuro
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── plan-implementacion-multi-tenant.md
-    └── archivados/               # Prompts resueltos (incluye plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, destacar-boton-cierre-caja.md y auditoria-fallos-e2e-caja-y-rate-limit.md)
+    └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, destacar-boton-cierre-caja.md y auditoria-fallos-e2e-caja-y-rate-limit.md)
 ```
 
 ## Reglas de uso

@@ -49,6 +49,9 @@ Copiar `.env.example` a `.env.local` y completar:
 - `DATABASE_URL` — URL de conexión a PostgreSQL (Neon). En Vercel Postgres equivale a `POSTGRES_URL` (pooled). El runtime también acepta `POSTGRES_URL` y `POSTGRES_PRISMA_URL` como fallback.
 - `DATABASE_URL_UNPOOLED` — URL sin pooler para `drizzle-kit` (migraciones). En Vercel Postgres equivale a `POSTGRES_URL_NON_POOLING`.
 - `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING` — aliases de Vercel Postgres; el código los prueba en orden si `DATABASE_URL`/`DATABASE_URL_UNPOOLED` no están definidos.
+- `DATABASE_POOL_MAX` (opcional, **solo servidor**) — máximo de conexiones del pool de PostgreSQL por instancia (si no se define, se usa el default de la librería, ~10). Sirve para acotar la presión sobre Neon con múltiples instancias serverless.
+- `DATABASE_CONNECTION_TIMEOUT_MS` (opcional, **solo servidor**) — timeout en milisegundos al establecer una conexión del pool (si no se define, se usa el default de la librería).
+- `DATABASE_IDLE_TIMEOUT_MS` (opcional, **solo servidor**) — tiempo máximo en milisegundos de una conexión inactiva en el pool (si no se define, se usa el default de la librería).
 - `NEXTAUTH_URL` — URL base de la app, por defecto `http://localhost:3000`. Se usa también para construir URLs públicas de videos en modo local si `NEXT_PUBLIC_APP_URL` no está definida. En NextAuth v5, si existe `AUTH_URL`, tiene prioridad sobre `NEXTAUTH_URL`; en ese caso `AUTH_URL` también debe coincidir con el dominio de producción.
 - `AUTH_URL` (opcional) — URL de autenticación para NextAuth v5. Si se define, tiene prioridad sobre `NEXTAUTH_URL`. Debe coincidir con el dominio de producción; en desarrollo/tests suele ser `http://localhost:3000`.
 - `NEXT_PUBLIC_APP_URL` (opcional) — URL pública base de la app. Si se define, tiene prioridad sobre `NEXTAUTH_URL` para URLs locales de videos y adjuntos de chat (`STORAGE_PROVIDER=local`).
@@ -77,6 +80,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` (opcional) — si se define como `true`, permite usar `X-Forwarded-For` en producción cuando no hay proxy confiable configurado. Puede ser vulnerable a IP spoofing; usalo solo si un proxy sanitiza el header.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
 - `NEXT_PUBLIC_CATALOG_PAGE_SIZE` (opcional) — tamaño de página del catálogo público en `/pedido` (por defecto 48; el listado inicial se carga por SSR y el resto con el botón "Cargar más").
+- `PUBLIC_CATALOG_CACHE_S_MAXAGE` / `PUBLIC_CATALOG_CACHE_SWR` (opcionales, **solo servidor**) — `s-maxage` y `stale-while-revalidate` en segundos del `Cache-Control` de `GET /api/public/catalogo` (por defecto 10 y 30; `0` en `s-maxage` deshabilita el header y cada request pega al origen).
+- `PUBLIC_BRANCH_STATUS_CACHE_S_MAXAGE` / `PUBLIC_BRANCH_STATUS_CACHE_SWR` (opcionales, **solo servidor**) — ídem para `GET /api/public/sucursal/estado` (mismos valores por defecto).
 - `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del listado de pedidos del operador en milisegundos (deshabilitado por defecto; definir un valor mayor a 0 para habilitar; 0 lo deshabilita explícitamente).
 - `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS` (opcional) — intervalo de refresco del panel de control en milisegundos (por defecto 30000 ms; valores menores a 1000 ms se ajustan a 5000 ms).
 - `NEXT_PUBLIC_API_TIMEOUT_MS` (opcional) — timeout por defecto para solicitudes al API desde el cliente en milisegundos (por defecto 30000 ms).
@@ -92,6 +97,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos y del chat público: `memory` o `db` (PostgreSQL). En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`. `db` es recomendado para producción con múltiples instancias. Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
+- `PUBLIC_POLL_RATE_LIMIT_WINDOW_MS` / `PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS` (opcionales) — ventana en milisegundos y máximo de requests por IP del rate limit en memoria de los polls GET públicos (`GET /api/public/pedido/[id]/chat` y `GET /api/public/pedido/[id]/estado`). Es un veto anti-abuso por instancia que no escribe en la base (por defecto 60000 ms, mínimo 1000 ms, y 240 requests — tolera el poll de 5 s del chat con margen). Los POST y la creación de pedidos siguen usando el store `PUBLIC_ORDER_RATE_LIMIT_*`.
 - `PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV` (opcional) — si se define como `true`, activa el rate limit de pedidos en `NODE_ENV=development`. Por defecto está deshabilitado en desarrollo para evitar falsos positivos por la IP compartida de loopback (`127.0.0.1` / `::1`).
 - `E2E_ENABLE_RATE_LIMIT` (opcional) — si se define como `true`, activa el rate limit de pedidos en `NODE_ENV=test` (usado por el suite de Playwright).
 - `BASE_URL` (opcional) — URL base para Playwright (por defecto `http://localhost:3000`).
@@ -99,13 +105,16 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NO_GLOBAL_SETUP` (opcional) — si se define como `1` u otro valor no vacío, salta `tests/e2e/global-setup.ts` cuando el servidor y la base de datos ya están preparados.
 - `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup`, `GET /api/cron/chat-attachments-cleanup` y `GET /api/cron/expire-orders`. Si no se define, los endpoints rechazan todas las llamadas.
 
-> Los schedules de los cron jobs en `vercel.json` (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`, `0 0 * * *` por defecto) no se leen de variables de entorno; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente). El cron `/api/cron/expire-orders` se dispara desde `.github/workflows/expire-orders.yml` cada 5 minutos y también requiere `CRON_SECRET`.
+> Los schedules de los cron jobs en `vercel.json` (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`, `0 0 * * *` por defecto) no se leen de variables de entorno; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente). El cron `/api/cron/expire-orders` se dispara desde `.github/workflows/expire-orders.yml` con schedule `*/5 * * * *` y también requiere `CRON_SECRET`. **Verificado 2026-09-19:** la cadencia real del schedule de GitHub Actions es de ~2–5 horas entre corridas (best-effort severo), no 5 minutos — un pedido `pending` tarda en expirar `max(ORDER_EXPIRATION_MS, cadencia real)`.
+>
+> Las rutas de cron y las rutas pesadas (cierre de caja, vaciado de papelera de cajas y productos) exportan `maxDuration = 300`: el plan Hobby con Fluid Compute (default en proyectos creados desde 2025) permite hasta 300 s por función. Si el proyecto migra a otro plan, revisar el límite antes de subirlo.
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).
   - `db`: en PostgreSQL usando la tabla `login_attempts` (por defecto en producción cuando `DATABASE_URL` o `POSTGRES_URL` están definidas; configurable explícitamente con `RATE_LIMIT_STORE_PROVIDER=db`).
 - `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` (opcional) — cantidad máxima de intentos fallidos de login antes del bloqueo temporal (por defecto 5).
 - `LOGIN_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de login en milisegundos (por defecto 900000 ms = 15 minutos).
+- `LOGIN_ATTEMPTS_RETENTION_MS` (opcional, **solo servidor**) — retención de la tabla `login_attempts` en milisegundos (por defecto 604800000 ms = 7 días). El cron `GET /api/cron/rate-limit-cleanup` borra los intentos cuyo `last_attempt` supere el período para acotar el crecimiento de la tabla.
 - `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` (opcional) — ID de la aplicación receptora de Google Cast (por defecto `CC1AD845`).
 - `NEXT_PUBLIC_CAST_SENDER_SDK_URL` (opcional) — URL del SDK de Cast (por defecto `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`).
 - `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; descomentar en `.env.example` para sobrescribir).

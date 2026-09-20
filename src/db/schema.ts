@@ -170,6 +170,7 @@ export const products = pgTable(
       table.deletedAt
     ),
     nameIdx: index('products_name_idx').on(table.name),
+    imageKeyIdx: index('products_image_key_idx').on(table.imageKey),
     stockCheck: check('products_stock_check', sql`${table.stock} >= 0`),
     minStockCheck: check('products_min_stock_check', sql`${table.minStock} >= 0`),
   })
@@ -195,6 +196,7 @@ export const recipes = pgTable(
     compoundProductIdx: index('recipes_compound_product_idx').on(
       table.compoundProductId
     ),
+    supplyIdIdx: index('recipes_supply_id_idx').on(table.supplyId),
   })
 );
 
@@ -320,6 +322,7 @@ export const saleItems = pgTable(
   },
   (table) => ({
     saleIdx: index('sale_items_sale_idx').on(table.saleId),
+    productIdIdx: index('sale_items_product_id_idx').on(table.productId),
   })
 );
 
@@ -371,6 +374,9 @@ export const orders = pgTable(
       table.branchId,
       table.idempotencyKey
     ),
+    convertedSaleIdIdx: index('orders_converted_sale_id_idx').on(
+      table.convertedSaleId
+    ),
   })
 );
 
@@ -390,6 +396,7 @@ export const orderItems = pgTable(
   },
   (table) => ({
     orderIdx: index('order_items_order_idx').on(table.orderId),
+    productIdIdx: index('order_items_product_id_idx').on(table.productId),
   })
 );
 
@@ -414,6 +421,7 @@ export const saleItemRecipes = pgTable(
   },
   (table) => ({
     saleItemIdx: index('sale_item_recipes_sale_item_id_idx').on(table.saleItemId),
+    supplyIdIdx: index('sale_item_recipes_supply_id_idx').on(table.supplyId),
   })
 );
 
@@ -438,6 +446,7 @@ export const orderItemRecipes = pgTable(
   },
   (table) => ({
     orderItemIdx: index('order_item_recipes_order_item_id_idx').on(table.orderItemId),
+    supplyIdIdx: index('order_item_recipes_supply_id_idx').on(table.supplyId),
   })
 );
 
@@ -529,6 +538,8 @@ export const stockMovements = pgTable(
       table.productId,
       table.createdAt
     ),
+    saleIdIdx: index('stock_movements_sale_id_idx').on(table.saleId),
+    orderIdIdx: index('stock_movements_order_id_idx').on(table.orderId),
   })
 );
 

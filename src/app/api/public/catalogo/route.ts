@@ -3,6 +3,11 @@ import { z } from 'zod';
 import * as catalogService from '@/application/services/catalogService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import { buildCdnCacheControlHeaders } from '@/lib/cache-control';
+import {
+  getPublicCatalogCacheSMaxage,
+  getPublicCatalogCacheSwr,
+} from '@/config/catalog';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
@@ -33,5 +38,10 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     ? await catalogService.listPublicCatalogWithAvailability(branchId, pagination)
     : await catalogService.listPublicCatalog(branchId, pagination);
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: buildCdnCacheControlHeaders(
+      getPublicCatalogCacheSMaxage(),
+      getPublicCatalogCacheSwr()
+    ),
+  });
 });

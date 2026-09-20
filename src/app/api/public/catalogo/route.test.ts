@@ -126,4 +126,40 @@ describe('GET /api/public/catalogo', () => {
       mockedCatalogService.listPublicCatalogWithAvailability
     ).not.toHaveBeenCalled();
   });
+
+  test('incluye Cache-Control de CDN en la respuesta 200', async () => {
+    const response = await GET(buildRequest('includeAvailability=true'));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, s-maxage=10, stale-while-revalidate=30'
+    );
+  });
+
+  test('omite el header de caché cuando está deshabilitado por env', async () => {
+    const original = process.env.PUBLIC_CATALOG_CACHE_S_MAXAGE;
+    process.env.PUBLIC_CATALOG_CACHE_S_MAXAGE = '0';
+    try {
+      const response = await GET(buildRequest('includeAvailability=true'));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Cache-Control')).toBeNull();
+    } finally {
+      if (original === undefined) {
+        delete process.env.PUBLIC_CATALOG_CACHE_S_MAXAGE;
+      } else {
+        process.env.PUBLIC_CATALOG_CACHE_S_MAXAGE = original;
+      }
+    }
+  });
+
+  test('no cachea las respuestas de error', async () => {
+    mockedCatalogService.listPublicCatalog.mockRejectedValue(
+      new NotFoundError('Sucursal', 999)
+    );
+
+    const response = await GET(buildRequest('branchId=999'));
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('Cache-Control')).toBeNull();
+  });
 });

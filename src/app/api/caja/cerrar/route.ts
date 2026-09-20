@@ -4,6 +4,11 @@ import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 
+// El cierre recalcula el resumen cargando todas las ventas de la caja:
+// puede ser lento con historiales grandes. Plan Hobby con Fluid Compute
+// permite hasta 300 s (verificado 2026-09-19, Fase M del plan).
+export const maxDuration = 300;
+
 export const POST = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { session, branchId }) => {
     const body = await request.json().catch(() => ({}));

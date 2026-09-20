@@ -6,6 +6,9 @@ import {
   getPublicRateLimitTrustPrivateIps,
   getLoginRateLimitMaxAttempts,
   getLoginRateLimitWindowMs,
+  getLoginAttemptsRetentionMs,
+  getPublicPollRateLimitWindowMs,
+  getPublicPollRateLimitMaxRequests,
 } from './rate-limit';
 
 describe('rate-limit config', () => {
@@ -86,5 +89,50 @@ describe('rate-limit config', () => {
   test('getLoginRateLimitWindowMs ignora valores inválidos', () => {
     process.env.LOGIN_RATE_LIMIT_WINDOW_MS = '-1';
     expect(getLoginRateLimitWindowMs()).toBe(900000);
+  });
+
+  test('getLoginAttemptsRetentionMs usa 7 días por defecto', () => {
+    delete process.env.LOGIN_ATTEMPTS_RETENTION_MS;
+    expect(getLoginAttemptsRetentionMs()).toBe(604_800_000);
+  });
+
+  test('getLoginAttemptsRetentionMs respeta la variable', () => {
+    process.env.LOGIN_ATTEMPTS_RETENTION_MS = '86400000';
+    expect(getLoginAttemptsRetentionMs()).toBe(86_400_000);
+  });
+
+  test('getLoginAttemptsRetentionMs ignora valores inválidos', () => {
+    process.env.LOGIN_ATTEMPTS_RETENTION_MS = '0';
+    expect(getLoginAttemptsRetentionMs()).toBe(604_800_000);
+  });
+
+  test('getPublicPollRateLimitWindowMs usa el valor por defecto', () => {
+    delete process.env.PUBLIC_POLL_RATE_LIMIT_WINDOW_MS;
+    expect(getPublicPollRateLimitWindowMs()).toBe(60000);
+  });
+
+  test('getPublicPollRateLimitWindowMs respeta la variable', () => {
+    process.env.PUBLIC_POLL_RATE_LIMIT_WINDOW_MS = '120000';
+    expect(getPublicPollRateLimitWindowMs()).toBe(120000);
+  });
+
+  test('getPublicPollRateLimitWindowMs ignora valores inválidos', () => {
+    process.env.PUBLIC_POLL_RATE_LIMIT_WINDOW_MS = '500';
+    expect(getPublicPollRateLimitWindowMs()).toBe(60000);
+  });
+
+  test('getPublicPollRateLimitMaxRequests usa el valor por defecto', () => {
+    delete process.env.PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS;
+    expect(getPublicPollRateLimitMaxRequests()).toBe(240);
+  });
+
+  test('getPublicPollRateLimitMaxRequests respeta la variable', () => {
+    process.env.PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS = '500';
+    expect(getPublicPollRateLimitMaxRequests()).toBe(500);
+  });
+
+  test('getPublicPollRateLimitMaxRequests ignora valores inválidos', () => {
+    process.env.PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS = '0';
+    expect(getPublicPollRateLimitMaxRequests()).toBe(240);
   });
 });

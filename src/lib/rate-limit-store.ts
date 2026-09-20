@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { loginAttempts } from '@/db/schema';
 import { isProduction, isTest, hasDatabaseUrl } from '@/config/env';
@@ -16,6 +16,13 @@ export interface RateLimitStore {
   ): Promise<boolean>;
   recordSuccessfulAttempt(username: string): Promise<void>;
   remove(username: string): Promise<void>;
+  /**
+   * Borra los intentos cuyo `lastAttempt` supere la retención indicada y
+   * devuelve la cantidad eliminada. Acota el crecimiento de
+   * `login_attempts`, que registra una fila por intento fallido incluso
+   * para usuarios inexistentes.
+   */
+  cleanupStale(retentionMs: number): Promise<number>;
 }
 
 export class InMemoryRateLimitStore implements RateLimitStore {
@@ -48,6 +55,20 @@ export class InMemoryRateLimitStore implements RateLimitStore {
 
   async remove(username: string): Promise<void> {
     this.attemptsByUsername.delete(username);
+  }
+
+  async cleanupStale(retentionMs: number): Promise<number> {
+    const cutoff = Date.now() - retentionMs;
+    let deleted = 0;
+
+    for (const [username, record] of this.attemptsByUsername.entries()) {
+      if (record.lastAttempt < cutoff) {
+        this.attemptsByUsername.delete(username);
+        deleted += 1;
+      }
+    }
+
+    return deleted;
   }
 }
 
@@ -84,6 +105,14 @@ class DbRateLimitStore implements RateLimitStore {
 
   async remove(username: string): Promise<void> {
     await db.delete(loginAttempts).where(eq(loginAttempts.username, username));
+  }
+
+  async cleanupStale(retentionMs: number): Promise<number> {
+    const result = await db
+      .delete(loginAttempts)
+      .where(lt(loginAttempts.lastAttempt, Date.now() - retentionMs))
+      .returning({ username: loginAttempts.username });
+    return result.length;
   }
 }
 

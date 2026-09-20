@@ -6,11 +6,15 @@ import {
   chatMessageContentSchema,
   chatPaginationQuerySchema,
 } from '@/lib/zod-schemas';
-import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
+import { getClientIp, createRateLimiter, createPollRateLimiter } from '@/lib/rate-limit';
 import {
   getChatRateLimitWindowMs,
   getChatRateLimitMaxRequests,
 } from '@/config/chat';
+import {
+  getPublicPollRateLimitWindowMs,
+  getPublicPollRateLimitMaxRequests,
+} from '@/config/rate-limit';
 import { parseId } from '@/lib/id';
 
 const querySchema = chatPaginationQuerySchema.extend({
@@ -21,6 +25,14 @@ const isRateLimited = createRateLimiter(
   'chat',
   getChatRateLimitWindowMs(),
   getChatRateLimitMaxRequests()
+);
+
+// El GET es el poll dominante del chat (cada 5 s por chat abierto): va por
+// el limiter en memoria para no escribir una fila por poll en la DB.
+const isPollRateLimited = createPollRateLimiter(
+  'chat_poll',
+  getPublicPollRateLimitWindowMs(),
+  getPublicPollRateLimitMaxRequests()
 );
 
 export const GET = withApiErrorHandling(
@@ -41,7 +53,7 @@ export const GET = withApiErrorHandling(
     }
 
     const ip = getClientIp(request);
-    if (await isRateLimited(ip)) {
+    if (await isPollRateLimited(ip)) {
       return NextResponse.json(
         { error: 'Demasiados mensajes. Intentalo más tarde.' },
         { status: 429 }

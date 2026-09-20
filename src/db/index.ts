@@ -2,7 +2,12 @@ import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import { Pool as NeonPool } from '@neondatabase/serverless';
 import { Pool as PgPool } from 'pg';
-import { getDatabaseUrl } from '@/config/database';
+import {
+  getDatabaseUrl,
+  getDbPoolMax,
+  getDbConnectionTimeoutMs,
+  getDbIdleTimeoutMs,
+} from '@/config/database';
 import { DatabaseConnectionError } from '@/domain/errors';
 import * as schema from './schema';
 
@@ -26,6 +31,37 @@ function isNeonDatabase(url: string): boolean {
   return url.includes('neon.tech');
 }
 
+// Opciones del pool solo con las propiedades configuradas: sin variables
+// de entorno se conservan los defaults de `pg`/`@neondatabase/serverless`.
+function buildPoolOptions(databaseUrl: string): {
+  connectionString: string;
+  max?: number;
+  connectionTimeoutMillis?: number;
+  idleTimeoutMillis?: number;
+} {
+  const options: {
+    connectionString: string;
+    max?: number;
+    connectionTimeoutMillis?: number;
+    idleTimeoutMillis?: number;
+  } = { connectionString: databaseUrl };
+
+  const max = getDbPoolMax();
+  if (max !== undefined) options.max = max;
+
+  const connectionTimeoutMillis = getDbConnectionTimeoutMs();
+  if (connectionTimeoutMillis !== undefined) {
+    options.connectionTimeoutMillis = connectionTimeoutMillis;
+  }
+
+  const idleTimeoutMillis = getDbIdleTimeoutMs();
+  if (idleTimeoutMillis !== undefined) {
+    options.idleTimeoutMillis = idleTimeoutMillis;
+  }
+
+  return options;
+}
+
 let dbInstance: Db | undefined;
 
 function getDb(): Db {
@@ -34,13 +70,11 @@ function getDb(): Db {
   }
 
   const databaseUrl = resolveDatabaseUrl();
+  const poolOptions = buildPoolOptions(databaseUrl);
 
   dbInstance = isNeonDatabase(databaseUrl)
-    ? (drizzleNeon(
-        new NeonPool({ connectionString: databaseUrl }),
-        { schema }
-      ) as Db)
-    : (drizzlePg(new PgPool({ connectionString: databaseUrl }), { schema }) as Db);
+    ? (drizzleNeon(new NeonPool(poolOptions), { schema }) as Db)
+    : (drizzlePg(new PgPool(poolOptions), { schema }) as Db);
 
   return dbInstance;
 }

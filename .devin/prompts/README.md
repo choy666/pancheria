@@ -125,15 +125,15 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 
 - [Prompt maestro — Proyecto Panchería](pancheria.prompt.md) — punto de entrada para cualquier tarea futura.
 
-- [Auditoría masiva integral del proyecto](auditoria-masiva.md) — guía para auditar de forma sistemática calidad, seguridad, arquitectura, cobertura de pruebas, documentación, rendimiento, accesibilidad, integridad de datos y despliegue/CI.
-- [Resumen ejecutivo — Auditoría masiva integral](auditoria-masiva-resumen.md) — guía de uso rápida y acompañamiento para ejecutar `auditoria-masiva.md` de forma reproducible.
-- [Auditoría integral pre-release](auditoria-pre-release.md) — prompt consolidado para auditar el proyecto antes de un release o deploy a producción, basado en `auditoria-masiva.md`, `auditoria-y-documentacion.md`, `auditoria-cobertura-de-pruebas.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md`.
+- [Auditoría integral pre-release](auditoria-pre-release.md) — prompt consolidado para auditar el proyecto antes de un release o deploy a producción, basado en `auditoria-masiva.md` (archivado), `auditoria-y-documentacion.md`, `auditoria-cobertura-de-pruebas.md`, `lecciones-aprendidas.md` y `guia-funcionamiento-pancheria.md`.
+- [Auditoría de escalabilidad](auditoria-escalabilidad.md) — guía para auditar la escalabilidad a futuro del sistema: base de datos, API y estado en memoria, polling vs SSE/WS, caching, multi-tenancy, storage, observabilidad, CI/CD y costos.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
 
 ### Prompts archivados
 
+- [Auditoría masiva integral del proyecto](archivados/auditoria-masiva.md) y su [resumen ejecutivo](archivados/auditoria-masiva-resumen.md) — archivados: fueron reemplazados como punto de entrada por `auditoria-pre-release.md`; el contenido queda como referencia histórica de la auditoría de 9 áreas ya ejecutada.
 - [Datos de sucursal al inicio de `/pedido`, mapa embebido y select de redes](archivados/datos-sucursal-y-mapa-en-pedido.md) — resuelto: `BranchInfoCard` extraído a `branch-info-card.tsx` con variantes `header`/`checkout` y visible al inicio de `/pedido`; `branch-map.tsx` con `buildMapEmbedUrl` (`src/lib/maps.ts`), iframe montado solo al abrir el `<details>` y orígenes de `getMapsFrameOrigins` (`src/config/maps.ts`) en `frame-src`; select de redes migrado a base-ui; E2E `sucursal-contactos-y-turnos` y `pedido-sucursal-y-stock`: 8 passed.
 - [Destacar el botón de cierre de caja](archivados/destacar-boton-cierre-caja.md) — resuelto: "Cerrar caja" pasó de `variant="outline"` a `default` con icono `LockKeyhole` (y `size="lg"` en `/cierre`); el cierre forzado mantiene `destructive`, también en el botón de confirmación del diálogo. Se preservaron `data-testid` y `data-tour`; E2E de caja y tour: 14 passed.
 - [Mejoras de UX y lenguaje en el flujo público de pedidos](archivados/mejoras-ux-pedido-publico.md) — resuelto: etiquetas públicas (`publicProductTypeLabels`), disponibilidad cualitativa, estado de sucursal en el encabezado, mensajes sin jerga interna, carrito accesible en mobile, stepper, diálogo de éxito con copiar número y cancelación colapsable, y línea de progreso en seguimiento.

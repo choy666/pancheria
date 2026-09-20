@@ -3,9 +3,14 @@
  */
 import { NextRequest } from 'next/server';
 import { DomainError } from '@/domain/errors';
-import { createRateLimiter, getClientIp } from './rate-limit';
+import {
+  createRateLimiter,
+  createPollRateLimiter,
+  getClientIp,
+} from './rate-limit';
 
 jest.mock('@/lib/public-order-rate-limit-store', () => ({
+  ...jest.requireActual('@/lib/public-order-rate-limit-store'),
   createPublicOrderRateLimitStore: jest.fn().mockReturnValue({
     recordRequest: jest.fn().mockResolvedValue(true),
   }),
@@ -191,5 +196,75 @@ describe('createRateLimiter', () => {
       60_000,
       10
     );
+  });
+});
+
+describe('createPollRateLimiter', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalEnableInDev = process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    Object.assign(process.env, { NODE_ENV: originalNodeEnv });
+    if (originalEnableInDev !== undefined) {
+      Object.assign(process.env, {
+        PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV: originalEnableInDev,
+      });
+    } else {
+      delete process.env.PUBLIC_ORDER_RATE_LIMIT_ENABLE_IN_DEV;
+    }
+  });
+
+  test('en test siempre permite el request', async () => {
+    const isRateLimited = createPollRateLimiter('chat_poll', 60_000, 240);
+    const blocked = await isRateLimited('1.2.3.4');
+    expect(blocked).toBe(false);
+  });
+
+  test('en desarrollo desactiva el veto por defecto', async () => {
+    Object.assign(process.env, { NODE_ENV: 'development' });
+
+    const isRateLimited = createPollRateLimiter('chat_poll', 60_000, 1);
+    const blocked = await isRateLimited('1.2.3.4');
+    const blockedAgain = await isRateLimited('1.2.3.4');
+
+    expect(blocked).toBe(false);
+    expect(blockedAgain).toBe(false);
+  });
+
+  test('veta en memoria al superar el máximo sin tocar el store DB', async () => {
+    Object.assign(process.env, { NODE_ENV: 'production' });
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+
+    const isRateLimited = createPollRateLimiter('chat_poll', 60_000, 2);
+
+    expect(await isRateLimited('1.2.3.4')).toBe(false);
+    expect(await isRateLimited('1.2.3.4')).toBe(false);
+    expect(await isRateLimited('1.2.3.4')).toBe(true);
+    // Otro scope e IP quedan aislados.
+    expect(await isRateLimited('9.9.9.9')).toBe(false);
+
+    expect(createPublicOrderRateLimitStore).not.toHaveBeenCalled();
+  });
+
+  test('reinicia el contador cuando vence la ventana', async () => {
+    Object.assign(process.env, { NODE_ENV: 'production' });
+
+    const nowSpy = jest.spyOn(Date, 'now');
+    nowSpy.mockReturnValue(1_000);
+
+    const isRateLimited = createPollRateLimiter('chat_poll', 100, 1);
+    expect(await isRateLimited('1.2.3.4')).toBe(false);
+    expect(await isRateLimited('1.2.3.4')).toBe(true);
+
+    nowSpy.mockReturnValue(2_000);
+    expect(await isRateLimited('1.2.3.4')).toBe(false);
+
+    nowSpy.mockRestore();
   });
 });

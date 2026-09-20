@@ -131,13 +131,34 @@ export async function listPublicCatalogWithAvailability(
  */
 export async function validatePublicCart(
   branchId: number,
-  items: SaleItemInput[]
+  items: SaleItemInput[],
+  productIds?: number[]
 ): Promise<{
   availabilityByProduct: Record<number, number>;
   shortageByProduct: Record<number, boolean>;
 }> {
   await getBranch(branchId);
-  const result = await saleService.validateCartAvailability(branchId, items);
+
+  // Consulta pura de disponibilidad (sin ítems de carrito): usa el mismo
+  // cálculo que el catálogo público, con las reservas activas descontadas.
+  // La usa el refresco incremental del catálogo para actualizar los
+  // productos ya cargados sin re-descargar todas las páginas.
+  if (items.length === 0 && productIds && productIds.length > 0) {
+    const availabilityById =
+      await saleService.calculateAvailabilityForProductIds(branchId, productIds);
+    return {
+      availabilityByProduct: Object.fromEntries(
+        productIds.map((id) => [id, availabilityById[id]?.availability ?? 0])
+      ),
+      shortageByProduct: {},
+    };
+  }
+
+  const result = await saleService.validateCartAvailability(
+    branchId,
+    items,
+    productIds
+  );
   return {
     availabilityByProduct: result.availabilityByProduct,
     shortageByProduct: Object.fromEntries(

@@ -18,7 +18,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/checklist-pre-push.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/entornos.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/pancheria.prompt.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-masiva.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/archivados/auditoria-masiva.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-y-documentacion.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-cobertura-de-pruebas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/package.json" />

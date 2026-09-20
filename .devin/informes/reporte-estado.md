@@ -16,7 +16,7 @@ El proyecto se mantiene operativo y todas las verificaciones base pasan sobre el
 2. **Avisos de caja por turnos** (mismo commit): `getCashRegisterShiftStatus`/`resolveCashRegisterAlert` calculan `estadoTurno` y `alertaCaja` en el servidor contra los horarios vigentes de la sucursal, con soporte de turnos overnight (`close < open`) y timezone `NEXT_PUBLIC_BRANCH_TIMEZONE`. Fallback legacy (`dia_anterior`, `excedida` con `CAJA_OVERDUE_HOURS`, default 12 h) solo cuando la sucursal no tiene horarios.
 3. **Plan de observaciones implementado** (commit `a3d70d5`): doble punto en `message` corregido, `branch-list` con columnas de resumen (dirección, teléfono, horarios), `CashRegisterShiftBadge` consumiendo `estadoTurno` en UI y warning de hidratación corregido en `cash-register-summary.tsx`.
 4. **Corrección de flakiness en tests de caja** por timezone mismatch (commits `cba7e1c`, `5206be5`).
-5. **Auditoría del deploy de Vercel** documentada en `.devin/informes/auditoria-deploy-vercel-2026-09-14.md` (recomendaciones pendientes en §6).
+5. **Auditoría del deploy de Vercel** documentada en `.devin/informes/archivados/auditoria-deploy-vercel-2026-09-14.md` (recomendaciones implementadas; pendiente recurrente en §6).
 
 Esta sesión ejecutó una **auditoría documental de `.devin` y la documentación vigente**: se archivaron dos informes ya resueltos, se sincronizaron los índices, se corrigieron defaults desactualizados y se actualizó este reporte.
 
@@ -95,7 +95,7 @@ El esquema Drizzle cuenta con **31 migraciones** (`0000`–`0030`) y el journal 
 
 ## 6. Pendientes por abordar
 
-Pendientes abiertos provenientes de la auditoría del deploy de Vercel (`informes/auditoria-deploy-vercel-2026-09-14.md`) y de auditorías previas. Los ítems implementados después se marcan como **resueltos**:
+Pendientes abiertos provenientes de la auditoría del deploy de Vercel (`informes/archivados/auditoria-deploy-vercel-2026-09-14.md`) y de auditorías previas. Los ítems implementados después se marcan como **resueltos**:
 
 | Prioridad | Pendiente | Estado |
 |---|---|---|
@@ -108,11 +108,30 @@ Pendientes abiertos provenientes de la auditoría del deploy de Vercel (`informe
 | Baja | Ejecutar `npm run test:e2e` en base descartable antes del próximo release | **Resuelto** — ejecutado 2026-09-15 sobre `neondb_e2e`: 121 tests, todos en verde |
 | Baja | Specs E2E para contactos y avisos/turnos de sucursal | **Resuelto** — `tests/e2e/sucursal-contactos-y-turnos.spec.ts` cubre alta/edición de teléfonos y redes sociales, exposición en listado y API pública, badge `En turno` y aviso `cierre_recomendado`. La cobertura de ubicación por chat ya existía en `pedido-chat.spec.ts` |
 | Baja | `productRepository.findByImageKey` sin orden determinista (`image_key` no es unique) | **Resuelto** — `orderBy: asc(products.id)` agregado |
-| Baja | Plan multi-tenant (`prompts/plan-implementacion-multi-tenant.md`): propuesta futura, no iniciada; recordar que `daily_closures` ya no existe al retomarla | Abierto (propuesta futura) |
+| Baja | Plan multi-tenant (`prompts/plan-implementacion-multi-tenant.md`): propuesta futura, no iniciada; recordar que `daily_closures` ya no existe al retomarla | Abierto (propuesta futura) — complementado por la auditoría de escalabilidad 2026-09-19 (§3.9: backfill de `tenant_id`, índices compuestos, lookups sin scope) |
+| Alta | Auditoría de escalabilidad 2026-09-19 — quick wins: caché CDN corto en `catalogo`/`sucursal/estado`, sacar polls GET del rate limit, cleanup de `login_attempts`, índices en FKs hijas, pool explícito, `maxDuration` en crons | **Resuelto** — Fase 0 (T1–T6) implementada 2026-09-19 según `informes/plan-implementacion-escalabilidad-2026-09-19.md`: migración `0031` con los 9 índices aplicada en desarrollo y E2E, headers `s-maxage`/`stale-while-revalidate` configurables en `catalogo` y `sucursal/estado`, polls GET con limiter en memoria (`PUBLIC_POLL_RATE_LIMIT_*`), retención de `login_attempts` (`LOGIN_ATTEMPTS_RETENTION_MS`), pool configurable (`DATABASE_POOL_MAX`/`DATABASE_CONNECTION_TIMEOUT_MS`/`DATABASE_IDLE_TIMEOUT_MS`), `maxDuration` en crons y rutas pesadas, y refresh de catálogo acotado a primera página + disponibilidad por IDs |
+| Media | Auditoría de escalabilidad 2026-09-19 — corto plazo: paginar `productos`/`stock`/usuarios/videos, batching en `expirePendingOrders` y limpiezas masivas, retención de `order_messages`, health check/alertas, tests de concurrencia, SSE para chat | Abierto — idem §5; plan ejecutable en `informes/plan-implementacion-escalabilidad-2026-09-19.md` (Fase 1: T7–T13) |
+| Media | Verificar en producción: `DATABASE_URL` con pooler de Neon, `maxDuration` efectivo según plan de Vercel | **Resuelto** — Fase M ejecutada 2026-09-19 (resultados en `plan-implementacion-escalabilidad-2026-09-19.md` §7): `DATABASE_URL` usa el pooler de Neon; plan Hobby con Fluid Compute → `maxDuration` subido a 300 s en crons/rutas pesadas; schedule real de `expire-orders` ~2–5 h (documentado en `AGENTS.md`); rate-limit stores en `db`; `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` inactivo |
 
 ## 7. Cierre
 
 - Baseline: `cfb1b41358bb06b51937660467e6674590837622` en `main`; auditoría ejecutada sobre el `working tree` limpio.
 - Verificaciones ejecutadas en esta sesión: `npm run lint`, `npx tsc --noEmit`, `npm test` (155 suites / 1640 tests), `npm run knip`, `npm run build` y `npm run test:e2e` (121 tests sobre `neondb_e2e`) — todas pasan. `npx drizzle-kit check` no se ejecutó (sin cambios de esquema).
-- Los únicos informes vigentes además de este son `auditoria-deploy-vercel-2026-09-14.md` (con recomendaciones pendientes) y los documentos de referencia (`lecciones-aprendidas.md`, `entornos.md`, `checklist-pre-push.md`, `guia-funcionamiento-pancheria.md`).
+- Los únicos informes vigentes además de este son los documentos de referencia (`lecciones-aprendidas.md`, `entornos.md`, `checklist-pre-push.md`, `guia-funcionamiento-pancheria.md`); `auditoria-deploy-vercel-2026-09-14.md` quedó archivada con su pendiente recurrente documentado en `checklist-pre-push.md`.
 - No se ejecutaron `npx tsx src/db/seeds.ts`, `npx drizzle-kit push`, `npx drizzle-kit generate`, `npx drizzle-kit migrate` ni `npm run test:e2e` por requerir confirmación explícita o base de prueba.
+
+## 8. Mantenimiento documental 2026-09-19
+
+Sesión de corrección documental sobre `.devin` (sin cambios de código ni verificaciones ejecutadas):
+
+1. **Nuevo prompt activo** `prompts/auditoria-escalabilidad.md`: auditoría de escalabilidad a futuro (9 áreas) con documentación obligatoria, reglas de solo lectura, destino de entregable e índices, taxonomía crítico/mayor/menor/informativo y estimaciones etiquetadas. Corrige el borrador externo: roles `admin`/`operator`, providers de storage (`local`, `vercel-blob`, `s3`, `r2`), lista completa de capas y lectura de `src/config/*`.
+2. **Referencias rotas corregidas** en archivos activos: `.devin/README.md`, `prompts/README.md`, `pancheria.prompt.md`, `auditoria-pre-release.md`, `informes/README.md`, `checklist-pre-push.md`, `environment.yaml` y este archivo apuntaban a `prompts/auditoria-masiva.md`, `prompts/auditoria-masiva-resumen.md` e `informes/auditoria-deploy-vercel-2026-09-14.md`, que están en `archivados/`.
+3. **Índices sincronizados**: `auditoria-masiva.md` y `auditoria-masiva-resumen.md` pasaron a figurar como archivados (reemplazados por `auditoria-pre-release.md` como punto de entrada para auditorías masivas), y `auditoria-escalabilidad.md` se agregó a `.devin/README.md`, `prompts/README.md` y el bloque Estructura.
+
+## 9. Auditoría de escalabilidad 2026-09-19
+
+Auditoría de solo lectura ejecutada sobre baseline `62a644dd95d047a4a92c9215d74023fcf5e0e06b` (`main`), según `prompts/auditoria-escalabilidad.md`. Sin cambios de código de negocio ni comandos destructivos.
+
+- **Entregable:** `informes/auditoria-escalabilidad-2026-09-19.md` — veredicto "sí, con condiciones", 14 hallazgos clasificados, orden de quiebre estimado (10×/50×/100×), plan de acción priorizado y complementos al plan multi-tenant.
+- **Verificaciones corridas:** `npm run lint`, `npx tsc --noEmit`, `npm test` (157 suites / 1691 tests), `npm run knip`, `npm run build` y `npm run analyze:webpack` — todas en verde; el analyzer emite los warnings intencionales de `src/lib/storage.ts` (imports dinámicos de AWS SDK).
+- **Pendientes nuevos:** volcados en §6 (quick wins, corto plazo y verificaciones de producción).

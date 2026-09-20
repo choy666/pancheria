@@ -8,6 +8,10 @@ import { getChatLocalStorageBasePath } from '@/lib/chat-storage';
 import { getCronSecret } from '@/config/cron';
 import { getBlobReadWriteToken, getS3R2Credentials } from '@/config/storage';
 
+// Plan Hobby con Fluid Compute permite hasta 300 s por función
+// (verificado en producción 2026-09-19, Fase M del plan de escalabilidad).
+export const maxDuration = 300;
+
 function getExpectedAuth(): string | undefined {
   const cronSecret = getCronSecret();
   if (!cronSecret) return undefined;

@@ -30,3 +30,40 @@ export function getCatalogPageSize(): number {
 
   return Math.floor(parsed);
 }
+
+const DEFAULT_PUBLIC_CATALOG_CACHE_S_MAXAGE = 10;
+const DEFAULT_PUBLIC_CATALOG_CACHE_SWR = 30;
+
+/**
+ * Segundos de `s-maxage` para el CDN en `GET /api/public/catalogo`
+ * (`PUBLIC_CATALOG_CACHE_S_MAXAGE`, por defecto 10). `0` deshabilita el
+ * header de caché y vuelve al comportamiento anterior (cada request pega
+ * al origen). Es una variable solo de servidor: no lleva prefijo
+ * NEXT_PUBLIC_*.
+ */
+export function getPublicCatalogCacheSMaxage(): number {
+  const raw = process.env.PUBLIC_CATALOG_CACHE_S_MAXAGE;
+  if (!raw) return DEFAULT_PUBLIC_CATALOG_CACHE_S_MAXAGE;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed)) return DEFAULT_PUBLIC_CATALOG_CACHE_S_MAXAGE;
+
+  return parsed <= 0 ? 0 : Math.floor(parsed);
+}
+
+/**
+ * Segundos de `stale-while-revalidate` para el CDN en
+ * `GET /api/public/catalogo` (`PUBLIC_CATALOG_CACHE_SWR`, por defecto 30).
+ * Es una variable solo de servidor: no lleva prefijo NEXT_PUBLIC_*.
+ */
+export function getPublicCatalogCacheSwr(): number {
+  const raw = process.env.PUBLIC_CATALOG_CACHE_SWR;
+  if (!raw) return DEFAULT_PUBLIC_CATALOG_CACHE_SWR;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return DEFAULT_PUBLIC_CATALOG_CACHE_SWR;
+  }
+
+  return Math.floor(parsed);
+}

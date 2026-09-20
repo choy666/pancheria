@@ -169,4 +169,38 @@ describe('GET /api/public/sucursal/estado', () => {
     expect(response.status).toBe(404);
     expect(body.error).toContain('Sucursal');
   });
+
+  test('incluye Cache-Control de CDN en la respuesta 200', async () => {
+    const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, max-age=0, s-maxage=10, stale-while-revalidate=30'
+    );
+  });
+
+  test('omite el header de caché cuando está deshabilitado por env', async () => {
+    const original = process.env.PUBLIC_BRANCH_STATUS_CACHE_S_MAXAGE;
+    process.env.PUBLIC_BRANCH_STATUS_CACHE_S_MAXAGE = '0';
+    try {
+      const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Cache-Control')).toBeNull();
+    } finally {
+      if (original === undefined) {
+        delete process.env.PUBLIC_BRANCH_STATUS_CACHE_S_MAXAGE;
+      } else {
+        process.env.PUBLIC_BRANCH_STATUS_CACHE_S_MAXAGE = original;
+      }
+    }
+  });
+
+  test('no cachea las respuestas de error', async () => {
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('Cache-Control')).toBeNull();
+  });
 });

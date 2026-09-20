@@ -21,7 +21,11 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const body = await request.json();
   const data = cartAvailabilitySchema.parse(body);
 
-  const result = await catalogService.validatePublicCart(branchId, data.items);
+  const result = await catalogService.validatePublicCart(
+    branchId,
+    data.items,
+    data.productIds
+  );
 
   return NextResponse.json({
     availabilityByProduct: result.availabilityByProduct,

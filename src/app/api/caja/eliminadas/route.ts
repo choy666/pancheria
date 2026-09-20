@@ -7,6 +7,11 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 import { getDefaultCajaHistoryDays } from '@/config/caja';
 
+// El vaciado de papelera restaura stock de ventas de las cajas eliminadas
+// en lotes: puede ser lento. Plan Hobby con Fluid Compute permite hasta
+// 300 s (verificado 2026-09-19, Fase M del plan de escalabilidad).
+export const maxDuration = 300;
+
 function getDateRange(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const startParam = searchParams.get('start');

@@ -53,7 +53,7 @@ Verificar que existan en **Settings → Secrets and variables → Actions** del 
 
 Verificar también en **Settings → Secrets and variables → Actions → Variables** (variables de repositorio, no secretos):
 
-- [ ] `VERCEL_PRODUCTION_URL` — dominio de producción usado por `.github/workflows/expire-orders.yml` para construir la URL del cron. Si falta o queda desactualizada tras un cambio de dominio, el workflow falla (ver `informes/auditoria-deploy-vercel-2026-09-14.md`).
+- [ ] `VERCEL_PRODUCTION_URL` — dominio de producción usado por `.github/workflows/expire-orders.yml` para construir la URL del cron. Si falta o queda desactualizada tras un cambio de dominio, el workflow falla (ver `informes/archivados/auditoria-deploy-vercel-2026-09-14.md`).
 
 En **Vercel → Environment Variables → Production** debe existir:
 
