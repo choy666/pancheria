@@ -127,6 +127,11 @@ jobs:
       # Requerido por tests/e2e/caja-cierre-automatico.spec.ts: sin esta variable
       # el cierre automático queda deshabilitado (getAutoCloseHours() = 0).
       CAJA_AUTO_CLOSE_HOURS: "1"
+      # Los helpers de E2E (tests/e2e/helpers.ts) mutan branches/cajas
+      # escribiendo directo en la base, por detrás de la app: el caché de
+      # servidor de src/lib/server-cache.ts no recibiría la invalidación por
+      # tag y serviría datos viejos por hasta DATA_CACHE_REVALIDATE_S segundos.
+      DATA_CACHE_REVALIDATE_S: "0"
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4

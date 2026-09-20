@@ -4,6 +4,7 @@ import * as productService from '@/application/services/productService';
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
+import { invalidatePublicCatalogCache } from '@/lib/server-cache';
 
 export const GET = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { branchId }) => {
@@ -27,6 +28,7 @@ export const POST = withApiErrorHandling(
     const body = await request.json();
     const data = productSchema.parse(body);
     const product = await productService.createProduct(branchId, data);
+    invalidatePublicCatalogCache();
     return NextResponse.json(product, { status: 201 });
   }, { admin: true })
 );

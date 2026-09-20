@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as productService from '@/application/services/productService';
+import { invalidatePublicCatalogCache } from '@/lib/server-cache';
 import { DomainError } from '@/domain/errors';
 import { requireAdmin, getCurrentBranchId } from '@/lib/auth';
 import { routes } from '@/config/routes';
@@ -25,6 +26,7 @@ export async function deleteProduct(
     throw error;
   }
 
+  invalidatePublicCatalogCache();
   revalidatePath(routes.productos);
   return null;
 }
@@ -46,6 +48,7 @@ export async function restoreProductAction(
     throw error;
   }
 
+  invalidatePublicCatalogCache();
   revalidatePath(routes.productos);
   revalidatePath(routes.productosEliminados);
   return null;
@@ -68,6 +71,7 @@ export async function permanentlyDeleteProductAction(
     throw error;
   }
 
+  invalidatePublicCatalogCache();
   revalidatePath(routes.productos);
   revalidatePath(routes.productosEliminados);
   return null;

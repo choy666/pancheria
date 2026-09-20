@@ -12,6 +12,7 @@ import { deleteProductImage } from '@/lib/product-image-storage';
 import { deleteChatAttachment } from '@/lib/chat-storage';
 import { deleteVideoFileByUrl } from '@/lib/storage';
 import { isValidLocationUrl, tryBuildLocationUrl } from '@/lib/maps';
+import { getCachedBranchById } from '@/lib/server-cache';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
 
 /**
@@ -52,14 +53,12 @@ export async function listBranches(
   >;
 }
 
+// Cacheado en la capa de servidor (Data Cache): los datos de sucursal son
+// pseudo-estáticos y esta lectura está en los paths calientes (chat,
+// catálogo, estado público). Las mutaciones de sucursal invalidan el tag
+// `branches` desde las server actions.
 export async function getBranchById(id: number): Promise<Branch | undefined> {
-  return branchRepository.findById(id) as Promise<Branch | undefined>;
-}
-
-export async function getBranchByName(
-  name: string
-): Promise<Branch | undefined> {
-  return branchRepository.findByName(name) as Promise<Branch | undefined>;
+  return getCachedBranchById(id);
 }
 
 export async function createBranch(input: BranchInput) {

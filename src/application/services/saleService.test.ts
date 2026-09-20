@@ -8,6 +8,7 @@ import {
   buildSaleItemValues,
 } from './saleService';
 import * as productRepository from '@/repositories/productRepository';
+import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
 import { executeInTransaction } from '@/application/transactionService';
@@ -215,6 +216,10 @@ jest.mock('@/db', () => ({ db: createMockDb() }));
 const mockedProductRepository = productRepository as jest.Mocked<
   typeof productRepository
 >;
+const mockedOrderStockReservationRepository =
+  orderStockReservationRepository as jest.Mocked<
+    typeof orderStockReservationRepository
+  >;
 const mockedCashRegisterService = cashRegisterService as jest.Mocked<
   typeof cashRegisterService
 >;
@@ -633,6 +638,53 @@ describe('validateCartAvailability', () => {
     expect(result.consumedBySupply[2]).toBe(1);
     expect(result.availabilityByProduct[1]).toBe(2);
     expect(result.shortageByProduct).toEqual({});
+  });
+
+  test('descuenta reservas activas también en el preview sin transacción', async () => {
+    setProducts([
+      { id: 1, name: 'Promo A', type: 'compound', price: 2000 },
+      {
+        id: 2,
+        name: 'Salchicha',
+        type: 'critical_supply',
+        criticalSupplyType: 'sausage',
+        stock: 8,
+        price: 100,
+      },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 2,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Salchicha', stock: 8 },
+      }),
+    ]);
+
+    // Pedidos in_process de otros terminales tienen 4 salchichas reservadas.
+    mockedOrderStockReservationRepository.findActiveReservationsByProductIds.mockResolvedValueOnce(
+      [{ productId: 2, quantity: 4 }]
+    );
+
+    const result = await validateCartAvailability(BRANCH_ID, [
+      { productId: 1, quantity: 1 },
+    ]);
+
+    expect(
+      mockedOrderStockReservationRepository.findActiveReservationsByProductIds
+    ).toHaveBeenCalledWith(
+      expect.anything(),
+      BRANCH_ID,
+      expect.arrayContaining([2]),
+      undefined
+    );
+    // 8 de stock menos 4 reservadas = 4 efectivas; el carrito ya consume 2,
+    // así que la disponibilidad restante es floor((4 - 2) / 2) = 1 (sin la
+    // deducción sería 3).
+    expect(result.availabilityByProduct[1]).toBe(1);
   });
 });
 

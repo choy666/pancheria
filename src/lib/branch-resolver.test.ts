@@ -3,12 +3,19 @@ import {
   listPublicBranches,
   getDefaultBranchId,
 } from './branch-resolver';
-import * as branchService from '@/application/services/branchService';
-import type { Branch } from '@/domain/types';
+import * as branchRepository from '@/repositories/branchRepository';
+import { branches } from '@/db/schema';
 
-jest.mock('@/application/services/branchService');
+// El resolver consulta a través de la capa de caché de servidor
+// (`src/lib/server-cache.ts`), que en tests es passthrough y termina en el
+// repositorio: por eso el mock va sobre `@/repositories/branchRepository`.
+jest.mock('@/repositories/branchRepository');
 
-const mockedBranchService = branchService as jest.Mocked<typeof branchService>;
+const mockedBranchRepository = branchRepository as jest.Mocked<
+  typeof branchRepository
+>;
+
+type BranchRow = typeof branches.$inferSelect;
 
 const DEFAULT_BRANCH_NAME = 'Sucursal por defecto';
 
@@ -22,13 +29,15 @@ function restoreDefaultBranchName() {
   }
 }
 
-function makeBranch(id: number, name: string): Branch {
+function makeBranch(id: number, name: string): BranchRow {
   return {
     id,
     name,
     openingHours: [],
+    address: null,
     phones: [],
     socialLinks: [],
+    location: null,
     createdAt: new Date(),
   };
 }
@@ -65,25 +74,27 @@ describe('branch-resolver', () => {
       const result = await getDefaultBranchId();
 
       expect(result).toBeNull();
-      expect(mockedBranchService.getBranchByName).not.toHaveBeenCalled();
-      expect(mockedBranchService.listBranches).not.toHaveBeenCalled();
+      expect(mockedBranchRepository.findByName).not.toHaveBeenCalled();
+      expect(
+        mockedBranchRepository.findAllOrderedByCreatedAt
+      ).not.toHaveBeenCalled();
     });
 
     test('devuelve null si la sucursal no existe', async () => {
       process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
-      mockedBranchService.getBranchByName.mockResolvedValue(undefined);
+      mockedBranchRepository.findByName.mockResolvedValue(undefined);
 
       const result = await getDefaultBranchId();
 
       expect(result).toBeNull();
-      expect(mockedBranchService.getBranchByName).toHaveBeenCalledWith(
+      expect(mockedBranchRepository.findByName).toHaveBeenCalledWith(
         DEFAULT_BRANCH_NAME
       );
     });
 
     test('devuelve el id de la sucursal configurada', async () => {
       process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
-      mockedBranchService.getBranchByName.mockResolvedValue(
+      mockedBranchRepository.findByName.mockResolvedValue(
         makeBranch(1, DEFAULT_BRANCH_NAME)
       );
 
@@ -94,14 +105,14 @@ describe('branch-resolver', () => {
 
     test('ignora espacios en DEFAULT_BRANCH_NAME', async () => {
       process.env.DEFAULT_BRANCH_NAME = `  ${DEFAULT_BRANCH_NAME}  `;
-      mockedBranchService.getBranchByName.mockResolvedValue(
+      mockedBranchRepository.findByName.mockResolvedValue(
         makeBranch(1, DEFAULT_BRANCH_NAME)
       );
 
       const result = await getDefaultBranchId();
 
       expect(result).toBe(1);
-      expect(mockedBranchService.getBranchByName).toHaveBeenCalledWith(
+      expect(mockedBranchRepository.findByName).toHaveBeenCalledWith(
         DEFAULT_BRANCH_NAME
       );
     });
@@ -109,26 +120,27 @@ describe('branch-resolver', () => {
 
   describe('listPublicBranches', () => {
     test('mapea las sucursales al DTO público', async () => {
-      const branches = [makeBranch(1, 'Sucursal A')];
-      mockedBranchService.listBranches.mockResolvedValue(branches);
+      const branchesList = [makeBranch(1, 'Sucursal A')];
+      mockedBranchRepository.findAllOrderedByCreatedAt.mockResolvedValue(
+        branchesList
+      );
 
       const result = await listPublicBranches();
 
-      // El DTO público normaliza los opcionales a null.
-      expect(result).toEqual([
-        { ...branches[0], address: null, location: null },
-      ]);
+      expect(result).toEqual(branchesList);
     });
 
     test('expone teléfonos y redes sociales de la sucursal', async () => {
-      const branch: Branch = {
+      const branch: BranchRow = {
         ...makeBranch(2, 'Sucursal B'),
         address: 'Calle 123',
         phones: [{ label: 'Pedidos', number: '3415555555' }],
         socialLinks: [{ network: 'instagram', url: '@sucursal.b' }],
         location: 'https://maps.example.com/b',
       };
-      mockedBranchService.listBranches.mockResolvedValue([branch]);
+      mockedBranchRepository.findAllOrderedByCreatedAt.mockResolvedValue([
+        branch,
+      ]);
 
       const result = await listPublicBranches();
 

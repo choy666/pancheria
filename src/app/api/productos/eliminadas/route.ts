@@ -5,6 +5,7 @@ import { nowUTC, parseDateStringUTC, startOfDayUTC, endOfDayUTC } from '@/lib/da
 import { parsePaginationParams } from '@/lib/pagination';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
+import { invalidatePublicCatalogCache } from '@/lib/server-cache';
 
 // El vaciado de papelera restaura stock y borra productos en lote: puede
 // ser lento. Plan Hobby con Fluid Compute permite hasta 300 s
@@ -48,6 +49,7 @@ export const DELETE = withApiErrorHandling(
     const { start, end } = getDateRange(request);
 
     const result = await productService.emptyTrash(branchId, start, end);
+    invalidatePublicCatalogCache();
     return NextResponse.json(result);
   }, { admin: true })
 );

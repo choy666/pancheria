@@ -2,6 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import * as branchService from '@/application/services/branchService';
+import {
+  invalidateBranchesCache,
+  invalidatePublicCatalogCache,
+} from '@/lib/server-cache';
 import { requireAdmin } from '@/lib/auth';
 import { DomainError, NotFoundError } from '@/domain/errors';
 import { routes } from '@/config/routes';
@@ -39,6 +43,7 @@ export async function createBranch(
     return { error: error instanceof Error ? error.message : 'Error al crear la sucursal.' };
   }
 
+  invalidateBranchesCache();
   revalidatePath(routes.sucursales);
   return null;
 }
@@ -72,6 +77,7 @@ export async function updateBranchAction(
     return { error: error instanceof Error ? error.message : 'Error al actualizar la sucursal.' };
   }
 
+  invalidateBranchesCache();
   revalidatePath(routes.sucursales);
   return null;
 }
@@ -103,6 +109,8 @@ export async function deleteBranchAction(
     throw error;
   }
 
+  invalidateBranchesCache();
+  invalidatePublicCatalogCache();
   revalidatePath(routes.sucursales);
   return null;
 }

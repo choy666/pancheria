@@ -145,6 +145,18 @@ await client.end();
 Remove-Item .env.production.local
 ```
 
+### 6. Estado verificado de producción (2026-09-20)
+
+Verificado vía MCPs de Vercel y Neon durante la consolidación pre-multi-tenant:
+
+- **Migraciones:** `drizzle.__drizzle_migrations` registra **32** migraciones; `0031` (índices de FKs) se aplicó manualmente el 2026-09-20 en el branch `main` (endpoint directo), con `hash` = SHA-256 del archivo y `created_at` = `when` del journal, manteniendo la semántica de `drizzle-kit migrate`.
+- **`POSTGRES_URL_NON_POOLING`:** corregida — apuntaba al host `-pooler` (mal rotulada, sin impacto porque `DATABASE_URL_UNPOOLED` tiene precedencia) y ahora apunta al endpoint directo de `main`.
+- **`ORDER_MESSAGES_RETENTION_DAYS=90`:** definida en producción; el cron `chat-attachments-cleanup` purga mensajes de pedidos terminales más viejos que 90 días.
+- **`DATABASE_POOL_MAX=5`:** definida en producción para acotar conexiones por instancia (compute Neon de 0.25 CU).
+- **`DATA_CACHE_REVALIDATE_S`:** sin definir → default 60 s del caché de servidor.
+- **`NEXT_PUBLIC_CHAT_STREAM_ENABLED`:** sin definir → SSE deshabilitado; el chat usa polling.
+- **Cron `expire-orders`:** schedule `*/5 * * * *` en GitHub Actions corre en la práctica cada ~2–5 h; las lecturas de pedidos expiran pendings vencidos en el momento (expiración lazy), así que la cadencia solo afecta a pedidos que nadie lee.
+
 ---
 
 ## E2E / Playwright

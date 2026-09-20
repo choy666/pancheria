@@ -17,10 +17,20 @@ import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 var mockFindByIds: jest.Mock;
 var mockFindRecipesForProducts: jest.Mock;
 var mockGroupRecipesByProduct: jest.Mock;
+var mockFindActiveReservationsByProductIds: jest.Mock;
 
 jest.mock('@/repositories/productRepository', () => {
   mockFindByIds = jest.fn();
   return { findByIds: mockFindByIds };
+});
+
+// El preview sin transacción también descuenta reservas activas (E2 del plan
+// de consolidación): el repo queda mockeado para no pegar a la base real.
+jest.mock('@/repositories/orderStockReservationRepository', () => {
+  mockFindActiveReservationsByProductIds = jest.fn().mockResolvedValue([]);
+  return {
+    findActiveReservationsByProductIds: mockFindActiveReservationsByProductIds,
+  };
 });
 
 jest.mock('@/lib/recipe-helpers', () => {

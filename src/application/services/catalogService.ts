@@ -1,8 +1,8 @@
-import * as catalogRepository from '@/repositories/catalogRepository';
 import * as branchService from '@/application/services/branchService';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError } from '@/domain/errors';
 import { resolveProductImage } from '@/lib/product-image-storage';
+import { getCachedPublicCatalogBase } from '@/lib/server-cache';
 import type { Branch, ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
 
 export type PublicCatalogProduct = Pick<
@@ -63,28 +63,15 @@ async function getBranch(branchId: number): Promise<Branch> {
   return branch;
 }
 
-/**
- * Devuelve el total de productos públicos de la sucursal. Solo consulta la
- * base cuando hay paginación; sin paginación el listado ya es el total.
- */
-async function getPublicProductsTotal(
-  branchId: number,
-  loadedCount: number,
-  pagination?: CatalogPagination
-): Promise<number> {
-  const isPaginated =
-    pagination?.limit !== undefined || pagination?.offset !== undefined;
-  if (!isPaginated) return loadedCount;
-  return catalogRepository.countPublicProducts(branchId);
-}
-
 export async function listPublicCatalog(
   branchId: number,
   pagination?: CatalogPagination
 ): Promise<PublicCatalogResponse> {
   const branch = await getBranch(branchId);
-  const products = await catalogRepository.findPublicProducts(branchId, pagination);
-  const total = await getPublicProductsTotal(branchId, products.length, pagination);
+  const { products, total } = await getCachedPublicCatalogBase(
+    branchId,
+    pagination
+  );
   return {
     branch,
     products: products.map((product) => toPublicCatalogProduct(product, 0)),
@@ -97,8 +84,13 @@ export async function listPublicCatalogWithAvailability(
   pagination?: CatalogPagination
 ): Promise<PublicCatalogResponse> {
   const branch = await getBranch(branchId);
-  const products = await catalogRepository.findPublicProducts(branchId, pagination);
-  const total = await getPublicProductsTotal(branchId, products.length, pagination);
+  // La base (productos + total) viene de la caché de servidor por tag
+  // `public-catalog`; la disponibilidad se calcula en vivo porque cambia
+  // con cada venta o reserva de pedido.
+  const { products, total } = await getCachedPublicCatalogBase(
+    branchId,
+    pagination
+  );
   const productIds = products.map((product) => product.id);
 
   const availabilityById: Record<number, saleService.ProductAvailability> =

@@ -1,6 +1,6 @@
-import * as branchService from '@/application/services/branchService';
 import { getDefaultBranchName } from '@/config/branch';
 import { MAX_LIMIT } from '@/config/pagination';
+import { getCachedBranchIdByName, getCachedBranchList } from '@/lib/server-cache';
 import type { Branch } from '@/domain/types';
 
 /**
@@ -31,8 +31,9 @@ export function parseBranchId(value: unknown): number | null {
 export async function listPublicBranches(): Promise<Branch[]> {
   // Cap defensivo: el selector público no debería listar más de MAX_LIMIT
   // sucursales. La tabla `branches` no tiene flag de activo: todas las
-  // sucursales existentes se consideran activas.
-  const branches = await branchService.listBranches({ limit: MAX_LIMIT });
+  // sucursales existentes se consideran activas. Cacheado por tag
+  // `branches` (se invalida al crear/editar/eliminar sucursales).
+  const branches = await getCachedBranchList(MAX_LIMIT);
   return branches.map((b) => ({
     id: b.id,
     name: b.name,
@@ -59,9 +60,7 @@ export async function getDefaultBranchId(): Promise<number | null> {
     return null;
   }
 
-  // Lookup directo por nombre: evita materializar toda la tabla `branches`
-  // en cada request pública que necesita la sucursal por defecto.
-  const branch = await branchService.getBranchByName(defaultBranchName);
-
-  return branch?.id ?? null;
+  // Lookup directo por nombre cacheado (tag `branches`): evita una query
+  // por cada request pública que necesita la sucursal por defecto.
+  return getCachedBranchIdByName(defaultBranchName);
 }

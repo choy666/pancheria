@@ -110,7 +110,11 @@ Pendientes abiertos provenientes de la auditoría del deploy de Vercel (`informe
 | Baja | `productRepository.findByImageKey` sin orden determinista (`image_key` no es unique) | **Resuelto** — `orderBy: asc(products.id)` agregado |
 | Baja | Plan multi-tenant (`prompts/plan-implementacion-multi-tenant.md`): propuesta futura, no iniciada; recordar que `daily_closures` ya no existe al retomarla | Abierto (propuesta futura) — complementado por la auditoría de escalabilidad 2026-09-19 (§3.9: backfill de `tenant_id`, índices compuestos, lookups sin scope) |
 | Alta | Auditoría de escalabilidad 2026-09-19 — quick wins: caché CDN corto en `catalogo`/`sucursal/estado`, sacar polls GET del rate limit, cleanup de `login_attempts`, índices en FKs hijas, pool explícito, `maxDuration` en crons | **Resuelto** — Fase 0 (T1–T6) implementada 2026-09-19 según `informes/plan-implementacion-escalabilidad-2026-09-19.md`: migración `0031` con los 9 índices aplicada en desarrollo y E2E, headers `s-maxage`/`stale-while-revalidate` configurables en `catalogo` y `sucursal/estado`, polls GET con limiter en memoria (`PUBLIC_POLL_RATE_LIMIT_*`), retención de `login_attempts` (`LOGIN_ATTEMPTS_RETENTION_MS`), pool configurable (`DATABASE_POOL_MAX`/`DATABASE_CONNECTION_TIMEOUT_MS`/`DATABASE_IDLE_TIMEOUT_MS`), `maxDuration` en crons y rutas pesadas, y refresh de catálogo acotado a primera página + disponibilidad por IDs |
-| Media | Auditoría de escalabilidad 2026-09-19 — corto plazo: paginar `productos`/`stock`/usuarios/videos, batching en `expirePendingOrders` y limpiezas masivas, retención de `order_messages`, health check/alertas, tests de concurrencia, SSE para chat | Abierto — idem §5; plan ejecutable en `informes/plan-implementacion-escalabilidad-2026-09-19.md` (Fase 1: T7–T13) |
+| Media | Auditoría de escalabilidad 2026-09-19 — corto plazo: paginar `productos`/`stock`/usuarios/videos, batching en `expirePendingOrders` y limpiezas masivas, retención de `order_messages`, health check/alertas, tests de concurrencia, SSE para chat | **Resuelto** — Fase 1 (T7–T13) implementada 2026-09-19: paginación en `productos`/`stock`/usuarios/videos, batching con presupuesto en `expirePendingOrders`, retención opt-in de `order_messages` (`ORDER_MESSAGES_RETENTION_DAYS`), `GET /api/health` y duración por request en todas las rutas, tests de concurrencia y spike SSE (implementado, deshabilitado). Retención activada en producción (90 días) el 2026-09-20 |
+| Media | Auditoría de escalabilidad 2026-09-19 — Fase 2 sin multi-tenant: caché de servidor (T15), preview de disponibilidad consciente de reservas, expiración lazy de pendings, evaluación de réplicas (T16) | **Resuelto** — plan `informes/plan-implementacion-consolidacion-2026-09-20.md` ejecutado: caché de servidor con `unstable_cache` + tags (`src/lib/server-cache.ts`), preview del terminal que descuenta reservas activas, expiración lazy de `pending` en lecturas, T16 diferido con umbral de revisión documentado |
+| Alta | Migración multi-tenant (T14) + complementos §3.9 del plan de escalabilidad | **Diferido** — decisión del usuario 2026-09-20: dejar firme el proyecto antes de avanzar. El proyecto quedó consolidado (Fases 0, 1, M y plan de consolidación); la puerta de entrada de T14 está abierta |
+| Baja | Sharding E2E en CI (T11 opt-in) | **Diferido** — infra lista (reporter blob + `merge-reports`); activar cuando la suite supere ~10 min de reloj aprovisionando `E2E_DATABASE_URL_SHARD<N>` por shard |
+| Baja | SSE de chat (T13 opt-in) | **Deshabilitado** — decisión del usuario 2026-09-20: `NEXT_PUBLIC_CHAT_STREAM_ENABLED` sin definir en producción; el polling sigue siendo el default. El spike queda disponible si el polling vuelve a ser cuello de botella |
 | Media | Verificar en producción: `DATABASE_URL` con pooler de Neon, `maxDuration` efectivo según plan de Vercel | **Resuelto** — Fase M ejecutada 2026-09-19 (resultados en `plan-implementacion-escalabilidad-2026-09-19.md` §7): `DATABASE_URL` usa el pooler de Neon; plan Hobby con Fluid Compute → `maxDuration` subido a 300 s en crons/rutas pesadas; schedule real de `expire-orders` ~2–5 h (documentado en `AGENTS.md`); rate-limit stores en `db`; `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` inactivo |
 
 ## 7. Cierre
@@ -135,3 +139,32 @@ Auditoría de solo lectura ejecutada sobre baseline `62a644dd95d047a4a92c9215d74
 - **Entregable:** `informes/auditoria-escalabilidad-2026-09-19.md` — veredicto "sí, con condiciones", 14 hallazgos clasificados, orden de quiebre estimado (10×/50×/100×), plan de acción priorizado y complementos al plan multi-tenant.
 - **Verificaciones corridas:** `npm run lint`, `npx tsc --noEmit`, `npm test` (157 suites / 1691 tests), `npm run knip`, `npm run build` y `npm run analyze:webpack` — todas en verde; el analyzer emite los warnings intencionales de `src/lib/storage.ts` (imports dinámicos de AWS SDK).
 - **Pendientes nuevos:** volcados en §6 (quick wins, corto plazo y verificaciones de producción).
+
+## 10. Consolidación pre-multi-tenant 2026-09-20
+
+Sesión de implementación según `informes/plan-implementacion-consolidacion-2026-09-20.md`. Cierra todos los pendientes del plan de escalabilidad **excepto T14 (multi-tenant)**, diferido por decisión del usuario.
+
+### Código
+
+- **E1 — Caché de servidor (T15):** nuevo `src/lib/server-cache.ts` con `unstable_cache` sobre sucursales (por ID, por nombre, lista pública) y la base del catálogo público (productos + total; **sin** disponibilidad — se calcula en vivo junto con recetas, reservas y estado de caja). TTL por `DATA_CACHE_REVALIDATE_S` (default 60 s; `<= 0` deshabilita la capa). Invalidación inmediata con `revalidateTag(tag, { expire: 0 })` en actions/rutas que mutan productos o sucursales (Next 16 exige el segundo argumento). Consumidores: `branchService.getBranchById`, `branch-resolver` (`listPublicBranches`, `getDefaultBranchId`) y `catalogService` (`findPublicProducts`/`countPublicProducts`).
+- **E2 — Preview pesimista:** `validateCartAvailability` descuenta reservas activas de pedidos `in_process` también fuera de transacción (`dbOrTx ?? db`), alineando el preview del terminal de ventas con la validación transaccional y el catálogo.
+- **E3 — Expiración lazy:** `trackOrder`, `getOrderById`, `getPendingOrders` y `getOrders` expiran pedidos `pending` vencidos durante la lectura (`cancelExpiredOrder` con lock transaccional, razón `Expiración automática por inactividad`); los listados los filtran y ajustan `total`. Compensa la cadencia real del cron de GitHub Actions (~2–5 h).
+- **Tests:** nuevo stub global `tests/mocks/next-cache.ts` (mapeado en `jest.config.ts`), tests de `src/config/cache.ts`, expiración lazy en `orderService.test.ts`, preview con reservas en `saleService.test.ts`, mocks ajustados en `branch-resolver.test.ts` y `product-helpers.test.ts`.
+
+### Producción (vía MCPs)
+
+- **Migración `0031` aplicada** en Neon `main` (faltaba; producción estaba en `0030`): 9 `CREATE INDEX` ejecutados en transacción + fila en `drizzle.__drizzle_migrations` con hash SHA-256 del archivo y `created_at` del journal. Verificado: 32 migraciones registradas, los 9 índices existen.
+- **`POSTGRES_URL_NON_POOLING`** corregida al endpoint directo de `main` (antes apuntaba al host `-pooler`).
+- **`ORDER_MESSAGES_RETENTION_DAYS=90`** y **`DATABASE_POOL_MAX=5`** creadas en producción. `DATA_CACHE_REVALIDATE_S` sin definir (default 60 s) y `NEXT_PUBLIC_CHAT_STREAM_ENABLED` ausente (SSE off).
+- Las variables nuevas toman efecto en el próximo deploy.
+
+### Decisiones
+
+- **T14 multi-tenant:** diferido (decisión explícita).
+- **T16 réplicas/agregaciones:** no implementar a esta escala; umbral de revisión = p95 del resumen de caja > 2 s, saturación de pool o >50k ventas/caja.
+- **SSE chat:** deshabilitado en producción.
+- **Sharding E2E:** diferido; activar si la suite supera ~10 min.
+
+### Verificaciones
+
+`npx tsc --noEmit`, `npm run lint`, `npm test` (1827 tests), `npm run knip`, `npm run build` y `npm run test:e2e` (**127/127** sobre la base descartable) — todas en verde. La primera corrida E2E expuso un flaky de `pedido-chat` causado por la caché de servidor (los helpers de E2E mutan `branches` directo en la base y no disparan la invalidación por tag) y un bug del kill switch (`unstable_cache` no acepta `revalidate: 0` al registrarse); ambos resueltos — capa deshabilitada en E2E vía `DATA_CACHE_REVALIDATE_S=0` (`.env.e2e`, `.env.e2e.example`, CI) y placeholder válido en el registro con bypass en las funciones exportadas.

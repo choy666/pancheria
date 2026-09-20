@@ -6,6 +6,9 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // La capa de caché de servidor (unstable_cache/revalidateTag) no tiene
+    // store fuera del runtime de Next: el stub la vuelve passthrough en tests.
+    '^next/cache$': '<rootDir>/tests/mocks/next-cache.ts',
   },
   testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
   transform: {

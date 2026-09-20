@@ -4,6 +4,7 @@ import * as productService from '@/application/services/productService';
 import { parseId } from '@/lib/id';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
+import { invalidatePublicCatalogCache } from '@/lib/server-cache';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -37,6 +38,7 @@ export const PUT = withApiErrorHandling(
     const body = await request.json();
     const data = productUpdateSchema.parse(body);
     const product = await productService.updateProduct(branchId, productId, data);
+    invalidatePublicCatalogCache();
     return NextResponse.json(product);
   }, { admin: true })
 );
@@ -52,6 +54,7 @@ export const DELETE = withApiErrorHandling(
       );
     }
     await productService.deleteProduct(branchId, productId);
+    invalidatePublicCatalogCache();
     return NextResponse.json({ success: true });
   }, { admin: true })
 );

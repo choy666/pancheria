@@ -691,8 +691,15 @@ export async function getOrderById(
   branchId: number,
   id: number
 ): Promise<OrderWithUnreadCount | undefined> {
-  const order = await orderRepository.findById(branchId, id);
+  let order = await orderRepository.findById(branchId, id);
   if (!order) return undefined;
+
+  // Expiración lazy: si el pedido pending ya venció (el cron puede demorar
+  // horas), se cancela en el momento y se relee para devolver el estado real.
+  if ((await expireStalePendingOrders([order])).size > 0) {
+    order = await orderRepository.findById(branchId, id);
+    if (!order) return undefined;
+  }
 
   const unreadCount = await orderMessageRepository.countUnreadByOrderAndSender(
     order.id,
@@ -705,7 +712,10 @@ export async function getOrderById(
 export async function getPendingOrders(
   branchId: number
 ): Promise<OrderWithItems[]> {
-  return orderRepository.findPending(branchId);
+  const orders = await orderRepository.findPending(branchId);
+  const expiredIds = await expireStalePendingOrders(orders);
+  if (expiredIds.size === 0) return orders;
+  return orders.filter((order) => !expiredIds.has(order.id));
 }
 
 export async function getOrders(
@@ -717,7 +727,14 @@ export async function getOrders(
     limit?: number;
   } = {}
 ): Promise<{ items: OrderWithUnreadCount[]; total: number; page: number; limit: number }> {
-  return orderRepository.findOrders(branchId, options);
+  const result = await orderRepository.findOrders(branchId, options);
+  const expiredIds = await expireStalePendingOrders(result.items);
+  if (expiredIds.size === 0) return result;
+  return {
+    ...result,
+    items: result.items.filter((order) => !expiredIds.has(order.id)),
+    total: result.total - expiredIds.size,
+  };
 }
 
 export async function getOrderCountsByStatus(
@@ -768,7 +785,7 @@ export async function expirePendingOrders(
         const cancelled = await cancelExpiredOrder(
           order.branchId,
           order.id,
-          'Expiración automática por inactividad'
+          EXPIRED_ORDER_REASON
         );
         if (cancelled) {
           expiredCount += 1;
@@ -804,6 +821,50 @@ export async function expirePendingOrders(
 }
 
 const EXPIRED_ORDERS_BATCH_SIZE = 200;
+
+const EXPIRED_ORDER_REASON = 'Expiración automática por inactividad';
+
+/**
+ * Expira en lectura los pedidos `pending` que ya superaron
+ * `ORDER_EXPIRATION_MS`. Es el respaldo del cron `expire-orders`: la
+ * cadencia real de GitHub Actions puede ser de horas y sin esto un pedido
+ * vencido seguiría mostrándose como vigente en seguimiento y panel.
+ * `cancelExpiredOrder` re-verifica el estado bajo lock, así que es segura
+ * ante carreras con confirmaciones/cancelaciones concurrentes.
+ * Devuelve los ids efectivamente cancelados.
+ */
+async function expireStalePendingOrders(
+  candidates: {
+    id: number;
+    branchId: number;
+    status: OrderStatus;
+    createdAt: Date;
+  }[]
+): Promise<Set<number>> {
+  const cutoffMs = Date.now() - getOrderExpirationMs();
+  const expiredIds = new Set<number>();
+
+  for (const order of candidates) {
+    if (order.status !== 'pending') continue;
+    if (order.createdAt.getTime() >= cutoffMs) continue;
+    try {
+      if (
+        await cancelExpiredOrder(order.branchId, order.id, EXPIRED_ORDER_REASON)
+      ) {
+        expiredIds.add(order.id);
+      }
+    } catch (error) {
+      // Una lectura no debe fallar porque el pedido cambió de estado entre
+      // la consulta y la cancelación; el próximo cron lo barre igual.
+      if (error instanceof DomainError) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return expiredIds;
+}
 
 /**
  * Cancela un pedido expirado solo si sigue en estado `pending`.
@@ -881,10 +942,17 @@ export async function trackOrder(
     return null;
   }
 
+  // Expiración lazy: si el pending ya venció, se cancela ahora y el cliente
+  // ve el estado real en lugar de un pedido "vigente" con `expiresAt` pasado.
+  const expiredIds = await expireStalePendingOrders([order]);
+  const status: OrderStatus = expiredIds.has(order.id)
+    ? 'cancelled'
+    : order.status;
+
   const result: TrackOrderResult = {
     id: order.id,
     orderNumber: order.orderNumber,
-    status: order.status,
+    status,
     total: order.total,
     customerName: order.customerName,
     customerPhone: order.customerPhone,
@@ -892,7 +960,7 @@ export async function trackOrder(
     branchName: order.branch?.name ?? null,
   };
 
-  if (order.status === 'pending') {
+  if (status === 'pending') {
     result.cancellationToken = order.cancellationToken;
     result.expiresAt = new Date(
       order.createdAt.getTime() + getOrderExpirationMs()

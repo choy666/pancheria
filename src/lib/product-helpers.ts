@@ -698,10 +698,16 @@ export async function validateCartAvailability(
     recipesByProduct
   );
 
-  if (idsToLockArray.length > 0 && dbOrTx) {
+  // Las reservas activas de pedidos `in_process` se descuentan siempre: dentro
+  // de transacción con el cliente transaccional (consistencia con los locks
+  // ya tomados) y fuera de ella con el pool global, igual que
+  // `calculateAvailabilityForProductIds`. Así el preview del terminal de
+  // ventas y la validación pública del carrito muestran la misma
+  // disponibilidad pesimista que el catálogo.
+  if (idsToLockArray.length > 0) {
     const reservations =
       await orderStockReservationRepository.findActiveReservationsByProductIds(
-        dbOrTx,
+        dbOrTx ?? db,
         branchId,
         idsToLockArray,
         excludeOrderId

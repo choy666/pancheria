@@ -1554,6 +1554,136 @@ describe('orderService', () => {
     });
   });
 
+  describe('expiración lazy en lecturas', () => {
+    const ORIGINAL_ORDER_EXPIRATION_MS = process.env.ORDER_EXPIRATION_MS;
+
+    beforeEach(() => {
+      process.env.ORDER_EXPIRATION_MS = '60000';
+    });
+
+    afterEach(() => {
+      process.env.ORDER_EXPIRATION_MS = ORIGINAL_ORDER_EXPIRATION_MS;
+    });
+
+    test('getPendingOrders cancela y excluye pendings vencidos', async () => {
+      const stale = createOrderRow({
+        createdAt: new Date(Date.now() - 120_000),
+      });
+      const fresh = createOrderRow({ id: 2, orderNumber: 'PED-2' });
+      mockedDb.query.orders.findMany.mockResolvedValue([stale, fresh]);
+      // El lock dentro de la transacción re-verifica que siga pending.
+      mockedDb.query.orders.findFirst.mockResolvedValue(stale);
+
+      const result = await getPendingOrders(BRANCH_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(2);
+      const updates = findCapturedUpdate(orders);
+      expect(updates).toHaveLength(1);
+      expect((updates[0].data as Partial<OrderRow>).status).toBe('cancelled');
+      expect(
+        (updates[0].data as Partial<OrderRow>).cancellationReason
+      ).toBe('Expiración automática por inactividad');
+    });
+
+    test('getPendingOrders no toca pendings dentro del plazo', async () => {
+      mockedDb.query.orders.findMany.mockResolvedValue([createOrderRow()]);
+
+      const result = await getPendingOrders(BRANCH_ID);
+
+      expect(result).toHaveLength(1);
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
+      expect(mockedDb.query.orders.findFirst).not.toHaveBeenCalled();
+    });
+
+    test('getPendingOrders no cancela si el pedido ya cambió de estado al bloquear', async () => {
+      const stale = createOrderRow({
+        createdAt: new Date(Date.now() - 120_000),
+      });
+      mockedDb.query.orders.findMany.mockResolvedValue([stale]);
+      // Carrera: entre el listado y el lock el pedido fue confirmado.
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...stale,
+        status: 'paid',
+      });
+
+      const result = await getPendingOrders(BRANCH_ID);
+
+      expect(result).toHaveLength(1);
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
+    });
+
+    test('getOrders ajusta items y total al expirar pendings de la página', async () => {
+      const stale = createOrderRow({
+        createdAt: new Date(Date.now() - 120_000),
+      });
+      mockedDb.query.orders.findMany.mockResolvedValue([stale]);
+      mockedDb.query.orders.findFirst.mockResolvedValue(stale);
+
+      const result = await getOrders(BRANCH_ID, { status: 'pending' });
+
+      expect(result.items).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+
+    test('getOrderById cancela y relee un pending vencido', async () => {
+      const stale = {
+        ...createOrderRow({ createdAt: new Date(Date.now() - 120_000) }),
+        items: [createOrderItemRow()],
+      };
+      const cancelled = { ...stale, status: 'cancelled' as const };
+      mockedDb.query.orders.findFirst
+        .mockResolvedValueOnce(stale)
+        .mockResolvedValueOnce(stale)
+        .mockResolvedValueOnce(cancelled);
+
+      const result = await getOrderById(BRANCH_ID, 1);
+
+      expect(result?.status).toBe('cancelled');
+      expect(findCapturedUpdate(orders)).toHaveLength(1);
+    });
+
+    test('getOrderById devuelve un pending vigente sin cancelar', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        items: [createOrderItemRow()],
+      });
+
+      const result = await getOrderById(BRANCH_ID, 1);
+
+      expect(result?.status).toBe('pending');
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
+    });
+
+    test('trackOrder reporta cancelled y sin token cuando el pending está vencido', async () => {
+      const stale = {
+        ...createOrderRow({ createdAt: new Date(Date.now() - 120_000) }),
+        branch: {
+          id: BRANCH_ID,
+          name: 'Sucursal Test',
+          openingHours: [],
+          createdAt: new Date(),
+        },
+        items: [createOrderItemRow()],
+      };
+      mockedDb.query.orders.findFirst
+        .mockResolvedValueOnce(stale)
+        .mockResolvedValueOnce(stale);
+
+      const result = await trackOrder(
+        BRANCH_ID,
+        stale.orderNumber,
+        'Juan Pérez'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.status).toBe('cancelled');
+      expect(result?.cancellationToken).toBeUndefined();
+      expect(result?.expiresAt).toBeUndefined();
+      expect(findCapturedUpdate(orders)).toHaveLength(1);
+    });
+  });
+
   describe('trackOrder', () => {
     test('devuelve el pedido con token y expiresAt cuando está pending', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
