@@ -84,9 +84,9 @@ En **Vercel → Environment Variables → Production** debe existir:
 
 ### Race conditions en tests con `new Date()`
 
-- **Problema**: Tests que dependen de `new Date()` o cálculos de tiempo pueden fallar por race conditions al cruzar cambios de minuto o segundo.
-- **Solución**: Usar ventanas de tiempo con buffers (ej. ±3 horas) en lugar de ventanas estrictas que dependan del tiempo exacto actual.
-- **Ejemplo**: En `src/application/services/cashRegisterService.test.ts`, el test de estado de turno usa buffers de ±3 horas para asegurar que el turno siempre cubra el tiempo actual.
+- **Problema**: Tests que dependen de `new Date()` o cálculos de tiempo pueden fallar por race conditions al cruzar cambios de minuto, segundo **o de día civil**: si los horarios se derivan con `getHours()`/`getDay()` de instantes relativos (`now ± N horas`), al correr cerca de medianoche los `HH:mm` resultantes pueden pertenecer al día anterior y quedar registrados bajo el `dayOfWeek` equivocado (los buffers de ±N horas no cubren este caso).
+- **Solución**: Fijar el reloj con `jest.useFakeTimers({ now: new Date(año, mes, día, hora) })` usando un instante construido en hora local (determinista en cualquier timezone del runner), y definir los horarios con `dayOfWeek` y `HH:mm` explícitos por día civil.
+- **Ejemplo**: En `src/application/services/cashRegisterService.test.ts`, los tests de estado de turno fijan el reloj a un miércoles 15:00 local y registran el turno de apertura bajo el `dayOfWeek` del día anterior (`(dayOfWeek + 6) % 7`).
 
 ### Locators de Playwright con múltiples coincidencias
 
