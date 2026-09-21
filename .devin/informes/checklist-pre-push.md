@@ -38,6 +38,7 @@ Antes de hacer push, revisar mentalmente estos puntos si se editó `.github/work
 - [ ] `playwright.config.ts` pasa las mismas variables en `webServer.env` si se esperan en el servidor de E2E.
 - [ ] `.env.e2e.example` refleja las variables necesarias para reproducir el entorno localmente.
 - [ ] Si se agregó una variable nueva, también se agregó en `AGENTS.md` y `.devin/informes/entornos.md` si aplica.
+- [ ] Scripts inline con `node -e "..."` (comillas dobles): bash expande los backticks y `${}` de JavaScript como sustitución de comandos y mutila el script (rompió el paso "Verificar secretos de E2E" con `SyntaxError` en todo el pipeline). Preferir concatenación de strings o escapar como \`...\` y \${...}.
 - [ ] No hay credenciales, secretos, URLs privadas ni `.env.*` commiteados por accidente.
 - [ ] No se modificó `.github/workflows/ci.yml` solo para silenciar advertencias del IDE (ver `lecciones-aprendidas.md`, sección 12).
 

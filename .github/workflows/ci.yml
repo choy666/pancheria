@@ -145,13 +145,15 @@ jobs:
         run: |
           node -e "
           const shard = process.env.SHARD || '1';
-          const suffix = shard === '1' ? '' : `_SHARD${shard}`;
+          // Sin template literals: dentro de node -e "..." bash expande los
+          // backticks/${} como sustitución de comandos y mutila el script.
+          const suffix = shard === '1' ? '' : '_SHARD' + shard;
           const required = [
             { key: 'NEXTAUTH_SECRET', label: 'NEXTAUTH_SECRET', type: 'secret' },
             { key: 'ADMIN_USERNAME', label: 'ADMIN_USERNAME', type: 'secret o variable' },
             { key: 'ADMIN_PASSWORD', label: 'ADMIN_PASSWORD', type: 'secret' },
-            { key: 'DATABASE_URL', label: `E2E_DATABASE_URL${suffix}`, type: 'secret' },
-            { key: 'DATABASE_URL_UNPOOLED', label: `E2E_DATABASE_URL${suffix}_UNPOOLED`, type: 'secret' },
+            { key: 'DATABASE_URL', label: 'E2E_DATABASE_URL' + suffix, type: 'secret' },
+            { key: 'DATABASE_URL_UNPOOLED', label: 'E2E_DATABASE_URL' + suffix + '_UNPOOLED', type: 'secret' },
           ];
 
           let missing = false;
