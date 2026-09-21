@@ -132,6 +132,14 @@ jobs:
       # servidor de src/lib/server-cache.ts no recibiría la invalidación por
       # tag y serviría datos viejos por hasta DATA_CACHE_REVALIDATE_S segundos.
       DATA_CACHE_REVALIDATE_S: "0"
+      # Paridad con .env.e2e.example: el catálogo público pagina en orden
+      # alfabético y el SSR de /pedido solo trae la primera página (default
+      # 48); con el volumen de productos que crea la suite, los productos de
+      # los tests quedaban fuera de página 1 (ningún test usa "Cargar más").
+      # En CI no existe .env.e2e: estas variables deben pasarse por el job.
+      NEXT_PUBLIC_CATALOG_PAGE_SIZE: "200"
+      # Refresco de chat más rápido en E2E (paridad con .env.e2e.example).
+      NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS: "1000"
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
