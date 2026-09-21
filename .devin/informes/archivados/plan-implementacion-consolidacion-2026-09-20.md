@@ -1,7 +1,7 @@
 # Plan de implementación — Consolidación pre-multi-tenant
 
 > **Fecha:** 2026-09-20
-> **Estado:** completado
+> **Estado:** completado — archivado el 2026-09-20
 > **Objetivo:** cerrar todos los pendientes del plan de escalabilidad (`plan-implementacion-escalabilidad-2026-09-19.md`) **excepto T14 (multi-tenant)**, que queda explícitamente diferido hasta que el proyecto quede firme.
 > **Fuente:** pendientes reportados al 2026-09-20 sobre `aee6f39` (`main`).
 

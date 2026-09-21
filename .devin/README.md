@@ -22,7 +22,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
 - [Auditoría de escalabilidad (2026-09-19)](informes/auditoria-escalabilidad-2026-09-19.md) — veredicto, cuadro de riesgo, orden de quiebre estimado y plan de acción; hallazgos pendientes volcados en `reporte-estado.md` §6.
-- [Plan de implementación de la auditoría de escalabilidad (2026-09-19)](informes/plan-implementacion-escalabilidad-2026-09-19.md) — plan ejecutable por fases (T1–T16) derivado de la auditoría; propuesto, no iniciado.
+- [Plan de implementación de la auditoría de escalabilidad (2026-09-19, resuelto)](informes/archivados/plan-implementacion-escalabilidad-2026-09-19.md) — plan por fases (T1–T16) derivado de la auditoría: T1–T13, T15 y Fase M implementadas; T16 decidido "no implementar"; T14 (multi-tenant) diferido — fuente de verdad: `prompts/plan-implementacion-multi-tenant.md`.
 - [Auditoría del deploy de Vercel (2026-09-14, resuelta)](informes/archivados/auditoria-deploy-vercel-2026-09-14.md) — estado del deploy, variables críticas en Vercel/GitHub Actions y recomendaciones ya implementadas; queda abierta solo la verificación periódica de `VERCEL_PRODUCTION_URL` (en `checklist-pre-push.md`).
 - [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
 - [Auditoría de ubicación en el chat de pedidos (2026-09-09, resuelta)](informes/archivados/auditoria-chat-ubicacion-2026-09-09.md) — auditoría de compartir ubicación por chat; la funcionalidad ya fue implementada.
@@ -32,6 +32,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 > **Plan de acción cerrado:** el plan de acción de 2026-08-27 fue resuelto y se archivó en `informes/archivados/plan-de-accion-2026-08-27.md`.
 > **Plan de limpieza — hard delete y cachés cerrado:** el plan de limpieza de hard delete, papelera y cachés en memoria fue resuelto y se archivó en `informes/archivados/plan-limpieza-hard-delete-cache-2026-09-01.md`.
 > **Auditoría de sucursales cerrada:** la auditoría de sucursales y caja por turnos (2026-09-13) y su plan de observaciones fueron implementados (commit `a3d70d5`) y archivados en `informes/archivados/`.
+> **Planes de escalabilidad cerrados (2026-09-20):** el plan de implementación de la auditoría de escalabilidad, el plan de consolidación pre-multi-tenant y el spike SSE del chat (T13, decisión: opt-in deshabilitado) quedaron resueltos y se archivaron en `informes/archivados/`. La auditoría de escalabilidad sigue vigente: su §3.9 (complementos de T14 multi-tenant) alimenta trabajo pendiente.
 
 ## Configuración del entorno
 
@@ -50,9 +51,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── auditoria-escalabilidad-2026-09-19.md  # Auditoría de escalabilidad (veredicto, riesgos, plan)
-│   ├── plan-implementacion-escalabilidad-2026-09-19.md  # Plan de implementación por fases de la auditoría
 │   ├── README.md                 # Índice de informes
-│   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas (incluye auditoria-deploy-vercel-2026-09-14.md)
+│   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas (incluye auditoria-deploy-vercel-2026-09-14.md, plan-implementacion-escalabilidad-2026-09-19.md, plan-implementacion-consolidacion-2026-09-20.md y spike-sse-chat-2026-09-19.md)
 └── prompts/
     ├── pancheria.prompt.md       # Prompt maestro
     ├── README.md                 # Guía para escribir prompts

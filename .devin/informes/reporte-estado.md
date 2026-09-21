@@ -109,13 +109,13 @@ Pendientes abiertos provenientes de la auditoría del deploy de Vercel (`informe
 | Baja | Specs E2E para contactos y avisos/turnos de sucursal | **Resuelto** — `tests/e2e/sucursal-contactos-y-turnos.spec.ts` cubre alta/edición de teléfonos y redes sociales, exposición en listado y API pública, badge `En turno` y aviso `cierre_recomendado`. La cobertura de ubicación por chat ya existía en `pedido-chat.spec.ts` |
 | Baja | `productRepository.findByImageKey` sin orden determinista (`image_key` no es unique) | **Resuelto** — `orderBy: asc(products.id)` agregado |
 | Baja | Plan multi-tenant (`prompts/plan-implementacion-multi-tenant.md`): propuesta futura, no iniciada; recordar que `daily_closures` ya no existe al retomarla | Abierto (propuesta futura) — complementado por la auditoría de escalabilidad 2026-09-19 (§3.9: backfill de `tenant_id`, índices compuestos, lookups sin scope) |
-| Alta | Auditoría de escalabilidad 2026-09-19 — quick wins: caché CDN corto en `catalogo`/`sucursal/estado`, sacar polls GET del rate limit, cleanup de `login_attempts`, índices en FKs hijas, pool explícito, `maxDuration` en crons | **Resuelto** — Fase 0 (T1–T6) implementada 2026-09-19 según `informes/plan-implementacion-escalabilidad-2026-09-19.md`: migración `0031` con los 9 índices aplicada en desarrollo y E2E, headers `s-maxage`/`stale-while-revalidate` configurables en `catalogo` y `sucursal/estado`, polls GET con limiter en memoria (`PUBLIC_POLL_RATE_LIMIT_*`), retención de `login_attempts` (`LOGIN_ATTEMPTS_RETENTION_MS`), pool configurable (`DATABASE_POOL_MAX`/`DATABASE_CONNECTION_TIMEOUT_MS`/`DATABASE_IDLE_TIMEOUT_MS`), `maxDuration` en crons y rutas pesadas, y refresh de catálogo acotado a primera página + disponibilidad por IDs |
+| Alta | Auditoría de escalabilidad 2026-09-19 — quick wins: caché CDN corto en `catalogo`/`sucursal/estado`, sacar polls GET del rate limit, cleanup de `login_attempts`, índices en FKs hijas, pool explícito, `maxDuration` en crons | **Resuelto** — Fase 0 (T1–T6) implementada 2026-09-19 según `informes/archivados/plan-implementacion-escalabilidad-2026-09-19.md`: migración `0031` con los 9 índices aplicada en desarrollo y E2E, headers `s-maxage`/`stale-while-revalidate` configurables en `catalogo` y `sucursal/estado`, polls GET con limiter en memoria (`PUBLIC_POLL_RATE_LIMIT_*`), retención de `login_attempts` (`LOGIN_ATTEMPTS_RETENTION_MS`), pool configurable (`DATABASE_POOL_MAX`/`DATABASE_CONNECTION_TIMEOUT_MS`/`DATABASE_IDLE_TIMEOUT_MS`), `maxDuration` en crons y rutas pesadas, y refresh de catálogo acotado a primera página + disponibilidad por IDs |
 | Media | Auditoría de escalabilidad 2026-09-19 — corto plazo: paginar `productos`/`stock`/usuarios/videos, batching en `expirePendingOrders` y limpiezas masivas, retención de `order_messages`, health check/alertas, tests de concurrencia, SSE para chat | **Resuelto** — Fase 1 (T7–T13) implementada 2026-09-19: paginación en `productos`/`stock`/usuarios/videos, batching con presupuesto en `expirePendingOrders`, retención opt-in de `order_messages` (`ORDER_MESSAGES_RETENTION_DAYS`), `GET /api/health` y duración por request en todas las rutas, tests de concurrencia y spike SSE (implementado, deshabilitado). Retención activada en producción (90 días) el 2026-09-20 |
-| Media | Auditoría de escalabilidad 2026-09-19 — Fase 2 sin multi-tenant: caché de servidor (T15), preview de disponibilidad consciente de reservas, expiración lazy de pendings, evaluación de réplicas (T16) | **Resuelto** — plan `informes/plan-implementacion-consolidacion-2026-09-20.md` ejecutado: caché de servidor con `unstable_cache` + tags (`src/lib/server-cache.ts`), preview del terminal que descuenta reservas activas, expiración lazy de `pending` en lecturas, T16 diferido con umbral de revisión documentado |
+| Media | Auditoría de escalabilidad 2026-09-19 — Fase 2 sin multi-tenant: caché de servidor (T15), preview de disponibilidad consciente de reservas, expiración lazy de pendings, evaluación de réplicas (T16) | **Resuelto** — plan `informes/archivados/plan-implementacion-consolidacion-2026-09-20.md` ejecutado: caché de servidor con `unstable_cache` + tags (`src/lib/server-cache.ts`), preview del terminal que descuenta reservas activas, expiración lazy de `pending` en lecturas, T16 diferido con umbral de revisión documentado |
 | Alta | Migración multi-tenant (T14) + complementos §3.9 del plan de escalabilidad | **Diferido** — decisión del usuario 2026-09-20: dejar firme el proyecto antes de avanzar. El proyecto quedó consolidado (Fases 0, 1, M y plan de consolidación); la puerta de entrada de T14 está abierta |
 | Baja | Sharding E2E en CI (T11 opt-in) | **Diferido** — infra lista (reporter blob + `merge-reports`); activar cuando la suite supere ~10 min de reloj aprovisionando `E2E_DATABASE_URL_SHARD<N>` por shard |
 | Baja | SSE de chat (T13 opt-in) | **Deshabilitado** — decisión del usuario 2026-09-20: `NEXT_PUBLIC_CHAT_STREAM_ENABLED` sin definir en producción; el polling sigue siendo el default. El spike queda disponible si el polling vuelve a ser cuello de botella |
-| Media | Verificar en producción: `DATABASE_URL` con pooler de Neon, `maxDuration` efectivo según plan de Vercel | **Resuelto** — Fase M ejecutada 2026-09-19 (resultados en `plan-implementacion-escalabilidad-2026-09-19.md` §7): `DATABASE_URL` usa el pooler de Neon; plan Hobby con Fluid Compute → `maxDuration` subido a 300 s en crons/rutas pesadas; schedule real de `expire-orders` ~2–5 h (documentado en `AGENTS.md`); rate-limit stores en `db`; `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` inactivo |
+| Media | Verificar en producción: `DATABASE_URL` con pooler de Neon, `maxDuration` efectivo según plan de Vercel | **Resuelto** — Fase M ejecutada 2026-09-19 (resultados en `informes/archivados/plan-implementacion-escalabilidad-2026-09-19.md` §7): `DATABASE_URL` usa el pooler de Neon; plan Hobby con Fluid Compute → `maxDuration` subido a 300 s en crons/rutas pesadas; schedule real de `expire-orders` ~2–5 h (documentado en `AGENTS.md`); rate-limit stores en `db`; `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` inactivo |
 
 ## 7. Cierre
 
@@ -142,7 +142,7 @@ Auditoría de solo lectura ejecutada sobre baseline `62a644dd95d047a4a92c9215d74
 
 ## 10. Consolidación pre-multi-tenant 2026-09-20
 
-Sesión de implementación según `informes/plan-implementacion-consolidacion-2026-09-20.md`. Cierra todos los pendientes del plan de escalabilidad **excepto T14 (multi-tenant)**, diferido por decisión del usuario.
+Sesión de implementación según `informes/archivados/plan-implementacion-consolidacion-2026-09-20.md`. Cierra todos los pendientes del plan de escalabilidad **excepto T14 (multi-tenant)**, diferido por decisión del usuario.
 
 ### Código
 
@@ -168,3 +168,23 @@ Sesión de implementación según `informes/plan-implementacion-consolidacion-20
 ### Verificaciones
 
 `npx tsc --noEmit`, `npm run lint`, `npm test` (1827 tests), `npm run knip`, `npm run build` y `npm run test:e2e` (**127/127** sobre la base descartable) — todas en verde. La primera corrida E2E expuso un flaky de `pedido-chat` causado por la caché de servidor (los helpers de E2E mutan `branches` directo en la base y no disparan la invalidación por tag) y un bug del kill switch (`unstable_cache` no acepta `revalidate: 0` al registrarse); ambos resueltos — capa deshabilitada en E2E vía `DATA_CACHE_REVALIDATE_S=0` (`.env.e2e`, `.env.e2e.example`, CI) y placeholder válido en el registro con bypass en las funciones exportadas.
+
+## 11. Archivado documental 2026-09-20
+
+Sesión de mantenimiento documental (sin cambios de código ni verificaciones):
+
+- **Archivados en `informes/archivados/`** con nota de resolución:
+  - `plan-implementacion-escalabilidad-2026-09-19.md` — plan resuelto: T1–T13, T15 y Fase M implementadas/verificadas; T16 decidido "no implementar a esta escala"; T14 (multi-tenant) diferido por decisión del usuario.
+  - `plan-implementacion-consolidacion-2026-09-20.md` — E1–E6 completados y verificados.
+  - `spike-sse-chat-2026-09-19.md` — T13 cerrado con decisión (SSE opt-in deshabilitado; polling REST default).
+- **Queda vigente:** `auditoria-escalabilidad-2026-09-19.md` — su §3.9 (complementos multi-tenant de T14) sigue siendo fuente directa del trabajo pendiente, y §4/§7 el marco de umbrales para re-evaluar las decisiones diferidas.
+- **Referencias actualizadas:** `informes/README.md`, `.devin/README.md`, `AGENTS.md`, `.env.example` y las rutas internas de este archivo.
+
+## 12. Auditoría integral del proyecto 2026-09-20
+
+Auditoría general de estado posterior al archivado documental — informe completo en `informes/auditoria-proyecto-2026-09-20.md`. Verificaciones en verde: `npm run lint`, `npx tsc --noEmit`, `npm test` (1859 tests), `npm run build` y `npm run knip`. Sin hallazgos críticos ni altos.
+
+- **Menores (resueltos en la misma sesión):** `POST /api/public/disponibilidad` quedó con veto anti-abuso en memoria (`createPollRateLimiter('availability_poll')`, defaults de polls públicos) + test del 429; suites nuevas para `cache-control`, `fetch-all-pages`, `product-style`, `selected-branch`, `chat-poll-rate-limit` y `server-cache` (+6 suites, +32 tests).
+- **Informativos:** bundle re-medido con `analyze:webpack` (~2,23 MB parsed / ~729 KB gzip de first-load; sin regresión relevante vs ~1,9 MB del 19/09); cadencia real de `expire-orders` ~2–5 h (riesgo operativo ya documentado, mitigado por expiración lazy); `next-auth` v5 beta con plan de migración documentado.
+- **Pendiente estructural:** T14 multi-tenant, diferido por decisión — fuente `prompts/plan-implementacion-multi-tenant.md` + §3.9 de `auditoria-escalabilidad-2026-09-19.md`.
+- **Conclusión:** aprobado para producción a la escala actual (un tenant, múltiples sucursales).

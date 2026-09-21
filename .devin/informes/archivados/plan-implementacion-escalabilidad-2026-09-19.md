@@ -3,6 +3,8 @@
 > **Fecha:** 2026-09-19
 > **Estado:** Fase 0 implementada, verificada y commiteada (`90b7c54`) + Fase M ejecutada (2026-09-19, migración `0031` aplicada en desarrollo y E2E). **Fase 1 implementada y verificada** (T7–T13; suite unitaria verde, `lint`/`tsc`/`knip` limpios, **E2E completo 127/127 verde** en base descartable) — pendiente el aprovisionamiento de bases extra si se activa el sharding. Fase 2 pendiente.
 >
+> **Archivado el 2026-09-20 — plan resuelto:** todas las tareas tienen estado final. T1–T13 y Fase M implementadas y verificadas; T15 ejecutada vía `plan-implementacion-consolidacion-2026-09-20.md` (E1); T16 evaluada con decisión "no implementar a esta escala" (umbral de revisión documentado); T14 (multi-tenant) diferido por decisión del usuario — su fuente de verdad es `prompts/plan-implementacion-multi-tenant.md` y el pendiente queda trackeado en `informes/reporte-estado.md` §6 junto con las re-evaluaciones condicionales (SSE, sharding E2E).
+>
 > **Revisión post-implementación (2026-09-20):** se auditaron T1–T13 contra el código; todas conformes. Dos correcciones menores aplicadas: (a) las rutas `.../chat/stream` ahora dan prioridad al header `Last-Event-ID` sobre `?after=` (la query queda desactualizada en las reconexiones automáticas de `EventSource` tras el cierre por budget) — cubierto por tests nuevos en ambas rutas; (b) `export const maxDuration = 300` en `src/app/(panel)/sucursales/page.tsx` para que `deleteBranchAction` (server action) herede el mismo límite que las rutas pesadas.
 >
 > **Corrida E2E de cierre (2026-09-20, primera pasada):** 116/127 verdes; las 11 fallas fueron regresiones de tests por la paginación introducida en T7/T6, no bugs de producto:
@@ -28,7 +30,7 @@
 > - **T10 Observabilidad** ✅ — `GET /api/health`; `withApiErrorHandling` deriva el label de `method + pathname` y loguea `durationMs` siempre; los tres crons usan `withCronAuth` (`CRON_SECRET`) con logs estructurados.
 > - **T11 Concurrencia + sharding** ✅ spec `tests/e2e/concurrencia-stock.spec.ts` (oversell, carrera recibir/cancelar, reserva única) — verificado en verde el 2026-09-20; CI con reporter `blob` + `merge-reports` y matriz `E2E_SHARDS` opt-in (default 1 shard — cada shard requiere su propia base descartable porque `global-setup.ts` trunca).
 > - **T12 Lookups con scope** ✅ — `findByOrderNumberAndCustomer` exige `branchId`; seguimiento público propaga `branchId` del cliente; `GET /api/productos/imagen/[key]` exige `branchId` y las URLs locales lo incluyen (provider `local`; remotos apuntan directo al storage).
-> - **T13 Spike SSE** ✅ — endpoints `.../chat/stream` (operador + público) con heartbeat, `budget` acotado por `CHAT_STREAM_BUDGET_MS` y `maxDuration=60`; `useOrderChat` usa `EventSource` con `Last-Event-ID` solo si `NEXT_PUBLIC_CHAT_STREAM_ENABLED=true`, con fallback automático a polling y cierre en pestañas ocultas. **Decisión: SSE implementado como opt-in deshabilitado; el polling REST sigue siendo el default** (ver `informes/spike-sse-chat-2026-09-19.md`).
+> - **T13 Spike SSE** ✅ — endpoints `.../chat/stream` (operador + público) con heartbeat, `budget` acotado por `CHAT_STREAM_BUDGET_MS` y `maxDuration=60`; `useOrderChat` usa `EventSource` con `Last-Event-ID` solo si `NEXT_PUBLIC_CHAT_STREAM_ENABLED=true`, con fallback automático a polling y cierre en pestañas ocultas. **Decisión: SSE implementado como opt-in deshabilitado; el polling REST sigue siendo el default** (ver `informes/archivados/spike-sse-chat-2026-09-19.md`).
 > **Revisión:** 2026-09-19 — correcciones verificadas contra el código en T2 (seguimiento es POST), T6-B (cableado de `productIds`), T9 (prefijo `product-images/`), T10.2 (la duración ya se loguea con `routeLabel`) y T12 (propagación de `branchId`).
 > **Fuente:** `informes/auditoria-escalabilidad-2026-09-19.md` §2 (cuadro de riesgo), §4 (orden de quiebre) y §5 (plan de acción)
 > **Baseline de la auditoría:** `62a644dd95d047a4a92c9215d74023fcf5e0e06b` (`main`)
@@ -439,4 +441,4 @@ Orden sugerido dentro de Fase 0 (minimiza riesgo y da alivio inmediato): **T4 �
 - `informes/entornos.md` — procedimiento de migraciones por entorno.
 - `informes/checklist-pre-push.md` — verificaciones y variables de CI/E2E.
 - `informes/lecciones-aprendidas.md` — patrones obligatorios (paginación en repositorio, errores por tipo, stores atómicos, E2E seguro).
-- `informes/spike-sse-chat-2026-09-19.md` — spike T13: implementación SSE del chat, modelo de costo y decisión (opt-in deshabilitado).
+- `informes/archivados/spike-sse-chat-2026-09-19.md` — spike T13: implementación SSE del chat, modelo de costo y decisión (opt-in deshabilitado).

@@ -1,5 +1,10 @@
 # Spike SSE para el chat de pedidos (T13) — 2026-09-19
 
+> **Estado:** cerrado — decisión tomada (SSE implementado como opt-in
+> deshabilitado; el polling REST sigue siendo el default). Archivado el
+> 2026-09-20. La re-evaluación condicional queda trackeada en
+> `informes/reporte-estado.md` §6.
+
 ## Contexto
 
 El plan de escalabilidad pide un **spike acotado, no una adopción**: en Vercel

@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server';
 import { POST } from './route';
 import * as catalogService from '@/application/services/catalogService';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import * as rateLimit from '@/lib/rate-limit';
 import { NotFoundError } from '@/domain/errors';
 
 jest.mock('@/application/services/catalogService');
@@ -12,6 +13,13 @@ jest.mock('@/lib/branch-resolver', () => ({
   ...jest.requireActual('@/lib/branch-resolver'),
   getDefaultBranchId: jest.fn(),
 }));
+jest.mock('@/lib/rate-limit', () => {
+  const pollLimiter = jest.fn().mockResolvedValue(false);
+  return {
+    getClientIp: jest.fn().mockReturnValue('127.0.0.1'),
+    createPollRateLimiter: jest.fn().mockReturnValue(pollLimiter),
+  };
+});
 jest.mock('@/lib/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -155,6 +163,21 @@ describe('POST /api/public/disponibilidad', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe(DEFAULT_BRANCH_ERROR);
+    expect(mockedCatalogService.validatePublicCart).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 429 cuando el limiter de poll veta la IP', async () => {
+    const pollLimiter = (rateLimit.createPollRateLimiter as jest.Mock)() as jest.Mock;
+    pollLimiter.mockResolvedValueOnce(true);
+
+    const response = await POST(
+      buildRequest(`branchId=${BRANCH_ID}`, {
+        method: 'POST',
+        body: JSON.stringify({ items: [] }),
+      })
+    );
+
+    expect(response.status).toBe(429);
     expect(mockedCatalogService.validatePublicCart).not.toHaveBeenCalled();
   });
 });

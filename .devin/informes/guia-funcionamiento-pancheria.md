@@ -332,6 +332,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
   - En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`.
 - Ventana y máximo de pedidos configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
 - Ventana y máximo de chat configurables por `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
+- Los endpoints públicos de solo lectura (`GET /api/public/pedido/[id]/estado`, `GET /api/public/pedido/[id]/chat/stream`, `POST /api/public/disponibilidad`) aplican un veto anti-abuso en memoria por IP (`PUBLIC_POLL_RATE_LIMIT_WINDOW_MS`/`PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS`, por defecto 60 s y 240 requests), sin escribir en la base.
 
 ### 7.4 Eliminación de una sucursal
 
