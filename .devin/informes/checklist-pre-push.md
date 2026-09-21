@@ -36,8 +36,10 @@ Antes de hacer push, revisar mentalmente estos puntos si se editó `.github/work
   - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=memory`
   - `TRUSTED_PROXY_IP_HEADER=X-Forwarded-For`
 - [ ] `playwright.config.ts` pasa las mismas variables en `webServer.env` si se esperan en el servidor de E2E.
+- [ ] Las variables de `.env.e2e.example` que el servidor de E2E necesita también están en el `env:` del job `e2e` de `ci.yml`: en CI no existe `.env.e2e`, así que sin eso aplica el default de producción (ej. `NEXT_PUBLIC_CATALOG_PAGE_SIZE=48` dejaba los productos de los tests fuera de la primera página del catálogo y rompía `product-card-*`).
 - [ ] `.env.e2e.example` refleja las variables necesarias para reproducir el entorno localmente.
 - [ ] Si se agregó una variable nueva, también se agregó en `AGENTS.md` y `.devin/informes/entornos.md` si aplica.
+- [ ] Scripts inline con `node -e "..."` (comillas dobles): bash expande los backticks, `${}` y hasta las comillas de los comentarios JS como sustitución de comandos, mutilando el script (rompió el paso "Verificar secretos de E2E" con `SyntaxError`/`bad substitution` en todo el pipeline). Preferir heredoc con delimitador quoteado (`node - <<'EOF'`), donde bash no expande nada.
 - [ ] No hay credenciales, secretos, URLs privadas ni `.env.*` commiteados por accidente.
 - [ ] No se modificó `.github/workflows/ci.yml` solo para silenciar advertencias del IDE (ver `lecciones-aprendidas.md`, sección 12).
 
@@ -84,9 +86,9 @@ En **Vercel → Environment Variables → Production** debe existir:
 
 ### Race conditions en tests con `new Date()`
 
-- **Problema**: Tests que dependen de `new Date()` o cálculos de tiempo pueden fallar por race conditions al cruzar cambios de minuto o segundo.
-- **Solución**: Usar ventanas de tiempo con buffers (ej. ±3 horas) en lugar de ventanas estrictas que dependan del tiempo exacto actual.
-- **Ejemplo**: En `src/application/services/cashRegisterService.test.ts`, el test de estado de turno usa buffers de ±3 horas para asegurar que el turno siempre cubra el tiempo actual.
+- **Problema**: Tests que dependen de `new Date()` o cálculos de tiempo pueden fallar por race conditions al cruzar cambios de minuto, segundo **o de día civil**: si los horarios se derivan con `getHours()`/`getDay()` de instantes relativos (`now ± N horas`), al correr cerca de medianoche los `HH:mm` resultantes pueden pertenecer al día anterior y quedar registrados bajo el `dayOfWeek` equivocado (los buffers de ±N horas no cubren este caso).
+- **Solución**: Fijar el reloj con `jest.useFakeTimers({ now: new Date(año, mes, día, hora) })` usando un instante construido en hora local (determinista en cualquier timezone del runner), y definir los horarios con `dayOfWeek` y `HH:mm` explícitos por día civil.
+- **Ejemplo**: En `src/application/services/cashRegisterService.test.ts`, los tests de estado de turno fijan el reloj a un miércoles 15:00 local y registran el turno de apertura bajo el `dayOfWeek` del día anterior (`(dayOfWeek + 6) % 7`).
 
 ### Locators de Playwright con múltiples coincidencias
 
