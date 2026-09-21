@@ -142,25 +142,27 @@ jobs:
       - run: npm ci
 
       - name: Verificar secretos de E2E
+        # Heredoc con delimitador quoteado: bash no expande nada del script
+        # (backticks, ${}, comillas), a diferencia de node -e "..." donde
+        # cualquier template literal o comilla rompe el parseo (SyntaxError /
+        # bad substitution).
         run: |
-          node -e "
+          node - <<'EOF'
           const shard = process.env.SHARD || '1';
-          // Sin template literals: dentro de node -e "..." bash expande los
-          // backticks/${} como sustitución de comandos y mutila el script.
-          const suffix = shard === '1' ? '' : '_SHARD' + shard;
+          const suffix = shard === '1' ? '' : `_SHARD${shard}`;
           const required = [
             { key: 'NEXTAUTH_SECRET', label: 'NEXTAUTH_SECRET', type: 'secret' },
             { key: 'ADMIN_USERNAME', label: 'ADMIN_USERNAME', type: 'secret o variable' },
             { key: 'ADMIN_PASSWORD', label: 'ADMIN_PASSWORD', type: 'secret' },
-            { key: 'DATABASE_URL', label: 'E2E_DATABASE_URL' + suffix, type: 'secret' },
-            { key: 'DATABASE_URL_UNPOOLED', label: 'E2E_DATABASE_URL' + suffix + '_UNPOOLED', type: 'secret' },
+            { key: 'DATABASE_URL', label: `E2E_DATABASE_URL${suffix}`, type: 'secret' },
+            { key: 'DATABASE_URL_UNPOOLED', label: `E2E_DATABASE_URL${suffix}_UNPOOLED`, type: 'secret' },
           ];
 
           let missing = false;
           for (const { key, label, type } of required) {
             const value = process.env[key];
             if (!value || value.trim() === '') {
-              console.error(\`::error::Falta \${label}. Configuralo como repository \${type} en GitHub Actions.\`);
+              console.error(`::error::Falta ${label}. Configuralo como repository ${type} en GitHub Actions.`);
               missing = true;
             }
           }
@@ -170,7 +172,7 @@ jobs:
           }
 
           console.log('DATABASE_URL configurada para E2E.');
-          "
+          EOF
 
       - name: Aplicar migraciones en la base E2E descartable
         run: npx drizzle-kit migrate
