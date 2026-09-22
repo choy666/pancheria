@@ -26,7 +26,19 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const formData = await request.formData();
+    // `formData()` lanza TypeError cuando el Content-Type no es
+    // multipart ni urlencoded: se mapea a 400 en vez de caer al 500
+    // genérico (QA-2026-09-21-03). Otros errores se propagan.
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      return NextResponse.json(
+        { error: 'El cuerpo debe ser multipart/form-data.' },
+        { status: 400 }
+      );
+    }
     const file = formData.get('file');
     const contentField = formData.get('content');
 
