@@ -45,6 +45,8 @@ interface PedidoSuccessDialogProps {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   createdOrder: CreatedOrder | null;
+  /** `true` cuando el servidor devolvió un pedido ya registrado (dedup). */
+  deduplicated?: boolean;
   branch: Branch;
   cancellationReason: string;
   setCancellationReason: (value: string) => void;
@@ -58,6 +60,7 @@ export function PedidoSuccessDialog({
   open,
   onOpenChange,
   createdOrder,
+  deduplicated,
   branch,
   cancellationReason,
   setCancellationReason,
@@ -91,6 +94,16 @@ export function PedidoSuccessDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {deduplicated && (
+            <div
+              className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+              data-testid="order-dedup-notice"
+            >
+              Este pedido ya estaba registrado: se recuperó el pedido
+              original, no se creó uno nuevo.
+            </div>
+          )}
+
           {cancellationError && (
             <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
               {cancellationError}

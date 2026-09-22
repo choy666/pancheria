@@ -63,6 +63,7 @@ export function PedidoClient({
     successDialogOpen,
     setSuccessDialogOpen,
     createdOrder,
+    createdOrderDeduplicated,
     cancellationReason,
     setCancellationReason,
     isCancelling,
@@ -240,6 +241,7 @@ export function PedidoClient({
         open={successDialogOpen}
         onOpenChange={setSuccessDialogOpen}
         createdOrder={createdOrder}
+        deduplicated={createdOrderDeduplicated}
         branch={activeBranch}
         cancellationReason={cancellationReason}
         setCancellationReason={setCancellationReason}

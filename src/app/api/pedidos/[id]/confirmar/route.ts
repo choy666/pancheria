@@ -31,7 +31,12 @@ export const POST = withApiErrorHandling(
       idempotencyKey: data.idempotencyKey,
     });
 
-    return NextResponse.json({ sale }, { status: 201 });
+    // `deduplicated` marca que la clave ya existía y se devolvió la venta
+    // original: la interfaz avisa que el reintento no aplicó cambios.
+    return NextResponse.json(
+      { sale, deduplicated: sale.deduplicated === true },
+      { status: 201 }
+    );
   })
 );
 

@@ -27,6 +27,10 @@ import {
 } from '@/config/api';
 import { formatMoney } from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
+import {
+  useSubmitIdempotencyKey,
+  cartSignature,
+} from '@/hooks/use-submit-idempotency-key';
 import type { PaginatedResult } from '@/domain/types';
 
 interface SalesTerminalProps {
@@ -51,6 +55,9 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Misma política que el checkout público (QA-02): la clave persiste en
+  // los reintentos y rota solo tras el éxito o al cambiar el carrito.
+  const saleKey = useSubmitIdempotencyKey();
   const [cartAvailability, setCartAvailability] = useState<
     Record<number, number>
   >({});
@@ -321,19 +328,23 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     setError(null);
 
     try {
+      const submitItems = groupCartItemsForSubmit(
+        lines.map((line) => ({
+          productId: line.product.id,
+          quantity: line.quantity,
+          selectedRecipeItemIds: line.selectedRecipeItemIds,
+        }))
+      );
+      // La firma excluye los pagos a propósito: si la venta ya se creó en
+      // el servidor y la respuesta se perdió, un reintento con la misma
+      // clave deduplica aunque el operador haya tocado la forma de pago.
       const response = await authenticatedFetch(VENTAS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: groupCartItemsForSubmit(
-            lines.map((line) => ({
-              productId: line.product.id,
-              quantity: line.quantity,
-              selectedRecipeItemIds: line.selectedRecipeItemIds,
-            }))
-          ),
+          items: submitItems,
           payments: paymentParts.filter((p) => p.amount > 0),
-          idempotencyKey: nanoid(),
+          idempotencyKey: saleKey.resolve(cartSignature(submitItems)),
         }),
       });
 
@@ -341,6 +352,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         await throwApiError(response, 'Error al confirmar la venta');
       }
 
+      saleKey.reset();
       clearLines();
       setCustomPayments(null);
       router.refresh();
