@@ -65,7 +65,11 @@ test.describe('Sesión con sucursal eliminada (E4)', () => {
 
     const abrir = await page.request.post('/api/caja/abrir', { data: {} });
     expect(abrir.status()).toBe(403);
-    expect((await abrir.json()).error).toContain('sucursal');
+    const abrirBody = await abrir.json();
+    expect(abrirBody.error).toContain('sucursal');
+    // El code distingue este 403 de uno de permisos: el cliente lo usa
+    // para forzar el cierre de sesión.
+    expect(abrirBody.code).toBe('BRANCH_REMOVED');
 
     const producto = await page.request.post('/api/productos', {
       data: {
@@ -89,17 +93,35 @@ test.describe('Sesión con sucursal eliminada (E4)', () => {
     });
     expect(video.status()).toBe(403);
 
-    // Las páginas del panel expulsan al catálogo público: `getCurrent-
-    // BranchIdOrRedirect` redirige a /pedido en vez de encadenar
-    // login → home → login (la sesión sigue viva y el middleware rebotaría).
+    // Navegar al panel expulsa por /sesion-finalizada, que cierra la
+    // sesión server-side y termina en /login con el motivo visible (ir
+    // directo a /login rebotaría a / porque el JWT sigue vivo).
     await page.goto('/pedidos');
-    await expect(page).toHaveURL(/\/pedido/);
+    await expect(page).toHaveURL(/\/login\?.*error=branch_removed/, {
+      timeout: 30000,
+    });
+    await expect(page.getByTestId('login-error')).toContainText(
+      'Tu sucursal fue eliminada'
+    );
 
-    // La gestión de usuarios (server action con `requireAdmin`) tampoco es
-    // accesible: la sesión huérfana queda expulsada antes de cualquier
-    // escritura, no solo en las rutas que resuelven branchId.
-    await page.goto('/usuarios');
-    await expect(page).toHaveURL(/\/pedido/);
+    // La sesión quedó realmente cerrada: la API ya responde 401.
+    const trasLogout = await page.request.get('/api/caja/resumen');
+    expect(trasLogout.status()).toBe(401);
+  });
+
+  test('una sesión con sucursal viva en /sesion-finalizada vuelve al panel sin cerrarse', async ({
+    page,
+  }) => {
+    // Guarda de la página intermedia: solo cierra sesión si la sucursal
+    // realmente desapareció. Un usuario válido que llegue por accidente
+    // vuelve a / conservando su sesión.
+    await login(page);
+
+    await page.goto('/sesion-finalizada');
+    await expect(page).toHaveURL('/');
+
+    const resumen = await page.request.get('/api/caja/resumen');
+    expect(resumen.status()).toBe(200);
   });
 
   test('admin con cookie de sucursal eliminada cae al fallback de su propia sucursal', async ({

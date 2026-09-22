@@ -99,8 +99,14 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
       }
 
       if (error instanceof ForbiddenError) {
+        // `BranchRemovedError` lleva `code` para que el cliente distinga
+        // el cierre de sesión obligatorio de un 403 de permisos común.
+        const code =
+          'code' in error && typeof error.code === 'string'
+            ? error.code
+            : undefined;
         const response = NextResponse.json(
-          { error: error.message },
+          { error: error.message, ...(code ? { code } : {}) },
           { status: 403 }
         );
         logApiWarning(label, { ...context, durationMs, status: 403 });

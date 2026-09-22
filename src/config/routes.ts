@@ -1,6 +1,7 @@
 export const routes = {
   home: '/',
   login: '/login',
+  sesionFinalizada: '/sesion-finalizada',
   ventas: '/ventas',
   ventasHistorial: '/ventas/historial',
   ventasHistorialEliminadas: '/ventas/historial/eliminadas',

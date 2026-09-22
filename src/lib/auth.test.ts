@@ -8,7 +8,11 @@ import {
   getCurrentBranchIdOrRedirect,
   requireAdmin,
 } from './auth';
-import { UnauthorizedError, ForbiddenError } from '@/domain/errors';
+import {
+  UnauthorizedError,
+  ForbiddenError,
+  BranchRemovedError,
+} from '@/domain/errors';
 
 jest.mock('@/auth', () => ({
   auth: jest.fn(),
@@ -74,16 +78,18 @@ describe('requireAuth', () => {
     await expect(requireAuth()).rejects.toThrow(ForbiddenError);
   });
 
-  test('lanza ForbiddenError cuando la sucursal de la sesión fue eliminada', async () => {
+  test('lanza BranchRemovedError cuando la sucursal de la sesión fue eliminada', async () => {
     mockedAuth.mockResolvedValue({
       user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
     } as any);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
-    await expect(requireAuth()).rejects.toThrow(ForbiddenError);
-    await expect(requireAuth()).rejects.toThrow(
-      'La sucursal asignada ya no existe.'
-    );
+    const error = await requireAuth().catch((e) => e);
+    expect(error).toBeInstanceOf(BranchRemovedError);
+    // Hereda de ForbiddenError: las rutas lo mapean a 403 como antes.
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect(error.code).toBe('BRANCH_REMOVED');
+    expect(error.message).toBe('La sucursal asignada ya no existe.');
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
   });
 });
@@ -153,20 +159,19 @@ describe('getCurrentBranchId', () => {
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(99);
   });
 
-  test('lanza ForbiddenError cuando la sucursal resuelta fue eliminada', async () => {
+  test('lanza BranchRemovedError cuando la sucursal resuelta fue eliminada', async () => {
     const session = {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
-    await expect(getCurrentBranchId()).rejects.toThrow(ForbiddenError);
-    await expect(getCurrentBranchId()).rejects.toThrow(
-      'La sucursal asignada ya no existe.'
-    );
+    const error = await getCurrentBranchId().catch((e) => e);
+    expect(error).toBeInstanceOf(BranchRemovedError);
+    expect(error.code).toBe('BRANCH_REMOVED');
   });
 
-  test('admin con cookie huérfana y sucursal propia eliminada recibe ForbiddenError', async () => {
+  test('admin con cookie huérfana y sucursal propia eliminada recibe BranchRemovedError', async () => {
     const session = {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any;
@@ -174,7 +179,7 @@ describe('getCurrentBranchId', () => {
     mockCookie('99');
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
-    await expect(getCurrentBranchId()).rejects.toThrow(ForbiddenError);
+    await expect(getCurrentBranchId()).rejects.toThrow(BranchRemovedError);
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(99);
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
   });
@@ -253,13 +258,13 @@ describe('requireAdmin', () => {
     );
   });
 
-  test('lanza ForbiddenError cuando la sucursal del admin fue eliminada', async () => {
+  test('lanza BranchRemovedError cuando la sucursal del admin fue eliminada', async () => {
     mockedAuth.mockResolvedValue({
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
-    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+    await expect(requireAdmin()).rejects.toThrow(BranchRemovedError);
     await expect(requireAdmin()).rejects.toThrow(
       'La sucursal asignada ya no existe.'
     );
@@ -290,18 +295,18 @@ describe('getCurrentBranchIdOrRedirect', () => {
     expect(mockedRedirect).not.toHaveBeenCalled();
   });
 
-  test('redirige a /pedido cuando la sucursal de la sesión fue eliminada', async () => {
+  test('redirige a /sesion-finalizada cuando la sucursal de la sesión fue eliminada', async () => {
     const session = {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
-    mockRedirectThrow('/pedido');
+    mockRedirectThrow('/sesion-finalizada');
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
     await expect(getCurrentBranchIdOrRedirect(session)).rejects.toThrow(
-      'NEXT_REDIRECT /pedido'
+      'NEXT_REDIRECT /sesion-finalizada'
     );
 
-    expect(mockedRedirect).toHaveBeenCalledWith('/pedido');
+    expect(mockedRedirect).toHaveBeenCalledWith('/sesion-finalizada');
   });
 
   test('redirige a /sucursales cuando un admin no tiene sucursal', async () => {
