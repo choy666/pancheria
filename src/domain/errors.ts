@@ -19,6 +19,13 @@ export class ValidationError extends DomainError {
   }
 }
 
+export class ConflictError extends DomainError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConflictError';
+  }
+}
+
 export class InsufficientStockError extends DomainError {
   /**
    * Nombre del producto afectado. Se expone para que las rutas públicas

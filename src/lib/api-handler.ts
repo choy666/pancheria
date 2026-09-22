@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import {
+  ConflictError,
   DomainError,
   ForbiddenError,
   InsufficientStockError,
@@ -127,6 +128,15 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
       }
 
       if (error instanceof InsufficientStockError) {
+        const response = NextResponse.json(
+          { error: error.message },
+          { status: 409 }
+        );
+        logApiWarning(label, { ...context, durationMs, status: 409 });
+        return response;
+      }
+
+      if (error instanceof ConflictError) {
         const response = NextResponse.json(
           { error: error.message },
           { status: 409 }

@@ -18,7 +18,12 @@ import {
   getExpireOrdersTimeBudgetMs,
 } from '@/config/orders';
 import { logger } from '@/lib/logger';
-import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
+import {
+  ConflictError,
+  DomainError,
+  NotFoundError,
+  ValidationError,
+} from '@/domain/errors';
 import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
 import type {
   OrderWithItems,
@@ -202,7 +207,7 @@ function buildReservationsForItems(
 
 export async function createOrder(
   input: CreateOrderInput
-): Promise<OrderWithItems> {
+): Promise<OrderWithItems & { deduplicated?: boolean }> {
   const { branchId, items, customerName, customerPhone, deliveryType, address, notes, idempotencyKey } = input;
 
   const branch = await branchService.getBranchById(branchId);
@@ -222,7 +227,9 @@ export async function createOrder(
 
   const existing = await getOrderByIdempotencyKey(branchId, branchIdempotencyKey);
   if (existing) {
-    return existing;
+    // Dedup: el cliente reintentó con la misma clave — se devuelve el
+    // pedido original marcado para que la interfaz avise que no es nuevo.
+    return { ...existing, deduplicated: true };
   }
 
   return executeInTransaction(async (tx) => {
@@ -263,7 +270,9 @@ export async function createOrder(
       if (!existing) {
         throw new NotFoundError('Pedido', order.id);
       }
-      return existing;
+      // Carrera de inserts con la misma clave: ganó otra request — la
+      // respuesta deduplica al pedido ya persistido.
+      return { ...existing, deduplicated: true };
     }
 
     const orderItemsToInsert = buildOrderItemValues(orderItemValues, order.id);
@@ -391,7 +400,7 @@ export async function cancelOrder(
 
 export async function convertOrderToSale(
   input: ConvertOrderInput
-): Promise<SaleRow> {
+): Promise<SaleRow & { deduplicated?: boolean }> {
   const { branchId, orderId, payments, idempotencyKey } = input;
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
@@ -415,6 +424,20 @@ export async function convertOrderToSale(
     throw new NotFoundError('Pedido', orderId);
   }
 
+  // Dedup antes de los checks de estado: si la clave ya tiene una venta,
+  // la request es un reintento y se devuelve la venta registrada — aunque
+  // el pedido ya figure `paid`/`finished` o los pagos del reintento no
+  // validen contra el total. El check se repite dentro de la transacción
+  // para la carrera de dos requests simultáneas con la misma clave.
+  const preExistingSale = await idempotencyService.findExistingByIdempotencyKey(
+    'sale',
+    branchId,
+    branchIdempotencyKey
+  );
+  if (preExistingSale) {
+    return { ...preExistingSale, deduplicated: true };
+  }
+
   if (order.status === 'paid' || order.status === 'finished') {
     throw new ValidationError('El pedido ya fue pagado o finalizado.');
   }
@@ -428,112 +451,135 @@ export async function convertOrderToSale(
     throw new ValidationError(paymentValidation.error ?? 'Pago inválido.');
   }
 
-  return executeInTransaction(async (tx) => {
-    const existingSale = await idempotencyService.findExistingByIdempotencyKey(
-      'sale',
-      branchId,
-      branchIdempotencyKey,
-      tx
-    );
-    if (existingSale) {
-      return existingSale;
-    }
+  try {
+    return await executeInTransaction(async (tx) => {
+      const existingSale = await idempotencyService.findExistingByIdempotencyKey(
+        'sale',
+        branchId,
+        branchIdempotencyKey,
+        tx
+      );
+      if (existingSale) {
+        // Dedup: la venta ya existía — se devuelve marcada para que la
+        // interfaz avise que los datos reintentados (p. ej. pagos
+        // editados) no se aplicaron.
+        return { ...existingSale, deduplicated: true };
+      }
 
-    const lockedOrder = await orderRepository.findByIdForUpdate(
-      tx,
-      branchId,
-      orderId
-    );
-
-    if (!lockedOrder) {
-      throw new NotFoundError('Pedido', orderId);
-    }
-
-    if (
-      lockedOrder.status === 'paid' ||
-      lockedOrder.status === 'finished' ||
-      lockedOrder.status === 'cancelled'
-    ) {
-      throw new ValidationError('El pedido ya no puede confirmarse como venta.');
-    }
-
-    const productIds = order.items.map((item) => item.productId);
-    const { productById, recipesByProduct } = await buildProductContext(
-      branchId,
-      productIds,
-      { dbOrTx: tx }
-    );
-
-    if (lockedOrder.status === 'in_process') {
-      const reservationsToRelease =
-        await orderStockReservationRepository.findByOrderId(tx, orderId);
-      await orderStockReservationRepository.deleteByOrderId(tx, orderId);
-      await insertStockReserveMovements(
+      const lockedOrder = await orderRepository.findByIdForUpdate(
         tx,
         branchId,
-        orderId,
-        reservationsToRelease,
-        'reserve_release'
+        orderId
       );
-    }
 
-    const productIdsToLock = collectStockProductIdsToLock(
-      order.items,
-      productById,
-      recipesByProduct
-    );
+      if (!lockedOrder) {
+        throw new NotFoundError('Pedido', orderId);
+      }
 
-    if (productIdsToLock.length > 0) {
-      await productRepository.lockForUpdate(tx, productIdsToLock, branchId);
-    }
+      if (
+        lockedOrder.status === 'paid' ||
+        lockedOrder.status === 'finished' ||
+        lockedOrder.status === 'cancelled'
+      ) {
+        throw new ValidationError('El pedido ya no puede confirmarse como venta.');
+      }
 
-    const itemsForValidation = toSaleItemInputWithSelection(order.items);
-    const buildItems = order.items.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      subtotal: item.subtotal,
-      recipeSnapshot: item.recipeSnapshot,
-    }));
+      // Misma frontera que `receiveOrder`: un `pending` vencido y aún no
+      // barrido no puede convertirse en venta. La detección ocurre bajo el
+      // lock; la cancelación efectiva la hace el `catch` externo en una
+      // transacción propia (un throw adentro haría rollback de todo).
+      if (isExpiredPending(lockedOrder)) {
+        throw new ExpiredPendingOrderError(
+          'El pedido expiró por inactividad y fue cancelado.'
+        );
+      }
 
-    const {
-      productById: saleProductById,
-      recipesByProduct: saleRecipesByProduct,
-      saleItemValues,
-      total: saleTotal,
-    } = await prepareCart({
-      branchId,
-      items: itemsForValidation,
-      operation: 'venta',
-      dbOrTx: tx,
-      options: { shouldLock: false, buildItems, excludeOrderId: orderId },
-    });
-
-    const paymentTotalValidation = validatePaymentParts(payments, saleTotal);
-    if (!paymentTotalValidation.valid) {
-      throw new ValidationError(
-        paymentTotalValidation.error ?? 'Pago inválido.'
+      const productIds = order.items.map((item) => item.productId);
+      const { productById, recipesByProduct } = await buildProductContext(
+        branchId,
+        productIds,
+        { dbOrTx: tx }
       );
-    }
 
-    const sale = await insertSaleAndUpdateCashRegister(
-      tx,
-      branchId,
-      cashRegister,
-      branchIdempotencyKey,
-      payments,
-      saleItemValues,
-      saleProductById,
-      saleRecipesByProduct
-    );
+      if (lockedOrder.status === 'in_process') {
+        const reservationsToRelease =
+          await orderStockReservationRepository.findByOrderId(tx, orderId);
+        await orderStockReservationRepository.deleteByOrderId(tx, orderId);
+        await insertStockReserveMovements(
+          tx,
+          branchId,
+          orderId,
+          reservationsToRelease,
+          'reserve_release'
+        );
+      }
 
-    await orderRepository.updateStatus(tx, branchId, orderId, {
-      status: 'paid',
-      convertedSaleId: sale.id,
+      const productIdsToLock = collectStockProductIdsToLock(
+        order.items,
+        productById,
+        recipesByProduct
+      );
+
+      if (productIdsToLock.length > 0) {
+        await productRepository.lockForUpdate(tx, productIdsToLock, branchId);
+      }
+
+      const itemsForValidation = toSaleItemInputWithSelection(order.items);
+      const buildItems = order.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        recipeSnapshot: item.recipeSnapshot,
+      }));
+
+      const {
+        productById: saleProductById,
+        recipesByProduct: saleRecipesByProduct,
+        saleItemValues,
+        total: saleTotal,
+      } = await prepareCart({
+        branchId,
+        items: itemsForValidation,
+        operation: 'venta',
+        dbOrTx: tx,
+        options: { shouldLock: false, buildItems, excludeOrderId: orderId },
+      });
+
+      const paymentTotalValidation = validatePaymentParts(payments, saleTotal);
+      if (!paymentTotalValidation.valid) {
+        throw new ValidationError(
+          paymentTotalValidation.error ?? 'Pago inválido.'
+        );
+      }
+
+      const sale = await insertSaleAndUpdateCashRegister(
+        tx,
+        branchId,
+        cashRegister,
+        branchIdempotencyKey,
+        payments,
+        saleItemValues,
+        saleProductById,
+        saleRecipesByProduct
+      );
+
+      await orderRepository.updateStatus(tx, branchId, orderId, {
+        status: 'paid',
+        convertedSaleId: sale.id,
+      });
+
+      return sale;
     });
-
-    return sale;
-  });
+  } catch (error) {
+    // El throw dentro de la transacción ya hizo rollback; la cancelación
+    // se confirma acá, con su propio lock, antes de propagar el 409.
+    if (error instanceof ExpiredPendingOrderError) {
+      await cancelExpiredOrder(branchId, orderId, EXPIRED_ORDER_REASON);
+      throw new ConflictError(error.message);
+    }
+    throw error;
+  }
 }
 
 export async function receiveOrder(
@@ -557,88 +603,108 @@ export async function receiveOrder(
     );
   }
 
-  return executeInTransaction(async (tx) => {
-    const locked = await orderRepository.findByIdForUpdate(tx, branchId, orderId);
+  try {
+    return await executeInTransaction(async (tx) => {
+      const locked = await orderRepository.findByIdForUpdate(tx, branchId, orderId);
 
-    if (!locked) {
-      throw new NotFoundError('Pedido', orderId);
-    }
+      if (!locked) {
+        throw new NotFoundError('Pedido', orderId);
+      }
 
-    if (locked.status === 'in_process') {
-      return { ...locked, branch: order.branch, items: order.items } as OrderWithItems;
-    }
+      if (locked.status === 'in_process') {
+        return { ...locked, branch: order.branch, items: order.items } as OrderWithItems;
+      }
 
-    if (locked.status !== 'pending') {
-      throw new ValidationError(
-        'El pedido no puede recibirse porque ya fue pagado, finalizado o cancelado.'
-      );
-    }
+      if (locked.status !== 'pending') {
+        throw new ValidationError(
+          'El pedido no puede recibirse porque ya fue pagado, finalizado o cancelado.'
+        );
+      }
 
-    const productIds = order.items.map((item) => item.productId);
-    const { productById, recipesByProduct } = await buildProductContext(
-      branchId,
-      productIds,
-      { dbOrTx: tx }
-    );
+      // El barrido de expiración es lazy y el cron puede demorar horas: un
+      // `pending` vencido que todavía no fue barrido no debe poder
+      // recibirse. La detección ocurre bajo el lock de la fila; la
+      // cancelación efectiva la confirma el `catch` externo.
+      if (isExpiredPending(locked)) {
+        throw new ExpiredPendingOrderError(
+          'El pedido expiró por inactividad y fue cancelado.'
+        );
+      }
 
-    validateProductsForOperation(order.items, productById, branchId, 'pedido');
-
-    const orderItemsWithSnapshot = ensureOrderRecipeSnapshots(
-      order.items,
-      recipesByProduct
-    );
-
-    const productIdsToLock = collectStockProductIdsToLock(
-      orderItemsWithSnapshot,
-      productById,
-      recipesByProduct
-    );
-
-    if (productIdsToLock.length > 0) {
-      await productRepository.lockForUpdate(tx, productIdsToLock);
-    }
-
-    const itemsForValidation = toSaleItemInputWithSelection(
-      orderItemsWithSnapshot
-    );
-
-    const { shortageByProduct } = await validateCartAvailability(
-      branchId,
-      itemsForValidation,
-      undefined,
-      tx,
-      orderId
-    );
-
-    assertNoStockShortage(shortageByProduct, productById);
-
-    const existingReservations =
-      await orderStockReservationRepository.findByOrderId(tx, orderId);
-
-    if (existingReservations.length === 0) {
-      const reservations = buildReservationsForItems(
+      const productIds = order.items.map((item) => item.productId);
+      const { productById, recipesByProduct } = await buildProductContext(
         branchId,
-        orderId,
+        productIds,
+        { dbOrTx: tx }
+      );
+
+      validateProductsForOperation(order.items, productById, branchId, 'pedido');
+
+      const orderItemsWithSnapshot = ensureOrderRecipeSnapshots(
+        order.items,
+        recipesByProduct
+      );
+
+      const productIdsToLock = collectStockProductIdsToLock(
         orderItemsWithSnapshot,
         productById,
         recipesByProduct
       );
-      await orderStockReservationRepository.insertReservations(tx, reservations);
-      await insertStockReserveMovements(
-        tx,
-        branchId,
-        orderId,
-        reservations,
-        'reserve'
+
+      if (productIdsToLock.length > 0) {
+        await productRepository.lockForUpdate(tx, productIdsToLock);
+      }
+
+      const itemsForValidation = toSaleItemInputWithSelection(
+        orderItemsWithSnapshot
       );
-    }
 
-    const updated = await orderRepository.updateStatus(tx, branchId, orderId, {
-      status: 'in_process',
+      const { shortageByProduct } = await validateCartAvailability(
+        branchId,
+        itemsForValidation,
+        undefined,
+        tx,
+        orderId
+      );
+
+      assertNoStockShortage(shortageByProduct, productById);
+
+      const existingReservations =
+        await orderStockReservationRepository.findByOrderId(tx, orderId);
+
+      if (existingReservations.length === 0) {
+        const reservations = buildReservationsForItems(
+          branchId,
+          orderId,
+          orderItemsWithSnapshot,
+          productById,
+          recipesByProduct
+        );
+        await orderStockReservationRepository.insertReservations(tx, reservations);
+        await insertStockReserveMovements(
+          tx,
+          branchId,
+          orderId,
+          reservations,
+          'reserve'
+        );
+      }
+
+      const updated = await orderRepository.updateStatus(tx, branchId, orderId, {
+        status: 'in_process',
+      });
+
+      return { ...updated, branch: order.branch, items: orderItemsWithSnapshot } as OrderWithItems;
     });
-
-    return { ...updated, branch: order.branch, items: orderItemsWithSnapshot } as OrderWithItems;
-  });
+  } catch (error) {
+    // El throw dentro de la transacción ya hizo rollback; la cancelación
+    // se confirma acá, con su propio lock, antes de propagar el 409.
+    if (error instanceof ExpiredPendingOrderError) {
+      await cancelExpiredOrder(branchId, orderId, EXPIRED_ORDER_REASON);
+      throw new ConflictError(error.message);
+    }
+    throw error;
+  }
 }
 
 export async function finishOrder(
@@ -907,6 +973,27 @@ async function cancelExpiredOrder(
     return true;
   });
 }
+
+/**
+ * `true` si el pedido sigue en `pending` pero ya superó la ventana
+ * `ORDER_EXPIRATION_MS`. Solo aplica a `pending`: un pedido `in_process`
+ * ya fue aceptado por el operador y no vence.
+ */
+function isExpiredPending(order: { status: OrderStatus; createdAt: Date }): boolean {
+  return (
+    order.status === 'pending' &&
+    order.createdAt.getTime() < Date.now() - getOrderExpirationMs()
+  );
+}
+
+/**
+ * Sentinela interna de `receiveOrder`/`convertOrderToSale`: se lanza
+ * dentro de la transacción cuando el lock muestra un `pending` vencido.
+ * El throw revierte la transacción completa —por eso la cancelación no
+ * puede hacerse adentro— y el `catch` de cada función la confirma con
+ * `cancelExpiredOrder` en una transacción propia antes de devolver 409.
+ */
+class ExpiredPendingOrderError extends ConflictError {}
 
 export interface TrackOrderResult {
   id: number;
