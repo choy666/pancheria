@@ -7,6 +7,7 @@ import { UnauthorizedError, ForbiddenError } from '@/domain/errors';
 import type { Session } from 'next-auth';
 
 const NO_BRANCH_ERROR_QUERY = 'no_branch';
+const BRANCH_REMOVED_ERROR = 'La sucursal asignada ya no existe.';
 
 export const ACTIVE_BRANCH_COOKIE = 'activeBranchId';
 
@@ -19,6 +20,17 @@ export async function requireAuth(): Promise<Session> {
 
   if (!session.user.branchId) {
     throw new ForbiddenError('El usuario no tiene una sucursal asignada.');
+  }
+
+  // El JWT no se revalida contra la base en cada request: si la sucursal
+  // fue eliminada (borrado físico en cascada), el usuario quedaría
+  // autenticado con un branchId huérfano y las escrituras llegarían a la
+  // FK. Rechazar acá cubre todas las rutas y server actions autenticadas.
+  const ownBranch = await branchService.getBranchById(
+    Number(session.user.branchId)
+  );
+  if (!ownBranch) {
+    throw new ForbiddenError(BRANCH_REMOVED_ERROR);
   }
 
   return session;
@@ -52,7 +64,16 @@ export async function getCurrentBranchId(
     }
   }
 
-  return Number(s.user.branchId);
+  // Se valida el branchId ya resuelto (después del fallback del admin):
+  // la cookie huérfana ya cayó a la sucursal de sesión, que puede estar
+  // igualmente eliminada.
+  const resolved = Number(s.user.branchId);
+  const branch = await branchService.getBranchById(resolved);
+  if (!branch) {
+    throw new ForbiddenError(BRANCH_REMOVED_ERROR);
+  }
+
+  return resolved;
 }
 
 export async function getCurrentBranchIdOrRedirect(
@@ -87,7 +108,16 @@ export async function getCurrentBranchIdOrRedirect(
     }
   }
 
-  return Number(s.user.branchId);
+  const resolved = Number(s.user.branchId);
+  const branch = await branchService.getBranchById(resolved);
+  if (!branch) {
+    // Sesión viva con sucursal eliminada: no redirigir a login porque el
+    // middleware vería la sesión válida y produciría un loop
+    // login → panel → login. El catálogo público no requiere sucursal.
+    redirect(routes.pedido);
+  }
+
+  return resolved;
 }
 
 export async function requireAdmin(): Promise<Session> {

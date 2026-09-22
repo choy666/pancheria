@@ -76,6 +76,7 @@ describe('withAuth', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockCookie('2');
+    mockedGetBranchById.mockResolvedValue({ id: 3, name: 'Sucursal 3' });
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));
     const wrapped = withAuth(handler);
@@ -86,7 +87,8 @@ describe('withAuth', () => {
 
     expect(response.status).toBe(200);
     expect(mockedCookies).not.toHaveBeenCalled();
-    expect(mockedGetBranchById).not.toHaveBeenCalled();
+    // La sucursal de sesión sí se consulta para validar que existe (E4).
+    expect(mockedGetBranchById).toHaveBeenCalledWith(3);
     expect(handler).toHaveBeenCalledWith(request, context, {
       session,
       branchId: 3,
@@ -99,6 +101,7 @@ describe('withAuth', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockCookie('abc');
+    mockedGetBranchById.mockResolvedValue({ id: 1, name: 'Sucursal 1' });
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));
     const wrapped = withAuth(handler);
@@ -107,7 +110,9 @@ describe('withAuth', () => {
 
     await wrapped(request, context);
 
-    expect(mockedGetBranchById).not.toHaveBeenCalled();
+    // Solo se consulta la sucursal de sesión (la cookie inválida se ignora).
+    expect(mockedGetBranchById).toHaveBeenCalledWith(1);
+    expect(mockedGetBranchById).not.toHaveBeenCalledWith(99);
     expect(handler).toHaveBeenCalledWith(request, context, {
       session,
       branchId: 1,
@@ -120,7 +125,9 @@ describe('withAuth', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockCookie('99');
-    mockedGetBranchById.mockResolvedValue(undefined);
+    mockedGetBranchById.mockImplementation((id: number) =>
+      Promise.resolve(id === 99 ? undefined : { id, name: `Sucursal ${id}` })
+    );
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));
     const wrapped = withAuth(handler);
@@ -141,6 +148,7 @@ describe('withAuth', () => {
       user: { id: '2', name: 'operator', branchId: 3, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockedGetBranchById.mockResolvedValue({ id: 3, name: 'Sucursal 3' });
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));
     const wrapped = withAuth(handler, { admin: true });
@@ -168,6 +176,7 @@ describe('withAuth', () => {
       user: { id: '2', name: 'operator', branchId: 5, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockedGetBranchById.mockResolvedValue({ id: 5, name: 'Sucursal 5' });
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));
     const wrapped = withAuth(handler);
