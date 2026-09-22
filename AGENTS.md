@@ -43,6 +43,10 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 >
 > En E2E el caché de servidor debe estar deshabilitado con `DATA_CACHE_REVALIDATE_S=0` (ya viene en `.env.e2e.example` y en el job de CI): los helpers de `tests/e2e/helpers.ts` mutan `branches` y `cash_registers` escribiendo directo en la base, por detrás de la app, así que ninguna ruta/action dispara la invalidación por tag y la capa serviría datos viejos.
 >
+> Los specs E2E comparten la misma base durante la corrida: cualquier inserción bulk (p. ej. para forzar paginación) debe limpiarse en `finally` — datos residuales desplazan filas en `/productos` y rompen specs posteriores por timeouts o selectores (lección de `auditoria-qa-2026-09-21.md` §11). Para llenar inputs controlados apenas se monta la página, usar `waitForHydratedInput(page, selector)` de `tests/e2e/helpers.ts`: un `fill()` previo a la hidratación se pierde en el primer re-render (se manifiesta en WebKit y dispositivos lentos).
+>
+> Existe un proyecto Playwright `webkit` opt-in para smoke tests cross-browser (no corre en la suite normal): `E2E_WEBKIT=1 npx playwright test <spec> --project=webkit` (requiere `npx playwright install webkit` la primera vez).
+>
 > Antes de subir cambios a Git, consultar `.devin/informes/checklist-pre-push.md` para evitar errores comunes de CI (lint, tipos, build, knip, variables de E2E, rate limit, etc.).
 >
 > **Migraciones:** todo cambio en `src/db/schema.ts` debe acompañarse de la migración generada con `npx drizzle-kit generate` y commiteada en `drizzle/`. Las bases de desarrollo y E2E tienen inicializado `drizzle.__drizzle_migrations`, por lo que `npx drizzle-kit migrate` es el flujo recomendado para aplicar cambios. `drizzle-kit push` desincroniza la base del historial commiteado y requiere TTY ante confirmaciones; si se usa, correr después `npx tsx scripts/drizzle-baseline.ts` para registrar la migración como aplicada.

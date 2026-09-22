@@ -56,6 +56,16 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Proyecto WebKit opt-in para auditorías: no corre en la suite normal.
+    // Uso: E2E_WEBKIT=1 npx playwright test <spec> --project=webkit
+    ...(process.env.E2E_WEBKIT === '1'
+      ? [
+          {
+            name: 'webkit',
+            use: { ...devices['Desktop Safari'] },
+          },
+        ]
+      : []),
   ],
   // El webServer levanta el dev server con .env.e2e. El health check apunta a
   // /api/caja/resumen para forzar la compilación de una ruta API bajo Turbopack

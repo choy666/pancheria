@@ -63,6 +63,27 @@ test.describe('Accesibilidad (axe-core)', () => {
     }
   });
 
+  test('páginas públicas cumplen WCAG 2.2 AA', async ({ page }) => {
+    // WCAG 2.2 agrega reglas sobre 2.1 (tamaño de objetivo, foco no
+    // oscurecido, arrastre, autenticación accesible). Se auditan las
+    // páginas públicas, que son las de mayor exposición.
+    const publicPaths = ['/login', '/pedido?branchId=1', '/pedido/seguimiento'];
+
+    for (const path of publicPaths) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag22aa'])
+        .analyze();
+
+      expect(
+        results.violations,
+        `Violaciones de accesibilidad WCAG 2.2 en ${path}: ${JSON.stringify(results.violations, null, 2)}`
+      ).toEqual([]);
+    }
+  });
+
   test('la página de chat del pedido cumple WCAG 2.1 AA', async ({ page }) => {
     await login(page);
     await ensureCashRegisterOpen(page);

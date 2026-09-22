@@ -129,6 +129,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría de escalabilidad](auditoria-escalabilidad.md) — guía para auditar la escalabilidad a futuro del sistema: base de datos, API y estado en memoria, polling vs SSE/WS, caching, multi-tenancy, storage, observabilidad, CI/CD y costos.
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
+- [Auditoría QA integral con ejecución de tests](auditoria-qa-integral.md) — flujo por etapas (plan → aprobación → ejecución → informe) para auditar flujos críticos, concurrencia, seguridad/aislamiento y UX/accesibilidad con evidencia y capturas.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
 
 ### Prompts archivados

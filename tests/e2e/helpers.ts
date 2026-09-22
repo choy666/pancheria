@@ -1,9 +1,17 @@
 import { expect, type Page } from '@playwright/test';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../src/db';
-import { branches, cashRegisters, orders, users } from '../../src/db/schema';
+import {
+  branches,
+  cashRegisters,
+  orders,
+  orderStockReservations,
+  products,
+  stockMovements,
+  users,
+} from '../../src/db/schema';
 import { copyCatalogToBranch } from '../../src/db/catalog-copy';
 import { getOrderExpirationMs } from '../../src/config/orders';
 import type { BranchOpeningHours } from '../../src/domain/types';
@@ -46,6 +54,34 @@ export async function setUniqueClientIp(page: Page): Promise<string> {
 
 const LOGIN_NAVIGATION_TIMEOUT = 60_000;
 const LOGIN_REDIRECT_TIMEOUT = 30_000;
+
+/**
+ * Espera a que React haya hidratado un elemento concreto (es decir, que el
+ * DOM ya tenga las props/handlers de React adjuntos).
+ *
+ * Motivo: un `fill()` ejecutado sobre un input controlado antes de que la
+ * hidratación enganche el `onChange` deja el valor en el DOM pero no en el
+ * estado de React; la primera re-render posterior (por ejemplo la que
+ * dispara `useSyncExternalStore` al leer localStorage) lo pisa y lo vacía.
+ * En Chromium la ventana de carrera es imperceptible, pero en WebKit —o en
+ * dispositivos lentos— alcanza para perder lo tipeado.
+ */
+export async function waitForHydratedInput(
+  page: Page,
+  selector: string
+): Promise<void> {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      return (
+        el !== null &&
+        Object.keys(el).some((key) => key.startsWith('__reactProps'))
+      );
+    },
+    selector,
+    { timeout: 30_000 }
+  );
+}
 
 /**
  * Limpia la sesión del contexto de Playwright de forma robusta.
@@ -532,6 +568,86 @@ export async function setOrderCreatedAt(
   await db.update(orders).set({ createdAt }).where(eq(orders.id, orderId));
 }
 
+type StockMovementType =
+  | 'sale'
+  | 'cancellation'
+  | 'manual_adjustment'
+  | 'restock'
+  | 'reserve'
+  | 'reserve_release';
+
+/**
+ * Cuenta movimientos de stock por producto y tipo (y opcionalmente pedido).
+ * Sirve para chequear invariantes tras tests de concurrencia: cada unidad
+ * vendida, reservada o liberada debe dejar exactamente un movimiento —
+ * ni duplicados ni faltantes.
+ */
+export async function countStockMovements(filter: {
+  productId: number;
+  type: StockMovementType;
+  orderId?: number;
+}): Promise<number> {
+  const conditions = [
+    eq(stockMovements.productId, filter.productId),
+    eq(stockMovements.type, filter.type),
+  ];
+  if (filter.orderId !== undefined) {
+    conditions.push(eq(stockMovements.orderId, filter.orderId));
+  }
+  const rows = await db
+    .select({ id: stockMovements.id })
+    .from(stockMovements)
+    .where(and(...conditions));
+  return rows.length;
+}
+
+/**
+ * Inserta una reserva de stock "legada" directo en la base: un pedido
+ * `pending` no reserva stock en el flujo actual, pero la cancelación por
+ * expiración libera reservas si quedaron (datos heredados). Sirve para
+ * verificar que la liberación ocurre exactamente una vez.
+ */
+export async function insertOrderReservation(input: {
+  branchId: number;
+  orderId: number;
+  productId: number;
+  quantity: number;
+}): Promise<void> {
+  await db.insert(orderStockReservations).values({
+    branchId: input.branchId,
+    orderId: input.orderId,
+    productId: input.productId,
+    quantity: input.quantity,
+  });
+}
+
+/**
+ * Cuenta las reservas de stock activas de un pedido. Tras una cancelación
+ * o conversión a venta deben quedar en 0 (sin reservas huérfanas).
+ */
+export async function countOrderReservations(
+  orderId: number
+): Promise<number> {
+  const rows = await db
+    .select({ id: orderStockReservations.id })
+    .from(orderStockReservations)
+    .where(eq(orderStockReservations.orderId, orderId));
+  return rows.length;
+}
+
+/**
+ * Lee el stock físico almacenado de un producto, sin pasar por la API.
+ * El invariante de dominio es que nunca quede negativo tras concurrencia.
+ */
+export async function getProductStockFromDb(
+  productId: number
+): Promise<number> {
+  const row = await db.query.products.findFirst({
+    where: eq(products.id, productId),
+  });
+  return row?.stock ?? 0;
+}
+
 /**
  * Retrocede el createdAt de un pedido para que quede vencido según
  * ORDER_EXPIRATION_MS. No ejecuta la lógica de negocio de expiración;
@@ -541,6 +657,37 @@ export async function expireOrderById(orderId: number): Promise<void> {
   const expirationMs = getOrderExpirationMs();
   const expiredCreatedAt = new Date(Date.now() - expirationMs - 1000);
   await setOrderCreatedAt(orderId, expiredCreatedAt);
+}
+
+/**
+ * Lee el estado persistido de un pedido sin pasar por la API. A
+ * diferencia de `GET /api/pedidos/{id}` no dispara el barrido lazy de
+ * expiración, así que sirve para distinguir lo que hizo la mutación
+ * bajo prueba de lo que haría una lectura posterior.
+ */
+export async function getOrderRowFromDb(
+  orderId: number
+): Promise<{ status: string; convertedSaleId: number | null } | undefined> {
+  const row = await db.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+    columns: { status: true, convertedSaleId: true },
+  });
+  return row;
+}
+
+/**
+ * Cuenta pedidos persistidos para un cliente. Sirve para chequear el
+ * invariante de idempotencia de checkout: un reintento no debe duplicar
+ * el pedido en la base.
+ */
+export async function countOrdersByCustomerName(
+  customerName: string
+): Promise<number> {
+  const rows = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.customerName, customerName));
+  return rows.length;
 }
 
 /**
