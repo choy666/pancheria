@@ -49,6 +49,7 @@ describe('requireAuth', () => {
       user: { name: 'admin', id: '1', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     const result = await requireAuth();
 
@@ -72,6 +73,19 @@ describe('requireAuth', () => {
 
     await expect(requireAuth()).rejects.toThrow(ForbiddenError);
   });
+
+  test('lanza ForbiddenError cuando la sucursal de la sesión fue eliminada', async () => {
+    mockedAuth.mockResolvedValue({
+      user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
+    } as any);
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    await expect(requireAuth()).rejects.toThrow(ForbiddenError);
+    await expect(requireAuth()).rejects.toThrow(
+      'La sucursal asignada ya no existe.'
+    );
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
+  });
 });
 
 describe('getCurrentBranchId', () => {
@@ -84,6 +98,7 @@ describe('getCurrentBranchId', () => {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any);
     mockCookie(undefined);
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 5 });
 
     const result = await getCurrentBranchId();
 
@@ -113,11 +128,13 @@ describe('getCurrentBranchId', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockCookie('abc');
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 5 });
 
     const result = await getCurrentBranchId();
 
     expect(result).toBe(5);
-    expect(mockedBranchService.getBranchById).not.toHaveBeenCalled();
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledTimes(1);
   });
 
   test('admin con cookie de sucursal inexistente usa la sucursal de la sesión', async () => {
@@ -126,12 +143,40 @@ describe('getCurrentBranchId', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockCookie('99');
-    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+    mockedBranchService.getBranchById.mockImplementation((id: number) =>
+      Promise.resolve(id === 99 ? undefined : { id })
+    );
 
     const result = await getCurrentBranchId();
 
     expect(result).toBe(5);
     expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(99);
+  });
+
+  test('lanza ForbiddenError cuando la sucursal resuelta fue eliminada', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    await expect(getCurrentBranchId()).rejects.toThrow(ForbiddenError);
+    await expect(getCurrentBranchId()).rejects.toThrow(
+      'La sucursal asignada ya no existe.'
+    );
+  });
+
+  test('admin con cookie huérfana y sucursal propia eliminada recibe ForbiddenError', async () => {
+    const session = {
+      user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockCookie('99');
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    await expect(getCurrentBranchId()).rejects.toThrow(ForbiddenError);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(99);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
   });
 
   test('operador ignora la cookie de sucursal activa', async () => {
@@ -140,6 +185,7 @@ describe('getCurrentBranchId', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockCookie('9');
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 3 });
 
     const result = await getCurrentBranchId();
 
@@ -188,6 +234,7 @@ describe('requireAdmin', () => {
       user: { name: 'admin', id: '1', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     const result = await requireAdmin();
 
@@ -198,8 +245,24 @@ describe('requireAdmin', () => {
     mockedAuth.mockResolvedValue({
       user: { name: 'operator', id: '1', branchId: 1, role: 'operator' },
     } as any);
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+    await expect(requireAdmin()).rejects.toThrow(
+      'Se requieren permisos de administrador.'
+    );
+  });
+
+  test('lanza ForbiddenError cuando la sucursal del admin fue eliminada', async () => {
+    mockedAuth.mockResolvedValue({
+      user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
+    } as any);
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+    await expect(requireAdmin()).rejects.toThrow(
+      'La sucursal asignada ya no existe.'
+    );
   });
 });
 
@@ -219,11 +282,26 @@ describe('getCurrentBranchIdOrRedirect', () => {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
     mockRedirectThrow('');
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 3 });
 
     const result = await getCurrentBranchIdOrRedirect(session);
 
     expect(result).toBe(3);
     expect(mockedRedirect).not.toHaveBeenCalled();
+  });
+
+  test('redirige a /pedido cuando la sucursal de la sesión fue eliminada', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
+    } as any;
+    mockRedirectThrow('/pedido');
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    await expect(getCurrentBranchIdOrRedirect(session)).rejects.toThrow(
+      'NEXT_REDIRECT /pedido'
+    );
+
+    expect(mockedRedirect).toHaveBeenCalledWith('/pedido');
   });
 
   test('redirige a /sucursales cuando un admin no tiene sucursal', async () => {
