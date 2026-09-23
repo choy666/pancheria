@@ -7,6 +7,9 @@ Todas las explicaciones, comentarios y documentación deben estar en español.
 - No hardcodear credenciales, URLs de APIs ni parámetros sensibles en el código.
 - Todos los valores sensibles deben provenir de variables de entorno o configuraciones dinámicas.
 
+## Monitoreo en background
+Cuando se deje un monitoreo en background (CI de GitHub Actions, deploys de Vercel, procesos largos), reproducir un sonido al finalizar para avisar al usuario — convención acordada: `powershell -c "(New-Object Media.SoundPlayer 'C:\Windows\Media\notify.wav').PlaySync()"` (×3). El monitoreo debe chequear `conclusion` por run ID (no solo `status`), porque la API puede reportar transitoriamente `completed` sin conclusión.
+
 ## Comandos principales
 
 | Propósito                | Comando                                           |
