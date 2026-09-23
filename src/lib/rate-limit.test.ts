@@ -7,6 +7,7 @@ import {
   createRateLimiter,
   createPollRateLimiter,
   getClientIp,
+  RateLimitConfigError,
 } from './rate-limit';
 
 jest.mock('@/lib/public-order-rate-limit-store', () => ({
@@ -59,12 +60,20 @@ describe('getClientIp', () => {
     expect(getClientIp(request)).toBe('21.22.23.24');
   });
 
-  test('rechaza X-Forwarded-For no confiable en producción', () => {
+  test('rechaza X-Forwarded-For no confiable en producción sin exponer la config', () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const request = createRequest({
       'x-forwarded-for': '21.22.23.24',
     });
-    expect(() => getClientIp(request)).toThrow(DomainError);
+    try {
+      getClientIp(request);
+      throw new Error('debió lanzar');
+    } catch (e) {
+      // RateLimitConfigError cae en el catch-all de withApiErrorHandling
+      // (500 genérico); el detalle de configuración queda solo en logs.
+      expect(e).toBeInstanceOf(RateLimitConfigError);
+      expect(e).not.toBeInstanceOf(DomainError);
+    }
   });
 
   test('retorna unknown cuando no hay fuentes fuera de producción', () => {
@@ -76,7 +85,7 @@ describe('getClientIp', () => {
   test('rechaza request sin IP confiable en producción', () => {
     Object.assign(process.env, { NODE_ENV: 'production' });
     const request = createRequest();
-    expect(() => getClientIp(request)).toThrow(DomainError);
+    expect(() => getClientIp(request)).toThrow(RateLimitConfigError);
   });
 
   test('permite X-Forwarded-For en producción con PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true', () => {
