@@ -47,7 +47,11 @@ Opciones, en orden de costo:
    paralelismo entre shards (cada shard usa su propia base). Se eligió
    `cancel-in-progress: false` porque interrumpir un run a mitad deja la
    base truncada a medias. Penaliza tiempo total de CI cuando hay varios
-   PRs abiertos.
+   PRs abiertos. En la misma rama se subió el `timeout-minutes` del step
+   E2E de 18 a 25 (y del job de 20 a 35): la suite ya ronda los ~19 min
+   en un solo shard sobre Neon remota — los runs de main pasaban por ~1
+   min de margen y el PR #6 cortó a los 18 dos veces seguidas sin
+   assertion failures.
 2. Base por run: crear una base Neon efímera por `github.run_id`
    (branch efímero de Neon) y destruirla al finalizar. Elimina el falso
    rojo por completo; requiere API key de Neon como secret y un step de
