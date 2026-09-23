@@ -23,11 +23,17 @@ interface LoginFormProps {
 
 const NO_BRANCH_MESSAGE =
   'El usuario no tiene una sucursal asignada. Contactá al administrador.';
+const BRANCH_REMOVED_MESSAGE =
+  'Tu sucursal fue eliminada. Tu sesión se cerró; contactá al administrador.';
+
+const QUERY_ERROR_MESSAGES: Record<string, string> = {
+  no_branch: NO_BRANCH_MESSAGE,
+  branch_removed: BRANCH_REMOVED_MESSAGE,
+};
 
 export function LoginForm({ errorQuery }: LoginFormProps = {}) {
   const [state, formAction, isPending] = useActionState(login, initialState);
-  const queryError =
-    errorQuery === 'no_branch' ? NO_BRANCH_MESSAGE : undefined;
+  const queryError = errorQuery ? QUERY_ERROR_MESSAGES[errorQuery] : undefined;
   const displayedError = state?.error ?? queryError;
 
   return (

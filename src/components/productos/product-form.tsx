@@ -1,6 +1,6 @@
 'use client';
 
-import { ApiError, authenticatedFetch } from '@/lib/fetch';
+import { ApiError, authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -109,24 +109,29 @@ export function ProductForm({ product }: ProductFormProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        const detail = data.details
-          ? data.details
-              .map(
-                (issue: {
-                  path: (string | number)[];
-                  message: string;
-                }) =>
-                  issue.path.length
-                    ? `${issue.path.join('.')}: ${issue.message}`
-                    : issue.message
-              )
-              .join('. ')
-          : data.error;
-        throw new ApiError(
-          detail || 'Error al guardar el producto',
-          response.status
-        );
+        // Se clona la response para poder leer el body acá y delegar
+        // después a throwApiError sin consumirlo dos veces.
+        const data = (await response
+          .clone()
+          .json()
+          .catch(() => null)) as {
+          code?: string;
+          details?: { path: (string | number)[]; message: string }[];
+        } | null;
+        const detail = data?.details
+          ?.map((issue) =>
+            issue.path.length
+              ? `${issue.path.join('.')}: ${issue.message}`
+              : issue.message
+          )
+          .join('. ');
+        // Doble ruta: con details (errores Zod) se muestra el detalle en
+        // el formulario; sin details delega en throwApiError, que además
+        // expulsa la sesión si el body trae code BRANCH_REMOVED.
+        if (detail) {
+          throw new ApiError(detail, response.status, data?.code);
+        }
+        await throwApiError(response, 'Error al guardar el producto');
       }
 
       router.push(routes.productos);

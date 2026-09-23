@@ -3,11 +3,10 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import * as branchService from '@/application/services/branchService';
 import { routes } from '@/config/routes';
-import { UnauthorizedError, ForbiddenError } from '@/domain/errors';
+import { UnauthorizedError, ForbiddenError, BranchRemovedError } from '@/domain/errors';
 import type { Session } from 'next-auth';
 
 const NO_BRANCH_ERROR_QUERY = 'no_branch';
-const BRANCH_REMOVED_ERROR = 'La sucursal asignada ya no existe.';
 
 export const ACTIVE_BRANCH_COOKIE = 'activeBranchId';
 
@@ -30,7 +29,7 @@ export async function requireAuth(): Promise<Session> {
     Number(session.user.branchId)
   );
   if (!ownBranch) {
-    throw new ForbiddenError(BRANCH_REMOVED_ERROR);
+    throw new BranchRemovedError();
   }
 
   return session;
@@ -70,7 +69,7 @@ export async function getCurrentBranchId(
   const resolved = Number(s.user.branchId);
   const branch = await branchService.getBranchById(resolved);
   if (!branch) {
-    throw new ForbiddenError(BRANCH_REMOVED_ERROR);
+    throw new BranchRemovedError();
   }
 
   return resolved;
@@ -113,8 +112,9 @@ export async function getCurrentBranchIdOrRedirect(
   if (!branch) {
     // Sesión viva con sucursal eliminada: no redirigir a login porque el
     // middleware vería la sesión válida y produciría un loop
-    // login → panel → login. El catálogo público no requiere sucursal.
-    redirect(routes.pedido);
+    // login → panel → login. La página intermedia cierra la sesión
+    // server-side y de ahí manda al login con el mensaje correspondiente.
+    redirect(routes.sesionFinalizada);
   }
 
   return resolved;

@@ -64,6 +64,20 @@ export class ForbiddenError extends DomainError {
   }
 }
 
+/**
+ * La sucursal del `branchId` de la sesión fue eliminada (borrado físico en
+ * cascada; el JWT sigue vivo). Lleva `code` para que el cliente distinga
+ * este 403 de uno de permisos y fuerce el cierre de sesión.
+ */
+export class BranchRemovedError extends ForbiddenError {
+  readonly code = 'BRANCH_REMOVED';
+
+  constructor(message = 'La sucursal asignada ya no existe.') {
+    super(message);
+    this.name = 'BranchRemovedError';
+  }
+}
+
 export class DatabaseConnectionError extends Error {
   constructor(
     message = 'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo y que DATABASE_URL esté configurada correctamente.'
