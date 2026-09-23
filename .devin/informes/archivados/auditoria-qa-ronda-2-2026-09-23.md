@@ -1,5 +1,10 @@
 # Auditoría QA — Ronda 2 (2026-09-23)
 
+> **Estado: implementada y mergeada** en `main` (PR #6, `5615500`) —
+> verificado en producción: `/pedido/seguimiento` sirve 16/16 scripts con
+> nonce. Pendientes documentados trackeados en `../reporte-estado.md` §0.
+> Archivada el 2026-09-23.
+
 Segunda ronda de la auditoría QA iniciada el 2026-09-21 (ver `auditoria-qa-2026-09-21.md` y `e4-sucursal-eliminada.md`). Alcance: CSP contra build de producción (`next start`), confianza en `X-Forwarded-For` en producción y revisión visual cualitativa con emulación de daltonismo.
 
 ## 1. CSP contra build de producción

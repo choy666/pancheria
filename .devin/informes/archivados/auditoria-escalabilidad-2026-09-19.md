@@ -1,5 +1,11 @@
 # Auditoría de escalabilidad — Proyecto Panchería
 
+> **Estado: archivada** (2026-09-23). Plan de implementación resuelto
+> (T1–T13, T15 y Fase M implementadas; T16 decidido "no implementar").
+> **Pendiente vivo:** T14 (multi-tenant), diferido por decisión del usuario —
+> su seguimiento queda en `../reporte-estado.md` (sección de deuda abierta)
+> y `../../prompts/plan-implementacion-multi-tenant.md`.
+>
 **Fecha:** 2026-09-19
 **Proyecto:** `pancheria`
 **Baseline:** `62a644dd95d047a4a92c9215d74023fcf5e0e06b` (`main`, `feat: datos de sucursal al inicio de /pedido con mapa embebido`)

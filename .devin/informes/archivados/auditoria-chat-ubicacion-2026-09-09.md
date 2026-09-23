@@ -1,5 +1,10 @@
 # Auditoría: compartir ubicación por el chat de pedidos
 
+> **Estado: implementada** — la ubicación por chat existe en
+> `src/app/api/pedidos/[id]/chat/ubicacion/route.ts`, `chat-composer.tsx`,
+> `chat-message-list.tsx` y `useOrderChat.ts` con tests. Archivada el
+> 2026-09-23.
+>
 Fecha: 2026-09-09
 Auditor: Devin
 Prompt de referencia: <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-chat-ubicacion.md" />

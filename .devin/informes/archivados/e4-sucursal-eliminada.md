@@ -1,7 +1,8 @@
 # E4 — Sesión con sucursal eliminada (ronda 2, P0)
 
 Rama: `fix/e4-orphan-branch` (separada de `fix/qa-2026-09-21`).
-Estado: **corregido en rama**, sin commit a la espera de aprobación.
+Estado: **implementado y mergeado** en `main` (PR #3 `2cd9dda` +
+PR #5 `9efad8d` con logout forzado). Archivado el 2026-09-23.
 
 ## Hallazgo
 

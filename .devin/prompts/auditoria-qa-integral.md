@@ -32,7 +32,7 @@ Documentación de referencia obligatoria:
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/checklist-pre-push.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/entornos.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/informes/reporte-estado.md" />
-- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/auditoria-escalabilidad-2026-09-19.md" />
+- <ref_file file="C:/developer/paginas/pancheria/.devin/informes/archivados/auditoria-escalabilidad-2026-09-19.md" />
 - <ref_file file="C:/developer/paginas/pancheria/.devin/prompts/auditoria-cobertura-de-pruebas.md" />
 - <ref_file file="C:/developer/paginas/pancheria/playwright.config.ts" />
 - <ref_file file="C:/developer/paginas/pancheria/jest.config.ts" />

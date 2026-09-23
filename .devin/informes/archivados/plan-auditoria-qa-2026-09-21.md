@@ -1,5 +1,8 @@
 # Plan de auditoría QA integral — 2026-09-21
 
+> **Estado: ejecutado y archivado** (2026-09-23). Resultados en
+> `auditoria-qa-2026-09-21.md`.
+>
 > **Etapa 1** del prompt `.devin/prompts/auditoria-qa-integral.md`. Solo lectura +
 > este plan. **Ejecutado:** resultados en `auditoria-qa-2026-09-21.md`.
 
