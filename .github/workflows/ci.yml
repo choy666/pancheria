@@ -88,6 +88,14 @@ jobs:
     name: Tests end-to-end y accesibilidad
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # global-setup trunca y re-seedea la base del shard: dos runs sobre el
+    # mismo shard se contaminan entre sí (deadlocks, usuarios del seed
+    # inexistentes). El grupo por shard serializa los runs sin frenar el
+    # paralelismo entre shards (cada uno tiene su propia base). No se cancela
+    # el run en curso: interrumpirlo dejaría la base truncada a medias.
+    concurrency:
+      group: e2e-db-${{ matrix.shard }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       # Sharding opt-in: por defecto corre todo en un solo shard. Para partir
