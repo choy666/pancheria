@@ -1,10 +1,13 @@
 import {
   authenticatedFetch,
   getDefaultTimeoutMs,
+  throwApiError,
+  ApiError,
   FetchTimeoutError,
   FetchAbortError,
   FetchNetworkError,
 } from './fetch';
+import { routes } from '@/config/routes';
 
 describe('getDefaultTimeoutMs', () => {
   const originalEnv = { ...process.env };
@@ -122,5 +125,93 @@ describe('authenticatedFetch', () => {
     (global.fetch as jest.Mock).mockRejectedValue(new Error('Network failure'));
 
     await expect(authenticatedFetch('/api/test')).rejects.toThrow(FetchNetworkError);
+  });
+});
+
+describe('throwApiError', () => {
+  function jsonResponse(body: unknown, status = 400): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  test('lanza ApiError con el error del body y el status', async () => {
+    const response = jsonResponse({ error: 'Stock insuficiente' }, 409);
+
+    await expect(throwApiError(response, 'fallback')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Stock insuficiente',
+      status: 409,
+    });
+  });
+
+  test('usa el fallback cuando el body no es JSON', async () => {
+    const response = new Response('no json', { status: 500 });
+
+    await expect(throwApiError(response, 'fallback')).rejects.toMatchObject({
+      message: 'fallback',
+      status: 500,
+    });
+  });
+
+  test('propaga code y productName del body', async () => {
+    const response = jsonResponse(
+      { error: 'Sin stock', code: 'OUT_OF_STOCK', productName: 'Pan' },
+      409
+    );
+
+    await expect(throwApiError(response, 'fallback')).rejects.toMatchObject({
+      code: 'OUT_OF_STOCK',
+      productName: 'Pan',
+    });
+  });
+
+  test('en servidor lanza ApiError con code BRANCH_REMOVED sin redirigir', async () => {
+    // Este entorno de test corre sin `window` (jest-environment node).
+    const response = jsonResponse(
+      { error: 'La sucursal asignada ya no existe.', code: 'BRANCH_REMOVED' },
+      403
+    );
+
+    await expect(throwApiError(response, 'fallback')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'La sucursal asignada ya no existe.',
+      status: 403,
+      code: 'BRANCH_REMOVED',
+    });
+  });
+
+  test('en browser redirige a la página intermedia y lanza ApiError', async () => {
+    const assign = jest.fn();
+    const globalRef = globalThis as unknown as { window?: { location?: { assign?: jest.Mock } } };
+    const originalWindow = globalRef.window;
+    globalRef.window = { location: { assign } };
+    try {
+      const response = jsonResponse(
+        { error: 'La sucursal asignada ya no existe.', code: 'BRANCH_REMOVED' },
+        403
+      );
+
+      await expect(throwApiError(response, 'fallback')).rejects.toThrow(ApiError);
+      expect(assign).toHaveBeenCalledWith(routes.sesionFinalizada);
+    } finally {
+      globalRef.window = originalWindow;
+    }
+  });
+
+  test('en browser no redirige ante un 403 sin code BRANCH_REMOVED', async () => {
+    const assign = jest.fn();
+    const globalRef = globalThis as unknown as { window?: { location?: { assign?: jest.Mock } } };
+    const originalWindow = globalRef.window;
+    globalRef.window = { location: { assign } };
+    try {
+      const response = jsonResponse({ error: 'Sin permisos' }, 403);
+
+      await expect(throwApiError(response, 'fallback')).rejects.toThrow(ApiError);
+      expect(assign).not.toHaveBeenCalled();
+    } finally {
+      globalRef.window = originalWindow;
+    }
   });
 });

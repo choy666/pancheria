@@ -12,9 +12,13 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
 }));
 
-jest.mock('@/lib/fetch', () => ({
-  authenticatedFetch: (...args: unknown[]) => mockFetch(...args),
-}));
+jest.mock('@/lib/fetch', () => {
+  const actual = jest.requireActual<typeof import('@/lib/fetch')>('@/lib/fetch');
+  return {
+    ...actual,
+    authenticatedFetch: (...args: unknown[]) => mockFetch(...args),
+  };
+});
 
 describe('ProductForm', () => {
   beforeEach(() => {

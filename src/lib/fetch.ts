@@ -63,7 +63,9 @@ export async function throwApiError(
   if (data?.code === 'BRANCH_REMOVED' && typeof window !== 'undefined') {
     // La sucursal de la sesión fue eliminada: la página intermedia cierra
     // la sesión server-side y redirige al login con el mensaje. El
-    // ApiError se lanza igual por si la navegación se interrumpe.
+    // ApiError se lanza igual por si la navegación se interrumpe; si la
+    // navegación gana, el caller nunca consume el error (intencional: la
+    // página cambia de contexto y el componente se desmonta).
     window.location.assign(routes.sesionFinalizada);
   }
   throw new ApiError(
