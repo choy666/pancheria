@@ -1,10 +1,47 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-09-15
+**Fecha:** 2026-09-23 (actualizado)
 **Proyecto:** `pancheria`
-**Baseline:** `cfb1b41358bb06b51937660467e6674590837622` (`main`)
-**Auditoría:** Documental sobre `.devin` y documentación vigente (2026-09-15)
-**Histórico:** Fase anterior en `.devin/informes/archivados/reporte-estado-2026-09-11.md`
+**Histórico:** snapshots anteriores en `.devin/informes/archivados/historico/`
+
+---
+
+## 0. Estado actual (2026-09-23)
+
+### En `main` (mergeado y verificado)
+
+- Auditoría QA ronda 1 (PR #4, `35b54a1`): QA-01 expiración en mutaciones → 409; QA-02 `idempotencyKey` estable por intento; QA-03 upload no-multipart → 400; QA-05 `catch` en handlers async de UI.
+- E4 sucursal eliminada (PR #3 `2cd9dda` + PR #5 `9efad8d`): JWT con `branchId` huérfano → 403 `BRANCH_REMOVED` → logout forzado vía `/sesion-finalizada` → login con mensaje. Blindaje de `product-form` y tests de `throwApiError`.
+- `npm test`: 174 suites / 1880 tests verdes post-merge; `tsc`/`lint`/`knip` limpios.
+
+### PRs abiertos
+
+- **PR #6** (`fix/csp-seguimiento-estatico`): P0 — `/pedido/seguimiento` estática sin nonce CSP → no hidrataba en prod (fix `force-dynamic`); menor — info-leak de env vars en rate limit → 500 genérico. Informe: `auditoria-qa-ronda-2-2026-09-23.md`.
+- **PR #7** (`fix/ci-e2e-concurrency`): `concurrency` por shard en job E2E + timeout 18→25 min. Ticket: `ci-e2e-base-compartida.md`.
+
+### Deuda abierta consolidada (única fuente)
+
+| Ítem | Severidad | Fuente |
+| --- | --- | --- |
+| T14 multi-tenant (diferido por decisión) | Alta | `prompts/plan-implementacion-multi-tenant.md` + `archivados/auditoria-escalabilidad-2026-09-19.md` §3.9 |
+| QA-04: misma `idempotencyKey` + payload distinto devuelve recurso original (propuesta: huella + 409) | Media | `archivados/auditoria-qa-2026-09-21.md` |
+| Soft-delete de `branches` | Media | auditoría de escalabilidad (próxima ronda) |
+| Neon efímera por `run_id` / sharding E2E opt-in (`E2E_SHARDS` + secrets por shard) | Baja | `ci-e2e-base-compartida.md` |
+| `/_not-found` estático sin nonce CSP (navbar no hidrata; `<Link>` funciona) | Baja | `auditoria-qa-ronda-2-2026-09-23.md` |
+| Verificación periódica de `VERCEL_PRODUCTION_URL` | Recurrente | `checklist-pre-push.md` |
+
+### Regla documental vigente
+
+- `informes/` raíz = solo docs operativos + tickets **abiertos**.
+- `archivados/` = solo guías con valor futuro, implementadas **completas** (o con pendiente explícito trackeado en §0). Marcador `Estado:` obligatorio.
+- `archivados/historico/` = snapshots sin valor de guía (solo historia).
+- Los informes de PRs abiertos se archivan cuando su trabajo mergea a `main`.
+
+---
+
+## Secciones históricas (2026-09-15 → 2026-09-20)
+
+Las secciones 1–12 documentan el estado al 2026-09-20 y las sesiones de esa semana. Se conservan como contexto; para el estado actual ver §0.
 
 ---
 
@@ -68,7 +105,7 @@ El esquema Drizzle cuenta con **31 migraciones** (`0000`–`0030`) y el journal 
 | `plan-observaciones-auditoria-sucursales-caja.md` figuraba como **pendiente** pero sus 5 ítems ya estaban implementados (commits `a3d70d5` y `73f1af5`) | Menor | Resuelto | Archivado en `informes/archivados/plan-observaciones-auditoria-sucursales-caja-2026-09-13.md` con nota de resolución. |
 | `auditoria-sucursales-y-caja-por-turnos.md` estaba implementada y auditada (§8 confirma D1–D6) pero seguía como vigente | Menor | Resuelto | Archivada en `informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`; sus decisiones quedaron resumidas en `lecciones-aprendidas.md` §16. |
 | `informes/README.md` no listaba `auditoria-deploy-vercel-2026-09-14.md` ni la auditoría de sucursales; `.devin/README.md` tampoco las reflejaba | Menor | Resuelto | Índices actualizados en ambos README (entradas nuevas y bloque de estructura). |
-| `reporte-estado.md` desactualizado: baseline `7cdf286` (7 commits atrás), 1582 tests, 30 migraciones, sin las features de sucursales | Mayor | Resuelto | Reescrito con baseline `cfb1b41`, 1640 tests, 31 migraciones y las funcionalidades nuevas. Versión anterior en `archivados/reporte-estado-2026-09-11.md`. |
+| `reporte-estado.md` desactualizado: baseline `7cdf286` (7 commits atrás), 1582 tests, 30 migraciones, sin las features de sucursales | Mayor | Resuelto | Reescrito con baseline `cfb1b41`, 1640 tests, 31 migraciones y las funcionalidades nuevas. Versión anterior en `archivados/historico/reporte-estado-2026-09-11.md`. |
 | `guia-funcionamiento-pancheria.md` documentaba `CAJA_AUTO_CLOSE_HOURS` con default `12 h` y "cierre automático después de 12 horas" | Menor | Resuelto | El código usa `0` (deshabilitado) en `src/config/caja.ts`. Corregido en §5.2, §13 y §15; agregadas secciones de avisos por turno y contactos de sucursal. |
 | `lecciones-aprendidas.md` tenía numeración desordenada (§13 → §15 → §14) | Informativo | Resuelto | Reordenado a §14 (ventas) → §15 (moneda) preservando la referencia histórica "sección 14 = ventas" usada por prompts archivados; agregada §16 (sucursales/turnos). |
 | `.devin/environment.yaml` no listaba `CAJA_OVERDUE_HOURS`, `NEXT_PUBLIC_CAJA_OVERDUE_HOURS`, `NEXT_PUBLIC_BRANCH_TIMEZONE`, `DEFAULT_BRANCH_SOCIAL_LINKS` ni `NEW_BRANCH_SOCIAL_LINKS`, y declaraba default `12 h` para el cierre automático | Menor | Resuelto | Agregadas al knowledge `database` (vars de seed y caja/sucursal) y `deploy`; lista de informes actualizada. |
@@ -81,7 +118,7 @@ El esquema Drizzle cuenta con **31 migraciones** (`0000`–`0030`) y el journal 
 - **Archivados:**
   - `.devin/informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md`
   - `.devin/informes/archivados/plan-observaciones-auditoria-sucursales-caja-2026-09-13.md`
-  - `.devin/informes/archivados/reporte-estado-2026-09-11.md`
+  - `.devin/informes/archivados/historico/reporte-estado-2026-09-11.md`
 - **Actualizados:**
   - `.devin/informes/reporte-estado.md` (este archivo)
   - `.devin/informes/README.md`
@@ -136,7 +173,7 @@ Sesión de corrección documental sobre `.devin` (sin cambios de código ni veri
 
 Auditoría de solo lectura ejecutada sobre baseline `62a644dd95d047a4a92c9215d74023fcf5e0e06b` (`main`), según `prompts/auditoria-escalabilidad.md`. Sin cambios de código de negocio ni comandos destructivos.
 
-- **Entregable:** `informes/auditoria-escalabilidad-2026-09-19.md` — veredicto "sí, con condiciones", 14 hallazgos clasificados, orden de quiebre estimado (10×/50×/100×), plan de acción priorizado y complementos al plan multi-tenant.
+- **Entregable:** `informes/archivados/auditoria-escalabilidad-2026-09-19.md` — veredicto "sí, con condiciones", 14 hallazgos clasificados, orden de quiebre estimado (10×/50×/100×), plan de acción priorizado y complementos al plan multi-tenant.
 - **Verificaciones corridas:** `npm run lint`, `npx tsc --noEmit`, `npm test` (157 suites / 1691 tests), `npm run knip`, `npm run build` y `npm run analyze:webpack` — todas en verde; el analyzer emite los warnings intencionales de `src/lib/storage.ts` (imports dinámicos de AWS SDK).
 - **Pendientes nuevos:** volcados en §6 (quick wins, corto plazo y verificaciones de producción).
 
@@ -177,14 +214,14 @@ Sesión de mantenimiento documental (sin cambios de código ni verificaciones):
   - `plan-implementacion-escalabilidad-2026-09-19.md` — plan resuelto: T1–T13, T15 y Fase M implementadas/verificadas; T16 decidido "no implementar a esta escala"; T14 (multi-tenant) diferido por decisión del usuario.
   - `plan-implementacion-consolidacion-2026-09-20.md` — E1–E6 completados y verificados.
   - `spike-sse-chat-2026-09-19.md` — T13 cerrado con decisión (SSE opt-in deshabilitado; polling REST default).
-- **Queda vigente:** `auditoria-escalabilidad-2026-09-19.md` — su §3.9 (complementos multi-tenant de T14) sigue siendo fuente directa del trabajo pendiente, y §4/§7 el marco de umbrales para re-evaluar las decisiones diferidas.
+- **Queda vigente como referencia archivada:** `informes/archivados/auditoria-escalabilidad-2026-09-19.md` — su §3.9 (complementos multi-tenant de T14) sigue siendo fuente directa del trabajo pendiente, y §4/§7 el marco de umbrales para re-evaluar las decisiones diferidas.
 - **Referencias actualizadas:** `informes/README.md`, `.devin/README.md`, `AGENTS.md`, `.env.example` y las rutas internas de este archivo.
 
 ## 12. Auditoría integral del proyecto 2026-09-20
 
-Auditoría general de estado posterior al archivado documental — informe completo en `informes/auditoria-proyecto-2026-09-20.md`. Verificaciones en verde: `npm run lint`, `npx tsc --noEmit`, `npm test` (1859 tests), `npm run build` y `npm run knip`. Sin hallazgos críticos ni altos.
+Auditoría general de estado posterior al archivado documental — informe completo en `informes/archivados/auditoria-proyecto-2026-09-20.md`. Verificaciones en verde: `npm run lint`, `npx tsc --noEmit`, `npm test` (1859 tests), `npm run build` y `npm run knip`. Sin hallazgos críticos ni altos.
 
 - **Menores (resueltos en la misma sesión):** `POST /api/public/disponibilidad` quedó con veto anti-abuso en memoria (`createPollRateLimiter('availability_poll')`, defaults de polls públicos) + test del 429; suites nuevas para `cache-control`, `fetch-all-pages`, `product-style`, `selected-branch`, `chat-poll-rate-limit` y `server-cache` (+6 suites, +32 tests).
 - **Informativos:** bundle re-medido con `analyze:webpack` (~2,23 MB parsed / ~729 KB gzip de first-load; sin regresión relevante vs ~1,9 MB del 19/09); cadencia real de `expire-orders` ~2–5 h (riesgo operativo ya documentado, mitigado por expiración lazy); `next-auth` v5 beta con plan de migración documentado.
-- **Pendiente estructural:** T14 multi-tenant, diferido por decisión — fuente `prompts/plan-implementacion-multi-tenant.md` + §3.9 de `auditoria-escalabilidad-2026-09-19.md`.
+- **Pendiente estructural:** T14 multi-tenant, diferido por decisión — fuente `prompts/plan-implementacion-multi-tenant.md` + §3.9 de `archivados/auditoria-escalabilidad-2026-09-19.md`.
 - **Conclusión:** aprobado para producción a la escala actual (un tenant, múltiples sucursales).

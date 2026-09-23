@@ -32,7 +32,7 @@
 > - **T12 Lookups con scope** ✅ — `findByOrderNumberAndCustomer` exige `branchId`; seguimiento público propaga `branchId` del cliente; `GET /api/productos/imagen/[key]` exige `branchId` y las URLs locales lo incluyen (provider `local`; remotos apuntan directo al storage).
 > - **T13 Spike SSE** ✅ — endpoints `.../chat/stream` (operador + público) con heartbeat, `budget` acotado por `CHAT_STREAM_BUDGET_MS` y `maxDuration=60`; `useOrderChat` usa `EventSource` con `Last-Event-ID` solo si `NEXT_PUBLIC_CHAT_STREAM_ENABLED=true`, con fallback automático a polling y cierre en pestañas ocultas. **Decisión: SSE implementado como opt-in deshabilitado; el polling REST sigue siendo el default** (ver `informes/archivados/spike-sse-chat-2026-09-19.md`).
 > **Revisión:** 2026-09-19 — correcciones verificadas contra el código en T2 (seguimiento es POST), T6-B (cableado de `productIds`), T9 (prefijo `product-images/`), T10.2 (la duración ya se loguea con `routeLabel`) y T12 (propagación de `branchId`).
-> **Fuente:** `informes/auditoria-escalabilidad-2026-09-19.md` §2 (cuadro de riesgo), §4 (orden de quiebre) y §5 (plan de acción)
+> **Fuente:** `informes/archivados/auditoria-escalabilidad-2026-09-19.md` §2 (cuadro de riesgo), §4 (orden de quiebre) y §5 (plan de acción)
 > **Baseline de la auditoría:** `62a644dd95d047a4a92c9215d74023fcf5e0e06b` (`main`)
 > **Documentación de referencia:** `AGENTS.md`, `informes/reporte-estado.md`, `informes/entornos.md`, `informes/lecciones-aprendidas.md`, `informes/guia-funcionamiento-pancheria.md`, `informes/checklist-pre-push.md`, `prompts/plan-implementacion-multi-tenant.md`
 
@@ -435,7 +435,7 @@ Orden sugerido dentro de Fase 0 (minimiza riesgo y da alivio inmediato): **T4 �
 
 ## 10. Referencias cruzadas
 
-- `informes/auditoria-escalabilidad-2026-09-19.md` — hallazgos H1–H14, orden de quiebre y estimaciones.
+- `informes/archivados/auditoria-escalabilidad-2026-09-19.md` — hallazgos H1–H14, orden de quiebre y estimaciones.
 - `prompts/plan-implementacion-multi-tenant.md` — diseño completo de la migración multi-tenant (T14 lo ejecuta + complementos).
 - `informes/reporte-estado.md` §6 — pendientes volcados de la auditoría.
 - `informes/entornos.md` — procedimiento de migraciones por entorno.

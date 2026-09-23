@@ -1,5 +1,7 @@
 # Auditoría QA integral — 2026-09-21
 
+> **Estado: implementada por completo** — hallazgos QA-01/02/03/05 corregidos y mergeados en `main` (PR #4, `35b54a1`); QA-04 queda documentado como pendiente en `reporte-estado.md`. Archivada el 2026-09-23.
+>
 > **Etapa 3** del prompt `.devin/prompts/auditoria-qa-integral.md`.
 > Plan aprobado: `plan-auditoria-qa-2026-09-21.md`. Ejecución por capas con
 > checkpoints, sin modificar lógica productiva (solo tests, helpers E2E,
@@ -339,7 +341,7 @@ esperado.
 ## 9. Archivos de la auditoría
 
 - Prompt: `.devin/prompts/auditoria-qa-integral.md`
-- Plan: `.devin/informes/plan-auditoria-qa-2026-09-21.md`
+- Plan: `.devin/informes/archivados/plan-auditoria-qa-2026-09-21.md`
 - Evidencia visual: `tmp/auditoria-qa-2026-09-21/` (capturas 360/390/768/
   1280/320 px, seguimiento 360 px, catálogo Fast 3G)
 - Specs y helpers nuevos/modificados: listados en §3.
