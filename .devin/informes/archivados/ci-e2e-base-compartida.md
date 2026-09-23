@@ -1,5 +1,10 @@
 # Ticket — CI E2E: dos runs concurrentes comparten la misma base
 
+> **Estado: mitigación implementada y mergeada** en `main` (PR #7) —
+> `concurrency` por shard + timeout 25 min. Opción pendiente (Neon efímera
+> por `run_id` / sharding) trackeada en `../reporte-estado.md` §0.
+> Archivado el 2026-09-23.
+
 **Origen:** observado durante el merge de `fix/e4-orphan-branch`
 (2026-09-22). No es un bug de producto; es un defecto de aislamiento del
 pipeline que produce falsos rojos.

@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { DomainError } from '@/domain/errors';
 import {
   createPublicOrderRateLimitStore,
   InMemoryPublicOrderRateLimitStore,
@@ -16,6 +15,19 @@ import {
   getPublicOrderRateLimitEnableInDev,
   getPublicRateLimitTrustPrivateIps,
 } from '@/config/rate-limit';
+
+/**
+ * Error de configuración de rate limiting en producción. No extiende
+ * `DomainError` a propósito: el mensaje describe variables de entorno del
+ * servidor y no debe viajar al cliente como 400; `withApiErrorHandling` lo
+ * convierte en 500 genérico y el detalle queda en los logs del servidor.
+ */
+export class RateLimitConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RateLimitConfigError';
+  }
+}
 
 function getFirstHeaderValue(value: string | null): string | null {
   if (!value) return null;
@@ -57,7 +69,7 @@ export function getClientIp(request: NextRequest): string {
   }
 
   if (isProduction()) {
-    throw new DomainError(
+    throw new RateLimitConfigError(
       'No se pudo resolver una IP confiable para aplicar rate limit. ' +
         'Configurá TRUSTED_PROXY_IP_HEADER o PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS=true si no usás Vercel.'
     );

@@ -22,8 +22,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
-- [Auditoría QA ronda 2 (2026-09-23)](informes/auditoria-qa-ronda-2-2026-09-23.md) — CSP en producción (`/pedido/seguimiento` estática sin nonce → corregida), `X-Forwarded-For` fail-closed, revisión con daltonismo.
-- [Ticket CI E2E base compartida](informes/ci-e2e-base-compartida.md) — runs concurrentes se contaminan; `concurrency` por shard implementada.
+- [Auditoría QA ronda 2 (2026-09-23, archivada)](informes/archivados/auditoria-qa-ronda-2-2026-09-23.md) — CSP en producción (`/pedido/seguimiento` estática sin nonce → corregida y verificada en prod), `X-Forwarded-For` fail-closed, revisión con daltonismo.
+- [Ticket CI E2E base compartida (archivado)](informes/archivados/ci-e2e-base-compartida.md) — runs concurrentes se contaminaban; `concurrency` por shard + timeout 25 min implementados.
 - [Auditoría de escalabilidad (2026-09-19, archivada)](informes/archivados/auditoria-escalabilidad-2026-09-19.md) — fuente del pendiente T14 multi-tenant (diferido); §3.9 alimenta trabajo futuro.
 - [Auditoría QA integral (2026-09-21, archivada)](informes/archivados/auditoria-qa-2026-09-21.md) — QA-01/02/03/05 corregidos y mergeados (PR #4); QA-04 documentado como pendiente.
 - [Plan de implementación de la auditoría de escalabilidad (2026-09-19, resuelto)](informes/archivados/plan-implementacion-escalabilidad-2026-09-19.md) — plan por fases (T1–T16) derivado de la auditoría: T1–T13, T15 y Fase M implementadas; T16 decidido "no implementar"; T14 (multi-tenant) diferido — fuente de verdad: `prompts/plan-implementacion-multi-tenant.md`.
@@ -55,9 +55,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
-│   ├── auditoria-qa-ronda-2-2026-09-23.md  # CSP en prod, XFF, daltonismo
-│   ├── ci-e2e-base-compartida.md     # Ticket CI: runs E2E concurrentes sobre la misma base
-│   ├── README.md                 # Índice de informes
+│   ├── README.md                 # Índice de informes (tabla de decisión + regla de vida)
 │   └── archivados/               # Solo guías con valor futuro: auditorías y planes implementados por completo (con marcador de estado). Incluye historico/ con snapshots de reportes de estado antiguos (historia, no guía).
 └── prompts/
     ├── pancheria.prompt.md       # Prompt maestro

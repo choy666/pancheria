@@ -12,8 +12,7 @@
 
 ## Tickets abiertos
 
-- [Auditoría QA ronda 2 (2026-09-23)](auditoria-qa-ronda-2-2026-09-23.md) — CSP en `next start` (P0 `/pedido/seguimiento` corregido), `X-Forwarded-For` fail-closed, daltonismo sin hallazgos. **PR #6.**
-- [CI E2E — base compartida](ci-e2e-base-compartida.md) — `concurrency` por shard + timeout 25 min implementados. **PR #7.**
+Ninguno al 2026-09-23 — los últimos (QA ronda 2 y CI base compartida) mergearon y se archivaron.
 
 > Cuando un PR mergea, su informe se archiva y `reporte-estado.md` §0 se actualiza.
 
@@ -30,6 +29,6 @@
 
 ## Archivados
 
-[archivados/](archivados/) — auditorías y planes implementados: QA ronda 1 (2026-09-21, PR #4), E4 sucursal eliminada (PRs #3/#5), escalabilidad (2026-09-19, con T14 diferido trackeado en `reporte-estado.md` §0), deploy Vercel, carrito de ventas, ubicación en chat, sucursales y caja por turnos, planes de acción/consolidación/limpieza y el spike SSE.
+[archivados/](archivados/) — auditorías y planes implementados: QA ronda 1 (PR #4), QA ronda 2 (PR #6), E4 sucursal eliminada (PRs #3/#5), ticket CI base compartida (PR #7), escalabilidad (con T14 diferido trackeado en `reporte-estado.md` §0), deploy Vercel, carrito de ventas, ubicación en chat, sucursales y caja por turnos, planes de acción/consolidación/limpieza y el spike SSE.
 
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.

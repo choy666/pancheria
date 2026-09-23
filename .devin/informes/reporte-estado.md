@@ -16,8 +16,10 @@
 
 ### PRs abiertos
 
-- **PR #6** (`fix/csp-seguimiento-estatico`): P0 — `/pedido/seguimiento` estática sin nonce CSP → no hidrataba en prod (fix `force-dynamic`); menor — info-leak de env vars en rate limit → 500 genérico. Informe: `auditoria-qa-ronda-2-2026-09-23.md`.
-- **PR #7** (`fix/ci-e2e-concurrency`): `concurrency` por shard en job E2E + timeout 18→25 min. Ticket: `ci-e2e-base-compartida.md`.
+Ninguno — última ola mergeada el 2026-09-23:
+
+- **PR #6** (`5615500`): P0 — `/pedido/seguimiento` estática sin nonce CSP → no hidrataba en prod (fix `force-dynamic`, verificado en producción: 16/16 scripts con nonce); menor — info-leak de env vars en rate limit → 500 genérico. Informe: `archivados/auditoria-qa-ronda-2-2026-09-23.md`.
+- **PR #7** (`96b0db1`): `concurrency` por shard en job E2E + timeout 18→25 min (suite ya rondaba los ~19 min). Ticket: `archivados/ci-e2e-base-compartida.md`.
 
 ### Deuda abierta consolidada (única fuente)
 
@@ -26,8 +28,8 @@
 | T14 multi-tenant (diferido por decisión) | Alta | `prompts/plan-implementacion-multi-tenant.md` + `archivados/auditoria-escalabilidad-2026-09-19.md` §3.9 |
 | QA-04: misma `idempotencyKey` + payload distinto devuelve recurso original (propuesta: huella + 409) | Media | `archivados/auditoria-qa-2026-09-21.md` |
 | Soft-delete de `branches` | Media | auditoría de escalabilidad (próxima ronda) |
-| Neon efímera por `run_id` / sharding E2E opt-in (`E2E_SHARDS` + secrets por shard) | Baja | `ci-e2e-base-compartida.md` |
-| `/_not-found` estático sin nonce CSP (navbar no hidrata; `<Link>` funciona) | Baja | `auditoria-qa-ronda-2-2026-09-23.md` |
+| Neon efímera por `run_id` / sharding E2E opt-in (`E2E_SHARDS` + secrets por shard) | Baja | `archivados/ci-e2e-base-compartida.md` |
+| `/_not-found` estático sin nonce CSP (navbar no hidrata; `<Link>` funciona) | Baja | `archivados/auditoria-qa-ronda-2-2026-09-23.md` |
 | Verificación periódica de `VERCEL_PRODUCTION_URL` | Recurrente | `checklist-pre-push.md` |
 
 ### Regla documental vigente
@@ -36,6 +38,10 @@
 - `archivados/` = solo guías con valor futuro, implementadas **completas** (o con pendiente explícito trackeado en §0). Marcador `Estado:` obligatorio.
 - `archivados/historico/` = snapshots sin valor de guía (solo historia).
 - Los informes de PRs abiertos se archivan cuando su trabajo mergea a `main`.
+
+### Reorganización documental (2026-09-23)
+
+Raíz de `informes/` pasó de 12 a 6 archivos operativos; 5 informes implementados/mergeados archivados con marcador de estado; 10 snapshots a `archivados/historico/`; referencias rotas corregidas en `.devin/README.md`, `prompts/auditoria-qa-integral.md` e internas entre archivados.
 
 ---
 
