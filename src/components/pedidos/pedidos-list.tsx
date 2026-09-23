@@ -32,6 +32,7 @@ import { PEDIDOS_API } from '@/config/api';
 import { getPedidosRefreshIntervalMs } from '@/config/orders';
 import { routes } from '@/config/routes';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
+import { useSubmitIdempotencyKey } from '@/hooks/use-submit-idempotency-key';
 import { cn } from '@/lib/utils';
 import type { OrderStatus, DeliveryType } from '@/domain/types';
 
@@ -162,12 +163,21 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
   }, [searchInput, setPage]);
 
   const [loadingId, setLoadingId] = useState<number | null>(null);
+  // Errores de las acciones por fila (confirmar/finalizar/cancelar): sin
+  // este estado el throw de `throwApiError` quedaba como rechazo
+  // silencioso — el operador no veía el motivo (p.ej. el 409 de un pedido
+  // vencido por QA-2026-09-21-01).
+  const [actionError, setActionError] = useState<string | null>(null);
+  // La clave de confirmación se conserva entre reintentos del mismo
+  // pedido (QA-2026-09-21-02) y rota tras el éxito o al confirmar otro.
+  const confirmKey = useSubmitIdempotencyKey();
 
   async function handleConfirm(orderId: number) {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
 
     setLoadingId(orderId);
+    setActionError(null);
     try {
       const response = await authenticatedFetch(
         `/api/pedidos/${orderId}/confirmar`,
@@ -176,13 +186,33 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             payments: [{ method: 'cash', amount: order.total }],
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey: confirmKey.resolve(`confirm:${orderId}`),
           }),
         }
       );
       if (!response.ok) {
         await throwApiError(response, 'Error al confirmar el pedido');
       }
+      const data = (await response.json()) as {
+        sale: unknown;
+        deduplicated?: boolean;
+      };
+      confirmKey.reset();
+      await refresh();
+      if (data.deduplicated) {
+        // La venta ya existía (reintento con la misma clave): se avisa
+        // que el pedido no se confirmó dos veces ni se aplicaron los
+        // datos del reintento.
+        setActionError(
+          `El pedido #${order.orderNumber} ya estaba confirmado; se recuperó la venta registrada originalmente.`
+        );
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Error desconocido'
+      );
+      // La fila mostrada puede estar stale (p.ej. pedido vencido): el
+      // refresh dispara el barrido lazy y la limpia.
       await refresh();
     } finally {
       setLoadingId(null);
@@ -191,6 +221,7 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
 
   async function handleFinish(orderId: number) {
     setLoadingId(orderId);
+    setActionError(null);
     try {
       const response = await authenticatedFetch(
         `/api/pedidos/${orderId}/finalizar`,
@@ -203,6 +234,10 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
         await throwApiError(response, 'Error al finalizar el pedido');
       }
       await refresh();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Error desconocido'
+      );
     } finally {
       setLoadingId(null);
     }
@@ -210,6 +245,7 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
 
   async function handleCancel(orderId: number) {
     setLoadingId(orderId);
+    setActionError(null);
     try {
       const response = await authenticatedFetch(
         `/api/pedidos/${orderId}/cancelar`,
@@ -222,6 +258,11 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
       if (!response.ok) {
         await throwApiError(response, 'Error al cancelar el pedido');
       }
+      await refresh();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Error desconocido'
+      );
       await refresh();
     } finally {
       setLoadingId(null);
@@ -259,6 +300,14 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
       {error && (
         <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
           {error}
+        </div>
+      )}
+      {actionError && (
+        <div
+          className="rounded-lg bg-destructive/15 p-4 text-base text-destructive"
+          data-testid="pedidos-action-error"
+        >
+          {actionError}
         </div>
       )}
 

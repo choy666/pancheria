@@ -995,6 +995,121 @@ describe('PedidoClient', () => {
       expect(banner).toBeInTheDocument();
       expect(banner).toHaveTextContent('PED-1-1234567890-abc');
     });
+
+    // QA-2026-09-21-02 (corregido): `handleSubmitCheckout` generaba
+    // `nanoid()` en cada intento y el reintento eludía la deduplicación
+    // del servidor. La clave se conserva mientras el carrito no cambie.
+    test(
+      'reusa la misma idempotencyKey al reintentar el submit tras un error',
+      async () => {
+        const submittedKeys: string[] = [];
+        let postCount = 0;
+
+        global.fetch = jest.fn().mockImplementation(async (url, init) => {
+          const urlString = String(url);
+          if (urlString.includes('/api/public/disponibilidad')) {
+            return createFetchResponse({
+              availabilityByProduct: { 1: 5 },
+              shortageByProduct: {},
+            });
+          }
+          if (urlString.includes('/api/public/sucursal/estado')) {
+            return createFetchResponse({
+              isOpen: true,
+              branch: makeBranch(1, 'Sucursal A'),
+            });
+          }
+          if (
+            urlString.includes('/api/public/pedido') &&
+            init?.method === 'POST'
+          ) {
+            postCount += 1;
+            const body = JSON.parse(String(init.body)) as {
+              idempotencyKey: string;
+            };
+            submittedKeys.push(body.idempotencyKey);
+            if (postCount === 1) {
+              return createFetchResponse(
+                { error: 'Error de red simulado' },
+                false,
+                500
+              );
+            }
+            return createFetchResponse(
+              { order: makeCreatedOrder() },
+              true,
+              201
+            );
+          }
+          return createFetchResponse({
+            branch: makeBranch(1, 'Sucursal A'),
+            products: [makeProduct()],
+          });
+        });
+
+        const branches = [makeBranch(1, 'Sucursal A')];
+
+        await act(async () => {
+          render(
+            <PedidoClient
+              branches={branches}
+              activeBranch={branches[0]}
+              initialProducts={[makeProduct()]}
+            />
+          );
+          await Promise.resolve();
+        });
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('add-product-1'));
+          await Promise.resolve();
+        });
+
+        await waitFor(() =>
+          expect(
+            document.querySelector('[data-product-id="1"]')
+          ).toBeInTheDocument()
+        );
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('checkout-button'));
+          await Promise.resolve();
+        });
+
+        await waitFor(() =>
+          expect(screen.getByText('Finalizar pedido')).toBeInTheDocument()
+        );
+
+        await act(async () => {
+          fireEvent.change(screen.getByPlaceholderText('Tu nombre'), {
+            target: { value: 'Juan Pérez' },
+          });
+          fireEvent.change(screen.getByPlaceholderText('Ej: 3415555555'), {
+            target: { value: '3415555555' },
+          });
+          await Promise.resolve();
+        });
+
+        // Primer submit: falla con 500; el diálogo queda abierto para reintentar.
+        await act(async () => {
+          fireEvent.click(screen.getByText('Confirmar pedido'));
+          await Promise.resolve();
+        });
+        await waitFor(() => expect(submittedKeys).toHaveLength(1));
+
+        // Reintento del usuario sobre la misma operación lógica.
+        await act(async () => {
+          fireEvent.click(screen.getByText('Confirmar pedido'));
+          await Promise.resolve();
+        });
+        await waitFor(() =>
+          expect(screen.getByText('Pedido creado')).toBeInTheDocument()
+        );
+
+        expect(submittedKeys).toHaveLength(2);
+        expect(submittedKeys[0]).toBe(submittedKeys[1]);
+      }
+    );
   });
 
   describe('tarjeta de sucursal en el encabezado', () => {

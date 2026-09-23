@@ -18,6 +18,10 @@ import { throwApiError } from '@/lib/fetch';
 import { toPublicErrorMessage } from '@/lib/public-errors';
 import { useCart } from '@/hooks/useCart';
 import { useRecentOrders } from '@/hooks/useRecentOrders';
+import {
+  useSubmitIdempotencyKey,
+  checkoutSignature,
+} from '@/hooks/use-submit-idempotency-key';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import { cleanupRecentOrdersForBranches } from '@/lib/recent-orders';
 import { BRANCH_STORAGE_KEY } from '@/lib/selected-branch';
@@ -95,6 +99,8 @@ export interface UsePedidoClientResult {
   successDialogOpen: boolean;
   setSuccessDialogOpen: (value: boolean) => void;
   createdOrder: CreatedOrder | null;
+  /** `true` cuando el servidor devolvió un pedido ya registrado (dedup). */
+  createdOrderDeduplicated: boolean;
   cancellationReason: string;
   setCancellationReason: (value: string) => void;
   isCancelling: boolean;
@@ -174,9 +180,15 @@ export function usePedidoClient({
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  // La clave se conserva entre reintentos del mismo submit (QA-02): un
+  // reintento tras una respuesta perdida deduplica en el servidor en vez
+  // de crear un pedido duplicado.
+  const checkoutKey = useSubmitIdempotencyKey();
 
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
+  const [createdOrderDeduplicated, setCreatedOrderDeduplicated] =
+    useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationError, setCancellationError] = useState<string | null>(null);
@@ -539,23 +551,26 @@ export function usePedidoClient({
     setIsSubmitting(true);
 
     try {
+      const submitItems = groupCartItemsForSubmit(
+        items.map((item) => ({
+          productId: item.id,
+          quantity: item.quantity,
+          selectedRecipeItemIds: item.selectedRecipeItemIds,
+        }))
+      );
       const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${activeBranch.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: groupCartItemsForSubmit(
-            items.map((item) => ({
-              productId: item.id,
-              quantity: item.quantity,
-              selectedRecipeItemIds: item.selectedRecipeItemIds,
-            }))
-          ),
+          items: submitItems,
           customerName: customerName.trim(),
           customerPhone: phoneCleaned,
           deliveryType,
           address: deliveryType === 'delivery' ? address.trim() : undefined,
           notes: notes.trim() || undefined,
-          idempotencyKey: nanoid(),
+          idempotencyKey: checkoutKey.resolve(
+            checkoutSignature(submitItems, deliveryType, address)
+          ),
         }),
       });
 
@@ -563,11 +578,13 @@ export function usePedidoClient({
         await throwApiError(response, 'Error al crear el pedido');
       }
 
-      const { order } = (await response.json()) as {
+      const { order, deduplicated } = (await response.json()) as {
         order: CreatedOrder;
+        deduplicated?: boolean;
       };
 
       setCreatedOrder(order);
+      setCreatedOrderDeduplicated(deduplicated === true);
       addRecentOrder({
         id: order.id,
         orderNumber: order.orderNumber,
@@ -578,6 +595,7 @@ export function usePedidoClient({
       });
       setSuccessDialogOpen(true);
       setCheckoutOpen(false);
+      checkoutKey.reset();
       clearCart();
       setCustomerName('');
       setCustomerPhone('');
@@ -618,6 +636,7 @@ export function usePedidoClient({
 
       setSuccessDialogOpen(false);
       setCreatedOrder(null);
+      setCreatedOrderDeduplicated(false);
       setCancellationReason('');
     } catch (err) {
       setCancellationError(
@@ -661,6 +680,7 @@ export function usePedidoClient({
     successDialogOpen,
     setSuccessDialogOpen,
     createdOrder,
+    createdOrderDeduplicated,
     cancellationReason,
     setCancellationReason,
     isCancelling,

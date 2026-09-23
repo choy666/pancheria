@@ -98,6 +98,10 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         createdAt: order.createdAt,
         expiresAt,
       },
+      // `deduplicated` marca que la clave ya existía y se devolvió el
+      // pedido original: la interfaz avisa que el reintento no creó uno
+      // nuevo (y que cambios de payload no aplicaron).
+      deduplicated: order.deduplicated === true,
     },
     { status: 201 }
   );

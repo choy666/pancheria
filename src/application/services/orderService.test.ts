@@ -682,7 +682,10 @@ describe('orderService', () => {
         idempotencyKey: 'key-duplicate',
       });
 
+      // La respuesta deduplicada trae el pedido original marcado para
+      // que la interfaz avise que no se creó uno nuevo.
       expect(result.id).toBe(42);
+      expect(result.deduplicated).toBe(true);
       expect(findCapturedInsert(orders)).toHaveLength(0);
     });
 
@@ -740,6 +743,7 @@ describe('orderService', () => {
       spy.mockRestore();
 
       expect(result.id).toBe(42);
+      expect(result.deduplicated).toBe(true);
       expect(findCapturedInsert(orders)).toHaveLength(0);
       expect(findCapturedInsert(orderItems)).toHaveLength(0);
       expect(findCapturedInsert(orderItemRecipes)).toHaveLength(0);
@@ -1176,7 +1180,9 @@ describe('orderService', () => {
         idempotencyKey: 'key-convert',
       });
 
-      expect(result).toEqual(existingSale);
+      // La respuesta deduplicada trae la venta original marcada con
+      // `deduplicated` para que la interfaz pueda avisarlo.
+      expect(result).toEqual({ ...existingSale, deduplicated: true });
       expect(findCapturedInsert(sales)).toHaveLength(0);
     });
 

@@ -10,6 +10,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Auditoría de escalabilidad](prompts/auditoria-escalabilidad.md) — prompt para auditar escalabilidad a futuro (DB, API, polling, caching, auth, storage, observabilidad, CI/CD y negocio).
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
+- [Auditoría QA integral con ejecución de tests](prompts/auditoria-qa-integral.md) — auditoría QA por etapas con tests ejecutables, revisión visual por perfiles e informe con evidencia.
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
 
 > **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
@@ -22,6 +23,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
 - [Auditoría de escalabilidad (2026-09-19)](informes/auditoria-escalabilidad-2026-09-19.md) — veredicto, cuadro de riesgo, orden de quiebre estimado y plan de acción; hallazgos pendientes volcados en `reporte-estado.md` §6.
+- [Auditoría QA integral (2026-09-21)](informes/auditoria-qa-2026-09-21.md) — ejecución por capas con tests reales: 3 hallazgos encontrados y corregidos en la rama `fix/qa-2026-09-21` (expiración en mutaciones de pedidos → 409 + cancelación, clave de idempotencia por intento → hook compartido, 500 en upload no-multipart → 400); concurrencia, seguridad, WCAG 2.2, WebKit y build prod verificados.
 - [Plan de implementación de la auditoría de escalabilidad (2026-09-19, resuelto)](informes/archivados/plan-implementacion-escalabilidad-2026-09-19.md) — plan por fases (T1–T16) derivado de la auditoría: T1–T13, T15 y Fase M implementadas; T16 decidido "no implementar"; T14 (multi-tenant) diferido — fuente de verdad: `prompts/plan-implementacion-multi-tenant.md`.
 - [Auditoría del deploy de Vercel (2026-09-14, resuelta)](informes/archivados/auditoria-deploy-vercel-2026-09-14.md) — estado del deploy, variables críticas en Vercel/GitHub Actions y recomendaciones ya implementadas; queda abierta solo la verificación periódica de `VERCEL_PRODUCTION_URL` (en `checklist-pre-push.md`).
 - [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
@@ -51,6 +53,9 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── auditoria-escalabilidad-2026-09-19.md  # Auditoría de escalabilidad (veredicto, riesgos, plan)
+│   ├── auditoria-proyecto-2026-09-20.md  # Auditoría integral del proyecto (estado general)
+│   ├── plan-auditoria-qa-2026-09-21.md  # Plan Etapa 1 de la auditoría QA integral
+│   ├── auditoria-qa-2026-09-21.md  # Auditoría QA integral ejecutada (hallazgos QA-01/02/03)
 │   ├── README.md                 # Índice de informes
 │   └── archivados/               # Reportes históricos, planes resueltos y auditorías implementadas (incluye auditoria-deploy-vercel-2026-09-14.md, plan-implementacion-escalabilidad-2026-09-19.md, plan-implementacion-consolidacion-2026-09-20.md y spike-sse-chat-2026-09-19.md)
 └── prompts/
@@ -60,6 +65,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-escalabilidad.md  # Auditoría de escalabilidad a futuro
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
+    ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
     ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, destacar-boton-cierre-caja.md y auditoria-fallos-e2e-caja-y-rate-limit.md)
 ```

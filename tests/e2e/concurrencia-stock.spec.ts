@@ -6,6 +6,9 @@ import {
   restockProductViaApi,
   ensureCashRegisterOpen,
   setUniqueClientIp,
+  countStockMovements,
+  countOrderReservations,
+  getProductStockFromDb,
 } from './helpers';
 
 /**
@@ -106,6 +109,13 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
 
     // El stock físico nunca queda negativo.
     expect(await getProductStock(page, bebida.id)).toBe(0);
+
+    // Invariantes en la base: exactamente un movimiento 'sale' por unidad
+    // vendida y stock almacenado en 0 (nunca negativo).
+    expect(
+      await countStockMovements({ productId: bebida.id, type: 'sale' })
+    ).toBe(STOCK);
+    expect(await getProductStockFromDb(bebida.id)).toBe(0);
   });
 
   test('recibir duplicado en paralelo reserva una sola vez', async ({
@@ -156,6 +166,17 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
       availabilityByProduct: Record<number, number>;
     };
     expect(body.availabilityByProduct[pan.id]).toBe(STOCK - 1);
+
+    // Invariante SQL: una sola fila de reserva y un solo movimiento
+    // 'reserve' aunque ambos requests hayan respondido 200.
+    expect(await countOrderReservations(order.id)).toBe(1);
+    expect(
+      await countStockMovements({
+        productId: pan.id,
+        type: 'reserve',
+        orderId: order.id,
+      })
+    ).toBe(1);
   });
 
   test('carrera recibir/cancelar deja el pedido en estado terminal consistente', async ({
@@ -211,5 +232,21 @@ test.describe('Concurrencia sobre stock y pedidos', () => {
       availabilityByProduct: Record<number, number>;
     };
     expect(body.availabilityByProduct[pan.id]).toBe(STOCK);
+
+    // Invariantes SQL sin depender de qué request "ganó": ninguna reserva
+    // huérfana, y todo lo reservado quedó liberado (reserve = reserve_release;
+    // 0/0 si la cancelación llegó primero, 1/1 si la recepción reservó antes).
+    expect(await countOrderReservations(order.id)).toBe(0);
+    const reserveMovements = await countStockMovements({
+      productId: pan.id,
+      type: 'reserve',
+      orderId: order.id,
+    });
+    const releaseMovements = await countStockMovements({
+      productId: pan.id,
+      type: 'reserve_release',
+      orderId: order.id,
+    });
+    expect(releaseMovements).toBe(reserveMovements);
   });
 });

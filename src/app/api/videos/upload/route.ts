@@ -20,7 +20,17 @@ export const POST = withApiErrorHandling(
       throw new ValidationError('La subida directa solo está disponible en modo local.');
     }
 
-    const formData = await request.formData();
+    // `formData()` lanza TypeError cuando el Content-Type no es
+    // multipart ni urlencoded: se mapea a 400 en vez de caer al 500
+    // genérico (mismo patrón que los uploads de chat, QA-2026-09-21-03).
+    // Otros errores se propagan.
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      throw new ValidationError('El cuerpo debe ser multipart/form-data.');
+    }
     const key = formData.get('key')?.toString();
     const file = formData.get('file');
 

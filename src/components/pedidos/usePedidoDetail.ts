@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { nanoid } from 'nanoid';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { formatMoney } from '@/lib/money';
 import {
@@ -13,6 +12,7 @@ import {
 } from '@/config/api';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
+import { useSubmitIdempotencyKey } from '@/hooks/use-submit-idempotency-key';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus, DeliveryType, PaymentPart, OrderMessage, RecipeItemConfig } from '@/domain/types';
 
@@ -96,6 +96,11 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
   const [cancelReason, setCancelReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // La clave de confirmación se conserva entre reintentos del mismo
+  // pedido (QA-02): si la venta se creó pero la respuesta se perdió, el
+  // reintento deduplica en el servidor. Rota solo tras el éxito o si
+  // cambia el pedido confirmado. Los pagos no forman parte de la firma.
+  const confirmKey = useSubmitIdempotencyKey();
 
   const {
     cashRegister,
@@ -208,7 +213,7 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             payments: paymentParts.filter((p) => p.amount > 0),
-            idempotencyKey: nanoid(),
+            idempotencyKey: confirmKey.resolve(`confirm:${order.id}`),
           }),
         }
       );
@@ -217,11 +222,28 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
         await throwApiError(response, 'Error al confirmar el pedido');
       }
 
+      const data = (await response.json()) as {
+        sale: unknown;
+        deduplicated?: boolean;
+      };
+      confirmKey.reset();
       await refreshCashRegister();
       await loadOrder();
       router.refresh();
+      if (data.deduplicated) {
+        // La venta ya existía (reintento con la misma clave): se muestra
+        // lo registrado y se avisa que los cambios del reintento —p. ej.
+        // pagos editados— no se aplicaron.
+        setActionError(
+          'El pedido ya estaba confirmado como venta; se recuperó la venta registrada originalmente y los cambios de pago del reintento no se aplicaron.'
+        );
+      }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
+      // El estado mostrado puede estar stale (p.ej. un 409 por pedido
+      // vencido que ya quedó cancelado): se recarga el detalle.
+      await loadOrder();
+      router.refresh();
     } finally {
       setIsSubmitting(false);
     }
@@ -248,6 +270,8 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       router.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
+      await loadOrder();
+      router.refresh();
     } finally {
       setIsSubmitting(false);
     }
@@ -282,6 +306,8 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       router.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error desconocido');
+      await loadOrder();
+      router.refresh();
     } finally {
       setIsSubmitting(false);
     }
