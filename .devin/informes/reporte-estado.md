@@ -20,6 +20,13 @@ Ninguno — última ola mergeada el 2026-09-23:
 
 - **PR #6** (`5615500`): P0 — `/pedido/seguimiento` estática sin nonce CSP → no hidrataba en prod (fix `force-dynamic`, verificado en producción: 16/16 scripts con nonce); menor — info-leak de env vars en rate limit → 500 genérico. Informe: `archivados/auditoria-qa-ronda-2-2026-09-23.md`.
 - **PR #7** (`96b0db1`): `concurrency` por shard en job E2E + timeout 18→25 min (suite ya rondaba los ~19 min). Ticket: `archivados/ci-e2e-base-compartida.md`.
+- **PR #8** (`84957e4`): reorganización documental de `.devin/informes/` (ver §"Reorganización documental"). Commit posterior `f1ed413`: screenshots de daltonismo fuera del versionado + `.gitignore`.
+
+### CI de `main` (post-merge)
+
+- HEAD de main verde: run `35874862336` success (incluye `AGENTS.md` con la convención de sonido en monitoreos).
+- Runs `35873002069` (merge PR #8) success y `35874232325` (shots) **cancelled**: GitHub admite un job corriendo + uno pendiente por grupo `concurrency`; el push posterior canceló el E2E encolado. Esperado y sin costo — el commit quedó cubierto por el run siguiente.
+- Ramas: solo `main` local y remoto (7 ramas mergeadas/residuales eliminadas tras verificar 0 commits por delante).
 
 ### Deuda abierta consolidada (única fuente)
 
