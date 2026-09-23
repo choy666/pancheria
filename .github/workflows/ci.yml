@@ -87,7 +87,15 @@ jobs:
   e2e:
     name: Tests end-to-end y accesibilidad
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
+    # global-setup trunca y re-seedea la base del shard: dos runs sobre el
+    # mismo shard se contaminan entre sí (deadlocks, usuarios del seed
+    # inexistentes). El grupo por shard serializa los runs sin frenar el
+    # paralelismo entre shards (cada uno tiene su propia base). No se cancela
+    # el run en curso: interrumpirlo dejaría la base truncada a medias.
+    concurrency:
+      group: e2e-db-${{ matrix.shard }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       # Sharding opt-in: por defecto corre todo en un solo shard. Para partir
@@ -190,8 +198,12 @@ jobs:
         timeout-minutes: 10
 
       - name: Ejecutar tests E2E y accesibilidad con axe-core (shard ${{ matrix.shard }})
+        # La suite ya ronda los ~19 min en un solo shard sobre Neon remota
+        # (runs de main pasaban por ~1 min de margen; PR #6 cortó a los 18
+        # dos veces seguidas). Si vuelve a crecer, la salida estructural es
+        # el sharding opt-in (E2E_SHARDS + secrets de base por shard).
         run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
-        timeout-minutes: 18
+        timeout-minutes: 25
 
       - name: Subir reporte blob del shard
         if: always()

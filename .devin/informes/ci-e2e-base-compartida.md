@@ -15,6 +15,11 @@ pipeline que produce falsos rojos.
   la **misma** base (`E2E_DATABASE_URL`, Neon remota).
 - El segundo re-run del PR #3 (12:07→12:23 UTC, solape mínimo con el
   cierre del job de PR #4) pasó completo.
+- **2026-09-23 (segunda ocurrencia):** los runs `35811794283` (02:47 UTC)
+  y `35811835314` (02:48 UTC) de `main` corrieron en paralelo sobre la
+  misma base. El primero falló con logins de `e2e-operator-segunda` que
+  no redirigían — el `global-setup` del run concurrente truncó `users`
+  después del seed del otro. El segundo pasó completo.
 
 ## Mecanismo
 
@@ -31,21 +36,26 @@ Determinista: abrir dos PRs que disparen el job E2E en la misma ventana,
 o re-lanzar un job fallido mientras otro run E2E está activo. Ambos usan
 la misma `E2E_DATABASE_URL` → se pisan.
 
-## Propuesta (sin implementar)
+## Propuesta
 
 Opciones, en orden de costo:
 
-1. `concurrency` en el job E2E del workflow
-   (`concurrency: { group: e2e-db, cancel-in-progress: false }`):
-   serializa los jobs que usan la base compartida. Barato; penaliza
-   tiempo total de CI cuando hay varios PRs abiertos.
+1. `concurrency` en el job E2E del workflow — **implementada** en
+   `fix/ci-e2e-concurrency` (2026-09-23) como
+   `concurrency: { group: e2e-db-${{ matrix.shard }}, cancel-in-progress: false }`.
+   El grupo por shard serializa runs sobre la misma base sin frenar el
+   paralelismo entre shards (cada shard usa su propia base). Se eligió
+   `cancel-in-progress: false` porque interrumpir un run a mitad deja la
+   base truncada a medias. Penaliza tiempo total de CI cuando hay varios
+   PRs abiertos. En la misma rama se subió el `timeout-minutes` del step
+   E2E de 18 a 25 (y del job de 20 a 35): la suite ya ronda los ~19 min
+   en un solo shard sobre Neon remota — los runs de main pasaban por ~1
+   min de margen y el PR #6 cortó a los 18 dos veces seguidas sin
+   assertion failures.
 2. Base por run: crear una base Neon efímera por `github.run_id`
    (branch efímero de Neon) y destruirla al finalizar. Elimina el falso
    rojo por completo; requiere API key de Neon como secret y un step de
-   provisioning (~30 s).
-3. Mantener el status quo y reintentar manualmente — aceptable mientras
-   la frecuencia de PRs simultáneos sea baja, pero cada falso rojo cuesta
-   ~15 min de investigación.
-
-Recomendación: opción 1 ahora (una línea de YAML) y evaluar la 2 si los
-PRs concurrentes se vuelven habituales.
+   provisioning (~30 s). **Pendiente**: evaluar si los PRs concurrentes
+   se vuelven habituales.
+3. Mantener el status quo y reintentar manualmente — descartada: ya hubo
+   dos ocurrencias (PR #3/PR #4 y runs de main del 2026-09-23).
