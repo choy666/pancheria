@@ -68,10 +68,10 @@ El rechazo fail-closed lanzaba `DomainError` → `withApiErrorHandling` lo mapea
 
 El color actúa como refuerzo visual; la semántica siempre viaja por texto o iconos. Evidencia descartable en `.devin/informes/shots/` (no versionada).
 
-## 4. Estado de deuda registrada (sin cambios)
+## 4. Estado de deuda registrada (actualización 2026-09-23)
 
-- `ci-e2e-base-compartida.md`: deadlocks por `global-setup` concurrente sobre la misma base Neon — propuesta `concurrency: { group: e2e-db }` pendiente de autorización.
-- Soft-delete de `branches`: para la próxima auditoría de escalabilidad.
+- La serialización E2E por shard y el timeout de 25 min se implementaron en PR #7; el pendiente restante es evaluar Neon efímera por `run_id` o activar sharding con una base descartable por shard (ver `reporte-estado.md` §0).
+- El propietario confirma mantener la eliminación física en cascada de `branches`; no se implementará soft-delete. `deleteBranch` elimina filas en una transacción, intenta liberar imágenes/adjuntos/videos y deja que `cron/chat-attachments-cleanup` reintente los archivos huérfanos si un proveedor falla.
 
 ## Verificaciones de la ronda
 

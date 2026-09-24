@@ -15,6 +15,18 @@ import { DomainError } from '@/domain/errors';
 import type { OrderStatus, OrderWithItems, OrderWithUnreadCount, OrderItem, RecipeItemConfig } from '@/domain/types';
 
 export type OrderItemRecipeInsert = typeof orderItemRecipes.$inferInsert;
+export type OrderIdempotencyLookup = {
+  order: OrderWithItems;
+  idempotencyHash: string | null;
+};
+
+function stripIdempotencyHash<T extends object>(
+  order: T
+): Omit<T, 'idempotencyHash'> {
+  const safeOrder = { ...order } as T & { idempotencyHash?: string | null };
+  delete safeOrder.idempotencyHash;
+  return safeOrder as Omit<T, 'idempotencyHash'>;
+}
 
 function normalizeOrder(
   order: (typeof orders.$inferSelect & {
@@ -25,11 +37,10 @@ function normalizeOrder(
     })[];
   })
 ): OrderWithItems {
+  const safeOrder = stripIdempotencyHash(order);
   return {
-    ...order,
-    items: (order.items ?? []).map((item) =>
-      normalizeOrderItem(item)
-    ),
+    ...safeOrder,
+    items: (order.items ?? []).map((item) => normalizeOrderItem(item)),
   } as OrderWithItems;
 }
 
@@ -51,13 +62,14 @@ function normalizeOrderItem(
 export async function findByIdWithToken(
   orderId: number,
   token: string
-): Promise<(typeof orders.$inferSelect) | undefined> {
+): Promise<Omit<typeof orders.$inferSelect, 'idempotencyHash'> | undefined> {
   return db.query.orders.findFirst({
     where: and(
       eq(orders.id, orderId),
       eq(orders.cancellationToken, token),
       isNull(orders.deletedAt)
     ),
+    columns: { idempotencyHash: false },
   });
 }
 
@@ -65,7 +77,7 @@ export async function findByIdWithTokenForUpdate(
   tx: typeof db,
   orderId: number,
   token: string
-): Promise<(typeof orders.$inferSelect) | undefined> {
+): Promise<Omit<typeof orders.$inferSelect, 'idempotencyHash'> | undefined> {
   const [order] = await tx
     .select()
     .from(orders)
@@ -78,14 +90,16 @@ export async function findByIdWithTokenForUpdate(
     )
     .for('update');
 
-  return order;
+  if (!order) return undefined;
+  const safeOrder = stripIdempotencyHash(order);
+  return safeOrder;
 }
 
 export async function findByIdForUpdate(
   tx: typeof db,
   branchId: number,
   orderId: number
-): Promise<(typeof orders.$inferSelect) | undefined> {
+): Promise<Omit<typeof orders.$inferSelect, 'idempotencyHash'> | undefined> {
   const [order] = await tx
     .select()
     .from(orders)
@@ -94,7 +108,9 @@ export async function findByIdForUpdate(
     )
     .for('update');
 
-  return order;
+  if (!order) return undefined;
+  const safeOrder = stripIdempotencyHash(order);
+  return safeOrder;
 }
 
 export async function findById(
@@ -158,16 +174,20 @@ export async function findByIdForCancel(
   branchId: number,
   id: number
 ): Promise<(OrderWithItems & { items: { productId: number; quantity: number }[] }) | undefined> {
-  return (await db.query.orders.findFirst({
+  const order = await db.query.orders.findFirst({
     where: and(eq(orders.id, id), eq(orders.branchId, branchId), isNull(orders.deletedAt)),
     with: { branch: true, items: true },
-  })) as (OrderWithItems & { items: { productId: number; quantity: number }[] }) | undefined;
+  });
+
+  if (!order) return undefined;
+  const safeOrder = stripIdempotencyHash(order);
+  return safeOrder as OrderWithItems & { items: { productId: number; quantity: number }[] };
 }
 
 export async function findByIdempotencyKey(
   branchId: number,
   key: string
-): Promise<OrderWithItems | null> {
+): Promise<OrderIdempotencyLookup | null> {
   const order = await db.query.orders.findFirst({
     where: and(
       eq(orders.branchId, branchId),
@@ -180,7 +200,9 @@ export async function findByIdempotencyKey(
     },
   });
 
-  return order ? normalizeOrder(order) : null;
+  return order
+    ? { order: normalizeOrder(order), idempotencyHash: order.idempotencyHash }
+    : null;
 }
 
 export async function findPending(branchId: number): Promise<OrderWithItems[]> {
@@ -364,10 +386,10 @@ export async function countExpiredPending(
 export async function insertOrder(
   tx: typeof db,
   values: typeof orders.$inferInsert
-): Promise<typeof orders.$inferSelect> {
+): Promise<Omit<typeof orders.$inferSelect, 'idempotencyHash'>> {
   const [order] = await tx.insert(orders).values(values).returning();
   if (!order) throw new DomainError('No se pudo crear el pedido.');
-  return order;
+  return stripIdempotencyHash(order);
 }
 
 /**
@@ -435,7 +457,7 @@ export async function updateStatus(
   branchId: number,
   id: number,
   values: Partial<typeof orders.$inferInsert>
-): Promise<typeof orders.$inferSelect> {
+): Promise<Omit<typeof orders.$inferSelect, 'idempotencyHash'>> {
   const [updated] = await tx
     .update(orders)
     .set(values)
@@ -446,7 +468,8 @@ export async function updateStatus(
     throw new DomainError('No se pudo actualizar el pedido.');
   }
 
-  return updated;
+  const safeOrder = stripIdempotencyHash(updated);
+  return safeOrder;
 }
 
 export async function cancel(
@@ -454,7 +477,7 @@ export async function cancel(
   branchId: number,
   id: number,
   values: Partial<typeof orders.$inferInsert>
-): Promise<typeof orders.$inferSelect> {
+): Promise<Omit<typeof orders.$inferSelect, 'idempotencyHash'>> {
   const [updated] = await tx
     .update(orders)
     .set(values)
@@ -465,7 +488,8 @@ export async function cancel(
     throw new DomainError('No se pudo cancelar el pedido.');
   }
 
-  return updated;
+  const safeOrder = stripIdempotencyHash(updated);
+  return safeOrder;
 }
 
 export async function findByOrderNumberAndCustomer(

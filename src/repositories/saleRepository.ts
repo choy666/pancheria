@@ -13,8 +13,9 @@ import { nowUTC } from '@/lib/date';
 import type { PaginatedResult, PaginationParams, PaymentPart, SaleStatus } from '@/domain/types';
 
 export type SaleRow = typeof sales.$inferSelect;
+export type SalePublicRow = Omit<SaleRow, 'idempotencyHash'>;
 
-export type SaleWithDetails = SaleRow & {
+export type SaleWithDetails = SalePublicRow & {
   items: (typeof saleItems.$inferSelect & {
     product: typeof products.$inferSelect | null;
     recipeSnapshots: (typeof saleItemRecipes.$inferSelect)[];
@@ -25,9 +26,18 @@ export type SaleWithDetails = SaleRow & {
 
 export type SaleItemRecipeInsert = typeof saleItemRecipes.$inferInsert;
 
+function stripIdempotencyHash<T extends object>(
+  sale: T
+): Omit<T, 'idempotencyHash'> {
+  const safeSale = { ...sale } as T & { idempotencyHash?: string | null };
+  delete safeSale.idempotencyHash;
+  return safeSale as Omit<T, 'idempotencyHash'>;
+}
+
 export async function findById(branchId: number, id: number) {
   const result = await db.query.sales.findFirst({
     where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
+    columns: { idempotencyHash: false },
     with: {
       items: {
         with: {
@@ -38,7 +48,7 @@ export async function findById(branchId: number, id: number) {
       payments: true,
     },
   });
-  return result ?? null;
+  return result ? stripIdempotencyHash(result) : null;
 }
 
 export async function findByDateRange(
@@ -47,7 +57,7 @@ export async function findByDateRange(
   end: Date,
   status?: SaleStatus,
   pagination?: PaginationParams
-): Promise<PaginatedResult<typeof sales.$inferSelect>> {
+): Promise<PaginatedResult<SalePublicRow>> {
   const conditions = [
     eq(sales.branchId, branchId),
     gte(sales.createdAt, start),
@@ -68,6 +78,7 @@ export async function findByDateRange(
 
   const items = await db.query.sales.findMany({
     where: and(...conditions),
+    columns: { idempotencyHash: false },
     orderBy: (sales, { desc }) => [desc(sales.createdAt)],
     limit,
     offset,
@@ -83,7 +94,7 @@ export async function findByDateRange(
   });
 
   return {
-    items,
+    items: items.map(stripIdempotencyHash),
     total: Number(total),
     page: pagination?.page ?? 1,
     limit: limit ?? total,
@@ -95,7 +106,7 @@ export async function findByCashRegisterId(
   cashRegisterId: number,
   status?: SaleStatus,
   pagination?: PaginationParams
-): Promise<PaginatedResult<typeof sales.$inferSelect>> {
+): Promise<PaginatedResult<SalePublicRow>> {
   const conditions = [
     eq(sales.branchId, branchId),
     eq(sales.cashRegisterId, cashRegisterId),
@@ -115,6 +126,7 @@ export async function findByCashRegisterId(
 
   const items = await db.query.sales.findMany({
     where: and(...conditions),
+    columns: { idempotencyHash: false },
     orderBy: (sales, { desc }) => [desc(sales.createdAt)],
     limit,
     offset,
@@ -130,7 +142,7 @@ export async function findByCashRegisterId(
   });
 
   return {
-    items,
+    items: items.map(stripIdempotencyHash),
     total: Number(total),
     page: pagination?.page ?? 1,
     limit: limit ?? total,
@@ -143,12 +155,13 @@ export async function findActiveWithDetailsByCashRegister(
   cashRegisterId: number,
   pagination?: { limit?: number; offset?: number }
 ) {
-  return dbOrTx.query.sales.findMany({
+  const salesList = await dbOrTx.query.sales.findMany({
     where: and(
       eq(sales.status, 'active'),
       eq(sales.branchId, branchId),
       eq(sales.cashRegisterId, cashRegisterId)
     ),
+    columns: { idempotencyHash: false },
     // Orden estable para que la paginación por offset no repita ni salte
     // ventas entre páginas.
     orderBy: (sale, { asc }) => [asc(sale.id)],
@@ -164,6 +177,8 @@ export async function findActiveWithDetailsByCashRegister(
       payments: true,
     },
   });
+
+  return salesList.map(stripIdempotencyHash);
 }
 
 export async function create(params: {
@@ -216,10 +231,10 @@ export async function create(params: {
     );
   }
 
-  return sale;
+  return stripIdempotencyHash(sale);
 }
 
-export async function cancel(branchId: number, id: number, reason: string) {
+export async function cancel(branchId: number, id: number, reason: string): Promise<SalePublicRow | null> {
   const [result] = await db
     .update(sales)
     .set({
@@ -229,7 +244,7 @@ export async function cancel(branchId: number, id: number, reason: string) {
     })
     .where(and(eq(sales.id, id), eq(sales.branchId, branchId)))
     .returning();
-  return result ?? null;
+  return result ? stripIdempotencyHash(result) : null;
 }
 
 export async function insertSale(
@@ -272,14 +287,19 @@ export async function findByIdWithDetails(
   branchId: number,
   id: number
 ): Promise<SaleWithDetails | undefined> {
-  return tx.query.sales.findFirst({
+  const sale = await tx.query.sales.findFirst({
     where: and(eq(sales.id, id), eq(sales.branchId, branchId)),
+    columns: { idempotencyHash: false },
     with: {
       items: { with: { product: true, recipeSnapshots: true } },
       payments: true,
       cashRegister: true,
     },
-  }) as unknown as Promise<SaleWithDetails | undefined>;
+  });
+
+  return sale
+    ? (stripIdempotencyHash(sale) as unknown as SaleWithDetails)
+    : undefined;
 }
 
 export async function cancelIfActive(
@@ -287,7 +307,7 @@ export async function cancelIfActive(
   branchId: number,
   id: number,
   values: Partial<typeof sales.$inferInsert>
-): Promise<typeof sales.$inferSelect | undefined> {
+): Promise<SalePublicRow | undefined> {
   const [updated] = await tx
     .update(sales)
     .set(values)
@@ -300,5 +320,5 @@ export async function cancelIfActive(
     )
     .returning();
 
-  return updated;
+  return updated ? stripIdempotencyHash(updated) : undefined;
 }

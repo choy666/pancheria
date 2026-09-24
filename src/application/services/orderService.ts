@@ -1,6 +1,9 @@
 import { db } from '@/db';
 import * as orderRepository from '@/repositories/orderRepository';
-import type { OrderItemRecipeInsert } from '@/repositories/orderRepository';
+import type {
+  OrderIdempotencyLookup,
+  OrderItemRecipeInsert,
+} from '@/repositories/orderRepository';
 import * as productRepository from '@/repositories/productRepository';
 import * as stockMovementRepository from '@/repositories/stockMovementRepository';
 import type { StockMovementInsert } from '@/repositories/stockMovementRepository';
@@ -126,10 +129,53 @@ function toSaleItemInputWithSelection(
   }));
 }
 
+type CreateOrderPayload = Omit<CreateOrderInput, 'idempotencyKey'>;
+
+function createOrderRequestHash(input: CreateOrderPayload): string {
+  return idempotencyService.createIdempotencyHash('order.create', {
+    branchId: input.branchId,
+    items: idempotencyService.normalizeIdempotencyItems(input.items),
+    customerName: input.customerName.trim(),
+    customerPhone: input.customerPhone.replace(/\s/g, ''),
+    deliveryType: input.deliveryType,
+    address: input.address?.trim() || null,
+    notes: input.notes?.trim() || null,
+  });
+}
+
+function createStoredOrderRequestHash(order: OrderWithItems): string | null {
+  if (
+    order.items.some(
+      (item) =>
+        !item.product ||
+        (item.product.type === 'compound' && !item.recipeSnapshot?.length)
+    )
+  ) {
+    return null;
+  }
+
+  return createOrderRequestHash({
+    branchId: order.branchId,
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      selectedRecipeItemIds:
+        item.recipeSnapshot
+          ?.filter((recipe) => recipe.isOptional && recipe.selected)
+          .map((recipe) => recipe.supplyId) ?? [],
+    })),
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    deliveryType: order.deliveryType,
+    address: order.address,
+    notes: order.notes,
+  });
+}
+
 async function getOrderByIdempotencyKey(
   branchId: number,
   key: string
-): Promise<OrderWithItems | null> {
+): Promise<OrderIdempotencyLookup | null> {
   return orderRepository.findByIdempotencyKey(branchId, key);
 }
 
@@ -209,10 +255,21 @@ export async function createOrder(
   input: CreateOrderInput
 ): Promise<OrderWithItems & { deduplicated?: boolean }> {
   const { branchId, items, customerName, customerPhone, deliveryType, address, notes, idempotencyKey } = input;
+  const requestHash = createOrderRequestHash(input);
 
   const branch = await branchService.getBranchById(branchId);
   if (!branch) {
     throw new NotFoundError('Sucursal', branchId);
+  }
+
+  const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
+  const existing = await getOrderByIdempotencyKey(branchId, branchIdempotencyKey);
+  if (existing) {
+    idempotencyService.assertIdempotencyHashMatches(
+      existing.idempotencyHash ?? createStoredOrderRequestHash(existing.order),
+      requestHash
+    );
+    return { ...existing.order, deduplicated: true };
   }
 
   const openCashRegister = await cashRegisterService.getOpenCashRegister(branchId);
@@ -221,15 +278,6 @@ export async function createOrder(
     throw new ValidationError(
       `En este momento no podemos recibir pedidos. Horario de atención: ${opening}.`
     );
-  }
-
-  const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
-
-  const existing = await getOrderByIdempotencyKey(branchId, branchIdempotencyKey);
-  if (existing) {
-    // Dedup: el cliente reintentó con la misma clave — se devuelve el
-    // pedido original marcado para que la interfaz avise que no es nuevo.
-    return { ...existing, deduplicated: true };
   }
 
   return executeInTransaction(async (tx) => {
@@ -247,18 +295,21 @@ export async function createOrder(
     const orderNumber = generateOrderNumber(branchId);
     const cancellationToken = generateCancellationToken();
 
-    const orderValues = buildOrderValues({
-      branchId,
-      orderNumber,
-      total: orderTotal,
-      customerName,
-      customerPhone,
-      deliveryType,
-      address,
-      notes,
-      cancellationToken,
-      idempotencyKey: branchIdempotencyKey,
-    });
+    const orderValues = {
+      ...buildOrderValues({
+        branchId,
+        orderNumber,
+        total: orderTotal,
+        customerName,
+        customerPhone,
+        deliveryType,
+        address,
+        notes,
+        cancellationToken,
+        idempotencyKey: branchIdempotencyKey,
+      }),
+      idempotencyHash: requestHash,
+    };
 
     const { order, isNew } = await orderRepository.insertOrderIdempotent(
       tx,
@@ -266,13 +317,20 @@ export async function createOrder(
     );
 
     if (!isNew) {
-      const existing = await orderRepository.findById(branchId, order.id);
+      const existing = await getOrderByIdempotencyKey(
+        branchId,
+        branchIdempotencyKey
+      );
       if (!existing) {
         throw new NotFoundError('Pedido', order.id);
       }
-      // Carrera de inserts con la misma clave: ganó otra request — la
-      // respuesta deduplica al pedido ya persistido.
-      return { ...existing, deduplicated: true };
+      idempotencyService.assertIdempotencyHashMatches(
+        order.idempotencyHash ??
+          existing.idempotencyHash ??
+          createStoredOrderRequestHash(existing.order),
+        requestHash
+      );
+      return { ...existing.order, deduplicated: true };
     }
 
     const orderItemsToInsert = buildOrderItemValues(orderItemValues, order.id);
@@ -322,7 +380,8 @@ export async function createOrder(
       })
     );
 
-    return { ...order, branch, items: resultItems } as OrderWithItems;
+    const safeOrder = idempotencyService.stripIdempotencyHash(order);
+    return { ...safeOrder, branch, items: resultItems } as OrderWithItems;
   });
 }
 
@@ -400,10 +459,33 @@ export async function cancelOrder(
 
 export async function convertOrderToSale(
   input: ConvertOrderInput
-): Promise<SaleRow & { deduplicated?: boolean }> {
+): Promise<Omit<SaleRow, 'idempotencyHash'> & { deduplicated?: boolean }> {
   const { branchId, orderId, payments, idempotencyKey } = input;
+  const requestHash = idempotencyService.createIdempotencyHash(
+    'sale.order-conversion',
+    {
+      branchId,
+      orderId,
+      payments: idempotencyService.normalizeIdempotencyPayments(payments),
+    }
+  );
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
+  const preExistingSale = await idempotencyService.findExistingByIdempotencyKey(
+    'sale',
+    branchId,
+    branchIdempotencyKey
+  );
+  if (preExistingSale) {
+    idempotencyService.assertIdempotencyHashMatches(
+      preExistingSale.idempotencyHash,
+      requestHash
+    );
+    return {
+      ...idempotencyService.stripIdempotencyHash(preExistingSale),
+      deduplicated: true,
+    };
+  }
 
   const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
   if (!cashRegister) {
@@ -422,20 +504,6 @@ export async function convertOrderToSale(
 
   if (!order) {
     throw new NotFoundError('Pedido', orderId);
-  }
-
-  // Dedup antes de los checks de estado: si la clave ya tiene una venta,
-  // la request es un reintento y se devuelve la venta registrada — aunque
-  // el pedido ya figure `paid`/`finished` o los pagos del reintento no
-  // validen contra el total. El check se repite dentro de la transacción
-  // para la carrera de dos requests simultáneas con la misma clave.
-  const preExistingSale = await idempotencyService.findExistingByIdempotencyKey(
-    'sale',
-    branchId,
-    branchIdempotencyKey
-  );
-  if (preExistingSale) {
-    return { ...preExistingSale, deduplicated: true };
   }
 
   if (order.status === 'paid' || order.status === 'finished') {
@@ -460,10 +528,14 @@ export async function convertOrderToSale(
         tx
       );
       if (existingSale) {
-        // Dedup: la venta ya existía — se devuelve marcada para que la
-        // interfaz avise que los datos reintentados (p. ej. pagos
-        // editados) no se aplicaron.
-        return { ...existingSale, deduplicated: true };
+        idempotencyService.assertIdempotencyHashMatches(
+          existingSale.idempotencyHash,
+          requestHash
+        );
+        return {
+          ...idempotencyService.stripIdempotencyHash(existingSale),
+          deduplicated: true,
+        };
       }
 
       const lockedOrder = await orderRepository.findByIdForUpdate(
@@ -558,6 +630,7 @@ export async function convertOrderToSale(
         branchId,
         cashRegister,
         branchIdempotencyKey,
+        requestHash,
         payments,
         saleItemValues,
         saleProductById,

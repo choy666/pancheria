@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { withApiErrorHandling } from './api-handler';
 import { logger } from './logger';
 import {
+  ConflictError,
   DomainError,
   ForbiddenError,
   InsufficientStockError,
@@ -145,6 +146,19 @@ describe('withApiErrorHandling', () => {
 
     expect(response.status).toBe(409);
     expect(body.error).toContain('Stock insuficiente');
+  });
+
+  test('convierte ConflictError en 409', async () => {
+    const handler = jest
+      .fn()
+      .mockRejectedValue(new ConflictError('La clave ya fue usada con otros datos.'));
+    const wrapped = withApiErrorHandling(handler);
+
+    const response = await wrapped(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('La clave ya fue usada con otros datos.');
   });
 
   test('convierte DomainError genérico en 400', async () => {

@@ -275,6 +275,7 @@ export async function insertSaleAndUpdateCashRegister(
   branchId: number,
   cashRegister: import('@/repositories/cashRegisterRepository').CashRegisterRow | null,
   idempotencyKey: string,
+  idempotencyHash: string,
   payments: PaymentPart[],
   saleItemValues: SaleItemValue[],
   productById: Map<number, ProductRow>,
@@ -289,6 +290,7 @@ export async function insertSaleAndUpdateCashRegister(
     paymentMethod: primaryPaymentMethod,
     cashRegisterId: cashRegister?.id ?? null,
     idempotencyKey,
+    idempotencyHash,
     createdAt: nowUTC(),
   });
 
@@ -302,7 +304,11 @@ export async function insertSaleAndUpdateCashRegister(
     if (!existing) {
       throw new DomainError('No se pudo crear ni recuperar la venta.');
     }
-    return existing;
+    idempotencyService.assertIdempotencyHashMatches(
+      existing.idempotencyHash,
+      idempotencyHash
+    );
+    return idempotencyService.stripIdempotencyHash(existing);
   }
 
   const insertedSaleItems = await saleRepository.insertItems(
@@ -383,7 +389,7 @@ export async function insertSaleAndUpdateCashRegister(
     'add'
   );
 
-  return sale;
+  return idempotencyService.stripIdempotencyHash(sale);
 }
 
 export async function confirmSale(params: {
@@ -393,8 +399,28 @@ export async function confirmSale(params: {
   idempotencyKey: string;
 }) {
   const { branchId, items, payments, idempotencyKey } = params;
+  const requestHash = idempotencyService.createIdempotencyHash('sale.create', {
+    branchId,
+    items: idempotencyService.normalizeIdempotencyItems(items),
+    payments: idempotencyService.normalizeIdempotencyPayments(payments),
+  });
 
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
+  const preExistingSale = await idempotencyService.findExistingByIdempotencyKey(
+    'sale',
+    branchId,
+    branchIdempotencyKey
+  );
+  if (preExistingSale) {
+    idempotencyService.assertIdempotencyHashMatches(
+      preExistingSale.idempotencyHash,
+      requestHash
+    );
+    return {
+      ...idempotencyService.stripIdempotencyHash(preExistingSale),
+      deduplicated: true,
+    };
+  }
 
   const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
 
@@ -416,7 +442,14 @@ export async function confirmSale(params: {
       tx
     );
     if (existingSale) {
-      throw new ValidationError('La venta ya fue procesada.');
+      idempotencyService.assertIdempotencyHashMatches(
+        existingSale.idempotencyHash,
+        requestHash
+      );
+      return {
+        ...idempotencyService.stripIdempotencyHash(existingSale),
+        deduplicated: true,
+      };
     }
 
     const {
@@ -442,6 +475,7 @@ export async function confirmSale(params: {
       branchId,
       cashRegister,
       branchIdempotencyKey,
+      requestHash,
       payments,
       saleItemValues,
       productById,

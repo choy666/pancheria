@@ -569,7 +569,14 @@ export function usePedidoClient({
           address: deliveryType === 'delivery' ? address.trim() : undefined,
           notes: notes.trim() || undefined,
           idempotencyKey: checkoutKey.resolve(
-            checkoutSignature(submitItems, deliveryType, address)
+            checkoutSignature(
+              submitItems,
+              deliveryType,
+              address,
+              customerName,
+              phoneCleaned,
+              notes
+            )
           ),
         }),
       });

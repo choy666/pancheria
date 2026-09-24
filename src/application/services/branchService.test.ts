@@ -7,6 +7,12 @@ import {
   deleteBranch,
 } from './branchService';
 import { db } from '@/db';
+import * as branchRepository from '@/repositories/branchRepository';
+import * as productImageStorage from '@/lib/product-image-storage';
+import * as chatStorage from '@/lib/chat-storage';
+import * as storage from '@/lib/storage';
+import * as rateLimitStore from '@/lib/rate-limit-store';
+import { logger } from '@/lib/logger';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 
 jest.mock('@/db', () => ({
@@ -82,6 +88,7 @@ describe('branchService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('listBranches', () => {
@@ -449,6 +456,81 @@ describe('branchService', () => {
         })
       );
       expect(mockedDb.transaction).toHaveBeenCalled();
+    });
+
+    test('intenta borrar las tres clases de archivos y reporta fallos recuperables', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        openingHours: [],
+      });
+      jest
+        .spyOn(branchRepository, 'findUsernamesByBranch')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(branchRepository, 'findProductImageKeysByBranch')
+        .mockResolvedValue([{ id: 10, imageKey: 'product-images/10/a.png' }]);
+      jest.spyOn(branchRepository, 'findOrderIdsByBranch').mockResolvedValue([20]);
+      jest
+        .spyOn(branchRepository, 'findAttachmentKeysByOrderIds')
+        .mockResolvedValue(['chat/20/a.png']);
+      jest
+        .spyOn(branchRepository, 'findVideoFileUrlsByBranch')
+        .mockResolvedValue(['video-storage-key']);
+      jest.spyOn(branchRepository, 'deleteCascade').mockResolvedValue(undefined);
+      const imageDelete = jest
+        .spyOn(productImageStorage, 'deleteProductImage')
+        .mockRejectedValue(new Error('storage unavailable'));
+      const attachmentDelete = jest
+        .spyOn(chatStorage, 'deleteChatAttachment')
+        .mockResolvedValue(undefined);
+      const videoDelete = jest
+        .spyOn(storage, 'deleteVideoFileByUrl')
+        .mockResolvedValue(undefined);
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+      await deleteBranch(1);
+
+      expect(imageDelete.mock.calls[0][0]).toBe('product-images/10/a.png');
+      expect(attachmentDelete.mock.calls[0][0]).toBe('chat/20/a.png');
+      expect(videoDelete.mock.calls[0][0]).toBe('video-storage-key');
+      expect(warn).toHaveBeenCalledWith(
+        'No se pudieron eliminar todos los archivos de una sucursal',
+        expect.objectContaining({
+          branchId: 1,
+          failedProductImages: 1,
+          failedChatAttachments: 0,
+          failedVideos: 0,
+          retryJob: 'cron/chat-attachments-cleanup',
+        })
+      );
+    });
+
+    test('registra si no se pudieron limpiar intentos de login', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        openingHours: [],
+      });
+      jest
+        .spyOn(branchRepository, 'findUsernamesByBranch')
+        .mockResolvedValue(['operador']);
+      jest.spyOn(branchRepository, 'deleteCascade').mockResolvedValue(undefined);
+      const remove = jest.fn().mockRejectedValue(new Error('rate limit unavailable'));
+      jest.spyOn(rateLimitStore, 'getRateLimitStore').mockReturnValue({ remove } as any);
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+      await deleteBranch(1);
+
+      expect(remove).toHaveBeenCalledWith('operador');
+      expect(warn).toHaveBeenCalledWith(
+        'No se pudieron limpiar todos los intentos de login de la sucursal',
+        expect.objectContaining({
+          branchId: 1,
+          failedRateLimitRemovals: 1,
+          retryJob: 'cron/rate-limit-cleanup',
+        })
+      );
     });
 
     test('lanza NotFoundError para un ID inexistente', async () => {

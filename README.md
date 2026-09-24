@@ -26,11 +26,12 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
 5. Para migraciones (`drizzle-kit`) usar una URL sin pooler: `DATABASE_URL_UNPOOLED` o `POSTGRES_URL_NON_POOLING`.
 6. Instalar dependencias: `npm install`
-7. Generar migraciones: `npx drizzle-kit generate`
-8. Empujar migraciones en desarrollo: `npx drizzle-kit push`
-9. Para producción, ver `.devin/informes/entornos.md`
-10. Ejecutar seed: `npx tsx src/db/seeds.ts`
-11. Iniciar en desarrollo: `npm run dev`
+7. Si cambia `src/db/schema.ts`, generar la migración: `npx drizzle-kit generate`.
+8. Verificar la consistencia del historial: `npx drizzle-kit check`.
+9. Aplicar migraciones pendientes con `npx drizzle-kit migrate`. `npx drizzle-kit push` queda como alternativa excepcional de desarrollo porque no registra el journal.
+10. Para producción, seguir `.devin/informes/entornos.md`.
+11. Ejecutar el seed cuando corresponda: `npx tsx src/db/seeds.ts`.
+12. Iniciar en desarrollo: `npm run dev`.
 
 Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`. Si `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
 
@@ -64,8 +65,10 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 - `npm run test:e2e` (o `npx playwright test`) — tests end-to-end
 - `npm run test:accessibility` — tests de accesibilidad con `axe-core`
 - `npm run knip` — detectar exports, dependencias y archivos no usados
-- `npx drizzle-kit generate` — generar migraciones
-- `npx drizzle-kit push` — empujar migraciones
+- `npx drizzle-kit generate` — generar una migración tras cambiar `src/db/schema.ts`
+- `npx drizzle-kit check` — verificar consistencia del historial de migraciones
+- `npx drizzle-kit migrate` — aplicar migraciones pendientes
+- `npx drizzle-kit push` — sincronización directa excepcional de desarrollo
 - `npx tsx src/db/seeds.ts` — ejecutar seed
 
 ## Estructura
@@ -97,16 +100,17 @@ Los datos se obtienen de `GET /api/panel/resumen` y se refrescan automáticament
 
 La navegación superior distingue ahora:
 
-- **Historial de cajas** (`/ventas/historial`): historial de ventas por caja.
+- **Historial de cajas** (`/ventas/historial`): ventas y cierres por caja.
 - **Caja y cierre** (`/cierre`): apertura, cierre y resumen de la caja.
-- **Cierres diarios** (`/cierre/historial`): cierres diarios históricos.
+
+El cierre diario se materializa en cada registro cerrado de `cash_registers`; se consulta desde el historial y el detalle `/ventas/historial/[id]`. No existe una página independiente `/cierre/historial`.
 
 ## Guía interactiva
 
 La app incluye un recorrido interactivo con `driver.js` que se adapta al rol del usuario. El tour se inicia manualmente desde el botón **Guía** del header (también disponible en el menú móvil). Una vez iniciado, continúa automáticamente al navegar entre las secciones habilitadas para cada rol y resalta `data-tour` en cada pantalla:
 
-- **Administrador (`admin`)**: Panel, Ventas, Productos, Stock, Caja y cierre, Cierres diarios, Pedidos, Videos, Sucursales, Usuarios, Perfil y selector de sucursal.
-- **Operador (`operator`)**: Panel, Ventas, Stock, Caja y cierre, Cierres diarios, Pedidos, Perfil y Catálogo, siempre dentro de su sucursal asignada.
+- **Administrador (`admin`)**: Panel, Ventas, Productos, Stock, Caja y cierre, Pedidos, Videos, Sucursales, Usuarios, Perfil y selector de sucursal.
+- **Operador (`operator`)**: Panel, Ventas, Stock, Caja y cierre, Pedidos, Perfil y Catálogo, siempre dentro de su sucursal asignada.
 
 El recorrido explica pagos mixtos, el flujo de pedidos (`pending` → `in_process` → `paid` → `finished` o `cancelled`), reservas, chat del pedido, imágenes de promos y videos. Se puede cerrar en cualquier momento con la cruz, la tecla `Escape`, el botón **Finalizar** o volviendo a presionar **Guía**.
 
@@ -137,9 +141,9 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 
 El sistema distingue dos roles: `admin` y `operator`.
 
-- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial de cajas`, `Productos`, `Stock`, `Caja y cierre`, `Cierres diarios`, `Pedidos`, `Sucursales`, `Usuarios`, `Videos`, `Catálogo` y `Perfil`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
+- **Administrador (`admin`)**: se crea únicamente durante el seed a partir de `ADMIN_USERNAME` y `ADMIN_PASSWORD` (`.env.local`) y se asigna a la sucursal inicial (`DEFAULT_BRANCH_NAME`). Aunque en la tabla `users` figura asignado a una sucursal concreta, puede operar sobre cualquier sucursal mediante el selector del panel. Tiene acceso a todas las secciones: `Panel`, `Ventas`, `Historial de cajas`, `Productos`, `Stock`, `Caja y cierre`, `Pedidos`, `Sucursales`, `Usuarios`, `Videos`, `Catálogo` y `Perfil`. Desde `/usuarios` puede crear, editar, resetear la contraseña y eliminar usuarios `operator`.
 
-- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Puede acceder a `Panel`, `Ventas`, `Historial de cajas`, `Stock`, `Caja y cierre`, `Cierres diarios`, `Pedidos`, `Catálogo` y `Perfil`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja y cierre` puede abrir, cerrar y consultar historial, así como generar cierres diarios de su sucursal. El nombre de su sucursal asignada se muestra en la navbar.
+- **Operador (`operator`)**: se crea exclusivamente desde `/usuarios` y siempre tiene rol `operator`. Puede acceder a `Panel`, `Ventas`, `Historial de cajas`, `Stock`, `Caja y cierre`, `Pedidos`, `Catálogo` y `Perfil`, y siempre opera dentro de la sucursal que el administrador le asignó. Dentro de `Stock` puede ajustar stock y consultar movimientos; dentro de `Caja y cierre` puede abrir, cerrar y consultar el historial de cajas, incluidos sus cierres diarios. El nombre de su sucursal asignada se muestra en la navbar.
 
 La página `/usuarios` lista siempre **todos** los usuarios del sistema para el administrador, mostrando la sucursal asignada de cada uno. No es posible crear más administradores desde la interfaz.
 

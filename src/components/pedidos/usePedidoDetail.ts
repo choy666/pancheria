@@ -12,7 +12,10 @@ import {
 } from '@/config/api';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
-import { useSubmitIdempotencyKey } from '@/hooks/use-submit-idempotency-key';
+import {
+  orderConfirmationSignature,
+  useSubmitIdempotencyKey,
+} from '@/hooks/use-submit-idempotency-key';
 import type { CashRegister } from '@/config/caja';
 import type { OrderStatus, DeliveryType, PaymentPart, OrderMessage, RecipeItemConfig } from '@/domain/types';
 
@@ -206,14 +209,17 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
     setIsSubmitting(true);
 
     try {
+      const confirmPayments = paymentParts.filter((part) => part.amount > 0);
       const response = await authenticatedFetch(
         PEDIDOS_CONFIRMAR_API(orderId),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            payments: paymentParts.filter((p) => p.amount > 0),
-            idempotencyKey: confirmKey.resolve(`confirm:${order.id}`),
+            payments: confirmPayments,
+            idempotencyKey: confirmKey.resolve(
+              orderConfirmationSignature(order.id, confirmPayments)
+            ),
           }),
         }
       );
@@ -231,11 +237,8 @@ export function usePedidoDetail(orderId: number): UsePedidoDetailResult {
       await loadOrder();
       router.refresh();
       if (data.deduplicated) {
-        // La venta ya existía (reintento con la misma clave): se muestra
-        // lo registrado y se avisa que los cambios del reintento —p. ej.
-        // pagos editados— no se aplicaron.
         setActionError(
-          'El pedido ya estaba confirmado como venta; se recuperó la venta registrada originalmente y los cambios de pago del reintento no se aplicaron.'
+          'El pedido ya estaba confirmado como venta; se recuperó la venta registrada originalmente.'
         );
       }
     } catch (err) {

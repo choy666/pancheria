@@ -4,10 +4,12 @@ import {
   calculateAvailabilityForProductIds,
   validateCartAvailability,
   confirmSale,
+  insertSaleAndUpdateCashRegister,
   cancelSale,
   buildSaleItemValues,
 } from './saleService';
 import * as productRepository from '@/repositories/productRepository';
+import * as saleRepository from '@/repositories/saleRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as idempotencyService from '@/application/idempotencyService';
@@ -23,6 +25,7 @@ import {
   cashRegisters,
 } from '@/db/schema';
 import {
+  ConflictError,
   ValidationError,
   NotFoundError,
   InsufficientStockError,
@@ -205,6 +208,7 @@ jest.mock('@/application/services/cashRegisterService', () => ({
   getOpenCashRegister: jest.fn(),
 }));
 jest.mock('@/application/idempotencyService', () => ({
+  ...jest.requireActual('@/application/idempotencyService'),
   isIdempotencyKeyUsed: jest.fn(),
   findExistingByIdempotencyKey: jest.fn(),
 }));
@@ -764,21 +768,84 @@ describe('confirmSale', () => {
     jest.clearAllMocks();
   });
 
-  test('rechaza la venta si la clave de idempotencia ya fue usada', async () => {
+  test('rechaza con conflicto si la clave de idempotencia se reutiliza con otro payload', async () => {
+    const originalItems = [{ productId: 1, quantity: 1 }];
+    const payments = [{ method: 'cash' as const, amount: 1000 }];
+    const idempotencyHash = idempotencyService.createIdempotencyHash(
+      'sale.create',
+      {
+        branchId: BRANCH_ID,
+        items: idempotencyService.normalizeIdempotencyItems(originalItems),
+        payments: idempotencyService.normalizeIdempotencyPayments(payments),
+      }
+    );
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
     mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
-      { id: 1 } as any
+      { id: 1, idempotencyHash } as any
     );
 
     await expect(
       confirmSale({
         branchId: BRANCH_ID,
-        items: [{ productId: 1, quantity: 1 }],
-        payments: [{ method: 'cash', amount: 1000 }],
+        items: [{ productId: 1, quantity: 2 }],
+        payments,
         idempotencyKey: 'repeated-key',
       })
-    ).rejects.toThrow(ValidationError);
+    ).rejects.toBeInstanceOf(ConflictError);
 
     expect(mockedProductRepository.findByIds).not.toHaveBeenCalled();
+  });
+
+  test('deduplica una venta conocida aunque ya no haya caja abierta', async () => {
+    const items = [{ productId: 1, quantity: 1 }];
+    const payments = [{ method: 'cash' as const, amount: 1000 }];
+    const payloadHash = idempotencyService.createIdempotencyHash('sale.create', {
+      branchId: BRANCH_ID,
+      items: idempotencyService.normalizeIdempotencyItems(items),
+      payments: idempotencyService.normalizeIdempotencyPayments(payments),
+    });
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
+    mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+      { id: 1, idempotencyHash: payloadHash } as any
+    );
+
+    const result = await confirmSale({
+      branchId: BRANCH_ID,
+      items,
+      payments,
+      idempotencyKey: 'repeated-key',
+    });
+
+    expect(result).toMatchObject({ id: 1, deduplicated: true });
+    expect('idempotencyHash' in result).toBe(false);
+    expect(mockedProductRepository.findByIds).not.toHaveBeenCalled();
+  });
+
+  test('rechaza un conflicto de payload que aparece al insertar la venta', async () => {
+    const insertSpy = jest
+      .spyOn(saleRepository, 'insertSale')
+      .mockResolvedValue(undefined);
+    mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+      { id: 1, idempotencyHash: 'huella-distinta' } as any
+    );
+
+    await expect(
+      insertSaleAndUpdateCashRegister(
+        db,
+        BRANCH_ID,
+        createOpenCashRegister(),
+        `${BRANCH_ID}:race-key`,
+        'huella-de-la-request',
+        [{ method: 'cash', amount: 1000 }],
+        [],
+        new Map(),
+        new Map()
+      )
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    insertSpy.mockRestore();
   });
 
   test('rechaza la venta si no hay una caja abierta', async () => {
@@ -1038,6 +1105,10 @@ describe('confirmSale', () => {
     expect(result.paymentMethod).toBe('cash');
 
     expect(findCapturedInsert(sales).length).toBe(1);
+    expect(capturedRows<typeof sales.$inferInsert>(sales)[0]?.idempotencyHash).toMatch(
+      /^[a-f0-9]{64}$/
+    );
+    expect('idempotencyHash' in result).toBe(false);
     expect(findCapturedInsert(saleItems).length).toBe(1);
     expect(findCapturedInsert(salePayments).length).toBe(1);
     expect(findCapturedUpdate(products).length).toBe(1);

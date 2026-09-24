@@ -26,6 +26,7 @@ Cuando se deje un monitoreo en background (CI de GitHub Actions, deploys de Verc
 | Tests de accesibilidad   | `npm run test:accessibility`                      |
 | Código muerto            | `npm run knip`                                    |
 | Generar migraciones      | `npx drizzle-kit generate`                        |
+| Verificar consistencia de migraciones | `npx drizzle-kit check`                 |
 | Aplicar migraciones      | `npx drizzle-kit migrate`                          |
 | Registrar baseline de migraciones | `npx tsx scripts/drizzle-baseline.ts` (`TARGET_E2E=1` para la base E2E) |
 | Empujar migraciones (sincronización directa) | `npx drizzle-kit push`               |

@@ -6,49 +6,142 @@
 
 ---
 
-## 0. Estado actual (2026-09-23)
+## 0. Estado vigente (auditoría 2026-09-23; working tree)
 
-### En `main` (mergeado y verificado)
+**Baseline Git:** `main` en `090fa63ec958c57dcecd3fd527f3a7391307b7cd` (`docs: cerrar estado post-merge — PR #8, CI de main verde, ramas limpias`). **Estado al cierre:** `HEAD` no cambió; el working tree contiene la implementación QA-04, la migración generada, pruebas y correcciones documentales aún sin commit ni push. Fecha del entorno: 2026-09-23.
 
-- Auditoría QA ronda 1 (PR #4, `35b54a1`): QA-01 expiración en mutaciones → 409; QA-02 `idempotencyKey` estable por intento; QA-03 upload no-multipart → 400; QA-05 `catch` en handlers async de UI.
-- E4 sucursal eliminada (PR #3 `2cd9dda` + PR #5 `9efad8d`): JWT con `branchId` huérfano → 403 `BRANCH_REMOVED` → logout forzado vía `/sesion-finalizada` → login con mensaje. Blindaje de `product-form` y tests de `throwApiError`.
-- `npm test`: 174 suites / 1880 tests verdes post-merge; `tsc`/`lint`/`knip` limpios.
+### Baseline Git y merges
 
-### PRs abiertos
+- Al inicio, `git status --short --branch` mostró `main...origin/main` sin cambios trackeados y `.vscode/extensions.json` sin trackear. Ese archivo quedó intacto. Al cierre, `main` sigue alineada con `origin/main` y los cambios de esta sesión permanecen locales.
+- `git rev-parse HEAD`: `090fa63ec958c57dcecd3fd527f3a7391307b7cd`; no se creó commit ni rama.
+- `git branch -a`: baseline con `main` y `origin/main`; no se cambió de rama.
+- `gh pr list --state open`: **ningún PR abierto** en la consulta de baseline. No se creó PR ni se disparó CI desde esta sesión.
+- Último PR mergeado: **#8** (`84957e4`, reorganización documental de `.devin/informes/`, 2026-09-23). El último PR con cambios de lógica de aplicación fue **#6** (`5615500`, CSP de `/pedido/seguimiento` e información de errores de rate limit); PR #7 (`96b0db1`) incorporó serialización E2E por shard y timeout de 25 min.
 
-Ninguno — última ola mergeada el 2026-09-23:
+### Cambios locales sin commit
 
-- **PR #6** (`5615500`): P0 — `/pedido/seguimiento` estática sin nonce CSP → no hidrataba en prod (fix `force-dynamic`, verificado en producción: 16/16 scripts con nonce); menor — info-leak de env vars en rate limit → 500 genérico. Informe: `archivados/auditoria-qa-ronda-2-2026-09-23.md`.
-- **PR #7** (`96b0db1`): `concurrency` por shard en job E2E + timeout 18→25 min (suite ya rondaba los ~19 min). Ticket: `archivados/ci-e2e-base-compartida.md`.
-- **PR #8** (`84957e4`): reorganización documental de `.devin/informes/` (ver §"Reorganización documental"). Commit posterior `f1ed413`: screenshots de daltonismo fuera del versionado + `.gitignore`.
+- QA-04: fingerprint SHA-256 canónico, 409 ante divergencia, reconstrucción/verificación segura de filas legacy, exclusión del hash de respuestas y firmas cliente que incluyen todos los campos relevantes.
+- Sucursales: se conserva hard delete en cascada; se agregaron warnings de conteos para fallos de limpieza de archivos y tests de tablas/recuperación.
+- Esquema: `0032_icy_shaman.sql` agrega `idempotency_hash` nullable en `orders`/`sales`; se generó y, tras confirmar el destino descartable, se aplicó solo a la base configurada en `.env.e2e`. No se tocó producción ni `.env.local`.
+- CI/documentación: se añadió `drizzle-kit check` al job E2E y se corrigieron las referencias de cierres, migraciones y el índice stale del prompt T14. T14 no se implementó ni se inició.
+- `.vscode/extensions.json` sigue sin trackear y quedó intacto.
 
-### CI de `main` (post-merge)
+### CI de GitHub Actions
 
-- HEAD de main verde: run `35874862336` success (incluye `AGENTS.md` con la convención de sonido en monitoreos).
-- Runs `35873002069` (merge PR #8) success y `35874232325` (shots) **cancelled**: GitHub admite un job corriendo + uno pendiente por grupo `concurrency`; el push posterior canceló el E2E encolado. Esperado y sin costo — el commit quedó cubierto por el run siguiente.
-- Ramas: solo `main` local y remoto (7 ramas mergeadas/residuales eliminadas tras verificar 0 commits por delante).
-
-### Deuda abierta consolidada (única fuente)
-
-| Ítem | Severidad | Fuente |
+| Run | Conclusión | Evidencia / lectura |
 | --- | --- | --- |
-| T14 multi-tenant (diferido por decisión) | Alta | `prompts/plan-implementacion-multi-tenant.md` + `archivados/auditoria-escalabilidad-2026-09-19.md` §3.9 |
-| QA-04: misma `idempotencyKey` + payload distinto devuelve recurso original (propuesta: huella + 409) | Media | `archivados/auditoria-qa-2026-09-21.md` |
-| Soft-delete de `branches` | Media | auditoría de escalabilidad (próxima ronda) |
-| Neon efímera por `run_id` / sharding E2E opt-in (`E2E_SHARDS` + secrets por shard) | Baja | `archivados/ci-e2e-base-compartida.md` |
-| `/_not-found` estático sin nonce CSP (navbar no hidrata; `<Link>` funciona) | Baja | `archivados/auditoria-qa-ronda-2-2026-09-23.md` |
-| Verificación periódica de `VERCEL_PRODUCTION_URL` | Recurrente | `checklist-pre-push.md` |
+| `35878657216` — `main`, HEAD `090fa63` | **success** | Último CI de `main` en el HEAD auditado: lint, tipos, unitarios, build, knip, E2E/accesibilidad y reporte consolidado completados. El job E2E corrió en un shard durante 18 min 06 s. |
+| `35895521808` — schedule de `main` | **success** | Última ejecución visible de `Expirar pedidos pendientes`. |
+| `35867434935` — PR, SHA `6f649ed` | **failure** | El log indica timeout del paso E2E al cumplirse 18 min; los jobs de tipos, lint, unitarios, build y knip terminaron en verde. El workflow actual fija 25 min para el paso E2E. |
+| `35874232325` — push a `main` | **cancelled** | El job E2E terminó cancelado sin pasos ejecutados; los demás jobs terminaron correctamente. |
+| `35872990307` — PR | **cancelled** | Run cancelado, según `gh run list --limit 10`. |
+
+Los runs fallidos/cancelados son anteriores al CI verde del HEAD base. Ese resultado remoto corresponde a `090fa63`, no a los cambios locales de esta sesión. `.github/workflows/ci.yml` mantiene serialización por shard (`cancel-in-progress: false`), sharding opt-in y default `[1]`; agregué `npx drizzle-kit check` antes de `migrate` en el job E2E. El nuevo paso aún no fue ejecutado por GitHub Actions porque no hice push ni creé un PR.
+
+### Verificaciones locales ejecutadas en el working tree
+
+| Comando | Resultado observado |
+| --- | --- |
+| `npm run lint` | **Pasa** (exit 0, 0 errores). Queda 1 warning preexistente en `src/app/sesion-finalizada/sign-out-client.tsx:18` por `window.location.assign()`. |
+| `npx tsc --noEmit` | **Pasa** (exit 0, sin salida). |
+| `npm test` | **Pasa: 175 suites / 1899 tests**, 0 snapshots; 21.7 s. |
+| `npm run build` | **Pasa** con Next.js 16.3.3; TypeScript correcto y 43 páginas estáticas generadas. `/pedido/seguimiento` es dinámica (`ƒ`), `/_not-found` permanece estática (`○`) y no existe `/cierre/historial`. |
+| `npm run knip` | **Pasa** (exit 0, sin diagnósticos). |
+| `git diff --check` | **Pasa**; Git avisó normalización CRLF/LF en `guia-funcionamiento-pancheria.md`, sin errores de whitespace. |
+
+### Migración de QA-04
+
+- `npx drizzle-kit generate` terminó correctamente y creó `0032_icy_shaman.sql` más `drizzle/meta/0032_snapshot.json`. La migración agrega `idempotency_hash varchar(64)` nullable a `orders` y `sales`.
+- Tras autorización expresa, un preflight ocultando valores validó que `.env.e2e` y la URL usada por migraciones apuntaban al mismo destino descartable con sufijo permitido. `npx drizzle-kit migrate` terminó correctamente **solo en `.env.e2e`**; no se usó `.env.local` ni otra base.
+- `npx drizzle-kit check` pasó localmente (`Everything's fine`): historial de migraciones consistente, sin modificar ninguna base. El paso también está en el workflow E2E; aún falta verlo correr en Actions sobre estos cambios.
+
+### Estado funcional verificado por módulo
+
+“Verificado” aquí significa que existen las piezas de código y tests indicados y que los checks locales del working tree pasan. El CI remoto citado corresponde al HEAD base, no a estos cambios; tampoco equivale a un smoke test de producción ni a hardware externo.
+
+| Módulo | Estado | Evidencia en código y tests |
+| --- | --- | --- |
+| Pedidos públicos | **implementado-verificado** | `/pedido`, catálogo y rutas `/api/public/pedido`; `orderService`/`orderRepository`; tests unitarios de servicio/rutas y specs `tests/e2e/pedido*.spec.ts`. |
+| Chat de pedidos | **implementado-verificado** | Página pública de chat, rutas públicas y autenticadas, `chatService`/`orderMessageRepository`; tests unitarios de servicio, rutas y componentes; specs E2E de chat y adjuntos. |
+| Ventas | **implementado-verificado** | `/ventas`, `/api/ventas`, `saleService`/`saleRepository`; tests unitarios y specs E2E de disponibilidad, stock compartido, historial y pagos mixtos. |
+| Caja y turnos | **implementado-verificado** | `/cierre`, `/api/caja/*`, `cashRegisterService` y helpers de turno; tests unitarios y specs E2E de cierre automático, caja vacía y contactos/turnos. |
+| Cierre diario | **implementado-verificado**, integrado al cierre de caja | `closeCashRegister`, `/api/caja/cerrar`, `/ventas/historial/[id]` y `tests/e2e/cierres-diarios.spec.ts`. No hay tabla `dailyClosures` ni página `/cierre/historial`; el cierre diario se materializa en `cash_registers`. |
+| Stock | **implementado-verificado** | `/stock`, `/api/stock/*`, `stockService`/repositorios de movimientos; tests unitarios y specs E2E de ajustes, movimientos y concurrencia. |
+| Productos, recetas y promos | **implementado-verificado** | `/productos`, `/api/productos`, `/api/recetas`, `productService`/`recipeService` y repositorios; tests unitarios y E2E de catálogo/stock. |
+| Sucursales | **implementado-verificado** | `/sucursales`, `branchService`/`branchRepository`; tests unitarios y specs E2E de contactos, turnos, eliminación y sesión con sucursal eliminada. |
+| Usuarios y roles | **implementado-verificado** | `/usuarios`, `userService`/`userRepository`, auth; tests unitarios y `tests/e2e/roles-y-sucursales.spec.ts`. |
+| Videos y Google Cast | **implementado-verificado** | Páginas `/videos*`, upload/stream, `videoService`/`videoRepository`; tests unitarios y `tests/e2e/videos.spec.ts`. No se probó un Chromecast físico en esta auditoría. |
+| Imágenes de productos/promos | **implementado-verificado** | Rutas preparar/upload/lectura, `product-image-storage` y configuración; tests unitarios de rutas y almacenamiento. |
+
+### Deuda consolidada re-verificada
+
+| Ítem | Severidad | Estado real al cierre | Evidencia |
+| --- | --- | --- | --- |
+| T14 multi-tenant | **mayor** si el objetivo pasa a SaaS; diferido por decisión | **Sigue abierto y no iniciado.** No existe `tenantId`/`tenant_id` en `src/`; el sistema sigue siendo single-tenant con varias sucursales aisladas por `branchId`. No hospedar comercios independientes antes de implementar y probar el aislamiento. | `.devin/prompts/plan-implementacion-multi-tenant.md`; `src/db/schema.ts`; `archivados/auditoria-escalabilidad-2026-09-19.md` §3.9. |
+| QA-04: misma `idempotencyKey` con payload distinto | **menor** | **Implementado en el working tree; `0032` aplicada solo a `.env.e2e`.** Las pruebas unitarias cubren pedidos, ventas directas, conversiones, carreras, legacy y HTTP 409. Tras actualizar las specs, la última E2E pasó 175/175; una corrida previa tuvo fallos transitorios no reproducidos. Falta CI remoto y merge. | `src/application/idempotencyService.ts`, `src/application/services/orderService.ts`, `src/application/services/saleService.ts`, `src/db/schema.ts`, `drizzle/0032_icy_shaman.sql` y tests asociados. |
+| Flakiness E2E en uploads, SSE, chat y tour | **menor** | Una corrida tuvo exit 1 (169 pasaron, 5 fallaron, 1 flaky en 41.9 min): uploads esperaban 400 y recibieron 500/404, SSE 200→404 y no apareció un adjunto; tour agotó una espera pero pasó en retry. Con confirmación del propietario de `STORAGE_PROVIDER=local`, la corrida siguiente pasó **175/175** en 38.9 min. No se aisló la causa del primer resultado; vigilar en CI, cuyo baseline E2E remoto previo fue verde. | `tests/e2e/api-seguridad.spec.ts`, `tests/e2e/chat-stream.spec.ts`, `tests/e2e/pedido-chat-adjuntos.spec.ts`, `tests/e2e/tour.spec.ts`; resultados de ambas ejecuciones E2E locales. |
+| Neon efímera por `run_id` / sharding E2E | **menor** | **Parcial.** PR #7 serializó por shard y elevó el timeout a 25 min. No hay aprovisionamiento efímero por `run_id`; `E2E_SHARDS` sigue opt-in y default `[1]`. El último E2E remoto del HEAD base tomó 18 min 06 s: pasó, pero supera el umbral documentado de ~10 min. | `.github/workflows/ci.yml`; `archivados/ci-e2e-base-compartida.md`; run `35878657216`. |
+| `/_not-found` estática sin nonce CSP | **menor** | **Sigue abierto como limitación conocida.** El build la marca `○` estática y `src/app/not-found.tsx` no fuerza render dinámico; el informe de QA indica que el `<Link>` conserva navegación nativa, aunque el navbar no hidrata. | Salida de `npm run build`; `src/app/not-found.tsx`; `archivados/auditoria-qa-ronda-2-2026-09-23.md`. |
+| Limpieza de archivos después de borrar una sucursal | **menor** | El hard delete en cascada se mantiene por decisión del usuario. `deleteBranch` intenta liberar imágenes, adjuntos y videos tras el commit; registra conteos sin keys y el cron elimina archivos huérfanos. También registra fallos al retirar rate-limit entries, cuya expiración procesa el cron correspondiente. No se hizo un borrado real ni se probaron proveedores externos; ante una caída persistente, la limpieza puede demorarse. | `src/application/services/branchService.ts`, `src/application/services/cleanupService.ts`, `src/lib/orphaned-files.ts`, tests de servicio/repositorio de sucursal. |
+| Controles operativos recurrentes: `VERCEL_PRODUCTION_URL`, cron y consumo Neon/Vercel | **informativo / recurrente** | **Siguen sin verificar.** El último cron remoto consultado terminó `success`; no se inspeccionó la URL configurada ni métricas de consumo/límites. | `.devin/informes/checklist-pre-push.md`; `archivados/auditoria-proyecto-2026-09-20.md` §7; run `35895521808`. |
+| Validación de consistencia de migraciones en CI | **menor** | **Agregada al workflow en el working tree; falta verla correr en Actions.** `npx drizzle-kit check` precede a `drizzle-kit migrate` en el job E2E. El último CI verde es del HEAD base y no ejecutó el nuevo paso. | `.github/workflows/ci.yml`; documentación oficial de `drizzle-kit check`; `archivados/auditoria-deploy-vercel-2026-09-14.md` §Conclusión. |
+| Verificación del blueprint DRS en Devin Cloud | **informativo / condicional** | **No resuelto en evidencia disponible.** El plan archivado dice que está resuelto, pero su tabla interna conserva la verificación de DRS como pendiente; la existencia de `.devin/environment.yaml` no prueba un build remoto. Confirmar si todavía se usa DRS. | `archivados/plan-de-accion-2026-08-27.md` §2; `.devin/README.md`. |
+
+### Decisión confirmada: eliminación de sucursales
+
+Por pedido explícito del propietario, se mantiene el **hard delete en cascada** y no se implementará soft-delete. `deleteCascade` elimina las tablas principales dentro de una transacción; las tablas hijas dependen de sus FKs `ON DELETE CASCADE`. Después del commit se intentan borrar imágenes, adjuntos y videos. Si fallan storage o el borrado de intentos de login, se registran conteos sin keys/nombres; los crons respectivos hacen la limpieza posterior. La cobertura unitaria verifica tablas eliminadas y ambos caminos de warning; no se borró ninguna sucursal real.
+
+### Prompts, TODOs y pendientes en archivados
+
+- `.devin/prompts/README.md` enumera **7 prompts activos**. Los prompts de auditoría son guías reutilizables; `plan-implementacion-multi-tenant.md` sigue siendo una propuesta sin implementar. No encontré otro prompt de implementación activo cuyo trabajo ya esté resuelto.
+- La búsqueda case-sensitive de `TODO|FIXME|HACK` en `src/` y `tests/` devolvió **0 coincidencias**.
+- Los pendientes y controles de informes archivados (T14, QA-04 en verificación local, alternativa de Neon/sharding, `/_not-found`, controles operativos Vercel/Neon, consistencia de migraciones en CI y DRS) están reflejados arriba. La retención soft-delete de sucursales quedó descartada por decisión del propietario. SSE sigue opt-in deshabilitado según el estado documentado; el valor actual en producción no se inspeccionó (ver «No verificado»). T16 (réplicas/agregaciones) quedó descartado a la escala actual, con umbral de reevaluación documentado.
+- La sincronización de `auditoria-qa-ronda-2-2026-09-23.md` se corrigió en este working tree: ya registra PR #7 y la serialización E2E; el pendiente es Neon efímera/sharding. También registra la decisión actual de mantener hard delete de sucursales.
+- `archivados/plan-de-accion-2026-08-27.md` tiene encabezado «resuelto», pero su tabla interna aún lista pendiente la verificación del blueprint DRS; se conserva como condicional y no verificado arriba, porque no se comprobó Devin Cloud.
+- El mismo plan conserva una «decisión pendiente» antes de eliminar archivos históricos: es una condición para una limpieza opcional, no una tarea funcional abierta. No se eliminó ningún archivo.
+- Los snapshots bajo `archivados/historico/` conservan tareas antiguas por regla documental; no se reabren como pendientes vigentes.
+
+### Sincronización documental — muestreo
+
+- Las variables de configuración de runtime encontradas en `src/config/` están representadas en `.env.example` y en la sección de entorno de `AGENTS.md`. `NODE_ENV` y `VERCEL` son valores del runtime/plataforma, no claves de configuración para completar en `.env.example`. No encontré faltantes o sobrantes claros de variables de negocio.
+- Los comandos `npm run` documentados en `AGENTS.md` existen en `package.json`; las herramientas `drizzle-kit` y `tsx` usadas vía `npx` están en dependencias de desarrollo.
+- Los enlaces Markdown de los índices vigentes de `.devin/` apuntan a archivos existentes en el muestreo revisado; no se encontraron referencias Markdown rotas en esos índices.
+- Las discrepancias encontradas se corrigieron en el working tree: `README.md` ya no promete `/cierre/historial`, el cierre se describe mediante `cash_registers`/`/ventas/historial`; la tabla de la guía ya no nombra `dailyClosures`; se quitó el índice multi-tenant obsoleto de `daily_closures`; y la nota archivada de concurrencia E2E registra la resolución por PR #7. No se creó una ruta ni se inició T14.
+- La auditoría de deploy recomendaba verificar consistencia de migraciones en CI. `migrate` en la base E2E valida la aplicación, pero no comprueba el historial generado; por eso agregué `npx drizzle-kit check` antes de `migrate` en el job E2E y documenté el comando en `AGENTS.md`, README y checklist. El nuevo paso aún no tiene resultado remoto porque no hubo push.
+
+### Riesgos y recomendaciones priorizadas
+
+| Prioridad | Impacto × esfuerzo | Recomendación accionable |
+| --- | --- | --- |
+| P1 | Alto × bajo, condicional | Mantener producción limitada a un comercio con varias sucursales. No iniciar T14 ni hospedar comercios independientes hasta que el propietario reabra explícitamente ese objetivo y exista un plan de aislamiento/backfill/rollback. |
+| P1 | Alto × medio | Antes de desplegar QA-04, aplicar `0032` solo en un entorno autorizado, correr E2E contra una base descartable y revisar el CI remoto completo. El código local y las pruebas unitarias pasan, pero el nuevo esquema aún no se aplicó. |
+| P2 | Medio × bajo | Mantener el hard delete en cascada de sucursales según la decisión del propietario. Conservar el resumen/confirmación explícita, revisar warnings de limpieza y asegurar backups operativos; no agregar soft-delete. |
+| P2 | Medio × medio | Planificar sharding E2E con una base descartable independiente por shard: el último run base tomó 18 min 06 s frente al umbral orientativo de 10 min y timeout de 25 min. No activar `E2E_SHARDS` hasta aprovisionar y verificar cada par de secrets/base; Neon efímera por `run_id` es una fase posterior. |
+| P3 | Bajo × bajo | Obtener un run de GitHub Actions sobre estos cambios para verificar el nuevo `drizzle-kit check` + `migrate` + E2E; luego revisar `VERCEL_PRODUCTION_URL`, métricas Neon/Vercel y DRS sin exponer valores. |
+
+### Próximos pasos concretos
+
+1. Mantener T14 sin iniciar y el alcance single-tenant/multi-sucursal hasta una decisión explícita distinta. Mantener también el hard delete en cascada de sucursales tal como lo pidió el propietario.
+2. Las specs E2E con expectativas antiguas ya se actualizaron y la última corrida pasó 175/175; no hace falta repetirla ahora. Toda corrida futura sobre `.env.e2e` requiere autorización porque `global-setup.ts` vuelve a truncar y reseedear. `0032` ya quedó aplicada allí.
+3. Cuando estos cambios estén en un PR/branch remoto, revisar el CI completo: `drizzle-kit check`, migración E2E, unitarios, build y E2E/accesibilidad. No se hizo push ni se creó PR en esta sesión.
+4. Si E2E sigue sobre ~10 min o hay presión por concurrencia, provisionar una base Neon distinta por shard y recién entonces habilitar `E2E_SHARDS`; dejar efímera por `run_id` para una fase posterior.
+5. En la próxima revisión operativa, comprobar `VERCEL_PRODUCTION_URL`, cron y consumo de Neon/Vercel sin registrar valores; confirmar si Devin Cloud/DRS sigue en uso y validar el blueprint solo si corresponde.
+
+### Limitaciones y aspectos no verificados
+
+- La última corrida autorizada de `npm run test:e2e` tras corregir las specs concluyó: **175/175 pasaron** en 38.9 min; una corrida previa tuvo 5 fallos y 1 flaky que no se reprodujeron. Los artefactos de la corrida previa registraron fallos en uploads, SSE/chat y una espera flaky del tour (ver tabla de deuda); no se reprodujeron en esta corrida. El `global-setup.ts` truncó/reseedeó `.env.e2e`; la base contiene datos de la suite. No se aisló aún la causa de esos fallos.
+- El propietario confirmó que `.env.e2e` usa `STORAGE_PROVIDER=local`; no se imprimieron ni inspeccionaron valores. No se consultó storage remoto. Otra E2E requiere autorización nueva porque el setup vuelve a truncar/reseedear.
+- No hay aún un run remoto de Actions que incluya estos cambios: `35878657216` es del HEAD base `090fa63`, y no hice push ni creé PR. El `drizzle-kit check` local sí pasó; su ejecución remota sigue pendiente.
+- No se inspeccionaron ni mostraron valores de `.env.local`, GitHub Secrets/Variables o Vercel. `.env.e2e` solo se procesó internamente en el preflight, la migración y E2E expresamente autorizados; no se imprimieron URLs ni credenciales. Tampoco se hizo smoke test de producción ni se revisaron métricas Neon/Vercel; el cron exitoso del baseline no verifica el dominio configurado.
+- No se ejecutó una eliminación real de sucursal ni se probaron proveedores de storage externos; las pruebas de cascada/limpieza son unitarias con mocks.
+- No se validó el blueprint de Devin Cloud (`devin.exe cloud drs build`) ni se probó Google Cast con un dispositivo físico.
 
 ### Regla documental vigente
 
-- `informes/` raíz = solo docs operativos + tickets **abiertos**.
-- `archivados/` = solo guías con valor futuro, implementadas **completas** (o con pendiente explícito trackeado en §0). Marcador `Estado:` obligatorio.
-- `archivados/historico/` = snapshots sin valor de guía (solo historia).
-- Los informes de PRs abiertos se archivan cuando su trabajo mergea a `main`.
-
-### Reorganización documental (2026-09-23)
-
-Raíz de `informes/` pasó de 12 a 6 archivos operativos; 5 informes implementados/mergeados archivados con marcador de estado; 10 snapshots a `archivados/historico/`; referencias rotas corregidas en `.devin/README.md`, `prompts/auditoria-qa-integral.md` e internas entre archivados.
+- `informes/` raíz = documentos operativos y tickets abiertos.
+- `archivados/` = guías con valor futuro, implementadas completas o con pendiente explícito trackeado aquí en §0; mantener el marcador `Estado:`.
+- `archivados/historico/` = snapshots congelados, solo historia.
+- Al cerrar un PR, archivar su informe y actualizar esta sección; los detalles de auditorías anteriores se referencian, no se duplican.
 
 ---
 

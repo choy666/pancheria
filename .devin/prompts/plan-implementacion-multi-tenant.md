@@ -541,7 +541,7 @@ Esta sección documenta los ajustes realizados al plan original y los riesgos qu
 - `users.username` es único por `(tenantId, username)`.
 - `recipes` y `order_stock_reservations` se agregaron explícitamente a la lista de tablas con `tenantId`.
 - Las claves primarias de `login_attempts` y `public_order_rate_limits` cambian a `(tenantId, username)` y `(tenantId, ip)` respectivamente.
-- Los índices `sales_idempotency_branch_unique_idx`, `daily_closures_branch_date_unique_idx` y `cash_registers_open_status_idx` se actualizan a `(tenantId, branchId, ...)`.
+- Los índices activos `orders_order_number_unique_idx`, `sales_idempotency_branch_unique_idx` y `cash_registers_open_status_idx` se actualizan a `(tenantId, branchId, ...)`. No se incluye `daily_closures`: la tabla se eliminó en la migración `0025`.
 
 ### Autenticación y autorización
 
