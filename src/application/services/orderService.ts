@@ -111,7 +111,11 @@ function ensureOrderRecipeSnapshots(
 
     const selectedIds =
       item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [];
-    const newSnapshot = buildRecipeSnapshot(recipeList, selectedIds);
+    const newSnapshot = buildRecipeSnapshot(
+      recipeList,
+      selectedIds,
+      item.product?.name
+    );
 
     return { ...item, recipeSnapshot: newSnapshot };
   });

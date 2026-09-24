@@ -243,13 +243,29 @@ describe('productService', () => {
       ).rejects.toThrow('Los insumos manuales no pueden tener precio.');
     });
 
-    test('crea un producto con stock 0 y conserva el minStock indicado', async () => {
+    test('rechaza stock inicial positivo: el stock se carga por Ajustar stock', async () => {
       const data = {
         name: 'Ketchup',
         type: 'manual_supply',
         price: 0,
         unit: 'unidad',
         stock: 10,
+        minStock: 5,
+      } as unknown as ProductInsert;
+
+      await expect(createProduct(BRANCH_ID, data)).rejects.toThrow(
+        'El stock inicial se carga desde "Ajustar stock" una vez creado el producto.'
+      );
+      expect(mockedProductRepository.create).not.toHaveBeenCalled();
+    });
+
+    test('crea un producto con stock 0 y conserva el minStock indicado', async () => {
+      const data = {
+        name: 'Ketchup',
+        type: 'manual_supply',
+        price: 0,
+        unit: 'unidad',
+        stock: 0,
         minStock: 5,
       } as unknown as ProductInsert;
 
@@ -273,7 +289,7 @@ describe('productService', () => {
         criticalSupplyType: 'bread',
         price: 100,
         unit: 'unidad',
-        stock: 20,
+        stock: 0,
         minStock: 10,
       } as unknown as ProductInsert;
 
@@ -294,7 +310,7 @@ describe('productService', () => {
         type: 'compound',
         price: 1500,
         unit: 'unidad',
-        stock: 10,
+        stock: 0,
         minStock: 5,
       } as unknown as ProductInsert;
 
@@ -314,7 +330,7 @@ describe('productService', () => {
         type: 'service',
         price: 500,
         unit: 'unidad',
-        stock: 5,
+        stock: 0,
         minStock: 2,
       } as unknown as ProductInsert;
 

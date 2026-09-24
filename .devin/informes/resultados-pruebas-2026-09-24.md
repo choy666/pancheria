@@ -66,6 +66,12 @@ Tras 5 fallos, el 6.º intento fallido → redirect `/api/auth/error?error=Confi
 - `paymentMethod` del sale devuelve solo el primer método en pagos mixtos (las partes sí persisten en `sale_payments`).
 - `POST /api/productos` ignora el campo `stock` enviado (nace en 0; solo `/api/stock/ajustar` lo carga) — puede confundir si el formulario lo sugiere.
 
+> **Resolución (2026-09-24):**
+> - `selectedRecipeItemIds`: ahora se valida contra los `supplyId` opcionales de la receta vigente (400 "La selección de opcionales no es válida…"), y un producto no compuesto con selección rechaza con "no admite selección de opcionales". Los ítems con `recipeSnapshot` persistido (pedidos) no se revalidan.
+> - `paymentMethod`: verificado sin defecto real — el historial muestra todas las partes de `sale.payments` y los resúmenes de caja las usan; la columna es solo un fallback de display. Sin cambio.
+> - `POST /api/productos`: `stock > 0` ahora se rechaza con "El stock inicial se carga desde "Ajustar stock"…" (el stock nace en 0 por diseño: toda carga queda auditada en `stock_movements`). `stock: 0` o ausente sigue aceptado.
+> - Riesgos 7 y 8 verificados **ya resueltos** en Vercel producción: `getClientIp` usa `x-vercel-forwarded-for` (confiable por plataforma) sin necesidad de `TRUSTED_PROXY_IP_HEADER`; `STORAGE_PROVIDER=vercel-blob` con `BLOB_READ_WRITE_TOKEN`/`BLOB_STORE_ID` configurados, y `assertVercelProductionEnv` bloquea el build si faltaran.
+
 ---
 
 ## 2. Resultados por módulo

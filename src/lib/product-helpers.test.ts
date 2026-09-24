@@ -147,6 +147,85 @@ describe('product-helpers', () => {
         validateProductsForOperation([{ productId: 1 }], productById, BRANCH_ID, 'venta')
       ).toThrow('no está activo');
     });
+
+    it('rechaza selección de opcionales en un producto no compuesto', () => {
+      const product = {
+        id: 1,
+        branchId: BRANCH_ID,
+        name: 'Coca',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 1000,
+        stock: 10,
+        minStock: 1,
+        isActive: true,
+        unit: 'unidad',
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      } as ProductRow;
+
+      const productById = new Map([[1, product]]);
+
+      expect(() =>
+        validateProductsForOperation(
+          [{ productId: 1, selectedRecipeItemIds: [99] }],
+          productById,
+          BRANCH_ID,
+          'venta'
+        )
+      ).toThrow('no admite selección de opcionales');
+    });
+
+    it('no rechaza opcionales si el ítem trae snapshot histórico', () => {
+      // El producto pudo cambiar de tipo o de receta desde que se creó el
+      // pedido: el snapshot persistido es la fuente de verdad.
+      const product = {
+        id: 1,
+        branchId: BRANCH_ID,
+        name: 'Coca',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 1000,
+        stock: 10,
+        minStock: 1,
+        isActive: true,
+        unit: 'unidad',
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      } as ProductRow;
+
+      const productById = new Map([[1, product]]);
+
+      expect(() =>
+        validateProductsForOperation(
+          [
+            {
+              productId: 1,
+              selectedRecipeItemIds: [99],
+              recipeSnapshot: [
+                {
+                  supplyId: 99,
+                  supplyName: 'Insumo',
+                  supplyType: 'manual_supply',
+                  quantity: 1,
+                  autoDiscount: true,
+                  isOptional: true,
+                  selected: true,
+                  selectedByDefault: false,
+                },
+              ],
+            },
+          ],
+          productById,
+          BRANCH_ID,
+          'venta'
+        )
+      ).not.toThrow();
+    });
   });
 
   describe('validateCartAvailability', () => {
@@ -532,6 +611,59 @@ describe('product-helpers', () => {
         );
 
         expect(result[20]).toBeUndefined();
+      });
+
+      it('rechaza ids de opcionales inexistentes en la receta', () => {
+        const compuesto = makeProduct({
+          id: 2,
+          name: 'Promo',
+          type: 'compound',
+          criticalSupplyType: null,
+        });
+        const productById = new Map<number, ProductRow>([[2, compuesto]]);
+        const recipe = makeRecipe({
+          compoundProductId: 2,
+          supplyId: 20,
+          autoDiscount: true,
+          isOptional: true,
+        });
+        const recipesByProduct = new Map<number, RecipeWithSupply[]>([
+          [2, [recipe]],
+        ]);
+
+        expect(() =>
+          calculateConsumedBySupply(
+            [{ productId: 2, quantity: 1, selectedRecipeItemIds: [999] }],
+            productById,
+            recipesByProduct
+          )
+        ).toThrow('La selección de opcionales no es válida para Promo.');
+      });
+
+      it('rechaza como selección un insumo no opcional de la receta', () => {
+        const compuesto = makeProduct({
+          id: 2,
+          type: 'compound',
+          criticalSupplyType: null,
+        });
+        const productById = new Map<number, ProductRow>([[2, compuesto]]);
+        const recipe = makeRecipe({
+          compoundProductId: 2,
+          supplyId: 20,
+          autoDiscount: true,
+          isOptional: false,
+        });
+        const recipesByProduct = new Map<number, RecipeWithSupply[]>([
+          [2, [recipe]],
+        ]);
+
+        expect(() =>
+          calculateConsumedBySupply(
+            [{ productId: 2, quantity: 1, selectedRecipeItemIds: [20] }],
+            productById,
+            recipesByProduct
+          )
+        ).toThrow('no es válida');
       });
     });
 

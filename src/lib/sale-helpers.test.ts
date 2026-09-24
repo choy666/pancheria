@@ -142,5 +142,54 @@ describe('sale-helpers', () => {
         ])
       );
     });
+
+    it('rechaza selecciones de opcionales inexistentes en la receta', () => {
+      const compoundProduct: ProductRow = {
+        id: 3,
+        branchId: 1,
+        name: 'Promo',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 2000,
+        stock: 0,
+        minStock: 0,
+        isActive: true,
+        unit: 'unidad',
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      const productByIdWithCompound = new Map(productById);
+      productByIdWithCompound.set(3, compoundProduct);
+
+      const recipesByProduct = new Map<number, RecipeWithSupply[]>([
+        [
+          3,
+          [
+            {
+              id: 1,
+              compoundProductId: 3,
+              supplyId: 2,
+              quantity: 1,
+              autoDiscount: false,
+              isOptional: true,
+              selectedByDefault: false,
+              createdAt: new Date(),
+              supply: productByIdWithCompound.get(2) ?? null,
+            },
+          ],
+        ],
+      ]);
+
+      expect(() =>
+        buildSaleItemValues(
+          productByIdWithCompound,
+          [{ productId: 3, quantity: 1, selectedRecipeItemIds: [999] }],
+          recipesByProduct
+        )
+      ).toThrow('La selección de opcionales no es válida para Promo.');
+    });
   });
 });

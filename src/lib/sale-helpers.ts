@@ -46,7 +46,8 @@ export function buildSaleItemValues(
       const recipeList = recipesByProduct.get(product.id) ?? [];
       recipeSnapshot = buildRecipeSnapshot(
         recipeList,
-        item.selectedRecipeItemIds ?? []
+        item.selectedRecipeItemIds ?? [],
+        product.name
       );
     }
 

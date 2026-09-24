@@ -106,6 +106,15 @@ export async function createProduct(branchId: number, data: ProductInsert) {
 
   validateImageUrl(product);
 
+  // El stock nace en 0: toda carga se hace por /api/stock/ajustar para que
+  // quede auditada en stock_movements con motivo. Un `stock` positivo en el
+  // body indica que el cliente esperaba stock inicial, así que se rechaza
+  // en vez de descartarlo en silencio.
+  if (product.stock > 0) {
+    throw new ValidationError(
+      'El stock inicial se carga desde "Ajustar stock" una vez creado el producto.'
+    );
+  }
   product.stock = 0;
   if (product.type === 'compound' || product.type === 'service') {
     product.minStock = 0;

@@ -37,10 +37,40 @@ function isRecipeItemSelected(
   return selectedRecipeItemIds.includes(recipe.supplyId);
 }
 
+/**
+ * Los ids seleccionables son los `supplyId` de los ítems opcionales de la
+ * receta vigente. Cualquier otro id se rechaza en vez de ignorarse en
+ * silencio: un id desconocido indica una receta desactualizada (la página
+ * quedó abierta mientras se editaba) o un cliente mal formado.
+ */
+function assertValidSelectedRecipeItemIds(
+  recipeItems: { supplyId: number; isOptional: boolean }[],
+  selectedRecipeItemIds: number[],
+  productName?: string
+): void {
+  if (selectedRecipeItemIds.length === 0) return;
+  const selectableIds = new Set(
+    recipeItems.filter((item) => item.isOptional).map((item) => item.supplyId)
+  );
+  if (selectedRecipeItemIds.some((id) => !selectableIds.has(id))) {
+    throw new ValidationError(
+      productName
+        ? `La selección de opcionales no es válida para ${productName}.`
+        : 'La selección de opcionales no es válida.'
+    );
+  }
+}
+
 export function buildRecipeSnapshot(
   recipeItems: RecipeWithSupply[],
-  selectedRecipeItemIds: number[]
+  selectedRecipeItemIds: number[],
+  productName?: string
 ): RecipeItemConfig[] {
+  assertValidSelectedRecipeItemIds(
+    recipeItems,
+    selectedRecipeItemIds,
+    productName
+  );
   return recipeItems.map((recipe) =>
     recipeItemToConfig(
       recipe,
@@ -335,7 +365,11 @@ export async function calculateAvailabilityForProductIds(
 }
 
 export function validateProductsForOperation(
-  items: { productId: number }[],
+  items: {
+    productId: number;
+    selectedRecipeItemIds?: number[];
+    recipeSnapshot?: RecipeItemConfig[];
+  }[],
   productById: Map<number, ProductRow>,
   branchId: number,
   operation: 'pedido' | 'venta'
@@ -350,6 +384,19 @@ export function validateProductsForOperation(
 
     if (!product.isActive) {
       throw new ValidationError(`El producto ${product.name} no está activo.`);
+    }
+
+    // Los opcionales solo existen en productos compuestos. Los ítems con
+    // snapshot (pedidos ya recibidos) se exceptúan: la receta o el tipo del
+    // producto pudieron cambiar desde que se creó el pedido.
+    if (
+      product.type !== 'compound' &&
+      !item.recipeSnapshot?.length &&
+      item.selectedRecipeItemIds?.length
+    ) {
+      throw new ValidationError(
+        `El producto ${product.name} no admite selección de opcionales.`
+      );
     }
 
     if (!isPublicSellableProduct(product)) {
@@ -374,6 +421,7 @@ function getRecipeListForItem(
 
   const recipes = recipesByProduct.get(product.id) ?? [];
   const selectedIds = item.selectedRecipeItemIds ?? [];
+  assertValidSelectedRecipeItemIds(recipes, selectedIds, product.name);
   return recipes.map((recipe) => ({
     supplyId: recipe.supplyId,
     quantity: recipe.quantity,
