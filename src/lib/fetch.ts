@@ -60,12 +60,16 @@ export async function throwApiError(
     code?: string;
     productName?: string;
   } | null;
-  if (data?.code === 'BRANCH_REMOVED' && typeof window !== 'undefined') {
-    // La sucursal de la sesión fue eliminada: la página intermedia cierra
-    // la sesión server-side y redirige al login con el mensaje. El
-    // ApiError se lanza igual por si la navegación se interrumpe; si la
-    // navegación gana, el caller nunca consume el error (intencional: la
-    // página cambia de contexto y el componente se desmonta).
+  if (
+    (data?.code === 'BRANCH_REMOVED' || data?.code === 'USER_REMOVED') &&
+    typeof window !== 'undefined'
+  ) {
+    // La sucursal o el usuario de la sesión fue eliminado: la página
+    // intermedia cierra la sesión server-side y redirige al login con el
+    // mensaje. El ApiError se lanza igual por si la navegación se
+    // interrumpe; si la navegación gana, el caller nunca consume el error
+    // (intencional: la página cambia de contexto y el componente se
+    // desmonta).
     window.location.assign(routes.sesionFinalizada);
   }
   throw new ApiError(

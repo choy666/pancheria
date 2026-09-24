@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import * as userRepository from '@/repositories/userRepository';
-import { ValidationError } from '@/domain/errors';
+import { LoginAttemptsExceededError } from '@/domain/errors';
 import {
   getRateLimitStore,
   setRateLimitStore as setRateLimitStoreBase,
@@ -29,9 +29,7 @@ async function recordFailedAttempt(username: string) {
   );
 
   if (blocked) {
-    throw new ValidationError(
-      'Demasiados intentos fallidos. Probá más tarde.'
-    );
+    throw new LoginAttemptsExceededError();
   }
 }
 
@@ -39,6 +37,20 @@ export async function verifyCredentials(
   username: string,
   password: string
 ): Promise<{ id: number; username: string; role: string; branchId: number; branchName: string } | null> {
+  // Bloqueo preventivo: una vez alcanzado el máximo de intentos, ni siquiera
+  // la contraseña correcta deja entrar hasta que expire la ventana. Antes el
+  // lockout solo cortaba el siguiente intento fallido, así que una clave
+  // válida seguía entrando en pleno bloqueo.
+  if (
+    await rateLimitStore.isBlocked(
+      username,
+      getLoginRateLimitWindowMs(),
+      getLoginRateLimitMaxAttempts()
+    )
+  ) {
+    throw new LoginAttemptsExceededError();
+  }
+
   const user = await userRepository.findByUsernameWithBranch(username);
 
   if (!user) {

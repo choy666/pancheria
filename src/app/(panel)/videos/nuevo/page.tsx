@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import { VideoForm } from '@/components/videos/video-form';
 import {
@@ -10,7 +11,13 @@ import {
 export default async function NuevoVideoPage() {
   const session = await auth();
 
-  if (session?.user?.role !== 'admin') {
+  // El rol puede quedar viejo en el JWT: se revalida contra la base antes
+  // de decidir el acceso (un admin degradado no debe ver esta página).
+  if (
+    !session?.user ||
+    !(await revalidateSessionUser(session)) ||
+    session.user.role !== 'admin'
+  ) {
     redirect(routes.home);
   }
 

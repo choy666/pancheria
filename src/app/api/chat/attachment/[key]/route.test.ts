@@ -6,6 +6,7 @@ import { GET } from './route';
 import * as chatStorage from '@/lib/chat-storage';
 import * as videoConfig from '@/config/videos';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import * as orderRepository from '@/repositories/orderRepository';
 
 jest.mock('@/lib/chat-storage');
@@ -24,6 +25,9 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/auth', () => ({
   auth: jest.fn(),
 }));
+jest.mock('@/lib/auth', () => ({
+  revalidateSessionUser: jest.fn(),
+}));
 jest.mock('@/repositories/orderRepository', () => ({
   findByIdWithToken: jest.fn(),
   findById: jest.fn(),
@@ -35,6 +39,7 @@ const mockedGetStorageProvider =
     typeof videoConfig.getStorageProvider
   >;
 const mockedAuth = auth as unknown as jest.Mock;
+const mockedRevalidate = revalidateSessionUser as unknown as jest.Mock;
 const mockedOrderRepository = orderRepository as jest.Mocked<
   typeof orderRepository
 >;
@@ -66,6 +71,7 @@ describe('GET /api/chat/attachment/[key]', () => {
     jest.clearAllMocks();
     mockedGetStorageProvider.mockReturnValue('local');
     mockedAuth.mockResolvedValue(null as any);
+    mockedRevalidate.mockResolvedValue(true);
     mockedOrderRepository.findByIdWithToken.mockResolvedValue(undefined);
     mockedOrderRepository.findById.mockResolvedValue(undefined);
   });
@@ -120,6 +126,41 @@ describe('GET /api/chat/attachment/[key]', () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  test('cae al token público cuando la sesión es de un usuario eliminado', async () => {
+    mockedAuth.mockResolvedValue(buildAuthSession('operator', 1) as any);
+    mockedRevalidate.mockResolvedValue(false);
+    mockedOrderRepository.findByIdWithToken.mockResolvedValue({
+      id: 10,
+      cancellationToken: TOKEN,
+    } as any);
+    mockedChatStorage.readChatAttachment.mockResolvedValue({
+      buffer: Buffer.from('imagen'),
+      mimeType: 'image/jpeg',
+    });
+
+    const response = await GET(
+      buildRequest(KEY, TOKEN),
+      { params: Promise.resolve({ key: encodeURIComponent(KEY) }) }
+    );
+
+    expect(response.status).toBe(200);
+    // No se autorizó por sesión: la sucursal del JWT no se consultó.
+    expect(mockedOrderRepository.findById).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 401 si la sesión es de un usuario eliminado y no hay token', async () => {
+    mockedAuth.mockResolvedValue(buildAuthSession('operator', 1) as any);
+    mockedRevalidate.mockResolvedValue(false);
+
+    const response = await GET(
+      buildRequest(KEY),
+      { params: Promise.resolve({ key: encodeURIComponent(KEY) }) }
+    );
+
+    expect(response.status).toBe(401);
+    expect(mockedChatStorage.readChatAttachment).not.toHaveBeenCalled();
   });
 
   test('devuelve 401 si no hay token ni sesión', async () => {

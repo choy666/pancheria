@@ -145,7 +145,7 @@ describe('GET /api/public/sucursal/estado', () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
-    expect(body.error).toContain('Invalid input');
+    expect(body.error).toContain('Entrada inválida');
   });
 
   test('devuelve 404 cuando la sucursal no existe', async () => {

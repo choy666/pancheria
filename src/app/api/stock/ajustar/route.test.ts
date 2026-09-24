@@ -107,6 +107,25 @@ describe('stock /api/stock/ajustar', () => {
     expect(response.status).toBe(400);
   });
 
+  test('rechaza tipos de movimiento internos del sistema', async () => {
+    // Antes el enum aceptaba tipos internos (`sale`, `reserve`, etc.) y el
+    // servicio los rechazaba después; ahora el schema los filtra (400).
+    for (const type of ['sale', 'reserve', 'reserve_release', 'cancellation']) {
+      const response = await POST(buildRequest({
+        method: 'POST',
+        body: JSON.stringify({
+          productId: 1,
+          quantity: 10,
+          reason: 'Ingreso de mercadería',
+          type,
+        }),
+      }), { params: Promise.resolve({}) });
+
+      expect(response.status).toBe(400);
+    }
+    expect(mockedStockService.adjustStock).not.toHaveBeenCalled();
+  });
+
   test('devuelve 404 cuando el producto no existe', async () => {
     mockedStockService.adjustStock.mockRejectedValue(
       new NotFoundError('Producto', 99)

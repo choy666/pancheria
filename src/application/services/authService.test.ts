@@ -118,6 +118,27 @@ describe('authService', () => {
     );
   });
 
+  test('bloquea preventivamente aunque la contraseña sea correcta', async () => {
+    const username = 'locked';
+    attemptFailedLogins(username, 5);
+
+    for (let i = 0; i < 5; i += 1) {
+      await verifyCredentials(username, 'mal');
+    }
+
+    // Una vez alcanzado el máximo, el bloqueo corta antes de consultar la
+    // base: ni la contraseña correcta debería entrar durante la ventana.
+    const findCalls = mockedDb.query.users.findFirst.mock.calls.length;
+    const compareCalls = mockedBcrypt.compare.mock.calls.length;
+    mockedBcrypt.compare.mockResolvedValue(true);
+
+    await expect(verifyCredentials(username, 'secreto')).rejects.toThrow(
+      'Demasiados intentos fallidos. Probá más tarde.'
+    );
+    expect(mockedDb.query.users.findFirst.mock.calls.length).toBe(findCalls);
+    expect(mockedBcrypt.compare.mock.calls.length).toBe(compareCalls);
+  });
+
   test('limpia los intentos fallidos tras un login exitoso', async () => {
     const username = 'clean';
     attemptFailedLogins(username, 4);

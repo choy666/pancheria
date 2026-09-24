@@ -44,6 +44,13 @@ export async function findById(id: number, dbOrTx?: typeof db) {
   });
 }
 
+export async function findByIdWithBranch(id: number, dbOrTx?: typeof db) {
+  return resolveClient(dbOrTx).query.users.findFirst({
+    where: eq(users.id, id),
+    with: { branch: true },
+  });
+}
+
 export async function findByUsername(username: string) {
   return db.query.users.findFirst({
     where: eq(users.username, username),

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import * as userService from '@/application/services/userService';
 import * as branchService from '@/application/services/branchService';
@@ -15,7 +16,13 @@ interface UsuariosPageProps {
 export default async function UsuariosPage({ searchParams }: UsuariosPageProps) {
   const session = await auth();
 
-  if (session?.user?.role !== 'admin') {
+  // El rol puede quedar viejo en el JWT: se revalida contra la base antes
+  // de decidir el acceso (un admin degradado no debe ver esta página).
+  if (
+    !session?.user ||
+    !(await revalidateSessionUser(session)) ||
+    session.user.role !== 'admin'
+  ) {
     redirect(routes.home);
   }
 

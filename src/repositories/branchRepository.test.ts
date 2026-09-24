@@ -129,12 +129,24 @@ describe('branchRepository', () => {
     });
   });
 
-  describe('findByNameCaseInsensitiveExcludingId', () => {
+  describe('findByNameCaseInsensitive', () => {
+    test('busca por nombre sin distinguir mayúsculas', async () => {
+      const expected = { id: 1, name: 'Central' };
+      mockFindFirst.mockResolvedValue(expected);
+
+      const result = await branchRepository.findByNameCaseInsensitive('CENTRAL');
+
+      expect(result).toEqual(expected);
+      expect(mockFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.anything() })
+      );
+    });
+
     test('busca por nombre sin distinguir mayúsculas excluyendo un id', async () => {
       const expected = { id: 2, name: 'central' };
       mockFindFirst.mockResolvedValue(expected);
 
-      const result = await branchRepository.findByNameCaseInsensitiveExcludingId(
+      const result = await branchRepository.findByNameCaseInsensitive(
         'central',
         1
       );

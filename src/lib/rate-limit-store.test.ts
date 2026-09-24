@@ -68,6 +68,34 @@ describe('InMemoryRateLimitStore', () => {
     expect(blocked).toBe(false);
   });
 
+  test('isBlocked refleja el límite alcanzado sin registrar intentos', async () => {
+    expect(await store.isBlocked('admin', 60_000, 5)).toBe(false);
+
+    for (let i = 0; i < 5; i += 1) {
+      await store.recordFailedAttempt('admin', 60_000, 5);
+    }
+
+    expect(await store.isBlocked('admin', 60_000, 5)).toBe(true);
+    // No modifica el registro: sigue bloqueado en llamadas sucesivas.
+    expect(await store.isBlocked('admin', 60_000, 5)).toBe(true);
+
+    await store.recordSuccessfulAttempt('admin');
+    expect(await store.isBlocked('admin', 60_000, 5)).toBe(false);
+  });
+
+  test('isBlocked expira cuando pasa la ventana', async () => {
+    const windowMs = 1;
+
+    for (let i = 0; i < 5; i += 1) {
+      await store.recordFailedAttempt('admin', windowMs, 5);
+    }
+    expect(await store.isBlocked('admin', windowMs, 5)).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(await store.isBlocked('admin', windowMs, 5)).toBe(false);
+  });
+
   test('elimina los intentos con remove', async () => {
     await store.recordFailedAttempt('admin', 60_000, 5);
     await store.remove('admin');

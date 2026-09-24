@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import {
   ConflictError,
   DomainError,
@@ -10,6 +10,11 @@ import {
 } from '@/domain/errors';
 import { isDatabaseConnectionError } from '@/lib/db-errors';
 import { logger } from '@/lib/logger';
+
+// Mensajes de validación de Zod en español: los schemas productivos traen
+// mensajes explícitos en español, pero los errores nativos (`min(1)`, enums,
+// tipos) salían en inglés en las respuestas 400 de la API.
+z.config(z.locales.es());
 
 function isClientAbortError(error: unknown): boolean {
   if (error instanceof Error) {

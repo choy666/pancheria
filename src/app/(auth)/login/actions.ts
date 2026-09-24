@@ -1,6 +1,6 @@
 'use server';
 
-import { signIn } from '@/auth';
+import { signIn, TooManyAttemptsSignin } from '@/auth';
 import { CredentialsSignin } from 'next-auth';
 import { unstable_rethrow } from 'next/navigation';
 import { routes } from '@/config/routes';
@@ -24,6 +24,10 @@ export async function login(
     return null;
   } catch (error) {
     unstable_rethrow(error);
+
+    if (error instanceof TooManyAttemptsSignin) {
+      return { error: 'Demasiados intentos fallidos. Probá más tarde.' };
+    }
 
     if (error instanceof CredentialsSignin) {
       return { error: 'Usuario o contraseña incorrectos.' };

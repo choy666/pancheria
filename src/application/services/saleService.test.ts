@@ -1459,6 +1459,59 @@ describe('cancelSale', () => {
     expect(stockMovementRows[0].quantity).toBe(4);
   });
 
+  test('anula una venta aunque el producto haya sido eliminado', async () => {
+    mockedDb.query.sales.findFirst.mockResolvedValue({
+      id: 1,
+      branchId: BRANCH_ID,
+      status: 'active',
+      total: 1500,
+      paymentMethod: 'cash',
+      payments: [{ method: 'cash', amount: 1500 }],
+      items: [{ id: 1, productId: 1, quantity: 2 }],
+      cashRegister: {
+        id: 1,
+        branchId: BRANCH_ID,
+        status: 'open',
+        deletedAt: null,
+      },
+    });
+
+    // El producto está soft-deleted (deletedAt no nulo): la anulación debe
+    // poder reconstruir el contexto igual para reintegrar el stock.
+    setProducts([
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        price: 1500,
+        deletedAt: new Date(),
+      },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([
+      createRecipeWithSupply({
+        id: 1,
+        compoundProductId: 1,
+        supplyId: 2,
+        quantity: 2,
+        autoDiscount: true,
+        supply: { name: 'Pan' },
+      }),
+    ]);
+
+    const result = (await cancelSale(BRANCH_ID, 1, 'error de carga')) as SaleRow;
+
+    expect(result.status).toBe('cancelled');
+    // Sin includeDeleted el lookup fallaba con "Producto no encontrado".
+    expect(mockedProductRepository.findByIdsForUpdate).toHaveBeenCalledWith(
+      BRANCH_ID,
+      [1],
+      true,
+      expect.anything()
+    );
+    expect(findCapturedUpdate(products).length).toBe(1);
+  });
+
   test('lanza NotFoundError si la venta no existe', async () => {
     mockedDb.query.sales.findFirst.mockResolvedValue(null);
 

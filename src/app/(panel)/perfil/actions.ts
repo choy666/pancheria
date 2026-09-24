@@ -1,7 +1,7 @@
 'use server';
 
 import bcrypt from 'bcrypt';
-import { auth } from '@/auth';
+import { requireAuth } from '@/lib/auth';
 import * as userService from '@/application/services/userService';
 import { DomainError, NotFoundError, ValidationError } from '@/domain/errors';
 import {
@@ -15,10 +15,15 @@ export async function changePassword(
   _prevState: ChangePasswordState,
   formData: FormData
 ): Promise<ChangePasswordState> {
-  const session = await auth();
+  let session: Awaited<ReturnType<typeof requireAuth>>;
 
-  if (!session?.user) {
-    return { error: 'Se requiere iniciar sesión.' };
+  try {
+    session = await requireAuth();
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { error: error.message };
+    }
+    throw error;
   }
 
   const userId = Number(session.user.id);

@@ -4,7 +4,7 @@ import { routes } from '@/config/routes';
 import { LoginForm } from './login-form';
 
 interface LoginPageProps {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; code?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -16,6 +16,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     redirect(routes.home);
   }
 
-  const { error } = await searchParams;
-  return <LoginForm errorQuery={error} />;
+  const { error, code } = await searchParams;
+  return <LoginForm errorQuery={error} codeQuery={code} />;
 }

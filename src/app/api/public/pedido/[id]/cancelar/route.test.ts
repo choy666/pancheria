@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server';
 import { POST } from './route';
 import * as orderService from '@/application/services/orderService';
 import { getDefaultBranchId } from '@/lib/branch-resolver';
+import { ValidationError } from '@/domain/errors';
 
 jest.mock('@/application/services/orderService');
 jest.mock('@/lib/branch-resolver', () => ({
@@ -124,6 +125,34 @@ describe('POST /api/public/pedido/[id]/cancelar', () => {
 
     expect(response.status).toBe(400);
     expect(mockedOrderService.cancelOrder).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 400 cuando el servicio rechaza la cancelación de un pedido pagado', async () => {
+    mockedOrderService.cancelOrder.mockRejectedValue(
+      new ValidationError(
+        'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
+      )
+    );
+
+    const [request, routeParams] = buildRequest(
+      1,
+      `branchId=${BRANCH_ID}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          reason: 'Cancelado por el cliente',
+          token: 'token',
+        }),
+      }
+    );
+
+    const response = await POST(request, routeParams);
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe(
+      'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
+    );
   });
 
   test('devuelve 400 si no se puede resolver la sucursal por defecto', async () => {

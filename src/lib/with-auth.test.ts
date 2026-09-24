@@ -3,6 +3,7 @@ import { withAuth } from './with-auth';
 import { auth } from '@/auth';
 import { cookies } from 'next/headers';
 import * as branchService from '@/application/services/branchService';
+import * as userRepository from '@/repositories/userRepository';
 import { UnauthorizedError, ForbiddenError } from '@/domain/errors';
 
 jest.mock('@/auth', () => ({
@@ -17,6 +18,10 @@ jest.mock('@/application/services/branchService', () => ({
   getBranchById: jest.fn(),
 }));
 
+jest.mock('@/repositories/userRepository', () => ({
+  findByIdWithBranch: jest.fn(),
+}));
+
 jest.mock('@/lib/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -29,6 +34,20 @@ jest.mock('@/lib/logger', () => ({
 const mockedAuth = auth as unknown as jest.Mock;
 const mockedCookies = cookies as unknown as jest.Mock;
 const mockedGetBranchById = branchService.getBranchById as unknown as jest.Mock;
+const mockedFindByIdWithBranch =
+  userRepository.findByIdWithBranch as unknown as jest.Mock;
+
+// Replicamos el usuario vigente en DB que revalidateSessionUser consulta en
+// cada request: los valores coinciden con la sesión mock para no alterar las
+// aserciones existentes.
+function mockDbUser(user: { id: string; branchId: number; role: string }) {
+  mockedFindByIdWithBranch.mockResolvedValue({
+    id: Number(user.id),
+    branchId: user.branchId,
+    role: user.role,
+    branch: { id: user.branchId, name: 'Sucursal' },
+  });
+}
 
 function mockCookie(value?: string) {
   mockedCookies.mockResolvedValue({
@@ -52,6 +71,7 @@ describe('withAuth', () => {
       user: { id: '1', name: 'admin', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUser(session.user);
     mockCookie('2');
     mockedGetBranchById.mockResolvedValue({ id: 2, name: 'Sucursal 2' });
 
@@ -75,6 +95,7 @@ describe('withAuth', () => {
       user: { id: '2', name: 'operator', branchId: 3, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUser(session.user);
     mockCookie('2');
     mockedGetBranchById.mockResolvedValue({ id: 3, name: 'Sucursal 3' });
 
@@ -100,6 +121,7 @@ describe('withAuth', () => {
       user: { id: '1', name: 'admin', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUser(session.user);
     mockCookie('abc');
     mockedGetBranchById.mockResolvedValue({ id: 1, name: 'Sucursal 1' });
 
@@ -124,6 +146,7 @@ describe('withAuth', () => {
       user: { id: '1', name: 'admin', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUser(session.user);
     mockCookie('99');
     mockedGetBranchById.mockImplementation((id: number) =>
       Promise.resolve(id === 99 ? undefined : { id, name: `Sucursal ${id}` })
@@ -148,6 +171,7 @@ describe('withAuth', () => {
       user: { id: '2', name: 'operator', branchId: 3, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUser(session.user);
     mockedGetBranchById.mockResolvedValue({ id: 3, name: 'Sucursal 3' });
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));
@@ -176,6 +200,7 @@ describe('withAuth', () => {
       user: { id: '2', name: 'operator', branchId: 5, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUser(session.user);
     mockedGetBranchById.mockResolvedValue({ id: 5, name: 'Sucursal 5' });
 
     const handler = jest.fn().mockResolvedValue(new Response('ok'));

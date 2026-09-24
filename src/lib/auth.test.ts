@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import * as branchService from '@/application/services/branchService';
+import * as userRepository from '@/repositories/userRepository';
 import {
   requireAuth,
   getCurrentBranchId,
@@ -12,6 +13,7 @@ import {
   UnauthorizedError,
   ForbiddenError,
   BranchRemovedError,
+  UserRemovedError,
 } from '@/domain/errors';
 
 jest.mock('@/auth', () => ({
@@ -30,16 +32,36 @@ jest.mock('@/application/services/branchService', () => ({
   getBranchById: jest.fn(),
 }));
 
+jest.mock('@/repositories/userRepository', () => ({
+  findByIdWithBranch: jest.fn(),
+}));
+
 const mockedAuth = auth as unknown as jest.Mock;
 const mockedCookies = cookies as unknown as jest.Mock;
 const mockedRedirect = redirect as unknown as jest.Mock;
 const mockedBranchService = branchService as unknown as {
   getBranchById: jest.Mock;
 };
+const mockedUserRepository = userRepository as unknown as {
+  findByIdWithBranch: jest.Mock;
+};
 
 function mockCookie(value?: string) {
   mockedCookies.mockResolvedValue({
     get: jest.fn().mockReturnValue(value ? { value } : undefined),
+  });
+}
+
+/**
+ * Mockea el usuario vigente en base con los mismos branchId/role que lleva
+ * la sesión (el caso común: JWT al día).
+ */
+function mockDbUserFromSession(session: { user: Record<string, unknown> }) {
+  mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+    id: Number(session.user.id),
+    role: session.user.role,
+    branchId: session.user.branchId,
+    branch: { name: session.user.branchName ?? 'Sucursal' },
   });
 }
 
@@ -53,6 +75,7 @@ describe('requireAuth', () => {
       user: { name: 'admin', id: '1', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     const result = await requireAuth();
@@ -70,18 +93,62 @@ describe('requireAuth', () => {
     );
   });
 
+  test('lanza UserRemovedError cuando el usuario de la sesión ya no existe en base', async () => {
+    mockedAuth.mockResolvedValue({
+      user: { name: 'operator', id: '1', branchId: 1, role: 'operator' },
+    } as any);
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+
+    const error = await requireAuth().catch((e) => e);
+    expect(error).toBeInstanceOf(UserRemovedError);
+    // Hereda de ForbiddenError: las rutas lo mapean a 403 con code.
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect(error.code).toBe('USER_REMOVED');
+  });
+
+  test('sincroniza branchId y role desde la base (JWT viejo)', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 1, role: 'operator' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    // El usuario fue reasignado y promovido después de emitir el JWT.
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'admin',
+      branchId: 7,
+      branch: { name: 'Sucursal nueva' },
+    });
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 7 });
+
+    const result = await requireAuth();
+
+    expect(result.user.branchId).toBe(7);
+    expect(result.user.role).toBe('admin');
+    expect(result.user.branchName).toBe('Sucursal nueva');
+    // La validación de existencia corre contra la sucursal vigente, no la del JWT.
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(7);
+  });
+
   test('lanza ForbiddenError cuando el usuario no tiene sucursal', async () => {
     mockedAuth.mockResolvedValue({
       user: { name: 'admin', id: '1' },
     } as any);
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'admin',
+      branchId: null,
+      branch: null,
+    });
 
     await expect(requireAuth()).rejects.toThrow(ForbiddenError);
   });
 
   test('lanza BranchRemovedError cuando la sucursal de la sesión fue eliminada', async () => {
-    mockedAuth.mockResolvedValue({
+    const session = {
       user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
-    } as any);
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
     const error = await requireAuth().catch((e) => e);
@@ -100,9 +167,11 @@ describe('getCurrentBranchId', () => {
   });
 
   test('devuelve el branchId de la sesión', async () => {
-    mockedAuth.mockResolvedValue({
+    const session = {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
-    } as any);
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockCookie(undefined);
     mockedBranchService.getBranchById.mockResolvedValue({ id: 5 });
 
@@ -111,11 +180,46 @@ describe('getCurrentBranchId', () => {
     expect(result).toBe(5);
   });
 
+  test('devuelve la sucursal vigente en base aunque el JWT tenga otra', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    // Reasignación posterior a la emisión del JWT (D4).
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'operator',
+      branchId: 8,
+      branch: { name: 'Sucursal nueva' },
+    });
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 8 });
+
+    const result = await getCurrentBranchId();
+
+    expect(result).toBe(8);
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(8);
+    expect(mockedBranchService.getBranchById).not.toHaveBeenCalledWith(5);
+  });
+
+  test('lanza UserRemovedError cuando el usuario ya no existe en base', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+
+    const error = await getCurrentBranchId().catch((e) => e);
+    expect(error).toBeInstanceOf(UserRemovedError);
+    expect(error.code).toBe('USER_REMOVED');
+    expect(mockedBranchService.getBranchById).not.toHaveBeenCalled();
+  });
+
   test('admin con cookie activa devuelve la sucursal de la cookie', async () => {
     const session = {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockCookie('9');
     mockedBranchService.getBranchById.mockResolvedValue({
       id: 9,
@@ -133,6 +237,7 @@ describe('getCurrentBranchId', () => {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockCookie('abc');
     mockedBranchService.getBranchById.mockResolvedValue({ id: 5 });
 
@@ -148,6 +253,7 @@ describe('getCurrentBranchId', () => {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockCookie('99');
     mockedBranchService.getBranchById.mockImplementation((id: number) =>
       Promise.resolve(id === 99 ? undefined : { id })
@@ -164,6 +270,7 @@ describe('getCurrentBranchId', () => {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
     const error = await getCurrentBranchId().catch((e) => e);
@@ -176,6 +283,7 @@ describe('getCurrentBranchId', () => {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockCookie('99');
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
@@ -189,6 +297,7 @@ describe('getCurrentBranchId', () => {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockCookie('9');
     mockedBranchService.getBranchById.mockResolvedValue({ id: 3 });
 
@@ -202,6 +311,7 @@ describe('getCurrentBranchId', () => {
     const session = {
       user: { name: 'admin', id: '1', branchId: 2, role: 'admin' },
     } as any;
+    mockDbUserFromSession(session);
     mockCookie('7');
     mockedBranchService.getBranchById.mockResolvedValue({
       id: 7,
@@ -224,6 +334,12 @@ describe('getCurrentBranchId', () => {
     mockedAuth.mockResolvedValue({
       user: { name: 'admin', id: '1', role: 'admin' },
     } as any);
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'admin',
+      branchId: null,
+      branch: null,
+    });
 
     await expect(getCurrentBranchId()).rejects.toThrow(ForbiddenError);
   });
@@ -239,6 +355,7 @@ describe('requireAdmin', () => {
       user: { name: 'admin', id: '1', branchId: 1, role: 'admin' },
     } as any;
     mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     const result = await requireAdmin();
@@ -247,9 +364,11 @@ describe('requireAdmin', () => {
   });
 
   test('lanza ForbiddenError cuando el usuario no es admin', async () => {
-    mockedAuth.mockResolvedValue({
+    const session = {
       user: { name: 'operator', id: '1', branchId: 1, role: 'operator' },
-    } as any);
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
@@ -258,10 +377,29 @@ describe('requireAdmin', () => {
     );
   });
 
+  test('usa el rol vigente en base aunque el JWT diga admin', async () => {
+    const session = {
+      user: { name: 'admin', id: '1', branchId: 1, role: 'admin' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    // El rol fue degradado a operador después de emitir el JWT.
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'operator',
+      branchId: 1,
+      branch: { name: 'Sucursal' },
+    });
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
+
+    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+  });
+
   test('lanza BranchRemovedError cuando la sucursal del admin fue eliminada', async () => {
-    mockedAuth.mockResolvedValue({
+    const session = {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
-    } as any);
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockDbUserFromSession(session);
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
     await expect(requireAdmin()).rejects.toThrow(BranchRemovedError);
@@ -286,6 +424,7 @@ describe('getCurrentBranchIdOrRedirect', () => {
     const session = {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
+    mockDbUserFromSession(session);
     mockRedirectThrow('');
     mockedBranchService.getBranchById.mockResolvedValue({ id: 3 });
 
@@ -295,10 +434,26 @@ describe('getCurrentBranchIdOrRedirect', () => {
     expect(mockedRedirect).not.toHaveBeenCalled();
   });
 
+  test('redirige a /sesion-finalizada cuando el usuario ya no existe en base', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
+    } as any;
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+    mockRedirectThrow('/sesion-finalizada');
+
+    await expect(getCurrentBranchIdOrRedirect(session)).rejects.toThrow(
+      'NEXT_REDIRECT /sesion-finalizada'
+    );
+
+    expect(mockedRedirect).toHaveBeenCalledWith('/sesion-finalizada');
+    expect(mockedBranchService.getBranchById).not.toHaveBeenCalled();
+  });
+
   test('redirige a /sesion-finalizada cuando la sucursal de la sesión fue eliminada', async () => {
     const session = {
       user: { name: 'operator', id: '1', branchId: 3, role: 'operator' },
     } as any;
+    mockDbUserFromSession(session);
     mockRedirectThrow('/sesion-finalizada');
     mockedBranchService.getBranchById.mockResolvedValue(undefined);
 
@@ -313,6 +468,12 @@ describe('getCurrentBranchIdOrRedirect', () => {
     const session = {
       user: { name: 'admin', id: '1', role: 'admin' },
     } as any;
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'admin',
+      branchId: null,
+      branch: null,
+    });
     mockRedirectThrow('/sucursales');
 
     await expect(getCurrentBranchIdOrRedirect(session)).rejects.toThrow(
@@ -326,6 +487,12 @@ describe('getCurrentBranchIdOrRedirect', () => {
     const session = {
       user: { name: 'operator', id: '1', role: 'operator' },
     } as any;
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue({
+      id: 1,
+      role: 'operator',
+      branchId: null,
+      branch: null,
+    });
     mockRedirectThrow('/login?error=no_branch');
 
     await expect(getCurrentBranchIdOrRedirect(session)).rejects.toThrow(
@@ -350,6 +517,7 @@ describe('getCurrentBranchIdOrRedirect', () => {
     const session = {
       user: { name: 'admin', id: '1', branchId: 5, role: 'admin' },
     } as any;
+    mockDbUserFromSession(session);
     mockCookie('9');
     mockedBranchService.getBranchById.mockResolvedValue({
       id: 9,

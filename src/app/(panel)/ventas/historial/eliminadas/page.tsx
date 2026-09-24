@@ -3,13 +3,20 @@ import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
 import { routes } from '@/config/routes';
 
 export default async function CajasEliminadasPage() {
   const session = await auth();
 
-  if (session?.user?.role !== 'admin') {
+  // El rol puede quedar viejo en el JWT: se revalida contra la base antes
+  // de decidir el acceso (un admin degradado no debe ver esta página).
+  if (
+    !session?.user ||
+    !(await revalidateSessionUser(session)) ||
+    session.user.role !== 'admin'
+  ) {
     redirect(routes.ventasHistorial);
   }
 

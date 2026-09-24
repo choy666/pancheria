@@ -214,20 +214,18 @@ export const cartAvailabilitySchema = z.object({
   productIds: z.array(z.number().int().positive()).max(500).optional(),
 });
 
-const stockMovementTypeSchema = z.enum([
-  'sale',
-  'cancellation',
-  'manual_adjustment',
-  'restock',
-  'reserve',
-  'reserve_release',
-]);
+/**
+ * Tipos de movimiento que un operador puede registrar vía /api/stock/ajustar.
+ * Los demás tipos (`sale`, `reserve`, etc.) son internos del sistema y no se
+ * aceptan por este endpoint.
+ */
+const stockAdjustmentTypeSchema = z.enum(['manual_adjustment', 'restock']);
 
 export const stockAdjustmentSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int(),
   reason: z.string().min(3).max(500),
-  type: stockMovementTypeSchema.default('manual_adjustment'),
+  type: stockAdjustmentTypeSchema.default('manual_adjustment'),
 });
 
 export const cancellationSchema = z.object({

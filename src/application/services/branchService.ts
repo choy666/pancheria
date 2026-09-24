@@ -69,7 +69,10 @@ export async function createBranch(input: BranchInput) {
   const phones = normalizeBranchPhones(input.phones);
   const socialLinks = normalizeSocialLinks(input.socialLinks);
 
-  const existing = await branchRepository.findByName(trimmed);
+  // Búsqueda case-insensitive, igual que en `updateBranch`: el índice unique
+  // de `branches.name` es case-sensitive y permitía duplicados tipo
+  // "Centro"/"CENTRO".
+  const existing = await branchRepository.findByNameCaseInsensitive(trimmed);
 
   if (existing) {
     throw new ValidationError('Ya existe una sucursal con ese nombre.');
@@ -112,7 +115,7 @@ export async function updateBranch(id: number, input: BranchInput) {
   // reforzar la unicidad a nivel de base de datos, es necesario migrar la
   // columna `name` a un tipo case-insensitive (como `citext`) o agregar un
   // índice unique sobre una expresión en minúsculas (`lower(name)`).
-  const existing = await branchRepository.findByNameCaseInsensitiveExcludingId(
+  const existing = await branchRepository.findByNameCaseInsensitive(
     trimmed,
     id
   );

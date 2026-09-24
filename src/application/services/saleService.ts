@@ -579,10 +579,13 @@ export async function cancelSale(
       throw new NotFoundError('Venta', id);
     }
 
+    // `includeDeleted`: la anulación debe funcionar aunque el producto haya
+    // sido eliminado después de la venta; sin esto el pedido/venta quedaba
+    // incancelable hasta restaurar el producto (404 "Producto no encontrado").
     const { productById, recipesByProduct } = await buildProductContext(
       branchId,
       saleItemValues.map((item) => item.productId),
-      { dbOrTx: tx }
+      { dbOrTx: tx, includeDeleted: true }
     );
 
     await reintegrateStockAndUpdateCashRegister(

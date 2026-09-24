@@ -3,6 +3,7 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { readChatAttachment } from '@/lib/chat-storage';
 import { getStorageProvider } from '@/config/videos';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import * as orderRepository from '@/repositories/orderRepository';
 import { UnauthorizedError } from '@/domain/errors';
 
@@ -20,7 +21,10 @@ async function canAccessAttachment(
 ): Promise<boolean> {
   const session = await auth();
 
-  if (session?.user) {
+  // El JWT puede quedar viejo: si el usuario fue eliminado o reasignado,
+  // la sucursal/rol vigentes salen de la base, no del token. Si el usuario
+  // ya no existe se evalúa el token público como si no hubiera sesión.
+  if (session?.user && (await revalidateSessionUser(session))) {
     const branchId =
       session.user.role === 'admin'
         ? undefined

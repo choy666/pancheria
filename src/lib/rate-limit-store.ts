@@ -14,6 +14,17 @@ export interface RateLimitStore {
     windowMs: number,
     maxAttempts: number
   ): Promise<boolean>;
+  /**
+   * Devuelve `true` si el usuario ya alcanzó el máximo de intentos fallidos
+   * dentro de la ventana vigente, sin registrar un intento nuevo. Permite
+   * bloquear preventivamente (también credenciales correctas) hasta que la
+   * ventana expire.
+   */
+  isBlocked(
+    username: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<boolean>;
   recordSuccessfulAttempt(username: string): Promise<void>;
   remove(username: string): Promise<void>;
   /**
@@ -47,6 +58,17 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     record.count += 1;
     record.lastAttempt = now;
     return record.count > maxAttempts;
+  }
+
+  async isBlocked(
+    username: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<boolean> {
+    const record = this.attemptsByUsername.get(username);
+    if (!record) return false;
+    if (Date.now() - record.lastAttempt > windowMs) return false;
+    return record.count >= maxAttempts;
   }
 
   async recordSuccessfulAttempt(username: string): Promise<void> {
@@ -97,6 +119,22 @@ class DbRateLimitStore implements RateLimitStore {
       .returning({ count: loginAttempts.count });
 
     return (row?.count ?? 1) > maxAttempts;
+  }
+
+  async isBlocked(
+    username: string,
+    windowMs: number,
+    maxAttempts: number
+  ): Promise<boolean> {
+    const now = Date.now();
+    const row = await db.query.loginAttempts.findFirst({
+      where: eq(loginAttempts.username, username),
+      columns: { count: true, lastAttempt: true },
+    });
+
+    if (!row) return false;
+    if (row.lastAttempt + windowMs <= now) return false;
+    return row.count >= maxAttempts;
   }
 
   async recordSuccessfulAttempt(username: string): Promise<void> {

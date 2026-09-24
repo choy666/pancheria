@@ -27,7 +27,7 @@ import {
   NotFoundError,
   ValidationError,
 } from '@/domain/errors';
-import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
+import { getCurrentOrNextOpening, isBranchOpen } from '@/lib/branch-helpers';
 import type {
   OrderWithItems,
   OrderWithUnreadCount,
@@ -272,12 +272,21 @@ export async function createOrder(
     return { ...existing.order, deduplicated: true };
   }
 
-  const openCashRegister = await cashRegisterService.getOpenCashRegister(branchId);
-  if (!openCashRegister) {
+  // Misma regla que `GET /api/public/sucursal/estado`: con horarios
+  // configurados la sucursal solo está abierta dentro de la franja vigente.
+  // Sin esto un pedido directo a la API entraba fuera de horario aunque la
+  // UI ocultara el formulario y `/estado` reportara la sucursal cerrada.
+  const hasOpeningHours = (branch.openingHours ?? []).length > 0;
+  if (hasOpeningHours && !isBranchOpen(branch)) {
     const opening = getCurrentOrNextOpening(branch);
     throw new ValidationError(
       `En este momento no podemos recibir pedidos. Horario de atención: ${opening}.`
     );
+  }
+
+  const openCashRegister = await cashRegisterService.getOpenCashRegister(branchId);
+  if (!openCashRegister) {
+    throw new ValidationError('En este momento no podemos recibir pedidos.');
   }
 
   return executeInTransaction(async (tx) => {
@@ -411,6 +420,15 @@ export async function cancelOrder(
     throw new ValidationError('El token de cancelación no es válido.');
   }
 
+  // Con token (vía pública) solo se cancela `pending`/`in_process`: un pedido
+  // `paid` implica anular dinero real y solo puede hacerlo el negocio desde
+  // el panel (sin token).
+  if (token !== undefined && order.status === 'paid') {
+    throw new ValidationError(
+      'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
+    );
+  }
+
   return executeInTransaction(async (tx) => {
     const locked = await orderRepository.findByIdForUpdate(tx, branchId, id);
 
@@ -430,6 +448,12 @@ export async function cancelOrder(
 
     if (token !== undefined && locked.cancellationToken !== token) {
       throw new ValidationError('El token de cancelación no es válido.');
+    }
+
+    if (token !== undefined && locked.status === 'paid') {
+      throw new ValidationError(
+        'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
+      );
     }
 
     if (locked.status === 'in_process') {
@@ -489,14 +513,10 @@ export async function convertOrderToSale(
 
   const cashRegister = await cashRegisterService.getOpenCashRegister(branchId);
   if (!cashRegister) {
-    const branch =
-      (await branchService.getBranchById(branchId)) ??
-      (await orderRepository.findById(branchId, orderId))?.branch;
-    const opening = branch
-      ? getCurrentOrNextOpening(branch)
-      : 'consultá con la sucursal';
+    // La causa es la caja cerrada, no el horario de la sucursal: el mensaje
+    // anterior ("Horario de atención") confundía al operador (D10).
     throw new ValidationError(
-      `En este momento no podemos confirmar el pedido. Horario de atención: ${opening}.`
+      'No hay una caja abierta. Abrí la caja para confirmar el pedido.'
     );
   }
 

@@ -19,21 +19,41 @@ const initialState: LoginFormState = null;
 
 interface LoginFormProps {
   errorQuery?: string;
+  codeQuery?: string;
 }
 
 const NO_BRANCH_MESSAGE =
   'El usuario no tiene una sucursal asignada. Contactá al administrador.';
 const BRANCH_REMOVED_MESSAGE =
   'Tu sucursal fue eliminada. Tu sesión se cerró; contactá al administrador.';
+const USER_REMOVED_MESSAGE =
+  'Tu usuario fue eliminado. Tu sesión se cerró; contactá al administrador.';
+const TOO_MANY_ATTEMPTS_MESSAGE =
+  'Demasiados intentos fallidos. Probá más tarde.';
+const INVALID_CREDENTIALS_MESSAGE = 'Usuario o contraseña incorrectos.';
+const AUTH_CONFIG_MESSAGE =
+  'No se pudo iniciar sesión. Probá de nuevo en unos minutos.';
 
 const QUERY_ERROR_MESSAGES: Record<string, string> = {
   no_branch: NO_BRANCH_MESSAGE,
   branch_removed: BRANCH_REMOVED_MESSAGE,
+  user_removed: USER_REMOVED_MESSAGE,
+  // Si Auth.js redirige en vez de propagar la excepción a la server action
+  // (p. ej. un flujo no-action), el lockout llega como
+  // `?error=CredentialsSignin&code=too_many_attempts`.
+  CredentialsSignin: INVALID_CREDENTIALS_MESSAGE,
+  Configuration: AUTH_CONFIG_MESSAGE,
 };
 
-export function LoginForm({ errorQuery }: LoginFormProps = {}) {
+const QUERY_CODE_MESSAGES: Record<string, string> = {
+  too_many_attempts: TOO_MANY_ATTEMPTS_MESSAGE,
+};
+
+export function LoginForm({ errorQuery, codeQuery }: LoginFormProps = {}) {
   const [state, formAction, isPending] = useActionState(login, initialState);
-  const queryError = errorQuery ? QUERY_ERROR_MESSAGES[errorQuery] : undefined;
+  const queryError =
+    (codeQuery ? QUERY_CODE_MESSAGES[codeQuery] : undefined) ??
+    (errorQuery ? QUERY_ERROR_MESSAGES[errorQuery] : undefined);
   const displayedError = state?.error ?? queryError;
 
   return (

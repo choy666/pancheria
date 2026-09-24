@@ -120,7 +120,7 @@ describe('withApiErrorHandling', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toContain('Too small');
+    expect(body.error).toContain('Demasiado pequeño');
     expect(Array.isArray(body.details)).toBe(true);
   });
 

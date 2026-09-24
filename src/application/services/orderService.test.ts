@@ -12,12 +12,14 @@ import {
 } from './orderService';
 import * as branchService from '@/application/services/branchService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import * as saleService from '@/application/services/saleService';
 import * as idempotencyService from '@/application/idempotencyService';
 import * as productRepository from '@/repositories/productRepository';
 import * as orderRepository from '@/repositories/orderRepository';
 import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
+import { isBranchOpen, getCurrentOrNextOpening } from '@/lib/branch-helpers';
 import { logger } from '@/lib/logger';
 import { db } from '@/db';
 import {
@@ -292,6 +294,11 @@ jest.mock('@/repositories/orderStockReservationRepository', () => ({
 jest.mock('@/application/services/branchService', () => ({
   getBranchById: jest.fn(),
 }));
+jest.mock('@/lib/branch-helpers', () => ({
+  ...jest.requireActual('@/lib/branch-helpers'),
+  isBranchOpen: jest.fn(() => true),
+  getCurrentOrNextOpening: jest.fn(() => 'Hoy de 10:00 a 22:00'),
+}));
 jest.mock('@/application/services/cashRegisterService', () => ({
   getOpenCashRegister: jest.fn(),
 }));
@@ -322,6 +329,13 @@ const mockedCashRegisterService = cashRegisterService as jest.Mocked<
 const mockedIdempotencyService = idempotencyService as jest.Mocked<
   typeof idempotencyService
 >;
+const mockedIsBranchOpen = isBranchOpen as jest.MockedFunction<
+  typeof isBranchOpen
+>;
+const mockedGetCurrentOrNextOpening =
+  getCurrentOrNextOpening as jest.MockedFunction<
+    typeof getCurrentOrNextOpening
+  >;
 const mockedExecuteInTransaction = executeInTransaction as jest.MockedFunction<
   typeof executeInTransaction
 >;
@@ -381,6 +395,8 @@ describe('orderService', () => {
       socialLinks: [],
       createdAt: new Date(),
     });
+    mockedIsBranchOpen.mockReturnValue(true);
+    mockedGetCurrentOrNextOpening.mockReturnValue('Hoy de 10:00 a 22:00');
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
     mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
       null
@@ -673,6 +689,100 @@ describe('orderService', () => {
           idempotencyKey: 'key-branch',
         })
       ).rejects.toThrow(NotFoundError);
+    });
+
+    test('rechaza el pedido fuera de horario aunque haya caja abierta', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal Test',
+        openingHours: [{ dayOfWeek: 1, open: '10:00', close: '22:00' }],
+        phones: [],
+        socialLinks: [],
+        createdAt: new Date(),
+      });
+      mockedIsBranchOpen.mockReturnValue(false);
+
+      await expect(
+        createOrder({
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'Juan',
+          customerPhone: '3415555555',
+          deliveryType: 'pickup',
+          idempotencyKey: 'key-outside-hours',
+        })
+      ).rejects.toThrow(
+        'En este momento no podemos recibir pedidos. Horario de atención: Hoy de 10:00 a 22:00.'
+      );
+
+      // Ni la caja ni la transacción se consultan cuando la sucursal está cerrada.
+      expect(mockedCashRegisterService.getOpenCashRegister).not.toHaveBeenCalled();
+      expect(findCapturedInsert(orders)).toHaveLength(0);
+    });
+
+    test('acepta el pedido dentro de horario con caja abierta', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal Test',
+        openingHours: [{ dayOfWeek: 1, open: '10:00', close: '22:00' }],
+        phones: [],
+        socialLinks: [],
+        createdAt: new Date(),
+      });
+      mockedIsBranchOpen.mockReturnValue(true);
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 10,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      const result = await createOrder({
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-within-hours',
+      });
+
+      expect(result.total).toBe(1000);
+      expect(findCapturedInsert(orders)).toHaveLength(1);
+    });
+
+    test('distingue caja cerrada de fuera de horario en el mensaje', async () => {
+      // Sucursal dentro de horario pero sin caja: el mensaje no debe hablar
+      // de horarios.
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal Test',
+        openingHours: [{ dayOfWeek: 1, open: '10:00', close: '22:00' }],
+        phones: [],
+        socialLinks: [],
+        createdAt: new Date(),
+      });
+      mockedIsBranchOpen.mockReturnValue(true);
+      mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
+
+      const error = await createOrder({
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-no-cash',
+      }).catch((e) => e);
+
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.message).toBe(
+        'En este momento no podemos recibir pedidos.'
+      );
+      expect(error.message).not.toContain('Horario de atención');
     });
 
     test('deduplica una fila legacy si el payload coincide con sus datos persistidos', async () => {
@@ -1072,6 +1182,56 @@ describe('orderService', () => {
       ).rejects.toThrow('El token de cancelación no es válido.');
     });
 
+    test('rechaza la cancelación pública (con token) de un pedido pagado', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'paid', convertedSaleId: 10 }),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+      const cancelSaleSpy = jest.spyOn(saleService, 'cancelSale');
+
+      await expect(
+        cancelOrder(BRANCH_ID, 1, 'Motivo', 'token')
+      ).rejects.toThrow(
+        'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
+      );
+
+      // La venta asociada no debe tocarse: anularla es decisión del negocio.
+      expect(cancelSaleSpy).not.toHaveBeenCalled();
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
+    });
+
+    test('con token inválido sobre pedido pagado informa el token, no el estado', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({
+          status: 'paid',
+          convertedSaleId: 10,
+          cancellationToken: 'valid-token',
+        }),
+        items: [],
+      });
+
+      await expect(
+        cancelOrder(BRANCH_ID, 1, 'Motivo', 'invalid-token')
+      ).rejects.toThrow('El token de cancelación no es válido.');
+    });
+
+    test('el panel sí puede cancelar un pedido pagado (sin token)', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'paid', convertedSaleId: 10 }),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+      const cancelSaleSpy = jest
+        .spyOn(saleService, 'cancelSale')
+        .mockResolvedValue({ id: 10 } as any);
+
+      const result = await cancelOrder(BRANCH_ID, 1, 'Anulación por caja');
+
+      expect(result.status).toBe('cancelled');
+      expect(cancelSaleSpy).toHaveBeenCalledWith(BRANCH_ID, 10, 'Anulación por caja');
+
+      cancelSaleSpy.mockRestore();
+    });
+
     test('rechaza cancelación de un pedido finalizado', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({ status: 'finished' }),
@@ -1419,7 +1579,7 @@ describe('orderService', () => {
           idempotencyKey: 'key-no-cash',
         })
       ).rejects.toThrow(
-        'En este momento no podemos confirmar el pedido. Horario de atención: No hay horarios de apertura configurados.'
+        'No hay una caja abierta. Abrí la caja para confirmar el pedido.'
       );
     });
 

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import * as branchService from '@/application/services/branchService';
 import { BranchList } from '@/components/sucursales/branch-list';
@@ -12,7 +13,13 @@ export const maxDuration = 300;
 export default async function SucursalesPage() {
   const session = await auth();
 
-  if (session?.user?.role !== 'admin') {
+  // El rol puede quedar viejo en el JWT: se revalida contra la base antes
+  // de decidir el acceso (un admin degradado no debe ver esta página).
+  if (
+    !session?.user ||
+    !(await revalidateSessionUser(session)) ||
+    session.user.role !== 'admin'
+  ) {
     redirect(routes.home);
   }
 

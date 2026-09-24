@@ -2,19 +2,65 @@ import { auth } from '@/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import * as branchService from '@/application/services/branchService';
+import * as userRepository from '@/repositories/userRepository';
 import { routes } from '@/config/routes';
-import { UnauthorizedError, ForbiddenError, BranchRemovedError } from '@/domain/errors';
+import { UnauthorizedError, ForbiddenError, BranchRemovedError, UserRemovedError } from '@/domain/errors';
 import type { Session } from 'next-auth';
 
 const NO_BRANCH_ERROR_QUERY = 'no_branch';
 
 export const ACTIVE_BRANCH_COOKIE = 'activeBranchId';
 
+/**
+ * Sesiones ya revalidadas contra la base en esta request: las rutas llaman
+ * `requireAuth` y después `getCurrentBranchId` con el mismo objeto sesión;
+ * sin el dedupe se consultaría `users` dos veces por request.
+ */
+const revalidatedSessions = new WeakSet<object>();
+
+/**
+ * Revalida el JWT contra la base una vez por objeto sesión:
+ * - Devuelve `false` si el usuario ya no existe (borrado con su sucursal o
+ *   por un admin; el JWT seguiría operando hasta expirar sin este check).
+ * - Si existe, sincroniza `branchId`, `role` y `branchName` del objeto
+ *   sesión con los valores vigentes, para que el resto del request use la
+ *   sucursal actual aunque el JWT haya quedado viejo.
+ *
+ * Se exporta para paths que llaman `auth()` directamente y usan
+ * `session.user` para autorizar (p. ej. el proxy de adjuntos de chat).
+ */
+export async function revalidateSessionUser(s: Session): Promise<boolean> {
+  if (revalidatedSessions.has(s)) {
+    return true;
+  }
+
+  const userId = Number(s.user.id);
+  const dbUser = Number.isFinite(userId)
+    ? await userRepository.findByIdWithBranch(userId)
+    : undefined;
+
+  if (!dbUser) {
+    return false;
+  }
+
+  s.user.branchId = dbUser.branchId;
+  s.user.role = dbUser.role;
+  if (dbUser.branch?.name) {
+    s.user.branchName = dbUser.branch.name;
+  }
+  revalidatedSessions.add(s);
+  return true;
+}
+
 export async function requireAuth(): Promise<Session> {
   const session = await auth();
 
   if (!session?.user) {
     throw new UnauthorizedError('Se requiere iniciar sesión.');
+  }
+
+  if (!(await revalidateSessionUser(session))) {
+    throw new UserRemovedError();
   }
 
   if (!session.user.branchId) {
@@ -42,6 +88,10 @@ export async function getCurrentBranchId(
 
   if (!s?.user) {
     throw new UnauthorizedError('Se requiere iniciar sesión.');
+  }
+
+  if (!(await revalidateSessionUser(s))) {
+    throw new UserRemovedError();
   }
 
   if (!s.user.branchId) {
@@ -82,6 +132,13 @@ export async function getCurrentBranchIdOrRedirect(
 
   if (!s?.user) {
     redirect(routes.login);
+  }
+
+  if (!(await revalidateSessionUser(s))) {
+    // Usuario eliminado con JWT vivo: la página intermedia cierra la
+    // sesión y redirige al login con el motivo (mismo flujo que la
+    // sucursal eliminada, evita el loop login → panel → login).
+    redirect(routes.sesionFinalizada);
   }
 
   if (!s.user.branchId) {

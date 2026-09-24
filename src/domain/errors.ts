@@ -78,6 +78,35 @@ export class BranchRemovedError extends ForbiddenError {
   }
 }
 
+/**
+ * El usuario de la sesión ya no existe en la base (borrado en cascada con su
+ * sucursal o eliminado por un admin; el JWT sigue vivo). Lleva `code` para
+ * que el cliente fuerce el cierre de sesión igual que con `BRANCH_REMOVED`.
+ */
+export class UserRemovedError extends ForbiddenError {
+  readonly code = 'USER_REMOVED';
+
+  constructor(message = 'Tu usuario fue eliminado.') {
+    super(message);
+    this.name = 'UserRemovedError';
+  }
+}
+
+/**
+ * El usuario superó el máximo de intentos de login fallidos dentro de la
+ * ventana configurada. El `authorize` de NextAuth la convierte en un
+ * `CredentialsSignin` con `code` propio para que la UI muestre el mensaje
+ * en vez del `error=Configuration` genérico.
+ */
+export class LoginAttemptsExceededError extends ValidationError {
+  readonly code = 'LOGIN_ATTEMPTS_EXCEEDED';
+
+  constructor(message = 'Demasiados intentos fallidos. Probá más tarde.') {
+    super(message);
+    this.name = 'LoginAttemptsExceededError';
+  }
+}
+
 export class DatabaseConnectionError extends Error {
   constructor(
     message = 'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo y que DATABASE_URL esté configurada correctamente.'

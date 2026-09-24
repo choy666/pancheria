@@ -1,4 +1,4 @@
-import { and, count, eq, ilike, inArray, not, or } from 'drizzle-orm';
+import { and, count, eq, inArray, not, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   branches,
@@ -38,12 +38,20 @@ export async function findByName(name: string) {
   });
 }
 
-export async function findByNameCaseInsensitiveExcludingId(
+export async function findByNameCaseInsensitive(
   name: string,
-  excludeId: number
+  excludeId?: number
 ) {
+  // Igualdad case-insensitive con lower(): `ilike` interpretaría `%` y `_`
+  // del nombre como wildcards y produciría falsos positivos (p. ej. la
+  // sucursal "Suc_1" colisionaría con "SucX1").
+  const sameName = sql`lower(${branches.name}) = lower(${name})`;
+
   return db.query.branches.findFirst({
-    where: and(ilike(branches.name, name), not(eq(branches.id, excludeId))),
+    where:
+      excludeId === undefined
+        ? sameName
+        : and(sameName, not(eq(branches.id, excludeId))),
   });
 }
 

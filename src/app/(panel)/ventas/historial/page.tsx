@@ -2,12 +2,18 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
 import { auth } from '@/auth';
+import { revalidateSessionUser } from '@/lib/auth';
 import * as branchService from '@/application/services/branchService';
 import { routes } from '@/config/routes';
 
 export default async function VentasHistorialPage() {
   const session = await auth();
-  const isAdmin = session?.user?.role === 'admin';
+  // El rol puede quedar viejo en el JWT: se revalida contra la base antes
+  // de usarlo para mostrar datos de administrador.
+  const isAdmin =
+    !!session?.user &&
+    (await revalidateSessionUser(session)) &&
+    session.user.role === 'admin';
   const branches = isAdmin ? await branchService.listBranches() : undefined;
 
   return (
