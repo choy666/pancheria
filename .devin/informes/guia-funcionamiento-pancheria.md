@@ -267,9 +267,11 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 
 ### 6.3 Idempotencia
 
-- Tanto ventas como pedidos usan `idempotencyKey`.
-- En ventas, el `idempotencyKey` es `branchId:key` y se guarda en `sales.idempotencyKey`.
-- Si se reenvía la misma request, se devuelve la venta existente o se rechaza según corresponda.
+- Pedidos y ventas usan `idempotencyKey` con scope de sucursal (`branchId:key`).
+- El servidor normaliza los campos de negocio relevantes y guarda una huella SHA-256 en `orders.idempotency_hash` o `sales.idempotency_hash`; no persiste el payload en bruto ni expone la huella en respuestas API.
+- La misma clave con la misma huella recupera el recurso existente (`deduplicated: true`). La misma clave con otra huella responde `409 Conflict`; la huella incluye items/opciones y, según el flujo, datos de checkout, pagos y/o `orderId`.
+- En filas anteriores a la migración `0032`, el hash nulo se reconstruye desde los datos persistidos. Si faltan snapshots necesarios para comprobar que el request coincide, se devuelve 409 en lugar de aceptar silenciosamente un payload divergente.
+- El cliente conserva la clave en reintentos idénticos y la rota cuando cambia cualquier campo relevante del request.
 
 ---
 
@@ -354,6 +356,7 @@ Eliminar una sucursal es una operación destructiva e irreversible: se borran to
    - Imágenes de productos (`deleteProductImage` en `local`, `vercel-blob`, `s3` y `r2`).
    - Adjuntos de chat (`deleteChatAttachment` en todos los proveedores).
    - Videos (`deleteVideoFileByUrl` en todos los proveedores).
+   - Si falla un borrado inmediato, se registra un warning con conteos por tipo (sin guardar keys). `chat-attachments-cleanup` vuelve a borrar archivos huérfanos; los fallos al retirar intentos de login también se cuentan y la retención queda a cargo de `rate-limit-cleanup`.
 5. El cliente (`/pedido`) detecta si la sucursal guardada en `localStorage` fue eliminada y limpia:
    - `pancheria-branch-id`
    - `pancheria-cart-v1`
@@ -436,7 +439,7 @@ Alternativa: configurar `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`, `NEW_BRANCH_PA
 | Eliminar producto | No | — | `products` (soft delete) | No si está en recetas activas |
 | Eliminar caja | No | — | `cashRegisters` (soft delete) | No si está abierta |
 | Eliminar sucursal | No* | — | `branches` (hard delete) en cascada | Se borran productos, recetas, ventas, cajas, pedidos, mensajes, reservas, stock, usuarios, videos y archivos asociados. No conserva historial. |
-| Cierre diario | No | — | `dailyClosures` | Resumen informativo |
+| Cierre diario | No | — | `cashRegisters` | Resumen de cada caja cerrada, consultable desde el historial |
 
 ---
 

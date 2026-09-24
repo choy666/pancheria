@@ -84,7 +84,7 @@ test.describe('Validaciones y casos límite', () => {
     await ensureCashRegisterClosed(page);
   });
 
-  test('idempotencia: reenviar la misma venta devuelve error', async ({ page }) => {
+  test('idempotencia: reenviar la misma venta devuelve la venta original', async ({ page }) => {
     await ensureCashRegisterOpen(page);
 
     const bebida = await createProductViaApi(page, {
@@ -93,33 +93,30 @@ test.describe('Validaciones y casos límite', () => {
       criticalSupplyType: 'beverage',
       price: 500,
       unit: 'unidad',
-      
       minStock: 0,
       isActive: true,
     });
     await restockProductViaApi(page, bebida.id, 5);
 
     const key = `idempotencia-${Date.now()}`;
+    const payload = {
+      items: [{ productId: bebida.id, quantity: 1 }],
+      payments: [{ method: 'transfer', amount: 500 }],
+      idempotencyKey: key,
+    };
 
-    const venta1 = await page.request.post('/api/ventas', {
-      data: {
-        items: [{ productId: bebida.id, quantity: 1 }],
-        payments: [{ method: 'transfer', amount: 500 }],
-        idempotencyKey: key,
-      },
-    });
+    const venta1 = await page.request.post('/api/ventas', { data: payload });
     expect(venta1.status()).toBe(201);
+    const venta1Body = (await venta1.json()) as { id: number };
 
-    const venta2 = await page.request.post('/api/ventas', {
-      data: {
-        items: [{ productId: bebida.id, quantity: 1 }],
-        payments: [{ method: 'transfer', amount: 500 }],
-        idempotencyKey: key,
-      },
-    });
-    expect(venta2.status()).toBe(400);
-    const body = (await venta2.json()) as { error?: string };
-    expect(body.error).toContain('ya fue procesada');
+    const venta2 = await page.request.post('/api/ventas', { data: payload });
+    expect(venta2.status()).toBe(201);
+    const venta2Body = (await venta2.json()) as {
+      id: number;
+      deduplicated?: boolean;
+    };
+    expect(venta2Body.id).toBe(venta1Body.id);
+    expect(venta2Body.deduplicated).toBe(true);
 
     await ensureCashRegisterClosed(page);
   });

@@ -32,7 +32,10 @@ import { PEDIDOS_API } from '@/config/api';
 import { getPedidosRefreshIntervalMs } from '@/config/orders';
 import { routes } from '@/config/routes';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
-import { useSubmitIdempotencyKey } from '@/hooks/use-submit-idempotency-key';
+import {
+  orderConfirmationSignature,
+  useSubmitIdempotencyKey,
+} from '@/hooks/use-submit-idempotency-key';
 import { cn } from '@/lib/utils';
 import type { OrderStatus, DeliveryType } from '@/domain/types';
 
@@ -179,14 +182,17 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
     setLoadingId(orderId);
     setActionError(null);
     try {
+      const payments = [{ method: 'cash' as const, amount: order.total }];
       const response = await authenticatedFetch(
         `/api/pedidos/${orderId}/confirmar`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            payments: [{ method: 'cash', amount: order.total }],
-            idempotencyKey: confirmKey.resolve(`confirm:${orderId}`),
+            payments,
+            idempotencyKey: confirmKey.resolve(
+              orderConfirmationSignature(orderId, payments)
+            ),
           }),
         }
       );
@@ -200,9 +206,6 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
       confirmKey.reset();
       await refresh();
       if (data.deduplicated) {
-        // La venta ya existía (reintento con la misma clave): se avisa
-        // que el pedido no se confirmó dos veces ni se aplicaron los
-        // datos del reintento.
         setActionError(
           `El pedido #${order.orderNumber} ya estaba confirmado; se recuperó la venta registrada originalmente.`
         );

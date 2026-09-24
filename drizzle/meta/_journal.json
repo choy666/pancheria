@@ -225,6 +225,13 @@
       "when": 1789855919182,
       "tag": "0031_nervous_carmella_unuscione",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790193049384,
+      "tag": "0032_icy_shaman",
+      "breakpoints": true
     }
   ]
 }

@@ -57,7 +57,10 @@ describe('saleRepository', () => {
         total: 1000,
         items: [{ product: { id: 1, name: 'Panchuque' } }],
       };
-      mockFindFirst.mockResolvedValue(expected);
+      mockFindFirst.mockResolvedValue({
+        ...expected,
+        idempotencyHash: 'huella-no-publica',
+      });
 
       const result = await saleRepository.findById(BRANCH_ID, 1);
 
@@ -65,6 +68,7 @@ describe('saleRepository', () => {
       expect(mockFindFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
+          columns: { idempotencyHash: false },
           with: expect.objectContaining({
             items: expect.objectContaining({
               with: expect.objectContaining({

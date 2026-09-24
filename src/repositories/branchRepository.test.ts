@@ -1,4 +1,16 @@
 import * as branchRepository from './branchRepository';
+import {
+  branches,
+  cashRegisters,
+  orders,
+  products,
+  recipes,
+  saleItems,
+  sales,
+  stockMovements,
+  users,
+  videos,
+} from '@/db/schema';
 
 var mockFindFirst: jest.Mock;
 var mockFindMany: jest.Mock;
@@ -281,7 +293,7 @@ describe('branchRepository', () => {
       const txFrom = jest.fn(() => ({ where: txSelectWhere }));
       const txSelect = jest.fn(() => ({ from: txFrom }));
       const txDeleteWhere = jest.fn().mockResolvedValue(undefined);
-      const txDelete = jest.fn(() => ({ where: txDeleteWhere }));
+      const txDelete = jest.fn((_table: unknown) => ({ where: txDeleteWhere }));
 
       const mockTx: any = {
         select: txSelect,
@@ -291,7 +303,19 @@ describe('branchRepository', () => {
       await branchRepository.deleteCascade(mockTx, BRANCH_ID, [1, 2]);
 
       expect(txSelect).toHaveBeenCalled();
-      expect(txDelete).toHaveBeenCalled();
+      expect(txDelete.mock.calls.map(([table]) => table)).toEqual([
+        recipes,
+        saleItems,
+        stockMovements,
+        orders,
+        sales,
+        cashRegisters,
+        videos,
+        products,
+        users,
+        branches,
+      ]);
+      expect(txDeleteWhere).toHaveBeenCalledTimes(10);
     });
   });
 });

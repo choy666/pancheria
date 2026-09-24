@@ -35,6 +35,7 @@ import {
   orderStockReservations,
 } from '@/db/schema';
 import {
+  ConflictError,
   ValidationError,
   NotFoundError,
   InsufficientStockError,
@@ -159,6 +160,7 @@ function createOrderRow(overrides: Partial<OrderRow> = {}): OrderRow {
     cancellationToken: 'token',
     convertedSaleId: null,
     idempotencyKey: '1:key',
+    idempotencyHash: null,
     createdAt: new Date(),
     cancelledAt: null,
     cancellationReason: null,
@@ -294,6 +296,7 @@ jest.mock('@/application/services/cashRegisterService', () => ({
   getOpenCashRegister: jest.fn(),
 }));
 jest.mock('@/application/idempotencyService', () => ({
+  ...jest.requireActual('@/application/idempotencyService'),
   isIdempotencyKeyUsed: jest.fn(),
   findExistingByIdempotencyKey: jest.fn(),
 }));
@@ -428,7 +431,10 @@ describe('orderService', () => {
       expect(result.total).toBe(2000);
       expect(result.items).toHaveLength(1);
       expect(result.items[0].quantity).toBe(2);
+      expect('idempotencyHash' in result).toBe(false);
 
+      const insertedOrder = findCapturedInsert(orders)[0]?.data as OrderRow;
+      expect(insertedOrder.idempotencyHash).toMatch(/^[a-f0-9]{64}$/);
       expect(findCapturedInsert(orders)).toHaveLength(1);
       expect(findCapturedInsert(orderItems)).toHaveLength(1);
       expect(findCapturedUpdate(products)).toHaveLength(0);
@@ -669,9 +675,22 @@ describe('orderService', () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    test('evita duplicados por idempotencia devolviendo el pedido existente', async () => {
-      const existing = createOrderRow({ id: 42, orderNumber: 'PED-42' });
+    test('deduplica una fila legacy si el payload coincide con sus datos persistidos', async () => {
+      const existing = {
+        ...createOrderRow({ id: 42, orderNumber: 'PED-42', customerName: 'Juan' }),
+        items: [
+          {
+            ...createOrderItemRow({ productId: 1, quantity: 1 }),
+            product: createProductRow({
+              id: 1,
+              type: 'critical_supply',
+              criticalSupplyType: 'beverage',
+            }),
+          },
+        ],
+      };
       mockedDb.query.orders.findFirst.mockResolvedValue(existing);
+      mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
 
       const result = await createOrder({
         branchId: BRANCH_ID,
@@ -682,11 +701,105 @@ describe('orderService', () => {
         idempotencyKey: 'key-duplicate',
       });
 
-      // La respuesta deduplicada trae el pedido original marcado para
-      // que la interfaz avise que no se creó uno nuevo.
       expect(result.id).toBe(42);
       expect(result.deduplicated).toBe(true);
+      expect('idempotencyHash' in result).toBe(false);
       expect(findCapturedInsert(orders)).toHaveLength(0);
+    });
+
+    test('deduplica cuando la huella de la solicitud coincide', async () => {
+      const request = {
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan Pérez',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup' as const,
+        address: null,
+        notes: null,
+      };
+      const idempotencyHash = idempotencyService.createIdempotencyHash(
+        'order.create',
+        {
+          ...request,
+          items: idempotencyService.normalizeIdempotencyItems(request.items),
+        }
+      );
+      mockedDb.query.orders.findFirst.mockResolvedValue(
+        createOrderRow({ id: 42, idempotencyHash })
+      );
+
+      const result = await createOrder({
+        ...request,
+        idempotencyKey: 'key-duplicate',
+      });
+
+      expect(result.id).toBe(42);
+      expect(result.deduplicated).toBe(true);
+      expect('idempotencyHash' in result).toBe(false);
+    });
+
+    test('rechaza con conflicto si la clave se reutiliza con otro payload', async () => {
+      const originalRequest = {
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup' as const,
+        address: null,
+        notes: null,
+      };
+      const idempotencyHash = idempotencyService.createIdempotencyHash(
+        'order.create',
+        {
+          ...originalRequest,
+          items: idempotencyService.normalizeIdempotencyItems(
+            originalRequest.items
+          ),
+        }
+      );
+      mockedDb.query.orders.findFirst.mockResolvedValue(
+        createOrderRow({
+          id: 42,
+          orderNumber: 'PED-42',
+          customerName: 'Juan',
+          idempotencyHash,
+        })
+      );
+
+      await expect(
+        createOrder({
+          ...originalRequest,
+          items: [{ productId: 1, quantity: 2 }],
+          idempotencyKey: 'key-duplicate',
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    test('detecta divergencias en filas legacy sin huella persistida', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ id: 42, customerName: 'Juan' }),
+        items: [
+          {
+            ...createOrderItemRow({ productId: 1, quantity: 1 }),
+            product: createProductRow({
+              id: 1,
+              type: 'critical_supply',
+              criticalSupplyType: 'beverage',
+            }),
+          },
+        ],
+      });
+
+      await expect(
+        createOrder({
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 2 }],
+          customerName: 'Juan',
+          customerPhone: '3415555555',
+          deliveryType: 'pickup',
+          idempotencyKey: 'key-legacy',
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
     });
 
     test('evita duplicados cuando el conflicto ocurre dentro de la transacción', async () => {
@@ -702,7 +815,11 @@ describe('orderService', () => {
       ]);
       setRecipes([]);
 
-      const existing = createOrderRow({ id: 42, orderNumber: 'PED-42' });
+      const existing = createOrderRow({
+        id: 42,
+        orderNumber: 'PED-42',
+        customerName: 'Juan',
+      });
       const fullExisting = {
         ...existing,
         branch: {
@@ -712,13 +829,20 @@ describe('orderService', () => {
           createdAt: new Date(),
         },
         items: [
-          createOrderItemRow({
-            orderId: 42,
-            productId: 1,
-            quantity: 1,
-            unitPrice: 1000,
-            subtotal: 1000,
-          }),
+          {
+            ...createOrderItemRow({
+              orderId: 42,
+              productId: 1,
+              quantity: 1,
+              unitPrice: 1000,
+              subtotal: 1000,
+            }),
+            product: createProductRow({
+              id: 1,
+              type: 'critical_supply',
+              criticalSupplyType: 'beverage',
+            }),
+          },
         ],
       };
 
@@ -747,6 +871,49 @@ describe('orderService', () => {
       expect(findCapturedInsert(orders)).toHaveLength(0);
       expect(findCapturedInsert(orderItems)).toHaveLength(0);
       expect(findCapturedInsert(orderItemRecipes)).toHaveLength(0);
+      expect(findCapturedInsert(orderMessages)).toHaveLength(0);
+    });
+
+    test('rechaza divergencia de payload en una carrera de inserción', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 10,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+      mockedDb.query.orders.findFirst
+        .mockReset()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          ...createOrderRow({ id: 42, customerName: 'Juan' }),
+          items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+        });
+
+      const spy = jest
+        .spyOn(orderRepository, 'insertOrderIdempotent')
+        .mockResolvedValue({
+          order: createOrderRow({ id: 42, idempotencyHash: 'huella-de-otro-payload' }),
+          isNew: false,
+        });
+
+      await expect(
+        createOrder({
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'Juan',
+          customerPhone: '3415555555',
+          deliveryType: 'pickup',
+          idempotencyKey: 'key-race-conflict',
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
+
+      spy.mockRestore();
+      expect(findCapturedInsert(orderItems)).toHaveLength(0);
       expect(findCapturedInsert(orderMessages)).toHaveLength(0);
     });
   });
@@ -1162,13 +1329,23 @@ describe('orderService', () => {
       });
     });
 
-    test('es idempotente cuando la venta ya fue procesada', async () => {
+    test('es idempotente cuando la venta ya fue procesada con el mismo payload', async () => {
+      const payments = [{ method: 'cash' as const, amount: 2000 }];
       const existingSale = {
         id: 100,
         branchId: BRANCH_ID,
         total: 2000,
         paymentMethod: 'cash',
+        idempotencyHash: idempotencyService.createIdempotencyHash(
+          'sale.order-conversion',
+          {
+            branchId: BRANCH_ID,
+            orderId: 1,
+            payments: idempotencyService.normalizeIdempotencyPayments(payments),
+          }
+        ),
       };
+      mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(null);
       mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
         existingSale as any
       );
@@ -1180,10 +1357,51 @@ describe('orderService', () => {
         idempotencyKey: 'key-convert',
       });
 
-      // La respuesta deduplicada trae la venta original marcada con
-      // `deduplicated` para que la interfaz pueda avisarlo.
-      expect(result).toEqual({ ...existingSale, deduplicated: true });
+      expect(result).toEqual({
+        id: existingSale.id,
+        branchId: existingSale.branchId,
+        total: existingSale.total,
+        paymentMethod: existingSale.paymentMethod,
+        deduplicated: true,
+      });
+      expect('idempotencyHash' in result).toBe(false);
       expect(findCapturedInsert(sales)).toHaveLength(0);
+    });
+
+    test('rechaza con conflicto si la clave de conversión se reutiliza con otros pagos', async () => {
+      const originalPayments = [{ method: 'cash' as const, amount: 2000 }];
+      const idempotencyHash = idempotencyService.createIdempotencyHash(
+        'sale.order-conversion',
+        {
+          branchId: BRANCH_ID,
+          orderId: 1,
+          payments: idempotencyService.normalizeIdempotencyPayments(
+            originalPayments
+          ),
+        }
+      );
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ total: 2000 }),
+        items: [createOrderItemRow({ quantity: 2, subtotal: 2000 })],
+      });
+      mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
+        {
+          id: 100,
+          branchId: BRANCH_ID,
+          total: 2000,
+          paymentMethod: 'cash',
+          idempotencyHash,
+        } as any
+      );
+
+      await expect(
+        convertOrderToSale({
+          branchId: BRANCH_ID,
+          orderId: 1,
+          payments: [{ method: 'cash', amount: 1500 }],
+          idempotencyKey: 'key-convert',
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
     });
 
     test('rechaza la conversión si no se puede confirmar el pedido', async () => {

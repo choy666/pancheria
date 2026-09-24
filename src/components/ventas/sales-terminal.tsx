@@ -29,7 +29,7 @@ import { formatMoney } from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
 import {
   useSubmitIdempotencyKey,
-  cartSignature,
+  saleSignature,
 } from '@/hooks/use-submit-idempotency-key';
 import type { PaginatedResult } from '@/domain/types';
 
@@ -55,8 +55,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Misma política que el checkout público (QA-02): la clave persiste en
-  // los reintentos y rota solo tras el éxito o al cambiar el carrito.
+  // La clave persiste durante reintentos y rota cuando cambia el payload de venta.
   const saleKey = useSubmitIdempotencyKey();
   const [cartAvailability, setCartAvailability] = useState<
     Record<number, number>
@@ -335,16 +334,16 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           selectedRecipeItemIds: line.selectedRecipeItemIds,
         }))
       );
-      // La firma excluye los pagos a propósito: si la venta ya se creó en
-      // el servidor y la respuesta se perdió, un reintento con la misma
-      // clave deduplica aunque el operador haya tocado la forma de pago.
+      const submitPayments = paymentParts.filter((part) => part.amount > 0);
       const response = await authenticatedFetch(VENTAS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: submitItems,
-          payments: paymentParts.filter((p) => p.amount > 0),
-          idempotencyKey: saleKey.resolve(cartSignature(submitItems)),
+          payments: submitPayments,
+          idempotencyKey: saleKey.resolve(
+            saleSignature(submitItems, submitPayments)
+          ),
         }),
       });
 

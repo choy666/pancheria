@@ -9,23 +9,15 @@ import {
 } from './helpers';
 
 /**
- * Idempotencia del lado del cliente (hallazgo QA-2026-09-21-02).
+ * Idempotencia del cliente y validación del fingerprint del servidor.
  *
- * El servidor deduplica por `(branchId, idempotencyKey)`, pero el cliente
- * generaba una clave nueva en cada intento (`nanoid()` dentro del submit).
- * El escenario crítico es el reintento tras una respuesta perdida: la
- * request llega al servidor, el pedido se crea, pero la respuesta se
- * corta y el usuario vuelve a intentar. Con una clave nueva el reintento
- * crea un segundo pedido.
+ * El servidor compara una huella SHA-256 canónica: la misma clave y el
+ * mismo payload recuperan el recurso; la misma clave con datos distintos
+ * responde 409. El cliente conserva la clave en reintentos idénticos y la
+ * rota cuando cambia cualquier campo relevante, incluidos los pagos.
  *
- * `page.route` permite reproducirlo de forma determinística: se deja que
- * la request viaje al servidor (`route.fetch()`) y se aborta la respuesta
- * hacia el navegador (`route.abort()`), que es exactamente lo que ve un
- * cliente real cuando se cae la red después de procesada la request.
- *
- * La política implementada: la clave se genera una vez por intento de
- * checkout, se conserva en reintentos y se rota solo tras el éxito o
- * cuando cambia el carrito.
+ * `page.route` reproduce de forma determinística una respuesta perdida:
+ * deja llegar el request al servidor y aborta la respuesta al navegador.
  */
 
 type PublicOrderResponse = {
@@ -119,60 +111,47 @@ test.describe('Idempotencia de checkout', () => {
     expect(await countOrdersByCustomerName(customerName)).toBe(1);
   });
 
-  test('la misma clave con un carrito distinto devuelve el pedido original', async ({
+  test('la misma clave con un payload distinto responde 409 sin crear otro pedido', async ({
     page,
   }) => {
-    // Contrato del servidor que obliga al cliente a rotar la clave al
-    // cambiar el carrito: la deduplicación es solo por clave, sin
-    // comparación de payload.
     const productA = await createServiceProduct(page, 'Servicio A');
     const productB = await createServiceProduct(page, 'Servicio B');
+    const customerName = unique('Cliente Misma Clave');
+    const otherCustomerName = unique('Otro Nombre');
     const key = `key-reuso-${unique('x')}`;
 
     const first = await page.request.post('/api/public/pedido', {
       headers: { 'x-forwarded-for': randomClientIp() },
       data: {
         items: [{ productId: productA.id, quantity: 1 }],
-        customerName: unique('Cliente Misma Clave'),
+        customerName,
         customerPhone: '3415551234',
         deliveryType: 'pickup',
         idempotencyKey: key,
       },
     });
     expect(first.status()).toBe(201);
-    const firstBody = (await first.json()) as PublicOrderResponse;
 
     const second = await page.request.post('/api/public/pedido', {
       headers: { 'x-forwarded-for': randomClientIp() },
       data: {
         items: [{ productId: productB.id, quantity: 3 }],
-        customerName: 'Otro Nombre Distinto',
+        customerName: otherCustomerName,
         customerPhone: '3415559999',
         deliveryType: 'pickup',
         idempotencyKey: key,
       },
     });
-    expect(second.status()).toBe(201);
-    const secondBody = (await second.json()) as PublicOrderResponse;
-
-    // Misma clave → mismo pedido; el segundo payload se ignora por
-    // completo (ni siquiera el nombre ni el carrito cambian).
-    expect(secondBody.order.id).toBe(firstBody.order.id);
-    expect(secondBody.order.items).toHaveLength(1);
-    expect(secondBody.order.items[0].productId).toBe(productA.id);
-    expect(secondBody.order.items[0].quantity).toBe(1);
-    // La respuesta queda marcada como deduplicada para que el cliente
-    // pueda avisar que no se creó un pedido nuevo (QA-04 queda como
-    // hardening del lado del servidor para payloads distintos).
-    expect(secondBody.deduplicated).toBe(true);
+    expect(second.status()).toBe(409);
+    const body = (await second.json()) as { error?: string };
+    expect(body.error).toContain('clave de idempotencia');
+    expect(await countOrdersByCustomerName(customerName)).toBe(1);
+    expect(await countOrdersByCustomerName(otherCustomerName)).toBe(0);
   });
 
-  test('reintentar la confirmación con la misma clave devuelve la venta original marcada como deduplicada', async ({
+  test('reutilizar la clave de confirmación con pagos distintos responde 409', async ({
     page,
   }) => {
-    // El caso del operador: confirmó, la respuesta se perdió, editó los
-    // pagos y reintentó. El servidor devuelve la venta original (con los
-    // primeros pagos) y la marca para que la interfaz avise.
     const product = await createServiceProduct(page, 'Servicio Confirma');
     const orderResponse = await page.request.post('/api/public/pedido', {
       headers: { 'x-forwarded-for': randomClientIp() },
@@ -198,13 +177,7 @@ test.describe('Idempotencia de checkout', () => {
       }
     );
     expect(first.status()).toBe(201);
-    const firstBody = (await first.json()) as {
-      sale: { id: number };
-      deduplicated?: boolean;
-    };
-    expect(firstBody.deduplicated).toBe(false);
 
-    // Reintento con la misma clave pero con los pagos cambiados.
     const second = await page.request.post(
       `/api/pedidos/${order.id}/confirmar`,
       {
@@ -217,15 +190,9 @@ test.describe('Idempotencia de checkout', () => {
         },
       }
     );
-    expect(second.status()).toBe(201);
-    const secondBody = (await second.json()) as {
-      sale: { id: number };
-      deduplicated?: boolean;
-    };
-
-    // Devuelve la venta original y la marca: los pagos editados del
-    // reintento no se aplicaron.
-    expect(secondBody.sale.id).toBe(firstBody.sale.id);
-    expect(secondBody.deduplicated).toBe(true);
+    expect(second.status()).toBe(409);
+    const body = (await second.json()) as { error?: string; sale?: { id: number } };
+    expect(body.error).toContain('clave de idempotencia');
+    expect(body.sale).toBeUndefined();
   });
 });

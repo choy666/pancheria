@@ -8,6 +8,7 @@ import {
   validateOpeningHours,
 } from '@/lib/branch-helpers';
 import { getRateLimitStore } from '@/lib/rate-limit-store';
+import { logger } from '@/lib/logger';
 import { deleteProductImage } from '@/lib/product-image-storage';
 import { deleteChatAttachment } from '@/lib/chat-storage';
 import { deleteVideoFileByUrl } from '@/lib/storage';
@@ -193,14 +194,41 @@ export async function deleteBranch(id: number) {
     await branchRepository.deleteCascade(tx, id, productIds);
   });
 
-  // Liberar archivos asociados fuera de la transacción para no bloquear el rollback.
-  await Promise.allSettled(productImageKeys.map(deleteProductImage));
-  await Promise.allSettled(chatAttachmentKeys.map(deleteChatAttachment));
-  await Promise.allSettled(videoFileUrls.map(deleteVideoFileByUrl));
+  const cleanupResults = await Promise.all([
+    Promise.allSettled(productImageKeys.map(deleteProductImage)),
+    Promise.allSettled(chatAttachmentKeys.map(deleteChatAttachment)),
+    Promise.allSettled(videoFileUrls.map(deleteVideoFileByUrl)),
+  ]);
+  const [failedProductImages, failedChatAttachments, failedVideos] =
+    cleanupResults.map(
+      (results) => results.filter((result) => result.status === 'rejected').length
+    );
 
-  // Limpiar intentos fallidos de login de los usuarios eliminados.
+  if (failedProductImages + failedChatAttachments + failedVideos > 0) {
+    logger.warn('No se pudieron eliminar todos los archivos de una sucursal', {
+      branchId: id,
+      failedProductImages,
+      failedChatAttachments,
+      failedVideos,
+      retryJob: 'cron/chat-attachments-cleanup',
+    });
+  }
+
   const rateLimitStore = getRateLimitStore();
-  await Promise.allSettled(usernames.map((username) => rateLimitStore.remove(username)));
+  const rateLimitResults = await Promise.allSettled(
+    usernames.map((username) => rateLimitStore.remove(username))
+  );
+  const failedRateLimitRemovals = rateLimitResults.filter(
+    (result) => result.status === 'rejected'
+  ).length;
+
+  if (failedRateLimitRemovals > 0) {
+    logger.warn('No se pudieron limpiar todos los intentos de login de la sucursal', {
+      branchId: id,
+      failedRateLimitRemovals,
+      retryJob: 'cron/rate-limit-cleanup',
+    });
+  }
 
   return branch as Branch;
 }

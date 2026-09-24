@@ -13,7 +13,7 @@ Ejecutar en orden y confirmar que todas pasan:
 5. `npm run knip`
 6. Si se tocó `src/db/schema.ts`: `npx drizzle-kit generate` y commitear la migración generada en `drizzle/` junto con `drizzle/meta/`; verificar con `npx drizzle-kit check` que no haya drift.
 
-> Si alguno falla, corregir antes de commitear. El CI ejecuta los mismos pasos y fallará en el primer error.
+> Si alguno falla, corregir antes de commitear. El CI ejecuta los checks estándar y, dentro del job E2E, `npx drizzle-kit check` antes de aplicar migraciones a la base descartable. Ese flujo valida el historial y la aplicación en E2E; no sustituye verificar una base de producción.
 
 ## Verificación E2E (solo con base descartable)
 

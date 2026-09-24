@@ -74,6 +74,7 @@ function buildOrder(overrides: Partial<typeof orders.$inferSelect> = {}): typeof
     cancellationToken: 'token',
     convertedSaleId: null,
     idempotencyKey: null,
+    idempotencyHash: null,
     createdAt: new Date('2024-01-01'),
     cancelledAt: null,
     cancellationReason: null,
@@ -89,9 +90,10 @@ describe('orderRepository', () => {
   });
 
   describe('findById', () => {
-    test('devuelve un pedido con items y sucursal', async () => {
-      const expected = { ...buildOrder(), items: [] };
-      mockFindFirst.mockResolvedValue(expected);
+    test('devuelve un pedido con items y sucursal sin exponer la huella', async () => {
+      const rawOrder = { ...buildOrder(), items: [] };
+      const { idempotencyHash: _idempotencyHash, ...expected } = rawOrder;
+      mockFindFirst.mockResolvedValue(rawOrder);
 
       const result = await orderRepository.findById(BRANCH_ID, ORDER_ID);
 
@@ -159,12 +161,13 @@ describe('orderRepository', () => {
   });
 
   describe('findByIdForCancel', () => {
-    test('devuelve pedido con items simples', async () => {
-      const expected = {
+    test('devuelve pedido con items simples sin exponer la huella', async () => {
+      const rawOrder = {
         ...buildOrder(),
         items: [{ productId: 1, quantity: 2 }],
       };
-      mockFindFirst.mockResolvedValue(expected);
+      const { idempotencyHash: _idempotencyHash, ...expected } = rawOrder;
+      mockFindFirst.mockResolvedValue(rawOrder);
 
       const result = await orderRepository.findByIdForCancel(BRANCH_ID, ORDER_ID);
 
@@ -181,13 +184,14 @@ describe('orderRepository', () => {
   });
 
   describe('findByIdempotencyKey', () => {
-    test('devuelve el pedido existente', async () => {
-      const expected = { ...buildOrder(), items: [] };
-      mockFindFirst.mockResolvedValue(expected);
+    test('devuelve el pedido y la huella solo para validación interna', async () => {
+      const rawOrder = { ...buildOrder(), items: [] };
+      const { idempotencyHash, ...expectedOrder } = rawOrder;
+      mockFindFirst.mockResolvedValue(rawOrder);
 
       const result = await orderRepository.findByIdempotencyKey(BRANCH_ID, 'key-1');
 
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ order: expectedOrder, idempotencyHash });
       expect(mockFindFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.anything(),
@@ -327,15 +331,16 @@ describe('orderRepository', () => {
   });
 
   describe('insertOrder', () => {
-    test('inserta un pedido y devuelve el registro', async () => {
-      const expected = buildOrder();
-      mockReturning.mockResolvedValue([expected]);
+    test('inserta un pedido sin exponer la huella persistida', async () => {
+      const rawOrder = buildOrder();
+      const { idempotencyHash: _idempotencyHash, ...expected } = rawOrder;
+      mockReturning.mockResolvedValue([rawOrder]);
 
       const tx: any = { insert: mockInsert };
-      const result = await orderRepository.insertOrder(tx, expected);
+      const result = await orderRepository.insertOrder(tx, rawOrder);
 
       expect(result).toEqual(expected);
-      expect(mockValues).toHaveBeenCalledWith(expected);
+      expect(mockValues).toHaveBeenCalledWith(rawOrder);
     });
 
     test('lanza error si no se pudo crear', async () => {
@@ -396,8 +401,9 @@ describe('orderRepository', () => {
 
   describe('updateStatus', () => {
     test('actualiza el estado y devuelve el pedido', async () => {
-      const expected = buildOrder({ status: 'paid', convertedSaleId: 5 });
-      mockReturning.mockResolvedValue([expected]);
+      const rawOrder = buildOrder({ status: 'paid', convertedSaleId: 5 });
+      const { idempotencyHash: _idempotencyHash, ...expected } = rawOrder;
+      mockReturning.mockResolvedValue([rawOrder]);
 
       const tx: any = { update: mockUpdate };
       const result = await orderRepository.updateStatus(tx, BRANCH_ID, ORDER_ID, {
@@ -422,8 +428,9 @@ describe('orderRepository', () => {
 
   describe('cancel', () => {
     test('cancela el pedido y devuelve el registro actualizado', async () => {
-      const expected = buildOrder({ status: 'cancelled' });
-      mockReturning.mockResolvedValue([expected]);
+      const rawOrder = buildOrder({ status: 'cancelled' });
+      const { idempotencyHash: _idempotencyHash, ...expected } = rawOrder;
+      mockReturning.mockResolvedValue([rawOrder]);
 
       const tx: any = { update: mockUpdate };
       const result = await orderRepository.cancel(tx, BRANCH_ID, ORDER_ID, {
