@@ -8,12 +8,12 @@
 
 ## 0. Estado vigente (auditoría 2026-09-24; PR #9 mergeado y producción migrada)
 
-**Baseline Git:** la auditoría arrancó con `main` en `090fa63ec958c57dcecd3fd527f3a7391307b7cd`. **Estado al cierre:** `main` y `origin/main` están en `6b24700453f60fe656be167da4e052fb02f4ae7b` (`fix: rechazar reutilización divergente de claves de idempotencia (#9)`), con el working tree limpio salvo `.vscode/` sin trackear. El PR #9 se mergeó, Vercel producción quedó `READY` sobre `6b24700` (deployment `dpl_9WFCHFZcChxoJb8FworK8hjF7WHc`, dominio `pancheria-alpha.vercel.app`) y la migración `0032` se aplicó a la base productiva de Neon (`main`, `br-nameless-sun-avrmz655`) tras autorización expresa.
+**Baseline Git:** la auditoría arrancó con `main` en `090fa63ec958c57dcecd3fd527f3a7391307b7cd`. **Estado al cierre:** `main` contiene `6b24700453f60fe656be167da4e052fb02f4ae7b` (squash del PR #9) seguido de commits documentales de cierre que solo actualizan este informe; el working tree queda limpio salvo `.vscode/` sin trackear. El PR #9 se mergeó, Vercel producción quedó `READY` sobre ese código (dominio `pancheria-alpha.vercel.app`) y la migración `0032` se aplicó a la base productiva de Neon (`main`, `br-nameless-sun-avrmz655`) tras autorización expresa.
 
 ### Baseline Git y merges
 
 - `git status --short --branch` al cierre: `main...origin/main` sin cambios trackeados; `.vscode/` sigue sin trackear y quedó intacto.
-- `git log`: `main`/`origin/main` en `6b24700` (squash merge del PR #9); el baseline previo de la auditoría fue `090fa63`.
+- `git log`: `main`/`origin/main` con `6b24700` (squash merge del PR #9) más commits documentales de cierre (`826e0f2` y posteriores) que solo tocan este informe; el baseline previo de la auditoría fue `090fa63`.
 - `git branch -a`: `main` y `origin/main`; la rama `fix/qa04-payload-fingerprint` quedó mergeada a través del PR #9.
 - `gh pr list --state open`: sin PRs abiertos tras el merge de #9.
 - Último PR mergeado: **#9** (`6b24700`, fingerprint de idempotencia QA-04 + `drizzle-kit check` en CI + correcciones documentales). El anterior fue **#8** (`84957e4`, reorganización documental). El último PR previo con lógica de aplicación fue **#6** (`5615500`, CSP de `/pedido/seguimiento`); PR #7 (`96b0db1`) incorporó serialización E2E por shard y timeout de 25 min.
@@ -34,6 +34,7 @@
 | `35949717967` — PR #9, SHA `ae81663` | **success** | Repetición completa tras la actualización documental del reporte: todos los jobs pasaron; el job E2E tomó 15 min 05 s. |
 | `35951037629` — PR #9, SHA `aece82d` | **success** | Último CI del PR antes del merge (HEAD documental final): todos los jobs pasaron; el job E2E tomó 21 min 05 s. |
 | `35953586788` — `main`, push `6b24700` | **success** | CI post-merge en `main`: lint, tipos, unitarios, build, knip, `drizzle-kit check`, `drizzle-kit migrate` sobre la base E2E descartable, E2E/accesibilidad y reporte consolidado. El job E2E tomó 12 min 18 s. |
+| `35956013721` — `main`, push `826e0f2` | **success** | CI del commit documental de cierre: todos los jobs pasaron; el job E2E tomó 22 min 38 s. |
 | `35878657216` — `main`, HEAD `090fa63` | **success** | Último CI de `main` en el HEAD auditado: lint, tipos, unitarios, build, knip, E2E/accesibilidad y reporte consolidado completados. El job E2E corrió en un shard durante 18 min 06 s. |
 | `35895521808` — schedule de `main` | **success** | Última ejecución visible de `Expirar pedidos pendientes`. |
 | `35867434935` — PR, SHA `6f649ed` | **failure** | El log indica timeout del paso E2E al cumplirse 18 min; los jobs de tipos, lint, unitarios, build y knip terminaron en verde. El workflow actual fija 25 min para el paso E2E. |
@@ -63,7 +64,7 @@ El run `35953586788` valida el squash mergeado en `main` (`6b24700`); los runs `
 
 ### Deploy y smoke de producción
 
-- Vercel: deployment `dpl_9WFCHFZcChxoJb8FworK8hjF7WHc` en `READY`, target `production`, commit `6b24700`. Dominio productivo verificado: `pancheria-alpha.vercel.app` (único dominio de producción del proyecto).
+- Vercel: producción `READY` sobre el código de `6b24700`. Deployments observados: `dpl_9WFCHFZcChxoJb8FworK8hjF7WHc` (`6b24700`, PR #9) y `dpl_5kkvB7KAAjby5x5JDF3xLQephhHw` (`826e0f2`, commit documental — mismo código aplicativo). Dominio productivo verificado: `pancheria-alpha.vercel.app` (único dominio de producción del proyecto).
 - Smoke GET (2026-09-24 ~04:18 UTC): `/api/health` → 200 (`{"ok":true,"db":"up"}`); `/pedido` → 307 a `/pedido?branchId=1` → 200; `/api/public/catalogo` → 200; `/pedido/seguimiento` → 200.
 - Runtime: `get_runtime_errors` (última hora) sin errores; logs `error`/`fatal` del deployment en los últimos 30 min: sin entradas.
 - Alcance del smoke: solo GETs públicos de lectura. No se crearon pedidos ni ventas reales, así que el camino de escritura y el 409 de idempotencia no se ejercitaron end-to-end en producción; eso requeriría una operación de escritura expresamente autorizada.
