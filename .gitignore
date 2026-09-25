@@ -50,3 +50,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .devin/informes/shots/
+
+# artifacts de sesiones de test manual (helpers, cookies, credenciales, logs)
+.devin/tmp/
+
+# IDE
+.vscode/

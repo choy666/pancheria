@@ -14,7 +14,7 @@ test.describe('Bloqueo de pedido con sucursal cerrada', () => {
     await setUniqueClientIp(page);
   });
 
-  test('permite armar el carrito pero bloquea el envío y muestra el horario de atención', async ({
+  test('permite armar el carrito pero bloquea el envío y muestra que no se reciben pedidos', async ({
     page,
   }) => {
     const product = await createProductViaApi(page, {
@@ -42,6 +42,8 @@ test.describe('Bloqueo de pedido con sucursal cerrada', () => {
 
     const errorMessage = page.getByTestId('checkout-error');
     await expect(errorMessage).toBeVisible();
-    await expect(errorMessage).toContainText('Horario de atención');
+    // Sin horarios configurados la causa del rechazo es la caja cerrada,
+    // no el horario: el mensaje no debe anunciar un horario inexistente.
+    await expect(errorMessage).toContainText('no podemos recibir pedidos');
   });
 });

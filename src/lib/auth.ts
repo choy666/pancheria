@@ -52,6 +52,19 @@ export async function revalidateSessionUser(s: Session): Promise<boolean> {
   return true;
 }
 
+/**
+ * Error para una sesión cuyo usuario ya no existe. Si la sucursal del
+ * JWT tampoco existe, el usuario se borró en cascada con ella: el motivo
+ * correcto es "sucursal eliminada" (E4), no "usuario eliminado" (D3).
+ */
+async function removedSessionError(s: Session): Promise<ForbiddenError> {
+  const branchId = Number(s.user.branchId);
+  const branchGone =
+    Number.isFinite(branchId) &&
+    !(await branchService.getBranchById(branchId));
+  return branchGone ? new BranchRemovedError() : new UserRemovedError();
+}
+
 export async function requireAuth(): Promise<Session> {
   const session = await auth();
 
@@ -60,7 +73,7 @@ export async function requireAuth(): Promise<Session> {
   }
 
   if (!(await revalidateSessionUser(session))) {
-    throw new UserRemovedError();
+    throw await removedSessionError(session);
   }
 
   if (!session.user.branchId) {
@@ -91,7 +104,7 @@ export async function getCurrentBranchId(
   }
 
   if (!(await revalidateSessionUser(s))) {
-    throw new UserRemovedError();
+    throw await removedSessionError(s);
   }
 
   if (!s.user.branchId) {

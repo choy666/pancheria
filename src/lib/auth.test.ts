@@ -98,12 +98,29 @@ describe('requireAuth', () => {
       user: { name: 'operator', id: '1', branchId: 1, role: 'operator' },
     } as any);
     mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+    // La sucursal sigue viva: fue un borrado individual del usuario.
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 1 });
 
     const error = await requireAuth().catch((e) => e);
     expect(error).toBeInstanceOf(UserRemovedError);
     // Hereda de ForbiddenError: las rutas lo mapean a 403 con code.
     expect(error).toBeInstanceOf(ForbiddenError);
     expect(error.code).toBe('USER_REMOVED');
+  });
+
+  test('lanza BranchRemovedError cuando el usuario desapareció junto a su sucursal', async () => {
+    // Borrado en cascada de la sucursal: el usuario ya no existe y la
+    // sucursal del JWT tampoco — el motivo real es la sucursal (E4).
+    mockedAuth.mockResolvedValue({
+      user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
+    } as any);
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    const error = await requireAuth().catch((e) => e);
+    expect(error).toBeInstanceOf(BranchRemovedError);
+    expect(error.code).toBe('BRANCH_REMOVED');
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
   });
 
   test('sincroniza branchId y role desde la base (JWT viejo)', async () => {
@@ -207,11 +224,26 @@ describe('getCurrentBranchId', () => {
     } as any;
     mockedAuth.mockResolvedValue(session);
     mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+    // La sucursal sigue viva: fue un borrado individual del usuario.
+    mockedBranchService.getBranchById.mockResolvedValue({ id: 5 });
 
     const error = await getCurrentBranchId().catch((e) => e);
     expect(error).toBeInstanceOf(UserRemovedError);
     expect(error.code).toBe('USER_REMOVED');
-    expect(mockedBranchService.getBranchById).not.toHaveBeenCalled();
+    expect(mockedBranchService.getBranchById).toHaveBeenCalledWith(5);
+  });
+
+  test('lanza BranchRemovedError cuando el usuario desapareció junto a su sucursal', async () => {
+    const session = {
+      user: { name: 'operator', id: '1', branchId: 5, role: 'operator' },
+    } as any;
+    mockedAuth.mockResolvedValue(session);
+    mockedUserRepository.findByIdWithBranch.mockResolvedValue(undefined);
+    mockedBranchService.getBranchById.mockResolvedValue(undefined);
+
+    const error = await getCurrentBranchId().catch((e) => e);
+    expect(error).toBeInstanceOf(BranchRemovedError);
+    expect(error.code).toBe('BRANCH_REMOVED');
   });
 
   test('admin con cookie activa devuelve la sucursal de la cookie', async () => {

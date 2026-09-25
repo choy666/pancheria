@@ -37,6 +37,16 @@ export default async function SesionFinalizadaPage() {
       redirect(routes.home);
     }
     errorQuery = 'branch_removed';
+  } else {
+    // Usuario eliminado: si la sucursal del JWT también desapareció, el
+    // usuario se borró en cascada con ella — el motivo es branch_removed.
+    const jwtBranchId = Number(session.user.branchId);
+    if (
+      Number.isFinite(jwtBranchId) &&
+      !(await branchService.getBranchById(jwtBranchId))
+    ) {
+      errorQuery = 'branch_removed';
+    }
   }
 
   async function cerrarSesion() {
