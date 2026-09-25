@@ -154,17 +154,42 @@ export function isValidLocationUrl(url: string): boolean {
   }
 }
 
+/**
+ * Extrae el `src` de una etiqueta `<iframe>` pegada como ubicación (p. ej.
+ * el código de "Insertar un mapa" de Google Maps). La regex está anclada al
+ * tag —`[^>]*?` no puede cruzar el `>` de cierre y `\b` evita confundir
+ * `srcdoc=` con `src=`— y tolera comillas simples/dobles, `src` sin comillas,
+ * atributos en cualquier orden y mayúsculas (`SRC=`).
+ *
+ * La extracción falla cerrado: el valor capturado se devuelve decodificado
+ * (`&amp;` → `&`) y el llamador lo sigue validando como URL http(s), así que
+ * un `src` inesperado nunca produce una ubicación aceptada. Cualquier otro
+ * HTML se rechaza: solo se lee el atributo, nunca se renderiza el HTML.
+ */
+function extractIframeSrc(input: string): string | null {
+  const match = input.match(
+    /<iframe\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i
+  );
+  const src = match?.[1] ?? match?.[2] ?? match?.[3];
+  if (!src) return null;
+  return src.replace(/&amp;/g, '&');
+}
+
 export function tryBuildLocationUrl(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
 
-  const coordinates = tryParseCoordinates(trimmed);
+  // Si el admin pegó el HTML completo del iframe, el `src` extraído reemplaza
+  // al input y continúa por el pipeline normal (coordenadas o URL http(s)).
+  const effective = extractIframeSrc(trimmed) ?? trimmed;
+
+  const coordinates = tryParseCoordinates(effective);
   if (coordinates) {
     return buildMapCoordinatesUrl(coordinates.lat, coordinates.lng);
   }
 
-  if (isValidLocationUrl(trimmed)) {
-    return trimmed;
+  if (isValidLocationUrl(effective)) {
+    return effective;
   }
 
   return null;
@@ -231,8 +256,10 @@ function coordinatesFromParams(
 
 /**
  * Extrae coordenadas de una URL de mapa conocida: `mlat`/`mlon` y el
- * fragmento `#map=zoom/lat/lng` de OpenStreetMap, y el parámetro `query`
- * con `lat,lng` que genera `buildMapCoordinatesUrl` para Google.
+ * fragmento `#map=zoom/lat/lng` de OpenStreetMap, el patrón `/@lat,lng` del
+ * path de las URLs de Google (`/maps/place/.../@-32.94,-60.63,17z/` y
+ * `/maps/@...`, el enlace común de "Compartir") y el parámetro `query` con
+ * `lat,lng` que genera `buildMapCoordinatesUrl` para Google.
  */
 function coordinatesFromMapUrl(url: URL): { lat: number; lng: number } | null {
   const fromMarker = coordinatesFromParams(url, 'mlat', 'mlon');
@@ -244,6 +271,12 @@ function coordinatesFromMapUrl(url: URL): { lat: number; lng: number } | null {
   if (hashMatch) {
     const fromHash = tryParseCoordinates(`${hashMatch[1]},${hashMatch[2]}`);
     if (fromHash) return fromHash;
+  }
+
+  const atMatch = url.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (atMatch) {
+    const fromPath = tryParseCoordinates(`${atMatch[1]},${atMatch[2]}`);
+    if (fromPath) return fromPath;
   }
 
   const query = url.searchParams.get('query');
@@ -318,6 +351,46 @@ export function buildMapEmbedUrl(location: string): string | null {
     roundCoordinate(urlCoordinates.lat),
     roundCoordinate(urlCoordinates.lng)
   );
+}
+
+/* ------------------------------------------------------------------------ */
+/* Estado de la ubicación para la UI                                         */
+/* ------------------------------------------------------------------------ */
+
+type LocationInputStatus = 'empty' | 'invalid' | 'link' | 'embed';
+
+export interface LocationInputDescription {
+  status: LocationInputStatus;
+  /** URL embebible lista para el iframe; solo presente cuando status es `embed`. */
+  embedUrl?: string;
+}
+
+/**
+ * Clasifica el input del campo Ubicación del formulario de sucursal para que
+ * la UI muestre feedback en vivo sin reimplementar el pipeline:
+ *
+ * - `empty`: el campo está vacío (se guarda `null`, sin error).
+ * - `invalid`: no parsea como coordenadas, URL http(s) ni iframe con `src`.
+ * - `embed`: es válida y `buildMapEmbedUrl` puede mostrarla como mapa.
+ * - `link`: es válida pero no embebible (short links, otros orígenes o un
+ *   proveedor sin embed): en el catálogo se muestra como enlace "Ver en mapa".
+ *
+ * Normaliza primero con `tryBuildLocationUrl` (que extrae el `src` de un
+ * `<iframe>` pegado) y clasifica sobre la URL resultante, nunca sobre el
+ * input crudo.
+ */
+export function describeLocationInput(
+  input: string
+): LocationInputDescription {
+  const normalized = tryBuildLocationUrl(input);
+  if (!normalized) {
+    return { status: input.trim() ? 'invalid' : 'empty' };
+  }
+
+  const embedUrl = buildMapEmbedUrl(normalized);
+  if (embedUrl) return { status: 'embed', embedUrl };
+
+  return { status: 'link' };
 }
 
 

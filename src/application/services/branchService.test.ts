@@ -301,6 +301,26 @@ describe('branchService', () => {
         })
       );
     });
+
+    test('guarda la URL del src cuando la ubicación es el HTML de un iframe', async () => {
+      mockReturning.mockResolvedValue([{ id: 1, name: 'Sucursal', openingHours: [] }]);
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      const valuesFn = jest.fn().mockReturnValue({ returning: mockReturning });
+      mockedDb.insert.mockReturnValue({ values: valuesFn });
+
+      await createBranch({
+        name: 'Sucursal',
+        location:
+          '<iframe src="https://www.google.com/maps/embed?pb=abc123" width="600" height="450"></iframe>',
+      });
+
+      expect(valuesFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: 'https://www.google.com/maps/embed?pb=abc123',
+        })
+      );
+    });
   });
 
   describe('updateBranch', () => {

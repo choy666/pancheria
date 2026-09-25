@@ -141,7 +141,7 @@ function validateE2EEnvironment(): void {
 function fetchOnce(
   url: string,
   options: { method?: string; body?: string } = {}
-): Promise<number> {
+): Promise<{ status: number; e2eMarker?: string }> {
   return new Promise((resolve) => {
     const method = options.method ?? 'GET';
     const clientUrl = new URL(url);
@@ -159,19 +159,52 @@ function fetchOnce(
       },
       (res) => {
         res.resume();
-        resolve(res.statusCode ?? 0);
+        resolve({
+          status: res.statusCode ?? 0,
+          e2eMarker: res.headers['x-e2e-server'] as string | undefined,
+        });
       }
     );
-    req.on('error', () => resolve(0));
+    req.on('error', () => resolve({ status: 0 }));
     req.on('timeout', () => {
       req.destroy();
-      resolve(0);
+      resolve({ status: 0 });
     });
     if (options.body) {
       req.write(options.body);
     }
     req.end();
   });
+}
+
+/**
+ * Verifica que el servidor que responde en BASE_URL sea el de E2E.
+ *
+ * `playwright.config.ts` usa `reuseExistingServer: true`: si otro proceso ya
+ * ocupa el puerto (p. ej. un `npm run dev` con `.env.local`), Playwright lo
+ * reutiliza aunque sirva otra base de datos, y los tests escribirían allí
+ * aunque DATABASE_URL apunte a la descartable. Los servidores levantados por
+ * `npm run dev:e2e` emiten el header `x-e2e-server` (ver `next.config.ts`);
+ * si falta, se aborta antes de tocar cualquier dato.
+ */
+async function assertE2EServer(): Promise<void> {
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+  const { status, e2eMarker } = await fetchOnce(`${baseUrl}/api/caja/resumen`);
+
+  if (status === 0) {
+    throw new Error(
+      `El servidor de E2E no responde en ${baseUrl}. ` +
+        'Levantalo con `npm run dev:e2e` o dejá que Playwright lo inicie (sin NO_WEB_SERVER=1).'
+    );
+  }
+
+  if (e2eMarker !== 'e2e') {
+    throw new Error(
+      `El servidor en ${baseUrl} no fue levantado con \`npm run dev:e2e\` (falta el header x-e2e-server). ` +
+        'Probablemente hay un `npm run dev` ocupando el puerto con `.env.local`: detenelo y reintentá. ' +
+        'Correr los tests contra ese servidor escribiría en la base de datos que éste sirva.'
+    );
+  }
 }
 
 async function preheatDevServer(): Promise<void> {
@@ -241,11 +274,16 @@ async function preheatDevServer(): Promise<void> {
 }
 
 export default async function globalSetup() {
+  // Las validaciones son baratas (checks de entorno + un fetch) y se corren
+  // siempre: NO_GLOBAL_SETUP solo salta el truncate/seed/preheat, no la red
+  // de seguridad. Así los tests no pueden escribir en la base de un servidor
+  // ajeno aunque se omita la preparación.
+  validateE2EEnvironment();
+  await assertE2EServer();
+
   if (process.env.NO_GLOBAL_SETUP) {
     return;
   }
-
-  validateE2EEnvironment();
 
   if (process.env.LOCAL_STORAGE_PATH) {
     rmSync(process.env.LOCAL_STORAGE_PATH, { recursive: true, force: true });

@@ -21,6 +21,13 @@ try {
   // Si .env.e2e no existe, .env.local sigue siendo la fuente.
 }
 
+// Marca interna del servidor E2E: `next.config.ts` la emite como header
+// `x-e2e-server` y `tests/e2e/global-setup.ts` la exige para no golpear por
+// accidente un servidor ajeno que ocupe el puerto (p. ej. un `npm run dev`
+// con `.env.local` reutilizado por `reuseExistingServer`). No definirla en
+// archivos .env: solo la setea este script.
+process.env.E2E_SERVER_MARKER = 'e2e';
+
 function resolveNextBin(): string {
   const require = createRequire(import.meta.url);
   const nextPkgPath = require.resolve('next/package.json');

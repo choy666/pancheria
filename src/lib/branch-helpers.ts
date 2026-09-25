@@ -26,7 +26,7 @@ function isValidTime(value: string): boolean {
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
 }
 
-function minutesOf(time: string): number {
+export function minutesOf(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }
@@ -429,6 +429,14 @@ const MAX_SOCIAL_URL_LENGTH = 200;
 const PHONE_NUMBER_PATTERN = /^[+0-9][0-9()+.\-\s]{4,24}$/;
 const SOCIAL_HANDLE_PATTERN = /^@?[A-Za-z0-9._-]{2,50}$/;
 
+/**
+ * Versión por valor del patrón de `normalizeBranchPhones`, para validación
+ * en vivo en el cliente (mismo criterio: dígitos, espacios y + ( ) - .).
+ */
+export function isValidPhoneNumber(value: string): boolean {
+  return PHONE_NUMBER_PATTERN.test(value);
+}
+
 export const SOCIAL_NETWORK_OPTIONS: {
   value: BranchSocialNetwork;
   label: string;
@@ -460,7 +468,12 @@ function isValidHttpUrl(value: string): boolean {
   }
 }
 
-function isValidSocialTarget(
+/**
+ * Versión por valor de la regla de `normalizeSocialLinks`, para validación
+ * en vivo en el cliente: acepta URL http(s) completa o un handle corto (en
+ * WhatsApp, un número de teléfono).
+ */
+export function isValidSocialTarget(
   network: BranchSocialNetwork,
   value: string
 ): boolean {

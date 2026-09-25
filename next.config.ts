@@ -160,6 +160,15 @@ const nextConfig: NextConfig = {
       });
     }
 
+    // Marca interna del servidor E2E: `npm run dev:e2e` define
+    // E2E_SERVER_MARKER=e2e y `tests/e2e/global-setup.ts` exige este header
+    // para no correr los tests contra un servidor ajeno que Playwright haya
+    // reutilizado por `reuseExistingServer` (p. ej. un `npm run dev` con
+    // `.env.local` sirviendo otra base de datos).
+    if (process.env.E2E_SERVER_MARKER === 'e2e') {
+      securityHeaders.push({ key: 'x-e2e-server', value: 'e2e' });
+    }
+
     return [
       {
         source: '/:path*',

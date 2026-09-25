@@ -66,7 +66,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-cobertura-de-pruebas.md
     ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
     ├── plan-implementacion-multi-tenant.md
-    └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, destacar-boton-cierre-caja.md y auditoria-fallos-e2e-caja-y-rate-limit.md)
+    └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md y auditoria-fallos-e2e-caja-y-rate-limit.md)
 ```
 
 ## Reglas de uso

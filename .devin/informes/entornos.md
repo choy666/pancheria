@@ -198,7 +198,7 @@ npx playwright test
 
 Playwright lee `.env.local` primero y luego `.env.e2e` con prioridad, tanto en `playwright.config.ts` como en `scripts/dev-e2e.ts`.
 
-> **Atención:** asegurate de que no haya otro proceso de Next.js en `localhost:3000` levantado con `.env.local` (por ejemplo `npm run dev` en otra consola). `playwright.config.ts` usa `reuseExistingServer: true`, por lo que un servidor previo con otra base puede hacer fallar el login de E2E.
+> **Atención:** si quedó otro proceso de Next.js en `localhost:3000` levantado con `.env.local` (por ejemplo `npm run dev` en otra consola), `playwright.config.ts` lo reutiliza por `reuseExistingServer: true` aunque sirva otra base de datos. Para evitar que los tests escriban en esa base, `scripts/dev-e2e.ts` define la variable interna `E2E_SERVER_MARKER` (no configurarla en archivos `.env`), `next.config.ts` la emite como header `x-e2e-server` en todas las respuestas y `tests/e2e/global-setup.ts` aborta con un mensaje claro si el servidor que responde no la tiene. Detené el proceso que ocupa el puerto y reintentá.
 >
 > **Geolocalización:** el test de chat con ubicación del cliente (`tests/e2e/pedido-chat.spec.ts`) usa `context.setGeolocation()` y `context.grantPermissions(['geolocation'])`. `navigator.geolocation` requiere un contexto seguro; en `localhost` durante E2E funciona, pero si se corre contra un dominio remoto sin HTTPS, el botón no obtendrá la posición.
 

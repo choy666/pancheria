@@ -36,6 +36,7 @@ Antes de hacer push, revisar mentalmente estos puntos si se editó `.github/work
   - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER=memory`
   - `TRUSTED_PROXY_IP_HEADER=X-Forwarded-For`
 - [ ] `playwright.config.ts` pasa las mismas variables en `webServer.env` si se esperan en el servidor de E2E.
+- [ ] Si se creó un script alternativo de servidor E2E (`start:e2e`, docker, etc.), debe definir `E2E_SERVER_MARKER` como hace `scripts/dev-e2e.ts`: `global-setup.ts` aborta si el servidor que responde no emite el header `x-e2e-server`.
 - [ ] Las variables de `.env.e2e.example` que el servidor de E2E necesita también están en el `env:` del job `e2e` de `ci.yml`: en CI no existe `.env.e2e`, así que sin eso aplica el default de producción (ej. `NEXT_PUBLIC_CATALOG_PAGE_SIZE=48` dejaba los productos de los tests fuera de la primera página del catálogo y rompía `product-card-*`).
 - [ ] `.env.e2e.example` refleja las variables necesarias para reproducir el entorno localmente.
 - [ ] Si se agregó una variable nueva, también se agregó en `AGENTS.md` y `.devin/informes/entornos.md` si aplica.

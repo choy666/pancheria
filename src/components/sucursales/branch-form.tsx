@@ -17,12 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { ClipboardPaste, Copy, Plus, Trash2, X } from 'lucide-react';
 import { type BranchState } from '@/app/(panel)/sucursales/actions';
 import {
   SOCIAL_NETWORK_OPTIONS,
   getSocialNetworkLabel,
+  isValidPhoneNumber,
+  isValidSocialTarget,
+  minutesOf,
+  validateOpeningHours,
 } from '@/lib/branch-helpers';
+import { describeLocationInput } from '@/lib/maps';
+import { BranchLocationPreview } from '@/components/sucursales/branch-location-preview';
 import type {
   Branch,
   BranchOpeningHours,
@@ -32,6 +38,12 @@ import type {
 type Slot = BranchOpeningHours & { _id: string };
 type PhoneRow = { _id: string; label: string; number: string };
 type SocialRow = { _id: string; network: BranchSocialNetwork; url: string };
+
+/** Snapshot de franjas copiadas para pegar en otro día (sin `_id`). */
+type CopiedHours = {
+  dayOfWeek: number;
+  slots: { open: string; close: string }[];
+};
 
 const DAYS = [
   'Domingo',
@@ -58,11 +70,6 @@ interface BranchFormProps {
 
 function generateSlotId(): string {
   return `slot-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-}
-
-function minutesOf(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + m;
 }
 
 export function BranchForm({
@@ -93,11 +100,45 @@ export function BranchForm({
       branch?.socialLinks?.map((s) => ({ ...s, _id: generateSlotId() })) ?? []
   );
 
+  // Validación en vivo: el estado derivado se calcula con useMemo (regla del
+  // proyecto: no usar useEffect + setState para derivar estado).
+  const [nameInput, setNameInput] = useState(branch?.name ?? '');
+  const [locationInput, setLocationInput] = useState(branch?.location ?? '');
+  // Los errores por campo solo se muestran tras tocar el input (onBlur) o tras
+  // un intento de submit, para no flashear "inválido" en cada keystroke.
+  const [nameTouched, setNameTouched] = useState(false);
+  const [locationTouched, setLocationTouched] = useState(false);
+  const [copied, setCopied] = useState<CopiedHours | null>(null);
+
+  const locationDesc = useMemo(
+    () => describeLocationInput(locationInput),
+    [locationInput]
+  );
+  const showLocationError =
+    locationTouched && locationDesc.status === 'invalid';
+  const showNameError = nameTouched && !nameInput.trim();
+
+  const hoursError = useMemo(() => {
+    try {
+      validateOpeningHours(openingHours);
+      return null;
+    } catch (error) {
+      return error instanceof Error
+        ? error.message
+        : 'Revisá los horarios de apertura.';
+    }
+  }, [openingHours]);
+
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
       if (!formRef.current) return;
+
+      // Un intento de submit destapa los errores inline aunque el campo no se
+      // haya tocado; el servidor sigue siendo la fuente de verdad.
+      setNameTouched(true);
+      setLocationTouched(true);
 
       const formData = new FormData(formRef.current);
       const action = branch ? updateBranchAction : createBranchAction;
@@ -111,6 +152,11 @@ export function BranchForm({
           setOpeningHours([]);
           setPhones([]);
           setSocialLinks([]);
+          setNameInput('');
+          setNameTouched(false);
+          setLocationInput('');
+          setLocationTouched(false);
+          setCopied(null);
           if (branch) {
             onCancel?.();
           }
@@ -171,6 +217,31 @@ export function BranchForm({
     setOpeningHours((prev) =>
       prev.filter((slot) => slot.dayOfWeek !== dayOfWeek)
     );
+  }
+
+  function handleCopyDay(dayOfWeek: number) {
+    const slots = getSlotsForDay(dayOfWeek).map(({ open, close }) => ({
+      open,
+      close,
+    }));
+    if (slots.length === 0) return;
+    setCopied({ dayOfWeek, slots });
+  }
+
+  // Pegar reemplaza las franjas del día destino por las copiadas y habilita
+  // el día si estaba apagado (acción explícita del usuario).
+  function handlePasteDay(dayOfWeek: number) {
+    if (!copied) return;
+    const slots = copied.slots;
+    setOpeningHours((prev) => [
+      ...prev.filter((slot) => slot.dayOfWeek !== dayOfWeek),
+      ...slots.map((slot) => ({
+        dayOfWeek,
+        open: slot.open,
+        close: slot.close,
+        _id: generateSlotId(),
+      })),
+    ]);
   }
 
   function addPhone() {
@@ -238,9 +309,23 @@ export function BranchForm({
           type="text"
           required
           defaultValue={branch?.name}
+          onChange={(e) => setNameInput(e.target.value)}
+          onBlur={() => setNameTouched(true)}
           placeholder="Ej: Sucursal Centro"
           data-testid="branch-name"
+          aria-invalid={showNameError}
+          aria-describedby={showNameError ? 'branch-name-error' : undefined}
         />
+        {showNameError && (
+          <p
+            id="branch-name-error"
+            role="alert"
+            className="text-sm text-destructive"
+            data-testid="branch-name-error"
+          >
+            El nombre de la sucursal es obligatorio.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -263,45 +348,87 @@ export function BranchForm({
           público.
         </p>
         <div className="space-y-2">
-          {phones.map((phone, index) => (
-            <div key={phone._id} className="flex items-center gap-2">
-              <Input
-                type="text"
-                value={phone.label}
-                onChange={(e) =>
-                  updatePhone(phone._id, 'label', e.target.value)
-                }
-                name={`phones[${index}][label]`}
-                placeholder="Etiqueta"
-                aria-label={`Etiqueta del teléfono ${index + 1}`}
-                data-testid={`branch-phone-label-${index}`}
-                className="w-32"
-              />
-              <Input
-                type="text"
-                value={phone.number}
-                onChange={(e) =>
-                  updatePhone(phone._id, 'number', e.target.value)
-                }
-                name={`phones[${index}][number]`}
-                placeholder="Ej: 3415555555"
-                aria-label={`Número del teléfono ${index + 1}`}
-                data-testid={`branch-phone-number-${index}`}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                data-testid={`branch-remove-phone-${index}`}
-                onClick={() => removePhone(phone._id)}
-                className="size-8 text-destructive"
-                aria-label={`Eliminar teléfono ${index + 1}`}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
+          {phones.map((phone, index) => {
+            const label = phone.label.trim();
+            const number = phone.number.trim();
+            // La fila vacía se descarta al enviar; si queda cargada a medias,
+            // el servidor la rechaza y se muestra el motivo en vivo.
+            const phoneError =
+              !label && !number
+                ? null
+                : !label
+                  ? 'La etiqueta del teléfono es obligatoria.'
+                  : !number
+                    ? 'El número del teléfono es obligatorio.'
+                    : !isValidPhoneNumber(number)
+                      ? 'El número no es válido. Usá solo dígitos, espacios y los símbolos + ( ) - .'
+                      : null;
+            const labelInvalid = !!phoneError && !label;
+            const numberInvalid = !!phoneError && !!label;
+            return (
+              <div key={phone._id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    value={phone.label}
+                    onChange={(e) =>
+                      updatePhone(phone._id, 'label', e.target.value)
+                    }
+                    name={`phones[${index}][label]`}
+                    placeholder="Etiqueta"
+                    aria-label={`Etiqueta del teléfono ${index + 1}`}
+                    data-testid={`branch-phone-label-${index}`}
+                    className="w-32"
+                    aria-invalid={labelInvalid}
+                    aria-describedby={
+                      labelInvalid
+                        ? `branch-phone-${index}-error`
+                        : undefined
+                    }
+                  />
+                  <Input
+                    type="text"
+                    value={phone.number}
+                    onChange={(e) =>
+                      updatePhone(phone._id, 'number', e.target.value)
+                    }
+                    name={`phones[${index}][number]`}
+                    placeholder="Ej: 3415555555"
+                    aria-label={`Número del teléfono ${index + 1}`}
+                    data-testid={`branch-phone-number-${index}`}
+                    className="flex-1"
+                    aria-invalid={numberInvalid}
+                    aria-describedby={
+                      numberInvalid
+                        ? `branch-phone-${index}-error`
+                        : undefined
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    data-testid={`branch-remove-phone-${index}`}
+                    onClick={() => removePhone(phone._id)}
+                    className="size-8 text-destructive"
+                    aria-label={`Eliminar teléfono ${index + 1}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                {phoneError && (
+                  <p
+                    id={`branch-phone-${index}-error`}
+                    role="alert"
+                    className="text-xs text-destructive"
+                    data-testid={`branch-phone-${index}-error`}
+                  >
+                    {phoneError}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
         <Button
           type="button"
@@ -322,21 +449,54 @@ export function BranchForm({
           name="location"
           type="text"
           defaultValue={branch?.location ?? ''}
+          onChange={(e) => setLocationInput(e.target.value)}
+          onBlur={() => setLocationTouched(true)}
           placeholder="Ej: -32.9468, -60.6393 o URL del mapa"
           data-testid="branch-location"
+          aria-invalid={showLocationError}
+          aria-describedby={
+            showLocationError
+              ? 'branch-location-error branch-location-help'
+              : 'branch-location-help'
+          }
         />
-        <p className="text-sm text-muted-foreground">
+        {showLocationError && (
+          <p
+            id="branch-location-error"
+            role="alert"
+            className="text-sm text-destructive"
+            data-testid="branch-location-error"
+          >
+            La ubicación no es válida. Usá coordenadas <code>lat,lng</code>,
+            una URL de mapa o el código completo del iframe de
+            &quot;Insertar mapa&quot;.
+          </p>
+        )}
+        {locationDesc.status === 'link' && (
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="branch-location-link-hint"
+          >
+            La ubicación es válida pero se mostrará como enlace
+            &quot;Ver en mapa&quot; (sin mapa embebido) en el catálogo.
+          </p>
+        )}
+        {locationDesc.status === 'embed' && locationDesc.embedUrl && (
+          <BranchLocationPreview embedUrl={locationDesc.embedUrl} />
+        )}
+        <p id="branch-location-help" className="text-sm text-muted-foreground">
           Para que el mapa se vea embebido en el catálogo, lo mejor son las{' '}
           <strong>coordenadas</strong> <code>lat,lng</code> (en Google Maps:
           clic derecho sobre el punto → clic en las coordenadas para
           copiarlas): funcionan con cualquier proveedor. También sirve la
-          URL completa de openstreetmap.org o el enlace{' '}
-          <strong>&quot;Insertar mapa&quot;</strong> de Google Maps
-          (Compartir → Insertar un mapa → copiar solo la URL del{' '}
-          <code>src</code>), siempre que correspondan al proveedor de mapas
-          configurado. Los enlaces cortos (<code>maps.app.goo.gl/…</code>) y
-          otras URLs se muestran como &quot;Ver en mapa&quot; sin mapa
-          embebido.
+          URL completa de openstreetmap.org, el enlace de
+          &quot;Compartir&quot; de Google Maps o el código completo de{' '}
+          <strong>&quot;Insertar un mapa&quot;</strong> (Compartir → Insertar
+          un mapa → copiar el HTML del <code>&lt;iframe&gt;</code>: se usa
+          automáticamente la URL del <code>src</code>), siempre que
+          correspondan al proveedor de mapas configurado. Los enlaces cortos
+          (<code>maps.app.goo.gl/…</code>) y otras URLs se muestran como
+          &quot;Ver en mapa&quot; sin mapa embebido.
         </p>
       </div>
 
@@ -347,61 +507,89 @@ export function BranchForm({
           número con código de país. Se muestran en el catálogo público.
         </p>
         <div className="space-y-2">
-          {socialLinks.map((link, index) => (
-            <div key={link._id} className="flex items-center gap-2">
-              <Select
-                value={link.network}
-                name={`socialLinks[${index}][network]`}
-                onValueChange={(value) => {
-                  if (value) updateSocialLink(link._id, 'network', value);
-                }}
-              >
-                <SelectTrigger
-                  aria-label={`Red social ${index + 1}`}
-                  data-testid={`branch-social-network-${index}`}
-                  className="w-full sm:w-[160px]"
-                >
-                  <SelectValue>
-                    {(value) => getSocialNetworkLabel(value)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {SOCIAL_NETWORK_OPTIONS.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      label={option.label}
+          {socialLinks.map((link, index) => {
+            const url = link.url.trim();
+            // La fila siempre se envía (la red tiene valor por defecto), así
+            // que el enlace vacío o inválido se marca en vivo.
+            const socialError = !url
+              ? `El enlace de ${getSocialNetworkLabel(link.network)} es obligatorio.`
+              : !isValidSocialTarget(link.network, url)
+                ? 'Ingresá una URL http(s) completa o un identificador válido (en WhatsApp, el número con código de país).'
+                : null;
+            return (
+              <div key={link._id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={link.network}
+                    name={`socialLinks[${index}][network]`}
+                    onValueChange={(value) => {
+                      if (value) updateSocialLink(link._id, 'network', value);
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-label={`Red social ${index + 1}`}
+                      data-testid={`branch-social-network-${index}`}
+                      className="w-full sm:w-[160px]"
                     >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                value={link.url}
-                onChange={(e) =>
-                  updateSocialLink(link._id, 'url', e.target.value)
-                }
-                name={`socialLinks[${index}][url]`}
-                placeholder="URL o usuario"
-                aria-label={`Enlace de la red social ${index + 1}`}
-                data-testid={`branch-social-url-${index}`}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                data-testid={`branch-remove-social-${index}`}
-                onClick={() => removeSocialLink(link._id)}
-                className="size-8 text-destructive"
-                aria-label={`Eliminar red social ${index + 1}`}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
+                      <SelectValue>
+                        {(value) => getSocialNetworkLabel(value)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOCIAL_NETWORK_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          label={option.label}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="text"
+                    value={link.url}
+                    onChange={(e) =>
+                      updateSocialLink(link._id, 'url', e.target.value)
+                    }
+                    name={`socialLinks[${index}][url]`}
+                    placeholder="URL o usuario"
+                    aria-label={`Enlace de la red social ${index + 1}`}
+                    data-testid={`branch-social-url-${index}`}
+                    className="flex-1"
+                    aria-invalid={!!socialError}
+                    aria-describedby={
+                      socialError
+                        ? `branch-social-${index}-error`
+                        : undefined
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    data-testid={`branch-remove-social-${index}`}
+                    onClick={() => removeSocialLink(link._id)}
+                    className="size-8 text-destructive"
+                    aria-label={`Eliminar red social ${index + 1}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                {socialError && (
+                  <p
+                    id={`branch-social-${index}-error`}
+                    role="alert"
+                    className="text-xs text-destructive"
+                    data-testid={`branch-social-${index}-error`}
+                  >
+                    {socialError}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
         <Button
           type="button"
@@ -420,8 +608,39 @@ export function BranchForm({
         <p className="text-sm text-muted-foreground">
           Marcá los días y agregá una o más franjas horarias en las que la
           sucursal atiende pedidos. Si el cierre es menor que la apertura, la
-          franja termina al día siguiente (ej. 20:00 a 02:00).
+          franja termina al día siguiente (ej. 20:00 a 02:00). Podés copiar
+          las franjas de un día y pegarlas en otro con los botones
+          &quot;Copiar&quot;/&quot;Pegar&quot;.
         </p>
+        {hoursError && (
+          <p
+            role="alert"
+            className="text-sm text-destructive"
+            data-testid="branch-hours-error"
+          >
+            {hoursError}
+          </p>
+        )}
+        {copied && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span data-testid="branch-hours-copied-hint">
+              Copiado de {DAYS[copied.dayOfWeek]} ({copied.slots.length}{' '}
+              franja{copied.slots.length === 1 ? '' : 's'}): usá
+              &quot;Pegar&quot; en otro día.
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-testid="branch-hours-copied-clear"
+              onClick={() => setCopied(null)}
+              className="size-5"
+              aria-label="Descartar horarios copiados"
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
+        )}
         <div className="space-y-4">
           {DAYS.map((day, dayOfWeek) => {
             const slots = getSlotsForDay(dayOfWeek);
@@ -432,7 +651,7 @@ export function BranchForm({
                 key={dayOfWeek}
                 className="rounded-lg border border-white/8 p-3"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <input
                     id={`day-${dayOfWeek}`}
                     data-testid={`branch-day-${dayOfWeek}-toggle`}
@@ -447,6 +666,34 @@ export function BranchForm({
                   >
                     {day}
                   </Label>
+                  {enabled && slots.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      data-testid={`branch-copy-day-${dayOfWeek}`}
+                      onClick={() => handleCopyDay(dayOfWeek)}
+                      className="h-auto px-2 py-1 text-xs"
+                      aria-label={`Copiar horarios del ${day}`}
+                    >
+                      <Copy className="mr-1 size-3" />
+                      Copiar
+                    </Button>
+                  )}
+                  {copied && copied.dayOfWeek !== dayOfWeek && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      data-testid={`branch-paste-day-${dayOfWeek}`}
+                      onClick={() => handlePasteDay(dayOfWeek)}
+                      className="h-auto px-2 py-1 text-xs"
+                      aria-label={`Pegar horarios en ${day}`}
+                    >
+                      <ClipboardPaste className="mr-1 size-3" />
+                      Pegar
+                    </Button>
+                  )}
                   {enabled && slots.length > 0 && (
                     <Button
                       type="button"

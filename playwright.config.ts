@@ -21,12 +21,14 @@ try {
 }
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
-const useGlobalSetup = !process.env.NO_GLOBAL_SETUP;
 const useWebServer = !process.env.NO_WEB_SERVER;
 
 export default defineConfig({
   testDir: './tests/e2e',
-  globalSetup: useGlobalSetup ? './tests/e2e/global-setup.ts' : undefined,
+  // El setup se registra siempre: con NO_GLOBAL_SETUP=1 la función valida el
+  // entorno y el servidor (checks baratos: env + un fetch) y solo salta el
+  // truncate/seed/preheat. Así la red de seguridad no puede esquivarse.
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,

@@ -2,6 +2,7 @@ import {
   buildMapCoordinatesUrl,
   buildMapEmbedUrl,
   buildMapSearchUrl,
+  describeLocationInput,
   isKnownMapUrl,
   isValidLocationUrl,
   tryBuildLocationUrl,
@@ -128,6 +129,113 @@ describe('maps helpers', () => {
     test('devuelve null para valores inválidos', () => {
       expect(tryBuildLocationUrl('no es una ubicación')).toBeNull();
     });
+
+    test('extrae el src de un iframe de Google Maps ("Insertar un mapa")', () => {
+      const iframe =
+        '<iframe src="https://www.google.com/maps/embed?pb=abc123" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>';
+      expect(tryBuildLocationUrl(iframe)).toBe(
+        'https://www.google.com/maps/embed?pb=abc123'
+      );
+    });
+
+    test('tolera comillas simples, src sin comillas, SRC mayúscula y atributos en otro orden', () => {
+      expect(
+        tryBuildLocationUrl(
+          "<iframe width='400' src='https://www.openstreetmap.org/export/embed.html?bbox=1,2,3,4'></iframe>"
+        )
+      ).toBe(
+        'https://www.openstreetmap.org/export/embed.html?bbox=1,2,3,4'
+      );
+      expect(
+        tryBuildLocationUrl(
+          '<iframe SRC="https://www.google.com/maps/embed?pb=x"></iframe>'
+        )
+      ).toBe('https://www.google.com/maps/embed?pb=x');
+      expect(
+        tryBuildLocationUrl('<iframe src=https://example.com/mapa></iframe>')
+      ).toBe('https://example.com/mapa');
+    });
+
+    test('extrae el src del iframe y no el de un <img> previo en HTML mixto', () => {
+      const mixed =
+        '<div><img src="https://evil.example/x.png"><iframe src="https://www.google.com/maps/embed?pb=ok"></iframe></div>';
+      expect(tryBuildLocationUrl(mixed)).toBe(
+        'https://www.google.com/maps/embed?pb=ok'
+      );
+    });
+
+    test('devuelve null para <img> sin iframe y para iframe con solo srcdoc', () => {
+      expect(
+        tryBuildLocationUrl('<img src="https://example.com/x.png">')
+      ).toBeNull();
+      expect(
+        tryBuildLocationUrl('<iframe srcdoc="<p>html</p>"></iframe>')
+      ).toBeNull();
+    });
+
+    test('rechaza un iframe con src que no sea http(s)', () => {
+      expect(
+        tryBuildLocationUrl('<iframe src="javascript:alert(1)"></iframe>')
+      ).toBeNull();
+      expect(
+        tryBuildLocationUrl(
+          '<iframe src="data:text/html;base64,PHNjcmlwdD4="></iframe>'
+        )
+      ).toBeNull();
+    });
+
+    test('decodifica &amp; en el src del iframe', () => {
+      expect(
+        tryBuildLocationUrl(
+          '<iframe src="https://example.com/map?a=1&amp;b=2"></iframe>'
+        )
+      ).toBe('https://example.com/map?a=1&b=2');
+    });
+  });
+
+  describe('describeLocationInput', () => {
+    test('clasifica vacío e inválido', () => {
+      expect(describeLocationInput('   ')).toEqual({ status: 'empty' });
+      expect(describeLocationInput('')).toEqual({ status: 'empty' });
+      expect(describeLocationInput('no es una ubicación')).toEqual({
+        status: 'invalid',
+      });
+      expect(
+        describeLocationInput('<iframe src="javascript:alert(1)"></iframe>')
+      ).toEqual({ status: 'invalid' });
+    });
+
+    test('clasifica como link una URL válida no embebible', () => {
+      expect(
+        describeLocationInput('https://maps.app.goo.gl/abc123')
+      ).toEqual({ status: 'link' });
+      expect(describeLocationInput('https://example.com/mapa')).toEqual({
+        status: 'link',
+      });
+    });
+
+    test('clasifica como embed las coordenadas con su URL embebible', () => {
+      const desc = describeLocationInput('-34.6037,-58.3816');
+      expect(desc.status).toBe('embed');
+      expect(desc.embedUrl).toContain('openstreetmap.org/export/embed.html');
+    });
+
+    test('clasifica el HTML del iframe según el src extraído', () => {
+      const embed =
+        describeLocationInput(
+          '<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=-58.4,-34.7,-58.3,-34.6&layer=mapnik"></iframe>'
+        );
+      expect(embed.status).toBe('embed');
+      expect(embed.embedUrl).toContain('export/embed.html');
+
+      // El embed de Google no es un origen permitido con el proveedor por
+      // defecto (openstreetmap): se muestra como enlace.
+      expect(
+        describeLocationInput(
+          '<iframe src="https://www.google.com/maps/embed?pb=abc"></iframe>'
+        ).status
+      ).toBe('link');
+    });
   });
 
   describe('buildMapEmbedUrl', () => {
@@ -188,6 +296,34 @@ describe('maps helpers', () => {
       );
       expect(url).toContain('google.com/maps?q=-34.6037,-58.3816');
       expect(url).toContain('output=embed');
+    });
+
+    test('extrae coordenadas del patrón /@lat,lng del path de Google', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      const place = buildMapEmbedUrl(
+        'https://www.google.com/maps/place/Pancheria/@-32.9468,-60.6393,17z/data=!3m1!4b1'
+      );
+      expect(place).toContain('output=embed');
+      expect(place).toContain('q=-32.9468,-60.6393');
+
+      const atRoot = buildMapEmbedUrl(
+        'https://www.google.com/maps/@-32.9468,-60.6393,17z'
+      );
+      expect(atRoot).toContain('q=-32.9468,-60.6393');
+    });
+
+    test('rechaza coordenadas /@ fuera de rango', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      expect(
+        buildMapEmbedUrl(
+          'https://www.google.com/maps/place/X/@-95,-60.6393,17z/'
+        )
+      ).toBeNull();
+      expect(
+        buildMapEmbedUrl(
+          'https://www.google.com/maps/place/X/@-32.9468,-200,17z/'
+        )
+      ).toBeNull();
     });
 
     test('devuelve null para short links y orígenes no permitidos', () => {

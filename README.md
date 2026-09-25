@@ -33,14 +33,14 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 11. Ejecutar el seed cuando corresponda: `npx tsx src/db/seeds.ts`.
 12. Iniciar en desarrollo: `npm run dev`.
 
-Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`. Si `.env.local` apunta a producción, levantar manualmente `npm run dev` con `NO_WEB_SERVER=1`.
+Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env.local`. Si `.env.local` apunta a producción, levantar manualmente `npm run dev:e2e` y correr los tests con `NO_WEB_SERVER=1`.
 
 ## Tests end-to-end
 
 1. Copiar `.env.e2e.example` a `.env.e2e` y completar `DATABASE_URL` con una base descartable (nunca producción).
 2. `global-setup.ts` valida que `NODE_ENV=test`, que la base sea local o tenga un nombre de test/e2e/qa/staging, y que `LOCAL_STORAGE_PATH` sea seguro.
 3. Correr `npm run test:e2e` levanta automáticamente `npm run dev:e2e` y ejecuta los tests.
-4. `BASE_URL` (por defecto `http://localhost:3000`) controla a qué URL apunta Playwright. `NO_WEB_SERVER=1` deshabilita el servidor automático para reutilizar uno ya levantado, y `NO_GLOBAL_SETUP=1` salta el `global-setup.ts` cuando el servidor y la base de datos ya están preparados.
+4. `BASE_URL` (por defecto `http://localhost:3000`) controla a qué URL apunta Playwright. `NO_WEB_SERVER=1` deshabilita el servidor automático para reutilizar uno ya levantado (debe ser `npm run dev:e2e`: `global-setup.ts` exige el header `x-e2e-server` que ese script emite, para no correr tests contra un servidor que sirva otra base), y `NO_GLOBAL_SETUP=1` salta el truncate/seed/preheat del `global-setup.ts` cuando el servidor y la base de datos ya están preparados (las validaciones de entorno y del servidor igualmente se ejecutan).
 5. Alternativa manual: `npm run dev:e2e` en una terminal y `NO_WEB_SERVER=1 npx playwright test` en otra; agregar `NO_GLOBAL_SETUP=1` si la base ya tiene el seed.
 
 > **Importante:** `global-setup.ts` trunca todas las tablas del negocio y re-ejecuta `src/db/seeds.ts`. No correr E2E contra una base con datos reales.
