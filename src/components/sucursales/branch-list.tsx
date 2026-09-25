@@ -52,6 +52,11 @@ export function BranchList({ branches }: BranchListProps) {
             {branches.map((branch) => {
               const hasOpeningHours = branch.openingHours && branch.openingHours.length > 0;
               const openingHoursCount = branch.openingHours?.length ?? 0;
+              // `openingHours` guarda franjas (puede haber varias por día);
+              // los días únicos reflejan la cobertura semanal real.
+              const uniqueDaysCount = new Set(
+                branch.openingHours?.map((h) => h.dayOfWeek) ?? []
+              ).size;
               const firstPhone = branch.phones?.[0];
               const address = branch.address ?? null;
 
@@ -71,7 +76,11 @@ export function BranchList({ branches }: BranchListProps) {
                   </TableCell>
                   <TableCell data-testid="branch-opening-hours" className="text-center">
                     {hasOpeningHours ? (
-                      <span className="text-green-400">{openingHoursCount} días</span>
+                      <span className="text-green-400">
+                        {uniqueDaysCount} días
+                        {openingHoursCount !== uniqueDaysCount &&
+                          ` · ${openingHoursCount} franjas`}
+                      </span>
                     ) : (
                       <span className="text-amber-400">Sin horarios</span>
                     )}
