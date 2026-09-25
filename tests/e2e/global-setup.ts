@@ -1,6 +1,6 @@
 import { db } from '../../src/db';
 import { sql, eq } from 'drizzle-orm';
-import { products } from '../../src/db/schema';
+import { branches, products } from '../../src/db/schema';
 import { execSync } from 'child_process';
 import { rmSync } from 'fs';
 import http from 'http';
@@ -271,6 +271,19 @@ export default async function globalSetup() {
   `);
 
   execSync('npx tsx src/db/seeds.ts', { cwd: process.cwd(), stdio: 'inherit' });
+
+  // El seed da a la sucursal por defecto un horario limitado (10:00-22:00).
+  // Con el bloqueo de pedidos fuera de horario la suite quedaría dependiente
+  // de la hora en que corre el CI: se fuerza 24/7 en todas las sucursales.
+  // Los tests que necesitan horarios específicos los fijan con
+  // setBranchOpeningHours y los restauran al terminar.
+  await db.update(branches).set({
+    openingHours: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+      dayOfWeek,
+      open: '00:00',
+      close: '23:59',
+    })),
+  });
 
   if (!process.env.NEW_BRANCH_NAME) {
     try {
