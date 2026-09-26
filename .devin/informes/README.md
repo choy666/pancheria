@@ -12,7 +12,7 @@
 
 ## Tickets abiertos
 
-- [auditoria-ux-sucursales-2026-09-26.md](auditoria-ux-sucursales-2026-09-26.md) — auditoría documental de `/sucursales` (jerarquía invertida formulario↔inventario, estado operativo por fila, refuerzo del diálogo de eliminación: sucursal por defecto, lockout de la propia cuenta, caja abierta, resumen falso en cero si falla la consulta, renombrado del default) + propuesta de rediseño en dos tramos. **Estado:** abierto — implementación parcial (resueltos H-M5, H-m9 y A8 el 2026-09-26; cambios en el working tree sin commit); quedan H-C1 puntos 1-3 (flags del diálogo de eliminación, con decisión del usuario sobre bloqueos) y los Tramos A/B de rediseño. Revisado en v3: afirmaciones re-verificadas contra el código post-implementación; menores nuevos H-m10–H-m13 absorbidos por A7.
+- [auditoria-ux-sucursales-2026-09-26.md](auditoria-ux-sucursales-2026-09-26.md) — auditoría documental de `/sucursales` (jerarquía invertida formulario↔inventario, estado operativo por fila, refuerzo del diálogo de eliminación: sucursal por defecto, lockout de la propia cuenta, caja abierta, resumen falso en cero si falla la consulta, renombrado del default) + propuesta de rediseño en dos tramos. **Estado:** abierto — Tramo A completo implementado el 2026-09-26 (A1–A8, H-M1–H-M5, H-C1 con banners de advertencia sin bloqueos — decisión del usuario — y H-m2/H-m9–H-m13); queda el Tramo B (rutas dedicadas `/sucursales/nueva` y `/sucursales/[id]/editar`) y menores ajenos al tramo (H-m1, H-m3–H-m8).
 
 Ningún otro ticket al 2026-09-26 — los últimos (QA ronda 2 y CI base compartida) mergearon y se archivaron.
 

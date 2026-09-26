@@ -118,6 +118,9 @@ export async function deleteBranchAction(
 export async function getBranchDeletionSummaryAction(
   id: number
 ): Promise<ReturnType<typeof branchService.getBranchDeletionSummary>> {
-  await requireAdmin();
-  return branchService.getBranchDeletionSummary(id);
+  const session = await requireAdmin();
+  // El branchId de la sesión ya viene revalidado contra la base por
+  // `requireAuth`: es la sucursal asignada del usuario, que determina si la
+  // eliminación borra su propia cuenta (riesgo de lockout).
+  return branchService.getBranchDeletionSummary(id, session.user.branchId);
 }

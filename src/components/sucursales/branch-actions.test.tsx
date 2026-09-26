@@ -24,7 +24,38 @@ const SUMMARY = {
     recipes: 0,
     orders: 4,
     videos: 0,
+    cascaded: 0,
     total: 16,
+  },
+  flags: {
+    isDefaultBranch: false,
+    isSelfBranch: false,
+    isLastBranch: false,
+    hasOpenCashRegister: false,
+    activeOrders: 0,
+  },
+};
+
+const RISKY_SUMMARY = {
+  branch: { id: 1, name: 'Centro' },
+  counts: {
+    products: 2,
+    sales: 5,
+    cashRegisters: 1,
+    stockMovements: 3,
+    users: 1,
+    recipes: 0,
+    orders: 4,
+    videos: 0,
+    cascaded: 9,
+    total: 25,
+  },
+  flags: {
+    isDefaultBranch: true,
+    isSelfBranch: true,
+    isLastBranch: true,
+    hasOpenCashRegister: true,
+    activeOrders: 2,
   },
 };
 
@@ -106,5 +137,99 @@ describe('BranchActions', () => {
     expect(
       screen.getByPlaceholderText('Escribí "Centro" para confirmar')
     ).toBeInTheDocument();
+  });
+
+  test('muestra los banners de riesgo y el detalle de registros en cascada', async () => {
+    mockGetSummary.mockResolvedValue(RISKY_SUMMARY);
+
+    render(
+      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+    );
+
+    fireEvent.click(screen.getByTestId('delete-branch-1'));
+
+    expect(
+      await screen.findByTestId('branch-delete-warning-last')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('branch-delete-warning-self')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('branch-delete-warning-default')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('branch-delete-warning-open-register')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('branch-delete-warning-active-orders')
+    ).toHaveTextContent('2 pedidos en curso');
+    // H-m12: el total incluye los registros hijos en cascada y lo explicita.
+    expect(
+      screen.getByText(/Incluye 9 registros asociados en cascada/)
+    ).toBeInTheDocument();
+    // Solo advierte: la confirmación sigue siendo el nombre exacto.
+    expect(
+      screen.getByRole('button', { name: 'Eliminar definitivamente' })
+    ).toBeDisabled();
+  });
+
+  test('no muestra banners cuando no hay flags activos', async () => {
+    mockGetSummary.mockResolvedValue(SUMMARY);
+
+    render(
+      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+    );
+
+    fireEvent.click(screen.getByTestId('delete-branch-1'));
+    await screen.findByText(/Total de registros afectados:/);
+
+    expect(screen.queryByTestId('branch-delete-warning-last')).toBeNull();
+    expect(screen.queryByTestId('branch-delete-warning-self')).toBeNull();
+    expect(screen.queryByTestId('branch-delete-warning-default')).toBeNull();
+    expect(
+      screen.queryByTestId('branch-delete-warning-open-register')
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('branch-delete-warning-active-orders')
+    ).toBeNull();
+  });
+
+  // Regresión H-m10: reabrir el diálogo no debe conservar el nombre
+  // escrito ni dejar el submit pre-habilitado.
+  test('al cerrar y reabrir el diálogo el nombre de confirmación se resetea', async () => {
+    mockGetSummary.mockResolvedValue(SUMMARY);
+
+    render(
+      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+    );
+
+    fireEvent.click(screen.getByTestId('delete-branch-1'));
+    await screen.findByText(/Total de registros afectados:/);
+
+    fireEvent.change(
+      screen.getByPlaceholderText('Escribí "Centro" para confirmar'),
+      { target: { value: 'Centro' } }
+    );
+    expect(
+      screen.getByRole('button', { name: 'Eliminar definitivamente' })
+    ).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByPlaceholderText('Escribí "Centro" para confirmar')
+      ).toBeNull()
+    );
+
+    fireEvent.click(screen.getByTestId('delete-branch-1'));
+    await screen.findByText(/Total de registros afectados:/);
+
+    const input = screen.getByPlaceholderText(
+      'Escribí "Centro" para confirmar'
+    );
+    expect(input).toHaveValue('');
+    expect(
+      screen.getByRole('button', { name: 'Eliminar definitivamente' })
+    ).toBeDisabled();
   });
 });

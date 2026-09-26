@@ -251,7 +251,7 @@ describe('branchRepository', () => {
   });
 
   describe('countBranchDeletionImpact', () => {
-    test('devuelve conteos de entidades relacionadas', async () => {
+    test('devuelve conteos de entidades relacionadas y señales de riesgo', async () => {
       mockWhere
         .mockResolvedValueOnce([{ count: 5 }])
         .mockResolvedValueOnce([{ count: 1 }])
@@ -259,7 +259,9 @@ describe('branchRepository', () => {
         .mockResolvedValueOnce([{ count: 3 }])
         .mockResolvedValueOnce([{ count: 0 }])
         .mockResolvedValueOnce([{ count: 4 }])
-        .mockResolvedValueOnce([{ count: 1 }]);
+        .mockResolvedValueOnce([{ count: 1 }])
+        .mockResolvedValueOnce([{ count: 1 }])
+        .mockResolvedValueOnce([{ count: 2 }]);
 
       const result = await branchRepository.countBranchDeletionImpact(BRANCH_ID, [1, 2]);
 
@@ -272,11 +274,15 @@ describe('branchRepository', () => {
         recipes: 0,
         orders: 4,
         videos: 1,
+        openCashRegisters: 1,
+        activeOrders: 2,
       });
     });
 
     test('devuelve cero en recetas si no hay productos', async () => {
       mockWhere
+        .mockResolvedValueOnce([{ count: 0 }])
+        .mockResolvedValueOnce([{ count: 0 }])
         .mockResolvedValueOnce([{ count: 0 }])
         .mockResolvedValueOnce([{ count: 0 }])
         .mockResolvedValueOnce([{ count: 0 }])
@@ -295,7 +301,73 @@ describe('branchRepository', () => {
         recipes: 0,
         orders: 0,
         videos: 0,
+        openCashRegisters: 0,
+        activeOrders: 0,
       });
+    });
+  });
+
+  describe('countDeletionCascadeChildren', () => {
+    test('cuenta los registros hijos que borra la cascada', async () => {
+      mockWhere
+        // ids de ventas y pedidos de la sucursal
+        .mockResolvedValueOnce([{ id: 10 }, { id: 11 }])
+        .mockResolvedValueOnce([{ id: 20 }])
+        // ids de ítems (un nivel abajo: las recetas cuelgan de ellos)
+        .mockResolvedValueOnce([{ id: 30 }])
+        .mockResolvedValueOnce([{ id: 40 }, { id: 41 }])
+        // conteos por tabla hija
+        .mockResolvedValueOnce([{ count: 3 }])
+        .mockResolvedValueOnce([{ count: 2 }])
+        .mockResolvedValueOnce([{ count: 1 }])
+        .mockResolvedValueOnce([{ count: 4 }])
+        .mockResolvedValueOnce([{ count: 5 }])
+        .mockResolvedValueOnce([{ count: 6 }])
+        .mockResolvedValueOnce([{ count: 7 }]);
+
+      const result =
+        await branchRepository.countDeletionCascadeChildren(BRANCH_ID);
+
+      expect(result).toEqual({
+        saleItems: 3,
+        salePayments: 2,
+        saleItemRecipes: 1,
+        orderItems: 4,
+        orderItemRecipes: 5,
+        orderMessages: 6,
+        orderStockReservations: 7,
+      });
+    });
+
+    test('salta las consultas de hijos cuando no hay ventas ni pedidos', async () => {
+      mockWhere
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        // solo las reservas se consultan siempre (por branchId directo)
+        .mockResolvedValueOnce([{ count: 0 }]);
+
+      const result =
+        await branchRepository.countDeletionCascadeChildren(BRANCH_ID);
+
+      expect(result).toEqual({
+        saleItems: 0,
+        salePayments: 0,
+        saleItemRecipes: 0,
+        orderItems: 0,
+        orderItemRecipes: 0,
+        orderMessages: 0,
+        orderStockReservations: 0,
+      });
+    });
+  });
+
+  describe('countBranches', () => {
+    test('cuenta el total de sucursales', async () => {
+      mockFrom.mockReturnValueOnce([{ count: 2 }]);
+
+      const result = await branchRepository.countBranches();
+
+      expect(result).toBe(2);
     });
   });
 

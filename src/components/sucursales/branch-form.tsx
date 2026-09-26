@@ -4,6 +4,7 @@ import {
   useState,
   useRef,
   useCallback,
+  useEffect,
   useMemo,
   useTransition,
 } from 'react';
@@ -171,6 +172,18 @@ export function BranchForm({
 
   const isEditing = !!branch;
 
+  // Al entrar en modo edición el formulario puede quedar fuera de la vista
+  // (la tabla va primero): se lleva el scroll y el foco al nombre para que
+  // quede claro qué sucursal se está editando.
+  useEffect(() => {
+    if (!branch) return;
+    formRef.current?.scrollIntoView({ block: 'start' });
+    const nameField = formRef.current?.elements.namedItem('name');
+    if (nameField instanceof HTMLElement) {
+      nameField.focus({ preventScroll: true });
+    }
+  }, [branch]);
+
   function getSlotsForDay(dayOfWeek: number): Slot[] {
     return openingHours
       .filter((slot) => slot.dayOfWeek === dayOfWeek)
@@ -300,9 +313,18 @@ export function BranchForm({
       ref={formRef}
       onSubmit={handleSubmit}
       data-testid="branch-form"
-      className="max-w-md space-y-5"
+      className="max-w-md scroll-mt-20 space-y-5"
     >
       {isEditing && <input type="hidden" name="id" value={branch.id} />}
+
+      {/* Título de modo: con la tabla primero, la edición necesita contexto
+          visible de qué sucursal se está modificando. */}
+      <h2
+        data-testid="branch-form-heading"
+        className="text-lg font-semibold tracking-tight"
+      >
+        {isEditing ? `Editar: ${branch.name}` : 'Crear sucursal'}
+      </h2>
 
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la sucursal</Label>
@@ -317,8 +339,15 @@ export function BranchForm({
           placeholder="Ej: Sucursal Centro"
           data-testid="branch-name"
           aria-invalid={showNameError}
-          aria-describedby={showNameError ? 'branch-name-error' : undefined}
+          aria-describedby={
+            showNameError
+              ? 'branch-name-error branch-name-help'
+              : 'branch-name-help'
+          }
         />
+        <p id="branch-name-help" className="text-sm text-muted-foreground">
+          Se muestra en el catálogo público y debe ser único.
+        </p>
         {showNameError && (
           <p
             id="branch-name-error"
@@ -350,7 +379,12 @@ export function BranchForm({
           defaultValue={branch?.address ?? ''}
           placeholder="Ej: Av. Pellegrini 1234, Rosario"
           data-testid="branch-address"
+          aria-describedby="branch-address-help"
         />
+        <p id="branch-address-help" className="text-sm text-muted-foreground">
+          Se muestra en la tarjeta del catálogo y como dirección de retiro en
+          los pedidos con entrega &quot;retiro en el local&quot;.
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -623,7 +657,10 @@ export function BranchForm({
           sucursal atiende pedidos. Si el cierre es menor que la apertura, la
           franja termina al día siguiente (ej. 20:00 a 02:00). Podés copiar
           las franjas de un día y pegarlas en otro con los botones
-          &quot;Copiar&quot;/&quot;Pegar&quot;.
+          &quot;Copiar&quot;/&quot;Pegar&quot;. Alimentan el estado
+          abierto/cerrado del catálogo y los avisos de caja por turnos; si la
+          sucursal no tiene horarios, el canal público la considera abierta
+          siempre que haya una caja abierta.
         </p>
         {hoursError && (
           <p

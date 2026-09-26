@@ -14,6 +14,7 @@ import { deleteChatAttachment } from '@/lib/chat-storage';
 import { deleteVideoFileByUrl } from '@/lib/storage';
 import { isValidLocationUrl, tryBuildLocationUrl } from '@/lib/maps';
 import { getCachedBranchById } from '@/lib/server-cache';
+import { getDefaultBranchName } from '@/config/branch';
 import type { Branch, BranchOpeningHours } from '@/domain/types';
 
 /**
@@ -142,32 +143,74 @@ export async function updateBranch(id: number, input: BranchInput) {
   return updated as Branch;
 }
 
-export async function getBranchDeletionSummary(id: number) {
+/**
+ * Resumen de impacto para el diálogo de eliminación. Además de los conteos
+ * por tabla incluye `flags` con los escenarios de mayor daño (sucursal por
+ * defecto del catálogo, cuenta del propio admin, caja abierta, pedidos en
+ * curso, última sucursal) para que el aviso sea específico, no solo un
+ * conteo genérico.
+ *
+ * `currentUserBranchId` es el `branchId` asignado al usuario autenticado
+ * (ya revalidado por `requireAdmin` en la action), no la sucursal activa de
+ * la cookie: es el dato que determina el riesgo de lockout.
+ */
+export async function getBranchDeletionSummary(
+  id: number,
+  currentUserBranchId?: number
+) {
   const branch = await branchRepository.findById(id);
 
   if (!branch) {
     throw new NotFoundError('Sucursal', id);
   }
 
-  const productIds = await branchRepository.findProductIdsByBranch(id);
-  const counts = await branchRepository.countBranchDeletionImpact(
-    id,
-    productIds
-  );
+  const [productIds, cascaded, branchCount] = await Promise.all([
+    branchRepository.findProductIdsByBranch(id),
+    branchRepository.countDeletionCascadeChildren(id),
+    branchRepository.countBranches(),
+  ]);
+  const { openCashRegisters, activeOrders, ...topCounts } =
+    await branchRepository.countBranchDeletionImpact(id, productIds);
+
+  const cascadedTotal =
+    cascaded.saleItems +
+    cascaded.salePayments +
+    cascaded.saleItemRecipes +
+    cascaded.orderItems +
+    cascaded.orderItemRecipes +
+    cascaded.orderMessages +
+    cascaded.orderStockReservations;
+
+  const topTotal =
+    topCounts.products +
+    topCounts.sales +
+    topCounts.cashRegisters +
+    topCounts.stockMovements +
+    topCounts.users +
+    topCounts.recipes +
+    topCounts.orders +
+    topCounts.videos;
+
+  // Mismo criterio que `getDefaultBranchId` (`findByName`): igualdad exacta
+  // case-sensitive, no la unicidad case-insensitive de create/update.
+  const defaultBranchName = getDefaultBranchName();
 
   return {
-    branch: branch as Branch,
+    // El diálogo solo muestra el nombre (además del prop que ya recibe):
+    // serializar el Branch completo era over-fetch (H-m13).
+    branch: { id: branch.id, name: branch.name },
     counts: {
-      ...counts,
-      total:
-        counts.products +
-        counts.sales +
-        counts.cashRegisters +
-        counts.stockMovements +
-        counts.users +
-        counts.recipes +
-        counts.orders +
-        counts.videos,
+      ...topCounts,
+      cascaded: cascadedTotal,
+      total: topTotal + cascadedTotal,
+    },
+    flags: {
+      isDefaultBranch:
+        !!defaultBranchName && branch.name === defaultBranchName,
+      isSelfBranch: currentUserBranchId === branch.id,
+      isLastBranch: branchCount === 1,
+      hasOpenCashRegister: openCashRegisters > 0,
+      activeOrders,
     },
   };
 }

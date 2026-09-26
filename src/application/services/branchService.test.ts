@@ -437,7 +437,8 @@ describe('branchService', () => {
 
       const result = await getBranchDeletionSummary(1);
 
-      expect(result.branch).toEqual({ id: 1, name: 'Sucursal A', openingHours: [] });
+      // El diálogo solo consume id/name: no se serializa el Branch completo.
+      expect(result.branch).toEqual({ id: 1, name: 'Sucursal A' });
       expect(result.counts).toMatchObject({
         products: 0,
         sales: 0,
@@ -445,8 +446,83 @@ describe('branchService', () => {
         stockMovements: 0,
         users: 0,
         recipes: 0,
+        orders: 0,
+        videos: 0,
+        cascaded: 0,
         total: 0,
       });
+      expect(result.flags).toEqual({
+        isDefaultBranch: false,
+        isSelfBranch: false,
+        isLastBranch: false,
+        hasOpenCashRegister: false,
+        activeOrders: 0,
+      });
+    });
+
+    test('marca los flags de riesgo del escenario destructivo', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        openingHours: [],
+      });
+      jest
+        .spyOn(branchRepository, 'findProductIdsByBranch')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(branchRepository, 'countDeletionCascadeChildren')
+        .mockResolvedValue({
+          saleItems: 0,
+          salePayments: 0,
+          saleItemRecipes: 0,
+          orderItems: 0,
+          orderItemRecipes: 0,
+          orderMessages: 0,
+          orderStockReservations: 0,
+        });
+      jest.spyOn(branchRepository, 'countBranches').mockResolvedValue(1);
+      jest
+        .spyOn(branchRepository, 'countBranchDeletionImpact')
+        .mockResolvedValue({
+          products: 0,
+          sales: 0,
+          cashRegisters: 1,
+          stockMovements: 0,
+          users: 1,
+          recipes: 0,
+          orders: 3,
+          videos: 0,
+          openCashRegisters: 1,
+          activeOrders: 2,
+        });
+
+      process.env.DEFAULT_BRANCH_NAME = 'Sucursal A';
+      try {
+        // currentUserBranchId === id de la sucursal: la propia cuenta.
+        const result = await getBranchDeletionSummary(1, 1);
+
+        expect(result.flags).toEqual({
+          isDefaultBranch: true,
+          isSelfBranch: true,
+          isLastBranch: true,
+          hasOpenCashRegister: true,
+          activeOrders: 2,
+        });
+      } finally {
+        delete process.env.DEFAULT_BRANCH_NAME;
+      }
+    });
+
+    test('isSelfBranch es falso si la sucursal no es la del usuario', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        openingHours: [],
+      });
+
+      const result = await getBranchDeletionSummary(1, 2);
+
+      expect(result.flags.isSelfBranch).toBe(false);
     });
 
     test('lanza NotFoundError para una sucursal inexistente', async () => {

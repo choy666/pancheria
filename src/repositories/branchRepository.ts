@@ -1,13 +1,18 @@
-import { and, count, eq, inArray, not, or, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, not, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   branches,
   cashRegisters,
+  orderItemRecipes,
+  orderItems,
   orderMessages,
   orders,
+  orderStockReservations,
   products,
   recipes,
+  saleItemRecipes,
   saleItems,
+  salePayments,
   sales,
   stockMovements,
   users,
@@ -139,6 +144,8 @@ export async function countBranchDeletionImpact(
     recipeCount,
     orderCount,
     videoCount,
+    openCashRegisterCount,
+    activeOrderCount,
   ] = await Promise.all([
     db
       .select({ count: count() })
@@ -182,6 +189,30 @@ export async function countBranchDeletionImpact(
       .from(videos)
       .where(eq(videos.branchId, branchId))
       .then((rows) => rows[0]?.count ?? 0),
+    // Señales de riesgo para el diálogo de eliminación: una caja abierta o
+    // pedidos en curso implican trabajo activo que la cascada borra.
+    db
+      .select({ count: count() })
+      .from(cashRegisters)
+      .where(
+        and(
+          eq(cashRegisters.branchId, branchId),
+          eq(cashRegisters.status, 'open'),
+          isNull(cashRegisters.deletedAt)
+        )
+      )
+      .then((rows) => rows[0]?.count ?? 0),
+    db
+      .select({ count: count() })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.branchId, branchId),
+          inArray(orders.status, ['pending', 'in_process']),
+          isNull(orders.deletedAt)
+        )
+      )
+      .then((rows) => rows[0]?.count ?? 0),
   ]);
 
   return {
@@ -193,7 +224,119 @@ export async function countBranchDeletionImpact(
     recipes: recipeCount,
     orders: orderCount,
     videos: videoCount,
+    openCashRegisters: openCashRegisterCount,
+    activeOrders: activeOrderCount,
   };
+}
+
+/**
+ * Cuenta los registros hijos que la cascada de borrado elimina vía
+ * `ON DELETE CASCADE` (ítems, pagos, recetas aplicadas, mensajes y
+ * reservas). `countBranchDeletionImpact` informa solo las entidades de
+ * primer nivel; sin esta suma el total del resumen subestima el daño real.
+ */
+export async function countDeletionCascadeChildren(branchId: number) {
+  const [saleRows, orderIds] = await Promise.all([
+    db
+      .select({ id: sales.id })
+      .from(sales)
+      .where(eq(sales.branchId, branchId)),
+    findOrderIdsByBranch(branchId),
+  ]);
+  const saleIds = saleRows.map((row) => row.id);
+
+  // Las recetas aplicadas cuelgan de los ítems, no de la venta o el pedido:
+  // hay que resolver los ids de ítems un nivel antes para contarlas.
+  const [saleItemRows, orderItemRows] = await Promise.all([
+    saleIds.length > 0
+      ? db
+          .select({ id: saleItems.id })
+          .from(saleItems)
+          .where(inArray(saleItems.saleId, saleIds))
+      : Promise.resolve([]),
+    orderIds.length > 0
+      ? db
+          .select({ id: orderItems.id })
+          .from(orderItems)
+          .where(inArray(orderItems.orderId, orderIds))
+      : Promise.resolve([]),
+  ]);
+  const saleItemIds = saleItemRows.map((row) => row.id);
+  const orderItemIds = orderItemRows.map((row) => row.id);
+
+  const [
+    saleItemCount,
+    salePaymentCount,
+    saleItemRecipeCount,
+    orderItemCount,
+    orderItemRecipeCount,
+    orderMessageCount,
+    orderStockReservationCount,
+  ] = await Promise.all([
+    saleIds.length > 0
+      ? db
+          .select({ count: count() })
+          .from(saleItems)
+          .where(inArray(saleItems.saleId, saleIds))
+          .then((rows) => rows[0]?.count ?? 0)
+      : Promise.resolve(0),
+    saleIds.length > 0
+      ? db
+          .select({ count: count() })
+          .from(salePayments)
+          .where(inArray(salePayments.saleId, saleIds))
+          .then((rows) => rows[0]?.count ?? 0)
+      : Promise.resolve(0),
+    saleItemIds.length > 0
+      ? db
+          .select({ count: count() })
+          .from(saleItemRecipes)
+          .where(inArray(saleItemRecipes.saleItemId, saleItemIds))
+          .then((rows) => rows[0]?.count ?? 0)
+      : Promise.resolve(0),
+    orderIds.length > 0
+      ? db
+          .select({ count: count() })
+          .from(orderItems)
+          .where(inArray(orderItems.orderId, orderIds))
+          .then((rows) => rows[0]?.count ?? 0)
+      : Promise.resolve(0),
+    orderItemIds.length > 0
+      ? db
+          .select({ count: count() })
+          .from(orderItemRecipes)
+          .where(inArray(orderItemRecipes.orderItemId, orderItemIds))
+          .then((rows) => rows[0]?.count ?? 0)
+      : Promise.resolve(0),
+    orderIds.length > 0
+      ? db
+          .select({ count: count() })
+          .from(orderMessages)
+          .where(inArray(orderMessages.orderId, orderIds))
+          .then((rows) => rows[0]?.count ?? 0)
+      : Promise.resolve(0),
+    // Las reservas tienen branchId propio: se cuentan directo, sin join.
+    db
+      .select({ count: count() })
+      .from(orderStockReservations)
+      .where(eq(orderStockReservations.branchId, branchId))
+      .then((rows) => rows[0]?.count ?? 0),
+  ]);
+
+  return {
+    saleItems: saleItemCount,
+    salePayments: salePaymentCount,
+    saleItemRecipes: saleItemRecipeCount,
+    orderItems: orderItemCount,
+    orderItemRecipes: orderItemRecipeCount,
+    orderMessages: orderMessageCount,
+    orderStockReservations: orderStockReservationCount,
+  };
+}
+
+export async function countBranches() {
+  const rows = await db.select({ count: count() }).from(branches);
+  return rows[0]?.count ?? 0;
 }
 
 /**

@@ -30,20 +30,11 @@ interface BranchActionsProps {
   onEdit: () => void;
 }
 
-interface DeletionSummary {
-  branch: { id: number; name: string };
-  counts: {
-    products: number;
-    sales: number;
-    cashRegisters: number;
-    stockMovements: number;
-    users: number;
-    recipes: number;
-    orders: number;
-    videos: number;
-    total: number;
-  };
-}
+// El tipo se infiere de la action para que el contrato con el servidor no
+// se duplique ni quede desactualizado.
+type DeletionSummary = Awaited<
+  ReturnType<typeof getBranchDeletionSummaryAction>
+>;
 
 export function BranchActions({
   branchId,
@@ -59,7 +50,6 @@ export function BranchActions({
   const [confirmName, setConfirmName] = useState('');
   const [isLoadingSummary, startLoadingSummary] = useTransition();
   const hasSubmittedRef = useRef(false);
-  const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const [dismissed, setDismissed] = useState<BranchState>(null);
   const submitError =
     state?.error && state !== dismissed ? state.error : null;
@@ -93,8 +83,10 @@ export function BranchActions({
     setIsDialogOpen(open);
     if (!open) {
       // Descarta un error de submit anterior para que no reaparezca
-      // en la próxima apertura del diálogo.
+      // en la próxima apertura del diálogo, y resetea la confirmación:
+      // reabrir no debe dejar "Eliminar definitivamente" ya habilitado.
       setDismissed(state);
+      setConfirmName('');
     }
   }
 
@@ -107,7 +99,6 @@ export function BranchActions({
       </Button>
 
       <Button
-        ref={deleteButtonRef}
         type="button"
         data-testid={`delete-branch-${branchId}`}
         variant="ghost"
@@ -132,12 +123,87 @@ export function BranchActions({
                 acción borrará permanentemente los siguientes datos:
               </p>
 
+              {summary &&
+                (summary.flags.isDefaultBranch ||
+                  summary.flags.isSelfBranch ||
+                  summary.flags.isLastBranch ||
+                  summary.flags.hasOpenCashRegister ||
+                  summary.flags.activeOrders > 0) && (
+                <ul
+                  className="space-y-2"
+                  data-testid="branch-delete-warnings"
+                >
+                  {summary.flags.isLastBranch && (
+                    <li
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive"
+                      data-testid="branch-delete-warning-last"
+                    >
+                      Es la última sucursal registrada: al eliminarla el
+                      sistema queda sin ninguna sucursal.
+                    </li>
+                  )}
+                  {summary.flags.isSelfBranch && (
+                    <li
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive"
+                      data-testid="branch-delete-warning-self"
+                    >
+                      Tu cuenta pertenece a esta sucursal: eliminarla borra tu
+                      usuario y perdés acceso al panel.
+                    </li>
+                  )}
+                  {summary.flags.isDefaultBranch && (
+                    <li
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive"
+                      data-testid="branch-delete-warning-default"
+                    >
+                      Es la sucursal por defecto del catálogo público:{' '}
+                      <code>/pedido</code> deja de resolver su URL canónica
+                      hasta configurar <code>DEFAULT_BRANCH_NAME</code> con
+                      otro nombre.
+                    </li>
+                  )}
+                  {summary.flags.hasOpenCashRegister && (
+                    <li
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive"
+                      data-testid="branch-delete-warning-open-register"
+                    >
+                      Tiene una caja abierta: se eliminan las ventas y el
+                      arqueo en curso.
+                    </li>
+                  )}
+                  {summary.flags.activeOrders > 0 && (
+                    <li
+                      className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-destructive"
+                      data-testid="branch-delete-warning-active-orders"
+                    >
+                      Tiene {summary.flags.activeOrders}{' '}
+                      {summary.flags.activeOrders === 1
+                        ? 'pedido en curso'
+                        : 'pedidos en curso'}{' '}
+                      (pendiente{summary.flags.activeOrders === 1 ? '' : 's'} o
+                      en preparación) que{' '}
+                      {summary.flags.activeOrders === 1
+                        ? 'se elimina'
+                        : 'se eliminan'}{' '}
+                      con la sucursal.
+                    </li>
+                  )}
+                </ul>
+              )}
+
               {summary ? (
                 <ul className="space-y-1 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm">
                   <li>
                     <strong>Total de registros afectados:</strong>{' '}
                     {summary.counts.total}
                   </li>
+                  {summary.counts.cascaded > 0 && (
+                    <li className="text-xs">
+                      Incluye {summary.counts.cascaded} registros asociados
+                      en cascada (ítems y pagos de ventas; ítems, recetas,
+                      mensajes y reservas de pedidos).
+                    </li>
+                  )}
                   {summary.counts.products > 0 && (
                     <li>Productos: {summary.counts.products}</li>
                   )}

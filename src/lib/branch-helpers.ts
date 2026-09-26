@@ -348,6 +348,42 @@ export function getCurrentOrNextOpening(
   return `${label} de ${slot.open} a ${slot.close}`;
 }
 
+/**
+ * Estado operativo de la sucursal para la tabla del panel. Refleja solo los
+ * horarios cargados (`in_hours` / `closed` / `no_hours`); el canal público
+ * además exige una caja abierta y, sin horarios, la considera abierta
+ * siempre que la caja lo esté — esa divergencia se rotula en la UI.
+ */
+export type BranchOperationalStatus = {
+  state: 'in_hours' | 'closed' | 'no_hours';
+  detail: string;
+};
+
+export function getBranchOperationalStatus(
+  branch: Branch,
+  now: Date = new Date()
+): BranchOperationalStatus {
+  if (!branch.openingHours || branch.openingHours.length === 0) {
+    return {
+      state: 'no_hours',
+      detail: 'Sin horarios de apertura configurados.',
+    };
+  }
+
+  if (isBranchOpen(branch, now)) {
+    return { state: 'in_hours', detail: getTodayOpening(branch, now) };
+  }
+
+  const next = getNextOpening(branch, now);
+  // `getNextOpening` devuelve "Hoy/Mañana/{día} de HH:mm a HH:mm" con la
+  // inicial en mayúscula; en minúscula queda natural tras "Abre".
+  const detail =
+    next === 'No hay horarios de apertura configurados.'
+      ? next
+      : `Abre ${next.charAt(0).toLowerCase()}${next.slice(1)}`;
+  return { state: 'closed', detail };
+}
+
 export function formatOpeningHours(hours: BranchOpeningHours[]): string {
   if (!hours || hours.length === 0) return 'Sin horarios configurados';
 
