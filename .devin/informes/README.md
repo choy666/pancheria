@@ -12,7 +12,9 @@
 
 ## Tickets abiertos
 
-Ninguno al 2026-09-23 — los últimos (QA ronda 2 y CI base compartida) mergearon y se archivaron.
+- [auditoria-ux-sucursales-2026-09-26.md](auditoria-ux-sucursales-2026-09-26.md) — auditoría documental de `/sucursales` (jerarquía invertida formulario↔inventario, estado operativo por fila, refuerzo del diálogo de eliminación: sucursal por defecto, lockout de la propia cuenta, caja abierta, resumen falso en cero si falla la consulta, renombrado del default) + propuesta de rediseño en dos tramos. **Estado:** abierto — implementación parcial (resueltos H-M5, H-m9 y A8 el 2026-09-26; cambios en el working tree sin commit); quedan H-C1 puntos 1-3 (flags del diálogo de eliminación, con decisión del usuario sobre bloqueos) y los Tramos A/B de rediseño. Revisado en v3: afirmaciones re-verificadas contra el código post-implementación; menores nuevos H-m10–H-m13 absorbidos por A7.
+
+Ningún otro ticket al 2026-09-26 — los últimos (QA ronda 2 y CI base compartida) mergearon y se archivaron.
 
 > Cuando un PR mergea, su informe se archiva y `reporte-estado.md` §0 se actualiza.
 

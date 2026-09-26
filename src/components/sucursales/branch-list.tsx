@@ -19,10 +19,19 @@ import {
 
 interface BranchListProps {
   branches: Branch[];
+  defaultBranchName?: string;
 }
 
-export function BranchList({ branches }: BranchListProps) {
+export function BranchList({ branches, defaultBranchName }: BranchListProps) {
   const [editingBranch, setEditingBranch] = useState<Branch | undefined>();
+
+  // Igualdad exacta, igual que `getDefaultBranchId` (`findByName`,
+  // case-sensitive): si el nombre coincide, renombrarla dejaría /pedido
+  // sin sucursal canónica y el formulario lo advierte.
+  const editingDefaultBranch =
+    !!editingBranch &&
+    !!defaultBranchName &&
+    editingBranch.name === defaultBranchName;
 
   return (
     <div data-tour="branches-table" className="space-y-5">
@@ -30,6 +39,7 @@ export function BranchList({ branches }: BranchListProps) {
         <BranchForm
           key={editingBranch?.id ?? 'create'}
           branch={editingBranch}
+          isDefaultBranch={editingDefaultBranch}
           onCancel={() => setEditingBranch(undefined)}
           createBranchAction={createBranch}
           updateBranchAction={updateBranchAction}

@@ -58,6 +58,8 @@ const DAYS = [
 interface BranchFormProps {
   branch?: Branch;
   onCancel?: () => void;
+  /** La sucursal en edición es la que resuelve `/pedido` por defecto. */
+  isDefaultBranch?: boolean;
   createBranchAction: (
     _prevState: BranchState,
     formData: FormData
@@ -75,6 +77,7 @@ function generateSlotId(): string {
 export function BranchForm({
   branch,
   onCancel,
+  isDefaultBranch = false,
   createBranchAction,
   updateBranchAction,
 }: BranchFormProps) {
@@ -324,6 +327,16 @@ export function BranchForm({
             data-testid="branch-name-error"
           >
             El nombre de la sucursal es obligatorio.
+          </p>
+        )}
+        {isEditing && isDefaultBranch && (
+          <p
+            className="text-sm text-amber-400"
+            data-testid="branch-default-name-warning"
+          >
+            Esta es la sucursal por defecto del catálogo público. Si cambiás
+            el nombre, <code>/pedido</code> deja de resolver la URL canónica
+            hasta actualizar <code>DEFAULT_BRANCH_NAME</code>.
           </p>
         )}
       </div>

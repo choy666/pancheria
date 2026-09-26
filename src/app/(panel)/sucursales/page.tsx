@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
+import { getDefaultBranchName } from '@/config/branch';
 import * as branchService from '@/application/services/branchService';
 import { BranchList } from '@/components/sucursales/branch-list';
 
@@ -24,12 +25,16 @@ export default async function SucursalesPage() {
   }
 
   const branches = await branchService.listBranches();
+  // Se pasa el nombre (no un flag por fila) para que la comparación quede
+  // junto a la sucursal en edición, con el mismo match exacto que usa
+  // `getDefaultBranchId` (`findByName`, case-sensitive).
+  const defaultBranchName = getDefaultBranchName();
 
   return (
     <div className="space-y-5">
       <h1 data-tour="branches-header" className="text-2xl font-semibold tracking-tight">Sucursales</h1>
 
-      <BranchList branches={branches} />
+      <BranchList branches={branches} defaultBranchName={defaultBranchName} />
     </div>
   );
 }

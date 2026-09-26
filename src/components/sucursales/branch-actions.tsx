@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -62,7 +61,8 @@ export function BranchActions({
   const hasSubmittedRef = useRef(false);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const [dismissed, setDismissed] = useState<BranchState>(null);
-  const isErrorDialogOpen = !!state?.error && state !== dismissed;
+  const submitError =
+    state?.error && state !== dismissed ? state.error : null;
 
   useEffect(() => {
     if (hasSubmittedRef.current && !isPending && state === null) {
@@ -73,33 +73,32 @@ export function BranchActions({
     }
   }, [isPending, state]);
 
-  function handleOpenDelete() {
+  // El diálogo solo se abre una vez resuelta o fallida la consulta: un
+  // `summary` nulo dentro del diálogo significa que falló la consulta, en
+  // cuyo caso se muestra el error con opción de reintento. No se fabrica un
+  // resumen en cero porque informaría falsamente que no hay datos asociados.
+  function loadSummary() {
     startLoadingSummary(async () => {
       try {
         const result = await getBranchDeletionSummaryAction(branchId);
         setSummary(result);
-        setIsDialogOpen(true);
       } catch {
-        setSummary({
-          branch: { id: branchId, name: branchName },
-          counts: {
-            products: 0,
-            sales: 0,
-            cashRegisters: 0,
-            stockMovements: 0,
-            users: 0,
-            recipes: 0,
-            orders: 0,
-            videos: 0,
-            total: 0,
-          },
-        });
-        setIsDialogOpen(true);
+        setSummary(null);
       }
+      setIsDialogOpen(true);
     });
   }
 
-  const canConfirm = confirmName.trim() === branchName;
+  function handleDialogOpenChange(open: boolean) {
+    setIsDialogOpen(open);
+    if (!open) {
+      // Descarta un error de submit anterior para que no reaparezca
+      // en la próxima apertura del diálogo.
+      setDismissed(state);
+    }
+  }
+
+  const canConfirm = !!summary && confirmName.trim() === branchName;
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
@@ -115,12 +114,12 @@ export function BranchActions({
         size="sm"
         disabled={isLoadingSummary}
         className="text-destructive hover:text-destructive"
-        onClick={handleOpenDelete}
+        onClick={loadSummary}
       >
         {isLoadingSummary ? 'Cargando...' : 'Eliminar'}
       </Button>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-destructive">
@@ -168,77 +167,92 @@ export function BranchActions({
                   )}
                 </ul>
               ) : (
-                <p className="text-muted-foreground">
-                  No se pudo cargar el resumen.
-                </p>
+                <div className="space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm">
+                  <p className="text-destructive" role="alert">
+                    No se pudo cargar el resumen de registros asociados. Sin
+                    el resumen no se puede confirmar la eliminación.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={loadSummary}
+                      disabled={isLoadingSummary}
+                    >
+                      {isLoadingSummary ? 'Cargando...' : 'Reintentar'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDialogOpenChange(false)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
               )}
 
-              <p className="text-destructive">
-                Esta acción no se puede deshacer. Para confirmar, escribí el
-                nombre exacto de la sucursal.
-              </p>
+              {summary && (
+                <>
+                  <p className="text-destructive">
+                    Esta acción no se puede deshacer. Para confirmar, escribí
+                    el nombre exacto de la sucursal.
+                  </p>
 
-              <form
-                action={formAction}
-                onSubmit={() => {
-                  hasSubmittedRef.current = true;
-                }}
-                className="space-y-4"
-              >
-                <input type="hidden" name="id" value={branchId} />
-                <input
-                  type="hidden"
-                  name="confirmBranchName"
-                  value={confirmName.trim()}
-                />
-                <Input
-                  name="confirmName"
-                  value={confirmName}
-                  onChange={(e) => setConfirmName(e.target.value)}
-                  placeholder={`Escribí "${branchName}" para confirmar`}
-                  autoComplete="off"
-                />
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
+                  <form
+                    action={formAction}
+                    onSubmit={() => {
+                      hasSubmittedRef.current = true;
+                    }}
+                    className="space-y-4"
                   >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="destructive"
-                    disabled={!canConfirm || isPending}
-                  >
-                    {isPending ? 'Eliminando...' : 'Eliminar definitivamente'}
-                  </Button>
-                </DialogFooter>
-              </form>
+                    <input type="hidden" name="id" value={branchId} />
+                    <input
+                      type="hidden"
+                      name="confirmBranchName"
+                      value={confirmName.trim()}
+                    />
+                    <Input
+                      name="confirmName"
+                      value={confirmName}
+                      onChange={(e) => setConfirmName(e.target.value)}
+                      placeholder={`Escribí "${branchName}" para confirmar`}
+                      autoComplete="off"
+                    />
+                    {submitError && (
+                      <p
+                        role="alert"
+                        className="text-sm text-destructive"
+                        data-testid="branch-delete-error"
+                      >
+                        {submitError}
+                      </p>
+                    )}
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleDialogOpenChange(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="destructive"
+                        disabled={!canConfirm || isPending}
+                      >
+                        {isPending
+                          ? 'Eliminando...'
+                          : 'Eliminar definitivamente'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </>
+              )}
             </div>
           </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={isErrorDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDismissed(state);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>No se pudo eliminar</DialogTitle>
-          </DialogHeader>
-          <DialogDescription
-            role="alert"
-            aria-live="polite"
-            className="pt-4 text-base text-destructive"
-          >
-            {state?.error}
-          </DialogDescription>
-        </DialogContent>
       </Dialog>
     </div>
   );
