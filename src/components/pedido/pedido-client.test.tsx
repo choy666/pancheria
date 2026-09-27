@@ -757,7 +757,7 @@ describe('PedidoClient', () => {
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Cerrar'));
+        fireEvent.click(screen.getByTestId('order-success-close'));
         await Promise.resolve();
       });
 
@@ -776,7 +776,7 @@ describe('PedidoClient', () => {
       );
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Cerrar'));
+        fireEvent.click(screen.getByTestId('order-success-close'));
         await Promise.resolve();
       });
 

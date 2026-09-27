@@ -32,7 +32,7 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByTestId('order-success-close').click();
 
     await page.goto('/pedidos');
     await expect(page.getByText(customerName)).toBeVisible({ timeout: 10000 });
@@ -71,7 +71,7 @@ test.describe('Confirmación y cancelación de pedidos desde el panel', () => {
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByTestId('order-success-close').click();
 
     await page.goto('/pedidos');
     await expect(page.getByText(customerName)).toBeVisible({ timeout: 10000 });

@@ -43,7 +43,7 @@ test.describe('Flujo completo de reserva, pago y finalización', () => {
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByText(/se creó correctamente/)).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByTestId('order-success-close').click();
 
     // El pedido pending no reserva stock: la disponibilidad sigue igual.
     await page.goto('/pedido');

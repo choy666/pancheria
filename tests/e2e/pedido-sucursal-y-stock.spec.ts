@@ -189,7 +189,7 @@ test.describe('Pedido público con sucursal y stock aislado', () => {
     await expect(page.getByTestId('order-success-description')).toBeVisible();
 
     // Cerrar el diálogo para poder seguir navegando.
-    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByTestId('order-success-close').click();
     await expect(page.getByTestId('order-success-description')).not.toBeVisible();
 
     // El pedido pending no reserva stock: la disponibilidad sigue igual.

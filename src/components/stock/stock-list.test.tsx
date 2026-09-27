@@ -402,7 +402,7 @@ describe('StockList', () => {
 
     await waitFor(() => expect(screen.getByText('Ajustar stock: Pan')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
 
     await waitFor(() => expect(screen.queryByText('Ajustar stock: Pan')).not.toBeInTheDocument());
   });
@@ -431,7 +431,7 @@ describe('StockList', () => {
 
     await waitFor(() => expect(screen.getByText('Historial de stock')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
 
     await waitFor(() => expect(screen.queryByText('Historial de stock')).not.toBeInTheDocument());
   });

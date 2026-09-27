@@ -301,6 +301,7 @@ export function PedidoSuccessDialog({
           <Button
             type="button"
             variant="outline"
+            data-testid="order-success-close"
             onClick={() => onOpenChange(false)}
             className="w-full sm:w-auto"
           >
