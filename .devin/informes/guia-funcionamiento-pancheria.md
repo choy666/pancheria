@@ -526,7 +526,7 @@ Disponibilidad = infinita.
 | `LOGIN_RATE_LIMIT_*` | Rate limit de login por usuario | `5` intentos, `15` min |
 | `LOGIN_IP_RATE_LIMIT_*` | Rate limit de login por IP (anti password spraying) | `20` intentos, `15` min |
 | `LOGIN_ATTEMPTS_RETENTION_MS` (solo servidor) | Retención de `login_attempts` | `7` días |
-| `SEED_RESET_ADMIN_PASSWORD` (solo servidor) | Gate para que el seed pise la contraseña de un admin existente en producción | deshabilitado (requiere `1`) |
+| `SEED_RESET_ADMIN_PASSWORD` (solo servidor) | Gate para que el seed pise la contraseña de un admin existente (cualquier entorno) | deshabilitado (requiere `1`) |
 | `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
 | `CRON_SECRET` | Protección de endpoints de cron | — |
 
@@ -598,7 +598,7 @@ Disponibilidad = infinita.
 
 - [ ] Configurar `NEXTAUTH_URL` y `NEXTAUTH_SECRET` en Vercel.
 - [ ] Configurar `DATABASE_URL` y `DATABASE_URL_UNPOOLED` con base de producción.
-- [ ] Ejecutar `npx drizzle-kit migrate` y `npx tsx src/db/seeds.ts` en producción (ver `entornos.md`; si se usó `push`, correr `npx tsx scripts/drizzle-baseline.ts`). El seed crea el admin si no existe; en producción **no** pisa la contraseña de un admin existente salvo `SEED_RESET_ADMIN_PASSWORD=1`.
+- [ ] Ejecutar `npx drizzle-kit migrate` y `npx tsx src/db/seeds.ts` en producción (ver `entornos.md`; si se usó `push`, correr `npx tsx scripts/drizzle-baseline.ts`). El seed crea el admin si no existe; **nunca** pisa la contraseña de un admin existente salvo `SEED_RESET_ADMIN_PASSWORD=1` (en cualquier entorno).
 - [ ] Ejecutar `npm run build`, `npm run test:e2e` en base de prueba.
 - [ ] Rotar secretos si `.env.local` fue expuesto.
 - [ ] Verificar que `STORAGE_PROVIDER` y credenciales de videos estén configuradas si se usa `/videos`.

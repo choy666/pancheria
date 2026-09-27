@@ -28,7 +28,6 @@ import {
   getAdminPassword,
   BCRYPT_HASH_COST,
 } from '@/config/auth';
-import { isProduction } from '@/config/env';
 import { normalizeSocialLinks } from '@/lib/branch-helpers';
 
 /**
@@ -119,12 +118,12 @@ async function seedAdmin(defaultBranchId: number) {
   });
 
   if (existing) {
-    // En producción un seed accidental con un `ADMIN_PASSWORD` incorrecto o
-    // de ejemplo pisaría la contraseña real del administrador. El reset solo
-    // se aplica si se pide explícito con SEED_RESET_ADMIN_PASSWORD=1; fuera
-    // de producción (dev/test/E2E) el hash se sincroniza siempre.
+    // El seed nunca pisa la contraseña de un admin existente salvo
+    // SEED_RESET_ADMIN_PASSWORD=1 explícito: un seed accidental contra una
+    // base real (producción o no) no puede dejar la cuenta con una clave
+    // débil o incorrecta. E2E setea el flag en global-setup.ts.
     const shouldResetPassword =
-      !isProduction() || process.env.SEED_RESET_ADMIN_PASSWORD === '1';
+      process.env.SEED_RESET_ADMIN_PASSWORD === '1';
     const passwordHash = shouldResetPassword
       ? await bcrypt.hash(password, BCRYPT_HASH_COST)
       : undefined;
@@ -146,7 +145,7 @@ async function seedAdmin(defaultBranchId: number) {
     }
 
     console.log(
-      'El usuario administrador ya existe; en producción se conserva la contraseña salvo SEED_RESET_ADMIN_PASSWORD=1.'
+      'El usuario administrador ya existe; la contraseña se conserva (para resetearla correr el seed con SEED_RESET_ADMIN_PASSWORD=1).'
     );
     return;
   }

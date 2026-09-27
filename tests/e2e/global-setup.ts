@@ -308,7 +308,15 @@ export default async function globalSetup() {
     RESTART IDENTITY CASCADE;
   `);
 
-  execSync('npx tsx src/db/seeds.ts', { cwd: process.cwd(), stdio: 'inherit' });
+  // El TRUNCATE de `users` hace que el seed cree el admin de nuevo; el flag
+  // SEED_RESET_ADMIN_PASSWORD queda explícito por robustez: si en el futuro
+  // el seed corre con usuarios existentes, el reseed de E2E debe seguir
+  // sincronizando el hash con ADMIN_PASSWORD.
+  execSync('npx tsx src/db/seeds.ts', {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+    env: { ...process.env, SEED_RESET_ADMIN_PASSWORD: '1' },
+  });
 
   // El seed da a la sucursal por defecto un horario limitado (10:00-22:00).
   // Con el bloqueo de pedidos fuera de horario la suite quedaría dependiente
