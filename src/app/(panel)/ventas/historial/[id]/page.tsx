@@ -4,6 +4,7 @@ import { SalesHistory } from '@/components/ventas/sales-history';
 import { formatDateTime } from '@/lib/date';
 import { CashRegisterDetailActions } from '@/components/caja/cash-register-detail-actions';
 import { CashRegisterSummary } from '@/components/caja/cash-register-summary';
+import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as branchService from '@/application/services/branchService';
 import { auth } from '@/auth';
@@ -88,6 +89,11 @@ export default async function CashRegisterSalesDetailPage({
         </div>
       )}
 
+      <CashRegisterAlertBanner
+        alerta={alertaCaja}
+        openedAt={cashRegister.openedAt}
+      />
+
       <CashRegisterSummary
         cashRegister={{
           ...cashRegister,
@@ -98,7 +104,6 @@ export default async function CashRegisterSalesDetailPage({
         }}
         branchName={branchName}
         isOpen={isOpen}
-        alerta={alertaCaja}
         now={new Date()}
       />
 

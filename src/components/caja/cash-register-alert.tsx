@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import type { CashRegisterAlert } from '@/domain/types';
-import { formatDateTime } from '@/lib/date';
+import { formatDateTime, formatNextShiftStart } from '@/lib/date';
 
 function resolveText(
   alerta: CashRegisterAlert,
@@ -14,12 +14,22 @@ function resolveText(
   const diaMesApertura = fechaApertura.slice(0, 5);
 
   switch (alerta.code) {
-    case 'fuera_de_horario':
+    case 'fuera_de_horario': {
+      // `detalle.proximoTurno` lo calcula el servidor; en minúscula queda
+      // natural dentro de la oración (mismo criterio que `getBranchOperationalStatus`).
+      const proximoTurno = formatNextShiftStart(
+        alerta.detalle?.proximoTurno ?? null
+      );
       return {
         titulo: 'Fuera de horario de atención',
         mensaje:
-          'La caja sigue abierta fuera del horario configurado para la sucursal. Podés seguir operando con normalidad.',
+          'La caja sigue abierta fuera del horario configurado para la sucursal.' +
+          (proximoTurno
+            ? ` El próximo turno comienza ${proximoTurno.charAt(0).toLowerCase()}${proximoTurno.slice(1)}.`
+            : '') +
+          ' Podés seguir operando con normalidad.',
       };
+    }
     case 'cierre_recomendado':
       return {
         titulo: 'Se recomienda cerrar esta caja',

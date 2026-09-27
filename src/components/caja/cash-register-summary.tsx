@@ -7,9 +7,6 @@ import { getAutoCloseHours } from '@/config/caja';
 import { formatMoney } from '@/lib/money';
 import { PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
 import { formatDateTime, safeFormatDuration } from '@/lib/date';
-import { resolveDisplayedCashRegisterAlert } from '@/lib/cash-register-helpers';
-import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
-import type { CashRegisterAlert } from '@/domain/types';
 
 interface CashRegisterSummaryData {
   id: number;
@@ -36,13 +33,6 @@ interface CashRegisterSummaryData {
   criticalSuppliesSummary?: Record<string, number> | null;
   recipeSuppliesSummary?: Record<string, number> | null;
   /**
-   * Aviso calculado en el servidor contra los horarios vigentes de la
-   * sucursal (presente en los payloads de `/api/caja/resumen` y
-   * `/api/panel/resumen`). El prop `alerta` tiene prioridad cuando se pasa
-   * explícito (detalle SSR de historial).
-   */
-  alertaCaja?: CashRegisterAlert | null;
-  /**
    * Horas de cierre automático resueltas en el servidor. Prioridad sobre la
    * env local: `CAJA_AUTO_CLOSE_HOURS` no existe en el bundle del cliente.
    */
@@ -53,13 +43,6 @@ interface CashRegisterSummaryProps {
   cashRegister: CashRegisterSummaryData;
   branchName?: string | null;
   isOpen?: boolean;
-  /**
-   * Aviso calculado en el servidor contra los horarios vigentes de la
-   * sucursal. Si no se provee se usa `cashRegister.alertaCaja`; si tampoco
-   * está presente, se aplica el fallback legacy (fecha calendario + umbral
-   * de horas) sobre `cashRegister.openedAt`.
-   */
-  alerta?: CashRegisterAlert | null;
   now?: Date;
 }
 
@@ -67,7 +50,6 @@ export function CashRegisterSummary({
   cashRegister,
   branchName,
   isOpen = cashRegister.status === 'open',
-  alerta,
   now = new Date(),
 }: CashRegisterSummaryProps) {
   const openedAt = useMemo(() => new Date(cashRegister.openedAt), [cashRegister.openedAt]);
@@ -95,14 +77,6 @@ export function CashRegisterSummary({
       end: autoCloseAt,
     });
   }, [autoCloseAt, now]);
-
-  const resolvedAlerta = !isOpen
-    ? null
-    : resolveDisplayedCashRegisterAlert(
-        alerta !== undefined ? alerta : cashRegister.alertaCaja,
-        cashRegister.openedAt,
-        now
-      );
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
@@ -215,11 +189,6 @@ export function CashRegisterSummary({
               </>
             )}
           </p>
-          <CashRegisterAlertBanner
-            alerta={resolvedAlerta}
-            openedAt={cashRegister.openedAt}
-            compact
-          />
           {cashRegister.forcedClosed && cashRegister.forcedCloseReason && (
             <p className="text-sm text-muted-foreground">
               Motivo del cierre forzado: {cashRegister.forcedCloseReason}

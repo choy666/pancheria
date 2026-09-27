@@ -44,6 +44,31 @@ describe('CashRegisterAlertBanner', () => {
     ).toBeInTheDocument();
   });
 
+  test('fuera_de_horario menciona el próximo turno cuando el servidor lo informa', () => {
+    // Fecha dentro de 5 días: no cae en "hoy" ni "mañana" sin importar cuándo
+    // corre el test, así el texto relativo es determinista.
+    const proximoTurno = new Date(
+      Date.now() + 5 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    renderBanner({
+      code: 'fuera_de_horario',
+      severity: 'info',
+      detalle: { proximoTurno },
+    });
+
+    expect(
+      screen.getByText(/El próximo turno comienza .+ a las \d{2}:\d{2}\./)
+    ).toBeInTheDocument();
+  });
+
+  test('fuera_de_horario sin próximo turno omite la mención', () => {
+    renderBanner({ code: 'fuera_de_horario', severity: 'info' });
+
+    expect(
+      screen.queryByText(/El próximo turno comienza/)
+    ).not.toBeInTheDocument();
+  });
+
   test('cierre_recomendado menciona la fecha y hora de apertura', () => {
     renderBanner({
       code: 'cierre_recomendado',

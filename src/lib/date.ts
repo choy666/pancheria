@@ -84,7 +84,7 @@ function dateTimePartsInTimezone(date: Date, timeZone: string) {
  * comparar "mismo día / día siguiente" sin depender de la timezone del
  * runtime (navegador o servidor).
  */
-export function dateKeyInTimezone(
+function dateKeyInTimezone(
   date: Date | string,
   timeZone = getBranchTimezone()
 ): string {
@@ -93,7 +93,7 @@ export function dateKeyInTimezone(
 }
 
 /** Nombre del día de la semana en español, en la timezone dada. */
-export function weekdayNameInTimezone(
+function weekdayNameInTimezone(
   date: Date | string,
   timeZone = getBranchTimezone()
 ): string {
@@ -136,6 +136,38 @@ export function formatTime(
 ): string {
   const p = dateTimePartsInTimezone(new Date(date), timeZone);
   return `${p.hour}:${p.minute}`;
+}
+
+/**
+ * "Hoy a las HH:mm" / "Mañana a las HH:mm" / "{día} a las HH:mm" para el
+ * inicio de un turno futuro, evaluado en la timezone de sucursal (la misma
+ * con la que el servidor calcula los turnos). Lo comparten el badge de
+ * turno (`CashRegisterShiftBadge`) y el banner de avisos
+ * (`CashRegisterAlertBanner`).
+ */
+export function formatNextShiftStart(
+  isoDate: Date | string | null,
+  now: Date = new Date(),
+  timeZone = getBranchTimezone()
+): string {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  const isToday =
+    dateKeyInTimezone(date, timeZone) === dateKeyInTimezone(now, timeZone);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const isTomorrowDate =
+    dateKeyInTimezone(date, timeZone) ===
+    dateKeyInTimezone(tomorrow, timeZone);
+
+  const time = formatTime(date, timeZone);
+
+  if (isToday) {
+    return `Hoy a las ${time}`;
+  }
+  if (isTomorrowDate) {
+    return `Mañana a las ${time}`;
+  }
+  return `${weekdayNameInTimezone(date, timeZone)} a las ${time}`;
 }
 
 

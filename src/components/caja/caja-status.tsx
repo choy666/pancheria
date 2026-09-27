@@ -1,24 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { addHours, intervalToDuration } from 'date-fns';
-import { LockKeyhole } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
-import { parseMoneyAmount, PAYMENT_METHOD_LABELS } from '@/lib/payment-helpers';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useClockInterval } from '@/hooks/use-clock-interval';
 import {
   getAutoCloseHours,
@@ -30,6 +15,10 @@ import { formatMoney } from '@/lib/money';
 import { resolveDisplayedCashRegisterAlert } from '@/lib/cash-register-helpers';
 import { CashRegisterAlertBanner } from '@/components/caja/cash-register-alert';
 import { CashRegisterShiftBadge } from '@/components/caja/cash-register-shift-badge';
+import {
+  CashRegisterCloseControls,
+  CashRegisterOpenControls,
+} from '@/components/caja/cash-register-controls';
 
 interface CajaStatusProps {
   cashRegister: CashRegister | null;
@@ -41,10 +30,6 @@ interface CajaStatusProps {
   userName?: string | null;
 }
 
-function parseAmount(value: string): number {
-  return parseMoneyAmount(value, 0) ?? 0;
-}
-
 export function CajaStatus({
   cashRegister,
   onOpen,
@@ -54,48 +39,7 @@ export function CajaStatus({
   role = 'operator',
   userName,
 }: CajaStatusProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [closeDialog, setCloseDialog] = useState(false);
-  const [initialAmount, setInitialAmount] = useState('');
-  const [closingCashCount, setClosingCashCount] = useState('');
-  const [closingTransferCount, setClosingTransferCount] = useState('');
-  const [closingNotes, setClosingNotes] = useState('');
-  const [forcedCloseReason, setForcedCloseReason] = useState('');
   const now = useClockInterval(getCajaClockIntervalMs());
-
-  const isAdmin = role === 'admin';
-  const isOwner = cashRegister ? cashRegister.openedBy === userName : false;
-  const canClose = isOwner || isAdmin;
-  const isForcedClose = isAdmin && !isOwner;
-
-  async function handleOpen() {
-    setIsSubmitting(true);
-    await onOpen(parseAmount(initialAmount));
-    setIsSubmitting(false);
-    setOpenDialog(false);
-    setInitialAmount('');
-  }
-
-  async function handleClose() {
-    setIsSubmitting(true);
-    const count = closingCashCount.trim() === '' ? undefined : parseAmount(closingCashCount);
-    const transferCount = closingTransferCount.trim() === '' ? undefined : parseAmount(closingTransferCount);
-    const notes = closingNotes.trim() === '' ? undefined : closingNotes.trim();
-    const reason = isForcedClose ? forcedCloseReason.trim() || undefined : undefined;
-    await onClose({
-      closingCashCount: count,
-      closingTransferCount: transferCount,
-      closingNotes: notes,
-      forcedCloseReason: reason,
-    });
-    setIsSubmitting(false);
-    setCloseDialog(false);
-    setClosingCashCount('');
-    setClosingTransferCount('');
-    setClosingNotes('');
-    setForcedCloseReason('');
-  }
 
   if (!cashRegister || cashRegister.status === 'closed') {
     return (
@@ -104,68 +48,11 @@ export function CajaStatus({
           <CardTitle className="text-lg">Estado de la caja</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-destructive/15 p-3 text-base text-destructive">
-              {error}
-            </div>
-          )}
-          <p data-testid="cash-register-empty-message" className="text-base text-muted-foreground">
-            No hay una caja abierta. Abrí una caja para comenzar a vender.
-          </p>
-          <Button
-            type="button"
-            data-testid="open-cash-register"
-            className="w-full sm:w-auto"
-            disabled={isSubmitting || loading}
-            onClick={() => setOpenDialog(true)}
-          >
-            {isSubmitting || loading ? 'Abriendo...' : 'Abrir caja'}
-          </Button>
-          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Abrir caja</DialogTitle>
-                <DialogDescription>
-                  Ingresá el monto inicial si la caja arranca con dinero para vuelto o eventualidades.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="initial-amount">Monto inicial de caja</Label>
-                  <MoneyAmountInput
-                    id="initial-amount"
-                    testId="initial-amount-input"
-                    amount={parseMoneyAmount(initialAmount, 0) ?? 0}
-                    decimals={0}
-                    onRawChange={setInitialAmount}
-                    ariaLabel="Monto inicial de caja"
-                    className="bg-background font-mono text-base font-semibold"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Dejalo en 0 si no hay monto inicial.
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpenDialog(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleOpen}
-                  disabled={isSubmitting}
-                  data-testid="confirm-open-cash-register"
-                >
-                  {isSubmitting ? 'Abriendo...' : 'Abrir caja'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <CashRegisterOpenControls
+            error={error}
+            loading={loading}
+            onOpen={onOpen}
+          />
         </CardContent>
       </Card>
     );
@@ -227,119 +114,13 @@ export function CajaStatus({
             </span>
           </p>
         )}
-        {canClose ? (
-          <Button
-            type="button"
-            data-testid="close-cash-register"
-            variant={isForcedClose ? 'destructive' : 'default'}
-            disabled={isSubmitting || loading}
-            className="w-full sm:w-auto"
-            onClick={() => setCloseDialog(true)}
-          >
-            <LockKeyhole className="h-4 w-4" />
-            {isSubmitting || loading
-              ? 'Cerrando...'
-              : isForcedClose
-                ? 'Cierre forzado'
-                : 'Cerrar caja'}
-          </Button>
-        ) : (
-          <p className="text-base text-muted-foreground">
-            Esta caja fue abierta por {cashRegister.openedBy}. Solo{' '}
-            {cashRegister.openedBy} o un administrador pueden cerrarla.
-          </p>
-        )}
-        <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {isForcedClose ? 'Cierre forzado de caja' : 'Cerrar caja'}
-              </DialogTitle>
-              <DialogDescription>
-                {isForcedClose
-                  ? 'Vas a cerrar la caja de otro usuario. Podés dejar un motivo para la auditoría.'
-                  : 'Ingresá los montos contados para calcular la diferencia con lo esperado en cada medio de pago.'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              {isForcedClose && (
-                <div className="space-y-2">
-                  <Label htmlFor="forced-close-reason">Motivo del cierre forzado (opcional)</Label>
-                  <Textarea
-                    id="forced-close-reason"
-                    data-testid="forced-close-reason-input"
-                    placeholder="Ej.: cambio de turno, ausencia del operador..."
-                    value={forcedCloseReason}
-                    onChange={(e) => setForcedCloseReason(e.target.value)}
-                  />
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="closing-cash-count">{PAYMENT_METHOD_LABELS.cash} contado</Label>
-                <MoneyAmountInput
-                  id="closing-cash-count"
-                  testId="closing-cash-count-input"
-                  amount={parseMoneyAmount(closingCashCount, 0) ?? 0}
-                  decimals={0}
-                  onRawChange={setClosingCashCount}
-                  ariaLabel="Efectivo contado al cerrar caja"
-                  className="bg-background font-mono text-base font-semibold"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Esperado en {PAYMENT_METHOD_LABELS.cash.toLowerCase()}: {formatMoney((cashRegister.cashInDrawer ?? cashRegister.cashTotal + cashRegister.initialAmount))}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="closing-transfer-count">{PAYMENT_METHOD_LABELS.transfer} contada</Label>
-                <MoneyAmountInput
-                  id="closing-transfer-count"
-                  testId="closing-transfer-count-input"
-                  amount={parseMoneyAmount(closingTransferCount, 0) ?? 0}
-                  decimals={0}
-                  onRawChange={setClosingTransferCount}
-                  ariaLabel="Transferencia contada al cerrar caja"
-                  className="bg-background font-mono text-base font-semibold"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Esperado en {PAYMENT_METHOD_LABELS.transfer.toLowerCase()}: {formatMoney(cashRegister.transferTotal)}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="closing-notes">Notas (opcional)</Label>
-                <Textarea
-                  id="closing-notes"
-                  data-testid="closing-notes-input"
-                  placeholder="Ej.: sobrante por vueltos, faltante..."
-                  value={closingNotes}
-                  onChange={(e) => setClosingNotes(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCloseDialog(false)}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleClose}
-                disabled={isSubmitting}
-                variant={isForcedClose ? 'destructive' : 'default'}
-                data-testid="confirm-close-cash-register"
-              >
-                {isSubmitting
-                  ? 'Cerrando...'
-                  : isForcedClose
-                    ? 'Cierre forzado'
-                    : 'Cerrar caja'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CashRegisterCloseControls
+          cashRegister={cashRegister}
+          role={role}
+          userName={userName}
+          loading={loading}
+          onClose={onClose}
+        />
       </CardContent>
     </Card>
   );
