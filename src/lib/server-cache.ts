@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { unstable_cache, revalidateTag } from 'next/cache';
 import * as branchRepository from '@/repositories/branchRepository';
 import * as catalogRepository from '@/repositories/catalogRepository';
@@ -110,6 +111,19 @@ export async function getCachedBranchList(limit: number): Promise<Branch[]> {
   const rows = await cachedBranchList(limit);
   return (rows as Branch[]).map((row) => reviveBranch(row) as Branch);
 }
+
+/**
+ * Dedup por request (`React.cache`) para el panel: el layout y varias
+ * páginas de admin consultan la lista completa de sucursales en la misma
+ * renderización (antes eran 2-3 queries por visita). A diferencia de
+ * `getCachedBranchList` —caché persistente con `limit`, pensada para el
+ * selector público— esto devuelve todas las sucursales sin truncar y sin
+ * riesgo de servir datos viejos: la memoización vive solo dentro del
+ * request y no serializa, por lo que tampoco hace falta `reviveBranch`.
+ */
+export const listBranchesForRequest = cache(async (): Promise<Branch[]> => {
+  return branchRepository.findAllOrderedByCreatedAt() as Promise<Branch[]>;
+});
 
 /**
  * Base del catálogo público (productos vendibles + total) sin disponibilidad.

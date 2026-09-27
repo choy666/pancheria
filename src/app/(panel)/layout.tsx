@@ -4,6 +4,7 @@ import { PanelHeader } from '@/components/panel/panel-header';
 import { TourProvider } from '@/components/tour/tour-context';
 import { auth, signOut } from '@/auth';
 import * as branchService from '@/application/services/branchService';
+import { listBranchesForRequest } from '@/lib/server-cache';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import { setActiveBranchAction } from '@/app/(panel)/actions';
@@ -33,7 +34,7 @@ export default async function PanelLayout({
   const branchName = branch?.name ?? session.user.branchName ?? undefined;
 
   const branches =
-    session.user.role === 'admin' ? await branchService.listBranches() : undefined;
+    session.user.role === 'admin' ? await listBranchesForRequest() : undefined;
 
   return (
     <TourProvider

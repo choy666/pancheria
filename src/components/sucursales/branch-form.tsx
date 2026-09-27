@@ -21,6 +21,7 @@ import {
 import { ClipboardPaste, Copy, Plus, Trash2, X } from 'lucide-react';
 import { type BranchState } from '@/app/(panel)/sucursales/actions';
 import {
+  DAYS,
   SOCIAL_NETWORK_OPTIONS,
   getSocialNetworkLabel,
   isValidPhoneNumber,
@@ -45,16 +46,6 @@ type CopiedHours = {
   dayOfWeek: number;
   slots: { open: string; close: string }[];
 };
-
-const DAYS = [
-  'Domingo',
-  'Lunes',
-  'Martes',
-  'Miércoles',
-  'Jueves',
-  'Viernes',
-  'Sábado',
-];
 
 interface BranchFormProps {
   branch?: Branch;
@@ -113,6 +104,12 @@ export function BranchForm({
   const [nameTouched, setNameTouched] = useState(false);
   const [locationTouched, setLocationTouched] = useState(false);
   const [copied, setCopied] = useState<CopiedHours | null>(null);
+  // Franjas guardadas al desmarcar un día: el checkbox apaga el día sin
+  // descartar el trabajo cargado (se restauran al volver a marcarlo). Un
+  // borrado explícito (botón Limpiar / eliminar franja) sí descarta.
+  const [disabledDaySlots, setDisabledDaySlots] = useState<
+    Record<number, Slot[]>
+  >({});
 
   const locationDesc = useMemo(
     () => describeLocationInput(locationInput),
@@ -154,6 +151,7 @@ export function BranchForm({
         if (result === null) {
           formRef.current?.reset();
           setOpeningHours([]);
+          setDisabledDaySlots({});
           setPhones([]);
           setSocialLinks([]);
           setNameInput('');
@@ -219,10 +217,22 @@ export function BranchForm({
 
   function toggleDay(dayOfWeek: number, enabled: boolean) {
     if (enabled) {
-      if (!isDayEnabled(dayOfWeek)) {
+      const stashed = disabledDaySlots[dayOfWeek];
+      if (stashed && stashed.length > 0) {
+        setOpeningHours((prev) => [...prev, ...stashed]);
+        setDisabledDaySlots((prev) => {
+          const next = { ...prev };
+          delete next[dayOfWeek];
+          return next;
+        });
+      } else if (!isDayEnabled(dayOfWeek)) {
         addSlot(dayOfWeek);
       }
     } else {
+      setDisabledDaySlots((prev) => ({
+        ...prev,
+        [dayOfWeek]: getSlotsForDay(dayOfWeek),
+      }));
       setOpeningHours((prev) =>
         prev.filter((slot) => slot.dayOfWeek !== dayOfWeek)
       );
@@ -230,6 +240,14 @@ export function BranchForm({
   }
 
   function handleClearDay(dayOfWeek: number) {
+    // Borrado explícito: también descarta el stash del día para que un
+    // desmarcar/marcar posterior no resucite las franjas limpiadas.
+    setDisabledDaySlots((prev) => {
+      if (!(dayOfWeek in prev)) return prev;
+      const next = { ...prev };
+      delete next[dayOfWeek];
+      return next;
+    });
     setOpeningHours((prev) =>
       prev.filter((slot) => slot.dayOfWeek !== dayOfWeek)
     );
@@ -337,7 +355,7 @@ export function BranchForm({
           onChange={(e) => setNameInput(e.target.value)}
           onBlur={() => setNameTouched(true)}
           placeholder="Ej: Sucursal Centro"
-          data-testid="branch-name"
+          data-testid="branch-form-name"
           aria-invalid={showNameError}
           aria-describedby={
             showNameError
@@ -378,7 +396,7 @@ export function BranchForm({
           type="text"
           defaultValue={branch?.address ?? ''}
           placeholder="Ej: Av. Pellegrini 1234, Rosario"
-          data-testid="branch-address"
+          data-testid="branch-form-address"
           aria-describedby="branch-address-help"
         />
         <p id="branch-address-help" className="text-sm text-muted-foreground">
@@ -708,7 +726,7 @@ export function BranchForm({
                     type="checkbox"
                     checked={enabled}
                     onChange={(e) => toggleDay(dayOfWeek, e.target.checked)}
-                    className="h-4 w-4 rounded border-primary"
+                    className="size-6 rounded border-primary"
                   />
                   <Label
                     htmlFor={`day-${dayOfWeek}`}

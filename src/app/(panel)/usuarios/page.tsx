@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import * as userService from '@/application/services/userService';
-import * as branchService from '@/application/services/branchService';
+import { listBranchesForRequest } from '@/lib/server-cache';
 import { UserList } from '@/components/usuarios/user-list';
 import { ServerPagination } from '@/components/ui/server-pagination';
 import { parsePaginationParams } from '@/lib/pagination';
@@ -33,7 +33,7 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
   const [users, branches] = await Promise.all([
     userService.listUsers(undefined, pagination),
-    branchService.listBranches(),
+    listBranchesForRequest(),
   ]);
 
   return (

@@ -8,7 +8,7 @@ import type {
 import { ValidationError } from '@/domain/errors';
 import { getBranchTimezone } from '@/config/branch';
 
-const DAYS = [
+export const DAYS = [
   'Domingo',
   'Lunes',
   'Martes',

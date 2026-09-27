@@ -17,6 +17,14 @@ import {
   primaryKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+// Los shapes de las columnas jsonb de `branches` viven en el dominio
+// (`domain/types.ts`): son el mismo contrato que consumen servicios,
+// helpers y UI — se importan para no duplicarlos acá.
+import type {
+  BranchOpeningHours,
+  BranchPhone,
+  BranchSocialLink,
+} from '@/domain/types';
 
 /**
  * Tipos de producto:
@@ -75,28 +83,6 @@ export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
 ]);
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'operator']);
-
-export type BranchOpeningHours = {
-  dayOfWeek: number;
-  open: string;
-  close: string;
-};
-
-export type BranchPhone = {
-  label: string;
-  number: string;
-};
-
-export type BranchSocialLink = {
-  network:
-    | 'instagram'
-    | 'facebook'
-    | 'whatsapp'
-    | 'tiktok'
-    | 'x'
-    | 'otro';
-  url: string;
-};
 
 export const branches = pgTable('branches', {
   id: serial('id').primaryKey(),

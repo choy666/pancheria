@@ -40,7 +40,9 @@ export async function createBranch(
     if (error instanceof DomainError) {
       return { error: error.message };
     }
-    return { error: error instanceof Error ? error.message : 'Error al crear la sucursal.' };
+    // Errores inesperados (p. ej. de PostgreSQL) no se filtran al admin:
+    // su mensaje puede exponer detalles internos.
+    return { error: 'Error al crear la sucursal. Intentá de nuevo.' };
   }
 
   invalidateBranchesCache();
@@ -74,7 +76,7 @@ export async function updateBranchAction(
     if (error instanceof DomainError) {
       return { error: error.message };
     }
-    return { error: error instanceof Error ? error.message : 'Error al actualizar la sucursal.' };
+    return { error: 'Error al actualizar la sucursal. Intentá de nuevo.' };
   }
 
   invalidateBranchesCache();
@@ -106,7 +108,10 @@ export async function deleteBranchAction(
     if (error instanceof DomainError) {
       return { error: error.message };
     }
-    throw error;
+    // El error inesperado también viaja como estado del form: el diálogo lo
+    // muestra inline (`branch-delete-error`); relanzarlo caería al error
+    // boundary y dejaría la operación sin feedback contextual.
+    return { error: 'No se pudo eliminar la sucursal. Intentá de nuevo.' };
   }
 
   invalidateBranchesCache();

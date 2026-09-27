@@ -244,7 +244,7 @@ test.describe('Ciclo de vida de productos y recetas', () => {
       )
     ).toBeVisible({ timeout: 10000 });
 
-    await errorDialog.getByRole('button', { name: 'Close' }).click();
+    await errorDialog.getByRole('button', { name: 'Cerrar' }).click();
     await expect(errorDialog).not.toBeVisible();
   });
 

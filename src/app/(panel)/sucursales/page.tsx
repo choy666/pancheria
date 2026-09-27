@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import { getDefaultBranchName } from '@/config/branch';
-import * as branchService from '@/application/services/branchService';
+import { listBranchesForRequest } from '@/lib/server-cache';
 import { getBranchOperationalStatus } from '@/lib/branch-helpers';
 import { Button } from '@/components/ui/button';
 import { BranchList } from '@/components/sucursales/branch-list';
@@ -27,7 +27,7 @@ export default async function SucursalesPage() {
     redirect(routes.home);
   }
 
-  const branches = await branchService.listBranches();
+  const branches = await listBranchesForRequest();
   // Se pasa el nombre (no un flag por fila) para que la comparación quede
   // junto a la sucursal en edición, con el mismo match exacto que usa
   // `getDefaultBranchId` (`findByName`, case-sensitive).

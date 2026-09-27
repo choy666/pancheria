@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { CajaHistory } from '@/components/caja/caja-history';
 import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
-import * as branchService from '@/application/services/branchService';
+import { listBranchesForRequest } from '@/lib/server-cache';
 import { routes } from '@/config/routes';
 
 export default async function CajasEliminadasPage() {
@@ -20,7 +20,7 @@ export default async function CajasEliminadasPage() {
     redirect(routes.ventasHistorial);
   }
 
-  const branches = await branchService.listBranches();
+  const branches = await listBranchesForRequest();
 
   return (
     <div className="space-y-5">
