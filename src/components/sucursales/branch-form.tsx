@@ -18,8 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
 import { ClipboardPaste, Copy, Plus, Trash2, X } from 'lucide-react';
 import { type BranchState } from '@/app/(panel)/sucursales/actions';
+import { routes } from '@/config/routes';
 import {
   DAYS,
   SOCIAL_NETWORK_OPTIONS,
@@ -31,6 +33,7 @@ import {
 } from '@/lib/branch-helpers';
 import { describeLocationInput } from '@/lib/maps';
 import { BranchLocationPreview } from '@/components/sucursales/branch-location-preview';
+import { BranchHelpCard } from '@/components/sucursales/branch-help-card';
 import type {
   Branch,
   BranchOpeningHours,
@@ -49,7 +52,6 @@ type CopiedHours = {
 
 interface BranchFormProps {
   branch?: Branch;
-  onCancel?: () => void;
   /** La sucursal en edición es la que resuelve `/pedido` por defecto. */
   isDefaultBranch?: boolean;
   createBranchAction: (
@@ -68,11 +70,11 @@ function generateSlotId(): string {
 
 export function BranchForm({
   branch,
-  onCancel,
   isDefaultBranch = false,
   createBranchAction,
   updateBranchAction,
 }: BranchFormProps) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [state, setState] = useState<BranchState>(null);
@@ -148,31 +150,23 @@ export function BranchForm({
         const result = await action(state, formData);
         setState(result);
 
+        // El alta/edición vive en rutas dedicadas: al guardar se vuelve al
+        // inventario, donde la fila nueva/actualizada confirma el cambio
+        // (mismo patrón que el formulario de /productos).
         if (result === null) {
-          formRef.current?.reset();
-          setOpeningHours([]);
-          setDisabledDaySlots({});
-          setPhones([]);
-          setSocialLinks([]);
-          setNameInput('');
-          setNameTouched(false);
-          setLocationInput('');
-          setLocationTouched(false);
-          setCopied(null);
-          if (branch) {
-            onCancel?.();
-          }
+          router.push(routes.sucursales);
+          router.refresh();
         }
       });
     },
-    [branch, createBranchAction, updateBranchAction, onCancel, state]
+    [branch, createBranchAction, updateBranchAction, router, state]
   );
 
   const isEditing = !!branch;
 
-  // Al entrar en modo edición el formulario puede quedar fuera de la vista
-  // (la tabla va primero): se lleva el scroll y el foco al nombre para que
-  // quede claro qué sucursal se está editando.
+  // En modo edición la página propia puede quedar por debajo del header
+  // sticky: se lleva el scroll y el foco al nombre para que quede claro
+  // qué sucursal se está editando.
   useEffect(() => {
     if (!branch) return;
     formRef.current?.scrollIntoView({ block: 'start' });
@@ -343,6 +337,8 @@ export function BranchForm({
       >
         {isEditing ? `Editar: ${branch.name}` : 'Crear sucursal'}
       </h2>
+
+      <BranchHelpCard />
 
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la sucursal</Label>
@@ -857,17 +853,15 @@ export function BranchForm({
             : 'Crear sucursal'}
         </Button>
 
-        {isEditing && (
-          <Button
-            type="button"
-            variant="outline"
-            data-testid="branch-cancel"
-            onClick={onCancel}
-            disabled={isPending}
-          >
-            Cancelar
-          </Button>
-        )}
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="branch-cancel"
+          onClick={() => router.push(routes.sucursales)}
+          disabled={isPending}
+        >
+          Cancelar
+        </Button>
       </div>
     </form>
   );

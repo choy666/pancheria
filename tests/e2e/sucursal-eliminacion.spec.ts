@@ -12,12 +12,13 @@ test.describe('Eliminación de sucursal', () => {
     const branchName = unique('Sucursal Archivo');
     const operatorUsername = unique('op-archivo');
 
-    await page.goto('/sucursales');
-    await expect(page.getByRole('heading', { name: 'Sucursales' })).toBeVisible();
+    await page.goto('/sucursales/nueva');
+    await expect(page.getByRole('heading', { name: 'Nueva sucursal' })).toBeVisible();
 
     await page.getByLabel('Nombre de la sucursal').fill(branchName);
     await page.getByRole('button', { name: 'Crear sucursal' }).click();
 
+    // El alta vuelve al inventario: la fila nueva confirma la creación.
     const row = page.locator('[data-testid="branch-row"]', {
       hasText: branchName,
     });
@@ -71,7 +72,7 @@ test.describe('Eliminación de sucursal', () => {
   test('rechaza crear pedidos en una sucursal eliminada', async ({ page }) => {
     const branchName = unique('Sucursal Eliminada API');
 
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
     await page.getByLabel('Nombre de la sucursal').fill(branchName);
     await page.getByRole('button', { name: 'Crear sucursal' }).click();
 

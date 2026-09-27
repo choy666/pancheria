@@ -1,6 +1,6 @@
 # Auditoría UX y funcional — sección `/sucursales`
 
-**Estado:** abierto — **Tramo A implementado completo** (2026-09-26): H-M1–H-M5, H-C1 (banners de advertencia, sin bloqueos — decisión del usuario), H-m2, H-m9–H-m13 y A1–A8. Queda el **Tramo B** (rutas dedicadas `/sucursales/nueva` y `/sucursales/[id]/editar`) y los menores ajenos al tramo (H-m1, H-m3–H-m8).
+**Estado:** implementado completo (2026-09-26) — **Tramo A** (H-M1–H-M5, H-C1 con banners de advertencia sin bloqueos — decisión del usuario —, H-m2, H-m9–H-m13 y A1–A8), **menores** (H-m1, H-m3–H-m8) y **Tramo B** (rutas dedicadas `/sucursales/nueva` y `/sucursales/[id]/editar`). Sin pendientes.
 **Fecha:** 2026-09-26 — **Revisión v3** (mismo día): auditoría del propio informe contra el código post-implementación — refs de líneas corregidas, §1.3/§4 actualizados al comportamiento vigente y 4 hallazgos menores nuevos (H-m10–H-m13). Sobre **v2**: re-verificación integral de cada afirmación; correcciones de precisión, dos hallazgos nuevos y propuestas afinadas. Registro de cambios en §8.
 **Alcance:** auditoría documental de la sección `/sucursales` (sin modificar código, sin seed, sin E2E, solo lectura) en dos fases: **Fase 1** — inventario completo + hallazgos clasificados; **Fase 2** — propuesta priorizada de rediseño (sin implementar).
 **Motivación:** hoy la página muestra primero el formulario de alta/edición y después el inventario; la primera impresión debería ser el estado de las sucursales existentes.
@@ -160,14 +160,14 @@ Las 6 columnas se mostraban siempre; en móvil había scroll horizontal interno 
 
 | # | Hallazgo | Evidencia |
 | --- | --- | --- |
-| H-m1 | `data-testid="branch-name"` y `data-testid="branch-address"` están **duplicados en la misma página** (celda de tabla e input del form). Hoy los specs se salvan por usar lookup scopeado a `branch-row`; cualquier selector global rompería strict mode de Playwright | `branch-list.tsx:80-81` y `branch-form.tsx:318,352` |
+| H-m1 | `data-testid="branch-name"` y `data-testid="branch-address"` están **duplicados en la misma página** (celda de tabla e input del form). Hoy los specs se salvan por usar lookup scopeado a `branch-row`; cualquier selector global rompería strict mode de Playwright — **resuelto 2026-09-26**: los testids del form se renombraron a `branch-form-name`/`branch-form-address` y el Tramo B separó además formulario e inventario en rutas distintas | `branch-list.tsx` y `branch-form.tsx` |
 | H-m2 | Dirección y teléfono usan `truncate` sin `title` ni expansión → el dato cortado es irrecuperable sin entrar a editar. Teléfonos muestra solo el primero, sin indicador "+N más" — **resuelto 2026-09-26 (A5)**: `title` con el valor completo en ambas celdas (en teléfonos, la lista completa), "+N" en el sub-resumen móvil y chip `N tel.` bajo el nombre | `branch-list.tsx` |
-| H-m3 | `deleteBranchAction` **relanza** errores no-`DomainError` (cae al error boundary, UX distinta al `{error}` del form); `createBranch`/`updateBranchAction` devuelven `error.message` crudo para errores no de dominio (puede llegar texto de PostgreSQL al admin) | `actions.ts:43,77,105-110` |
-| H-m4 | Tipos `BranchOpeningHours`/`BranchPhone`/`BranchSocialLink` duplicados entre `schema.ts:79-99` y `domain/types.ts:45-67` (ya señalado en la auditoría archivada §1.1); constante `DAYS` duplicada entre `branch-helpers.ts:11-19` y `branch-form.tsx:48-56` | — |
-| H-m5 | `dialog.tsx` tiene `sr-only "Close"` y footer "Close" en inglés (componente global, no exclusivo de esta sección) | `src/components/ui/dialog.tsx:74,112` |
-| H-m6 | Checkbox de día nativo `h-4 w-4` (16px) — área táctil menor a lo recomendado (24px WCAG 2.2 SC 2.5.8); el `Label` asociado amplía el target, pero el control visual es pequeño. Advisory: el spec axe del panel solo audita `wcag21aa` | `branch-form.tsx:668-675` |
-| H-m7 | `listBranches()` corre **sin caché ni límite en el layout del panel para todo admin** (todas las páginas), y se repite en las páginas `/sucursales` y `/usuarios` — 2-3 queries por visita. El público usa `getCachedBranchList(MAX_LIMIT=100)` con tag `branches` ya invalidado por las mismas actions: el panel podría reutilizarla (o un `React.cache` por request). Además, si se superan 100 sucursales el selector público trunca silenciosamente | `layout.tsx:35-36`, `sucursales/page.tsx:27`, `usuarios/page.tsx:36`, `server-cache.ts:98-112` |
-| H-m8 | Desmarcar un día borra sus franjas cargadas sin confirmación ni deshacer (no persiste hasta guardar → aceptable, pero se pierde trabajo del formulario) | `branch-form.tsx:207-217` |
+| H-m3 | `deleteBranchAction` **relanza** errores no-`DomainError` (cae al error boundary, UX distinta al `{error}` del form); `createBranch`/`updateBranchAction` devuelven `error.message` crudo para errores no de dominio (puede llegar texto de PostgreSQL al admin) — **resuelto 2026-09-26**: errores inesperados devuelven mensaje genérico en español y el borrado se muestra inline en el diálogo | `actions.ts` |
+| H-m4 | Tipos `BranchOpeningHours`/`BranchPhone`/`BranchSocialLink` duplicados entre `schema.ts` y `domain/types.ts` (ya señalado en la auditoría archivada §1.1); constante `DAYS` duplicada entre `branch-helpers.ts` y `branch-form.tsx` — **resuelto 2026-09-26**: el schema reusa los tipos de dominio y el form importa `DAYS` de `branch-helpers` | — |
+| H-m5 | `dialog.tsx` tiene `sr-only "Close"` y footer "Close" en inglés (componente global, no exclusivo de esta sección) — **resuelto 2026-09-26**: traducido a "Cerrar"; el texto duplicado con botones propios de algunos diálogos se desambiguó con `data-testid` en el botón de footer (`order-success-close`) | `src/components/ui/dialog.tsx` |
+| H-m6 | Checkbox de día nativo `h-4 w-4` (16px) — área táctil menor a lo recomendado (24px WCAG 2.2 SC 2.5.8); el `Label` asociado amplía el target, pero el control visual es pequeño. Advisory: el spec axe del panel solo audita `wcag21aa` — **resuelto 2026-09-26**: checkbox a `h-6 w-6` (24px) | `branch-form.tsx` |
+| H-m7 | `listBranches()` corre **sin caché ni límite en el layout del panel para todo admin** (todas las páginas), y se repite en las páginas `/sucursales` y `/usuarios` — 2-3 queries por visita. El público usa `getCachedBranchList(MAX_LIMIT=100)` con tag `branches` ya invalidado por las mismas actions: el panel podría reutilizarla (o un `React.cache` por request). Además, si se superan 100 sucursales el selector público trunca silenciosamente — **resuelto 2026-09-26**: `listBranchesForRequest` (React.cache por request en `server-cache.ts`) deduplica la consulta en layout y páginas del panel | `layout.tsx`, `server-cache.ts` |
+| H-m8 | Desmarcar un día borra sus franjas cargadas sin confirmación ni deshacer (no persiste hasta guardar → aceptable, pero se pierde trabajo del formulario) — **resuelto 2026-09-26**: al desmarcar se conservan en memoria (`disabledDaySlots`) y se restauran al remarcar; solo el borrado explícito de franja las descarta | `branch-form.tsx` |
 | H-m9 | Al fallar `deleteBranchAction` se abre el **diálogo de error apilado sobre el de confirmación** (ambos `Dialog` montados a la vez: `isDialogOpen` sigue `true`). Dos modales concurrentes son UX confusa y pelea de foco/backdrop; el error debería mostrarse inline dentro del diálogo de confirmación — **resuelto 2026-09-26**: el segundo `Dialog` se eliminó y el error viaja inline con `role="alert"` (`branch-delete-error`) | `branch-actions.tsx` |
 | H-m10 | El diálogo de eliminación **no resetea `confirmName` al cerrar** (`handleDialogOpenChange` solo descarta el error de submit): reabrir tras haber escrito el nombre deja "Eliminar definitivamente" ya habilitado — debilita la fricción de confirmación. `summary` sí se refetchea en cada apertura, ese lado está bien *(nuevo en v3)* — **resuelto 2026-09-26 (A7)**: `handleDialogOpenChange` ahora también hace `setConfirmName('')`; regresión cubierta por test | `branch-actions.tsx` |
 | H-m11 | `deleteButtonRef` se asigna al botón Eliminar pero **nunca se lee** — código muerto (probablemente pensado para devolver el foco al cerrar el diálogo) *(nuevo en v3)* — **resuelto 2026-09-26 (A7)**: ref eliminado | `branch-actions.tsx` |
@@ -186,7 +186,7 @@ Las 6 columnas se mostraban siempre; en móvil había scroll horizontal interno 
 
 ---
 
-## 3. Propuesta de rediseño (sin implementar)
+## 3. Propuesta de rediseño (implementada completa)
 
 ### 3.1 Decisión estructural — alternativas evaluadas
 
@@ -201,7 +201,7 @@ Las 6 columnas se mostraban siempre; en móvil había scroll horizontal interno 
 **Recomendación**: dos tramos.
 
 - **Tramo 1 — IMPLEMENTADO (2026-09-26)**: reordenar `BranchList` (tabla primero), encabezado con acción "Nueva sucursal" con ancla/scroll al formulario, heading dinámico en el form, estado operativo y badges en la tabla, responsive por breakpoints, ayuda contextual downstream, el refuerzo del diálogo de eliminación y la corrección del resumen falso. **No cambió ningún `data-testid`/`data-tour` ni ningún spec.**
-- **Tramo 2 (decisión del usuario — pendiente)**: migrar alta/edición a rutas dedicadas espejando `/productos`, con el plan de reasignación de contratos de §3.3.
+- **Tramo 2 — IMPLEMENTADO (2026-09-26)**: alta/edición migradas a rutas dedicadas espejando `/productos`, siguiendo el plan de reasignación de contratos de §3.3. Detalle en §8 ("Implementación Tramo B").
 
 ### 3.2 Quick wins (Tramo A) — detalle
 
@@ -219,6 +219,8 @@ Las 6 columnas se mostraban siempre; en móvil había scroll horizontal interno 
 | A8 | **Advertencia al renombrar la sucursal por defecto** (H-C1 punto 4) — **implementado 2026-09-26**: `page.tsx` pasa `defaultBranchName` (`getDefaultBranchName`, env — sin hardcodear), `branch-list.tsx` calcula `isDefaultBranch` por match exacto y `branch-form.tsx` muestra el aviso ámbar `branch-default-name-warning` bajo el campo nombre en modo edición | Mayor | Media — cierra el cuarto escenario de daño | XS | `page.tsx`, `branch-list.tsx`, `branch-form.tsx` | Nulo — prop booleana aditiva |
 
 ### 3.3 Cambio estructural (Tramo B) — rutas dedicadas
+
+> **Estado:** implementado el 2026-09-26. Detalle en §8 ("Implementación Tramo B").
 
 Espejando `/productos` (`/productos/nuevo` con `ProductFormTabs`, `/productos/[id]/editar` con `notFound()`):
 
@@ -381,4 +383,36 @@ Se implementó el Tramo A completo (A1–A8; A8 venía de la implementación par
 
 **Verificado**: `npx tsc --noEmit` ✅, `eslint` sobre los archivos tocados ✅, `jest` suite completa 1952/1952 ✅, `npm run knip` ✅, `npm run build` ✅, y E2E acotada contra la base descartable (`sucursal-form-ux`, `sucursal-contactos-y-turnos`, `sucursal-eliminacion`, `responsive`, `accessibility`): **25/25 ✅** — contratos intactos.
 
-**Queda pendiente**: Tramo B (rutas dedicadas §3.3) y los menores ajenos al tramo: H-m1 (testids duplicados form↔tabla — lo resuelve el Tramo B), H-m3 (errores crudos de actions), H-m4 (tipos/`DAYS` duplicados), H-m5 ("Close" en inglés de `dialog.tsx`), H-m6 (checkbox 16px), H-m7 (`listBranches` sin caché en layout/páginas), H-m8 (desmarcar día pierde franjas).
+**Quedaba pendiente al cerrar el Tramo A**: Tramo B (rutas dedicadas §3.3) y los menores ajenos al tramo (H-m1, H-m3–H-m8) — ambos implementados a continuación.
+
+### Implementación menores (2026-09-26)
+
+Commit `9aa5b3f`. Se resolvieron los menores ajenos al tramo:
+
+- **H-m1**: los `data-testid` de los inputs del form pasaron a `branch-form-name`/`branch-form-address` (antes duplicaban los de las celdas de tabla `branch-name`/`branch-address`).
+- **H-m3**: `createBranch`/`updateBranchAction`/`deleteBranchAction` normalizan errores no-`DomainError` a mensajes genéricos en español (nunca `error.message` crudo); el error de borrado se muestra inline en el diálogo (`branch-delete-error`) en vez de relanzar al error boundary.
+- **H-m4**: `schema.ts` reusa los tipos `BranchOpeningHours`/`BranchPhone`/`BranchSocialLink` de `domain/types.ts`; `branch-form.tsx` importa `DAYS` de `branch-helpers.ts`.
+- **H-m5**: `sr-only "Close"` y el "Close" del footer de `dialog.tsx` pasaron a "Cerrar". La traducción generó un nombre accesible duplicado en diálogos que ya tenían un botón "Cerrar" propio (éxito de pedido: X + footer) — se desambiguó con `data-testid="order-success-close"` en el botón de footer y se actualizaron los tests/specs (`pedido-client.test.tsx`, `stock-list.test.tsx`, `pedido-cancelacion-panel`, `pedido-reserva-flujo`, `pedido-sucursal-y-stock`, `productos-y-recetas`).
+- **H-m6**: checkbox de día a `h-6 w-6` (24px, WCAG 2.2 SC 2.5.8).
+- **H-m7**: nuevo `listBranchesForRequest` en `server-cache.ts` (`React.cache` por request) reemplaza los `listBranches()` sueltos de `(panel)/layout.tsx`, `sucursales/page.tsx`, `usuarios/page.tsx` y las páginas de ventas — una query por request.
+- **H-m8**: al desmarcar un día las franjas se guardan en `disabledDaySlots` y se restauran al remarcar; el día simplemente no viaja en el payload.
+
+**Verificado**: `npx tsc --noEmit` ✅, `eslint` ✅, jest de los archivos tocados 116/116 ✅, `npm run knip` ✅.
+
+### Implementación Tramo B (2026-09-26)
+
+Alta y edición migradas a rutas dedicadas espejando `/productos`, siguiendo §3.3:
+
+- **Rutas nuevas**: `routes.sucursalesNueva` (`/sucursales/nueva`) y `routes.sucursalesEditar(id)` (`/sucursales/[id]/editar`) en `src/config/routes.ts`.
+- **`sucursales/nueva/page.tsx`**: guard completo (`auth` + `revalidateSessionUser` + rol `admin`, redirect a `routes.home`), heading "Nueva sucursal", `BranchForm` en modo crear dentro de `data-tour="branch-form"`.
+- **`sucursales/[id]/editar/page.tsx`**: mismo guard; `params.id` validado con `Number.isInteger` (NaN → `notFound()`); `branchService.getBranchById` + `notFound()` si no existe; `isDefaultBranch` por match exacto con `getDefaultBranchName()` para el aviso A8.
+- **`branch-list.tsx`**: pierde `BranchForm`, el estado `editingBranch` y el prop `defaultBranchName` — queda solo el inventario bajo `data-tour="branches-table"`; el CTA del estado vacío es `Link` a `routes.sucursalesNueva`.
+- **`branch-actions.tsx`**: "Editar" es `Link` → `routes.sucursalesEditar(branchId)` envolviendo `Button` (patrón `/productos`: conserva `getByRole('button', {name:'Editar'})` en los specs); `onEdit` eliminado.
+- **`branch-form.tsx`**: `onCancel` reemplazado por `router.push(routes.sucursales)`; tras guardar con éxito navega al inventario + `router.refresh()` (la fila confirma el cambio); `BranchHelpCard` renderiza arriba dentro del form (patrón `ProductHelpCard`); el heading dinámico y el scroll/foco de A3 se conservan.
+- **`sucursales/page.tsx`**: header con `Link` a `/sucursales/nueva` (`data-tour="branches-new"`); deja de pasar `defaultBranchName` (el aviso vive en la ruta de edición).
+- **`branch-help-card.tsx`** (nuevo): tarjeta de ayuda downstream (nombre/default, horarios↔estado público, dirección↔retiro pickup, contactos↔catálogo/pedido).
+- **Contratos**: `data-tour` sin duplicar (`branches-header`/`branches-new` en `/sucursales`, `branches-table` en el list, `branch-form` en las páginas dedicadas); testids del form (`branch-form-*`, `branch-form-heading`, `branch-cancel`, `branch-location*`, `branch-phone-*`, `branch-social-*`, `branch-day-*`, `branch-slot-*`) viajan con el form; testids de tabla (`branch-row`, `branch-name`, `branch-address`, `branch-phone`, `branch-opening-hours`, `branch-schedule-status`, `delete-branch-${id}`) quedan en la tabla.
+
+**Specs E2E actualizados**: `sucursal-form-ux.spec.ts` (altas → `/sucursales/nueva`, edición → click en Editar + `waitForURL('/sucursales/{id}/editar')`; el helper `deleteBranchViaUi` sigue en `/sucursales`), `sucursal-contactos-y-turnos.spec.ts` (idem), `sucursal-eliminacion.spec.ts` (creación → `/nueva`, borrado sigue desde la tabla), `accessibility.spec.ts` (+`/sucursales/nueva` en rutas auditadas), y los specs de pedido/productos por la colisión "Cerrar" (H-m5).
+
+**Verificado**: `npx tsc --noEmit` ✅, `eslint` ✅, jest suite completa 1952/1952 ✅ (incluye fix de la colisión "Cerrar": `pedido-client.test.tsx` ×2 → `order-success-close`, `stock-list.test.tsx` ×2 → `name:'Cerrar'`), `npm run knip` ✅, `npm run build` ✅ (rutas `/sucursales/nueva` y `/sucursales/[id]/editar` generadas), y E2E acotada contra la base descartable (`sucursal-form-ux`, `sucursal-contactos-y-turnos`, `sucursal-eliminacion`, `accessibility`, `responsive`, `pedido-cancelacion-panel`, `pedido-reserva-flujo`, `pedido-sucursal-y-stock`, `productos-y-recetas`): **44/44 ✅**.

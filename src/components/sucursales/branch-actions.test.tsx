@@ -68,7 +68,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+      <BranchActions branchId={1} branchName="Centro" />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -94,7 +94,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockRejectedValue(new Error('fallo de red'));
 
     render(
-      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+      <BranchActions branchId={1} branchName="Centro" />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -120,7 +120,7 @@ describe('BranchActions', () => {
       .mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+      <BranchActions branchId={1} branchName="Centro" />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -143,7 +143,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(RISKY_SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+      <BranchActions branchId={1} branchName="Centro" />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -177,7 +177,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+      <BranchActions branchId={1} branchName="Centro" />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -200,7 +200,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" onEdit={jest.fn()} />
+      <BranchActions branchId={1} branchName="Centro" />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));

@@ -7,6 +7,7 @@ import {
   useState,
   useTransition,
 } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,13 +22,13 @@ import {
   getBranchDeletionSummaryAction,
   type BranchState,
 } from '@/app/(panel)/sucursales/actions';
+import { routes } from '@/config/routes';
 
 const initialState: BranchState = null;
 
 interface BranchActionsProps {
   branchId: number;
   branchName: string;
-  onEdit: () => void;
 }
 
 // El tipo se infiere de la action para que el contrato con el servidor no
@@ -39,7 +40,6 @@ type DeletionSummary = Awaited<
 export function BranchActions({
   branchId,
   branchName,
-  onEdit,
 }: BranchActionsProps) {
   const [state, formAction, isPending] = useActionState(
     deleteBranchAction,
@@ -94,9 +94,13 @@ export function BranchActions({
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      <Button variant="ghost" size="sm" onClick={onEdit}>
-        Editar
-      </Button>
+      {/* La edición vive en ruta dedicada: Link>Button conserva el role
+          "button" para los specs y el patrón de /productos. */}
+      <Link href={routes.sucursalesEditar(branchId)}>
+        <Button variant="ghost" size="sm">
+          Editar
+        </Button>
+      </Link>
 
       <Button
         type="button"

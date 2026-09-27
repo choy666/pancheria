@@ -1,8 +1,8 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
-import { getDefaultBranchName } from '@/config/branch';
 import { listBranchesForRequest } from '@/lib/server-cache';
 import { getBranchOperationalStatus } from '@/lib/branch-helpers';
 import { Button } from '@/components/ui/button';
@@ -28,10 +28,6 @@ export default async function SucursalesPage() {
   }
 
   const branches = await listBranchesForRequest();
-  // Se pasa el nombre (no un flag por fila) para que la comparación quede
-  // junto a la sucursal en edición, con el mismo match exacto que usa
-  // `getDefaultBranchId` (`findByName`, case-sensitive).
-  const defaultBranchName = getDefaultBranchName();
 
   // Estado operativo por horarios (helpers puros, sin queries extra). Se
   // calcula una vez en SSR: el badge queda congelado hasta recargar la
@@ -48,17 +44,16 @@ export default async function SucursalesPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 data-tour="branches-header" className="text-2xl font-semibold tracking-tight">Sucursales</h1>
-        {/* Ancla nativa al formulario: funciona aunque falle la hidratación. */}
-        <a href="#nueva-sucursal" className="w-full sm:w-auto">
+        {/* El alta vive en ruta dedicada (patrón /productos). */}
+        <Link href={routes.sucursalesNueva} className="w-full sm:w-auto">
           <Button data-tour="branches-new" className="w-full sm:w-auto">
             Nueva sucursal
           </Button>
-        </a>
+        </Link>
       </div>
 
       <BranchList
         branches={branches}
-        defaultBranchName={defaultBranchName}
         statusById={statusById}
       />
     </div>

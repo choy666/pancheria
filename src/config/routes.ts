@@ -12,6 +12,8 @@ export const routes = {
   stock: '/stock',
   cierre: '/cierre',
   sucursales: '/sucursales',
+  sucursalesNueva: '/sucursales/nueva',
+  sucursalesEditar: (id: number | string) => `/sucursales/${id}/editar`,
   usuarios: '/usuarios',
   videos: '/videos',
   videosNuevo: '/videos/nuevo',

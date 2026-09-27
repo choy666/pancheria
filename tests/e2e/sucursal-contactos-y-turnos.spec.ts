@@ -63,9 +63,9 @@ test.describe('Contactos de sucursal', () => {
     const phoneNumber = '3415550001';
     const socialUrl = 'https://instagram.com/pancheria-e2e';
 
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
     await expect(
-      page.getByRole('heading', { name: 'Sucursales' })
+      page.getByRole('heading', { name: 'Nueva sucursal' })
     ).toBeVisible();
 
     await page.getByLabel('Nombre de la sucursal').fill(branchName);
@@ -118,8 +118,9 @@ test.describe('Contactos de sucursal', () => {
       { network: 'instagram', url: socialUrl },
     ]);
 
-    // Editar: el formulario repuebla los contactos guardados.
+    // Editar: la ruta dedicada repuebla los contactos guardados.
     await row.getByRole('button', { name: 'Editar' }).click();
+    await page.waitForURL(`**/sucursales/${branchId}/editar`);
     await expect(page.getByTestId('branch-phone-label-0')).toHaveValue(
       'Pedidos'
     );

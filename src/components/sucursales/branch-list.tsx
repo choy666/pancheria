@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { MapPin, Phone, Share2 } from 'lucide-react';
 import type { Branch } from '@/domain/types';
 import type { BranchOperationalStatus } from '@/lib/branch-helpers';
 import { Badge } from '@/components/ui/badge';
+import { routes } from '@/config/routes';
 import {
   Table,
   TableBody,
@@ -13,35 +14,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { BranchForm } from '@/components/sucursales/branch-form';
 import { BranchActions } from '@/components/sucursales/branch-actions';
-import {
-  createBranch,
-  updateBranchAction,
-} from '@/app/(panel)/sucursales/actions';
 
 interface BranchListProps {
   branches: Branch[];
-  defaultBranchName?: string;
   /** Estado de horario calculado en SSR (queda congelado hasta recargar). */
   statusById: Record<number, BranchOperationalStatus>;
 }
 
 export function BranchList({
   branches,
-  defaultBranchName,
   statusById,
 }: BranchListProps) {
-  const [editingBranch, setEditingBranch] = useState<Branch | undefined>();
-
-  // Igualdad exacta, igual que `getDefaultBranchId` (`findByName`,
-  // case-sensitive): si el nombre coincide, renombrarla dejaría /pedido
-  // sin sucursal canónica y el formulario lo advierte.
-  const editingDefaultBranch =
-    !!editingBranch &&
-    !!defaultBranchName &&
-    editingBranch.name === defaultBranchName;
-
   return (
     <div data-tour="branches-table" className="space-y-5">
       <div className="rounded-2xl border border-white/8 overflow-x-auto">
@@ -194,7 +178,6 @@ export function BranchList({
                     <BranchActions
                       branchId={branch.id}
                       branchName={branch.name}
-                      onEdit={() => setEditingBranch(branch)}
                     />
                   </TableCell>
                 </TableRow>
@@ -210,32 +193,17 @@ export function BranchList({
                   {/* Esta página también es el onboarding del admin sin
                       sucursal: el CTA de alta queda visible aunque la tabla
                       esté vacía. */}
-                  <a
-                    href="#nueva-sucursal"
+                  <Link
+                    href={routes.sucursalesNueva}
                     className="text-primary underline underline-offset-4"
                   >
                     Crear la primera sucursal
-                  </a>
+                  </Link>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-      </div>
-
-      <div
-        id="nueva-sucursal"
-        data-tour="branch-form"
-        className="scroll-mt-20"
-      >
-        <BranchForm
-          key={editingBranch?.id ?? 'create'}
-          branch={editingBranch}
-          isDefaultBranch={editingDefaultBranch}
-          onCancel={() => setEditingBranch(undefined)}
-          createBranchAction={createBranch}
-          updateBranchAction={updateBranchAction}
-        />
       </div>
     </div>
   );

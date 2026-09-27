@@ -44,6 +44,7 @@ test.describe('Accesibilidad (axe-core)', () => {
       '/cierre',
       '/pedidos',
       '/sucursales',
+      '/sucursales/nueva',
       '/usuarios',
       '/videos',
     ];

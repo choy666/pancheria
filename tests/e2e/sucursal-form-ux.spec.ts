@@ -39,7 +39,7 @@ test.describe('Formulario de sucursal — UX', () => {
     const iframeSrc = 'https://www.google.com/maps/embed?pb=abc123xyz';
     const iframeHtml = `<iframe src="${iframeSrc}" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>`;
 
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
     await page.getByLabel('Nombre de la sucursal').fill(branchName);
     await waitForHydratedInput(page, '[data-testid="branch-location"]');
     await page.getByTestId('branch-location').fill(iframeHtml);
@@ -63,8 +63,10 @@ test.describe('Formulario de sucursal — UX', () => {
     expect(branchId).not.toBeNull();
 
     try {
-      // Al editar, el campo repuebla la URL extraída del src, no el HTML.
+      // Al editar, la ruta dedicada repuebla la URL extraída del src, no
+      // el HTML.
       await row.getByRole('button', { name: 'Editar' }).click();
+      await page.waitForURL(`**/sucursales/${branchId}/editar`);
       await expect(page.getByTestId('branch-location')).toHaveValue(iframeSrc);
     } finally {
       if (branchId) await deleteBranchViaUi(page, branchName, branchId);
@@ -78,7 +80,7 @@ test.describe('Formulario de sucursal — UX', () => {
     const embedUrl =
       'https://www.openstreetmap.org/export/embed.html?bbox=-60.6443,-32.9518,-60.6343,-32.9418&layer=mapnik&marker=-32.9468,-60.6393';
 
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
     await page.getByLabel('Nombre de la sucursal').fill(branchName);
     await waitForHydratedInput(page, '[data-testid="branch-location"]');
     await page.getByTestId('branch-location').fill(embedUrl);
@@ -118,7 +120,7 @@ test.describe('Formulario de sucursal — UX', () => {
   test('marca la ubicación inválida solo después de tocar el campo', async ({
     page,
   }) => {
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
     await waitForHydratedInput(page, '[data-testid="branch-location"]');
     const location = page.getByTestId('branch-location');
 
@@ -135,7 +137,7 @@ test.describe('Formulario de sucursal — UX', () => {
   });
 
   test('copia las franjas de un día y las pega en otro', async ({ page }) => {
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
 
     // Habilitar Lunes con una franja 08:00–18:00.
     await page.getByTestId('branch-day-1-toggle').check();
@@ -170,7 +172,7 @@ test.describe('Formulario de sucursal — UX', () => {
   test('muestra el error de horarios solapados en vivo, sin enviar', async ({
     page,
   }) => {
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
 
     await page.getByTestId('branch-day-1-toggle').check();
     await page.getByTestId('branch-slot-open-1-0').fill('08:00');
@@ -191,7 +193,7 @@ test.describe('Formulario de sucursal — UX', () => {
   test('avisa en vivo cuando una fila de teléfono o red queda incompleta', async ({
     page,
   }) => {
-    await page.goto('/sucursales');
+    await page.goto('/sucursales/nueva');
     await waitForHydratedInput(page, '[data-testid="branch-location"]');
 
     // Teléfono con etiqueta pero sin número: el servidor la rechazaría.
