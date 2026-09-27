@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -10,9 +10,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { UserForm } from '@/components/usuarios/user-form';
 import { UserActions } from '@/components/usuarios/user-actions';
-import { type UserState } from '@/app/(panel)/usuarios/actions';
+import { routes } from '@/config/routes';
 
 interface Branch {
   id: number;
@@ -31,99 +30,84 @@ interface User {
 interface UserListProps {
   users: User[];
   branches: Branch[];
-  createUser: (prevState: UserState, formData: FormData) => Promise<UserState>;
-  updateUserAction: (
-    prevState: UserState,
-    formData: FormData
-  ) => Promise<UserState>;
 }
 
-export function UserList({
-  users,
-  branches,
-  createUser,
-  updateUserAction,
-}: UserListProps) {
-  const [editingUser, setEditingUser] = useState<User | undefined>();
-  const handleCancelEdit = useCallback(() => setEditingUser(undefined), []);
-
+export function UserList({ users, branches }: UserListProps) {
   const branchNameById = new Map(
     branches.map((branch) => [branch.id, branch.name])
   );
 
   return (
-    <div data-tour="users-table" className="space-y-5">
-      <div data-tour="user-form">
-        <UserForm
-          key={editingUser?.id ?? 'create'}
-          branches={branches}
-          user={editingUser}
-          onCancel={handleCancelEdit}
-          createUser={createUser}
-          updateUserAction={updateUserAction}
-        />
-      </div>
-
-      <div className="rounded-2xl border border-white/8">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Usuario</TableHead>
-              <TableHead>Rol</TableHead>
-              <TableHead>Sucursal</TableHead>
-              <TableHead className="text-right">ID</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow
-                key={user.id}
-                data-testid="user-row"
-                data-user-id={user.id}
-                data-username={user.username}
-              >
-                <TableCell data-testid="user-username">{user.username}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={user.role === 'admin' ? 'default' : 'secondary'}
-                  >
-                    {user.role === 'admin' ? 'Administrador' : 'Operador'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {user.role === 'admin' ? (
-                    <Badge variant="outline">Todas las sucursales</Badge>
-                  ) : (
-                    (user.branch?.name ??
-                      branchNameById.get(user.branchId) ??
-                      '—')
-                  )}
-                </TableCell>
-                <TableCell className="text-right font-mono">
-                  {user.id}
-                </TableCell>
-                <TableCell className="text-right">
-                  <UserActions
-                    user={user}
-                    onEdit={() => setEditingUser(user)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {users.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center text-muted-foreground"
+    <div className="rounded-2xl border border-white/8 overflow-x-auto" data-tour="users-table">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Usuario</TableHead>
+            <TableHead>Rol</TableHead>
+            <TableHead>Sucursal</TableHead>
+            <TableHead className="hidden text-right lg:table-cell">
+              ID
+            </TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map((user) => (
+            <TableRow
+              key={user.id}
+              data-testid="user-row"
+              data-user-id={user.id}
+              data-username={user.username}
+            >
+              <TableCell data-testid="user-username" className="font-medium">
+                {user.username}
+                {/* Sub-resumen solo móvil: el ID queda oculto bajo `lg`. */}
+                <span className="block text-xs font-normal text-muted-foreground lg:hidden">
+                  ID {user.id}
+                </span>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={user.role === 'admin' ? 'default' : 'secondary'}
                 >
-                  No hay usuarios registrados.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  {user.role === 'admin' ? 'Administrador' : 'Operador'}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                {user.role === 'admin' ? (
+                  <Badge variant="outline">Todas las sucursales</Badge>
+                ) : (
+                  (user.branch?.name ??
+                    branchNameById.get(user.branchId) ??
+                    '—')
+                )}
+              </TableCell>
+              <TableCell className="hidden text-right font-mono lg:table-cell">
+                {user.id}
+              </TableCell>
+              <TableCell className="text-right">
+                <UserActions user={user} />
+              </TableCell>
+            </TableRow>
+          ))}
+          {users.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={5}
+                className="text-center text-muted-foreground"
+              >
+                No hay usuarios registrados.{' '}
+                <Link
+                  href={routes.usuariosNuevo}
+                  className="text-primary underline underline-offset-4"
+                >
+                  Crear el primer usuario
+                </Link>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

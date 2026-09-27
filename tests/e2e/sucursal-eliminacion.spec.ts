@@ -26,9 +26,12 @@ test.describe('Eliminación de sucursal', () => {
     const branchId = await row.getAttribute('data-branch-id');
     expect(branchId).not.toBeNull();
 
-    await page.goto('/usuarios?limit=100');
-    await expect(page.getByRole('heading', { name: 'Usuarios' })).toBeVisible();
-    await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
+    // El alta de usuario vive en ruta dedicada y al guardar vuelve al
+    // inventario.
+    await page.goto('/usuarios/nuevo');
+    await expect(
+      page.getByRole('heading', { name: 'Nuevo usuario', level: 1 })
+    ).toBeVisible();
 
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
     await page.getByTestId('user-password-input').fill('123456');
@@ -37,6 +40,7 @@ test.describe('Eliminación de sucursal', () => {
     await page.locator('[role="option"]', { hasText: branchName }).click();
     await page.getByRole('button', { name: 'Crear usuario' }).click();
 
+    await expect(page).toHaveURL('/usuarios');
     await expect(
       page.getByTestId('user-username').filter({ hasText: operatorUsername })
     ).toBeVisible({ timeout: 10000 });

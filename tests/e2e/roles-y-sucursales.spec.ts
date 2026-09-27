@@ -115,7 +115,12 @@ test.describe('Rol administrador', () => {
     await expect(page.getByRole('heading', { name: 'Usuarios', level: 1 })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible({ timeout: 10000 });
 
-    // Crear un operador en la sucursal por defecto.
+    // Crear un operador en la sucursal por defecto: el alta vive en ruta
+    // dedicada y al guardar vuelve al inventario.
+    await page.goto('/usuarios/nuevo');
+    await expect(
+      page.getByRole('heading', { name: 'Nuevo usuario', level: 1 })
+    ).toBeVisible();
     await page.getByLabel('Nombre de usuario').fill(operatorUsername);
     await page.getByRole('textbox', { name: 'Contraseña' }).fill('123456');
     await page.getByRole('combobox', { name: 'Sucursal', exact: true }).click();
@@ -124,17 +129,23 @@ test.describe('Rol administrador', () => {
       .locator('[role="option"]', { hasText: defaultBranchName })
       .click();
     await page
-      .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
+      .getByRole('button', { name: 'Crear usuario' })
       .click();
 
+    await expect(page).toHaveURL('/usuarios');
     await expect(
       page.getByTestId('user-username').filter({ hasText: operatorUsername })
     ).toBeVisible({ timeout: 10000 });
 
     const operatorRow = page.getByTestId('user-row').filter({ hasText: operatorUsername });
 
-    // Editar el operador: cambiar nombre, sucursal y contraseña.
+    // Editar el operador: la edición navega a /usuarios/{id}/editar y al
+    // guardar vuelve al inventario.
     await operatorRow.getByRole('button', { name: 'Editar' }).click();
+    await page.waitForURL(/\/usuarios\/\d+\/editar/);
+    await expect(
+      page.getByRole('heading', { name: 'Editar usuario', level: 1 })
+    ).toBeVisible();
     await page.getByLabel('Nombre de usuario').fill(editedUsername);
     await page.getByRole('textbox', { name: 'Contraseña' }).fill('nueva1234');
     await page.getByRole('combobox', { name: 'Sucursal', exact: true }).click();
@@ -143,8 +154,10 @@ test.describe('Rol administrador', () => {
       .locator('[role="option"]', { hasText: secondBranch.branchName })
       .click();
     await page
-      .getByRole('button', { name: /^(Crear usuario|Guardar cambios)$/ })
+      .getByRole('button', { name: 'Guardar cambios' })
       .click();
+
+    await expect(page).toHaveURL('/usuarios');
 
     await expect(
       page.getByTestId('user-username').filter({ hasText: editedUsername })

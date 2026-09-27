@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { type UserState } from '@/app/(panel)/usuarios/actions';
+import { routes } from '@/config/routes';
+import { UserHelpCard } from '@/components/usuarios/user-help-card';
 
 const initialState: UserState = null;
 
@@ -27,7 +29,6 @@ interface User {
 interface UserFormProps {
   branches: { id: number; name: string }[];
   user?: User;
-  onCancel?: () => void;
   createUser: (prevState: UserState, formData: FormData) => Promise<UserState>;
   updateUserAction: (
     prevState: UserState,
@@ -38,7 +39,6 @@ interface UserFormProps {
 export function UserForm({
   branches,
   user,
-  onCancel,
   createUser,
   updateUserAction,
 }: UserFormProps) {
@@ -52,22 +52,25 @@ export function UserForm({
   const [state, formAction, isPending] = useActionState(action, initialState);
 
   useEffect(() => {
-    if (
-      wasPendingRef.current &&
-      !isPending &&
-      state === null &&
-      formRef.current
-    ) {
-      const resetBranchId = isEditing ? String(user!.branchId) : '';
-      setTimeout(() => {
-        formRef.current?.reset();
-        setBranchId(resetBranchId);
-        onCancel?.();
-        router.refresh();
-      }, 0);
+    if (wasPendingRef.current && !isPending && state === null) {
+      // El alta/edición vive en rutas dedicadas: al guardar se vuelve al
+      // inventario, donde la fila confirma el cambio (mismo patrón que los
+      // formularios de /productos y /sucursales).
+      router.push(routes.usuarios);
+      router.refresh();
     }
     wasPendingRef.current = isPending;
-  }, [isPending, isEditing, onCancel, state, user, router]);
+  }, [isPending, state, router]);
+
+  // En modo edición el foco cae en el nombre: refuerza qué usuario se está
+  // modificando junto con el heading dinámico.
+  useEffect(() => {
+    if (!user) return;
+    const usernameField = formRef.current?.elements.namedItem('username');
+    if (usernameField instanceof HTMLElement) {
+      usernameField.focus();
+    }
+  }, [user]);
 
   return (
     <form
@@ -77,6 +80,17 @@ export function UserForm({
       className="max-w-2xl space-y-4"
     >
       {isEditing && <input type="hidden" name="id" value={user.id} />}
+
+      {/* Título de modo: contexto visible de qué usuario se está editando. */}
+      <h2
+        data-testid="user-form-heading"
+        className="text-lg font-semibold tracking-tight"
+      >
+        {isEditing ? `Editar: ${user.username}` : 'Crear usuario'}
+      </h2>
+
+      <UserHelpCard />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="username">Nombre de usuario</Label>
@@ -145,6 +159,9 @@ export function UserForm({
             </SelectContent>
           </Select>
           <input type="hidden" name="branchId" value={branchId} />
+          <p className="text-xs text-muted-foreground">
+            El operador solo ve y opera los datos de su sucursal asignada.
+          </p>
         </div>
       </div>
 
@@ -164,16 +181,15 @@ export function UserForm({
               ? 'Guardar cambios'
               : 'Crear usuario'}
         </Button>
-        {isEditing && onCancel && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isPending}
-          >
-            Cancelar
-          </Button>
-        )}
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="user-cancel"
+          onClick={() => router.push(routes.usuarios)}
+          disabled={isPending}
+        >
+          Cancelar
+        </Button>
       </div>
     </form>
   );

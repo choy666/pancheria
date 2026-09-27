@@ -1,13 +1,14 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
 import { routes } from '@/config/routes';
 import * as userService from '@/application/services/userService';
 import { listBranchesForRequest } from '@/lib/server-cache';
+import { Button } from '@/components/ui/button';
 import { UserList } from '@/components/usuarios/user-list';
 import { ServerPagination } from '@/components/ui/server-pagination';
 import { parsePaginationParams } from '@/lib/pagination';
-import { createUser, updateUserAction } from '@/app/(panel)/usuarios/actions';
 
 interface UsuariosPageProps {
   searchParams: Promise<{ page?: string; limit?: string }>;
@@ -38,13 +39,19 @@ export default async function UsuariosPage({ searchParams }: UsuariosPageProps) 
 
   return (
     <div className="space-y-5">
-      <h1 data-tour="users-header" className="text-2xl font-semibold tracking-tight">Usuarios</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 data-tour="users-header" className="text-2xl font-semibold tracking-tight">Usuarios</h1>
+        {/* El alta vive en ruta dedicada (patrón /productos). */}
+        <Link href={routes.usuariosNuevo} className="w-full sm:w-auto">
+          <Button data-tour="users-new" className="w-full sm:w-auto">
+            Nuevo usuario
+          </Button>
+        </Link>
+      </div>
 
       <UserList
         users={users.items}
         branches={branches}
-        createUser={createUser}
-        updateUserAction={updateUserAction}
       />
 
       <ServerPagination

@@ -20,6 +20,7 @@ const protectedRoutes = [
   '/stock',
   '/cierre',
   '/usuarios',
+  '/usuarios/nuevo',
   '/sucursales',
   '/videos',
 ];

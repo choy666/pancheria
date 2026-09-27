@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { deleteUserAction, type UserState } from '@/app/(panel)/usuarios/actions';
+import { routes } from '@/config/routes';
 
 const initialState: UserState = null;
 
@@ -21,10 +23,9 @@ interface User {
 
 interface UserActionsProps {
   user: User;
-  onEdit: () => void;
 }
 
-export function UserActions({ user, onEdit }: UserActionsProps) {
+export function UserActions({ user }: UserActionsProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const [deleteState, deleteAction, isDeletePending] = useActionState(
@@ -46,9 +47,13 @@ export function UserActions({ user, onEdit }: UserActionsProps) {
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      <Button variant="ghost" size="sm" onClick={onEdit}>
-        Editar
-      </Button>
+      {/* La edición vive en ruta dedicada: Link>Button conserva el role
+          "button" para los specs y el patrón de /productos. */}
+      <Link href={routes.usuariosEditar(user.id)}>
+        <Button variant="ghost" size="sm">
+          Editar
+        </Button>
+      </Link>
 
       <Button
         variant="ghost"

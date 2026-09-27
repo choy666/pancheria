@@ -15,6 +15,8 @@ export const routes = {
   sucursalesNueva: '/sucursales/nueva',
   sucursalesEditar: (id: number | string) => `/sucursales/${id}/editar`,
   usuarios: '/usuarios',
+  usuariosNuevo: '/usuarios/nuevo',
+  usuariosEditar: (id: number | string) => `/usuarios/${id}/editar`,
   videos: '/videos',
   videosNuevo: '/videos/nuevo',
   videosEliminados: '/videos/eliminados',
