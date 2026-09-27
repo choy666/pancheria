@@ -7,6 +7,7 @@ import {
 import { db } from '@/db';
 import * as branchService from '@/application/services/branchService';
 import bcrypt from 'bcrypt';
+import { BCRYPT_HASH_COST } from '@/config/auth';
 import { ValidationError, NotFoundError } from '@/domain/errors';
 
 jest.mock('@/db', () => ({
@@ -155,7 +156,7 @@ describe('userService', () => {
       });
 
       expect(result.username).toBe('nuevo');
-      expect(mockedBcrypt.hash).toHaveBeenCalledWith('123456', 10);
+      expect(mockedBcrypt.hash).toHaveBeenCalledWith('123456', BCRYPT_HASH_COST);
     });
 
     test('rechaza un nombre de usuario vacío', async () => {
@@ -258,7 +259,10 @@ describe('userService', () => {
       const result = await updateUser(2, { password: 'nueva-contraseña' });
 
       expect(result.id).toBe(2);
-      expect(mockedBcrypt.hash).toHaveBeenCalledWith('nueva-contraseña', 10);
+      expect(mockedBcrypt.hash).toHaveBeenCalledWith(
+        'nueva-contraseña',
+        BCRYPT_HASH_COST
+      );
       expect(mockUpdateChain.set).toHaveBeenCalledWith(
         expect.objectContaining({ passwordHash: 'hashed' })
       );

@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { BCRYPT_HASH_COST } from '@/config/auth';
 import { users } from '@/db/schema';
 import { executeInTransaction } from '@/application/transactionService';
 import * as branchService from '@/application/services/branchService';
@@ -53,7 +54,7 @@ export async function createUser(data: {
     throw new ValidationError('Ya existe un usuario con ese nombre.');
   }
 
-  const passwordHash = await bcrypt.hash(data.password, 10);
+  const passwordHash = await bcrypt.hash(data.password, BCRYPT_HASH_COST);
 
   const user = await userRepository.insert({
     username,
@@ -121,7 +122,7 @@ export async function updateUser(
   if (data.password !== undefined && data.password.length > 0) {
     validateMinLength(data.password, 6, 'La contraseña');
 
-    updates.passwordHash = await bcrypt.hash(data.password, 10);
+    updates.passwordHash = await bcrypt.hash(data.password, BCRYPT_HASH_COST);
   }
 
   if (Object.keys(updates).length === 0) {
@@ -171,7 +172,7 @@ export async function updatePassword(
       throw new NotFoundError('Usuario', id);
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_HASH_COST);
 
     const updated = await userRepository.update(
       user.id,

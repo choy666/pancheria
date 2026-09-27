@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import {
   createPublicOrderRateLimitStore,
   InMemoryPublicOrderRateLimitStore,
@@ -34,7 +33,12 @@ function getFirstHeaderValue(value: string | null): string | null {
   return value.split(',')[0].trim();
 }
 
-export function getClientIp(request: NextRequest): string {
+/**
+ * `Request` estándar (no `NextRequest`): Auth.js v5 entrega el request del
+ * callback `authorize` como `Request`, y `NextRequest` extiende `Request`,
+ * así los callers de rutas siguen funcionando.
+ */
+export function getClientIp(request: Request): string {
   // En Vercel, el header x-vercel-forwarded-for es confiable.
   if (isVercel()) {
     const vercelForwarded = getFirstHeaderValue(
@@ -129,5 +133,40 @@ export function createPollRateLimiter(
     }
 
     return store.recordRequest(scope, ip, windowMs, maxRequests);
+  };
+}
+
+const LOGIN_IP_SCOPE = 'login_ip';
+
+/**
+ * Límite de intentos de login por IP: frena el password spraying que rota
+ * usernames desde una misma IP. A diferencia de `createRateLimiter`, separa
+ * el chequeo del incremento porque solo los intentos FALLIDOS acumulan — un
+ * login exitoso no debe consumir la cuota de la IP (varios usuarios pueden
+ * compartir NAT/oficina).
+ *
+ * `resolveIp` encapsula la resolución: si el request no expone una IP
+ * confiable (`'unknown'` en dev/test, o `RateLimitConfigError` en
+ * producción sin proxy confiable), devuelve `null` y el limiter se omite —
+ * agrupar a todos en 'unknown' permitiría que un cliente sin IP bloquee a
+ * todos, o que se mueran los legítimos detrás de la misma clave.
+ */
+export function createLoginIpLimiter(windowMs: number, maxAttempts: number) {
+  const store = createPublicOrderRateLimitStore();
+
+  return {
+    async isBlocked(ip: string | null): Promise<boolean> {
+      if (!ip || ip === 'unknown' || shouldBypassRateLimit()) {
+        return false;
+      }
+      return store.isBlocked(LOGIN_IP_SCOPE, ip, maxAttempts);
+    },
+
+    async recordFailure(ip: string | null): Promise<void> {
+      if (!ip || ip === 'unknown' || shouldBypassRateLimit()) {
+        return;
+      }
+      await store.recordRequest(LOGIN_IP_SCOPE, ip, windowMs, maxAttempts);
+    },
   };
 }

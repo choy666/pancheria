@@ -1,0 +1,2 @@
+CREATE INDEX "login_attempts_last_attempt_idx" ON "login_attempts" USING btree ("last_attempt");--> statement-breakpoint
+CREATE INDEX "public_order_rate_limits_reset_at_idx" ON "public_order_rate_limits" USING btree ("reset_at");

@@ -133,9 +133,12 @@ Copiar `.env.example` a `.env.local` y completar:
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).
   - `db`: en PostgreSQL usando la tabla `login_attempts` (por defecto en producción cuando `DATABASE_URL` o `POSTGRES_URL` están definidas; configurable explícitamente con `RATE_LIMIT_STORE_PROVIDER=db`).
-- `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` (opcional) — cantidad máxima de intentos fallidos de login antes del bloqueo temporal (por defecto 5).
-- `LOGIN_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de login en milisegundos (por defecto 900000 ms = 15 minutos).
+- `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` (opcional) — cantidad máxima de intentos fallidos de login por usuario antes del bloqueo temporal (por defecto 5).
+- `LOGIN_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de login por usuario en milisegundos (por defecto 900000 ms = 15 minutos).
+- `LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS` (opcional) — cantidad máxima de intentos fallidos de login por IP antes del bloqueo temporal (por defecto 20). Segundo límite anti password spraying que rota usernames; solo los fallos acumulan (un login exitoso no consume cuota). Si la IP del request no es confiablemente resoluble el límite se omite — el límite por usuario sigue activo. Comparte el store de `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` con scope `login_ip`.
+- `LOGIN_IP_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de login por IP en milisegundos (por defecto 900000 ms = 15 minutos).
 - `LOGIN_ATTEMPTS_RETENTION_MS` (opcional, **solo servidor**) — retención de la tabla `login_attempts` en milisegundos (por defecto 604800000 ms = 7 días). El cron `GET /api/cron/rate-limit-cleanup` borra los intentos cuyo `last_attempt` supere el período para acotar el crecimiento de la tabla.
+- `SEED_RESET_ADMIN_PASSWORD` (opcional) — gate de seguridad del seed. En producción (`NODE_ENV=production`) el seed no pisa la contraseña de un administrador existente salvo que se defina `SEED_RESET_ADMIN_PASSWORD=1`; en desarrollo/test el hash siempre se sincroniza con `ADMIN_PASSWORD`.
 - `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` (opcional) — ID de la aplicación receptora de Google Cast (por defecto `CC1AD845`).
 - `NEXT_PUBLIC_CAST_SENDER_SDK_URL` (opcional) — URL del SDK de Cast (por defecto `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`).
 - `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; descomentar en `.env.example` para sobrescribir).

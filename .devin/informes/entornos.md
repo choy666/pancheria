@@ -244,6 +244,8 @@ npx tsx src/db/seeds.ts
 npm run test:e2e
 ```
 
+En producción (`NODE_ENV=production`) el seed crea el administrador si no existe pero **no** pisa la contraseña de un admin ya existente — un seed accidental con un `ADMIN_PASSWORD` incorrecto no puede dejar la cuenta con una clave débil o incorrecta. Para forzar el reset explícito de la contraseña del admin en producción, ejecutar el seed con `SEED_RESET_ADMIN_PASSWORD=1`. En desarrollo/test el hash siempre se sincroniza con `ADMIN_PASSWORD` (es lo que mantiene consistentes los logins de E2E).
+
 ---
 
 ## Seguridad

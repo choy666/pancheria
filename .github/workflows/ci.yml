@@ -84,6 +84,22 @@ jobs:
       - run: npm ci
       - run: npm run knip
 
+  audit:
+    name: Auditoría de dependencias (npm audit)
+    runs-on: ubuntu-latest
+    # No bloquea el pipeline: los advisories de dependencias transitivas sin
+    # fix disponible romperían CI continuamente. El resultado queda visible
+    # en el run para revisión manual.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
   e2e:
     name: Tests end-to-end y accesibilidad
     runs-on: ubuntu-latest

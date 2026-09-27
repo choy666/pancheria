@@ -336,6 +336,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 - Ventana y máximo de pedidos configurables por `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` y `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS`.
 - Ventana y máximo de chat configurables por `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
 - Los endpoints públicos de solo lectura (`GET /api/public/pedido/[id]/estado`, `GET /api/public/pedido/[id]/chat/stream`, `POST /api/public/disponibilidad`) aplican un veto anti-abuso en memoria por IP (`PUBLIC_POLL_RATE_LIMIT_WINDOW_MS`/`PUBLIC_POLL_RATE_LIMIT_MAX_REQUESTS`, por defecto 60 s y 240 requests), sin escribir en la base.
+- El login tiene **dos límites**: por usuario (`LOGIN_RATE_LIMIT_MAX_ATTEMPTS`/`LOGIN_RATE_LIMIT_WINDOW_MS`, por defecto 5 intentos / 15 min sobre `login_attempts`) y por IP (`LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS`/`LOGIN_IP_RATE_LIMIT_WINDOW_MS`, por defecto 20 / 15 min sobre `public_order_rate_limits` con scope `login_ip`). El por IP frena password spraying que rota usernames; solo los intentos fallidos acumulan cuota, y si la IP no es resoluble confiablemente se omite ese límite (el por usuario sigue activo).
 
 ### 7.4 Eliminación de una sucursal
 
@@ -522,6 +523,10 @@ Disponibilidad = infinita.
 | `NEXT_PUBLIC_MAPS_PROVIDER` | Proveedor de mapas para enlaces de ubicación | `openstreetmap` |
 | `NEXT_PUBLIC_MAPS_BASE_URL` | URL base personalizada para mapas (opcional) | — |
 | `PUBLIC_ORDER_RATE_LIMIT_*` | Rate limit de pedidos y chat | `60s`, `10` req |
+| `LOGIN_RATE_LIMIT_*` | Rate limit de login por usuario | `5` intentos, `15` min |
+| `LOGIN_IP_RATE_LIMIT_*` | Rate limit de login por IP (anti password spraying) | `20` intentos, `15` min |
+| `LOGIN_ATTEMPTS_RETENTION_MS` (solo servidor) | Retención de `login_attempts` | `7` días |
+| `SEED_RESET_ADMIN_PASSWORD` (solo servidor) | Gate para que el seed pise la contraseña de un admin existente en producción | deshabilitado (requiere `1`) |
 | `ORDER_EXPIRATION_MS` | Expiración automática de pedidos `pending` | `3600000` ms |
 | `CRON_SECRET` | Protección de endpoints de cron | — |
 
@@ -593,7 +598,7 @@ Disponibilidad = infinita.
 
 - [ ] Configurar `NEXTAUTH_URL` y `NEXTAUTH_SECRET` en Vercel.
 - [ ] Configurar `DATABASE_URL` y `DATABASE_URL_UNPOOLED` con base de producción.
-- [ ] Ejecutar `npx drizzle-kit migrate` y `npx tsx src/db/seeds.ts` en producción (ver `entornos.md`; si se usó `push`, correr `npx tsx scripts/drizzle-baseline.ts`).
+- [ ] Ejecutar `npx drizzle-kit migrate` y `npx tsx src/db/seeds.ts` en producción (ver `entornos.md`; si se usó `push`, correr `npx tsx scripts/drizzle-baseline.ts`). El seed crea el admin si no existe; en producción **no** pisa la contraseña de un admin existente salvo `SEED_RESET_ADMIN_PASSWORD=1`.
 - [ ] Ejecutar `npm run build`, `npm run test:e2e` en base de prueba.
 - [ ] Rotar secretos si `.env.local` fue expuesto.
 - [ ] Verificar que `STORAGE_PROVIDER` y credenciales de videos estén configuradas si se usa `/videos`.

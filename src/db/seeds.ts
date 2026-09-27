@@ -23,7 +23,12 @@ import {
   getNewBranchSocialLinksJson,
   getNewBranchLocation,
 } from '@/config/branch';
-import { getAdminUsername, getAdminPassword } from '@/config/auth';
+import {
+  getAdminUsername,
+  getAdminPassword,
+  BCRYPT_HASH_COST,
+} from '@/config/auth';
+import { isProduction } from '@/config/env';
 import { normalizeSocialLinks } from '@/lib/branch-helpers';
 
 /**
@@ -114,28 +119,39 @@ async function seedAdmin(defaultBranchId: number) {
   });
 
   if (existing) {
-    const passwordHash = await bcrypt.hash(password, 10);
+    // En producción un seed accidental con un `ADMIN_PASSWORD` incorrecto o
+    // de ejemplo pisaría la contraseña real del administrador. El reset solo
+    // se aplica si se pide explícito con SEED_RESET_ADMIN_PASSWORD=1; fuera
+    // de producción (dev/test/E2E) el hash se sincroniza siempre.
+    const shouldResetPassword =
+      !isProduction() || process.env.SEED_RESET_ADMIN_PASSWORD === '1';
+    const passwordHash = shouldResetPassword
+      ? await bcrypt.hash(password, BCRYPT_HASH_COST)
+      : undefined;
 
-    if (!existing.branchId) {
+    if (!existing.branchId || passwordHash) {
       await db
         .update(users)
-        .set({ branchId: defaultBranchId, passwordHash })
+        .set({
+          ...(existing.branchId ? {} : { branchId: defaultBranchId }),
+          ...(passwordHash ? { passwordHash } : {}),
+        })
         .where(eq(users.id, existing.id));
       console.log(
-        'El usuario administrador existía sin sucursal; se le asignó la sucursal por defecto y se actualizó la contraseña.'
+        existing.branchId
+          ? 'El usuario administrador ya existe; se actualizó la contraseña.'
+          : 'El usuario administrador existía sin sucursal; se le asignó la sucursal por defecto y se actualizó la contraseña.'
       );
       return;
     }
 
-    await db
-      .update(users)
-      .set({ passwordHash })
-      .where(eq(users.id, existing.id));
-    console.log('El usuario administrador ya existe; se actualizó la contraseña.');
+    console.log(
+      'El usuario administrador ya existe; en producción se conserva la contraseña salvo SEED_RESET_ADMIN_PASSWORD=1.'
+    );
     return;
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_HASH_COST);
 
   await db.insert(users).values({
     username,
@@ -178,7 +194,7 @@ async function seedOptionalBranch(defaultBranchId: number) {
   });
 
   if (!existingUser) {
-    const passwordHash = await bcrypt.hash(NEW_BRANCH_PASSWORD, 10);
+    const passwordHash = await bcrypt.hash(NEW_BRANCH_PASSWORD, BCRYPT_HASH_COST);
     await db.insert(users).values({
       username: NEW_BRANCH_USERNAME,
       passwordHash,

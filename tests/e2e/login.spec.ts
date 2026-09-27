@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test('login fallido muestra error', async ({ page }) => {
   await page.goto('/login');
-  await page.getByLabel('Usuario').fill('admin');
+  // Usuario inexistente: un intento fallido con el admin real sumaría contra
+  // su contador de login_attempts compartido con el resto de la suite.
+  await page.getByLabel('Usuario').fill('usuario-inexistente-e2e');
   await page.getByLabel('Contraseña').fill('incorrecta');
   await page.getByRole('button', { name: 'Ingresar' }).click();
 

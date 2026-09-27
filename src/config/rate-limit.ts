@@ -59,6 +59,41 @@ export function getLoginRateLimitWindowMs(): number {
   return parsed;
 }
 
+const DEFAULT_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS = 20;
+const DEFAULT_LOGIN_IP_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Cantidad máxima de intentos de login fallidos por IP antes del bloqueo
+ * temporal (`LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS`, por defecto 20). Es un
+ * segundo límite, además del por usuario, para frenar password spraying
+ * que rota nombres de usuario desde una misma IP. Es más generoso que el
+ * por usuario porque una IP compartida (NAT) puede sumar fallos de varios
+ * usuarios legítimos.
+ */
+export function getLoginIpRateLimitMaxAttempts(): number {
+  const raw = process.env.LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS;
+  if (!raw) return DEFAULT_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS;
+  }
+  return Math.floor(parsed);
+}
+
+/**
+ * Ventana del rate limit de login por IP en milisegundos
+ * (`LOGIN_IP_RATE_LIMIT_WINDOW_MS`, por defecto 15 minutos).
+ */
+export function getLoginIpRateLimitWindowMs(): number {
+  const raw = process.env.LOGIN_IP_RATE_LIMIT_WINDOW_MS;
+  if (!raw) return DEFAULT_LOGIN_IP_RATE_LIMIT_WINDOW_MS;
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return DEFAULT_LOGIN_IP_RATE_LIMIT_WINDOW_MS;
+  }
+  return parsed;
+}
+
 const DEFAULT_LOGIN_ATTEMPTS_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**

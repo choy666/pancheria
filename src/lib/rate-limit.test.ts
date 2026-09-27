@@ -6,6 +6,7 @@ import { DomainError } from '@/domain/errors';
 import {
   createRateLimiter,
   createPollRateLimiter,
+  createLoginIpLimiter,
   getClientIp,
   RateLimitConfigError,
 } from './rate-limit';
@@ -14,6 +15,7 @@ jest.mock('@/lib/public-order-rate-limit-store', () => ({
   ...jest.requireActual('@/lib/public-order-rate-limit-store'),
   createPublicOrderRateLimitStore: jest.fn().mockReturnValue({
     recordRequest: jest.fn().mockResolvedValue(true),
+    isBlocked: jest.fn().mockResolvedValue(false),
   }),
 }));
 
@@ -204,6 +206,70 @@ describe('createRateLimiter', () => {
       '1.2.3.4',
       60_000,
       10
+    );
+  });
+});
+
+describe('createLoginIpLimiter', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    Object.assign(process.env, { NODE_ENV: originalNodeEnv });
+  });
+
+  test('en test no limita ni registra', async () => {
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+    const store = (createPublicOrderRateLimitStore as jest.Mock)();
+    const limiter = createLoginIpLimiter(60_000, 20);
+
+    expect(await limiter.isBlocked('1.2.3.4')).toBe(false);
+    await limiter.recordFailure('1.2.3.4');
+
+    expect(store.isBlocked).not.toHaveBeenCalled();
+    expect(store.recordRequest).not.toHaveBeenCalled();
+  });
+
+  test('omite IP nula o unknown sin tocar el store', async () => {
+    Object.assign(process.env, { NODE_ENV: 'production' });
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+    const store = (createPublicOrderRateLimitStore as jest.Mock)();
+    const limiter = createLoginIpLimiter(60_000, 20);
+
+    expect(await limiter.isBlocked(null)).toBe(false);
+    expect(await limiter.isBlocked('unknown')).toBe(false);
+    await limiter.recordFailure(null);
+    await limiter.recordFailure('unknown');
+
+    expect(store.isBlocked).not.toHaveBeenCalled();
+    expect(store.recordRequest).not.toHaveBeenCalled();
+  });
+
+  test('consulta bloqueo y registra fallos bajo el scope login_ip', async () => {
+    Object.assign(process.env, { NODE_ENV: 'production' });
+    const { createPublicOrderRateLimitStore } = await import(
+      '@/lib/public-order-rate-limit-store'
+    );
+    const store = (createPublicOrderRateLimitStore as jest.Mock)();
+    store.isBlocked.mockResolvedValue(true);
+    const limiter = createLoginIpLimiter(60_000, 20);
+
+    expect(await limiter.isBlocked('9.9.9.9')).toBe(true);
+    expect(store.isBlocked).toHaveBeenCalledWith('login_ip', '9.9.9.9', 20);
+
+    await limiter.recordFailure('9.9.9.9');
+    expect(store.recordRequest).toHaveBeenCalledWith(
+      'login_ip',
+      '9.9.9.9',
+      60_000,
+      20
     );
   });
 });

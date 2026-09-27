@@ -718,11 +718,17 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
 
 
 
-export const loginAttempts = pgTable('login_attempts', {
-  username: varchar('username', { length: 255 }).primaryKey(),
-  count: integer('count').notNull(),
-  lastAttempt: bigint('last_attempt', { mode: 'number' }).notNull(),
-});
+export const loginAttempts = pgTable(
+  'login_attempts',
+  {
+    username: varchar('username', { length: 255 }).primaryKey(),
+    count: integer('count').notNull(),
+    lastAttempt: bigint('last_attempt', { mode: 'number' }).notNull(),
+  },
+  // Índice para el cleanup del cron (`WHERE last_attempt < retention`):
+  // sin él la purga haría full scan si la tabla crece.
+  (table) => [index('login_attempts_last_attempt_idx').on(table.lastAttempt)]
+);
 
 export const publicOrderRateLimits = pgTable(
   'public_order_rate_limits',
@@ -732,7 +738,12 @@ export const publicOrderRateLimits = pgTable(
     count: integer('count').notNull(),
     resetAt: bigint('reset_at', { mode: 'number' }).notNull(),
   },
-  (table) => [primaryKey({ columns: [table.scope, table.ip] })]
+  (table) => [
+    primaryKey({ columns: [table.scope, table.ip] }),
+    // Índice para el cleanup del cron (`WHERE reset_at < now`); sin él la
+    // purga haría full scan si la tabla crece con IPs transitorias.
+    index('public_order_rate_limits_reset_at_idx').on(table.resetAt),
+  ]
 );
 
 export const videosRelations = relations(videos, ({ one }) => ({

@@ -26,6 +26,23 @@
 - CI/documentación: se añadió `drizzle-kit check` al job E2E y se corrigieron las referencias de cierres, migraciones y el índice stale del prompt T14. T14 no se implementó ni se inició.
 - `.vscode/extensions.json` sigue sin trackear y quedó intacto.
 
+### Refuerzos de rate limit, seed y seguridad (sesión posterior al merge de #9)
+
+Sesión de cierre de recomendaciones de auditoría. El estado previo ya resolvía la atomicidad del rate limit de pedidos (`recordRequest` con `onConflictDoUpdate` + `CASE WHEN`), el `getClientIp` robusto, el cron diario compatible con Hobby, `/api/health` y el `drizzle-kit check`/`migrate` en CI. Los cambios nuevos:
+
+- **Rate limit de login por IP**: `createLoginIpLimiter` en `src/lib/rate-limit.ts` agrega un segundo límite (`scope` `login_ip` en `public_order_rate_limits`) que frena password spraying rotando usernames. Solo los intentos **fallidos** acumulan cuota (un login exitoso tras NAT compartida no consume). Si la IP del request no es resoluble confiablemente (`'unknown'` o `RateLimitConfigError`), el límite por IP se omite y el por usuario sigue activo — ningún cliente queda agrupado bajo la clave compartida `'unknown'`. Defaults: 20 intentos / 15 min (`LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS`, `LOGIN_IP_RATE_LIMIT_WINDOW_MS`).
+- **`isBlocked` en `PublicOrderRateLimitStore`**: método de chequeo sin incremento (necesario para el límite por IP), implementado en las variantes memoria y PostgreSQL.
+- **Gate del reset de contraseña del seed**: en `NODE_ENV=production` `seedAdmin` ya no pisa el `passwordHash` de un admin existente salvo `SEED_RESET_ADMIN_PASSWORD=1` explícito; en dev/test sigue sincronizando (necesario para E2E). La asignación de `branchId` faltante sigue siendo automática.
+- **bcrypt cost 10 → 12**: constante `BCRYPT_HASH_COST` en `src/config/auth.ts` usada por `userService` y `seeds`. Los hashes existentes con cost 10 siguen verificando (el coste viaja en el hash).
+- **Índices de cleanup**: migración `0033_last_synch.sql` con `login_attempts_last_attempt_idx` y `public_order_rate_limits_reset_at_idx`, aplicada a la base de desarrollo con `drizzle-kit migrate` (`check` en verde antes). Evitan full scan si las tablas crecen.
+- **`npm audit` en CI**: job no bloqueante (`continue-on-error`, umbral `--audit-level=high`) para visibilizar CVEs sin frenar el pipeline por advisories sin fix.
+- **E2E**: `login.spec.ts` ahora usa `usuario-inexistente-e2e` para el caso fallido (no contamina el contador del admin real).
+- **`getClientIp` reutilizable**: la firma se relajó de `NextRequest` a `Request` para que `authorize` de Auth.js pueda usarla (Auth.js entrega `Request`); los callers de rutas siguen intactos.
+
+Decisión tomada: **no** se consolidaron `login_attempts` y `public_order_rate_limits` en una tabla genérica — tienen semánticas distintas (ventana deslizante por usuario vs ventana fija por scope+IP, retención distinta) y una migración destructiva no aportaba beneficio frente al patrón atómico ya compartido.
+
+Verificaciones de la sesión: `npx tsc --noEmit` ✓, `npm run lint` ✓ (1 warning preexistente), `npm test` **176 suites / 1957 tests** ✓, `npx drizzle-kit check` ✓, `npx drizzle-kit migrate` ✓ (0033 aplicada en desarrollo). Pendiente de esa sesión: aplicar `0033` a la base E2E del CI (automático en el próximo run) y a producción vía `entornos.md`.
+
 ### CI de GitHub Actions
 
 | Run | Conclusión | Evidencia / lectura |

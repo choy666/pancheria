@@ -1,4 +1,4 @@
-import { lt, sql } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { publicOrderRateLimits } from '@/db/schema';
 import { isProduction, isTest, hasDatabaseUrl } from '@/config/env';
@@ -17,6 +17,17 @@ export interface PublicOrderRateLimitStore {
     scope: string,
     ip: string,
     windowMs: number,
+    maxRequests: number
+  ): Promise<boolean>;
+  /**
+   * Devuelve `true` si el contador del par (scope, ip) está vigente y ya
+   * alcanzó `maxRequests`. No incrementa el contador: sirve para el chequeo
+   * preventivo del login por IP, donde solo los intentos fallidos deben
+   * acumularse (un login exitoso no consume cuota).
+   */
+  isBlocked(
+    scope: string,
+    ip: string,
     maxRequests: number
   ): Promise<boolean>;
   cleanupExpired(): Promise<number>;
@@ -64,6 +75,17 @@ export class InMemoryPublicOrderRateLimitStore
     return record.count > maxRequests;
   }
 
+  async isBlocked(
+    scope: string,
+    ip: string,
+    maxRequests: number
+  ): Promise<boolean> {
+    const record = this.attemptsByScopeAndIp.get(this.key(scope, ip));
+    if (!record) return false;
+    if (Date.now() > record.resetAt) return false;
+    return record.count >= maxRequests;
+  }
+
   async cleanupExpired(): Promise<number> {
     const now = Date.now();
     let deleted = 0;
@@ -108,6 +130,24 @@ export class DbPublicOrderRateLimitStore
       .returning({ count: publicOrderRateLimits.count });
 
     return (row?.count ?? 1) > maxRequests;
+  }
+
+  async isBlocked(
+    scope: string,
+    ip: string,
+    maxRequests: number
+  ): Promise<boolean> {
+    const row = await db.query.publicOrderRateLimits.findFirst({
+      where: and(
+        eq(publicOrderRateLimits.scope, scope),
+        eq(publicOrderRateLimits.ip, ip)
+      ),
+      columns: { count: true, resetAt: true },
+    });
+
+    if (!row) return false;
+    if (Date.now() > row.resetAt) return false;
+    return row.count >= maxRequests;
   }
 
   async cleanupExpired(): Promise<number> {

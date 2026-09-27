@@ -232,6 +232,13 @@
       "when": 1790193049384,
       "tag": "0032_icy_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790541614954,
+      "tag": "0033_last_synch",
+      "breakpoints": true
     }
   ]
 }
