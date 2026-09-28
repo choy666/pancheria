@@ -33,6 +33,7 @@ import {
 } from '@/lib/branch-helpers';
 import { describeLocationInput } from '@/lib/maps';
 import { BranchLocationPreview } from '@/components/sucursales/branch-location-preview';
+import { BranchPublicPreview } from '@/components/sucursales/branch-public-preview';
 import { BranchHelpCard } from '@/components/sucursales/branch-help-card';
 import type {
   Branch,
@@ -100,6 +101,7 @@ export function BranchForm({
   // Validación en vivo: el estado derivado se calcula con useMemo (regla del
   // proyecto: no usar useEffect + setState para derivar estado).
   const [nameInput, setNameInput] = useState(branch?.name ?? '');
+  const [addressInput, setAddressInput] = useState(branch?.address ?? '');
   const [locationInput, setLocationInput] = useState(branch?.location ?? '');
   // Los errores por campo solo se muestran tras tocar el input (onBlur) o tras
   // un intento de submit, para no flashear "inválido" en cada keystroke.
@@ -340,6 +342,18 @@ export function BranchForm({
 
       <BranchHelpCard />
 
+      {/* Preview en vivo de la tarjeta pública: reutiliza BranchInfoCard con
+          el estado local del form, así el admin ve el resultado sin salir. */}
+      <BranchPublicPreview
+        branch={branch}
+        name={nameInput}
+        address={addressInput}
+        phones={phones}
+        socialLinks={socialLinks}
+        location={locationInput}
+        openingHours={openingHours}
+      />
+
       <div className="space-y-2">
         <Label htmlFor="name">Nombre de la sucursal</Label>
         <Input
@@ -391,6 +405,7 @@ export function BranchForm({
           name="address"
           type="text"
           defaultValue={branch?.address ?? ''}
+          onChange={(e) => setAddressInput(e.target.value)}
           placeholder="Ej: Av. Pellegrini 1234, Rosario"
           data-testid="branch-form-address"
           aria-describedby="branch-address-help"

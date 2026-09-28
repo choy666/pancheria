@@ -222,4 +222,37 @@ test.describe('Formulario de sucursal — UX', () => {
       'Ingresá una URL http(s) completa o un identificador válido (en WhatsApp, el número con código de país).'
     );
   });
+
+  test('muestra una vista previa en vivo del catálogo público', async ({
+    page,
+  }) => {
+    await page.goto('/sucursales/nueva');
+    await waitForHydratedInput(page, '[data-testid="branch-form-name"]');
+    await page.getByTestId('branch-form-name').fill('Sucursal Preview');
+    await page.getByTestId('branch-form-address').fill('San Martín 500');
+    await page.getByTestId('branch-add-phone').click();
+    await page.getByTestId('branch-phone-label-0').fill('Pedidos');
+    await page.getByTestId('branch-phone-number-0').fill('3415555555');
+
+    const preview = page.getByTestId('branch-public-preview');
+    await preview.locator('summary').click();
+
+    // Vista catálogo por defecto: chip de estado + tarjeta con dirección y
+    // teléfonos; el nombre no se repite (la variante header usa microcopy).
+    await expect(preview.getByTestId('branch-status-chip')).toBeVisible();
+    const card = preview.getByTestId('branch-info-card');
+    await expect(card).toContainText('San Martín 500');
+    await expect(card).toContainText('Pedidos: 3415555555');
+    await expect(card).not.toContainText('Sucursal Preview');
+
+    // La vista checkout muestra el nombre y el banner según el estado
+    // forzado (en edición no hay caja para el estado real).
+    await preview.getByTestId('branch-preview-view-checkout').click();
+    await expect(preview.getByTestId('branch-status-chip')).toBeHidden();
+    await expect(card).toContainText('Sucursal Preview');
+    await preview.getByTestId('branch-preview-mode-open').click();
+    await expect(card).toContainText('Sucursal abierta');
+    await preview.getByTestId('branch-preview-mode-closed').click();
+    await expect(card).toContainText('La sucursal está cerrada');
+  });
 });
