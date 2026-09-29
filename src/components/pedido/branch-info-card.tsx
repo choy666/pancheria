@@ -4,10 +4,9 @@ import {
   getTodayOpening,
   getNextOpening,
   formatOpeningHours,
-  getSocialLinkHref,
-  getSocialNetworkLabel,
 } from '@/lib/branch-helpers';
 import { BranchMap } from './branch-map';
+import { BranchPhones, BranchSocialLinks } from './branch-contact';
 import type { Branch } from '@/domain/types';
 import type { BranchStatus } from './usePedidoClient';
 
@@ -92,51 +91,18 @@ export function BranchInfoCard({
             Dirección: {branch.address}
           </p>
         )}
-        {branch.phones?.map((phone, index) => (
-          <p
-            key={`${phone.label}-${index}`}
-            data-testid={index === 0 ? 'branch-phone' : undefined}
-            className="mt-1 text-muted-foreground"
-          >
-            {phone.label}: {phone.number}
-          </p>
-        ))}
+        <BranchPhones
+          phones={branch.phones ?? []}
+          className="mt-1 text-muted-foreground"
+        />
         {branch.location && (
           <BranchMap location={branch.location} branchName={branch.name} />
         )}
-        {branch.socialLinks && branch.socialLinks.length > 0 && (
-          <p
-            data-testid="branch-social-links"
-            className={`mt-1 text-muted-foreground ${isHeader ? 'text-xs' : ''}`}
-          >
-            {branch.socialLinks.map((link, index) => {
-              // En el encabezado WhatsApp se muestra como dato informativo:
-              // el canal de coordinación del pedido es el chat propio.
-              const href =
-                isHeader && link.network === 'whatsapp'
-                  ? null
-                  : getSocialLinkHref(link);
-              const label = getSocialNetworkLabel(link.network);
-              return (
-                <span key={`${link.network}-${index}`}>
-                  {index > 0 && ' · '}
-                  {href ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    `${label}: ${link.url}`
-                  )}
-                </span>
-              );
-            })}
-          </p>
-        )}
+        <BranchSocialLinks
+          links={branch.socialLinks ?? []}
+          whatsappAsText={isHeader}
+          className={`mt-1 text-muted-foreground ${isHeader ? 'text-xs' : ''}`}
+        />
       </div>
 
       {!isHeader && isStatusKnown && !isOpen && (

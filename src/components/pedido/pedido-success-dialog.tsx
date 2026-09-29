@@ -14,11 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatMoney } from '@/lib/money';
-import {
-  getCurrentOrNextOpening,
-  getSocialLinkHref,
-  getSocialNetworkLabel,
-} from '@/lib/branch-helpers';
+import { getCurrentOrNextOpening } from '@/lib/branch-helpers';
+import { BranchMap } from './branch-map';
+import { BranchPhones, BranchSocialLinks } from './branch-contact';
 import type { CreatedOrder } from './usePedidoClient';
 import type { PublicOrderItem } from '@/domain/types';
 import type { Branch } from '@/domain/types';
@@ -173,50 +171,16 @@ export function PedidoSuccessDialog({
                     <span className="text-foreground">{branch.address}</span>
                   </p>
                 )}
-                {branch.phones?.map((phone, index) => (
-                  <p key={`${phone.label}-${index}`}>
-                    {phone.label}:{' '}
-                    <span className="font-mono text-foreground">
-                      {phone.number}
-                    </span>
-                  </p>
-                ))}
-                {branch.socialLinks && branch.socialLinks.length > 0 && (
-                  <p>
-                    {branch.socialLinks.map((link, index) => {
-                      const href = getSocialLinkHref(link);
-                      const label = getSocialNetworkLabel(link.network);
-                      return (
-                        <span key={`${link.network}-${index}`}>
-                          {index > 0 && ' · '}
-                          {href ? (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              {label}
-                            </a>
-                          ) : (
-                            `${label}: ${link.url}`
-                          )}
-                        </span>
-                      );
-                    })}
-                  </p>
-                )}
+                <BranchPhones
+                  phones={branch.phones ?? []}
+                  numberClassName="font-mono text-foreground"
+                />
+                <BranchSocialLinks links={branch.socialLinks ?? []} />
                 {branch.location && (
-                  <p>
-                    <a
-                      href={branch.location}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      Ver ubicación en el mapa
-                    </a>
-                  </p>
+                  <BranchMap
+                    location={branch.location}
+                    branchName={createdOrder.branchName ?? branch.name}
+                  />
                 )}
                 {createdOrder.deliveryType === 'delivery' ? (
                   createdOrder.address && (
