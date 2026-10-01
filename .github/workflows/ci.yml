@@ -218,8 +218,12 @@ jobs:
         run: npx drizzle-kit migrate
         timeout-minutes: 5
 
-      - run: npx playwright install --with-deps
-        timeout-minutes: 10
+      # Solo chromium: la suite corre en ese proyecto y webkit es opt-in
+      # (E2E_WEBKIT=1). Instalar los 3 browsers duplica los paquetes apt y
+      # las descargas; con mirrors lentos el install completo agotó el
+      # timeout de 10 min dos veces seguidas.
+      - run: npx playwright install --with-deps chromium
+        timeout-minutes: 15
 
       - name: Ejecutar tests E2E y accesibilidad con axe-core (shard ${{ matrix.shard }})
         # La suite ya ronda los ~19 min en un solo shard sobre Neon remota
