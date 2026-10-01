@@ -15,6 +15,7 @@ import {
   getDefaultBranchPhones,
   getDefaultBranchSocialLinksJson,
   getDefaultBranchLocation,
+  getDefaultBranchOpeningHoursJson,
   getNewBranchName,
   getNewBranchUsername,
   getNewBranchPassword,
@@ -22,13 +23,14 @@ import {
   getNewBranchPhones,
   getNewBranchSocialLinksJson,
   getNewBranchLocation,
+  getNewBranchOpeningHoursJson,
 } from '@/config/branch';
 import {
   getAdminUsername,
   getAdminPassword,
   BCRYPT_HASH_COST,
 } from '@/config/auth';
-import { normalizeSocialLinks } from '@/lib/branch-helpers';
+import { normalizeSocialLinks, validateOpeningHours } from '@/lib/branch-helpers';
 
 /**
  * Parsea una variable de entorno JSON con redes sociales
@@ -48,7 +50,36 @@ function parseSocialLinksEnv(raw: string | undefined): unknown {
   }
 }
 
-const DEFAULT_BRANCH_NAME = getDefaultBranchName() ?? 'Sucursal por defecto';
+/**
+ * Parsea la variable de horarios de sucursal
+ * (`[{"dayOfWeek":1,"open":"10:00","close":"22:00"}, ...]`).
+ * Devuelve `null` si la variable no está definida: la sucursal nace sin
+ * horarios y se considera abierta siempre que haya una caja abierta. Un
+ * JSON mal formado o franjas inválidas abortan el seed con error explícito
+ * — los horarios se persisten como dato real de la sucursal, así que no se
+ * tolera una configuración rota ni se inventa un horario por defecto.
+ */
+function parseOpeningHoursEnv(
+  raw: string | undefined
+): BranchOpeningHours[] | null {
+  if (!raw?.trim()) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      'Los horarios de sucursal del seed no son un JSON válido. Formato esperado: [{"dayOfWeek":1,"open":"10:00","close":"22:00"}, ...] (dayOfWeek 0=domingo … 6=sábado).'
+    );
+  }
+  validateOpeningHours(parsed);
+  return parsed;
+}
+
+// Nombre de la sucursal por defecto: obligatorio, sin fallback inventado —
+// queda persistido como dato real y resuelve la URL canónica de /pedido.
+// La validación ocurre dentro de main() para no explotar en import-time.
+const DEFAULT_BRANCH_NAME = getDefaultBranchName();
 const DEFAULT_BRANCH_ADDRESS = getDefaultBranchAddress() ?? null;
 const DEFAULT_BRANCH_PHONES = getDefaultBranchPhones();
 const DEFAULT_BRANCH_SOCIAL_LINKS = normalizeSocialLinks(
@@ -66,17 +97,22 @@ const NEW_BRANCH_SOCIAL_LINKS = normalizeSocialLinks(
 );
 const NEW_BRANCH_LOCATION = getNewBranchLocation() ?? null;
 
-const DEFAULT_OPENING_HOURS: BranchOpeningHours[] = [
-  { dayOfWeek: 1, open: '10:00', close: '22:00' },
-  { dayOfWeek: 2, open: '10:00', close: '22:00' },
-  { dayOfWeek: 3, open: '10:00', close: '22:00' },
-  { dayOfWeek: 4, open: '10:00', close: '22:00' },
-  { dayOfWeek: 5, open: '10:00', close: '22:00' },
-  { dayOfWeek: 6, open: '10:00', close: '22:00' },
-  { dayOfWeek: 0, open: '18:00', close: '23:00' },
-];
+// Horarios de apertura desde el entorno. Sin la variable la sucursal nace
+// sin horarios (se considera abierta mientras haya una caja abierta); los
+// horarios reales se cargan después desde el panel de sucursales.
+const DEFAULT_OPENING_HOURS =
+  parseOpeningHoursEnv(getDefaultBranchOpeningHoursJson()) ?? [];
+const NEW_BRANCH_OPENING_HOURS =
+  parseOpeningHoursEnv(getNewBranchOpeningHoursJson()) ??
+  DEFAULT_OPENING_HOURS;
 
 async function seedDefaultBranch(): Promise<number> {
+  if (!DEFAULT_BRANCH_NAME) {
+    throw new Error(
+      'DEFAULT_BRANCH_NAME no está definida. El seed no crea la sucursal por defecto con un nombre inventado: configurá la variable en el entorno.'
+    );
+  }
+
   const existing = await db.query.branches.findFirst({
     where: eq(branches.name, DEFAULT_BRANCH_NAME),
   });
@@ -99,6 +135,11 @@ async function seedDefaultBranch(): Promise<number> {
     .returning({ id: branches.id });
 
   console.log('Sucursal por defecto creada.');
+  if (DEFAULT_OPENING_HOURS.length === 0) {
+    console.log(
+      'Sin DEFAULT_BRANCH_OPENING_HOURS la sucursal quedó sin horarios: se considera abierta siempre que haya una caja abierta. Cargalos desde el panel de sucursales.'
+    );
+  }
   return branch.id;
 }
 
@@ -180,7 +221,7 @@ async function seedOptionalBranch(defaultBranchId: number) {
     .insert(branches)
     .values({
       name: NEW_BRANCH_NAME,
-      openingHours: DEFAULT_OPENING_HOURS,
+      openingHours: NEW_BRANCH_OPENING_HOURS,
       address: NEW_BRANCH_ADDRESS,
       phones: NEW_BRANCH_PHONES,
       socialLinks: NEW_BRANCH_SOCIAL_LINKS,
@@ -349,6 +390,17 @@ const promoRecipes: SeedRecipeItem[] = [
 ];
 
 async function seedCatalog(branchId: number) {
+  // Los productos, servicios y promos de abajo son material de ejemplo con
+  // precios y stock literales: solo se siembran con SEED_SAMPLE_CATALOG=1
+  // explícito (desarrollo/E2E). Sin el flag la sucursal nace sin productos
+  // y el catálogo real se carga desde el panel.
+  if (process.env.SEED_SAMPLE_CATALOG !== '1') {
+    console.log(
+      'SEED_SAMPLE_CATALOG no está habilitado: se omite el catálogo de ejemplo. Definí SEED_SAMPLE_CATALOG=1 para sembrar productos de muestra.'
+    );
+    return;
+  }
+
   const existingProducts = await db.query.products.findMany({
     columns: { id: true },
     where: eq(products.branchId, branchId),

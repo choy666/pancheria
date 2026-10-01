@@ -139,6 +139,10 @@ jobs:
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       DEFAULT_BRANCH_NAME: Sucursal CI
+      # El catálogo de ejemplo del seed es opt-in (SEED_SAMPLE_CATALOG=1):
+      # varios specs consumen los productos/promos de muestra que siembra
+      # src/db/seeds.ts.
+      SEED_SAMPLE_CATALOG: "1"
       STORAGE_PROVIDER: local
       LOCAL_STORAGE_PATH: tmp/e2e
       RATE_LIMIT_STORE_PROVIDER: memory

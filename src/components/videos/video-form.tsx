@@ -26,7 +26,7 @@ import {
   getVideoMaxSizeMb,
   getVideoAllowedMimeTypes,
 } from '@/config/videos';
-import { ApiError, getDefaultTimeoutMs, throwApiError } from '@/lib/fetch';
+import { ApiError, FetchAbortError, getDefaultTimeoutMs } from '@/lib/fetch';
 import { Upload, FileVideo, X, AlertCircle, CheckCircle2, Video } from 'lucide-react';
 import type { VideoState } from '@/app/(panel)/videos/actions';
 import type { PrepareUploadState } from '@/app/(panel)/videos/actions';
@@ -494,93 +494,124 @@ async function uploadToProvider(
     return blob.url;
   }
 
-  let simulatedProgress = 0;
-  const progressTimer = onProgress
-    ? setInterval(() => {
-        simulatedProgress = Math.min(simulatedProgress + 5, 90);
-        onProgress(simulatedProgress);
-      }, 500)
-    : null;
-
-  try {
-    if (instructions.method === 'PUT') {
-      const response = await fetchWithTimeout(instructions.url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-        signal,
-      });
-
-      if (!response.ok) {
-        await throwApiError(
-          response,
-          `Error al subir el archivo: ${response.status} ${response.statusText}`
-        );
-      }
-
-      return instructions.publicUrl || instructions.url;
-    }
-
-    const formData = new FormData();
-    if (instructions.fields) {
-      Object.entries(instructions.fields).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
-    }
-    formData.append('file', file);
-
-    const response = await fetchWithTimeout(instructions.url, {
-      method: 'POST',
-      body: formData,
+  // Progreso real de la transferencia vía XMLHttpRequest (fetch no expone
+  // eventos de subida). Antes se simulaba un avance de 5% cada 500 ms hasta
+  // 90%: el porcentaje mostrado ahora refleja los bytes efectivamente
+  // enviados al proveedor.
+  if (instructions.method === 'PUT') {
+    const result = await uploadWithProgress(
+      instructions.url,
+      { method: 'PUT', body: file, contentType: file.type },
       signal,
-    });
+      onProgress
+    );
 
-    if (!response.ok) {
-      await throwApiError(
-        response,
-        `Error al subir el archivo: ${response.status} ${response.statusText}`
+    if (result.status < 200 || result.status >= 300) {
+      throw new ApiError(
+        `Error al subir el archivo: ${result.status} ${result.statusText}`,
+        result.status
       );
     }
 
-    if (instructions.publicUrl) {
-      return instructions.publicUrl;
-    }
-
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
-      const data = (await response.json()) as { url?: string };
-      if (data.url) return data.url;
-    }
-
-    const location = response.headers.get('Location');
-    if (location) {
-      return location;
-    }
-
-    throw new ApiError('No se pudo obtener la URL pública del archivo.', 502);
-  } finally {
-    if (progressTimer) clearInterval(progressTimer);
+    return instructions.publicUrl || instructions.url;
   }
-}
 
-function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init?: RequestInit
-): Promise<Response> {
-  const timeoutMs = getDefaultTimeoutMs();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(new Error('La subida superó el tiempo de espera.')),
-    timeoutMs
+  const formData = new FormData();
+  if (instructions.fields) {
+    Object.entries(instructions.fields).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+  }
+  formData.append('file', file);
+
+  const result = await uploadWithProgress(
+    instructions.url,
+    { method: 'POST', body: formData },
+    signal,
+    onProgress
   );
 
-  if (init?.signal) {
-    init.signal.addEventListener('abort', () => controller.abort());
+  if (result.status < 200 || result.status >= 300) {
+    throw new ApiError(
+      `Error al subir el archivo: ${result.status} ${result.statusText}`,
+      result.status
+    );
   }
 
-  return fetch(input, { ...init, signal: controller.signal }).finally(() => {
-    clearTimeout(timeoutId);
+  if (instructions.publicUrl) {
+    return instructions.publicUrl;
+  }
+
+  if (result.contentType?.includes('application/json')) {
+    try {
+      const data = JSON.parse(result.bodyText) as { url?: string };
+      if (data.url) return data.url;
+    } catch {
+      // Body no parseable: se sigue con el header Location.
+    }
+  }
+
+  if (result.location) {
+    return result.location;
+  }
+
+  throw new ApiError('No se pudo obtener la URL pública del archivo.', 502);
+}
+
+interface UploadResponseInfo {
+  status: number;
+  statusText: string;
+  bodyText: string;
+  contentType: string | null;
+  location: string | null;
+}
+
+function uploadWithProgress(
+  url: string,
+  request: { method: 'PUT' | 'POST'; body: FormData | File; contentType?: string },
+  signal: AbortSignal | undefined,
+  onProgress: ((percentage: number) => void) | undefined
+): Promise<UploadResponseInfo> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    const cleanup = () => signal?.removeEventListener('abort', onAbort);
+
+    xhr.open(request.method, url);
+    xhr.timeout = getDefaultTimeoutMs();
+    if (request.contentType) {
+      xhr.setRequestHeader('Content-Type', request.contentType);
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.((event.loaded / event.total) * 100);
+      }
+    };
+    xhr.onload = () => {
+      cleanup();
+      resolve({
+        status: xhr.status,
+        statusText: xhr.statusText,
+        bodyText: xhr.responseText,
+        contentType: xhr.getResponseHeader('content-type'),
+        location: xhr.getResponseHeader('Location'),
+      });
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new Error('Error de red al subir el archivo.'));
+    };
+    xhr.ontimeout = () => {
+      cleanup();
+      reject(new Error('La subida superó el tiempo de espera.'));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      reject(new FetchAbortError('La subida fue cancelada.'));
+    };
+
+    signal?.addEventListener('abort', onAbort);
+    xhr.send(request.body);
   });
 }

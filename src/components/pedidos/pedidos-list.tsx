@@ -28,7 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PEDIDOS_API } from '@/config/api';
+import {
+  PEDIDOS_API,
+  PEDIDOS_CONFIRMAR_API,
+  PEDIDOS_FINALIZAR_API,
+  PEDIDOS_CANCELAR_API,
+} from '@/config/api';
 import { getPedidosRefreshIntervalMs } from '@/config/orders';
 import { routes } from '@/config/routes';
 import { usePaginatedData } from '@/hooks/use-paginated-data';
@@ -36,8 +41,9 @@ import {
   orderConfirmationSignature,
   useSubmitIdempotencyKey,
 } from '@/hooks/use-submit-idempotency-key';
+import { PedidoConfirmDialog } from '@/components/pedidos/pedido-confirm-dialog';
 import { cn } from '@/lib/utils';
-import type { OrderStatus, DeliveryType } from '@/domain/types';
+import type { OrderStatus, DeliveryType, PaymentPart } from '@/domain/types';
 
 interface OrderListItem {
   id: number;
@@ -174,17 +180,19 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
   // La clave de confirmación se conserva entre reintentos del mismo
   // pedido (QA-2026-09-21-02) y rota tras el éxito o al confirmar otro.
   const confirmKey = useSubmitIdempotencyKey();
+  // Pedido seleccionado en el diálogo de cobro: el medio de pago lo
+  // captura el operador, nunca se asume efectivo.
+  const [confirmOrder, setConfirmOrder] = useState<OrderListItem | null>(null);
 
-  async function handleConfirm(orderId: number) {
+  async function handleConfirm(orderId: number, payments: PaymentPart[]) {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
 
     setLoadingId(orderId);
     setActionError(null);
     try {
-      const payments = [{ method: 'cash' as const, amount: order.total }];
       const response = await authenticatedFetch(
-        `/api/pedidos/${orderId}/confirmar`,
+        PEDIDOS_CONFIRMAR_API(orderId),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -204,6 +212,7 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
         deduplicated?: boolean;
       };
       confirmKey.reset();
+      setConfirmOrder(null);
       await refresh();
       if (data.deduplicated) {
         setActionError(
@@ -215,7 +224,9 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
         err instanceof Error ? err.message : 'Error desconocido'
       );
       // La fila mostrada puede estar stale (p.ej. pedido vencido): el
-      // refresh dispara el barrido lazy y la limpia.
+      // refresh dispara el barrido lazy y la limpia. El diálogo queda
+      // abierto con el error a la vista por si corresponde reintentar
+      // (p.ej. "no hay caja abierta").
       await refresh();
     } finally {
       setLoadingId(null);
@@ -227,7 +238,7 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
     setActionError(null);
     try {
       const response = await authenticatedFetch(
-        `/api/pedidos/${orderId}/finalizar`,
+        PEDIDOS_FINALIZAR_API(orderId),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -251,7 +262,7 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
     setActionError(null);
     try {
       const response = await authenticatedFetch(
-        `/api/pedidos/${orderId}/cancelar`,
+        PEDIDOS_CANCELAR_API(orderId),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -466,7 +477,10 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
                           variant="secondary"
                           size="sm"
                           disabled={loadingId === order.id}
-                          onClick={() => handleConfirm(order.id)}
+                          onClick={() => {
+                            setActionError(null);
+                            setConfirmOrder(order);
+                          }}
                         >
                           Confirmar pago
                         </Button>
@@ -528,6 +542,23 @@ export function PedidosList({ status = 'all', branchId }: PedidosListProps) {
         onPageChange={setPage}
         onLimitChange={setLimit}
       />
+
+      {confirmOrder && (
+        <PedidoConfirmDialog
+          orderNumber={confirmOrder.orderNumber}
+          customerName={confirmOrder.customerName}
+          total={confirmOrder.total}
+          isSubmitting={loadingId === confirmOrder.id}
+          error={actionError}
+          onConfirm={(payments) =>
+            void handleConfirm(confirmOrder.id, payments)
+          }
+          onCancel={() => {
+            if (loadingId === confirmOrder.id) return;
+            setConfirmOrder(null);
+          }}
+        />
+      )}
     </div>
   );
 }

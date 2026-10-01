@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
+import { nanoid } from 'nanoid';
 import { ClipboardPaste, Copy, Plus, Trash2, X } from 'lucide-react';
 import { type BranchState } from '@/app/(panel)/sucursales/actions';
 import { routes } from '@/config/routes';
@@ -66,7 +67,7 @@ interface BranchFormProps {
 }
 
 function generateSlotId(): string {
-  return `slot-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+  return `slot-${nanoid()}`;
 }
 
 export function BranchForm({

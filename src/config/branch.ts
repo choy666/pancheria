@@ -25,6 +25,15 @@ export function getDefaultBranchLocation(): string | undefined {
   return process.env.DEFAULT_BRANCH_LOCATION;
 }
 
+/**
+ * JSON crudo de `DEFAULT_BRANCH_OPENING_HOURS`
+ * (`[{"dayOfWeek":1,"open":"10:00","close":"22:00"}, ...]`). El parseo y la
+ * validación viven en el seed: este módulo no importa helpers de dominio.
+ */
+export function getDefaultBranchOpeningHoursJson(): string | undefined {
+  return process.env.DEFAULT_BRANCH_OPENING_HOURS;
+}
+
 export function getNewBranchName(): string | undefined {
   return process.env.NEW_BRANCH_NAME;
 }
@@ -52,6 +61,11 @@ export function getNewBranchSocialLinksJson(): string | undefined {
 
 export function getNewBranchLocation(): string | undefined {
   return process.env.NEW_BRANCH_LOCATION;
+}
+
+/** JSON crudo de `NEW_BRANCH_OPENING_HOURS`; mismo formato que el default. */
+export function getNewBranchOpeningHoursJson(): string | undefined {
+  return process.env.NEW_BRANCH_OPENING_HOURS;
 }
 
 export function getBranchTimezone(): string {

@@ -4,6 +4,10 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { isDatabaseConnectionError } from '@/lib/db-errors';
 
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
 function isMissingBranchError(error: Error): boolean {
   return (
     error.message.includes('sucursal asignada') ||
@@ -34,8 +38,12 @@ export default function PanelError({
       'No se pudo conectar a la base de datos. Verificá que el servidor de PostgreSQL esté activo y que DATABASE_URL esté configurada correctamente.';
   } else if (isBranchError) {
     title = 'Sucursal requerida';
-    message =
-      'El usuario no tiene una sucursal asignada. Si sos administrador, ejecutá el seed (npx tsx src/db/seeds.ts) o asigná una sucursal manualmente. Si sos operador, contactá al administrador.';
+    // La sugerencia de correr el seed solo aplica a desarrollo/tests: en
+    // producción ejecutarlo contra una base real es una acción riesgosa y
+    // el mensaje correcto es contactar al administrador.
+    message = isProduction()
+      ? 'El usuario no tiene una sucursal asignada. Contactá al administrador para que asigne una sucursal a la cuenta.'
+      : 'El usuario no tiene una sucursal asignada. Si sos administrador, ejecutá el seed (npx tsx src/db/seeds.ts) o asigná una sucursal manualmente. Si sos operador, contactá al administrador.';
   }
 
   return (

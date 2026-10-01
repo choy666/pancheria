@@ -72,16 +72,17 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXTAUTH_SECRET` — secreto para sesiones de NextAuth (compatibilidad; Auth.js v5 prefiere `AUTH_SECRET`).
 - `ADMIN_USERNAME` — usuario administrador inicial.
 - `ADMIN_PASSWORD` — contraseña en texto plano; el seed la hashea con bcrypt.
-- `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (usado por el seed).
+- `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (usado por el seed). Obligatorio: sin fallback, el seed aborta si falta para no persistir un nombre inventado.
 - `DEFAULT_BRANCH_ADDRESS` (opcional) — dirección de la sucursal por defecto (usado por el seed).
 - `DEFAULT_BRANCH_PHONE` (opcional) — teléfono de la sucursal por defecto (usado por el seed; se guarda como el contacto "Principal" en `phones`).
 - `DEFAULT_BRANCH_SOCIAL_LINKS` (opcional) — redes sociales de la sucursal por defecto en JSON `[{"network":"instagram","url":"..."}]`; redes válidas: `instagram`, `facebook`, `whatsapp`, `tiktok`, `x`, `otro`. La URL acepta también un handle (en `whatsapp`, un número).
 - `DEFAULT_BRANCH_LOCATION` (opcional) — URL de ubicación de la sucursal por defecto (usado por el seed).
+- `DEFAULT_BRANCH_OPENING_HOURS` (opcional) — horarios de apertura de la sucursal por defecto en JSON `[{"dayOfWeek":1,"open":"10:00","close":"22:00"}, ...]` (`dayOfWeek` 0=domingo … 6=sábado; un cierre menor que la apertura es un turno overnight). Si no se define, la sucursal nace **sin horarios** (se considera abierta siempre que haya caja abierta) y se cargan desde el panel. Un JSON o franjas inválidas abortan el seed.
 - `NEXT_PUBLIC_BRANCH_TIMEZONE` (opcional) — zona horaria para calcular horarios de apertura de sucursales. Si no se define, se usa `America/Argentina/Buenos_Aires`.
 - `NEW_BRANCH_NAME` (opcional) — nombre de una segunda sucursal a crear vía seed.
 - `NEW_BRANCH_USERNAME` (opcional) — usuario de la segunda sucursal a crear vía seed.
 - `NEW_BRANCH_PASSWORD` (opcional) — contraseña en texto plano del usuario de la segunda sucursal; el seed la hashea con bcrypt.
-- `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`, `NEW_BRANCH_SOCIAL_LINKS` (opcionales) — datos de la segunda sucursal; `NEW_BRANCH_PHONE` se guarda como contacto "Principal" en `phones` y `NEW_BRANCH_SOCIAL_LINKS` usa el mismo formato JSON que `DEFAULT_BRANCH_SOCIAL_LINKS`.
+- `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`, `NEW_BRANCH_LOCATION`, `NEW_BRANCH_SOCIAL_LINKS`, `NEW_BRANCH_OPENING_HOURS` (opcionales) — datos de la segunda sucursal; `NEW_BRANCH_PHONE` se guarda como contacto "Principal" en `phones`, `NEW_BRANCH_SOCIAL_LINKS` usa el mismo formato JSON que `DEFAULT_BRANCH_SOCIAL_LINKS` y `NEW_BRANCH_OPENING_HOURS` el mismo que `DEFAULT_BRANCH_OPENING_HOURS` (si no se define, hereda los horarios de la sucursal por defecto).
 - `NEXT_PUBLIC_CAJA_REFRESH_INTERVAL_MS` — intervalo de refresco del panel de caja en milisegundos (por defecto 5000 ms; mínimo recomendado 5000 ms).
 - `CAJA_AUTO_CLOSE_HOURS` / `NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS` (opcional) — horas de cierre automático de cajas abiertas. Por defecto el cierre automático está deshabilitado (`0`); cualquier valor positivo lo habilita y respeta el número de horas configurado. El valor resuelto en el servidor viaja en los payloads como `autoCloseHours` (`/api/caja/resumen`, `/api/panel/resumen` y el detalle SSR de caja); la variante `NEXT_PUBLIC_` solo actúa como fallback del cliente para payloads viejos, ya que `CAJA_AUTO_CLOSE_HOURS` no existe en el bundle del navegador.
 - `CAJA_AUTO_CLOSED_BY` (opcional) — etiqueta del usuario que cierra cajas automáticamente (por defecto `Sistema`).
@@ -139,6 +140,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `LOGIN_IP_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de login por IP en milisegundos (por defecto 900000 ms = 15 minutos).
 - `LOGIN_ATTEMPTS_RETENTION_MS` (opcional, **solo servidor**) — retención de la tabla `login_attempts` en milisegundos (por defecto 604800000 ms = 7 días). El cron `GET /api/cron/rate-limit-cleanup` borra los intentos cuyo `last_attempt` supere el período para acotar el crecimiento de la tabla.
 - `SEED_RESET_ADMIN_PASSWORD` (opcional) — gate de seguridad del seed. El seed nunca pisa la contraseña de un administrador existente salvo `SEED_RESET_ADMIN_PASSWORD=1`, en cualquier entorno (un seed local apuntando a producción tampoco la pisa). Para resetear la password del admin correr el seed con esa variable; el global-setup de E2E la setea explícitamente.
+- `SEED_SAMPLE_CATALOG` (opcional) — catálogo de ejemplo del seed, **apagado por defecto**. Con `SEED_SAMPLE_CATALOG=1` el seed siembra productos, servicios y promos de muestra con precios y stock literales (pensado para desarrollo y E2E: `.env.e2e.example` y el job de CI la definen). Nunca activarla contra una base de producción — los datos de ejemplo se persisten como productos reales de la sucursal.
 - `NEXT_PUBLIC_CAST_RECEIVER_APP_ID` (opcional) — ID de la aplicación receptora de Google Cast (por defecto `CC1AD845`).
 - `NEXT_PUBLIC_CAST_SENDER_SDK_URL` (opcional) — URL del SDK de Cast (por defecto `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`).
 - `NEXT_PUBLIC_VIDEO_MAX_SIZE_MB` (opcional) — tamaño máximo de video en MB (por defecto 100 MB; descomentar en `.env.example` para sobrescribir).
