@@ -155,8 +155,13 @@ test.describe('Expiración de pedidos pending', () => {
     await expireOrderById(order.id);
 
     // La fila quedó stale: el botón sigue visible pese al vencimiento.
+    // Al clickearlo se abre el diálogo de cobro (el medio de pago lo elige
+    // el operador); el submit envía el total en efectivo por defecto.
     await expect(confirmButton).toBeVisible();
     await confirmButton.click();
+    const dialogSubmit = page.getByTestId('confirm-order-dialog-submit');
+    await expect(dialogSubmit).toBeVisible();
+    await dialogSubmit.click();
 
     // El operador ve el rechazo: antes el error quedaba como una
     // promesa rechazada sin handler y la fila stale no informaba nada.
