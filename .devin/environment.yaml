@@ -4,10 +4,10 @@
 # No se incluyen secretos ni credenciales. Configúralos en el panel de secretos de Devin.
 
 initialize:
-  - name: "Instalar Node.js 20 LTS o superior"
+  - name: "Instalar Node.js 22 (mismo que CI; producción corre Node 24)"
     uses: github.com/actions/setup-node@v4
     with:
-      node-version: "20"
+      node-version: "22"
 
 maintenance:
   - name: "Instalar dependencias del proyecto"

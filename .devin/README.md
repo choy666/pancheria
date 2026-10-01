@@ -18,6 +18,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 ## Estado del proyecto
 
 - [Reporte de estado vigente](informes/reporte-estado.md) — **punto de entrada**: qué está en main, PRs abiertos y deuda consolidada.
+- [Mapa de arquitectura](informes/arquitectura/README.md) — sistema completo navegable en 3 niveles con diagramas Mermaid (overview, módulos, ER de base de datos, flujos).
 - [Entornos y credenciales](informes/entornos.md)
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
@@ -55,6 +56,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
+│   ├── arquitectura/             # Mapa de arquitectura vivo: overview, módulos, ER, flujos, servicios externos, stack, salud + diagramas/ (.mmd)
 │   ├── README.md                 # Índice de informes (tabla de decisión + regla de vida)
 │   └── archivados/               # Solo guías con valor futuro: auditorías y planes implementados por completo (con marcador de estado). Incluye historico/ con snapshots de reportes de estado antiguos (historia, no guía).
 └── prompts/

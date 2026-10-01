@@ -5,8 +5,9 @@
 | Si vas a... | Leé |
 | --- | --- |
 | Ponerte al día / retomar trabajo | **[reporte-estado.md](reporte-estado.md)** §0 — estado de main, PRs abiertos y deuda consolidada |
+| Entender la arquitectura del sistema | **[arquitectura/README.md](arquitectura/README.md)** — mapa navegable en 3 niveles (sistema → módulos → DB/código), con diagramas Mermaid |
 | Hacer push / abrir PR | [checklist-pre-push.md](checklist-pre-push.md) |
-| Tocar DB, migraciones o entornos | [entornos.md](entornos.md) + `AGENTS.md` |
+| Tocar DB, migraciones o entornos | [entornos.md](entornos.md) + `AGENTS.md` + [arquitectura/base-de-datos.md](arquitectura/base-de-datos.md) |
 | Entender el negocio o una feature | [guia-funcionamiento-pancheria.md](guia-funcionamiento-pancheria.md) |
 | Escribir un prompt o auditar | [lecciones-aprendidas.md](lecciones-aprendidas.md) (referencia por tema, no lectura secuencial) |
 
@@ -20,7 +21,7 @@ Ningún otro ticket al 2026-09-26 — los últimos (QA ronda 2 y CI base compart
 
 ## Referencia viva (nunca se archiva)
 
-`reporte-estado.md` · `entornos.md` · `checklist-pre-push.md` · `guia-funcionamiento-pancheria.md` · `lecciones-aprendidas.md`
+`reporte-estado.md` · `entornos.md` · `checklist-pre-push.md` · `guia-funcionamiento-pancheria.md` · `lecciones-aprendidas.md` · `arquitectura/` (mapa de arquitectura vivo)
 
 ## Regla de vida del documento
 

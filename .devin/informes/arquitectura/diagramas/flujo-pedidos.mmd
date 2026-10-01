@@ -1,0 +1,28 @@
+%% Ciclo de vida del pedido — estados reales del enum order_status
+%% Fuente regenerable: diagramas/flujo-pedidos.mmd
+stateDiagram-v2
+    [*] --> pending : POST /api/public/pedido<br/>createOrder() — sin reserva de stock
+
+    pending --> in_process : recibir pedido<br/>orderService.receiveOrder()<br/>crea order_stock_reservations + movimientos reserve
+    pending --> cancelled : cancelación del cliente<br/>o expiración (cron 5 min / lazy expiration)
+
+    in_process --> paid : confirmar cobro<br/>orderService.convertOrderToSale()<br/>libera reservas, crea sale en caja abierta
+    in_process --> cancelled : cancelación del operador<br/>libera reservas (movimientos reserve_release)
+
+    paid --> finished : entrega finalizada<br/>orderService.finishOrder()
+
+    finished --> [*]
+    cancelled --> [*]
+
+    note right of pending
+        El pedido nace sin tocar stock.
+        La disponibilidad mostrada al cliente
+        descuenta reservas vigentes de otros
+        pedidos in_process.
+    end note
+
+    note right of in_process
+        Transición crítica: bloqueo de fila
+        (FOR UPDATE) + verificación de
+        expiración bajo lock.
+    end note
