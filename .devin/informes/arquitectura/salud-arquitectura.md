@@ -12,7 +12,7 @@ pie showData
     "UNKNOWN / UNVERIFIED" : 3
 ```
 
-> Fuente regenerable: [diagramas/salud-arquitectura.mmd](diagramas/salud-arquitectura.mmd)
+> Render: [diagramas/svg/salud-arquitectura.svg](diagramas/svg/salud-arquitectura.svg)
 
 ## Fortalezas verificadas
 

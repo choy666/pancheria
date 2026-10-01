@@ -1,15 +1,15 @@
 # Flujos de datos — punta a punta
 
 **Estado:** implementado
-**Cinco flujos críticos verificados en código.** Cada diagrama tiene su fuente `.mmd` en [`diagramas/`](diagramas/).
+**Cinco flujos críticos verificados en código.** Cada diagrama tiene su render `.svg` en [`diagramas/svg/`](diagramas/svg/).
 
 ## Índice
 
-1. [Pedido público → venta confirmada](#1-pedido-público--venta-confirmada) — `flujos-de-datos.mmd`
-2. [Venta directa en el panel](#2-venta-directa-en-el-panel-ventas) — `flujo-venta-directa.mmd`
-3. [Cierre de caja](#3-cierre-de-caja) — `flujo-cierre-caja.mmd`
-4. [Chat del pedido](#4-chat-del-pedido-polling--sse-opt-in) — `flujo-chat.mmd`
-5. [Subida de archivos](#5-subida-de-archivos-storage) — `flujo-uploads.mmd`
+1. [Pedido público → venta confirmada](#1-pedido-público--venta-confirmada) — `flujos-de-datos.svg`
+2. [Venta directa en el panel](#2-venta-directa-en-el-panel-ventas) — `flujo-venta-directa.svg`
+3. [Cierre de caja](#3-cierre-de-caja) — `flujo-cierre-caja.svg`
+4. [Chat del pedido](#4-chat-del-pedido-polling--sse-opt-in) — `flujo-chat.svg`
+5. [Subida de archivos](#5-subida-de-archivos-storage) — `flujo-uploads.svg`
 
 ## 1. Pedido público → venta confirmada
 
@@ -50,7 +50,7 @@ sequenceDiagram
     C->>API: seguimiento muestra estado final
 ```
 
-> Fuente: [diagramas/flujos-de-datos.mmd](diagramas/flujos-de-datos.mmd)
+> Render: [diagramas/svg/flujos-de-datos.svg](diagramas/svg/flujos-de-datos.svg)
 
 Puntos clave: el catálogo base viene del Data Cache (`public-catalog`) pero la disponibilidad se calcula en vivo; el pedido nace sin reservar stock; todas las transiciones críticas van bajo `FOR UPDATE` dentro de `executeInTransaction`.
 
@@ -88,7 +88,7 @@ sequenceDiagram
     SVC->>DB: TX: status = cancelled + stock_movements(cancellation)<br/>reintegra stock + actualiza cash_registers
 ```
 
-> Fuente: [diagramas/flujo-venta-directa.mmd](diagramas/flujo-venta-directa.mmd)
+> Render: [diagramas/svg/flujo-venta-directa.svg](diagramas/svg/flujo-venta-directa.svg)
 
 Puntos clave: la venta exige una caja `open` (única por sucursal, garantizada por índice parcial); el stock se descuenta por receta seleccionada con snapshots en `sale_item_recipes`; anular reintegra stock con movimientos `cancellation`.
 
@@ -120,7 +120,7 @@ sequenceDiagram
     Note over OP,DB: Post-cierre — /caja/historial lista cerradas,<br/>papelera (deletedAt): restaurar reintegra stock de ventas<br/>vinculadas o eliminar en lotes (TRASH_RESTORE_BATCH_SIZE)
 ```
 
-> Fuente: [diagramas/flujo-cierre-caja.mmd](diagramas/flujo-cierre-caja.mmd)
+> Render: [diagramas/svg/flujo-cierre-caja.svg](diagramas/svg/flujo-cierre-caja.svg)
 
 Puntos clave: el cierre congela `products_summary`, `critical_supplies_summary` y `recipe_supplies_summary` (JSONB); las diferencias se calculan contra el conteo declarado; el auto-cierre usa la etiqueta `CAJA_AUTO_CLOSED_BY` (por eso `closed_by` no es FK).
 
@@ -164,7 +164,7 @@ sequenceDiagram
     Note over API,DB: Adjuntos: POST .../chat/upload → storage provider<br/>(magic bytes validados), lectura local vía /api/chat/attachment/{key}<br/>con auth de sesión o token del pedido
 ```
 
-> Fuente: [diagramas/flujo-chat.mmd](diagramas/flujo-chat.mmd)
+> Render: [diagramas/svg/flujo-chat.svg](diagramas/svg/flujo-chat.svg)
 
 Puntos clave: el SSE (`chat-stream.ts`) hace polling interno a la DB con heartbeat y presupuesto de conexión (`CHAT_STREAM_*`); al expirar el budget el `EventSource` reconecta solo. El polling REST es el fallback por defecto. Solo se permite ubicación de sucursal en pedidos `pickup`.
 
@@ -208,7 +208,7 @@ flowchart TB
     class VAL dec
 ```
 
-> Fuente: [diagramas/flujo-uploads.mmd](diagramas/flujo-uploads.mmd)
+> Render: [diagramas/svg/flujo-uploads.svg](diagramas/svg/flujo-uploads.svg)
 
 Puntos clave: el provider se elige por `STORAGE_PROVIDER` en runtime (`config/videos.ts`), con warning si es `local` en producción (fs efímero en Vercel) y validación de build en `next.config.ts`. La validación de contenido usa firma real (magic bytes), no el MIME declarado. Las lecturas locales pasan por proxies autenticados (`/api/videos/[id]/stream` con Range, `/api/chat/attachment/[key]`, `/api/productos/imagen/[key]`).
 

@@ -257,7 +257,7 @@ erDiagram
     order_items ||--o{ order_item_recipes : "order_item_id (cascade)"
 ```
 
-> Fuente regenerable: [diagramas/base-de-datos.mmd](diagramas/base-de-datos.mmd)
+> Render: [diagramas/svg/base-de-datos.svg](diagramas/svg/base-de-datos.svg)
 
 ## Enums (10)
 

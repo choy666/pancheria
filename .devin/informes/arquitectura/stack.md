@@ -41,7 +41,7 @@ flowchart TB
     class VC,GH,STP inf
 ```
 
-> Fuente regenerable: [diagramas/stack.mmd](diagramas/stack.mmd)
+> Render: [diagramas/svg/stack.svg](diagramas/svg/stack.svg)
 
 ## Runtime y framework
 

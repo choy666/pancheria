@@ -34,7 +34,7 @@ stateDiagram-v2
     end note
 ```
 
-> Fuente regenerable: [diagramas/flujo-pedidos.mmd](diagramas/flujo-pedidos.mmd)
+> Render: [diagramas/svg/flujo-pedidos.svg](diagramas/svg/flujo-pedidos.svg)
 
 ## Estados (`order_status`)
 

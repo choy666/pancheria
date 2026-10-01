@@ -85,7 +85,7 @@ flowchart LR
     class COMP,HOOKS pres
 ```
 
-> Fuente regenerable: [diagramas/modulos.mmd](diagramas/modulos.mmd). El diagrama navegable de nivel 1 está en [overview.md](overview.md) / [diagramas/overview.mmd](diagramas/overview.mmd).
+> Render: [diagramas/svg/modulos.svg](diagramas/svg/modulos.svg). El diagrama navegable de nivel 1 está en [overview.md](overview.md) / [diagramas/svg/overview.svg](diagramas/svg/overview.svg).
 
 ## 1. Presentación — `src/app`
 

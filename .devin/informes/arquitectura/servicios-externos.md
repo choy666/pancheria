@@ -13,7 +13,7 @@ pie showData
     "UNKNOWN / UNVERIFIED" : 2
 ```
 
-> Fuente regenerable: [diagramas/servicios-externos.mmd](diagramas/servicios-externos.mmd)
+> Render: [diagramas/svg/servicios-externos.svg](diagramas/svg/servicios-externos.svg)
 
 ## Matriz de integraciones
 

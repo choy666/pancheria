@@ -183,17 +183,18 @@ El proyecto no tiene `docs/`; la documentación vive en `.devin/informes/`. Crea
 ├── stack.md                  ← tecnologías detectadas
 ├── salud-arquitectura.md     ← observaciones (sin fixes)
 └── diagramas/
-    ├── overview.mmd
-    ├── base-de-datos.mmd
-    ├── flujo-pedidos.mmd
-    └── flujos-de-datos.mmd
+    └── svg/
+        ├── overview.svg
+        ├── base-de-datos.svg
+        ├── flujo-pedidos.svg
+        └── flujos-de-datos.svg
 ```
 
 Reglas de integración:
 
 - Agregar la entrada de `arquitectura/` en `.devin/informes/README.md` (sección "Referencia viva" o equivalente) y en `.devin/README.md` si corresponde; el documento es **referencia viva, no se archiva**.
 - Encabezado estándar del proyecto (`abierto | en curso | implementado | archivado`): usar `**Estado:** en curso` mientras se trabaja → `implementado` al cerrar.
-- Cada `.md` embebe sus diagramas Mermaid en fences ```mermaid y además referencia el `.mmd` fuente en `diagramas/` (los `.mmd` son la fuente regenerable; los `.md` la lectura).
+- Cada `.md` embebe sus diagramas Mermaid en fences ```mermaid (la fuente de verdad) y además referencia el render `.svg` en `diagramas/svg/`.
 - No duplicar lo ya documentado en `guia-funcionamiento-pancheria.md`: enlazarlo donde aplique.
 - Tres niveles navegables: NIVEL 1 overview → NIVEL 2 módulos/capas → NIVEL 3 código/DB. No mezclar los tres niveles en un solo gráfico.
 
@@ -203,7 +204,7 @@ Minimalista, limpio y profesional: poca información por nodo, jerarquía clara,
 
 ## Validación
 
-- Sintaxis Mermaid: verificar cada `.mmd`/bloque renderizando (Mermaid Live o `npx -y @mermaid-js/mermaid-cli` si el entorno lo permite; no instalar dependencias nuevas al proyecto por esto).
+- Sintaxis Mermaid: verificar cada bloque ```mermaid renderizando (Mermaid Live o `npx -y @mermaid-js/mermaid-cli` si el entorno lo permite; no instalar dependencias nuevas al proyecto por esto) y dejar el `.svg` generado en `diagramas/svg/`.
 - Nombres: cada tabla/ruta/servicio/repositorio citado debe existir en el código (verificar con búsquedas, no de memoria).
 - Relaciones: cada arista debe tener evidencia en código; si no, `UNKNOWN / UNVERIFIED`.
 - Links internos entre los `.md` deben funcionar con rutas relativas.

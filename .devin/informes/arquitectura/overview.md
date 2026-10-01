@@ -52,7 +52,7 @@ flowchart TB
     PAGES -.->|"script /_vercel/insights<br/>(opt-in por env)"| ANA
 ```
 
-> Fuente: [diagramas/overview.mmd](diagramas/overview.mmd)
+> Render: [diagramas/svg/overview.svg](diagramas/svg/overview.svg)
 
 ## Actores
 

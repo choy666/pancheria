@@ -56,7 +56,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
-│   ├── arquitectura/             # Mapa de arquitectura vivo: overview, módulos, ER, flujos, servicios externos, stack, salud + diagramas/ (.mmd)
+│   ├── arquitectura/             # Mapa de arquitectura vivo: overview, módulos, ER, flujos, servicios externos, stack, salud + diagramas/svg/ (renders .svg; la fuente es el bloque mermaid embebido en cada .md)
 │   ├── README.md                 # Índice de informes (tabla de decisión + regla de vida)
 │   └── archivados/               # Solo guías con valor futuro: auditorías y planes implementados por completo (con marcador de estado). Incluye historico/ con snapshots de reportes de estado antiguos (historia, no guía).
 └── prompts/

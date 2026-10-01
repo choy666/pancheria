@@ -6,7 +6,7 @@
 
 ## Qué es esto
 
-Un mapa navegable de la arquitectura del proyecto en **tres niveles**, mantenido como texto (Markdown + Mermaid) versionado en Git. Los diagramas se regeneran desde los archivos `.mmd` de [`diagramas/`](diagramas/), que son la fuente de verdad.
+Un mapa navegable de la arquitectura del proyecto en **tres niveles**, mantenido como texto (Markdown + Mermaid) versionado en Git. La fuente de verdad de cada diagrama es el bloque `mermaid` embebido en el `.md`; [`diagramas/svg/`](diagramas/svg/) contiene los renders `.svg` para vista rápida.
 
 ## Cómo navegar
 
@@ -69,7 +69,7 @@ flowchart TB
     PAGES -.->|"script /_vercel/insights<br/>(opt-in por env)"| ANA
 ```
 
-> Fuente regenerable: [diagramas/overview.mmd](diagramas/overview.mmd)
+> Render: [diagramas/svg/overview.svg](diagramas/svg/overview.svg)
 
 ## Datos rápidos
 
@@ -84,16 +84,16 @@ flowchart TB
 
 Regenerar/actualizar cuando cambie:
 
-1. `src/db/schema.ts` → actualizar [base-de-datos.md](base-de-datos.md) y `diagramas/base-de-datos.mmd`.
+1. `src/db/schema.ts` → actualizar [base-de-datos.md](base-de-datos.md) y regenerar `diagramas/svg/base-de-datos.svg`.
 2. `src/app/api/**` o Server Actions → actualizar [modulos.md](modulos.md).
 3. `vercel.json` / `.github/workflows/` → actualizar [overview.md](overview.md) y [servicios-externos.md](servicios-externos.md).
 4. `package.json` → actualizar [stack.md](stack.md).
 5. `src/lib/storage.ts`, `src/lib/server-cache.ts`, `src/lib/rate-limit*` → actualizar [flujos-de-datos.md](flujos-de-datos.md) y [modulos.md](modulos.md).
 
-Validar sintaxis de diagramas (sin instalar dependencias del proyecto):
+Validar sintaxis y regenerar un `.svg` tras editar un bloque `mermaid`: volcar el bloque a un `.mmd` temporal y correr (sin instalar dependencias del proyecto):
 
 ```bash
-npx -y -p @mermaid-js/mermaid-cli mmdc -i .devin/informes/arquitectura/diagramas/<archivo>.mmd -o %TEMP%\<archivo>.svg
+npx -y -p @mermaid-js/mermaid-cli mmdc -i %TEMP%\<archivo>.mmd -o .devin/informes/arquitectura/diagramas/svg/<archivo>.svg
 ```
 
 Este mapa es **referencia viva**: no se archiva, se actualiza.

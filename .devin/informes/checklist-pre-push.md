@@ -74,14 +74,14 @@ En **Vercel → Environment Variables → Production** debe existir:
 
 Si el cambio tocó alguna de estas superficies, revisar que el [mapa de arquitectura](arquitectura/README.md) siga vigente (es referencia viva, se actualiza, no se archiva):
 
-- [ ] `src/db/schema.ts` (tablas/enums/FKs) → `arquitectura/base-de-datos.md` + `diagramas/base-de-datos.mmd`
+- [ ] `src/db/schema.ts` (tablas/enums/FKs) → `arquitectura/base-de-datos.md` + regenerar `diagramas/svg/base-de-datos.svg`
 - [ ] `src/app/api/**` o Server Actions → `arquitectura/modulos.md` (superficie API)
 - [ ] `vercel.json` / `.github/workflows/` → `arquitectura/overview.md` + `servicios-externos.md` (crons)
 - [ ] `package.json` (dependencias) → `arquitectura/stack.md`
 - [ ] `src/lib/storage.ts`, `server-cache.ts`, `rate-limit*` → `arquitectura/flujos-de-datos.md` + `modulos.md`
 - [ ] Estados o transiciones del pedido (`orderService`) → `arquitectura/flujo-pedidos.md`
 
-> Validar sintaxis de los `.mmd` editados con `npx -y -p @mermaid-js/mermaid-cli mmdc -i <archivo>.mmd -o %TEMP%\<archivo>.svg` (no instala dependencias del proyecto).
+> Validar sintaxis de los bloques `mermaid` editados renderizándolos con `npx -y -p @mermaid-js/mermaid-cli mmdc` y regenerar el `.svg` correspondiente en `diagramas/svg/` (no instala dependencias del proyecto).
 
 ## Revisión de diff
 
