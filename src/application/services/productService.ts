@@ -8,6 +8,7 @@ import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
 import {
   validateProductImageUrl,
   deleteProductImage,
+  verifyUploadedProductImage,
 } from '@/lib/product-image-storage';
 import { ZodError } from 'zod';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
@@ -106,6 +107,15 @@ export async function createProduct(branchId: number, data: ProductInsert) {
 
   validateImageUrl(product);
 
+  // Las claves de imagen están acotadas al producto (`product-images/<id>/`)
+  // y el upload siempre ocurre después de crear el producto: una key en el
+  // alta necesariamente referencia otro producto o es inventada.
+  if (product.imageKey) {
+    throw new ValidationError(
+      'La imagen se adjunta después de crear el producto (PUT /api/productos/[id]).'
+    );
+  }
+
   // El stock nace en 0: toda carga se hace por /api/stock/ajustar para que
   // quede auditada en stock_movements con motivo. Un `stock` positivo en el
   // body indica que el cliente esperaba stock inicial, así que se rechaza
@@ -130,6 +140,34 @@ export async function updateProduct(
 ) {
   const updateData = { ...data };
   delete updateData.stock;
+
+  // Con providers remotos el archivo se sube directo al proveedor (client
+  // token / presigned post) sin pasar por el servidor: la firma de contenido
+  // y la URL canónica se verifican acá, antes de persistir la key. Solo aplica
+  // cuando la key cambia — reenviar la misma no vuelve a validarla.
+  if (updateData.imageKey) {
+    const existing = await productRepository.findById(branchId, id);
+    if (!existing) throw new NotFoundError('Producto', id);
+    if (updateData.imageKey !== existing.imageKey) {
+      try {
+        updateData.imageUrl = await verifyUploadedProductImage(
+          updateData.imageKey,
+          updateData.imageMimeType,
+          id,
+          branchId
+        );
+      } catch (error) {
+        // El objeto quedó subido al proveedor: se elimina para no dejar
+        // basura huérfana.
+        await deleteProductImage(updateData.imageKey).catch(() => {});
+        throw error;
+      }
+    } else {
+      // La clave no cambió: la URL canónica es la que quedó persistida al
+      // verificar el upload; se ignora una imageUrl distinta del cliente.
+      updateData.imageUrl = existing.imageUrl;
+    }
+  }
 
   let previousImageKey: string | null = null;
   let shouldDeletePreviousImage = false;

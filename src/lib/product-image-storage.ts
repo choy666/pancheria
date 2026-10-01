@@ -3,7 +3,12 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { getPublicBaseUrl } from '@/lib/public-url';
 import { getStorageProvider } from '@/config/videos';
-import { assertFileSignature, deleteStorageFile } from '@/lib/storage';
+import {
+  assertBufferSignature,
+  assertFileSignature,
+  deleteStorageFile,
+  SIGNATURE_READ_BYTES,
+} from '@/lib/storage';
 import {
   getBlobReadWriteToken,
   getProductImageLocalStorageBasePath,
@@ -18,6 +23,7 @@ import {
   getProductImageAllowedExternalDomains,
   getProductImageUrlMaxLength,
 } from '@/config/product-images';
+import { getStorageImageOrigins } from '@/config/storage-origins';
 import { ValidationError } from '@/domain/errors';
 import type { ProductRow } from '@/domain/types';
 import type { S3Client } from '@aws-sdk/client-s3';
@@ -212,11 +218,75 @@ function getProductImagePublicUrl(
   }
 }
 
-export function resolveProductImage(product: ProductRow): string | null {
-  if (product.imageKey) {
-    return getProductImagePublicUrl(product.imageKey, product.branchId);
+/**
+ * Indica si `host` matchea un patrón de origen permitido para imágenes:
+ * dominio plano ('ejemplo.com'), comodín ('*.ejemplo.com') o URL completa.
+ */
+function matchesImageHostPattern(host: string, pattern: string): boolean {
+  const normalized = pattern
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .split('?')[0]
+    .toLowerCase();
+  if (!normalized) return false;
+  if (normalized.startsWith('*.')) {
+    const suffix = normalized.slice(2);
+    return host === suffix || host.endsWith(`.${suffix}`);
   }
-  return product.imageUrl ?? null;
+  return host === normalized;
+}
+
+/**
+ * next/image solo sirve hosts listados en `remotePatterns` (dominios
+ * externos permitidos + orígenes del provider de storage). Una URL
+ * persistida fuera de esa lista lanza en render y deja el catálogo entero
+ * sin contenido: se omite la imagen y la card muestra el ícono de fallback.
+ */
+function isRenderableImageHost(host: string): boolean {
+  const allowed = [
+    ...getProductImageAllowedExternalDomains(),
+    ...getStorageImageOrigins(),
+  ];
+  return allowed.some((pattern) => matchesImageHostPattern(host, pattern));
+}
+
+export function resolveProductImage(product: ProductRow): string | null {
+  let candidate: string | null;
+
+  if (!product.imageKey) {
+    candidate = product.imageUrl ?? null;
+  } else {
+    const provider = getStorageProvider();
+
+    // La URL pública real de Vercel Blob incluye el subdominio del store
+    // (<storeId>.public.blob.vercel-storage.com) y no se puede reconstruir
+    // desde la key: la devuelve el upload y queda persistida en image_url.
+    if (provider === 'vercel-blob') {
+      candidate = product.imageUrl ?? null;
+    } else if (provider === 'local') {
+      // El endpoint local es same-origin: se devuelve la ruta relativa para
+      // que next/image la acepte sin remotePatterns y sin depender de la URL
+      // base vigente al momento de persistir.
+      candidate = `/api/productos/imagen/${encodeURIComponent(product.imageKey)}?branchId=${product.branchId}`;
+    } else {
+      candidate = getProductImagePublicUrl(product.imageKey, product.branchId);
+    }
+  }
+
+  if (!candidate) return null;
+
+  // Las rutas relativas se sirven same-origin y no necesitan remotePatterns.
+  if (candidate.startsWith('/')) return candidate;
+
+  try {
+    if (!isRenderableImageHost(new URL(candidate).hostname)) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  return candidate;
 }
 
 export async function prepareProductImageUpload(
@@ -536,4 +606,167 @@ export async function deleteProductImage(key: string): Promise<void> {
   } catch {
     // Ignorar errores si el archivo no existe o falla el proveedor remoto.
   }
+}
+
+async function readStreamHeader(
+  stream: ReadableStream<Uint8Array>
+): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  try {
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (total < SIGNATURE_READ_BYTES) {
+      const { done, value } = await reader.read();
+      if (done || !value || value.length === 0) break;
+      chunks.push(value);
+      total += value.length;
+    }
+    const header = new Uint8Array(Math.min(total, SIGNATURE_READ_BYTES));
+    let offset = 0;
+    for (const chunk of chunks) {
+      const remaining = header.length - offset;
+      if (remaining <= 0) break;
+      header.set(chunk.subarray(0, remaining), offset);
+      offset += Math.min(chunk.length, remaining);
+    }
+    return header;
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+async function readS3R2ObjectHeader(
+  kind: 's3' | 'r2',
+  key: string
+): Promise<Uint8Array> {
+  const credentials = getS3R2Credentials(kind);
+  if (!credentials) {
+    throw new ValidationError('Faltan credenciales de S3/R2.');
+  }
+
+  const { accessKeyId, secretAccessKey, bucket, region, endpoint } =
+    credentials;
+
+  let s3Client: S3Client;
+  let GetObjectCommand: typeof import('@aws-sdk/client-s3').GetObjectCommand;
+
+  try {
+    const clientModule = (await import('@aws-sdk/client-s3')) as {
+      S3Client: typeof S3Client;
+      GetObjectCommand: typeof GetObjectCommand;
+    };
+    s3Client = new clientModule.S3Client({
+      region,
+      endpoint,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+    GetObjectCommand = clientModule.GetObjectCommand;
+  } catch {
+    throw new ValidationError(
+      'Para usar STORAGE_PROVIDER=s3 o r2, instalá @aws-sdk/client-s3.'
+    );
+  }
+
+  let response;
+  try {
+    response = await s3Client.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Range: `bytes=0-${SIGNATURE_READ_BYTES - 1}`,
+      })
+    );
+  } catch {
+    throw new ValidationError(
+      'No se encontró la imagen subida en el almacenamiento remoto.'
+    );
+  }
+
+  if (!response.Body) {
+    throw new ValidationError(
+      'No se encontró la imagen subida en el almacenamiento remoto.'
+    );
+  }
+
+  return response.Body.transformToByteArray();
+}
+
+/**
+ * Verifica server-side una imagen ya subida al proveedor y devuelve su URL
+ * pública canónica. Con providers remotos el archivo viaja directo al
+ * proveedor (client token / presigned post) sin pasar por el servidor, así
+ * que la firma de contenido se valida acá, antes de persistir la key.
+ * También evita persistir claves ajenas/inexistentes y URLs suplantadas: la
+ * URL guardada siempre es la que resuelve el servidor, no la del cliente.
+ */
+export async function verifyUploadedProductImage(
+  key: string,
+  mimeType: string | null | undefined,
+  productId: number,
+  branchId: number
+): Promise<string> {
+  if (!isValidProductImageKey(key)) {
+    throw new ValidationError('Clave de imagen de producto inválida.');
+  }
+
+  const keyProductId = Number(key.split('/')[1]);
+  if (Number.isNaN(keyProductId) || keyProductId !== productId) {
+    throw new ValidationError(
+      'La clave de imagen no corresponde al producto indicado.'
+    );
+  }
+
+  if (!mimeType || !getProductImageAllowedMimeTypes().includes(mimeType)) {
+    throw new ValidationError('Tipo de imagen no permitido.');
+  }
+
+  const provider = getStorageProvider();
+
+  if (provider === 'local') {
+    // El upload local ya verificó la firma; acá basta confirmar que el
+    // archivo existe para no persistir una clave fantasma.
+    const filePath = resolveProductImagePath(key);
+    try {
+      await fs.stat(/*turbopackIgnore: true*/ filePath);
+    } catch {
+      throw new ValidationError('No se encontró la imagen subida.');
+    }
+    return getProductImagePublicUrlForLocal(key, branchId);
+  }
+
+  if (provider === 'vercel-blob') {
+    const token = getBlobReadWriteToken();
+    if (!token) {
+      throw new ValidationError(
+        'Falta BLOB_READ_WRITE_TOKEN para usar el proveedor Vercel Blob.'
+      );
+    }
+
+    const { get } = await import('@vercel/blob');
+    let result;
+    try {
+      result = await get(key, { access: 'public', token });
+    } catch {
+      result = null;
+    }
+    if (!result || result.statusCode !== 200) {
+      throw new ValidationError(
+        'No se encontró la imagen subida en el almacenamiento remoto.'
+      );
+    }
+
+    const header = await readStreamHeader(result.stream);
+    assertBufferSignature(header, mimeType);
+    return result.blob.url;
+  }
+
+  if (provider === 's3' || provider === 'r2') {
+    const header = await readS3R2ObjectHeader(provider, key);
+    assertBufferSignature(header, mimeType);
+    return getProductImagePublicUrlForS3R2(provider, key);
+  }
+
+  throw new ValidationError(
+    `Proveedor de almacenamiento no soportado: ${String(provider)}`
+  );
 }

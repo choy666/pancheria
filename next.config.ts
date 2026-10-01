@@ -128,6 +128,9 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: getImageRemotePatterns(),
+    // El endpoint local de imágenes de producto lleva `?branchId=` en la
+    // query; Next 16 bloquea srcs locales con query salvo localPatterns.
+    localPatterns: [{ pathname: '/api/productos/imagen/**' }],
     formats: ['image/avif', 'image/webp'],
   },
   experimental: {

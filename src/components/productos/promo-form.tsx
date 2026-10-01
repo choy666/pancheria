@@ -143,6 +143,11 @@ export function PromoForm({ product }: PromoFormProps) {
   );
 
   useEffect(() => {
+    // Si el efecto se re-ejecuta (StrictMode en dev, cambio de `product`), la
+    // carga anterior queda obsoleta: sin la guardia, su setForm tardío pisa lo
+    // que el usuario ya escribió.
+    let cancelled = false;
+
     async function load() {
       try {
         const all = await fetchAllPages<Supply>(async (page, limit) => {
@@ -157,6 +162,7 @@ export function PromoForm({ product }: PromoFormProps) {
 
           return (await productsRes.json()) as PaginatedResult<Supply>;
         });
+        if (cancelled) return;
         setSupplies(all);
 
         const base: PromoFormData = product
@@ -172,6 +178,7 @@ export function PromoForm({ product }: PromoFormProps) {
             `${RECETAS_API}?productId=${product.id}`,
             {}
           );
+          if (cancelled) return;
 
           if (recipeRes.ok) {
             const recipe = (await recipeRes.json()) as RecipeItem[];
@@ -208,13 +215,20 @@ export function PromoForm({ product }: PromoFormProps) {
 
         setForm(base);
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Error desconocido');
+        if (!cancelled) {
+          setError(error instanceof Error ? error.message : 'Error desconocido');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [product]);
 
   function addRecipeItem() {

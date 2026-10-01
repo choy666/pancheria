@@ -90,7 +90,30 @@ describe('product-image-storage', () => {
   });
 
   describe('resolveProductImage', () => {
-    test('devuelve imageUrl si no hay imageKey', () => {
+    const OLD_DOMAINS = process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS;
+    const OLD_PROVIDER = process.env.STORAGE_PROVIDER;
+    const OLD_BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+
+    afterEach(() => {
+      if (OLD_DOMAINS === undefined) {
+        delete process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS;
+      } else {
+        process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS = OLD_DOMAINS;
+      }
+      if (OLD_PROVIDER === undefined) {
+        delete process.env.STORAGE_PROVIDER;
+      } else {
+        process.env.STORAGE_PROVIDER = OLD_PROVIDER;
+      }
+      if (OLD_BLOB_TOKEN === undefined) {
+        delete process.env.BLOB_READ_WRITE_TOKEN;
+      } else {
+        process.env.BLOB_READ_WRITE_TOKEN = OLD_BLOB_TOKEN;
+      }
+    });
+
+    test('devuelve imageUrl si no hay imageKey y el dominio es servible por next/image', () => {
+      process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS = 'example.com';
       const product = {
         id: 1,
         imageUrl: 'https://example.com/imagen.jpg',
@@ -100,6 +123,17 @@ describe('product-image-storage', () => {
       expect(resolveProductImage(product)).toBe(
         'https://example.com/imagen.jpg'
       );
+    });
+
+    test('omite imageUrl de dominio no servible para no romper el catálogo', () => {
+      process.env.PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS = 'otro-dominio.com';
+      const product = {
+        id: 1,
+        imageUrl: 'https://example.com/imagen.jpg',
+        imageKey: null,
+      } as unknown as import('@/domain/types').ProductRow;
+
+      expect(resolveProductImage(product)).toBeNull();
     });
 
     test('devuelve null si no hay imagen', () => {
@@ -112,7 +146,8 @@ describe('product-image-storage', () => {
       expect(resolveProductImage(product)).toBeNull();
     });
 
-    test('incluye el branchId en la URL local cuando hay imageKey', () => {
+    test('con provider local devuelve la ruta relativa con branchId', () => {
+      delete process.env.STORAGE_PROVIDER;
       const product = {
         id: 1,
         branchId: 3,
@@ -122,8 +157,30 @@ describe('product-image-storage', () => {
 
       const url = resolveProductImage(product);
 
-      expect(url).toContain('/api/productos/imagen/');
-      expect(url).toContain('branchId=3');
+      expect(url).toBe(
+        '/api/productos/imagen/product-images%2F1%2Fabc123.jpg?branchId=3'
+      );
+    });
+
+    test('con vercel-blob y imageKey devuelve la image_url persistida', () => {
+      process.env.STORAGE_PROVIDER = 'vercel-blob';
+      const product = {
+        id: 1,
+        branchId: 3,
+        imageUrl:
+          'https://storeid.public.blob.vercel-storage.com/product-images/1/abc123.jpg',
+        imageKey: 'product-images/1/abc123.jpg',
+      } as unknown as import('@/domain/types').ProductRow;
+
+      // Sin BLOB_READ_WRITE_TOKEN el origen no entra en remotePatterns: se
+      // omite en vez de romper el render del catálogo.
+      expect(resolveProductImage(product)).toBeNull();
+
+      process.env.BLOB_READ_WRITE_TOKEN = 'token-de-prueba';
+      expect(resolveProductImage(product)).toBe(
+        'https://storeid.public.blob.vercel-storage.com/product-images/1/abc123.jpg'
+      );
+      delete process.env.BLOB_READ_WRITE_TOKEN;
     });
   });
 });

@@ -74,11 +74,18 @@ export function ProductImageUploader({
   onChange,
 }: ProductImageUploaderProps) {
   const [fileError, setFileError] = useState<string | null>(null);
+  // El modo derivado del value no alcanza: con source 'none' ambos modos se
+  // ven igual y el botón "Usar URL" no podía cambiar de vista. El override
+  // registra la última elección explícita del usuario.
+  const [modeOverride, setModeOverride] = useState<'upload' | 'url' | null>(
+    null
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   const mode: 'upload' | 'url' =
-    value.source === 'url' || value.source === 'stored' ? 'url' : 'upload';
+    modeOverride ??
+    (value.source === 'url' || value.source === 'stored' ? 'url' : 'upload');
 
   const urlInputValue =
     value.source === 'url' || value.source === 'stored'
@@ -90,13 +97,20 @@ export function ProductImageUploader({
 
   function handleModeChange(nextMode: 'upload' | 'url') {
     setFileError(null);
-
-    if (nextMode === 'upload') {
-      onChange({ source: 'none' });
-    } else {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    setModeOverride(nextMode);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // Conserva una URL/stored existente al volver al modo URL; en cualquier
+    // otro cambio descarta la selección anterior (archivo pendiente o imagen
+    // guardada que se va a reemplazar).
+    if (
+      nextMode === 'url' &&
+      (value.source === 'url' || value.source === 'stored')
+    ) {
+      return;
+    }
+    if (value.source !== 'none') {
       onChange({ source: 'none' });
     }
   }
@@ -145,12 +159,19 @@ export function ProductImageUploader({
     }
   }
 
+  // Para URLs que no pasan la validación de cliente no se intenta el
+  // preview: un <img> con src inválida dispara onError y reseteaba el valor
+  // antes de que el mensaje de error pudiera verse.
   const previewUrl =
     value.source === 'upload'
       ? value.previewUrl
-      : value.source === 'url' || value.source === 'stored'
-      ? value.imageUrl
-      : null;
+      : value.source === 'url'
+        ? urlError
+          ? null
+          : value.imageUrl
+        : value.source === 'stored'
+          ? value.imageUrl
+          : null;
 
   const allowedTypes = getProductImageAllowedMimeTypes();
   const maxBytes = getProductImageMaxSizeBytes();

@@ -1,6 +1,7 @@
 import { createReadStream, statSync } from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorageProvider } from '@/config/videos';
+import { getBlobReadWriteToken } from '@/config/storage';
 import {
   getStorageProvider as getProviderInstance,
   guessMimeType,
@@ -109,6 +110,22 @@ export const GET = withApiErrorHandling(
     const providerName = getStorageProvider();
 
     if (providerName !== 'local') {
+      if (providerName === 'vercel-blob') {
+        // La URL pública de Blob lleva el subdominio del store y no se
+        // puede reconstruir desde la key: se resuelve consultando el objeto.
+        const token = getBlobReadWriteToken();
+        if (!token) throw new NotFoundError('Video');
+
+        const { get } = await import('@vercel/blob');
+        const result = await get(key, { access: 'public', token }).catch(
+          () => null
+        );
+        if (!result || result.statusCode !== 200) {
+          throw new NotFoundError('Video');
+        }
+        return NextResponse.redirect(result.blob.url);
+      }
+
       const provider = getProviderInstance(providerName);
       return NextResponse.redirect(provider.getPublicUrl(key));
     }

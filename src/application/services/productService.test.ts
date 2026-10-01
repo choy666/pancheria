@@ -610,6 +610,82 @@ describe('productService', () => {
         expect.anything()
       );
     });
+
+    test('verifica la imagen y persiste la URL canónica cuando cambia la imageKey', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Promo',
+        type: 'compound',
+        price: 100,
+        branchId: BRANCH_ID,
+        imageKey: null,
+        imageUrl: null,
+      } as ProductRow);
+      mockedProductImageStorage.verifyUploadedProductImage.mockResolvedValue(
+        'https://storeid.public.blob.vercel-storage.com/product-images/1/nueva.jpg'
+      );
+      mockedProductRepository.update.mockResolvedValue({ id: 1 } as ProductRow);
+
+      await updateProduct(BRANCH_ID, 1, {
+        name: 'Promo',
+        price: 100,
+        imageKey: 'product-images/1/nueva.jpg',
+        imageMimeType: 'image/jpeg',
+        imageUrl: 'https://url-del-cliente.example.com/x.jpg',
+      } as unknown as ProductUpdate);
+
+      expect(
+        mockedProductImageStorage.verifyUploadedProductImage
+      ).toHaveBeenCalledWith(
+        'product-images/1/nueva.jpg',
+        'image/jpeg',
+        1,
+        BRANCH_ID
+      );
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({
+          imageUrl:
+            'https://storeid.public.blob.vercel-storage.com/product-images/1/nueva.jpg',
+        }),
+        expect.anything()
+      );
+    });
+
+    test('conserva la imageUrl persistida cuando la imageKey no cambia', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Promo',
+        type: 'compound',
+        price: 100,
+        branchId: BRANCH_ID,
+        imageKey: 'product-images/1/ok.jpg',
+        imageUrl:
+          'https://storeid.public.blob.vercel-storage.com/product-images/1/ok.jpg',
+      } as ProductRow);
+      mockedProductRepository.update.mockResolvedValue({ id: 1 } as ProductRow);
+
+      await updateProduct(BRANCH_ID, 1, {
+        name: 'Promo',
+        price: 100,
+        imageKey: 'product-images/1/ok.jpg',
+        imageUrl: 'https://evil.example.com/suplantada.jpg',
+      } as unknown as ProductUpdate);
+
+      expect(
+        mockedProductImageStorage.verifyUploadedProductImage
+      ).not.toHaveBeenCalled();
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({
+          imageUrl:
+            'https://storeid.public.blob.vercel-storage.com/product-images/1/ok.jpg',
+        }),
+        expect.anything()
+      );
+    });
   });
 
   describe('deleteProduct', () => {

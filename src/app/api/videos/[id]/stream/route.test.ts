@@ -28,7 +28,14 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+jest.mock('@vercel/blob', () => ({
+  get: jest.fn(),
+}));
+
 import { createReadStream, statSync } from 'fs';
+import { get } from '@vercel/blob';
+
+const mockedBlobGet = get as jest.MockedFunction<typeof get>;
 
 const mockedCreateReadStream = createReadStream as jest.MockedFunction<
   typeof createReadStream
@@ -81,7 +88,7 @@ describe('GET /api/videos/[id]/stream', () => {
   });
 
   test('redirige si el proveedor no es local', async () => {
-    process.env.STORAGE_PROVIDER = 'vercel-blob';
+    process.env.STORAGE_PROVIDER = 's3';
 
     const response = await GET(buildRequest('abc123.mp4'), {
       params: Promise.resolve({ id: 'abc123.mp4' }),
@@ -91,6 +98,44 @@ describe('GET /api/videos/[id]/stream', () => {
     expect(response.headers.get('location')).toBe(
       'https://remote.example.com/video.mp4'
     );
+  });
+
+  test('con vercel-blob redirige a la URL real del objeto', async () => {
+    process.env.STORAGE_PROVIDER = 'vercel-blob';
+    process.env.BLOB_READ_WRITE_TOKEN = 'token-de-prueba';
+    mockedBlobGet.mockResolvedValue({
+      statusCode: 200,
+      blob: {
+        url: 'https://storeid.public.blob.vercel-storage.com/videos/abc123.mp4',
+      },
+    } as Awaited<ReturnType<typeof get>>);
+
+    const response = await GET(buildRequest('abc123.mp4'), {
+      params: Promise.resolve({ id: 'abc123.mp4' }),
+    });
+
+    expect(mockedBlobGet).toHaveBeenCalledWith('abc123.mp4', {
+      access: 'public',
+      token: 'token-de-prueba',
+    });
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://storeid.public.blob.vercel-storage.com/videos/abc123.mp4'
+    );
+  });
+
+  test('con vercel-blob devuelve 404 si el objeto no existe', async () => {
+    process.env.STORAGE_PROVIDER = 'vercel-blob';
+    process.env.BLOB_READ_WRITE_TOKEN = 'token-de-prueba';
+    mockedBlobGet.mockRejectedValue(new Error('not found'));
+
+    const response = await GET(buildRequest('abc123.mp4'), {
+      params: Promise.resolve({ id: 'abc123.mp4' }),
+    });
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('Video no encontrado.');
   });
 
   test('devuelve 404 si el key es inválido', async () => {

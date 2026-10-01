@@ -210,7 +210,7 @@ flowchart TB
 
 > Render: [diagramas/svg/flujo-uploads.svg](diagramas/svg/flujo-uploads.svg)
 
-Puntos clave: el provider se elige por `STORAGE_PROVIDER` en runtime (`config/videos.ts`), con warning si es `local` en producción (fs efímero en Vercel) y validación de build en `next.config.ts`. La validación de contenido usa firma real (magic bytes), no el MIME declarado. Las lecturas locales pasan por proxies autenticados (`/api/videos/[id]/stream` con Range, `/api/chat/attachment/[key]`, `/api/productos/imagen/[key]`).
+Puntos clave: el provider se elige por `STORAGE_PROVIDER` en runtime (`config/videos.ts`), con warning si es `local` en producción (fs efímero en Vercel) y validación de build en `next.config.ts`. La validación de contenido usa firma real (magic bytes), no el MIME declarado. En `local` corre durante el upload; en providers remotos el archivo sube directo al bucket y **las imágenes de producto se verifican al persistir** (`verifyUploadedProductImage` en `PUT /api/productos/[id]`: lee el objeto por key, comprueba firma y fija la URL canónica del servidor). Los videos/adjuntos remotos aún confían en la metadata del cliente en ese punto. Las lecturas locales pasan por proxies autenticados (`/api/videos/[id]/stream` con Range, `/api/chat/attachment/[key]`, `/api/productos/imagen/[key]`); el stream de video con `vercel-blob` resuelve la URL real del objeto vía `get(key)` del SDK.
 
 ## Caché y frescura (transversal)
 

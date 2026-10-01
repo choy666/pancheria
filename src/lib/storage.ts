@@ -28,7 +28,7 @@ import type { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 // JPEG/PNG/WebP y videos MP4/WebM/OGG) más variantes habituales
 // (QuickTime, Matroska, AVI).
 
-const SIGNATURE_READ_BYTES = 16;
+export const SIGNATURE_READ_BYTES = 16;
 
 function matchesBytes(
   header: Uint8Array,
@@ -78,6 +78,21 @@ function hasExpectedFileSignature(
 }
 
 /**
+ * Lanza `ValidationError` si los bytes de `header` no coinciden con la firma
+ * esperada para `mimeType`. Se usa con los primeros bytes del archivo.
+ */
+export function assertBufferSignature(
+  header: Uint8Array,
+  mimeType: string
+): void {
+  if (!hasExpectedFileSignature(header, mimeType)) {
+    throw new ValidationError(
+      'El contenido del archivo no coincide con el tipo declarado.'
+    );
+  }
+}
+
+/**
  * Lee los primeros bytes de `file` y lanza `ValidationError` si el contenido
  * no coincide con la firma esperada para `mimeType`.
  */
@@ -88,11 +103,7 @@ export async function assertFileSignature(
   const header = new Uint8Array(
     await file.slice(0, SIGNATURE_READ_BYTES).arrayBuffer()
   );
-  if (!hasExpectedFileSignature(header, mimeType)) {
-    throw new ValidationError(
-      'El contenido del archivo no coincide con el tipo declarado.'
-    );
-  }
+  assertBufferSignature(header, mimeType);
 }
 
 const mimeTypesByExtension: Record<string, string> = {
