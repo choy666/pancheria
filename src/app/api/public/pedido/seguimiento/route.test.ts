@@ -40,6 +40,14 @@ describe('POST /api/public/pedido/seguimiento', () => {
       customerPhone: '3415555555',
       branchId: 1,
       branchName: 'Sucursal A',
+      items: [
+        {
+          productName: 'Promo 1',
+          quantity: 2,
+          subtotal: 1200,
+          notes: 'bien tostado',
+        },
+      ],
       cancellationToken: 'token',
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
     });
@@ -57,6 +65,9 @@ describe('POST /api/public/pedido/seguimiento', () => {
       id: 1,
       status: 'pending',
       cancellationToken: 'token',
+      items: [
+        { productName: 'Promo 1', quantity: 2, notes: 'bien tostado' },
+      ],
     });
     expect(mockedOrderService.trackOrder).toHaveBeenCalledWith(
       1,

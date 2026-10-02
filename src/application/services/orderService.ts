@@ -1095,6 +1095,14 @@ function isExpiredPending(order: { status: OrderStatus; createdAt: Date }): bool
  */
 class ExpiredPendingOrderError extends ConflictError {}
 
+export interface TrackedOrderItem {
+  productName: string;
+  quantity: number;
+  subtotal: number;
+  notes?: string | null;
+  recipeSnapshot?: RecipeItemConfig[];
+}
+
 export interface TrackOrderResult {
   id: number;
   orderNumber: string;
@@ -1104,6 +1112,7 @@ export interface TrackOrderResult {
   customerPhone: string;
   branchId: number;
   branchName: string | null;
+  items: TrackedOrderItem[];
   cancellationToken?: string;
   expiresAt?: string;
 }
@@ -1145,6 +1154,13 @@ export async function trackOrder(
     customerPhone: order.customerPhone,
     branchId: order.branchId,
     branchName: order.branch?.name ?? null,
+    items: (order.items ?? []).map((item) => ({
+      productName: item.product?.name ?? `Producto #${item.productId}`,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+      notes: item.notes ?? null,
+      recipeSnapshot: item.recipeSnapshot,
+    })),
   };
 
   if (status === 'pending') {

@@ -21,7 +21,11 @@ import type { CreatedOrder } from './usePedidoClient';
 import type { PublicOrderItem } from '@/domain/types';
 import type { Branch } from '@/domain/types';
 
-function OrderItemRecipeDetails({ item }: { item: PublicOrderItem }) {
+export function OrderItemRecipeDetails({
+  item,
+}: {
+  item: Pick<PublicOrderItem, 'notes' | 'recipeSnapshot'>;
+}) {
   const hasRecipe = !!item.recipeSnapshot && item.recipeSnapshot.length > 0;
   if (!hasRecipe && !item.notes) return null;
 

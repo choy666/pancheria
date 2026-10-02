@@ -166,9 +166,10 @@ nota se perdería silenciosamente (ver §"Correcciones de la revisión").
 - `sales-history.tsx`: nota en el detalle de cada ítem vendido (tabla y
   diálogo de anulación).
 - `/pedidos` (lista de cocina): no renderiza detalle por ítem — sin cambios.
-- Tracking público: `TrackOrderResult` no devuelve ítems — la nota llega al
-  cliente solo por el `pedido-success-dialog` y el mensaje de preparación en
-  el chat. (Mostrar ítems en `/pedido/seguimiento` sería scope extra.)
+- Tracking público: `TrackOrderResult` no devolvía ítems — la nota llegaba
+  al cliente solo por el `pedido-success-dialog` y el mensaje de
+  preparación en el chat. (Mostrar ítems en `/pedido/seguimiento` era scope
+  extra — implementado, ver el addendum al final.)
 
 ## Correcciones de la revisión
 
@@ -309,3 +310,31 @@ flujo, sin ventas):
 Para las capturas se creó un usuario admin temporal en la base dev
 (`devin-capturas`), eliminado al terminar; la contraseña del `.env.local`
 no correspondía al seed vigente de `neondb_dev`.
+
+## Addendum — detalle de ítems en `/pedido/seguimiento`
+
+El "scope extra" señalado arriba (§Cocina y visualización) quedó
+implementado: el seguimiento público ahora devuelve y muestra el detalle
+de los ítems del pedido.
+
+- `TrackOrderResult` (`orderService.ts`) gana `items: TrackedOrderItem[]`
+  con la forma pública mínima `{ productName, quantity, subtotal, notes,
+  recipeSnapshot }` — sin IDs internos, costos ni datos administrativos.
+  Se construye desde `order.items`, que el repositorio ya cargaba con
+  `product` + `recipeSnapshots`; la consulta no cambió.
+- La API `POST /api/public/pedido/seguimiento` propaga el arreglo sin
+  cambios (`{ order }`); los ítems solo viajan tras validar número de
+  pedido + nombre y/o teléfono + sucursal, igual que el resto del payload.
+- `OrderTracker` renderiza la sección "Detalle del pedido" (nombre ×
+  cantidad + subtotal por línea) reutilizando `OrderItemRecipeDetails`
+  de `pedido-success-dialog.tsx`, exportado con prop estructural
+  (`notes`/`recipeSnapshot`): muestra `Incluye:`/`Sin:`/`Nota:` cuando
+  corresponde, igual que en el diálogo de éxito. Aplica a pedidos en
+  cualquier estado (pendiente, en proceso, pagado, finalizado, cancelado).
+- Tests: `order-tracker.test.tsx` (ítems con aclaración y
+  personalización), `route.test.ts` (propagación) y
+  `orderService.test.ts` (mapeo con nombre de producto, nota y snapshot;
+  fallback `Producto #id` si falta la relación). E2E: el primer test de
+  `pedido-seguimiento.spec.ts` crea el pedido con nota y afirma el
+  detalle visible.
+- No hay cambios de schema, precios ni lógica de cobro.

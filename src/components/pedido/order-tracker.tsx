@@ -30,6 +30,8 @@ import {
   setLastCustomerPhone,
 } from '@/lib/last-customer-phone';
 import { getStoredBranchId } from '@/lib/selected-branch';
+import { OrderItemRecipeDetails } from './pedido-success-dialog';
+import type { TrackedOrderItem } from '@/application/services/orderService';
 
 interface TrackedOrder {
   id: number;
@@ -40,6 +42,7 @@ interface TrackedOrder {
   customerPhone: string;
   branchId: number;
   branchName: string | null;
+  items?: TrackedOrderItem[];
   cancellationToken?: string;
   expiresAt?: string;
 }
@@ -331,6 +334,27 @@ export function OrderTracker() {
                 )}
               </div>
             </div>
+
+            {order.items && order.items.length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium">Detalle del pedido</p>
+                <ul className="space-y-2">
+                  {order.items.map((item, index) => (
+                    <li key={index} className="space-y-0.5 text-sm">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span>
+                          {item.productName} × {item.quantity}
+                        </span>
+                        <span className="font-mono">
+                          {formatMoney(item.subtotal)}
+                        </span>
+                      </div>
+                      <OrderItemRecipeDetails item={item} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {order.status !== 'finished' &&
               order.status !== 'cancelled' &&

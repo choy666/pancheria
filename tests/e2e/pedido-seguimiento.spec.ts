@@ -50,12 +50,13 @@ async function createPublicOrder(
   page: Page,
   productId: number,
   customerName: string,
-  customerPhone = '3415551234'
+  customerPhone = '3415551234',
+  notes?: string
 ): Promise<CreatedPublicOrder> {
   const response = await page.request.post('/api/public/pedido', {
     headers: { 'x-forwarded-for': randomClientIp() },
     data: {
-      items: [{ productId, quantity: 1 }],
+      items: [{ productId, quantity: 1, notes }],
       customerName,
       customerPhone,
       deliveryType: 'pickup',
@@ -79,7 +80,13 @@ test.describe('Seguimiento público de pedidos', () => {
   }) => {
     const product = await createServiceProduct(page, 'Servicio seguimiento');
     const customerName = unique('Cliente Seguimiento');
-    const order = await createPublicOrder(page, product.id, customerName);
+    const order = await createPublicOrder(
+      page,
+      product.id,
+      customerName,
+      '3415551234',
+      'bien fría'
+    );
 
     await page.goto('/pedido/seguimiento');
     // En WebKit la hidratación puede demorar: un fill previo deja el valor
@@ -98,6 +105,14 @@ test.describe('Seguimiento público de pedidos', () => {
     await expect(progress).toBeVisible();
     await expect(progress.getByText('Pendiente')).toBeVisible();
     await expect(page.getByText(customerName)).toBeVisible();
+
+    // La tarjeta muestra el detalle del pedido: ítem con cantidad y su
+    // aclaración.
+    await expect(
+      page.getByText('Detalle del pedido')
+    ).toBeVisible();
+    await expect(page.getByText(`${product.name} × 1`)).toBeVisible();
+    await expect(page.getByText('Nota: bien fría')).toBeVisible();
 
     // Un pedido pending expone el token: el link lleva al chat público.
     await page.getByRole('link', { name: 'Ir al chat del pedido' }).click();

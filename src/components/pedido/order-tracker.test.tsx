@@ -176,6 +176,80 @@ describe('OrderTracker', () => {
     });
   });
 
+  test('muestra el detalle de ítems con aclaraciones y personalización', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        order: {
+          id: 1,
+          orderNumber: 'PED-1-1234567890-abc',
+          status: 'in_process',
+          total: 1700,
+          customerName: 'Juan Pérez',
+          customerPhone: '3415555555',
+          branchId: 1,
+          branchName: 'Sucursal A',
+          items: [
+            {
+              productName: 'Promo 1',
+              quantity: 2,
+              subtotal: 1200,
+              notes: 'bien tostado',
+              recipeSnapshot: [
+                {
+                  supplyId: 1,
+                  supplyName: 'Cheddar',
+                  supplyType: 'manual_supply',
+                  quantity: 1,
+                  autoDiscount: true,
+                  isOptional: true,
+                  selected: true,
+                  selectedByDefault: true,
+                },
+                {
+                  supplyId: 2,
+                  supplyName: 'Cebolla',
+                  supplyType: 'manual_supply',
+                  quantity: 1,
+                  autoDiscount: true,
+                  isOptional: true,
+                  selected: false,
+                  selectedByDefault: true,
+                },
+              ],
+            },
+            {
+              productName: 'Vaso de gaseosa',
+              quantity: 1,
+              subtotal: 500,
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<OrderTracker />);
+
+    fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
+      target: { value: 'PED-1-1234567890-abc' },
+    });
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
+      target: { value: 'Juan Pérez' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Detalle del pedido')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Promo 1 × 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Vaso de gaseosa × 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Incluye: Cheddar/)).toBeInTheDocument();
+    expect(screen.getByText(/Sin: Cebolla/)).toBeInTheDocument();
+    expect(screen.getByText(/Nota: bien tostado/)).toBeInTheDocument();
+  });
+
   test('muestra la línea de progreso con el estado actual marcado', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

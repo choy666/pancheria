@@ -2252,6 +2252,59 @@ describe('orderService', () => {
 
       expect(result).toBeNull();
     });
+
+    test('incluye los ítems con nombre, nota y snapshot de receta', async () => {
+      const recipeSnapshot = [
+        {
+          supplyId: 2,
+          supplyName: 'Cebolla',
+          supplyType: 'manual_supply',
+          quantity: 1,
+          autoDiscount: true,
+          isOptional: true,
+          selected: false,
+          selectedByDefault: true,
+        },
+      ];
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow(),
+        branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
+        items: [
+          {
+            ...createOrderItemRow({ quantity: 2, subtotal: 2000, notes: 'bien tostado' }),
+            product: { id: 1, name: 'Promo 1' },
+            recipeSnapshots: recipeSnapshot,
+          },
+          {
+            ...createOrderItemRow({ id: 2, productId: 9, quantity: 1, subtotal: 500 }),
+            product: null,
+          },
+        ],
+      });
+
+      const result = await trackOrder(
+        BRANCH_ID,
+        'PED-1-1234567890-abcdef',
+        'Juan Pérez'
+      );
+
+      expect(result?.items).toEqual([
+        {
+          productName: 'Promo 1',
+          quantity: 2,
+          subtotal: 2000,
+          notes: 'bien tostado',
+          recipeSnapshot,
+        },
+        {
+          productName: 'Producto #9',
+          quantity: 1,
+          subtotal: 500,
+          notes: null,
+          recipeSnapshot: undefined,
+        },
+      ]);
+    });
   });
 
 });
