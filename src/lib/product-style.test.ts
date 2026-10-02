@@ -4,7 +4,6 @@
 import {
   productTypeLabels,
   publicProductTypeLabels,
-  publicProductTypeBadgeLabels,
   criticalTypeLabels,
   typePriority,
   criticalSupplyTypePriority,
@@ -12,6 +11,7 @@ import {
   productTypeTextClasses,
   productTypeDotClasses,
   productTypeGroupClasses,
+  publicProductTypeGroupClasses,
 } from './product-style';
 import type { CriticalSupplyType, ProductType } from '@/domain/types';
 
@@ -28,12 +28,12 @@ describe('product-style', () => {
     const maps: Record<ProductType, string | number>[] = [
       productTypeLabels,
       publicProductTypeLabels,
-      publicProductTypeBadgeLabels,
       typePriority,
       productTypeBadgeClasses,
       productTypeTextClasses,
       productTypeDotClasses,
       productTypeGroupClasses,
+      publicProductTypeGroupClasses,
     ];
 
     for (const map of maps) {

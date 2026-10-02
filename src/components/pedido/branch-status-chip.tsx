@@ -44,12 +44,12 @@ export function BranchStatusChip({
     <p
       data-testid="branch-status-chip"
       className={`flex items-center gap-2 text-sm ${
-        isOpen ? 'text-green-400' : 'text-amber-400'
+        isOpen ? 'text-green-700' : 'text-amber-700'
       }`}
     >
       <span
         className={`inline-block size-2 rounded-full ${
-          isOpen ? 'bg-green-400' : 'bg-amber-400'
+          isOpen ? 'bg-green-500' : 'bg-amber-500'
         }`}
       />
       {isOpen

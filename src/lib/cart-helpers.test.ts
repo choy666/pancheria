@@ -2,6 +2,7 @@ import {
   areRecipeSelectionsEqual,
   groupCartItemsForSubmit,
   hasOptionalRecipeItems,
+  normalizeItemNote,
 } from './cart-helpers';
 
 describe('cart-helpers', () => {
@@ -57,6 +58,19 @@ describe('cart-helpers', () => {
     });
   });
 
+  describe('normalizeItemNote', () => {
+    test('normaliza ausencia, null y vacío a null', () => {
+      expect(normalizeItemNote(undefined)).toBeNull();
+      expect(normalizeItemNote(null)).toBeNull();
+      expect(normalizeItemNote('')).toBeNull();
+      expect(normalizeItemNote('   ')).toBeNull();
+    });
+
+    test('recorta espacios en los extremos', () => {
+      expect(normalizeItemNote('  bien tostado  ')).toBe('bien tostado');
+    });
+  });
+
   describe('groupCartItemsForSubmit', () => {
     test('agrupa líneas del mismo producto con selecciones iguales', () => {
       const result = groupCartItemsForSubmit([
@@ -66,7 +80,12 @@ describe('cart-helpers', () => {
       ]);
 
       expect(result).toEqual([
-        { productId: 1, quantity: 3, selectedRecipeItemIds: [2, 3] },
+        {
+          productId: 1,
+          quantity: 3,
+          selectedRecipeItemIds: [2, 3],
+          notes: null,
+        },
       ]);
     });
 
@@ -78,9 +97,24 @@ describe('cart-helpers', () => {
       ]);
 
       expect(result).toEqual([
-        { productId: 1, quantity: 1, selectedRecipeItemIds: [2] },
-        { productId: 1, quantity: 1, selectedRecipeItemIds: [3] },
-        { productId: 2, quantity: 1, selectedRecipeItemIds: [] },
+        {
+          productId: 1,
+          quantity: 1,
+          selectedRecipeItemIds: [2],
+          notes: null,
+        },
+        {
+          productId: 1,
+          quantity: 1,
+          selectedRecipeItemIds: [3],
+          notes: null,
+        },
+        {
+          productId: 2,
+          quantity: 1,
+          selectedRecipeItemIds: [],
+          notes: null,
+        },
       ]);
     });
 
@@ -91,7 +125,58 @@ describe('cart-helpers', () => {
       ]);
 
       expect(result).toEqual([
-        { productId: 1, quantity: 3, selectedRecipeItemIds: [] },
+        {
+          productId: 1,
+          quantity: 3,
+          selectedRecipeItemIds: [],
+          notes: null,
+        },
+      ]);
+    });
+
+    test('agrupa líneas con la misma aclaración y suma sus cantidades', () => {
+      const result = groupCartItemsForSubmit([
+        { productId: 1, quantity: 1, notes: 'bien tostado' },
+        { productId: 1, quantity: 1, notes: ' bien tostado ' },
+        { productId: 1, quantity: 2, notes: 'bien tostado' },
+      ]);
+
+      expect(result).toEqual([
+        {
+          productId: 1,
+          quantity: 4,
+          selectedRecipeItemIds: [],
+          notes: 'bien tostado',
+        },
+      ]);
+    });
+
+    test('mantiene separadas las líneas con aclaraciones distintas', () => {
+      const result = groupCartItemsForSubmit([
+        { productId: 1, quantity: 1, notes: 'bien tostado' },
+        { productId: 1, quantity: 1, notes: 'sin sal' },
+        { productId: 1, quantity: 1 },
+      ]);
+
+      expect(result).toEqual([
+        {
+          productId: 1,
+          quantity: 1,
+          selectedRecipeItemIds: [],
+          notes: 'bien tostado',
+        },
+        {
+          productId: 1,
+          quantity: 1,
+          selectedRecipeItemIds: [],
+          notes: 'sin sal',
+        },
+        {
+          productId: 1,
+          quantity: 1,
+          selectedRecipeItemIds: [],
+          notes: null,
+        },
       ]);
     });
   });

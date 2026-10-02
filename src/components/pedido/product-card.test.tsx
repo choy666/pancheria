@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import React from 'react';
 import { ProductCard } from './product-card';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
@@ -84,7 +84,7 @@ describe('ProductCard', () => {
     expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
   });
 
-  test('usa la etiqueta pública en el badge de tipo', () => {
+  test('muestra el pill Promo solo en productos compuestos', () => {
     render(
       <ProductCard
         product={makeProduct()}
@@ -108,8 +108,9 @@ describe('ProductCard', () => {
       />
     );
 
-    expect(screen.getByText('Bebida')).toBeInTheDocument();
-    expect(screen.queryByText(/Insumo/)).not.toBeInTheDocument();
+    const gaseosaCard = within(screen.getByTestId('product-card-2'));
+    expect(gaseosaCard.queryByText('Promo')).not.toBeInTheDocument();
+    expect(gaseosaCard.queryByText(/Insumo/)).not.toBeInTheDocument();
     unmount();
   });
 

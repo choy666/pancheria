@@ -35,7 +35,7 @@ export function ChatAttachment({ message, token }: ChatAttachmentProps) {
           data-sender-type={message.senderType}
         />
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-white/10 p-2 text-sm">
+        <div className="flex items-center gap-2 rounded-lg border border-border p-2 text-sm">
           <Paperclip className="size-4" />
           <span className="truncate">{message.attachmentName}</span>
         </div>

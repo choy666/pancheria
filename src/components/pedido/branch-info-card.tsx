@@ -58,12 +58,12 @@ export function BranchInfoCard({
           (isStatusKnown ? (
             <p
               className={`mt-1 flex items-center gap-1 ${
-                isOpen ? 'text-green-400' : 'text-amber-400'
+                isOpen ? 'text-green-700' : 'text-amber-700'
               }`}
             >
               <span
                 className={`inline-block size-2 rounded-full ${
-                  isOpen ? 'bg-green-400' : 'bg-amber-400'
+                  isOpen ? 'bg-green-500' : 'bg-amber-500'
                 }`}
               />
               {isOpen ? 'Abierto ahora' : 'Cerrado'}
@@ -107,7 +107,7 @@ export function BranchInfoCard({
 
       {!isHeader && isStatusKnown && !isOpen && (
         <div
-          className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800"
           role="alert"
         >
           La sucursal está cerrada. Tu pedido se preparará cuando abra:{' '}
@@ -117,7 +117,7 @@ export function BranchInfoCard({
 
       {!isHeader && isStatusKnown && isOpen && (
         <div
-          className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200"
+          className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-800"
           role="status"
         >
           Sucursal abierta: {currentOpening}.

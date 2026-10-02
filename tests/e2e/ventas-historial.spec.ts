@@ -66,4 +66,57 @@ test.describe('Historial de cajas con ventas', () => {
 
     await ensureCashRegisterClosed(page);
   });
+
+  test('la aclaración del ítem aparece en el historial de ventas', async ({
+    page,
+  }) => {
+    await ensureCashRegisterOpen(page);
+
+    const products = await listAllProductsViaApi(page, {
+      includeAvailability: true,
+    });
+    const product = products.find(
+      (p) => p.type === 'service' && p.price === 500
+    );
+    if (!product) throw new Error('No se encontró producto de prueba de $500');
+
+    await page.goto('/ventas');
+
+    const card = page.locator(
+      `[data-testid="product-card"][data-product-name="${product.name}"]`
+    );
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await card.click();
+
+    // La aclaración se carga editando la línea del carrito.
+    await page
+      .getByRole('button', { name: `Editar ${product.name}` })
+      .click();
+    await expect(
+      page.getByRole('heading', { name: product.name })
+    ).toBeVisible({ timeout: 5000 });
+    await page.getByLabel('Aclaraciones').fill('para la mesa 4');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(page.getByTestId('cart-item-note')).toHaveText(
+      'Nota: para la mesa 4'
+    );
+
+    await page.getByTestId('payment-cash-input').fill('500');
+    await page.getByRole('button', { name: 'Confirmar venta' }).click();
+    await expect(page.getByTestId('empty-cart-message')).toBeVisible({
+      timeout: 10000,
+    });
+
+    const resumen = await page.request.get('/api/caja/resumen');
+    const caja = (await resumen.json()) as { id: number; status: string };
+
+    await page.goto(`/ventas/historial/${caja.id}`);
+    await expect(
+      page.getByTestId('sale-products').filter({ hasText: product.name })
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Nota: para la mesa 4')).toBeVisible();
+
+    await ensureCashRegisterClosed(page);
+  });
 });

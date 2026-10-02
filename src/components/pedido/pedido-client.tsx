@@ -156,7 +156,7 @@ export function PedidoClient({
       />
 
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent>
+        <DialogContent data-theme="light">
           <DialogHeader>
             <DialogTitle data-testid="checkout-dialog-title">Finalizar pedido</DialogTitle>
             <DialogDescription>
@@ -229,11 +229,15 @@ export function PedidoClient({
           }}
           productName={editingLine.product.name}
           productPrice={editingLine.product.price}
+          imageUrl={editingLine.product.imageUrl}
+          description={editingLine.product.description}
           recipe={editingLine.product.recipe ?? []}
           initialSelectedIds={editingLine.initialSelectedIds}
+          initialNotes={editingLine.initialNotes}
           onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"
+          variant="public"
         />
       )}
 
@@ -254,14 +258,14 @@ export function PedidoClient({
       {items.length > 0 && (
         <>
           {/* Espacio para que la barra fija no tape el contenido en mobile. */}
-          <div className="h-16 lg:hidden" aria-hidden="true" />
+          <div className="h-20 lg:hidden" aria-hidden="true" />
           <div
             data-testid="mobile-cart-bar"
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-background/95 p-3 backdrop-blur lg:hidden"
+            className="fixed inset-x-0 bottom-0 z-40 p-3 lg:hidden"
           >
             <Button
               type="button"
-              className="w-full"
+              className="h-12 w-full rounded-full bg-brand-red font-semibold text-white shadow-lg hover:bg-brand-red/90"
               onClick={() =>
                 document
                   .getElementById('pedido-cart')

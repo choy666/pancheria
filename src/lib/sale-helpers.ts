@@ -1,5 +1,6 @@
 import { addMoney, moneyToNumber, multiplyMoney, parseMoney } from '@/lib/money';
 import { buildRecipeSnapshot } from '@/lib/product-helpers';
+import { normalizeItemNote } from '@/lib/cart-helpers';
 import type { ProductRow, RecipeItemConfig } from '@/domain/types';
 import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 
@@ -9,6 +10,7 @@ export type SaleItemValue = {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes?: string | null;
   recipeSnapshot?: RecipeItemConfig[];
 };
 
@@ -21,6 +23,7 @@ export function buildSaleItemValues(
     subtotal?: number;
     selectedRecipeItemIds?: number[];
     recipeSnapshot?: RecipeItemConfig[];
+    notes?: string | null;
   }[],
   recipesByProduct?: Map<number, RecipeWithSupply[]>
 ): {
@@ -57,6 +60,7 @@ export function buildSaleItemValues(
       quantity: item.quantity,
       unitPrice: moneyToNumber(unitPrice),
       subtotal: moneyToNumber(subtotal),
+      notes: normalizeItemNote(item.notes),
       recipeSnapshot,
     });
   }

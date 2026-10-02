@@ -12,6 +12,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Auditoría QA integral con ejecución de tests](prompts/auditoria-qa-integral.md) — auditoría QA por etapas con tests ejecutables, revisión visual por perfiles e informe con evidencia.
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
+- [Rediseño de la card y modal de personalización en `/pedido`](prompts/plan-rediseno-card-y-modal-pedido.md) — propuesta visual estilo food-delivery con decisiones pendientes.
 
 > **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
 
@@ -23,6 +24,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
+- [Rediseño `/pedido` — PR 2 (2026-10-02)](informes/rediseno-pedido-pr2-2026-10-02.md) — modal de personalización rediseñado (hero, toggles "A tu gusto"/"Sumale", stepper de cantidad, CTA con precio, hoja inferior en mobile); `quantity` genera N líneas del carrito; E2E verificados.
+- [Rediseño `/pedido` — PR 1 (2026-10-02)](informes/rediseno-pedido-pr1-2026-10-02.md) — tema claro con scope `[data-theme='light']`, fuentes de marca, nueva card pública (hero, PROMO, quick-add, personalizar) y fallback de imagen; pendiente PR 3 (aclaraciones por ítem).
 - [Auditoría QA ronda 2 (2026-09-23, archivada)](informes/archivados/auditoria-qa-ronda-2-2026-09-23.md) — CSP en producción (`/pedido/seguimiento` estática sin nonce → corregida y verificada en prod), `X-Forwarded-For` fail-closed, revisión con daltonismo.
 - [Ticket CI E2E base compartida (archivado)](informes/archivados/ci-e2e-base-compartida.md) — runs concurrentes se contaminaban; `concurrency` por shard + timeout 25 min implementados.
 - [Auditoría de escalabilidad (2026-09-19, archivada)](informes/archivados/auditoria-escalabilidad-2026-09-19.md) — fuente del pendiente T14 multi-tenant (diferido); §3.9 alimenta trabajo futuro.
@@ -50,6 +53,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 .devin/
 ├── environment.yaml              # Blueprint de snapshot para Devin Cloud
 ├── README.md                     # Este índice
+├── skills/
+│   └── context7-stack/           # IDs de Context7 pre-resueltos por dependencia (SKILL.md)
 ├── informes/
 │   ├── reporte-estado.md         # Informe de estado vigente (único)
 │   ├── entornos.md               # Entornos, credenciales y pasos de migración
@@ -68,6 +73,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-cobertura-de-pruebas.md
     ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
     ├── plan-implementacion-multi-tenant.md
+    ├── plan-rediseno-card-y-modal-pedido.md  # Rediseño visual card + modal de /pedido
     └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
 ```
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getChatMaxTextLength } from '@/config/chat';
+import { ITEM_NOTE_MAX_LENGTH } from '@/lib/cart-helpers';
 
 const productTypeSchema = z.enum([
   'critical_supply',
@@ -182,6 +183,7 @@ const saleItemSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int().positive(),
   selectedRecipeItemIds: z.array(z.number().int().positive()).optional().default([]),
+  notes: z.string().trim().max(ITEM_NOTE_MAX_LENGTH).optional().nullable(),
 });
 
 const paymentPartSchema = z.object({

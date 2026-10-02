@@ -23,6 +23,8 @@ export interface CartItem extends CartProduct {
   lineId: string;
   quantity: number;
   selectedRecipeItemIds: number[];
+  /** Aclaración libre del ítem (ej. "bien tostado"), ya normalizada. */
+  notes?: string | null;
 }
 
 const cartItemSchema = z.object({
@@ -38,6 +40,7 @@ const cartItemSchema = z.object({
   lineId: z.string().optional(),
   quantity: z.number().int().positive(),
   selectedRecipeItemIds: z.array(z.number().int().positive()).default([]),
+  notes: z.string().trim().max(200).nullable().optional(),
 });
 
 const storedCartSchema = z.object({
@@ -77,6 +80,7 @@ function lineToCartItem(line: SellableCartLine<CartProduct>): CartItem {
     lineId: line.lineId,
     quantity: line.quantity,
     selectedRecipeItemIds: line.selectedRecipeItemIds,
+    notes: line.notes ?? null,
   };
 }
 
@@ -121,6 +125,7 @@ function getInitialItems(
             lineId: nanoid(),
             quantity: 1,
             selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+            notes: item.notes ?? null,
           }));
         }
 
@@ -130,6 +135,7 @@ function getInitialItems(
             lineId: item.lineId ?? nanoid(),
             quantity,
             selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+            notes: item.notes ?? null,
           },
         ];
       });
@@ -157,6 +163,7 @@ export function useCart({
     removeItem: removeLine,
     updateQuantity: updateLineQuantity,
     updateSelectedRecipeItemIds: updateLineSelection,
+    updateLineNotes: updateLineNote,
     clearCart: clearLines,
   } = useSellableCart<CartProduct>({ getAvailability });
 
@@ -185,6 +192,7 @@ export function useCart({
         product: cartProductFromItem(item),
         quantity: item.quantity,
         selectedRecipeItemIds: item.selectedRecipeItemIds,
+        notes: item.notes ?? null,
       }))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -215,9 +223,13 @@ export function useCart({
   const total = cartTotal;
 
   const addItem = useCallback(
-    (product: CartProduct, selectedRecipeItemIds?: number[]) => {
+    (
+      product: CartProduct,
+      selectedRecipeItemIds?: number[],
+      notes?: string | null
+    ) => {
       userInteractedRef.current = true;
-      addLine(product, selectedRecipeItemIds);
+      addLine(product, selectedRecipeItemIds, notes);
     },
     [addLine]
   );
@@ -246,6 +258,14 @@ export function useCart({
     [updateLineSelection]
   );
 
+  const updateLineNotes = useCallback(
+    (lineId: string, notes: string | null) => {
+      userInteractedRef.current = true;
+      updateLineNote(lineId, notes);
+    },
+    [updateLineNote]
+  );
+
   const clearCart = useCallback(() => {
     userInteractedRef.current = true;
     clearLines();
@@ -258,6 +278,7 @@ export function useCart({
     removeItem,
     updateQuantity,
     updateSelectedRecipeItemIds,
+    updateLineNotes,
     clearCart,
   };
 }

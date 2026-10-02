@@ -504,7 +504,14 @@ describe('SalesTerminal', () => {
         VENTAS_DISPONIBILIDAD_API,
         expect.objectContaining({
           body: JSON.stringify({
-            items: [{ productId: 1, quantity: 4, selectedRecipeItemIds: [] }],
+            items: [
+              {
+                productId: 1,
+                quantity: 4,
+                selectedRecipeItemIds: [],
+                notes: null,
+              },
+            ],
             productIds: [1, 2],
           }),
         })
@@ -960,14 +967,16 @@ describe('SalesTerminal', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Agregar a la venta' })
+        screen.getByRole('button', { name: /Agregar a la venta ·/ })
       ).toBeInTheDocument()
     );
 
-    const checkbox = screen.getByLabelText('Incluir Cebolla en Panchuque');
-    fireEvent.click(checkbox);
+    const toggle = screen.getByRole('switch', {
+      name: 'Incluir Cebolla en Panchuque',
+    });
+    fireEvent.click(toggle);
 
-    const confirmButton = screen.getByRole('button', { name: 'Agregar a la venta' });
+    const confirmButton = screen.getByRole('button', { name: /Agregar a la venta ·/ });
     fireEvent.click(confirmButton);
 
     await waitFor(() =>
@@ -978,11 +987,11 @@ describe('SalesTerminal', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole('button', { name: 'Agregar a la venta' })
+        screen.getAllByRole('button', { name: /Agregar a la venta ·/ })
       ).toHaveLength(1)
     );
 
-    const confirmButton2 = screen.getByRole('button', { name: 'Agregar a la venta' });
+    const confirmButton2 = screen.getByRole('button', { name: /Agregar a la venta ·/ });
     fireEvent.click(confirmButton2);
 
     await waitFor(() =>

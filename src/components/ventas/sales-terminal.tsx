@@ -15,6 +15,7 @@ import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { groupCartItemsForSubmit, hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import {
+  getProductAdditional,
   sortSellableProducts,
   type SellableProduct,
 } from '@/lib/ventas-helpers';
@@ -50,6 +51,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     lineId: string;
     product: SellableProduct;
     initialSelectedIds: number[];
+    initialNotes: string | null;
     dialogKey: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     updateQuantity: updateLineQuantity,
     removeItem: removeLine,
     updateSelectedRecipeItemIds: updateLineSelection,
+    updateLineNotes,
     clearCart: clearLines,
   } = useSellableCart<SellableProduct>({
     getAvailability,
@@ -167,6 +170,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           productId: line.product.id,
           quantity: line.quantity,
           selectedRecipeItemIds: line.selectedRecipeItemIds,
+          notes: line.notes,
         }))
       );
 
@@ -222,19 +226,24 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
 
   function addToCart(
     product: SellableProduct,
-    selectedRecipeItemIds?: number[]
+    payload?: PromoOptionsConfirmPayload
   ) {
     if (!cashRegister || cashRegister.status !== 'open') return;
     setError(null);
 
-    if (hasOptionalRecipeItems(product) && selectedRecipeItemIds === undefined) {
+    if (hasOptionalRecipeItems(product) && payload === undefined) {
       setPromoDialogKey((prev) => prev + 1);
       setPromoDialogProduct(product);
       return;
     }
 
     setIsCheckingAvailability(true);
-    addLine(product, selectedRecipeItemIds);
+    // El diálogo puede pedir N unidades: una línea por unidad con la misma
+    // aclaración y `useSellableCart` impone la disponibilidad en cada agregado.
+    const units = Math.max(1, Math.floor(payload?.quantity ?? 1));
+    for (let i = 0; i < units; i += 1) {
+      addLine(product, payload?.selectedRecipeItemIds, payload?.notes);
+    }
   }
 
   function removeFromCart(lineId: string) {
@@ -271,6 +280,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
       lineId,
       product,
       initialSelectedIds: item.selectedRecipeItemIds,
+      initialNotes: item.notes ?? null,
       dialogKey: nanoid(),
     });
     setPromoDialogProduct(null);
@@ -281,14 +291,15 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   }, []);
 
   const confirmEditLine = useCallback(
-    ({ selectedRecipeItemIds }: PromoOptionsConfirmPayload) => {
+    ({ selectedRecipeItemIds, notes }: PromoOptionsConfirmPayload) => {
       if (!editingLine) return;
 
       setIsCheckingAvailability(true);
       updateLineSelection(editingLine.lineId, selectedRecipeItemIds);
+      updateLineNotes(editingLine.lineId, notes);
       setEditingLine(null);
     },
-    [editingLine, updateLineSelection]
+    [editingLine, updateLineSelection, updateLineNotes]
   );
 
   const {
@@ -332,6 +343,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           productId: line.product.id,
           quantity: line.quantity,
           selectedRecipeItemIds: line.selectedRecipeItemIds,
+          notes: line.notes,
         }))
       );
       const submitPayments = paymentParts.filter((part) => part.amount > 0);
@@ -479,9 +491,22 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           }}
           productName={promoDialogProduct.name}
           productPrice={promoDialogProduct.price}
+          imageUrl={promoDialogProduct.imageUrl}
+          description={promoDialogProduct.description}
           recipe={promoDialogProduct.recipe ?? []}
-          onConfirm={({ selectedRecipeItemIds }) => {
-            addToCart(promoDialogProduct, selectedRecipeItemIds);
+          maxQuantity={getProductAdditional(
+            promoDialogProduct,
+            cartAvailability,
+            lines.reduce(
+              (sum, line) =>
+                line.product.id === promoDialogProduct.id
+                  ? sum + line.quantity
+                  : sum,
+              0
+            )
+          )}
+          onConfirm={(payload) => {
+            addToCart(promoDialogProduct, payload);
             setPromoDialogProduct(null);
           }}
           confirmLabel="Agregar a la venta"
@@ -499,6 +524,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           productPrice={editingLine.product.price}
           recipe={editingLine.product.recipe ?? []}
           initialSelectedIds={editingLine.initialSelectedIds}
+          initialNotes={editingLine.initialNotes}
           onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"

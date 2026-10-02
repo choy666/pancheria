@@ -73,6 +73,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     price: item.product?.price ?? item.unitPrice,
     unit: item.product?.unit ?? 'unidad',
     quantity: item.quantity,
+    notes: item.notes ?? null,
     recipeSnapshot: item.recipeSnapshot,
   }));
 

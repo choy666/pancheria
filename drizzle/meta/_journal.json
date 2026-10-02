@@ -239,6 +239,13 @@
       "when": 1790541614954,
       "tag": "0033_last_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790962232537,
+      "tag": "0034_needy_puppet_master",
+      "breakpoints": true
     }
   ]
 }

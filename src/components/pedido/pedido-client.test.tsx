@@ -962,6 +962,57 @@ describe('PedidoClient', () => {
       );
     });
 
+    test('el diálogo de personalización agrega una línea por unidad según el stepper', async () => {
+      const branches = [makeBranch(1, 'Sucursal A')];
+      const product = makeProduct({
+        recipe: [
+          {
+            supplyId: 7,
+            supplyName: 'Cebolla',
+            supplyType: 'manual_supply',
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selected: false,
+            selectedByDefault: true,
+          },
+        ],
+      });
+
+      await act(async () => {
+        render(
+          <PedidoClient
+            branches={branches}
+            activeBranch={branches[0]}
+            initialProducts={[product]}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('customize-product-1'));
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('promo-quantity-increase'));
+        fireEvent.click(screen.getByTestId('promo-quantity-increase'));
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('promo-options-confirm'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(
+          document.querySelectorAll('[data-testid="cart-item"][data-product-id="1"]')
+        ).toHaveLength(3)
+      );
+    });
+
     test('muestra el banner de pedidos recientes guardados previamente', async () => {
       const stored = {
         version: 'pancheria-recent-orders-v1',

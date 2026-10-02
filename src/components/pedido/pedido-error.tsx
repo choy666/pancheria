@@ -18,7 +18,7 @@ export function PedidoError() {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-2 rounded-2xl border border-white/8 p-4">
+      <div className="space-y-2 rounded-2xl border border-border p-4">
         <h1 className="text-2xl font-semibold tracking-tight">Catálogo</h1>
         <p className="text-base text-muted-foreground">
           Elegí los productos y armá tu pedido.

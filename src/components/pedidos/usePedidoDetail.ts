@@ -25,6 +25,7 @@ interface OrderDetailItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes?: string | null;
   product?: {
     name: string;
     unit: string;

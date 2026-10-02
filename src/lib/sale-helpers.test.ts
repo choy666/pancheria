@@ -52,8 +52,8 @@ describe('sale-helpers', () => {
       ]);
 
       expect(saleItemValues).toEqual([
-        { productId: 1, productName: 'Pancho', quantity: 2, unitPrice: 1000, subtotal: 2000 },
-        { productId: 2, productName: 'Coca', quantity: 1, unitPrice: 1500, subtotal: 1500 },
+        { productId: 1, productName: 'Pancho', quantity: 2, unitPrice: 1000, subtotal: 2000, notes: null },
+        { productId: 2, productName: 'Coca', quantity: 1, unitPrice: 1500, subtotal: 1500, notes: null },
       ]);
       expect(total).toBe(3500);
     });
@@ -64,9 +64,19 @@ describe('sale-helpers', () => {
       ]);
 
       expect(saleItemValues).toEqual([
-        { productId: 1, productName: 'Pancho', quantity: 2, unitPrice: 1200, subtotal: 2400 },
+        { productId: 1, productName: 'Pancho', quantity: 2, unitPrice: 1200, subtotal: 2400, notes: null },
       ]);
       expect(total).toBe(2400);
+    });
+
+    it('normaliza la aclaración del ítem (trim y vacío a null)', () => {
+      const { saleItemValues } = buildSaleItemValues(productById, [
+        { productId: 1, quantity: 1, notes: '  bien tostado  ' },
+        { productId: 2, quantity: 1, notes: '   ' },
+      ]);
+
+      expect(saleItemValues[0].notes).toBe('bien tostado');
+      expect(saleItemValues[1].notes).toBeNull();
     });
 
     it('suma items con decimales correctamente', () => {

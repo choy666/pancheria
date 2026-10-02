@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { sales, orders } from '@/db/schema';
 import { ConflictError } from '@/domain/errors';
+import { normalizeItemNote } from '@/lib/cart-helpers';
 import type { PaymentPart, SaleItemInput } from '@/domain/types';
 
 type IdempotencyScope = 'sale' | 'order';
@@ -43,6 +44,7 @@ export function normalizeIdempotencyItems(items: SaleItemInput[]) {
       selectedRecipeItemIds: [...(item.selectedRecipeItemIds ?? [])].sort(
         (left, right) => left - right
       ),
+      notes: normalizeItemNote(item.notes),
     }))
     .sort((left, right) => {
       const leftKey = serializeCanonical(left);
@@ -141,6 +143,7 @@ async function getLegacySaleHash(
         selectedRecipeItemIds: (item.recipeSnapshots ?? [])
           .filter((recipe) => recipe.isOptional && recipe.selected)
           .map((recipe) => recipe.supplyId),
+        notes: item.notes,
       }))
     ),
     payments,

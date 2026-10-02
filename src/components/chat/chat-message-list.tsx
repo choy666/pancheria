@@ -70,7 +70,7 @@ function ChatLocationMessage({ content }: { content: string }) {
       href={content}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background/50 px-3 py-2 text-sm text-primary hover:underline"
+      className="inline-flex items-center gap-2 rounded-lg border border-border bg-background/50 px-3 py-2 text-sm text-primary hover:underline"
       data-testid="chat-location-link"
     >
       <MapPin className="size-4" aria-hidden="true" />
@@ -108,7 +108,7 @@ export function ChatMessageList({
 }: ChatMessageListProps) {
   return (
     <>
-      <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <h3 data-testid="chat-title" className="font-semibold">{title}</h3>
           {displayedUnreadCount > 0 && (

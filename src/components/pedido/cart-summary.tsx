@@ -93,6 +93,14 @@ export function CartSummary({
                       />
                     </p>
                   )}
+                {item.notes && (
+                  <p
+                    data-testid="cart-item-note"
+                    className="text-xs italic text-muted-foreground"
+                  >
+                    Nota: {item.notes}
+                  </p>
+                )}
                 {showShortage && (
                   <p
                     data-testid="cart-item-shortage"
@@ -145,12 +153,12 @@ export function CartSummary({
                 >
                   ×
                 </Button>
-                {personalizable && onEditLine && (
+                {onEditLine && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Editar personalización de ${item.name}`}
+                    aria-label={`Editar ${item.name}`}
                     onClick={() => onEditLine(item.lineId)}
                     disabled={disabled}
                   >
@@ -167,7 +175,7 @@ export function CartSummary({
 
   const footer = (
     <>
-      <div className="border-t border-white/10 pt-4">
+      <div className="border-t border-border pt-4">
         <p className="font-mono text-2xl font-bold">Total: {formatMoney(total)}</p>
       </div>
 

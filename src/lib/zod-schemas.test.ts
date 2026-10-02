@@ -2,6 +2,7 @@ import {
   productSchema,
   recipeSchema,
   saleSchema,
+  orderSchema,
   stockAdjustmentSchema,
   cancellationSchema,
 } from './zod-schemas';
@@ -207,6 +208,67 @@ describe('saleSchema', () => {
     expect(() => saleSchema.parse(data)).toThrow(
       'No puede haber más de una parte por medio de pago.'
     );
+  });
+
+  test('acepta una aclaración por ítem', () => {
+    const data = {
+      items: [{ productId: 1, quantity: 2, notes: 'bien tostado' }],
+      payments: [{ method: 'cash', amount: 100 }],
+      idempotencyKey: 'abc123',
+    };
+
+    const result = saleSchema.parse(data);
+    expect(result.items[0].notes).toBe('bien tostado');
+  });
+
+  test('rechaza una aclaración de ítem mayor a 200 caracteres', () => {
+    const data = {
+      items: [{ productId: 1, quantity: 1, notes: 'a'.repeat(201) }],
+      payments: [{ method: 'cash', amount: 100 }],
+      idempotencyKey: 'abc123',
+    };
+
+    expect(() => saleSchema.parse(data)).toThrow();
+  });
+});
+
+describe('orderSchema', () => {
+  const orderData = {
+    deliveryType: 'pickup',
+    customerName: 'Ana',
+    customerPhone: '3415551234',
+    items: [{ productId: 1, quantity: 1 }],
+    idempotencyKey: 'abc123',
+  };
+
+  test('acepta una aclaración por ítem en el pedido', () => {
+    const result = orderSchema.parse({
+      ...orderData,
+      items: [{ productId: 1, quantity: 1, notes: 'sin sal' }],
+    });
+
+    expect(result.items[0].notes).toBe('sin sal');
+  });
+
+  test('rechaza una aclaración de ítem mayor a 200 caracteres', () => {
+    expect(() =>
+      orderSchema.parse({
+        ...orderData,
+        items: [{ productId: 1, quantity: 1, notes: 'a'.repeat(201) }],
+      })
+    ).toThrow();
+  });
+
+  test('mantiene la nota general del pedido separada y con su propio límite', () => {
+    const result = orderSchema.parse({
+      ...orderData,
+      notes: 'Tocar el timbre dos veces',
+    });
+
+    expect(result.notes).toBe('Tocar el timbre dos veces');
+    expect(() =>
+      orderSchema.parse({ ...orderData, notes: 'a'.repeat(1001) })
+    ).toThrow();
   });
 });
 

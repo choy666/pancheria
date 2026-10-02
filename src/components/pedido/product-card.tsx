@@ -1,14 +1,17 @@
 'use client';
 
 import { ProductCardBase } from '@/components/productos/product-card-base';
+import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 
 interface ProductCardProps {
   product: PublicCatalogProduct;
   inCart: boolean;
   inCartQuantity?: number;
-  onAdd: (selectedRecipeItemIds?: number[]) => void;
+  onAdd: (payload?: PromoOptionsConfirmPayload) => void;
   disabled?: boolean;
+  /** `priority` de `next/image` para la primera fila del catálogo (LCP). */
+  imagePriority?: boolean;
 }
 
 export function ProductCard({
@@ -17,6 +20,7 @@ export function ProductCard({
   inCartQuantity = 0,
   onAdd,
   disabled = false,
+  imagePriority = false,
 }: ProductCardProps) {
   const isOutOfStock = product.type !== 'service' && product.availability <= 0;
 
@@ -28,6 +32,7 @@ export function ProductCard({
       inCart={inCart}
       inCartQuantity={inCartQuantity}
       disabled={disabled}
+      imagePriority={imagePriority}
       onAdd={onAdd}
     />
   );

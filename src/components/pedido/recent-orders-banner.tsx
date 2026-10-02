@@ -88,7 +88,7 @@ export function RecentOrdersBanner({
         {orders.map((order) => (
           <div
             key={order.id}
-            className="flex flex-col gap-2 rounded-lg border border-white/8 p-3 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
               <p className="font-medium">Pedido #{order.orderNumber}</p>

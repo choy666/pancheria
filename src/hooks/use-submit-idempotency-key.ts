@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { nanoid } from 'nanoid';
+import { normalizeItemNote } from '@/lib/cart-helpers';
 import type { PaymentPart } from '@/domain/types';
 
 /**
@@ -38,6 +39,7 @@ export function cartSignature(
     productId: number;
     quantity: number;
     selectedRecipeItemIds?: number[];
+    notes?: string | null;
   }[]
 ): string {
   return items
@@ -45,7 +47,7 @@ export function cartSignature(
       (item) =>
         `${item.productId}:${item.quantity}:${[...(item.selectedRecipeItemIds ?? [])]
           .sort((a, b) => a - b)
-          .join(',')}`
+          .join(',')}:${JSON.stringify(normalizeItemNote(item.notes))}`
     )
     .sort()
     .join('|');

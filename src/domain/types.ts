@@ -168,6 +168,7 @@ export type SaleItemInput = {
   quantity: number;
   selectedRecipeItemIds?: number[];
   recipeSnapshot?: RecipeItemConfig[];
+  notes?: string | null;
 };
 
 export type Order = {
@@ -198,6 +199,7 @@ export type OrderItem = {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes?: string | null;
   product?: ProductRow;
   recipeSnapshot?: RecipeItemConfig[];
 };
@@ -235,6 +237,7 @@ export type PublicOrderItem = {
   price: number;
   unit: string;
   quantity: number;
+  notes?: string | null;
   recipeSnapshot?: RecipeItemConfig[];
 };
 

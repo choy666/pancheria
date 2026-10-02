@@ -3,6 +3,7 @@ import {
   generateCancellationToken,
   buildOrderValues,
   buildOrderItemValues,
+  buildRecipeSnapshotMessageContent,
 } from './order-helpers';
 
 describe('order-helpers', () => {
@@ -87,14 +88,88 @@ describe('order-helpers', () => {
       );
 
       expect(result).toEqual([
-        { orderId: 10, productId: 1, quantity: 2, unitPrice: 1000, subtotal: 2000 },
-        { orderId: 10, productId: 2, quantity: 1, unitPrice: 1500, subtotal: 1500 },
+        { orderId: 10, productId: 1, quantity: 2, unitPrice: 1000, subtotal: 2000, notes: null },
+        { orderId: 10, productId: 2, quantity: 1, unitPrice: 1500, subtotal: 1500, notes: null },
       ]);
+    });
+
+    it('propaga la aclaración del ítem', () => {
+      const result = buildOrderItemValues(
+        [
+          {
+            productId: 1,
+            productName: 'Pan',
+            quantity: 1,
+            unitPrice: 1000,
+            subtotal: 1000,
+            notes: 'bien tostado',
+          },
+        ],
+        10
+      );
+
+      expect(result[0].notes).toBe('bien tostado');
     });
 
     it('devuelve array vacio si no hay items', () => {
       const result = buildOrderItemValues([], 1);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('buildRecipeSnapshotMessageContent', () => {
+    it('devuelve null cuando no hay snapshot ni aclaraciones', () => {
+      const result = buildRecipeSnapshotMessageContent([
+        { productId: 1, productName: 'Gaseosa', quantity: 1, unitPrice: 500, subtotal: 500 },
+      ]);
+
+      expect(result).toBeNull();
+    });
+
+    it('incluye la aclaración en una línea sin snapshot de receta', () => {
+      const result = buildRecipeSnapshotMessageContent([
+        {
+          productId: 1,
+          productName: 'Gaseosa',
+          quantity: 2,
+          unitPrice: 500,
+          subtotal: 1000,
+          notes: 'bien fría',
+        },
+      ]);
+
+      expect(result).toBe(
+        'Detalle de preparación:\nGaseosa x2 — Aclaración: bien fría'
+      );
+    });
+
+    it('combina receta y aclaración en la misma línea', () => {
+      const result = buildRecipeSnapshotMessageContent([
+        {
+          productId: 1,
+          productName: 'Panchuque',
+          quantity: 1,
+          unitPrice: 1500,
+          subtotal: 1500,
+          notes: 'bien tostado',
+          recipeSnapshot: [
+            {
+              supplyId: 10,
+              supplyName: 'Cebolla',
+              supplyType: 'manual_supply',
+              quantity: 1,
+              autoDiscount: false,
+              isOptional: true,
+              selected: false,
+              selectedByDefault: false,
+            },
+          ],
+        },
+      ]);
+
+      expect(result).toContain('Panchuque x1:');
+      expect(result).toContain('Aclaración: bien tostado');
+      expect(result).toContain('Sin: Cebolla');
     });
   });
 });

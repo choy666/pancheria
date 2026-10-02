@@ -84,9 +84,15 @@ export function PedidoCustomerForm({
           }
         >
           <SelectTrigger id="deliveryType">
-            <SelectValue />
+            <SelectValue>
+              {(value) =>
+                value === 'pickup'
+                  ? `Retiro en sucursal: ${activeBranch.name}`
+                  : 'Envío a domicilio'
+              }
+            </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent data-theme="light">
             <SelectItem value="delivery">Envío a domicilio</SelectItem>
             <SelectItem value="pickup">
               Retiro en sucursal: {activeBranch.name}
@@ -122,7 +128,7 @@ export function PedidoCustomerForm({
         />
       </div>
 
-      <div className="border-t border-white/10 pt-3">
+      <div className="border-t border-border pt-3">
         <p className="font-mono text-xl font-bold">
           Total: {formatMoney(total)}
         </p>

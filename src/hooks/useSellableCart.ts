@@ -4,6 +4,7 @@ import {
   areRecipeSelectionsEqual,
   getDefaultSelectedRecipeItemIds,
   hasOptionalRecipeItems,
+  normalizeItemNote,
 } from '@/lib/cart-helpers';
 import type { ProductType } from '@/domain/types';
 
@@ -32,6 +33,8 @@ export interface SellableCartLine<TProduct extends SellableCartProduct> {
   product: TProduct;
   quantity: number;
   selectedRecipeItemIds: number[];
+  /** Aclaración libre del ítem (ej. "bien tostado"), ya normalizada. */
+  notes?: string | null;
 }
 
 interface UseSellableCartOptions<
@@ -79,10 +82,15 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
   const [lines, setLines] = useState<SellableCartLine<TProduct>[]>(initialLines);
 
   const addItem = useCallback(
-    (product: TProduct, selectedRecipeItemIds?: number[]) => {
+    (
+      product: TProduct,
+      selectedRecipeItemIds?: number[],
+      notes?: string | null
+    ) => {
       const isService = isServiceProduct(product);
       const resolvedSelected =
         selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
+      const normalizedNote = normalizeItemNote(notes);
 
       setLines((prev) => {
         const availability = getAvailability(product.id, prev);
@@ -96,7 +104,8 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
               areRecipeSelectionsEqual(
                 item.selectedRecipeItemIds,
                 resolvedSelected
-              )
+              ) &&
+              normalizeItemNote(item.notes) === normalizedNote
           );
 
           if (existing) {
@@ -137,6 +146,7 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
             product,
             quantity: 1,
             selectedRecipeItemIds: resolvedSelected,
+            notes: normalizedNote,
           },
         ];
       });
@@ -198,6 +208,18 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
     []
   );
 
+  const updateLineNotes = useCallback(
+    (lineId: string, notes: string | null) => {
+      const normalizedNote = normalizeItemNote(notes);
+      setLines((prev) =>
+        prev.map((item) =>
+          item.lineId === lineId ? { ...item, notes: normalizedNote } : item
+        )
+      );
+    },
+    []
+  );
+
   const clearCart = useCallback(() => {
     setLines([]);
   }, []);
@@ -215,6 +237,7 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
     removeItem,
     updateQuantity,
     updateSelectedRecipeItemIds,
+    updateLineNotes,
     clearCart,
   };
 }

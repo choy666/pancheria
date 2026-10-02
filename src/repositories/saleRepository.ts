@@ -192,6 +192,7 @@ export async function create(params: {
     quantity: number;
     unitPrice: number;
     subtotal: number;
+    notes?: string | null;
   }[];
 }) {
   const { branchId, total, payments, cashRegisterId, idempotencyKey, items } = params;
@@ -218,6 +219,7 @@ export async function create(params: {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
+      notes: item.notes ?? null,
     }))
   );
 

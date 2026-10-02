@@ -41,10 +41,16 @@ describe('useSubmitIdempotencyKey', () => {
 });
 
 describe('cartSignature', () => {
-  const item = (productId: number, quantity: number, recipeIds?: number[]) => ({
+  const item = (
+    productId: number,
+    quantity: number,
+    recipeIds?: number[],
+    notes?: string | null
+  ) => ({
     productId,
     quantity,
     selectedRecipeItemIds: recipeIds,
+    notes,
   });
 
   test('es independiente del orden de las líneas', () => {
@@ -65,6 +71,26 @@ describe('cartSignature', () => {
     );
     expect(cartSignature([item(1, 2), item(5, 1, [9])])).not.toBe(
       cartSignature(base)
+    );
+  });
+
+  test('cambia si cambia la aclaración de un ítem', () => {
+    const base = [item(1, 2)];
+
+    expect(cartSignature([item(1, 2, undefined, 'bien tostado')])).not.toBe(
+      cartSignature(base)
+    );
+    expect(
+      cartSignature([item(1, 2, undefined, 'bien tostado')])
+    ).not.toBe(cartSignature([item(1, 2, undefined, 'sin sal')]));
+  });
+
+  test('aclaraciones equivalentes normalizadas conservan la firma', () => {
+    expect(cartSignature([item(1, 2, undefined, 'bien tostado')])).toBe(
+      cartSignature([item(1, 2, undefined, '  bien tostado  ')])
+    );
+    expect(cartSignature([item(1, 2, undefined, '   ')])).toBe(
+      cartSignature([item(1, 2, undefined, null)])
     );
   });
 });

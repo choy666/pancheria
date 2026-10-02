@@ -42,7 +42,7 @@ export function ChatComposer({
   onSendBranchLocation,
 }: ChatComposerProps) {
   return (
-    <div className="border-t border-white/8 p-3">
+    <div className="border-t border-border p-3">
       {selectedFile && previewUrl && (
         <div
           className="relative mb-2 inline-block"

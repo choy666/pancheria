@@ -1,20 +1,36 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
+import { Check, Minus, Plus, X } from 'lucide-react';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ProductCardImage } from '@/components/productos/product-card-image';
 import { formatMoney } from '@/lib/money';
+import { cn } from '@/lib/utils';
+import { ITEM_NOTE_MAX_LENGTH } from '@/lib/cart-helpers';
 import type { RecipeItemConfig } from '@/domain/types';
 
 export interface PromoOptionsConfirmPayload {
   selectedRecipeItemIds: number[];
+  /**
+   * Unidades a agregar. Cada unidad de un producto personalizable ocupa su
+   * propia línea del carrito (`lineId` propio) para editarla por separado.
+   * En `mode="edit"` siempre es 1: la línea editada representa una unidad.
+   */
+  quantity: number;
+  /**
+   * Aclaración libre de la línea (ej. "bien tostado"). `null` cuando el
+   * usuario deja el campo vacío.
+   */
+  notes: string | null;
 }
 
 export interface PromoOptionsDialogProps {
@@ -23,59 +39,101 @@ export interface PromoOptionsDialogProps {
   productName: string;
   productPrice: number;
   recipe: RecipeItemConfig[];
+  /** Imagen del producto para el hero (solo `variant="public"`). */
+  imageUrl?: string | null;
+  /** Descripción corta del producto, bajo el nombre. */
+  description?: string | null;
   initialSelectedIds?: number[];
+  /** Aclaración precargada al editar una línea existente. */
+  initialNotes?: string | null;
   onConfirm: (payload: PromoOptionsConfirmPayload) => void;
   mode?: 'add' | 'edit';
   confirmLabel?: string;
+  /**
+   * Tope del stepper de cantidad (unidades adicionales que pueden agregarse).
+   * Si no se informa, el stepper se acota a 99; el tope real siempre lo impone
+   * `useSellableCart` al confirmar.
+   */
+  maxQuantity?: number;
+  /**
+   * `public`: el diálogo se renderiza desde el flujo `/pedido` (tema claro,
+   * hero con la imagen del producto y hoja inferior en mobile).
+   * Como el popup portalea fuera del scope `[data-theme='light']` de
+   * `(public)`, se marca el `DialogContent` con el mismo atributo.
+   * `sales` (default): terminal `/ventas`, tema oscuro global y diálogo
+   * centrado sin hero.
+   */
+  variant?: 'public' | 'sales';
 }
 
-function renderSection(
-  productName: string,
-  title: string,
-  items: RecipeItemConfig[],
-  selectedIds: number[],
-  onToggle: (supplyId: number) => void,
-  allowToggle: boolean
-) {
+const DEFAULT_MAX_QUANTITY = 99;
+
+interface OptionsSectionProps {
+  productName: string;
+  title: string;
+  items: RecipeItemConfig[];
+  selectedIds: number[];
+  onToggle: (supplyId: number) => void;
+}
+
+/**
+ * Sección de insumos opcionales con toggles accesibles (`role="switch"`).
+ * Activo: "✓ Lleva" en el color primario del tema (rojo en la variante
+ * pública); inactivo: "Sin <nombre>" en gris.
+ */
+function OptionsSection({
+  productName,
+  title,
+  items,
+  selectedIds,
+  onToggle,
+}: OptionsSectionProps) {
   if (items.length === 0) return null;
 
   return (
-    <div>
-      <h4 className="mb-2 text-sm font-semibold">{title}</h4>
-      <ul className="space-y-2">
+    <section>
+      <h3 className="mb-1 font-heading text-sm uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h3>
+      <ul className="divide-y divide-border">
         {items.map((item) => {
           const checked = selectedIds.includes(item.supplyId);
-          const inputId = `promo-option-${item.supplyId}`;
 
           return (
-            <li key={item.supplyId} className="flex items-center gap-2">
-              {allowToggle ? (
-                <>
-                  <input
-                    id={inputId}
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
-                    checked={checked}
-                    onChange={() => onToggle(item.supplyId)}
-                    aria-label={`Incluir ${item.supplyName} en ${productName}`}
-                  />
-                  <label
-                    htmlFor={inputId}
-                    className="text-sm"
-                  >
-                    {item.isOptional ? item.supplyName : `${item.supplyName} (${item.quantity})`}
-                  </label>
-                </>
-              ) : (
-                <span className="text-sm text-muted-foreground">
-                  {item.isOptional ? item.supplyName : `${item.supplyName} (${item.quantity})`}
-                </span>
-              )}
+            <li
+              key={item.supplyId}
+              className="flex items-center justify-between gap-3 py-1"
+            >
+              <span className="min-w-0 flex-1 text-base leading-snug">
+                {item.supplyName}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={checked}
+                aria-label={`Incluir ${item.supplyName} en ${productName}`}
+                onClick={() => onToggle(item.supplyId)}
+                className={cn(
+                  'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  checked
+                    ? 'border-primary/60 bg-primary/10 text-primary'
+                    : 'border-border bg-transparent text-muted-foreground hover:bg-muted/60'
+                )}
+              >
+                {checked ? (
+                  <>
+                    <Check aria-hidden="true" className="size-4" />
+                    Lleva
+                  </>
+                ) : (
+                  `Sin ${item.supplyName}`
+                )}
+              </button>
             </li>
           );
         })}
       </ul>
-    </div>
+    </section>
   );
 }
 
@@ -85,22 +143,27 @@ export function PromoOptionsDialog({
   productName,
   productPrice,
   recipe,
+  imageUrl,
+  description,
   initialSelectedIds,
+  initialNotes,
   onConfirm,
   mode = 'add',
   confirmLabel,
+  maxQuantity,
+  variant = 'sales',
 }: PromoOptionsDialogProps) {
+  const isPublic = variant === 'public';
+  const notesLabelId = useId();
+
   const [selectedIds, setSelectedIds] = useState<number[]>(
     initialSelectedIds ??
       recipe
         .filter((item) => item.isOptional && item.selectedByDefault)
         .map((item) => item.supplyId)
   );
-
-  const alwaysIncludeItems = useMemo(
-    () => recipe.filter((item) => !item.isOptional),
-    [recipe]
-  );
+  const [quantity, setQuantity] = useState(1);
+  const [notes, setNotes] = useState(initialNotes ?? '');
 
   const optionalManualItems = useMemo(
     () =>
@@ -118,17 +181,12 @@ export function PromoOptionsDialog({
     [recipe]
   );
 
-  const selectedItems = useMemo(
-    () =>
-      recipe.filter(
-        (item) => !item.isOptional || selectedIds.includes(item.supplyId)
-      ),
-    [recipe, selectedIds]
+  // Cota superior de UI para el stepper (99 por defecto); el tope real de
+  // stock siempre lo impone `useSellableCart` al confirmar.
+  const effectiveMaxQuantity = Math.max(
+    1,
+    Math.min(maxQuantity ?? DEFAULT_MAX_QUANTITY, DEFAULT_MAX_QUANTITY)
   );
-
-  const selectedSummary = useMemo(() => {
-    return selectedItems.map((item) => item.supplyName).join(', ');
-  }, [selectedItems]);
 
   const handleToggle = (supplyId: number) => {
     setSelectedIds((prev) =>
@@ -139,68 +197,160 @@ export function PromoOptionsDialog({
   };
 
   const handleConfirm = () => {
-    onConfirm({ selectedRecipeItemIds: selectedIds });
+    onConfirm({
+      selectedRecipeItemIds: selectedIds,
+      quantity: mode === 'edit' ? 1 : quantity,
+      notes: notes.trim() || null,
+    });
     onOpenChange(false);
   };
 
+  const confirmText =
+    mode === 'edit'
+      ? (confirmLabel ?? 'Guardar cambios')
+      : `${confirmLabel ?? 'Agregar'} · ${formatMoney(productPrice * quantity)}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent role="dialog" aria-modal="true" className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{productName}</DialogTitle>
-          <DialogDescription>
-            Total: {formatMoney(productPrice)}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        role="dialog"
+        aria-modal="true"
+        data-theme={isPublic ? 'light' : undefined}
+        // El hero y el CTA van borde a borde: el contenido general pierde el
+        // padding del diálogo base y scrollea solo el tramo central.
+        showCloseButton={!isPublic}
+        className={cn(
+          'flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md',
+          isPublic &&
+            'max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-3xl max-sm:data-open:slide-in-from-bottom-8 max-sm:data-closed:slide-out-to-bottom-8'
+        )}
+      >
+        {isPublic && (
+          <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-linear-to-br from-brand-red to-brand-mustard">
+            <ProductCardImage
+              imageUrl={imageUrl}
+              productName={productName}
+            />
+            <DialogClose
+              aria-label="Cerrar"
+              className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-full bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </DialogClose>
+          </div>
+        )}
 
-        <div className="space-y-4">
-          {renderSection(
-            productName,
-            'Incluye',
-            alwaysIncludeItems,
-            selectedIds,
-            handleToggle,
-            false
-          )}
-
-          {renderSection(
-            productName,
-            'Podés sacar',
-            optionalManualItems,
-            selectedIds,
-            handleToggle,
-            true
-          )}
-
-          {renderSection(
-            productName,
-            'Extras',
-            optionalServiceItems,
-            selectedIds,
-            handleToggle,
-            true
-          )}
-
-          {selectedSummary && (
-            <div className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Incluye: </span>
-              {selectedSummary}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
+          <DialogHeader
+            className={cn('gap-1', isPublic ? 'pt-4' : 'pt-5 pr-12')}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <DialogTitle className="font-heading text-2xl leading-tight">
+                {productName}
+              </DialogTitle>
+              <span className="shrink-0 font-heading text-2xl leading-tight text-primary">
+                {formatMoney(productPrice)}
+              </span>
             </div>
-          )}
+            {description && (
+              <DialogDescription>{description}</DialogDescription>
+            )}
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <OptionsSection
+              productName={productName}
+              title="A tu gusto"
+              items={optionalManualItems}
+              selectedIds={selectedIds}
+              onToggle={handleToggle}
+            />
+            <OptionsSection
+              productName={productName}
+              title="Sumale"
+              items={optionalServiceItems}
+              selectedIds={selectedIds}
+              onToggle={handleToggle}
+            />
+            <section>
+              <h3
+                id={notesLabelId}
+                className="mb-1 font-heading text-sm uppercase tracking-wide text-muted-foreground"
+              >
+                Aclaraciones
+              </h3>
+              <Textarea
+                aria-labelledby={notesLabelId}
+                placeholder="Ej: bien tostado"
+                maxLength={ITEM_NOTE_MAX_LENGTH}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                className="min-h-20 resize-none"
+              />
+              <p className="mt-1 text-right text-xs text-muted-foreground">
+                {notes.length}/{ITEM_NOTE_MAX_LENGTH}
+              </p>
+            </section>
+          </div>
         </div>
 
-        <DialogFooter>
+        <div className="flex shrink-0 items-center gap-3 border-t border-border bg-popover px-4 py-3">
+          {mode !== 'edit' && (
+            <div
+              role="group"
+              aria-label="Cantidad"
+              className="flex items-center gap-1"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                data-testid="promo-quantity-decrease"
+                aria-label="Disminuir cantidad"
+                disabled={quantity <= 1}
+                onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                className="rounded-full"
+              >
+                <Minus />
+              </Button>
+              <span
+                data-testid="promo-quantity-value"
+                aria-live="polite"
+                className="min-w-9 text-center font-heading text-lg"
+              >
+                {quantity}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                data-testid="promo-quantity-increase"
+                aria-label="Aumentar cantidad"
+                disabled={quantity >= effectiveMaxQuantity}
+                onClick={() =>
+                  setQuantity((prev) =>
+                    Math.min(effectiveMaxQuantity, prev + 1)
+                  )
+                }
+                className="rounded-full"
+              >
+                <Plus />
+              </Button>
+            </div>
+          )}
           <Button
             type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
+            data-testid="promo-options-confirm"
+            onClick={handleConfirm}
+            className={cn(
+              'min-h-12 flex-1 text-base font-semibold',
+              isPublic &&
+                'rounded-full bg-brand-red text-white hover:bg-brand-red/90'
+            )}
           >
-            Cancelar
+            {confirmText}
           </Button>
-          <Button type="button" onClick={handleConfirm}>
-            {confirmLabel ?? (mode === 'edit' ? 'Guardar cambios' : 'Agregar al pedido')}
-          </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

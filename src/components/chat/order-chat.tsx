@@ -91,7 +91,7 @@ export function OrderChat({
   });
 
   return (
-    <div className="flex h-[500px] flex-col rounded-2xl border border-white/8 bg-card">
+    <div className="flex h-[500px] flex-col rounded-2xl border border-border bg-card">
       <ChatMessageList
         scrollRef={scrollRef}
         messages={messages}
@@ -106,7 +106,7 @@ export function OrderChat({
       />
 
       {error && (
-        <div className="border-b border-white/8 bg-destructive/15 px-4 py-2 text-sm text-destructive">
+        <div className="border-b border-border bg-destructive/15 px-4 py-2 text-sm text-destructive">
           {error}
         </div>
       )}

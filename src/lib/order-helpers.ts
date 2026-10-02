@@ -62,6 +62,7 @@ export function buildOrderItemValues(
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes: string | null;
 }[] {
   return saleItemValues.map((item) => ({
     orderId,
@@ -69,6 +70,7 @@ export function buildOrderItemValues(
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     subtotal: item.subtotal,
+    notes: item.notes ?? null,
   }));
 }
 
@@ -80,12 +82,18 @@ export function buildRecipeSnapshotMessageContent(
   saleItemValues: SaleItemValue[]
 ): string | null {
   const lines = saleItemValues
-    .filter((item) => item.recipeSnapshot && item.recipeSnapshot.length > 0)
-    .map((item) =>
-      `${item.productName} x${item.quantity}: ${formatRecipeItemLine(
-        item.recipeSnapshot ?? []
-      )}`
-    );
+    .filter(
+      (item) =>
+        (item.recipeSnapshot && item.recipeSnapshot.length > 0) || item.notes
+    )
+    .map((item) => {
+      const recipePart =
+        item.recipeSnapshot && item.recipeSnapshot.length > 0
+          ? `: ${formatRecipeItemLine(item.recipeSnapshot)}`
+          : '';
+      const notePart = item.notes ? ` — Aclaración: ${item.notes}` : '';
+      return `${item.productName} x${item.quantity}${recipePart}${notePart}`;
+    });
 
   if (lines.length === 0) return null;
 

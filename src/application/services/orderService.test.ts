@@ -181,6 +181,7 @@ function createOrderItemRow(
     quantity: 1,
     unitPrice: 1000,
     subtotal: 1000,
+    notes: null,
     ...overrides,
   };
 }
@@ -401,6 +402,7 @@ describe('orderService', () => {
     mockedIdempotencyService.findExistingByIdempotencyKey.mockResolvedValue(
       null
     );
+    mockedDb.query.orders.findFirst.mockReset();
     mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
       createOpenCashRegister()
     );
@@ -556,6 +558,103 @@ describe('orderService', () => {
 
       const selectedRows = recipeRows.filter((r) => r.selected);
       expect(selectedRows).toHaveLength(1);
+    });
+
+    test('persiste la aclaración del ítem en order_items y la expone en el resultado', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 10,
+          price: 1000,
+        },
+      ]);
+      setRecipes([]);
+
+      const result = await createOrder({
+        branchId: BRANCH_ID,
+        items: [
+          { productId: 1, quantity: 1, notes: 'bien tostado' },
+          { productId: 1, quantity: 1 },
+        ],
+        customerName: 'Ana',
+        customerPhone: '3416666666',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-item-notes',
+      });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].notes).toBe('bien tostado');
+      expect(result.items[1].notes ?? null).toBeNull();
+
+      const orderItemsData = findCapturedInsert(orderItems);
+      const itemsInserted = orderItemsData[0]?.data as (typeof orderItems.$inferInsert)[];
+      expect(itemsInserted[0].notes).toBe('bien tostado');
+      expect(itemsInserted[1].notes ?? null).toBeNull();
+    });
+
+    test('deduplica por huella cuando la aclaración del ítem coincide', async () => {
+      const request = {
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1, notes: 'bien tostado' }],
+        customerName: 'Juan Pérez',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup' as const,
+        address: null,
+        notes: null,
+      };
+      const idempotencyHash = idempotencyService.createIdempotencyHash(
+        'order.create',
+        {
+          ...request,
+          items: idempotencyService.normalizeIdempotencyItems(request.items),
+        }
+      );
+      mockedDb.query.orders.findFirst.mockResolvedValue(
+        createOrderRow({ id: 42, idempotencyHash })
+      );
+
+      const result = await createOrder({
+        ...request,
+        idempotencyKey: 'key-notes-same',
+      });
+
+      expect(result.id).toBe(42);
+      expect(result.deduplicated).toBe(true);
+    });
+
+    test('rechaza con conflicto si la misma clave reutiliza otra aclaración de ítem', async () => {
+      const originalRequest = {
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1, notes: 'bien tostado' }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup' as const,
+        address: null,
+        notes: null,
+      };
+      const idempotencyHash = idempotencyService.createIdempotencyHash(
+        'order.create',
+        {
+          ...originalRequest,
+          items: idempotencyService.normalizeIdempotencyItems(
+            originalRequest.items
+          ),
+        }
+      );
+      mockedDb.query.orders.findFirst.mockResolvedValue(
+        createOrderRow({ id: 42, idempotencyHash })
+      );
+
+      await expect(
+        createOrder({
+          ...originalRequest,
+          items: [{ productId: 1, quantity: 1, notes: 'sin sal' }],
+          idempotencyKey: 'key-notes-diff',
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
     });
 
     test('rechaza el pedido si hay stock insuficiente', async () => {
@@ -1363,6 +1462,44 @@ describe('orderService', () => {
         unitPrice: 1000,
         subtotal: 2000,
       });
+    });
+
+    test('la conversión conserva la aclaración del ítem del pedido', async () => {
+      setProducts([
+        {
+          id: 1,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+          stock: 5,
+          price: 1200,
+        },
+      ]);
+      setRecipes([]);
+
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ total: 2000 }),
+        items: [
+          createOrderItemRow({
+            productId: 1,
+            quantity: 2,
+            unitPrice: 1000,
+            subtotal: 2000,
+            notes: 'bien tostado',
+          }),
+        ],
+      });
+
+      await convertOrderToSale({
+        branchId: BRANCH_ID,
+        orderId: 1,
+        payments: [{ method: 'cash', amount: 2000 }],
+        idempotencyKey: 'key-convert-notes',
+      });
+
+      const saleItemsData = findCapturedInsert(saleItems)[0]?.data as (typeof saleItems.$inferInsert)[];
+      expect(saleItemsData).toHaveLength(1);
+      expect(saleItemsData[0].notes).toBe('bien tostado');
     });
 
     test('descontar stock al confirmar pedido', async () => {

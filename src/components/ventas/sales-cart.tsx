@@ -193,6 +193,14 @@ export function SalesCart({
                     />
                   </p>
                 )}
+              {item.notes && (
+                <p
+                  data-testid="cart-item-note"
+                  className="text-xs italic text-muted-foreground"
+                >
+                  Nota: {item.notes}
+                </p>
+              )}
               {showShortage && (
                 <p
                   data-testid="cart-item-shortage"
@@ -235,18 +243,18 @@ export function SalesCart({
                     </Button>
                   </>
                 )}
-                {personalizable && onEditLine && (
+                {onEditLine && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Personalizar ${item.product.name}`}
+                    aria-label={`Editar ${item.product.name}`}
                     onClick={() => onEditLine(item.lineId)}
                     disabled={controlsDisabled}
                     className="gap-1"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                    Personalizar
+                    Editar
                   </Button>
                 )}
                 <Button

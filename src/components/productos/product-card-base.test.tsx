@@ -57,6 +57,62 @@ describe('ProductCardBase', () => {
       ).toBeInTheDocument();
     });
 
+    test('muestra el fallback de marca cuando el producto no tiene imagen', () => {
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct({ imageUrl: null })}
+          isOutOfStock={false}
+          onAdd={jest.fn()}
+        />
+      );
+
+      expect(
+        screen.getByRole('img', { name: 'Imagen no disponible para Panchuque' })
+      ).toBeInTheDocument();
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    test('muestra el pill Promo solo para productos compuestos', () => {
+      const { rerender } = render(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct()}
+          isOutOfStock={false}
+          onAdd={jest.fn()}
+        />
+      );
+
+      expect(screen.getByText('Promo')).toBeInTheDocument();
+
+      rerender(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct({ type: 'critical_supply' })}
+          isOutOfStock={false}
+          onAdd={jest.fn()}
+        />
+      );
+
+      expect(screen.queryByText('Promo')).not.toBeInTheDocument();
+    });
+
+    test('muestra la cantidad del pedido sobre el hero', () => {
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct()}
+          isOutOfStock={false}
+          inCartQuantity={2}
+          onAdd={jest.fn()}
+        />
+      );
+
+      expect(
+        screen.getByTestId('product-card-cart-quantity-1')
+      ).toHaveTextContent('2 en tu pedido');
+    });
+
     test('muestra "Agregar otro" cuando inCart es true aunque no haya cantidad', () => {
       render(
         <ProductCardBase
@@ -73,7 +129,39 @@ describe('ProductCardBase', () => {
       ).toBeInTheDocument();
     });
 
-    test('muestra "Personalizar" y abre el diálogo para promos con opcionales', () => {
+    test('el botón Agregar hace quick-add con la selección por defecto', () => {
+      const onAdd = jest.fn();
+      const product = makeProduct({
+        recipe: [
+          {
+            supplyId: 20,
+            supplyName: 'Cebolla',
+            supplyType: 'manual_supply',
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selected: false,
+            selectedByDefault: true,
+          },
+        ],
+      });
+
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={product}
+          isOutOfStock={false}
+          onAdd={onAdd}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('add-product-1'));
+      expect(onAdd).toHaveBeenCalledWith();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    test('el botón circular abre el diálogo de personalización', () => {
+      const onAdd = jest.fn();
       const product = makeProduct({
         recipe: [
           {
@@ -94,12 +182,68 @@ describe('ProductCardBase', () => {
           variant="catalog"
           product={product}
           isOutOfStock={false}
+          onAdd={onAdd}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('customize-product-1'));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(onAdd).not.toHaveBeenCalled();
+    });
+
+    test('el diálogo emite la selección y la cantidad del stepper', () => {
+      const onAdd = jest.fn();
+      const product = makeProduct({
+        recipe: [
+          {
+            supplyId: 20,
+            supplyName: 'Cebolla',
+            supplyType: 'manual_supply',
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selected: false,
+            selectedByDefault: false,
+          },
+        ],
+      });
+
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={product}
+          isOutOfStock={false}
+          onAdd={onAdd}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('customize-product-1'));
+      fireEvent.click(
+        screen.getByRole('switch', { name: /Incluir Cebolla en Panchuque/ })
+      );
+      fireEvent.click(screen.getByTestId('promo-quantity-increase'));
+      fireEvent.click(screen.getByTestId('promo-options-confirm'));
+
+      expect(onAdd).toHaveBeenCalledWith({
+        selectedRecipeItemIds: [20],
+        quantity: 2,
+        notes: null,
+      });
+    });
+
+    test('no muestra el botón de personalización cuando no hay opcionales', () => {
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct({ type: 'critical_supply' })}
+          isOutOfStock={false}
           onAdd={jest.fn()}
         />
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Personalizar' }));
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('customize-product-1')
+      ).not.toBeInTheDocument();
     });
 
     test('muestra la disponibilidad cualitativa sin unidades ni cantidades en el catálogo', () => {

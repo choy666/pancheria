@@ -56,6 +56,33 @@ describe('idempotency payload fingerprints', () => {
     );
   });
 
+  test('la aclaración del ítem forma parte de la normalización', () => {
+    const conNota = normalizeIdempotencyItems([
+      { productId: 1, quantity: 1, notes: 'bien tostado' },
+    ]);
+    const conNotaEquivalente = normalizeIdempotencyItems([
+      { productId: 1, quantity: 1, notes: '  bien tostado  ' },
+    ]);
+    const sinNota = normalizeIdempotencyItems([
+      { productId: 1, quantity: 1 },
+    ]);
+    const otraNota = normalizeIdempotencyItems([
+      { productId: 1, quantity: 1, notes: 'sin sal' },
+    ]);
+
+    expect(conNota).toEqual(conNotaEquivalente);
+    expect(conNota[0].notes).toBe('bien tostado');
+    expect(sinNota[0].notes).toBeNull();
+    expect(conNota).not.toEqual(sinNota);
+    expect(conNota).not.toEqual(otraNota);
+
+    expect(
+      createIdempotencyHash('order.create', { branchId: 1, items: conNota })
+    ).not.toBe(
+      createIdempotencyHash('order.create', { branchId: 1, items: sinNota })
+    );
+  });
+
   test('produce una huella distinta si cambia el alcance o el payload', () => {
     const payload = { branchId: 1, items: [{ productId: 1, quantity: 1 }] };
     const hash = createIdempotencyHash('order.create', payload);

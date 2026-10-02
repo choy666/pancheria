@@ -20,16 +20,6 @@ export const publicProductTypeLabels: Record<ProductType, string> = {
   service: 'Extras',
 };
 
-/**
- * Etiquetas cortas para el badge de tipo en la tarjeta pública del catálogo.
- */
-export const publicProductTypeBadgeLabels: Record<ProductType, string> = {
-  compound: 'Promo',
-  critical_supply: 'Bebida',
-  manual_supply: 'Extra',
-  service: 'Extra',
-};
-
 export const criticalTypeLabels: Record<CriticalSupplyType, string> = {
   bread: 'Pan',
   sausage: 'Salchicha',
@@ -75,4 +65,16 @@ export const productTypeGroupClasses: Record<ProductType, string> = {
   critical_supply: 'bg-rose-500/10 text-rose-300',
   manual_supply: 'bg-sky-500/10 text-sky-300',
   service: 'bg-violet-500/10 text-violet-300',
+};
+
+/**
+ * Encabezados de grupo del catálogo público de `/pedido`, ajustados al tema
+ * claro de `(public)`. El mapa `productTypeGroupClasses` sigue para el panel
+ * oscuro (texto *-300 pensado para fondos oscuros).
+ */
+export const publicProductTypeGroupClasses: Record<ProductType, string> = {
+  compound: 'bg-amber-500/15 text-amber-800',
+  critical_supply: 'bg-rose-500/10 text-rose-700',
+  manual_supply: 'bg-sky-500/10 text-sky-700',
+  service: 'bg-violet-500/10 text-violet-700',
 };

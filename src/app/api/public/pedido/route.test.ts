@@ -66,6 +66,7 @@ function createMockOrder() {
         quantity: 2,
         unitPrice: 1000,
         subtotal: 2000,
+        notes: null as string | null,
         product: {
           name: 'Gaseosa',
           price: 1000,
@@ -111,6 +112,52 @@ describe('POST /api/public/pedido', () => {
       branchId: BRANCH_ID,
       ...validBody,
     });
+  });
+
+  test('devuelve la aclaración de cada ítem en la respuesta', async () => {
+    const order = createMockOrder();
+    order.items = [
+      { ...order.items[0], notes: 'bien tostado' } as typeof order.items[0],
+      { ...order.items[0], notes: null },
+    ];
+    mockedOrderService.createOrder.mockResolvedValue(order as any);
+
+    const response = await POST(
+      buildRequest('', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validBody,
+          items: [
+            { productId: 1, quantity: 1, notes: 'bien tostado' },
+            { productId: 1, quantity: 1 },
+          ],
+        }),
+      })
+    );
+    const body = (await response.json()) as {
+      order: { items: { notes: string | null }[] };
+    };
+
+    expect(response.status).toBe(201);
+    expect(body.order.items[0].notes).toBe('bien tostado');
+    expect(body.order.items[1].notes).toBeNull();
+    // La nota general del pedido sigue siendo un campo aparte.
+    expect(body.order).toHaveProperty('notes', null);
+  });
+
+  test('rechaza una aclaración de ítem mayor a 200 caracteres', async () => {
+    const response = await POST(
+      buildRequest('', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validBody,
+          items: [{ productId: 1, quantity: 1, notes: 'a'.repeat(201) }],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedOrderService.createOrder).not.toHaveBeenCalled();
   });
 
   test('usa el branchId del query param cuando está presente', async () => {

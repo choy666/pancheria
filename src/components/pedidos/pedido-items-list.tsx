@@ -8,6 +8,7 @@ interface OrderDetailItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes?: string | null;
   product?: {
     name: string;
     unit: string;
@@ -54,6 +55,14 @@ export function PedidoItemsList({ items }: PedidoItemsListProps) {
                 <div>
                   {item.product?.name ?? `Producto ${item.productId}`}
                   <ItemRecipeDetails recipeSnapshot={item.recipeSnapshot} />
+                  {item.notes && (
+                    <p
+                      data-testid="order-item-note"
+                      className="text-xs italic text-muted-foreground"
+                    >
+                      Nota: {item.notes}
+                    </p>
+                  )}
                 </div>
               </td>
               <td className="p-3 text-right">{item.quantity}</td>

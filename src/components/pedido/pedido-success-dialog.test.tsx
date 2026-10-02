@@ -128,4 +128,32 @@ describe('PedidoSuccessDialog', () => {
       screen.getByRole('button', { name: 'Cancelar pedido' })
     ).toBeInTheDocument();
   });
+
+  test('muestra la aclaración de cada ítem', () => {
+    renderDialog(
+      makeOrder({
+        items: [
+          {
+            productId: 1,
+            name: 'Panchuque',
+            price: 1200,
+            unit: 'unidad',
+            quantity: 1,
+            notes: 'bien tostado',
+          },
+          {
+            productId: 2,
+            name: 'Gaseosa',
+            price: 500,
+            unit: 'lata',
+            quantity: 1,
+            notes: null,
+          },
+        ],
+      })
+    );
+
+    expect(screen.getByText('Nota: bien tostado')).toBeInTheDocument();
+    expect(screen.queryByText(/Nota:.*Gaseosa/)).not.toBeInTheDocument();
+  });
 });

@@ -319,6 +319,7 @@ export async function insertSaleAndUpdateCashRegister(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
+      notes: item.notes ?? null,
     }))
   );
 
@@ -502,6 +503,7 @@ export async function cancelSale(
         quantity: number;
         unitPrice: number;
         subtotal: number;
+        notes: string | null;
         product: { name: string } | null;
         recipeSnapshots: {
           supplyId: number;
@@ -551,6 +553,7 @@ export async function cancelSale(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
+      notes: item.notes ?? null,
       recipeSnapshot: item.recipeSnapshots
         ? item.recipeSnapshots.map((s) => ({
             supplyId: s.supplyId,

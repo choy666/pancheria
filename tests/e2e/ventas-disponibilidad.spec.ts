@@ -334,8 +334,10 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       timeout: 5000,
     });
     await page
-      .getByLabel(new RegExp(`Incluir ${cebolla.name} en ${promo.name}`))
-      .check();
+      .getByRole('switch', {
+        name: new RegExp(`Incluir ${cebolla.name} en ${promo.name}`),
+      })
+      .click();
     await page.getByRole('button', { name: 'Agregar a la venta' }).click();
 
     await expect(

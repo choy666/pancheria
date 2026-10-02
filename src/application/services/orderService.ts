@@ -130,6 +130,7 @@ function toSaleItemInputWithSelection(
     selectedRecipeItemIds:
       item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [],
     recipeSnapshot: item.recipeSnapshot,
+    notes: item.notes,
   }));
 }
 
@@ -167,6 +168,7 @@ function createStoredOrderRequestHash(order: OrderWithItems): string | null {
         item.recipeSnapshot
           ?.filter((recipe) => recipe.isOptional && recipe.selected)
           .map((recipe) => recipe.supplyId) ?? [],
+      notes: item.notes,
     })),
     customerName: order.customerName,
     customerPhone: order.customerPhone,
@@ -627,6 +629,7 @@ export async function convertOrderToSale(
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
         recipeSnapshot: item.recipeSnapshot,
+        notes: item.notes,
       }));
 
       const {

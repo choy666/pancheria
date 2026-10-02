@@ -300,7 +300,7 @@ export function OrderTracker() {
                           isCurrent
                             ? 'rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary'
                             : isDone
-                              ? 'text-green-400'
+                              ? 'text-green-700'
                               : 'text-muted-foreground'
                         }
                       >

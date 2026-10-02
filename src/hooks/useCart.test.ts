@@ -328,4 +328,63 @@ describe('useCart', () => {
       )
     ).toBe(true);
   });
+
+  test('persiste y restaura la aclaración de la línea desde localStorage', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], undefined, 'bien tostado');
+    });
+
+    expect(result.current.items[0].notes).toBe('bien tostado');
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(stored.items[0].notes).toBe('bien tostado');
+
+    // Un segundo hook restaura la línea con su aclaración.
+    const { result: restored } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    await waitFor(() => expect(restored.current.items).toHaveLength(1));
+    expect(restored.current.items[0].notes).toBe('bien tostado');
+  });
+
+  test('restaura un carrito guardado sin aclaraciones (formato anterior)', async () => {
+    const stored = {
+      version: 'pancheria-cart-v1',
+      branchId: 1,
+      items: [{ ...products[0], quantity: 2 }],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    expect(result.current.items[0].quantity).toBe(2);
+    expect(result.current.items[0].notes ?? null).toBeNull();
+  });
+
+  test('updateLineNotes edita la aclaración de una línea existente', async () => {
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    act(() => {
+      result.current.addItem(products[0]);
+    });
+
+    const lineId = result.current.items[0].lineId;
+
+    act(() => {
+      result.current.updateLineNotes(lineId, 'sin sal');
+    });
+
+    expect(result.current.items[0].notes).toBe('sin sal');
+  });
 });

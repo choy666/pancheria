@@ -278,4 +278,77 @@ describe('useSellableCart', () => {
     expect(onOutOfStock).toHaveBeenCalledWith(products[0]);
     expect(result.current.lines).toEqual([]);
   });
+
+  test('agregar el mismo producto con la misma aclaración fusiona líneas', () => {
+    const { result } = renderHook(() =>
+      useSellableCart({ getAvailability: makeAvailability({ 1: 10 }) })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], undefined, 'bien tostado');
+      result.current.addItem(products[0], undefined, ' bien tostado ');
+    });
+
+    expect(result.current.lines).toHaveLength(1);
+    expect(result.current.lines[0].quantity).toBe(2);
+    expect(result.current.lines[0].notes).toBe('bien tostado');
+  });
+
+  test('agregar el mismo producto con aclaraciones distintas crea dos líneas', () => {
+    const { result } = renderHook(() =>
+      useSellableCart({ getAvailability: makeAvailability({ 1: 10 }) })
+    );
+
+    act(() => {
+      result.current.addItem(products[0], undefined, 'bien tostado');
+      result.current.addItem(products[0], undefined, 'sin sal');
+      result.current.addItem(products[0]);
+    });
+
+    expect(result.current.lines).toHaveLength(3);
+    expect(result.current.lines[0].notes).toBe('bien tostado');
+    expect(result.current.lines[1].notes).toBe('sin sal');
+    expect(result.current.lines[2].notes).toBeNull();
+  });
+
+  test('los servicios también fusionan por aclaración', () => {
+    const { result } = renderHook(() =>
+      useSellableCart({ getAvailability: makeAvailability({ 3: 0 }) })
+    );
+
+    act(() => {
+      result.current.addItem(products[2], undefined, 'mesa 4');
+      result.current.addItem(products[2], undefined, 'mesa 4');
+      result.current.addItem(products[2], undefined, 'mesa 5');
+    });
+
+    expect(result.current.lines).toHaveLength(2);
+    expect(result.current.lines[0].quantity).toBe(2);
+    expect(result.current.lines[0].notes).toBe('mesa 4');
+    expect(result.current.lines[1].notes).toBe('mesa 5');
+  });
+
+  test('updateLineNotes cambia la aclaración de una línea', () => {
+    const { result } = renderHook(() =>
+      useSellableCart({ getAvailability: makeAvailability({ 1: 5 }) })
+    );
+
+    act(() => {
+      result.current.addItem(products[0]);
+    });
+
+    const lineId = result.current.lines[0].lineId;
+
+    act(() => {
+      result.current.updateLineNotes(lineId, '  bien tostado  ');
+    });
+
+    expect(result.current.lines[0].notes).toBe('bien tostado');
+
+    act(() => {
+      result.current.updateLineNotes(lineId, '   ');
+    });
+
+    expect(result.current.lines[0].notes).toBeNull();
+  });
 });

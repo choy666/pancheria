@@ -397,6 +397,30 @@ describe('orderRepository', () => {
 
       expect(mockValues).toHaveBeenCalledWith(values);
     });
+
+    test('propaga la aclaración del ítem al insertar', async () => {
+      mockReturning.mockResolvedValue([]);
+
+      const tx: any = { insert: mockInsert };
+      const values = [
+        {
+          orderId: ORDER_ID,
+          productId: 1,
+          quantity: 1,
+          unitPrice: 1000,
+          subtotal: 1000,
+          notes: 'bien tostado',
+        },
+      ];
+
+      await orderRepository.insertOrderItems(tx, values);
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ notes: 'bien tostado' }),
+        ])
+      );
+    });
   });
 
   describe('updateStatus', () => {

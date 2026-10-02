@@ -1118,6 +1118,37 @@ describe('confirmSale', () => {
     expect(stockMovementRows[0].quantity).toBe(-5);
   });
 
+  test('persiste la aclaración del ítem en sale_items', async () => {
+    mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
+    mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(
+      createOpenCashRegister()
+    );
+
+    setProducts([
+      {
+        id: 2,
+        name: 'Gaseosa',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        stock: 5,
+        price: 800,
+      },
+    ]);
+
+    mockedDb.query.recipes.findMany.mockResolvedValue([]);
+
+    await confirmSale({
+      branchId: BRANCH_ID,
+      items: [{ productId: 2, quantity: 1, notes: 'bien tostado' }],
+      payments: [{ method: 'cash', amount: 800 }],
+      idempotencyKey: 'sale-notes',
+    });
+
+    const saleItemRows = capturedRows<typeof saleItems.$inferInsert>(saleItems);
+    expect(saleItemRows).toHaveLength(1);
+    expect(saleItemRows[0].notes).toBe('bien tostado');
+  });
+
   test('vincula la venta a la caja abierta', async () => {
     mockedIdempotencyService.isIdempotencyKeyUsed.mockResolvedValue(false);
     mockedCashRegisterService.getOpenCashRegister.mockResolvedValue(

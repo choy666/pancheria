@@ -306,6 +306,7 @@ export const saleItems = pgTable(
     quantity: integer('quantity').notNull(),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    notes: text('notes'),
   },
   (table) => ({
     saleIdx: index('sale_items_sale_idx').on(table.saleId),
@@ -381,6 +382,7 @@ export const orderItems = pgTable(
     quantity: integer('quantity').notNull(),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    notes: text('notes'),
   },
   (table) => ({
     orderIdx: index('order_items_order_idx').on(table.orderId),

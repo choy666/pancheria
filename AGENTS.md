@@ -229,6 +229,18 @@ Variables cuyo valor, default o comportamiento depende del entorno (detalle comp
 ## Tecnologías
 - Next.js 16.3.3, React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2, PostgreSQL, NextAuth v5.
 
+## Documentación de librerías (Context7 MCP)
+
+- Para consultar documentación actualizada de una librería, framework, SDK o CLI usar el MCP `context7` (`resolve-library-id` + `query-docs`), con prioridad sobre `web_search`.
+- Los IDs de Context7 del stack ya están pre-resueltos en `.devin/skills/context7-stack/SKILL.md`: consultar esa tabla y llamar `query-docs` directamente con el ID (y versión) correspondiente, sin repetir la resolución.
+- Nunca enviar secretos, valores de `.env` ni código propietario en las queries de Context7: se transmiten a la API externa.
+
+## Documentación de Google Maps Platform (MCP)
+
+- El MCP `google-maps-platform-code-assist` (oficial de Google, endpoint remoto `https://mapscodeassist.googleapis.com/mcp`, sin API key) está configurado en `.devin/config.json` a nivel proyecto.
+- Tools: `retrieve-instructions` (llamar **siempre primero**: carga las instrucciones del servidor) y `retrieve-google-maps-platform-docs` (busca en docs oficiales, code samples y repos de Google).
+- Usarlo para cualquier consulta de Google Maps Platform: Maps Embed API, URLs de mapas, Places, Geocoding, Routes. Relevante para el proveedor `google` de `NEXT_PUBLIC_MAPS_PROVIDER`, `src/lib/maps.ts` (`buildMapEmbedUrl`) y los orígenes `frame-src` de la CSP (`getMapsFrameOrigins` en `src/config/maps.ts`).
+
 ## Promos, recetas y snapshots
 
 - El proyecto soporta promos (`compound`) con insumos críticos, manuales y servicios.

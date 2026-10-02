@@ -204,7 +204,13 @@ describe('saleRepository', () => {
         idempotencyKey: 'abc',
       };
       const items = [
-        { productId: 1, quantity: 2, unitPrice: 500, subtotal: 1000 },
+        {
+          productId: 1,
+          quantity: 2,
+          unitPrice: 500,
+          subtotal: 1000,
+          notes: 'bien tostado',
+        },
       ];
       const payments = [{ method: 'cash' as const, amount: 1000 }];
       mockReturning.mockResolvedValue([sale]);
@@ -236,6 +242,7 @@ describe('saleRepository', () => {
             quantity: 2,
             unitPrice: 500,
             subtotal: 1000,
+            notes: 'bien tostado',
           }),
         ])
       );

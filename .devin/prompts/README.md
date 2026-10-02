@@ -131,6 +131,8 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Auditoría QA integral con ejecución de tests](auditoria-qa-integral.md) — flujo por etapas (plan → aprobación → ejecución → informe) para auditar flujos críticos, concurrencia, seguridad/aislamiento y UX/accesibilidad con evidencia y capturas.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
+- [Rediseño de la card de producto y modal de personalización en `/pedido`](plan-rediseno-card-y-modal-pedido.md) — implementar la propuesta visual estilo food-delivery (card clara con hero, toggles "A tu gusto", aclaraciones por ítem y stepper de cantidad); incluye decisiones pendientes (tema claro vs dark, persistencia de aclaraciones, alcance en `/ventas`).
+- [Continuación PR 2 — modal de personalización](rediseno-pedido-pr2-modal.md) — siguiente paso del rediseño tras el PR 1 ya implementado (ver `informes/rediseno-pedido-pr1-2026-10-02.md`).
 
 ### Prompts archivados
 

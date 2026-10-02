@@ -40,6 +40,7 @@ interface Sale {
   createdAt: string;
   items: {
     quantity: number;
+    notes?: string | null;
     product: {
       name: string;
     };
@@ -195,6 +196,11 @@ export function SalesHistory({
                           {formatItemRecipeDetails(item.recipeSnapshot)}
                         </p>
                       )}
+                      {item.notes && (
+                        <p className="text-xs italic text-muted-foreground">
+                          Nota: {item.notes}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </TableCell>
@@ -288,6 +294,12 @@ export function SalesHistory({
                       <span className="text-sm text-muted-foreground">
                         {' '}
                         ({formatItemRecipeDetails(item.recipeSnapshot)})
+                      </span>
+                    )}
+                    {item.notes && (
+                      <span className="text-sm italic text-muted-foreground">
+                        {' '}
+                        — Nota: {item.notes}
                       </span>
                     )}
                   </p>

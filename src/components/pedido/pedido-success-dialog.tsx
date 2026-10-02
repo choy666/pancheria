@@ -22,20 +22,30 @@ import type { PublicOrderItem } from '@/domain/types';
 import type { Branch } from '@/domain/types';
 
 function OrderItemRecipeDetails({ item }: { item: PublicOrderItem }) {
-  if (!item.recipeSnapshot || item.recipeSnapshot.length === 0) return null;
+  const hasRecipe = !!item.recipeSnapshot && item.recipeSnapshot.length > 0;
+  if (!hasRecipe && !item.notes) return null;
 
-  const selected = item.recipeSnapshot.filter(
+  const selected = (item.recipeSnapshot ?? []).filter(
     (r) => !r.isOptional || r.selected
   );
-  const removed = item.recipeSnapshot.filter(
+  const removed = (item.recipeSnapshot ?? []).filter(
     (r) => r.isOptional && !r.selected
   );
 
   return (
-    <p className="text-xs text-muted-foreground">
-      {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
-      {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
-    </p>
+    <>
+      {hasRecipe && (
+        <p className="text-xs text-muted-foreground">
+          {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
+          {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
+        </p>
+      )}
+      {item.notes && (
+        <p className="text-xs italic text-muted-foreground">
+          Nota: {item.notes}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -83,7 +93,7 @@ export function PedidoSuccessDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent data-theme="light">
         <DialogHeader>
           <DialogTitle data-testid="order-success-title">Pedido creado</DialogTitle>
           <DialogDescription data-testid="order-success-description">

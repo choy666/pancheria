@@ -41,6 +41,11 @@ export function CheckoutSummary({ items, total }: CheckoutSummaryProps) {
                       />
                     </p>
                   )}
+                {item.notes && (
+                  <p className="text-xs italic text-muted-foreground">
+                    Nota: {item.notes}
+                  </p>
+                )}
               </div>
               <p className="font-mono text-muted-foreground">
                 {formatMoney(item.price * item.quantity)}

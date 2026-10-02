@@ -15,12 +15,13 @@ import { ProductCard } from './product-card';
 import { BranchStatusChip } from './branch-status-chip';
 import { BranchInfoCard } from './branch-info-card';
 import {
-  productTypeGroupClasses,
+  publicProductTypeGroupClasses,
   publicProductTypeLabels,
 } from '@/lib/product-style';
 import { routes } from '@/config/routes';
 import type { Branch } from '@/domain/types';
 import type { BranchStatus } from './usePedidoClient';
+import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { CartItem } from '@/hooks/useCart';
 import type { ProductGroup } from '@/lib/product-grouping';
@@ -39,7 +40,7 @@ interface PedidoCatalogSectionProps {
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
   onBranchChange: (branchId: string | null) => void;
-  onAdd: (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => void;
+  onAdd: (product: PublicCatalogProduct, payload?: PromoOptionsConfirmPayload) => void;
   cart: ReactNode;
 }
 
@@ -61,6 +62,16 @@ export function PedidoCatalogSection({
 }: PedidoCatalogSectionProps) {
   const inCartIds = new Set(items.map((item) => item.id));
 
+  // `priority` de `next/image` solo para la primera fila visible (LCP):
+  // el grid llega a 3 columnas en desktop, así que se priorizan los
+  // primeros 3 productos del catálogo sin importar el grupo.
+  const priorityImageIds = new Set(
+    groupedProducts
+      .flatMap((group) => group.items)
+      .slice(0, 3)
+      .map((product) => product.id)
+  );
+
   const inCartQuantityByProduct =
     inCartQuantityByProductProp ??
     items.reduce<Record<number, number>>((acc, item) => {
@@ -70,7 +81,7 @@ export function PedidoCatalogSection({
 
   return (
     <div className="space-y-5">
-      <div className="space-y-2 rounded-2xl border border-white/8 p-4">
+      <div className="space-y-2 rounded-2xl border border-border p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -125,7 +136,7 @@ export function PedidoCatalogSection({
                       }
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent data-theme="light">
                     {branches.map((b) => (
                       <SelectItem key={b.id} value={String(b.id)} label={b.name}>
                         {b.name}
@@ -163,7 +174,7 @@ export function PedidoCatalogSection({
           {groupedProducts.length === 0 && (
             <p
               data-testid="catalog-empty-state"
-              className="rounded-lg border border-white/8 p-4 text-sm text-muted-foreground"
+              className="rounded-lg border border-border p-4 text-sm text-muted-foreground"
             >
               No hay productos disponibles en esta sucursal por ahora. Probá más
               tarde o elegí otra sucursal.
@@ -172,7 +183,7 @@ export function PedidoCatalogSection({
           {groupedProducts.map((group) => (
             <div key={group.type} className="space-y-3">
               <h2
-                className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium ${productTypeGroupClasses[group.type]}`}
+                className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium ${publicProductTypeGroupClasses[group.type]}`}
               >
                 {publicProductTypeLabels[group.type]}
               </h2>
@@ -183,8 +194,9 @@ export function PedidoCatalogSection({
                     product={product}
                     inCart={inCartIds.has(product.id)}
                     inCartQuantity={inCartQuantityByProduct[product.id] ?? 0}
-                    onAdd={(selected) => onAdd(product, selected)}
+                    onAdd={(payload) => onAdd(product, payload)}
                     disabled={isCheckingAvailability}
+                    imagePriority={priorityImageIds.has(product.id)}
                   />
                 ))}
               </div>

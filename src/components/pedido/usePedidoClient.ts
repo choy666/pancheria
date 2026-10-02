@@ -109,13 +109,14 @@ export interface UsePedidoClientResult {
   items: CartItem[];
   total: number;
   inCartQuantityByProduct: Record<number, number>;
-  addItem: (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => void;
+  addItem: (product: PublicCatalogProduct, payload?: PromoOptionsConfirmPayload) => void;
   removeItem: (lineId: string) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   updateSelectedRecipeItemIds: (lineId: string, selectedRecipeItemIds: number[]) => void;
+  updateLineNotes: (lineId: string, notes: string | null) => void;
   clearCart: () => void;
 
-  editingLine: { lineId: string; product: PublicCatalogProduct; initialSelectedIds: number[]; dialogKey: string } | null;
+  editingLine: { lineId: string; product: PublicCatalogProduct; initialSelectedIds: number[]; initialNotes: string | null; dialogKey: string } | null;
   startEditLine: (lineId: string) => void;
   cancelEditLine: () => void;
   confirmEditLine: (payload: PromoOptionsConfirmPayload) => void;
@@ -197,6 +198,7 @@ export function usePedidoClient({
     lineId: string;
     product: PublicCatalogProduct;
     initialSelectedIds: number[];
+    initialNotes: string | null;
     dialogKey: string;
   } | null>(null);
 
@@ -215,6 +217,7 @@ export function usePedidoClient({
     removeItem,
     updateQuantity,
     updateSelectedRecipeItemIds,
+    updateLineNotes,
     clearCart,
   } = useCart({
     branchId: activeBranch.id,
@@ -429,6 +432,7 @@ export function usePedidoClient({
                   productId: item.id,
                   quantity: item.quantity,
                   selectedRecipeItemIds: item.selectedRecipeItemIds,
+                  notes: item.notes,
                 }))
               ),
             }),
@@ -473,8 +477,14 @@ export function usePedidoClient({
   }, [items]);
 
   const addItem = useCallback(
-    (product: PublicCatalogProduct, selectedRecipeItemIds?: number[]) => {
-      cartAddItem(product, selectedRecipeItemIds);
+    (product: PublicCatalogProduct, payload?: PromoOptionsConfirmPayload) => {
+      // El diálogo de personalización puede pedir N unidades: cada una se
+      // agrega como línea propia con la misma aclaración y `useSellableCart`
+      // impone la disponibilidad en cada llamada (sobran las que no entran).
+      const units = Math.max(1, Math.floor(payload?.quantity ?? 1));
+      for (let i = 0; i < units; i += 1) {
+        cartAddItem(product, payload?.selectedRecipeItemIds, payload?.notes);
+      }
     },
     [cartAddItem]
   );
@@ -491,6 +501,7 @@ export function usePedidoClient({
         lineId,
         product,
         initialSelectedIds: item.selectedRecipeItemIds ?? [],
+        initialNotes: item.notes ?? null,
         dialogKey: nanoid(),
       });
     },
@@ -502,12 +513,13 @@ export function usePedidoClient({
   }, []);
 
   const confirmEditLine = useCallback(
-    ({ selectedRecipeItemIds }: PromoOptionsConfirmPayload) => {
+    ({ selectedRecipeItemIds, notes }: PromoOptionsConfirmPayload) => {
       if (!editingLine) return;
       updateSelectedRecipeItemIds(editingLine.lineId, selectedRecipeItemIds);
+      updateLineNotes(editingLine.lineId, notes);
       setEditingLine(null);
     },
-    [editingLine, updateSelectedRecipeItemIds]
+    [editingLine, updateSelectedRecipeItemIds, updateLineNotes]
   );
 
   function handleBranchChange(branchId: string | null) {
@@ -556,6 +568,7 @@ export function usePedidoClient({
           productId: item.id,
           quantity: item.quantity,
           selectedRecipeItemIds: item.selectedRecipeItemIds,
+          notes: item.notes,
         }))
       );
       const response = await fetch(`${PUBLIC_PEDIDO_API}?branchId=${activeBranch.id}`, {
@@ -700,6 +713,7 @@ export function usePedidoClient({
     removeItem,
     updateQuantity,
     updateSelectedRecipeItemIds,
+    updateLineNotes,
     clearCart,
 
     editingLine,
