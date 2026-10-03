@@ -1,69 +1,98 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-10-02 (actualizado)
+**Fecha:** 2026-09-24 (actualizado)
 **Proyecto:** `pancheria`
 **Histórico:** snapshots anteriores en `.devin/informes/archivados/historico/`
 
 ---
 
-## 0. Estado vigente (revisión 2026-10-02; `main` en `dfb2872`)
+## 0. Estado vigente (auditoría 2026-09-24; PR #9 mergeado y producción migrada)
 
-**Baseline Git:** `main`/`origin/main` en `dfb2872` ("feat: detalle de ítems en /pedido/seguimiento"). Working tree: cambios **solo documentales** en `.devin/` de esta sesión de limpieza; `.vscode/` sigue sin trackear. No hay cambios de código pendientes. El §0 anterior quedó congelado en `archivados/historico/reporte-estado-2026-09-24.md`.
+**Baseline Git:** la auditoría arrancó con `main` en `090fa63ec958c57dcecd3fd527f3a7391307b7cd`. **Estado al cierre:** `main` contiene `6b24700453f60fe656be167da4e052fb02f4ae7b` (squash del PR #9) seguido de commits documentales de cierre que solo actualizan este informe; el working tree queda limpio salvo `.vscode/` sin trackear. El PR #9 se mergeó, Vercel producción quedó `READY` sobre ese código (dominio `pancheria-alpha.vercel.app`) y la migración `0032` se aplicó a la base productiva de Neon (`main`, `br-nameless-sun-avrmz655`) tras autorización expresa.
 
-**Producción:** Vercel `READY` sobre `dfb2872` (`pancheria-alpha.vercel.app`, verificado vía MCP el 10-02). Migración `0034_needy_puppet_master` aplicada en Neon prod: `notes` existe en `order_items` y `sale_items` (verificado vía MCP sobre `br-nameless-sun-avrmz655`; el conteo exacto del journal no se pudo releer por scope de credencial, pero las columnas cubren el riesgo de compatibilidad).
+### Baseline Git y merges
 
-**CI:** run `37075242547` de `3a029e4` en verde (todos los jobs, incluido E2E). Los pushes `f1e684c` y `dfb2872` (docs + detalle de seguimiento) tienen sus runs en curso/pendientes al momento de esta revisión. El cron `Expirar pedidos pendientes` corre `success` periódicamente.
+- `git status --short --branch` al cierre: `main...origin/main` sin cambios trackeados; `.vscode/` sigue sin trackear y quedó intacto.
+- `git log`: `main`/`origin/main` con `6b24700` (squash merge del PR #9) más commits documentales de cierre (`826e0f2` y posteriores) que solo tocan este informe; el baseline previo de la auditoría fue `090fa63`.
+- `git branch -a`: `main` y `origin/main`; la rama `fix/qa04-payload-fingerprint` quedó mergeada a través del PR #9.
+- `gh pr list --state open`: sin PRs abiertos tras el merge de #9.
+- Último PR mergeado: **#9** (`6b24700`, fingerprint de idempotencia QA-04 + `drizzle-kit check` en CI + correcciones documentales). El anterior fue **#8** (`84957e4`, reorganización documental). El último PR previo con lógica de aplicación fue **#6** (`5615500`, CSP de `/pedido/seguimiento`); PR #7 (`96b0db1`) incorporó serialización E2E por shard y timeout de 25 min.
 
-### Commits integrados desde el cierre anterior (post-2026-09-24)
+### Cambios incorporados en PR #9
 
-| Commits | Fecha | Contenido |
+- QA-04: fingerprint SHA-256 canónico, 409 ante divergencia, reconstrucción/verificación segura de filas legacy, exclusión del hash de respuestas y firmas cliente que incluyen todos los campos relevantes.
+- Sucursales: se conserva hard delete en cascada; se agregaron warnings de conteos para fallos de limpieza de archivos y tests de tablas/recuperación.
+- Esquema: `0032_icy_shaman.sql` agrega `idempotency_hash varchar(64)` nullable en `orders`/`sales`. Se aplicó a `.env.e2e`, a la base E2E del CI y —tras autorización expresa— a la base productiva de Neon `main`. El archivo temporal `.env.production.local` se eliminó al terminar.
+- CI/documentación: se añadió `drizzle-kit check` al job E2E y se corrigieron las referencias de cierres, migraciones y el índice stale del prompt T14. T14 no se implementó ni se inició.
+- `.vscode/extensions.json` sigue sin trackear y quedó intacto.
+
+### Refuerzos de rate limit, seed y seguridad (sesión posterior al merge de #9)
+
+Sesión de cierre de recomendaciones de auditoría. El estado previo ya resolvía la atomicidad del rate limit de pedidos (`recordRequest` con `onConflictDoUpdate` + `CASE WHEN`), el `getClientIp` robusto, el cron diario compatible con Hobby, `/api/health` y el `drizzle-kit check`/`migrate` en CI. Los cambios nuevos:
+
+- **Rate limit de login por IP**: `createLoginIpLimiter` en `src/lib/rate-limit.ts` agrega un segundo límite (`scope` `login_ip` en `public_order_rate_limits`) que frena password spraying rotando usernames. Solo los intentos **fallidos** acumulan cuota (un login exitoso tras NAT compartida no consume). Si la IP del request no es resoluble confiablemente (`'unknown'` o `RateLimitConfigError`), el límite por IP se omite y el por usuario sigue activo — ningún cliente queda agrupado bajo la clave compartida `'unknown'`. Defaults: 20 intentos / 15 min (`LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS`, `LOGIN_IP_RATE_LIMIT_WINDOW_MS`).
+- **`isBlocked` en `PublicOrderRateLimitStore`**: método de chequeo sin incremento (necesario para el límite por IP), implementado en las variantes memoria y PostgreSQL.
+- **Gate del reset de contraseña del seed**: `seedAdmin` ya no pisa el `passwordHash` de un admin existente salvo `SEED_RESET_ADMIN_PASSWORD=1` explícito, en **cualquier** entorno (un seed local apuntando a producción tampoco la pisa). El global-setup de E2E setea el flag; la asignación de `branchId` faltante sigue siendo automática.
+- **bcrypt cost 10 → 12**: constante `BCRYPT_HASH_COST` en `src/config/auth.ts` usada por `userService` y `seeds`. Los hashes existentes con cost 10 siguen verificando (el coste viaja en el hash).
+- **Índices de cleanup**: migración `0033_last_synch.sql` con `login_attempts_last_attempt_idx` y `public_order_rate_limits_reset_at_idx`, aplicada a la base de desarrollo con `drizzle-kit migrate` (`check` en verde antes). Evitan full scan si las tablas crecen.
+- **`npm audit` en CI**: job no bloqueante (`continue-on-error`, umbral `--audit-level=high`) para visibilizar CVEs sin frenar el pipeline por advisories sin fix.
+- **E2E**: `login.spec.ts` ahora usa `usuario-inexistente-e2e` para el caso fallido (no contamina el contador del admin real).
+- **`getClientIp` reutilizable**: la firma se relajó de `NextRequest` a `Request` para que `authorize` de Auth.js pueda usarla (Auth.js entrega `Request`); los callers de rutas siguen intactos.
+
+Decisión tomada: **no** se consolidaron `login_attempts` y `public_order_rate_limits` en una tabla genérica — tienen semánticas distintas (ventana deslizante por usuario vs ventana fija por scope+IP, retención distinta) y una migración destructiva no aportaba beneficio frente al patrón atómico ya compartido.
+
+Verificaciones de la sesión: `npx tsc --noEmit` ✓, `npm run lint` ✓ (1 warning preexistente), `npm test` **176 suites / 1957 tests** ✓, `npx drizzle-kit check` ✓, `npx drizzle-kit migrate` ✓ (0033 aplicada en desarrollo, en la base E2E del CI por el run `36349511858` en verde, y en **producción** vía `vercel env pull` + `drizzle-kit migrate` — verificado por Neon MCP: journal en 34 migraciones y ambos índices creados; `.env.production.local` eliminado tras el uso).
+
+### CI de GitHub Actions
+
+| Run | Conclusión | Evidencia / lectura |
 | --- | --- | --- |
-| `5021d81`–`9fc1266` | 09-26/27 | **PR #10** — rediseño UX de `/sucursales` (inventario primero, banner al eliminar) + rutas dedicadas `/sucursales/nueva`, `/sucursales/[id]/editar`, `/usuarios/nuevo`, `/usuarios/[id]/editar` |
-| `a50c1da`, `3114802`, `53cfe63` | 09-27 | Rate limit de login por IP (con índice de cleanup), bcrypt 10→12, seed admin obligatorio en todo entorno (`SEED_RESET_ADMIN_PASSWORD=1` para reset), índices de cleanup (`0033_last_synch` — aplicada a desarrollo, E2E del CI y producción), `npm audit` no bloqueante y unificación de avisos/controles de caja en `/cierre`, `/ventas` e historial |
-| `60acdfd`, `6d32597` | 09-28 | Vista previa del catálogo público en el form de sucursal; bloques de contacto de sucursal compartidos en el flujo público |
-| `fc6cfe9`, `8c76e9b` | 10-01 | **Cobro con medio de pago al confirmar pedido** (`PedidoConfirmDialog` + `PaymentPartsInput`: efectivo/transferencia/mixto — deja de asumirse efectivo). Seed endurecido: `DEFAULT_BRANCH_OPENING_HOURS`/`NEW_BRANCH_OPENING_HOURS` validados y catálogo de muestra detrás de `SEED_SAMPLE_CATALOG=1`. Spec de expiración adaptada al diálogo de cobro |
-| `e6ad216`, `8150ee9` | 10-01 | Mapa de arquitectura en tres niveles (`arquitectura/`) con renders `.svg` (fuentes `.mmd` eliminadas); verificación operativa de `VERCEL_PRODUCTION_URL`, crons, storage y Neon provider |
-| `6a004e1`, `d0ac9dc`, `d116bd6` | 10-01 | Dependencias de `npm audit` actualizadas; CI con solo Chromium en el job E2E y timeout del paso a 35 min |
-| `ccf4e99` | 10-01 | Imágenes de producto en `/pedido` (`resolveProductImage`, `localPatterns`) + `verifyUploadedProductImage` (firma/magic bytes verificada en providers remotos, URL canónica del servidor) |
-| `3a029e4`, `f1e684c`, `dfb2872` | 10-02 | **Rediseño food-delivery de `/pedido` (PRs 1–3, informes en `archivados/`)**: tema claro `[data-theme='light']` en `(public)` con overlays portaleados marcados, card con hero/quick-add, `PromoOptionsDialog` rediseñado (toggles, stepper de cantidad → N líneas idénticas, CTA con precio), **aclaraciones por ítem** (`notes` en `order_items`/`sale_items`, migración `0034`), decisión de negocio sobre extras cobrables (opcionales de receta incluidos en el precio; extras = productos `service` standalone) y detalle de ítems en `/pedido/seguimiento` |
+| `35948485239` — PR #9, SHA `61f3206` | **success** | CI completo del PR: lint, tipos, unitarios, build, knip, `drizzle-kit check`, `drizzle-kit migrate` sobre la base E2E descartable, E2E/accesibilidad y reporte consolidado. El job E2E tomó 12 min 26 s. |
+| `35949717967` — PR #9, SHA `ae81663` | **success** | Repetición completa tras la actualización documental del reporte: todos los jobs pasaron; el job E2E tomó 15 min 05 s. |
+| `35951037629` — PR #9, SHA `aece82d` | **success** | Último CI del PR antes del merge (HEAD documental final): todos los jobs pasaron; el job E2E tomó 21 min 05 s. |
+| `35953586788` — `main`, push `6b24700` | **success** | CI post-merge en `main`: lint, tipos, unitarios, build, knip, `drizzle-kit check`, `drizzle-kit migrate` sobre la base E2E descartable, E2E/accesibilidad y reporte consolidado. El job E2E tomó 12 min 18 s. |
+| `35956013721` — `main`, push `826e0f2` | **success** | CI del commit documental de cierre: todos los jobs pasaron; el job E2E tomó 22 min 38 s. |
+| `35878657216` — `main`, HEAD `090fa63` | **success** | Último CI de `main` en el HEAD auditado: lint, tipos, unitarios, build, knip, E2E/accesibilidad y reporte consolidado completados. El job E2E corrió en un shard durante 18 min 06 s. |
+| `35895521808` — schedule de `main` | **success** | Última ejecución visible de `Expirar pedidos pendientes`. |
+| `35867434935` — PR, SHA `6f649ed` | **failure** | El log indica timeout del paso E2E al cumplirse 18 min; los jobs de tipos, lint, unitarios, build y knip terminaron en verde. El workflow actual fija 25 min para el paso E2E. |
+| `35874232325` — push a `main` | **cancelled** | El job E2E terminó cancelado sin pasos ejecutados; los demás jobs terminaron correctamente. |
+| `35872990307` — PR | **cancelled** | Run cancelado, según `gh run list --limit 10`. |
 
-### Defectos de pruebas manuales (D1–D10) — re-verificados contra el código
+El run `35953586788` valida el squash mergeado en `main` (`6b24700`); los runs `35948485239`, `35949717967` y `35951037629` validaron el PR #9 en sus tres SHAs. Todos ejecutaron `npx drizzle-kit check` en verde antes de `migrate`. Los runs fallidos/cancelados son anteriores al CI verde del HEAD base. `.github/workflows/ci.yml` mantiene serialización por shard (`cancel-in-progress: false`), sharding opt-in y default `[1]`.
 
-| # | Defecto | Estado | Evidencia |
-| --- | --- | --- | --- |
-| D1 | Cancelar `paid`/anular con producto eliminado | Resuelto | `buildProductContext` con `includeDeleted: true` en `cancelSale` y `closeCashRegister` |
-| D2 | Pedido público aceptado fuera de horario | Resuelto | `createOrder` evalúa `isBranchOpen` cuando la sucursal tiene `openingHours` |
-| D3 | JWT de usuario eliminado operativo | Resuelto | `revalidateSessionUser` en `requireAuth`/`getCurrentBranchId*` (`src/lib/auth.ts`) |
-| D4 | Reasignación de sucursal sin efecto en sesiones activas | Resuelto | la misma revalidación sincroniza `branchId`/`role` en la sesión |
-| D5 | Cancelación pública anulaba pedidos `paid` | Resuelto | `cancelOrder` rechaza `paid` cuando llega `token` (flujo público); el panel sí puede |
-| D6 | Lockout degradaba a error genérico | Resuelto | `login-form`/`actions` muestran "Demasiados intentos fallidos" |
-| D7 | Duplicados de sucursal por mayúsculas | Resuelto | `findByNameCaseInsensitive` en `createBranch` |
-| D8 | Ajuste de stock con tipos reservados | Resuelto | `stockAdjustmentTypeSchema` = `manual_adjustment`/`restock` |
-| D9 | Ajuste de stock no admin-only | Resuelto (decisión + atribución) | Decisión 09-24: operadores pueden ajustar (sin `admin:true`). Atribución implementada: `stock_movements.performed_by` (migración `0035`) registra el usuario en ajustes `manual_adjustment`/`restock`; visible en la columna "Por" de `/stock` |
-| D10 | Mensajes Zod en inglés / ambigüedad caja-horario | Resuelto | schemas con `message` en español; el error de caja distingue ausencia de caja de fuera de horario |
+### Verificaciones locales ejecutadas
 
-### Verificaciones locales (2026-10-02)
-
-Cambios de esta sesión: **solo documentales** en `.devin/` (limpieza, archivado y sincronización). Los checks se corrieron por regla de cierre:
-
-| Comando | Resultado |
+| Comando | Resultado observado |
 | --- | --- |
-| `npm run lint` | **Pasa** (0 errores; 1 warning preexistente en `sign-out-client.tsx` por `window.location.assign()`). |
-| `npx tsc --noEmit` | **Pasa** (sin salida). |
-| `npm test` | **Pasa: 178 suites / 2027 tests** en 19.4 s, 0 snapshots. |
-| `npm run build` | **Pasa** con Next.js 16.3.8 (declarado `^16.3.3`); 45 páginas generadas, `/_not-found` sigue `○` estática; aparecen `/sucursales/nueva`, `/sucursales/[id]/editar`, `/usuarios/nuevo`, `/usuarios/[id]/editar`. |
-| `npm run knip` | **Pasa** (sin diagnósticos). |
-| `npx drizzle-kit check` | **Pasa** ("Everything's fine") — journal consistente con `drizzle/` (36 migraciones, `0000`–`0035`; `0035` agrega `stock_movements.performed_by`). |
-| `git diff --check` | **Pasa**; solo aviso de normalización LF→CRLF en el SVG regenerado. |
-| Enlaces Markdown de `.devin/` | **OK**: chequeo automatizado de los `](ruta)` internos sin enlaces rotos tras corregir `../shots/` y `../entornos.md` en los informes archivados del rediseño. |
+| `npm run lint` | **Pasa** (exit 0, 0 errores). Queda 1 warning preexistente en `src/app/sesion-finalizada/sign-out-client.tsx:18` por `window.location.assign()`. |
+| `npx tsc --noEmit` | **Pasa** (exit 0, sin salida). |
+| `npm test` | **Pasa: 175 suites / 1899 tests**, 0 snapshots; 21.7 s. |
+| `npm run build` | **Pasa** con Next.js 16.3.3; TypeScript correcto y 43 páginas estáticas generadas. `/pedido/seguimiento` es dinámica (`ƒ`), `/_not-found` permanece estática (`○`) y no existe `/cierre/historial`. |
+| `npm run knip` | **Pasa** (exit 0, sin diagnósticos). |
+| `git diff --check` | **Pasa**; Git avisó normalización CRLF/LF en `guia-funcionamiento-pancheria.md`, sin errores de whitespace. |
+
+### Migración de QA-04
+
+- `npx drizzle-kit generate` terminó correctamente y creó `0032_icy_shaman.sql` más `drizzle/meta/0032_snapshot.json`. La migración agrega `idempotency_hash varchar(64)` nullable a `orders` y `sales`; es aditiva, sin default, sin índice y sin rewrite de filas.
+- Tras autorización expresa, un preflight ocultando valores validó que `.env.e2e` y la URL usada por migraciones apuntaban al mismo destino descartable con sufijo permitido. `npx drizzle-kit migrate` terminó correctamente **solo en `.env.e2e`**; no se usó `.env.local`.
+- `npx drizzle-kit check` pasó localmente (`Everything's fine`) y en Actions (runs `35948485239`, `35949717967`, `35951037629` y `35953586788`): historial de migraciones consistente; el paso siguiente aplicó `0032` a la base E2E descartable del CI.
+- **Producción (autorizada por el propietario):** se bajó `.env.production.local` con `vercel env pull`, se usó la URL unpooled para `npx drizzle-kit check` + `npx drizzle-kit migrate`, y el archivo temporal se eliminó. Verificación vía Neon MCP sobre `br-nameless-sun-avrmz655`: `orders.idempotency_hash` y `sales.idempotency_hash` existen como `varchar(64)` nullable y `drizzle.__drizzle_migrations` registra **33** migraciones aplicadas.
+- **Ventana de compatibilidad resuelta:** Vercel desplegó `6b24700` a producción antes de que la base tuviera la columna; durante esa ventana el código nuevo referenciaba `idempotency_hash` aún ausente. No se observaron errores runtime en la ventana consultada, pero tampoco hay evidencia de tráfico sobre las rutas afectadas en ese intervalo. La migración cerró el riesgo.
+
+### Deploy y smoke de producción
+
+- Vercel: producción `READY` sobre el código de `6b24700`. Deployments observados: `dpl_9WFCHFZcChxoJb8FworK8hjF7WHc` (`6b24700`, PR #9) y `dpl_5kkvB7KAAjby5x5JDF3xLQephhHw` (`826e0f2`, commit documental — mismo código aplicativo). Dominio productivo verificado: `pancheria-alpha.vercel.app` (único dominio de producción del proyecto).
+- Smoke GET (2026-09-24 ~04:18 UTC): `/api/health` → 200 (`{"ok":true,"db":"up"}`); `/pedido` → 307 a `/pedido?branchId=1` → 200; `/api/public/catalogo` → 200; `/pedido/seguimiento` → 200.
+- Runtime: `get_runtime_errors` (última hora) sin errores; logs `error`/`fatal` del deployment en los últimos 30 min: sin entradas.
+- Alcance del smoke: solo GETs públicos de lectura. No se crearon pedidos ni ventas reales, así que el camino de escritura y el 409 de idempotencia no se ejercitaron end-to-end en producción; eso requeriría una operación de escritura expresamente autorizada.
 
 ### Estado funcional verificado por módulo
 
-“Verificado” aquí significa que existen las piezas de código y tests indicados, que los checks locales pasaron, que el CI de `main` está verde en el HEAD con código de aplicación (`3a029e4`, run `37075242547`) y que producción quedó `READY` sobre `dfb2872` con `0034` aplicada. No equivale a una prueba de escritura en producción ni a hardware externo.
+“Verificado” aquí significa que existen las piezas de código y tests indicados, que los checks locales pasaron, que el PR #9 obtuvo CI remoto verde en sus tres SHAs y que `main` post-merge (`6b24700`) también pasó CI completo, quedó desplegado en producción con `0032` aplicada y respondió al smoke GET. No equivale a una prueba de escritura en producción ni a hardware externo.
 
 | Módulo | Estado | Evidencia en código y tests |
 | --- | --- | --- |
-| Pedidos públicos | **implementado-verificado** | `/pedido` rediseñado (tema claro, card con hero/quick-add, aclaraciones por ítem), catálogo y rutas `/api/public/pedido`; `orderService`/`orderRepository`; tests unitarios de servicio/rutas y specs `tests/e2e/pedido*.spec.ts`. |
+| Pedidos públicos | **implementado-verificado** | `/pedido`, catálogo y rutas `/api/public/pedido`; `orderService`/`orderRepository`; tests unitarios de servicio/rutas y specs `tests/e2e/pedido*.spec.ts`. |
 | Chat de pedidos | **implementado-verificado** | Página pública de chat, rutas públicas y autenticadas, `chatService`/`orderMessageRepository`; tests unitarios de servicio, rutas y componentes; specs E2E de chat y adjuntos. |
 | Ventas | **implementado-verificado** | `/ventas`, `/api/ventas`, `saleService`/`saleRepository`; tests unitarios y specs E2E de disponibilidad, stock compartido, historial y pagos mixtos. |
 | Caja y turnos | **implementado-verificado** | `/cierre`, `/api/caja/*`, `cashRegisterService` y helpers de turno; tests unitarios y specs E2E de cierre automático, caja vacía y contactos/turnos. |
@@ -80,13 +109,13 @@ Cambios de esta sesión: **solo documentales** en `.devin/` (limpieza, archivado
 | Ítem | Severidad | Estado real al cierre | Evidencia |
 | --- | --- | --- | --- |
 | T14 multi-tenant | **mayor** si el objetivo pasa a SaaS; diferido por decisión | **Sigue abierto y no iniciado.** No existe `tenantId`/`tenant_id` en `src/`; el sistema sigue siendo single-tenant con varias sucursales aisladas por `branchId`. No hospedar comercios independientes antes de implementar y probar el aislamiento. | `.devin/prompts/plan-implementacion-multi-tenant.md`; `src/db/schema.ts`; `archivados/auditoria-escalabilidad-2026-09-19.md` §3.9. |
-| D9: ajuste de stock sin rol admin | **menor** | **Resuelto.** Decisión 09-24 mantenida (operadores ajustan, sin `admin:true`); atribución agregada: `stock_movements.performed_by` (`varchar(255)`, migración `0035`) registra `session.user.name` en ajustes manuales — mismo patrón `varchar` que `cash_registers.openedBy/closedBy`. Residual: movimientos de sistema (venta, reserva, cancelación) e históricos quedan `NULL`. | `src/app/api/stock/ajustar/route.ts`; `src/application/services/stockService.ts`; `drizzle/0035_performed_by_stock_movements.sql`. |
-| Flakiness E2E | **menor** | Estable en las corridas recientes: CI verde en `3a029e4` (run `37075242547`, incluido el job E2E). El paso E2E tiene timeout de 35 min desde `d116bd6`. Seguir vigilando recurrencias. | `.github/workflows/ci.yml`; run `37075242547`. |
-| Neon efímera por `run_id` / sharding E2E | **menor** | **Parcial.** Serialización por shard y timeout de 35 min vigentes; `E2E_SHARDS` sigue opt-in con default `[1]` y sin aprovisionamiento efímero. Activarlo solo con una base descartable por shard. | `.github/workflows/ci.yml`; `archivados/ci-e2e-base-compartida.md`. |
-| `/_not-found` estática sin nonce CSP | **menor** | **Sigue abierto como limitación conocida.** El build la marca `○` estática y `src/app/not-found.tsx` no fuerza render dinámico. | `src/app/not-found.tsx`; `archivados/auditoria-qa-ronda-2-2026-09-23.md`. |
-| Limpieza de archivos después de borrar una sucursal | **menor** | El hard delete en cascada se mantiene por decisión del usuario. `deleteBranch` intenta liberar imágenes, adjuntos y videos tras el commit; registra conteos sin keys y el cron elimina archivos huérfanos. Ante una caída persistente, la limpieza puede demorarse. | `src/application/services/branchService.ts`, `src/application/services/cleanupService.ts`, `src/lib/orphaned-files.ts`. |
-| Controles operativos: `VERCEL_PRODUCTION_URL`, crons, consumo Neon/Vercel | **informativo / recurrente** | **Verificado el 2026-10-01** en la sesión del mapa de arquitectura: `VERCEL_PRODUCTION_URL` apunta al dominio productivo real, `CRON_SECRET` coincide (dispatch manual devolvió `{"ok":true}`) y ambos crons de Vercel responden con evidencia de ejecución. Frecuencia real de `expire-orders`: ~4–8 veces/día (throttling de schedules de GH Actions), sin impacto gracias a la expiración lazy. Queda recurrente el consumo Neon/Vercel. | `arquitectura/salud-arquitectura.md` §verificación operativa; `arquitectura/servicios-externos.md`. |
-| Observación del rediseño `/pedido` en producción | **menor** | Deployado el 10-02 sobre `dfb2872`. Revisar runtime errors en una ventana de tráfico real (24–48 h) y, si se autoriza, un smoke de escritura controlado (crear y anular un pedido) para ejercitar el camino completo de idempotencia y `notes` end-to-end. | Deployment `dpl_CCTyXaU4hHEEqLhWJLBqAMoVpP6h`; commits `3a029e4`/`f1e684c`/`dfb2872`. |
+| QA-04: misma `idempotencyKey` con payload distinto | **menor** | **Resuelto y desplegado.** Mergeado en `6b24700` (PR #9); CI verde en los tres SHAs del PR y post-merge en `main`; `0032` aplicada a `.env.e2e`, a la base E2E del CI y a producción (verificado: columnas `varchar(64)` nullable, 33 migraciones en el journal). Las pruebas unitarias cubren pedidos, ventas directas, conversiones, carreras, legacy y HTTP 409. Filas existentes quedan con hash `NULL` y el servicio las trata con ruta segura. Residual: el smoke de producción fue de solo lectura; monitorear tráfico real. | `src/application/idempotencyService.ts`, `src/application/services/orderService.ts`, `src/application/services/saleService.ts`, `src/db/schema.ts`, `drizzle/0032_icy_shaman.sql`, runs `35948485239`/`35949717967`/`35951037629`/`35953586788`, deployment `dpl_9WFCHFZcChxoJb8FworK8hjF7WHc` y tests asociados. |
+| Flakiness E2E en uploads, SSE, chat y tour | **menor** | Una corrida local tuvo exit 1 (169 pasaron, 5 fallaron, 1 flaky en 41.9 min): uploads esperaban 400 y recibieron 500/404, SSE 200→404 y no apareció un adjunto; tour agotó una espera pero pasó en retry. Con confirmación del propietario de `STORAGE_PROVIDER=local`, la corrida siguiente pasó **175/175** en 38.9 min y los E2E remotos del PR #9 pasaron en 12 min 26 s y 15 min 05 s. No se aisló la causa del primer resultado; seguir vigilando recurrencias. | `tests/e2e/api-seguridad.spec.ts`, `tests/e2e/chat-stream.spec.ts`, `tests/e2e/pedido-chat-adjuntos.spec.ts`, `tests/e2e/tour.spec.ts`; resultados locales y runs `35948485239`/`35949717967`. |
+| Neon efímera por `run_id` / sharding E2E | **menor** | **Parcial.** PR #7 serializó por shard y elevó el timeout a 25 min. No hay aprovisionamiento efímero por `run_id`; `E2E_SHARDS` sigue opt-in y default `[1]`. Duraciones recientes del job E2E: 18 min 06 s (HEAD base), 12 min 26 s / 15 min 05 s / 21 min 05 s (PR #9) y 12 min 18 s (`main` post-merge): todas superan el umbral documentado de ~10 min. | `.github/workflows/ci.yml`; `archivados/ci-e2e-base-compartida.md`; runs `35878657216`, `35948485239`, `35949717967`, `35951037629` y `35953586788`. |
+| `/_not-found` estática sin nonce CSP | **menor** | **Sigue abierto como limitación conocida.** El build la marca `○` estática y `src/app/not-found.tsx` no fuerza render dinámico; el informe de QA indica que el `<Link>` conserva navegación nativa, aunque el navbar no hidrata. | Salida de `npm run build`; `src/app/not-found.tsx`; `archivados/auditoria-qa-ronda-2-2026-09-23.md`. |
+| Limpieza de archivos después de borrar una sucursal | **menor** | El hard delete en cascada se mantiene por decisión del usuario. `deleteBranch` intenta liberar imágenes, adjuntos y videos tras el commit; registra conteos sin keys y el cron elimina archivos huérfanos. También registra fallos al retirar rate-limit entries, cuya expiración procesa el cron correspondiente. No se hizo un borrado real ni se probaron proveedores externos; ante una caída persistente, la limpieza puede demorarse. | `src/application/services/branchService.ts`, `src/application/services/cleanupService.ts`, `src/lib/orphaned-files.ts`, tests de servicio/repositorio de sucursal. |
+| Controles operativos recurrentes: `VERCEL_PRODUCTION_URL`, cron y consumo Neon/Vercel | **informativo / recurrente** | **Parcialmente verificado.** El dominio productivo se confirmó (`pancheria-alpha.vercel.app`) y los crons `Expirar pedidos pendientes` más recientes terminaron `success` (`35942518204`, `35931961170`). Siguen sin inspeccionarse el valor de `VERCEL_PRODUCTION_URL` (variable de repo) ni las métricas de consumo/límites de Neon/Vercel. | `.devin/informes/checklist-pre-push.md`; `archivados/auditoria-proyecto-2026-09-20.md` §7; dominios del proyecto Vercel; runs `35942518204`/`35931961170`. |
+| Validación de consistencia de migraciones en CI | **menor** | **Resuelto.** `npx drizzle-kit check` precede a `drizzle-kit migrate` en el job E2E; ambos pasos terminaron `success` en los tres runs del PR #9 y en el post-merge `35953586788` de `main`. La aplicación de `0032` a producción también se verificó (columnas + journal). | `.github/workflows/ci.yml`; runs `35948485239`/`35949717967`/`35951037629`/`35953586788`; verificación Neon de producción; `archivados/auditoria-deploy-vercel-2026-09-14.md` §Conclusión. |
 | Verificación del blueprint DRS en Devin Cloud | **informativo / condicional** | **No resuelto en evidencia disponible.** El plan archivado dice que está resuelto, pero su tabla interna conserva la verificación de DRS como pendiente; la existencia de `.devin/environment.yaml` no prueba un build remoto. Confirmar si todavía se usa DRS. | `archivados/plan-de-accion-2026-08-27.md` §2; `.devin/README.md`. |
 
 ### Decisión confirmada: eliminación de sucursales
@@ -95,44 +124,48 @@ Por pedido explícito del propietario, se mantiene el **hard delete en cascada**
 
 ### Prompts, TODOs y pendientes en archivados
 
-- `.devin/prompts/README.md` enumera **7 prompts activos**: `pancheria.prompt.md` (prompt maestro), 4 guías de auditoría reutilizables (`auditoria-cobertura-de-pruebas`, `auditoria-escalabilidad`, `auditoria-pre-release`, `auditoria-qa-integral`, `auditoria-y-documentacion`) y `plan-implementacion-multi-tenant.md` (propuesta T14 sin implementar). Los prompts del rediseño `/pedido` y del mapa de arquitectura quedaron archivados tras su ejecución.
-- Los pendientes y controles de informes archivados (T14, D9, sharding E2E, `/_not-found`, controles operativos y DRS) están reflejados arriba. La retención soft-delete de sucursales quedó descartada por decisión del propietario. SSE sigue opt-in deshabilitado; T16 (réplicas/agregaciones) quedó descartado a la escala actual.
+- `.devin/prompts/README.md` enumera **7 prompts activos**. Los prompts de auditoría son guías reutilizables; `plan-implementacion-multi-tenant.md` sigue siendo una propuesta sin implementar. No encontré otro prompt de implementación activo cuyo trabajo ya esté resuelto.
+- La búsqueda case-sensitive de `TODO|FIXME|HACK` en `src/` y `tests/` devolvió **0 coincidencias**.
+- Los pendientes y controles de informes archivados (T14, QA-04 ya resuelto y desplegado, alternativa de Neon/sharding, `/_not-found`, controles operativos Vercel/Neon y DRS) están reflejados arriba. La retención soft-delete de sucursales quedó descartada por decisión del propietario. SSE sigue opt-in deshabilitado según el estado documentado; el valor actual en producción no se inspeccionó (ver «No verificado»). T16 (réplicas/agregaciones) quedó descartado a la escala actual, con umbral de reevaluación documentado.
+- La sincronización de `auditoria-qa-ronda-2-2026-09-23.md` se corrigió en esta rama: ya registra PR #7 y la serialización E2E; el pendiente es Neon efímera/sharding. También registra la decisión actual de mantener hard delete de sucursales.
 - `archivados/plan-de-accion-2026-08-27.md` tiene encabezado «resuelto», pero su tabla interna aún lista pendiente la verificación del blueprint DRS; se conserva como condicional y no verificado arriba, porque no se comprobó Devin Cloud.
+- El mismo plan conserva una «decisión pendiente» antes de eliminar archivos históricos: es una condición para una limpieza opcional, no una tarea funcional abierta. No se eliminó ningún archivo.
 - Los snapshots bajo `archivados/historico/` conservan tareas antiguas por regla documental; no se reabren como pendientes vigentes.
 
-### Sincronización documental (sesión 2026-10-02)
+### Sincronización documental — muestreo
 
-- Se archivaron 7 informes resueltos (`auditoria-ux-sucursales`, `prueba-promo-imagen`, `pruebas-manuales`, `resultados-pruebas`, `rediseno-pedido-pr1/pr2/pr3`) y 3 prompts ejecutados (`plan-rediseno-card-y-modal-pedido`, `rediseno-pedido-pr2-modal`, `mapa-arquitectura`), con marcador `Estado:` y enlaces relativos corregidos.
-- Se eliminaron 11 scripts descartables/de una sola sesión de `.devin/tmp/` (quedaron los helpers genéricos `api.sh`, `env*.ts`, `setup.ts`, `sql.ts`, todos gitignorados y sin credenciales).
-- `arquitectura/base-de-datos.md` se sincronizó con la migración `0034` (`notes` en `order_items`/`sale_items`) y se regeneró `diagramas/svg/base-de-datos.svg`.
-- `guia-funcionamiento-pancheria.md` documenta ahora las aclaraciones por ítem, el cobro efectivo/transferencia/mixto al confirmar pedido y la regla de extras cobrables (productos `service` standalone).
-- Los tres índices (`.devin/README.md`, `informes/README.md`, `prompts/README.md`) reflejan la estructura final.
+- Las variables de configuración de runtime encontradas en `src/config/` están representadas en `.env.example` y en la sección de entorno de `AGENTS.md`. `NODE_ENV` y `VERCEL` son valores del runtime/plataforma, no claves de configuración para completar en `.env.example`. No encontré faltantes o sobrantes claros de variables de negocio.
+- Los comandos `npm run` documentados en `AGENTS.md` existen en `package.json`; las herramientas `drizzle-kit` y `tsx` usadas vía `npx` están en dependencias de desarrollo.
+- Los enlaces Markdown de los índices vigentes de `.devin/` apuntan a archivos existentes en el muestreo revisado; no se encontraron referencias Markdown rotas en esos índices.
+- Las discrepancias encontradas se corrigieron en el PR #9: `README.md` ya no promete `/cierre/historial`, el cierre se describe mediante `cash_registers`/`/ventas/historial`; la tabla de la guía ya no nombra `dailyClosures`; se quitó el índice multi-tenant obsoleto de `daily_closures`; y la nota archivada de concurrencia E2E registra la resolución por PR #7. No se creó una ruta ni se inició T14.
+- La auditoría de deploy recomendaba verificar consistencia de migraciones en CI. `migrate` en la base E2E valida la aplicación, pero no comprueba el historial generado; por eso agregué `npx drizzle-kit check` antes de `migrate` en el job E2E y documenté el comando en `AGENTS.md`, README y checklist. Los runs `35948485239`, `35949717967`, `35951037629` (PR #9) y `35953586788` (`main` post-merge) ejecutaron ambos pasos en verde.
 
 ### Riesgos y recomendaciones priorizadas
 
 | Prioridad | Impacto × esfuerzo | Recomendación accionable |
 | --- | --- | --- |
 | P1 | Alto × bajo, condicional | Mantener producción limitada a un comercio con varias sucursales. No iniciar T14 ni hospedar comercios independientes hasta que el propietario reabra explícitamente ese objetivo y exista un plan de aislamiento/backfill/rollback. |
-| P1 | Alto × bajo | Monitorear producción tras el rediseño `/pedido`: revisar runtime errors en una ventana de tráfico real (24–48 h) y, si se autoriza, un smoke de escritura controlado (crear y anular un pedido con aclaraciones) para ejercitar idempotencia, `notes` y el cobro al confirmar en producción. |
-| P2 | Medio × bajo | Atribución de ajustes implementada (`performed_by`, migración `0035`). Extensión opcional a futuro: vendedor/anulador en `sales` y operador en `orders` (mismo hueco de trazabilidad). |
-| P2 | Medio × medio | Si E2E se acerca al timeout de 35 min o hay presión por concurrencia, provisionar una base Neon distinta por shard y recién entonces habilitar `E2E_SHARDS`; Neon efímera por `run_id` queda para una fase posterior. |
-| P3 | Bajo × bajo | Revisar periódicamente consumo de Neon/Vercel y confirmar si Devin Cloud/DRS sigue en uso. |
+| P1 | Alto × bajo | Monitorear producción tras QA-04: revisar runtime errors en una ventana de tráfico real (24–48 h) y, si se autoriza, un smoke de escritura controlado (crear y anular un pedido de prueba) para ejercitar el camino de idempotencia y el 409 en producción. El smoke GET y las verificaciones de esquema ya pasaron. |
+| P2 | Medio × bajo | Mantener el hard delete en cascada de sucursales según la decisión del propietario. Conservar el resumen/confirmación explícita, revisar warnings de limpieza y asegurar backups operativos; no agregar soft-delete. |
+| P2 | Medio × medio | Planificar sharding E2E con una base descartable independiente por shard: los últimos E2E remotos tomaron entre 12 min 18 s y 21 min 05 s, todos por encima del umbral orientativo de 10 min. No activar `E2E_SHARDS` hasta aprovisionar y verificar cada par de secrets/base; Neon efímera por `run_id` es una fase posterior. |
+| P3 | Bajo × bajo | Revisar `VERCEL_PRODUCTION_URL` (variable de repo), métricas Neon/Vercel y DRS sin exponer valores. El dominio productivo ya se verificó (`pancheria-alpha.vercel.app`). |
 
 ### Próximos pasos concretos
 
 1. Mantener T14 sin iniciar y el alcance single-tenant/multi-sucursal hasta una decisión explícita distinta. Mantener también el hard delete en cascada de sucursales tal como lo pidió el propietario.
-2. Confirmar estabilidad post-rediseño: runtime errors de Vercel en 24–48 h de tráfico real; smoke de escritura solo con autorización.
-3. D9 cerrado con `performed_by` (`0035`); si se quiere trazabilidad completa, evaluar la misma columna en `sales`/`orders`.
-4. Toda corrida futura sobre `.env.e2e` requiere autorización porque `global-setup.ts` vuelve a truncar y reseedear. `0033`/`0034` ya están aplicadas en producción.
-5. En la próxima revisión operativa, comprobar consumo de Neon/Vercel sin registrar valores y confirmar si Devin Cloud/DRS sigue en uso.
+2. Confirmar estabilidad post-release: revisar runtime errors de Vercel en una ventana de tráfico real (24–48 h). Si el propietario lo autoriza, hacer un smoke de escritura controlado (crear y anular un pedido de prueba) para ejercitar el camino completo de idempotencia y el 409 en producción.
+3. Toda corrida futura sobre `.env.e2e` requiere autorización porque `global-setup.ts` vuelve a truncar y reseedear. `0032` ya quedó aplicada en `.env.e2e`, en la base E2E del CI y en producción.
+4. Si E2E sigue sobre ~10 min o hay presión por concurrencia, provisionar una base Neon distinta por shard y recién entonces habilitar `E2E_SHARDS`; dejar efímera por `run_id` para una fase posterior.
+5. En la próxima revisión operativa, comprobar `VERCEL_PRODUCTION_URL` y consumo de Neon/Vercel sin registrar valores; confirmar si Devin Cloud/DRS sigue en uso y validar el blueprint solo si corresponde.
 
 ### Limitaciones y aspectos no verificados
 
-- Esta sesión fue **documental**: no se crearon pedidos ni ventas reales en producción; el camino de escritura (idempotencia 409, `notes`, cobro al confirmar) se verificó en código y tests, no end-to-end en prod.
-- No se inspeccionaron ni mostraron valores de `.env.local`, GitHub Secrets/Variables o Vercel. Siguen sin revisarse las métricas de consumo de Neon/Vercel.
+- La última corrida autorizada de `npm run test:e2e` tras corregir las specs concluyó: **175/175 pasaron** en 38.9 min; una corrida previa tuvo 5 fallos y 1 flaky que no se reprodujeron. Los artefactos de la corrida previa registraron fallos en uploads, SSE/chat y una espera flaky del tour (ver tabla de deuda); no se reprodujeron en esta corrida. El `global-setup.ts` truncó/reseedeó `.env.e2e`; la base contiene datos de la suite. No se aisló aún la causa de esos fallos.
+- El propietario confirmó que `.env.e2e` usa `STORAGE_PROVIDER=local`; no se imprimieron ni inspeccionaron valores. No se consultó storage remoto. Otra E2E requiere autorización nueva porque el setup vuelve a truncar/reseedear.
+- Merge, deploy y migración de producción ya realizados: PR #9 mergeado como `6b24700`, CI post-merge `35953586788` en verde, Vercel `READY` y `0032` aplicada y verificada en Neon `main`. El smoke de producción se limitó a GETs públicos; no se ejercitó una escritura real ni el 409 de idempotencia end-to-end en producción.
+- No se inspeccionaron ni mostraron valores de `.env.local`, GitHub Secrets/Variables o Vercel. `.env.e2e` se procesó internamente en el preflight, la migración y E2E autorizados; `.env.production.local` se usó solo para la migración autorizada y se eliminó. No se imprimieron URLs ni credenciales. Siguen sin revisarse la variable `VERCEL_PRODUCTION_URL` del repo ni las métricas de consumo de Neon/Vercel.
 - No se ejecutó una eliminación real de sucursal ni se probaron proveedores de storage externos; las pruebas de cascada/limpieza son unitarias con mocks.
 - No se validó el blueprint de Devin Cloud (`devin.exe cloud drs build`) ni se probó Google Cast con un dispositivo físico.
-- Los CI runs de `f1e684c` y `dfb2872` estaban en curso/pendientes al momento de esta revisión; el último run verde con código de aplicación es `37075242547` (`3a029e4`).
 
 ### Regla documental vigente
 

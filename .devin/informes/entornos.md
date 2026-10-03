@@ -155,7 +155,9 @@ Verificado vía MCPs de Vercel y Neon durante la consolidación pre-multi-tenant
 - **`DATABASE_POOL_MAX=5`:** definida en producción para acotar conexiones por instancia (compute Neon de 0.25 CU).
 - **`DATA_CACHE_REVALIDATE_S`:** sin definir → default 60 s del caché de servidor.
 - **`NEXT_PUBLIC_CHAT_STREAM_ENABLED`:** sin definir → SSE deshabilitado; el chat usa polling.
-- **Cron `expire-orders`:** schedule `*/5 * * * *` en GitHub Actions corre en la práctica cada ~2–5 h; las lecturas de pedidos expiran pendings vencidos en el momento (expiración lazy), así que la cadencia solo afecta a pedidos que nadie lee.
+- **Cron `expire-orders`:** schedule `*/5 * * * *` en GitHub Actions corre en la práctica ~4–8 veces por día (verificado 2026-10-01); las lecturas de pedidos expiran pendings vencidos en el momento (expiración lazy), así que la cadencia solo afecta a pedidos que nadie lee.
+- **Actualización 2026-10-02:** `order_items.notes` y `sale_items.notes` existen en producción → migración `0034` aplicada (verificado vía Neon MCP sobre `br-nameless-sun-avrmz655`; el conteo exacto del journal no se pudo releer por scope de credencial). Deploy `READY` sobre `dfb2872` en `pancheria-alpha.vercel.app`.
+- **Actualización 2026-10-02 (bis):** migración `0035` (`stock_movements.performed_by`) aplicada a producción vía Neon MCP `run_sql_transaction` antes del push (misma convención que `0031`: ALTER + fila `__drizzle_migrations` con hash SHA-256 del archivo y `created_at` = `when` del journal). Verificado: columna presente y journal en **36** migraciones (`last_when` = `0035`).
 
 ---
 

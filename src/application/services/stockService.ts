@@ -57,6 +57,7 @@ export async function adjustStock(
   quantity: number,
   reason: string,
   type: StockMovementType = 'manual_adjustment',
+  performedBy?: string | null,
   dbOrTx?: typeof db
 ) {
   validateMinLength(reason, 3, 'El motivo del ajuste');
@@ -103,6 +104,7 @@ export async function adjustStock(
       type,
       quantity,
       reason,
+      performedBy: performedBy ?? null,
       createdAt: nowUTC(),
     });
 

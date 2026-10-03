@@ -1,5 +1,7 @@
 # Prompt: PR 2 del rediseño de `/pedido` — modal de personalización
 
+> **Estado: archivado — ejecutado.** Implementado y mergeado en `main` (2026-10-02, commit `3a029e4`); informe en `../../informes/archivados/rediseno-pedido-pr2-2026-10-02.md`.
+
 ## Contexto
 
 Proyecto: `pancheria`. Stack: Next.js 16, React 19, TS, Tailwind v4, shadcn/ui
@@ -7,7 +9,7 @@ sobre Base UI, Drizzle/PostgreSQL.
 
 Continuación de [plan-rediseno-card-y-modal-pedido.md](plan-rediseno-card-y-modal-pedido.md)
 **después del PR 1 ya implementado**. Estado y decisiones:
-[rediseno-pedido-pr1-2026-10-02.md](../informes/rediseno-pedido-pr1-2026-10-02.md).
+[rediseno-pedido-pr1-2026-10-02.md](../../informes/archivados/rediseno-pedido-pr1-2026-10-02.md).
 
 ## Estado vigente tras PR 1 (ya hecho — no repetir)
 

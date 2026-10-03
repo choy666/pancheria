@@ -1,8 +1,8 @@
 # Rediseño `/pedido` — PR 1: tema claro, tokens de marca y card pública
 
-**Estado:** implementado (PR 2 completado en [rediseno-pedido-pr2-2026-10-02.md](rediseno-pedido-pr2-2026-10-02.md))
+> **Estado: archivado — implementado y mergeado** en `main` (2026-10-02, commits `3a029e4` y `dfb2872`; PR 2 y PR 3 completados en [rediseno-pedido-pr2-2026-10-02.md](rediseno-pedido-pr2-2026-10-02.md) y [rediseno-pedido-pr3-2026-10-02.md](rediseno-pedido-pr3-2026-10-02.md)).
 
-Implementación del PR 1 de [plan-rediseno-card-y-modal-pedido.md](../prompts/plan-rediseno-card-y-modal-pedido.md):
+Implementación del PR 1 de [plan-rediseno-card-y-modal-pedido.md](../../prompts/archivados/plan-rediseno-card-y-modal-pedido.md):
 paleta clara y tokens de marca para el flujo público, fuentes Anton/Poppins y
 la nueva card estilo food-delivery con hero visual, quick-add y botón de
 personalización separado.
@@ -97,9 +97,9 @@ flujo `/pedido` y chat):
 - `npm test` ✓ 178 suites / 1981 tests
 - `npm run knip` ✓ · `npm run build` ✓
 - Capturas (base dev local, los productos sin imagen muestran el fallback):
-  - [Desktop 1280px](shots/pr1-pedido-desktop.png)
-  - [Mobile 390px](shots/pr1-pedido-mobile.png)
-  - [Diálogo de personalización en tema claro](shots/pr1-pedido-dialog.png)
+  - [Desktop 1280px](../shots/pr1-pedido-desktop.png)
+  - [Mobile 390px](../shots/pr1-pedido-mobile.png)
+  - [Diálogo de personalización en tema claro](../shots/pr1-pedido-dialog.png)
 - Errores de consola observados: solo el 404 del script de Vercel Insights
   en local (preexistente, sin relación).
 
@@ -135,14 +135,14 @@ sin imagen → se ejercita el fallback de monograma en todas las cards):
 - Quirk de datos preexistente (no del PR): la sucursal sin horarios muestra
   "Abre No hay horarios de apertura configurados." — mensaje concatenado que
   viene del backend, no del rediseño.
-- Capturas adicionales: [carrito con badge](shots/pr1-pedido-carrito.png),
-  [checkout en claro](shots/pr1-pedido-checkout.png),
-  [select portaleado](shots/pr1-pedido-select.png),
-  [seguimiento](shots/pr1-pedido-seguimiento.png),
-  [panel oscuro intacto](shots/pr1-panel-dark.png),
-  [mobile con barra de carrito](shots/pr1-pedido-mobile-carrito.png).
+- Capturas adicionales: [carrito con badge](../shots/pr1-pedido-carrito.png),
+  [checkout en claro](../shots/pr1-pedido-checkout.png),
+  [select portaleado](../shots/pr1-pedido-select.png),
+  [seguimiento](../shots/pr1-pedido-seguimiento.png),
+  [panel oscuro intacto](../shots/pr1-panel-dark.png),
+  [mobile con barra de carrito](../shots/pr1-pedido-mobile-carrito.png).
 - Prompt de continuación del PR 2:
-  [rediseno-pedido-pr2-modal.md](../prompts/rediseno-pedido-pr2-modal.md).
+  [rediseno-pedido-pr2-modal.md](../../prompts/archivados/rediseno-pedido-pr2-modal.md).
 
 ## Pendiente para PR 2
 

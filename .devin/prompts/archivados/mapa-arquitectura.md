@@ -1,5 +1,7 @@
 # Prompt: Mapa visual de arquitectura del proyecto Panchería
 
+> **Estado: archivado — ejecutado.** El mapa vive en `../../informes/arquitectura/` (referencia viva, verificado 2026-10-02) con renders `.svg` en `diagramas/svg/` (commits `e6ad216`, `8150ee9`).
+
 ## Contexto
 
 Proyecto: `panchería` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos, chat por pedido y gestión de videos con reproducción y Cast.

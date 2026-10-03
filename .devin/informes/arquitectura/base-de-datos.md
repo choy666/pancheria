@@ -103,6 +103,7 @@ erDiagram
         integer quantity
         numeric unit_price
         numeric subtotal
+        text notes "aclaraciones por ítem (0034)"
     }
     sale_payments {
         serial id PK
@@ -151,6 +152,7 @@ erDiagram
         integer quantity
         numeric unit_price
         numeric subtotal
+        text notes "aclaraciones por ítem (0034)"
     }
     order_item_recipes {
         serial id PK
@@ -195,6 +197,7 @@ erDiagram
         stock_movement_type type "sale|cancellation|manual_adjustment|restock|reserve|reserve_release"
         integer quantity
         text reason
+        varchar performed_by "nullable — usuario que ajustó"
         integer sale_id FK "set null"
         integer order_id FK "set null"
         timestamp created_at
@@ -274,7 +277,7 @@ erDiagram
 | `cash_register_status` | `open`, `closed` | `cash_registers.status` |
 | `user_role` | `admin`, `operator` | `users.role` |
 
-> ⚠️ Histórico: las migraciones `0008`/`0009` mencionan `order`/`order_cancellation` en `stock_movement_type`; el enum fue recreado en `0009` y los valores actuales son solo los 6 listados. La guía de funcionamiento está desactualizada en este punto (ver `salud-arquitectura.md` §Discrepancias).
+> ⚠️ Histórico: las migraciones `0008`/`0009` mencionan `order`/`order_cancellation` en `stock_movement_type`; el enum fue recreado en `0009` y los valores actuales son solo los 6 listados (la guía ya refleja los valores vigentes).
 
 ## Catálogo de tablas (18)
 
@@ -288,15 +291,15 @@ erDiagram
 | `recipes` | Receta: insumo (`supply_id`) que compone un producto `compound` | FKs cascade a `products` ×2; idx por ambas FK |
 | `cash_registers` | Cajas por turno. Resúmenes congelados en JSONB al cerrar | **Unique parcial**: una sola `open` por `branch_id` con `deleted_at IS NULL`; idx `status`, `opened_at`, `(branch_id,status,deleted_at)` |
 | `sales` | Venta (cabecera). `idempotency_key` por sucursal | UNIQUE `(branch_id, idempotency_key)`; idx `created_at`, `(branch_id,created_at)`, `(cash_register_id,created_at)` |
-| `sale_items` | Línea de venta | cascade a `sales`; `product_id` restrict |
+| `sale_items` | Línea de venta; `notes` guarda aclaraciones por ítem (migración `0034`) | cascade a `sales`; `product_id` restrict |
 | `sale_payments` | Pagos multi-parte de la venta | cascade a `sales` |
 | `sale_item_recipes` | **Snapshot** de la receta al vender (insumo, qty, selected) | cascade a `sale_items`; `supply_id` restrict |
 | `orders` | Pedido público. `cancellation_token` = credencial del cliente | UNIQUE `cancellation_token`; UNIQUE `(branch_id, order_number)`; UNIQUE `(branch_id, idempotency_key)`; idx `status`, `created_at`, `customer_name`, `customer_phone`, `converted_sale_id` |
-| `order_items` | Línea de pedido | cascade a `orders`; `product_id` restrict |
+| `order_items` | Línea de pedido; `notes` guarda aclaraciones por ítem (migración `0034`) | cascade a `orders`; `product_id` restrict |
 | `order_item_recipes` | **Snapshot** de receta en pedido | cascade a `order_items`; `supply_id` restrict |
 | `order_stock_reservations` | Reserva de stock de pedidos `in_process` | cascade a `orders`; idx `(branch_id, product_id)` |
 | `order_messages` | Chat del pedido (texto/adjunto/ubicación) | cascade a `orders`; idx `(order_id, created_at)`, `(order_id, sender_type, read_at)`, `attachment_key` |
-| `stock_movements` | Auditoría de stock (venta, anulación, ajuste, restock, reserva, liberación) | `sale_id`/`order_id` set null; idx `(branch_id, product_id, created_at)` |
+| `stock_movements` | Auditoría de stock (venta, anulación, ajuste, restock, reserva, liberación). `performed_by` guarda el usuario que registró un ajuste manual (migración `0035`; NULL en movimientos de sistema — ventas, reservas — e históricos) | `sale_id`/`order_id` set null; idx `(branch_id, product_id, created_at)` |
 | `videos` | Videos para cartelera/Cast. `file_url` apunta al provider | idx `(branch_id, is_active, deleted_at)` |
 
 ### Tablas de infraestructura (rate limiting)

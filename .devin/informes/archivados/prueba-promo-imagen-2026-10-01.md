@@ -1,6 +1,6 @@
 # Prueba — Promo con imagen y visibilidad en `/pedido`
 
-**Estado:** completado. La tarea tenía desvíos reales: **3 bugs corregidos** (catálogo caído por URL de imagen, botón "Usar URL" inerte, magic bytes omitidos en providers remotos), más **3 endurecimientos** en la pasada de corroboración (race del form de promo, `imageUrl` suplantable con key reenviada, redirect roto del stream de video con blob). Se verificó el flujo completo bajo `local` y `vercel-blob`.
+**Estado:** archivado — completado y mergeado en `main` (2026-10-01, commit `ccf4e99`). La tarea tenía desvíos reales: **3 bugs corregidos** (catálogo caído por URL de imagen, botón "Usar URL" inerte, magic bytes omitidos en providers remotos), más **3 endurecimientos** en la pasada de corroboración (race del form de promo, `imageUrl` suplantable con key reenviada, redirect roto del stream de video con blob). Se verificó el flujo completo bajo `local` y `vercel-blob`.
 **Fecha:** 2026-10-01
 **Alcance:** auditoría del spec + ejecución manual completa (Playwright MCP + scripts tsx contra la DB de dev) del alta/edición/baja de promos con imagen, casos negativos, flujo de URL externa y limpieza.
 **Motivación:** verificar que una promo con imagen ilustrativa persista correctamente y sea visible en el catálogo público `/pedido`, bajo `STORAGE_PROVIDER=local` (dev/E2E) y `vercel-blob` (config real de `.env.local`).

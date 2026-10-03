@@ -1,9 +1,9 @@
 # Rediseño `/pedido` — PR 3: aclaraciones por ítem
 
-**Estado:** en curso (implementado y verificado el 2026-10-02; pendiente PR/merge)
+> **Estado: archivado — implementado, verificado y mergeado** en `main` (2026-10-02, commits `3a029e4`, `f1e684c` — decisión de extras cobrables — y `dfb2872` — detalle de ítems en `/pedido/seguimiento`).
 
 Plan del PR 3 de
-[plan-rediseno-card-y-modal-pedido.md](../prompts/plan-rediseno-card-y-modal-pedido.md),
+[plan-rediseno-card-y-modal-pedido.md](../../prompts/archivados/plan-rediseno-card-y-modal-pedido.md),
 pendiente declarado en
 [rediseno-pedido-pr2-2026-10-02.md](rediseno-pedido-pr2-2026-10-02.md)
 §"Pendiente para PR 3".
@@ -37,7 +37,7 @@ nota se perdería silenciosamente (ver §"Correcciones de la revisión").
   `saleItems` (~línea 296).
 - `npx drizzle-kit generate` → migración commiteada en `drizzle/`; aplicar
   con `npx drizzle-kit migrate` en `neondb_dev` y `neondb_e2e`. Producción
-  sigue el flujo de [entornos.md](entornos.md).
+  sigue el flujo de [entornos.md](../entornos.md).
 - Las lecturas fluyen solas: drizzle `with:` devuelve todas las columnas y
   `normalizeOrderItem`/`SaleWithDetails` propagan por spread.
 
@@ -301,11 +301,11 @@ en 2.4m. Sin regresiones atribuibles al PR.
 creado vía UI pública, luego cancelado; caja abierta y cerrada para el
 flujo, sin ventas):
 
-- [Modal con campo Aclaraciones — desktop 1280px](shots/pr3-modal-aclaraciones-desktop.png)
-- [Modal con campo Aclaraciones — mobile 390px](shots/pr3-modal-aclaraciones-mobile.png)
-- [Diálogo de éxito con la nota del ítem — mobile](shots/pr3-exito-con-nota-mobile.png)
-- [`/pedidos/[id]` con "Nota: …" en el ítem](shots/pr3-pedidos-detalle-nota.png)
-- [Mensaje de preparación del chat con "— Aclaración: …"](shots/pr3-pedidos-chat-preparacion.png)
+- [Modal con campo Aclaraciones — desktop 1280px](../shots/pr3-modal-aclaraciones-desktop.png)
+- [Modal con campo Aclaraciones — mobile 390px](../shots/pr3-modal-aclaraciones-mobile.png)
+- [Diálogo de éxito con la nota del ítem — mobile](../shots/pr3-exito-con-nota-mobile.png)
+- [`/pedidos/[id]` con "Nota: …" en el ítem](../shots/pr3-pedidos-detalle-nota.png)
+- [Mensaje de preparación del chat con "— Aclaración: …"](../shots/pr3-pedidos-chat-preparacion.png)
 
 Para las capturas se creó un usuario admin temporal en la base dev
 (`devin-capturas`), eliminado al terminar; la contraseña del `.env.local`

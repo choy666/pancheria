@@ -472,7 +472,8 @@ async function seedCatalog(branchId: number) {
         seeded.id,
         initialStock,
         'Stock inicial',
-        'restock'
+        'restock',
+        'Sistema'
       );
     }
   }

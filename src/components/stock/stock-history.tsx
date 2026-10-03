@@ -22,6 +22,7 @@ interface StockMovement {
   type: 'sale' | 'cancellation' | 'manual_adjustment' | 'restock' | 'reserve' | 'reserve_release';
   quantity: number;
   reason: string | null;
+  performedBy: string | null;
   createdAt: string;
 }
 
@@ -92,6 +93,7 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
               <TableHead className="hidden sm:table-cell">Tipo</TableHead>
               <TableHead>Cantidad</TableHead>
               <TableHead className="hidden md:table-cell">Motivo</TableHead>
+              <TableHead className="hidden lg:table-cell">Por</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -118,6 +120,12 @@ export function StockHistory({ productId, productName }: StockHistoryProps) {
                   className="hidden md:table-cell max-w-[200px] truncate"
                 >
                   {movement.reason || '-'}
+                </TableCell>
+                <TableCell
+                  data-testid="stock-movement-performed-by"
+                  className="hidden lg:table-cell"
+                >
+                  {movement.performedBy || '-'}
                 </TableCell>
               </TableRow>
             ))}

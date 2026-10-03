@@ -1,7 +1,7 @@
 # Arquitectura del sistema Panchería
 
 **Estado:** implementado
-**Fecha de verificación:** 2026-10-01 (contra el código en `main`, working tree)
+**Fecha de verificación:** 2026-10-02 (contra el código en `main`; `base-de-datos.md` incluye `notes` de la migración `0034`)
 **Alcance:** documentación de la arquitectura **real** verificada en código. No modifica comportamiento funcional. Para reglas de negocio detalladas ver [guia-funcionamiento-pancheria.md](../guia-funcionamiento-pancheria.md).
 
 ## Qué es esto

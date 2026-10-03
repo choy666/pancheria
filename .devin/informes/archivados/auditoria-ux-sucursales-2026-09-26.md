@@ -1,6 +1,6 @@
 # Auditoría UX y funcional — sección `/sucursales`
 
-**Estado:** implementado completo (2026-09-26) — **Tramo A** (H-M1–H-M5, H-C1 con banners de advertencia sin bloqueos — decisión del usuario —, H-m2, H-m9–H-m13 y A1–A8), **menores** (H-m1, H-m3–H-m8) y **Tramo B** (rutas dedicadas `/sucursales/nueva` y `/sucursales/[id]/editar`). Sin pendientes.
+**Estado:** archivado — implementado completo (2026-09-26) y mergeado en `main` vía PR #10 (`9fc1266`, que también migró usuarios a rutas dedicadas) — **Tramo A** (H-M1–H-M5, H-C1 con banners de advertencia sin bloqueos — decisión del usuario —, H-m2, H-m9–H-m13 y A1–A8), **menores** (H-m1, H-m3–H-m8) y **Tramo B** (rutas dedicadas `/sucursales/nueva` y `/sucursales/[id]/editar`). Sin pendientes.
 **Fecha:** 2026-09-26 — **Revisión v3** (mismo día): auditoría del propio informe contra el código post-implementación — refs de líneas corregidas, §1.3/§4 actualizados al comportamiento vigente y 4 hallazgos menores nuevos (H-m10–H-m13). Sobre **v2**: re-verificación integral de cada afirmación; correcciones de precisión, dos hallazgos nuevos y propuestas afinadas. Registro de cambios en §8.
 **Alcance:** auditoría documental de la sección `/sucursales` (sin modificar código, sin seed, sin E2E, solo lectura) en dos fases: **Fase 1** — inventario completo + hallazgos clasificados; **Fase 2** — propuesta priorizada de rediseño (sin implementar).
 **Motivación:** hoy la página muestra primero el formulario de alta/edición y después el inventario; la primera impresión debería ser el estado de las sucursales existentes.

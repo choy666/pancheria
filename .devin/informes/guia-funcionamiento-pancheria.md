@@ -119,6 +119,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 | `reserve` | Reserva de stock al recibir un pedido (`in_process`) | Automático al recibir pedido desde el panel | No (reserva lógica en `order_stock_reservations`) |
 | `reserve_release` | Liberación de una reserva al pagar o cancelar un pedido `in_process` | Automático al confirmar pago o cancelar pedido en reserva | No |
 
+Los ajustes manuales (`restock`/`manual_adjustment`) registran además el usuario que los hizo en `stock_movements.performed_by` (visible en la columna "Por" del historial de `/stock`); los movimientos automáticos del sistema y los históricos quedan con `NULL`.
+
 <ref_file file="C:/developer/paginas/pancheria/src/domain/types.ts" /> (`StockMovementType`).
 
 ### 4.3 ¿Cuándo se descuenta stock automáticamente?
@@ -246,7 +248,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 1. El operador abre la caja.
 2. Navega a `/ventas`.
 3. El terminal carga productos vendibles con disponibilidad.
-4. El operador agrega productos al carrito.
+4. El operador agrega productos al carrito. Si la línea lleva personalización o aclaraciones, se abre `PromoOptionsDialog` (mismo componente que `/pedido`, en variante oscura): toggles de opcionales, campo de aclaraciones y —al agregar— stepper de cantidad que genera una línea independiente por unidad.
 5. El cliente selecciona medio de pago (`cash` o `transfer`).
 6. Confirma la venta.
 7. El sistema:
@@ -284,16 +286,16 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 2. Si no hay `?branchId`, se redirige a la sucursal por defecto (`DEFAULT_BRANCH_NAME`).
 3. Si hay más de una sucursal, puede elegir otra desde un selector.
 4. Al cambiar de sucursal se limpia el carrito y se recarga el catálogo de esa sucursal.
-5. El cliente agrega productos al carrito. Si el producto es una promo con complementos opcionales, se abre `PromoOptionsDialog` para elegir qué insumos incluir.
-6. El carrito se guarda en `localStorage` (`pancheria-cart-v1`) vinculado a la `branchId`, incluyendo los `selectedRecipeItemIds` de cada promo.
-7. El cliente completa nombre, tipo de entrega (`delivery`/`pickup`) y notas.
+5. El cliente agrega productos al carrito. Si el producto es una promo con complementos opcionales, se abre `PromoOptionsDialog` para elegir qué insumos incluir, dejar **aclaraciones por ítem** (texto libre, p. ej. "bien tostado") y elegir la cantidad con el stepper — cada unidad personalizada genera una línea independiente del carrito. Regla de negocio: los opcionales de la receta ya están pagados en el precio de la promo y **no se cobran al activarlos**; los agregados que sí se cobran (vaso de gaseosa, postre) son productos `service` con precio propio que se venden como línea standalone.
+6. El carrito se guarda en `localStorage` (`pancheria-cart-v1`) vinculado a la `branchId`, incluyendo los `selectedRecipeItemIds` y las aclaraciones (`notes`) de cada línea.
+7. El cliente completa nombre, tipo de entrega (`delivery`/`pickup`) y notas del pedido (a nivel pedido, distintas de las aclaraciones por ítem).
 8. Al confirmar:
    - Se valida disponibilidad.
    - Se crea el pedido con estado `pending`.
-   - Se persiste el snapshot de receta en `order_item_recipes` (`selected`/`isOptional`/`selectedByDefault`).
+   - Se persiste el snapshot de receta en `order_item_recipes` (`selected`/`isOptional`/`selectedByDefault`) y la aclaración de cada línea en `order_items.notes`.
    - **No se reserva ni descuenta stock**.
-   - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
-   - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo.
+   - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados, y las aclaraciones por ítem) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
+   - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo, incluyendo las aclaraciones.
 9. El cliente coordina con la sucursal por el chat (texto, imágenes y ubicación). El pedido queda `pending` hasta que el operador actúe.
    - Si el pedido es `delivery`, el cliente puede compartir su ubicación actual desde el chat; el navegador solicita permiso y genera un enlace de mapas usando `NEXT_PUBLIC_MAPS_PROVIDER`.
    - El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
@@ -309,7 +311,8 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
    - El pedido pasa a `in_process`.
 4. **Confirmar pago**
    - Requiere caja abierta.
-   - Valida disponibilidad, libera la reserva propia (`reserve_release`), descuenta stock físico una vez y crea la venta.
+   - El operador registra cómo pagó el cliente en `PedidoConfirmDialog` (`PaymentPartsInput`): efectivo, transferencia o mixto — desde 2026-10-01 ya no se asume efectivo por defecto, que distorsionaba el arqueo.
+   - Valida disponibilidad, libera la reserva propia (`reserve_release`), descuenta stock físico una vez y crea la venta con sus `sale_payments` y las `sale_items` (que heredan las `notes` de las líneas del pedido).
    - El pedido pasa a `paid` y se vincula con `convertedSaleId`.
 5. **Finalizar pedido**
    - Marca el pedido como entregado/retirado.

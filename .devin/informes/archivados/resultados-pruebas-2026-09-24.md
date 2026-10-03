@@ -1,5 +1,7 @@
 # Resultados de pruebas manuales pre-producción — 2026-09-24
 
+> **Estado: archivado** — los defectos D1–D8 y D10 fueron resueltos en el código posterior (verificado 2026-10-02: `includeDeleted` en `cancelSale`/`closeCashRegister`, `isBranchOpen` en `createOrder`, `revalidateSessionUser` en `requireAuth`, cancelación pública rechaza `paid`, lockout visible en `/login`, `findByNameCaseInsensitive` en `createBranch`, enum restringido en `stockAdjustmentSchema`, mensajes Zod en español). **D9** (ajuste de stock no admin-only) quedó como decisión de negocio trackeada en `../reporte-estado.md` §0.
+
 Ejecución del plan definido en [`pruebas-manuales-2026-09-24.md`](./pruebas-manuales-2026-09-24.md).
 
 - **Entorno:** `npm run dev:e2e` en `http://localhost:3000`, base descartable `neondb_e2e` (Neon), `.env.e2e` con rate limit habilitado, `CAJA_AUTO_CLOSE_HOURS=1`, `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS=2`, `ORDER_EXPIRATION_MS=3600000`, `STORAGE_PROVIDER=local`, `DATA_CACHE_REVALIDATE_S=0`.

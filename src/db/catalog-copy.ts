@@ -105,6 +105,7 @@ export async function copyCatalogToBranch(
         source.stock,
         'Stock inicial por copia de catálogo',
         'restock',
+        'Sistema',
         tx
       );
     }

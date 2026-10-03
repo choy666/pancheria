@@ -78,6 +78,7 @@ function createStockMovement(overrides: Partial<StockMovement> = {}): StockMovem
     type: 'manual_adjustment',
     quantity: 0,
     reason: null,
+    performedBy: null,
     saleId: null,
     orderId: null,
     createdAt: new Date(),
@@ -157,6 +158,29 @@ describe('stockService', () => {
     expect(result.newStock).toBe(10);
     expect(tx.values).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'restock' })
+    );
+  });
+
+  test('adjustStock registra performedBy en el movimiento', async () => {
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
+      createProductRow({ id: 1, name: 'Pan', stock: 0 })
+    );
+
+    const tx: MockTx = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockResolvedValue(undefined),
+      insert: jest.fn().mockReturnThis(),
+      values: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockedDb.transaction.mockImplementationOnce(async (callback) =>
+      callback(tx as unknown as typeof db)
+    );
+
+    await adjustStock(BRANCH_ID, 1, 5, 'Conteo físico', 'manual_adjustment', 'operador1');
+    expect(tx.values).toHaveBeenCalledWith(
+      expect.objectContaining({ performedBy: 'operador1' })
     );
   });
 

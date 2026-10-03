@@ -89,7 +89,8 @@ describe('stock /api/stock/ajustar', () => {
       1,
       10,
       'Ingreso de mercadería',
-      'restock'
+      'restock',
+      'operator'
     );
   });
 

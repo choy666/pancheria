@@ -248,6 +248,7 @@ export type StockMovement = {
   type: StockMovementType;
   quantity: number;
   reason: string | null;
+  performedBy: string | null;
   saleId: number | null;
   orderId: number | null;
   createdAt: Date;

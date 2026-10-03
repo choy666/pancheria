@@ -13,12 +13,7 @@
 
 ## Tickets abiertos
 
-- [rediseno-pedido-pr3-2026-10-02.md](rediseno-pedido-pr3-2026-10-02.md) — PR 3 del rediseño de `/pedido`: aclaraciones por ítem (`notes` por línea de carrito persistida en `order_items`/`sale_items`, editor único en `PromoOptionsDialog`, visible en cocina/historial/chat). Plan revisado contra el código con las correcciones de identidad de línea (merge en `useSellableCart.addItem` + clave de `groupCartItemsForSubmit`), propagación pedido→venta por `buildItems`, filtro del mensaje de preparación y canonicalización de la nota en los hashes de idempotencia. **Estado:** en curso — implementado y verificado el 2026-10-02 (unitarios + E2E + axe verdes); pendiente PR/merge.
-- [rediseno-pedido-pr2-2026-10-02.md](rediseno-pedido-pr2-2026-10-02.md) — PR 2 del rediseño estilo food-delivery de `/pedido`: rediseño de `PromoOptionsDialog` con hero de producto y botón de cierre circular (variante `public` en claro con hoja inferior en mobile; `sales` conserva oscuro sin hero), secciones "A tu gusto"/"Sumale" con toggles `role="switch"`, stepper de cantidad (oculto en edición), CTA con precio `Agregar · $ X` y `PromoOptionsConfirmPayload.quantity` → N líneas independientes del carrito. E2E migrados (`customize-product-${id}`, switches, CTA con precio) y verificados: 11/11 en base descartable. **Estado:** en curso — implementado y verificado con capturas; pendiente PR 3 (aclaraciones por ítem).
-- [rediseno-pedido-pr1-2026-10-02.md](rediseno-pedido-pr1-2026-10-02.md) — PR 1 del rediseño estilo food-delivery de `/pedido`: scope de tema claro `[data-theme='light']` en `(public)` (incluye overlays portaleados), fuentes Anton/Poppins, tokens `brand-*`, nueva card pública con hero/gradiente/pill PROMO/quick-add/`customize-product-${id}`, fallback de imagen con monograma + skeleton y `priority` en la primera fila. **Estado:** implementado y verificado con capturas; superado por el PR 2.
-- [auditoria-ux-sucursales-2026-09-26.md](auditoria-ux-sucursales-2026-09-26.md) — auditoría documental de `/sucursales` (jerarquía invertida formulario↔inventario, estado operativo por fila, refuerzo del diálogo de eliminación: sucursal por defecto, lockout de la propia cuenta, caja abierta, resumen falso en cero si falla la consulta, renombrado del default) + propuesta de rediseño en dos tramos. **Estado:** implementado completo el 2026-09-26 — Tramo A (A1–A8, H-M1–H-M5, H-C1 con banners de advertencia sin bloqueos — decisión del usuario —, H-m2/H-m9–H-m13), menores (H-m1, H-m3–H-m8) y Tramo B (rutas dedicadas `/sucursales/nueva` y `/sucursales/[id]/editar`).
-
-Ningún otro ticket al 2026-09-26 — los últimos (QA ronda 2 y CI base compartida) mergearon y se archivaron.
+Ninguno al 2026-10-02 — los últimos tickets (rediseño `/pedido` PR 1–3, auditoría UX de `/sucursales`, prueba de imagen de promo y el par plan/resultados de pruebas manuales pre-producción) se implementaron, mergearon a `main` y se archivaron.
 
 > Cuando un PR mergea, su informe se archiva y `reporte-estado.md` §0 se actualiza.
 
@@ -35,6 +30,6 @@ Ningún otro ticket al 2026-09-26 — los últimos (QA ronda 2 y CI base compart
 
 ## Archivados
 
-[archivados/](archivados/) — auditorías y planes implementados: QA ronda 1 (PR #4), QA ronda 2 (PR #6), E4 sucursal eliminada (PRs #3/#5), ticket CI base compartida (PR #7), escalabilidad (con T14 diferido trackeado en `reporte-estado.md` §0), deploy Vercel, carrito de ventas, ubicación en chat, sucursales y caja por turnos, planes de acción/consolidación/limpieza y el spike SSE.
+[archivados/](archivados/) — auditorías, planes e informes implementados: rediseño `/pedido` PR 1–3 (commits `3a029e4`, `f1e684c`, `dfb2872`), auditoría UX `/sucursales` (PR #10), prueba de imagen de promo (`ccf4e99`), pruebas manuales pre-producción + resultados (D1–D8/D10 resueltos; D9 decidido sin `admin:true`, atribución `performedBy` trackeada en `reporte-estado.md` §0), QA ronda 1 (PR #4), QA ronda 2 (PR #6), E4 sucursal eliminada (PRs #3/#5), ticket CI base compartida (PR #7), escalabilidad (con T14 diferido trackeado en `reporte-estado.md` §0), deploy Vercel, carrito de ventas, ubicación en chat, sucursales y caja por turnos, planes de acción/consolidación/limpieza y el spike SSE.
 
 - [Índice general de `.devin`](../README.md) — prompts, informes y blueprint.

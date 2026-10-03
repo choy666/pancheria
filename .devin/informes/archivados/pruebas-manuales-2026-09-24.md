@@ -1,6 +1,6 @@
 # Plan de pruebas manuales pre-producción — Panchería
 
-**Estado:** abierto
+**Estado:** archivado — plan ejecutado el 2026-09-24 (resultados en [resultados-pruebas-2026-09-24.md](resultados-pruebas-2026-09-24.md)); los defectos D1–D8 y D10 quedaron resueltos en el código posterior (verificado 2026-10-02) y D9 (ajuste de stock no admin-only) quedó como decisión de negocio trackeada en `../reporte-estado.md` §0.
 **Fecha:** 2026-09-24
 **Alcance:** relevamiento de código (solo lectura) + plan completo de pruebas manuales para ejecutar antes de exponer la app a producción.
 **Stack auditado:** Next.js 16 (App Router) + Drizzle/PostgreSQL (Neon) + NextAuth v5 (JWT, Credentials) + SSE para chat + Vercel.

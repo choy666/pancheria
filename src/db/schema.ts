@@ -513,6 +513,7 @@ export const stockMovements = pgTable(
     type: stockMovementTypeEnum('type').notNull(),
     quantity: integer('quantity').notNull(),
     reason: text('reason'),
+    performedBy: varchar('performed_by', { length: 255 }),
     saleId: integer('sale_id').references(() => sales.id, { onDelete: 'set null' }),
     orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),

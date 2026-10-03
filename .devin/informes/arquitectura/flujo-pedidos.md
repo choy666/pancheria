@@ -48,7 +48,7 @@ stateDiagram-v2
 
 ## Invariantes de stock — lo importante
 
-- **`pending` NO reserva stock.** El pedido nace solo con `orders` + `order_items` + `order_item_recipes` (snapshots de receta elegidos).
+- **`pending` NO reserva stock.** El pedido nace solo con `orders` + `order_items` (con `notes` de aclaraciones por línea, migración `0034`) + `order_item_recipes` (snapshots de receta elegidos).
 - **La disponibilidad pública** (`catalogService.listPublicCatalogWithAvailability`, `validatePublicCart`, `POST /api/public/disponibilidad`) se calcula como `stock − reservas vigentes de pedidos in_process` (`lib/product-helpers.ts`: `applyReservationsToStock`, `calculateAvailability*`).
 - **Al recibir** (`receiveOrder`): bajo `FOR UPDATE`, si no hay reservas existentes inserta `order_stock_reservations` y movimientos `reserve`. Las reservas son la frontera entre "pedido anunciado" y "stock comprometido".
 - **Al confirmar cobro** (`convertOrderToSale`): libera reservas (`reserve_release` implícito en la lógica) y descuenta stock real con movimientos `sale`, crea `sales` + `sale_items` + `sale_payments` + `sale_item_recipes` y actualiza los totales/resúmenes de la `cash_registers` abierta — todo en una transacción.

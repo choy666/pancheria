@@ -1,10 +1,10 @@
 # Rediseño `/pedido` — PR 2: modal de personalización estilo food-delivery
 
-**Estado:** en curso (implementado y verificado; PR 3 de aclaraciones por ítem implementado el 2026-10-02 — ver [rediseno-pedido-pr3-2026-10-02.md](rediseno-pedido-pr3-2026-10-02.md))
+> **Estado: archivado — implementado, verificado y mergeado** en `main` (2026-10-02, commit `3a029e4`; PR 3 de aclaraciones por ítem en [rediseno-pedido-pr3-2026-10-02.md](rediseno-pedido-pr3-2026-10-02.md)).
 
 Implementación del PR 2 de
-[plan-rediseno-card-y-modal-pedido.md](../prompts/plan-rediseno-card-y-modal-pedido.md)
-según [rediseno-pedido-pr2-modal.md](../prompts/rediseno-pedido-pr2-modal.md):
+[plan-rediseno-card-y-modal-pedido.md](../../prompts/archivados/plan-rediseno-card-y-modal-pedido.md)
+según [rediseno-pedido-pr2-modal.md](../../prompts/archivados/rediseno-pedido-pr2-modal.md):
 rediseño completo de `PromoOptionsDialog` con hero de producto, toggles
 accesibles, stepper de cantidad y CTA con precio; propagación de `quantity`
 como N líneas independientes del carrito.
@@ -73,21 +73,21 @@ como N líneas independientes del carrito.
 - `npm run knip` ✓ · `npm run build` ✓
 - Capturas sobre `localhost:3000` (base dev; "Promo 1" sin imagen usa el
   fallback de monograma):
-  - [Público desktop 1280px](shots/pr2-modal-public-desktop.png) —
+  - [Público desktop 1280px](../shots/pr2-modal-public-desktop.png) —
     cantidad 2 → CTA "Agregar · $ 2.000".
-  - [Público mobile 390px](shots/pr2-modal-public-mobile.png) — hoja
+  - [Público mobile 390px](../shots/pr2-modal-public-mobile.png) — hoja
     inferior anclada (el círculo oscuro "N" abajo a la izquierda es el
     indicador de dev-tools de Next.js, no la app).
-  - [Ventas desktop](shots/pr2-modal-ventas-desktop.png) y
-    [mobile](shots/pr2-modal-ventas-mobile.png) — tema oscuro, sin hero,
+  - [Ventas desktop](../shots/pr2-modal-ventas-desktop.png) y
+    [mobile](../shots/pr2-modal-ventas-mobile.png) — tema oscuro, sin hero,
     CTA "Agregar a la venta · $ 1.000".
-  - [Grilla mobile de `/pedido`](shots/pr2-pedido-grid-mobile.png) —
+  - [Grilla mobile de `/pedido`](../shots/pr2-pedido-grid-mobile.png) —
     encabezado de marca, selector de sucursal, pill PROMO, barra "Ver mi
     pedido · N ítems · $ X".
-  - [Card sin foto](shots/pr2-card-fallback-mobile.png) — fallback de
+  - [Card sin foto](../shots/pr2-card-fallback-mobile.png) — fallback de
     monograma sobre gradiente, badge "1 en tu pedido", botón circular de
     personalización + "Agregar otro".
-  - [Carrito con línea personalizada](shots/pr2-carrito-personalizado-mobile.png)
+  - [Carrito con línea personalizada](../shots/pr2-carrito-personalizado-mobile.png)
     — dos líneas independientes de "Promo 1", la segunda "Sin: Ketchup".
 - E2E en base descartable Neon (`.env.e2e`):
   `npx playwright test tests/e2e/pedido.spec.ts

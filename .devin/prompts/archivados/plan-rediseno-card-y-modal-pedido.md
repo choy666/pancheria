@@ -1,5 +1,7 @@
 # Prompt: Rediseño visual de la card de producto y del modal de personalización en `/pedido`
 
+> **Estado: archivado — ejecutado.** Rediseño completado y mergeado en `main` (2026-10-02, commits `3a029e4`, `f1e684c`, `dfb2872`); informes en `../../informes/archivados/rediseno-pedido-pr1-2026-10-02.md`, `rediseno-pedido-pr2-2026-10-02.md` y `rediseno-pedido-pr3-2026-10-02.md`.
+
 ## Contexto
 
 Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja y pedidos públicos.
@@ -11,7 +13,7 @@ Documentación de referencia:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md`
 - `.devin/informes/guia-funcionamiento-pancheria.md`
-- `.devin/informes/prueba-promo-imagen-2026-10-01.md` — las imágenes de promo ya se persisten y renderizan en `/pedido` (`resolveProductImage`, `ProductCardImage`).
+- `.devin/informes/archivados/prueba-promo-imagen-2026-10-01.md` — las imágenes de promo ya se persisten y renderizan en `/pedido` (`resolveProductImage`, `ProductCardImage`).
 - `.devin/prompts/archivados/mejoras-ux-pedido-publico.md` — historial de decisiones de UX en el flujo público.
 - `.devin/prompts/archivados/plan-pedidos-personalizados-multiples-lineas.md` — modelo de líneas del carrito (`lineId`, una línea por unidad personalizada).
 

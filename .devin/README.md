@@ -12,8 +12,8 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Auditoría QA integral con ejecución de tests](prompts/auditoria-qa-integral.md) — auditoría QA por etapas con tests ejecutables, revisión visual por perfiles e informe con evidencia.
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
-- [Rediseño de la card y modal de personalización en `/pedido`](prompts/plan-rediseno-card-y-modal-pedido.md) — propuesta visual estilo food-delivery con decisiones pendientes.
 
+> **Rediseño de `/pedido` resuelto (2026-10-02):** los prompts `plan-rediseno-card-y-modal-pedido.md`, `rediseno-pedido-pr2-modal.md` y `mapa-arquitectura.md` se archivaron en `prompts/archivados/`; los informes de los PR 1–3 quedaron en `informes/archivados/`.
 > **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
 
 ## Estado del proyecto
@@ -24,14 +24,18 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
-- [Rediseño `/pedido` — PR 2 (2026-10-02)](informes/rediseno-pedido-pr2-2026-10-02.md) — modal de personalización rediseñado (hero, toggles "A tu gusto"/"Sumale", stepper de cantidad, CTA con precio, hoja inferior en mobile); `quantity` genera N líneas del carrito; E2E verificados.
-- [Rediseño `/pedido` — PR 1 (2026-10-02)](informes/rediseno-pedido-pr1-2026-10-02.md) — tema claro con scope `[data-theme='light']`, fuentes de marca, nueva card pública (hero, PROMO, quick-add, personalizar) y fallback de imagen; pendiente PR 3 (aclaraciones por ítem).
+- [Rediseño `/pedido` — PR 3 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr3-2026-10-02.md) — aclaraciones por ítem (`notes` en `order_items`/`sale_items`, editor único en `PromoOptionsDialog`, visible en cocina/historial/chat/seguimiento); migración `0034` aplicada en producción (verificado el 2026-10-02).
+- [Rediseño `/pedido` — PR 2 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr2-2026-10-02.md) — modal de personalización rediseñado (hero, toggles "A tu gusto"/"Sumale", stepper de cantidad, CTA con precio, hoja inferior en mobile); `quantity` genera N líneas del carrito; E2E verificados.
+- [Rediseño `/pedido` — PR 1 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr1-2026-10-02.md) — tema claro con scope `[data-theme='light']`, fuentes de marca, nueva card pública (hero, PROMO, quick-add, personalizar) y fallback de imagen.
+- [Auditoría UX de `/sucursales` (2026-09-26, archivada)](informes/archivados/auditoria-ux-sucursales-2026-09-26.md) — rediseño completo implementado y mergeado vía PR #10: inventario primero, estado operativo por fila, banners de advertencia en la eliminación y rutas dedicadas `/sucursales/nueva` + `/sucursales/[id]/editar` (también `/usuarios/nuevo` + `/usuarios/[id]/editar`).
+- [Pruebas manuales pre-producción (2026-09-24, archivadas)](informes/archivados/resultados-pruebas-2026-09-24.md) — ~85 casos ejecutados; defectos D1–D8/D10 resueltos en código posterior; D9 decidido (operadores ajustan, sin `admin:true`; mejora abierta: atribución `performedBy` en `stock_movements`).
+- [Prueba de promo con imagen (2026-10-01, archivada)](informes/archivados/prueba-promo-imagen-2026-10-01.md) — 3 bugs corregidos (catálogo caído por URL de imagen, botón "Usar URL" inerte, magic bytes omitidos en providers remotos) + 3 endurecimientos; verificado bajo `local` y `vercel-blob`.
 - [Auditoría QA ronda 2 (2026-09-23, archivada)](informes/archivados/auditoria-qa-ronda-2-2026-09-23.md) — CSP en producción (`/pedido/seguimiento` estática sin nonce → corregida y verificada en prod), `X-Forwarded-For` fail-closed, revisión con daltonismo.
 - [Ticket CI E2E base compartida (archivado)](informes/archivados/ci-e2e-base-compartida.md) — runs concurrentes se contaminaban; `concurrency` por shard + timeout 25 min implementados.
 - [Auditoría de escalabilidad (2026-09-19, archivada)](informes/archivados/auditoria-escalabilidad-2026-09-19.md) — fuente del pendiente T14 multi-tenant (diferido); §3.9 alimenta trabajo futuro.
-- [Auditoría QA integral (2026-09-21, archivada)](informes/archivados/auditoria-qa-2026-09-21.md) — QA-01/02/03/05 mergeados (PR #4); QA-04 estaba pendiente en `main` y su implementación está en el working tree, con migración generada y E2E/CI/merge pendientes (ver `reporte-estado.md` §0).
+- [Auditoría QA integral (2026-09-21, archivada)](informes/archivados/auditoria-qa-2026-09-21.md) — QA-01/02/03/05 mergeados (PR #4); QA-04 resuelto y desplegado en `6b24700` (PR #9, migración `0032` aplicada en producción).
 - [Plan de implementación de la auditoría de escalabilidad (2026-09-19, resuelto)](informes/archivados/plan-implementacion-escalabilidad-2026-09-19.md) — plan por fases (T1–T16) derivado de la auditoría: T1–T13, T15 y Fase M implementadas; T16 decidido "no implementar"; T14 (multi-tenant) diferido — fuente de verdad: `prompts/plan-implementacion-multi-tenant.md`.
-- [Auditoría del deploy de Vercel (2026-09-14, archivada)](informes/archivados/auditoria-deploy-vercel-2026-09-14.md) — validaciones de build y entorno; la recomendación de revisar consistencia de migraciones ahora tiene `drizzle-kit check` en el workflow E2E (ejecución remota pendiente). Siguen los controles operativos de `VERCEL_PRODUCTION_URL`, cron y consumo Neon/Vercel.
+- [Auditoría del deploy de Vercel (2026-09-14, archivada)](informes/archivados/auditoria-deploy-vercel-2026-09-14.md) — validaciones de build y entorno; la recomendación de revisar consistencia de migraciones tiene `drizzle-kit check` verificado en el workflow E2E. Los controles operativos de `VERCEL_PRODUCTION_URL` y crons se verificaron el 2026-10-01 (`arquitectura/salud-arquitectura.md`); queda recurrente el consumo Neon/Vercel.
 - [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
 - [Auditoría de ubicación en el chat de pedidos (2026-09-09, resuelta)](informes/archivados/auditoria-chat-ubicacion-2026-09-09.md) — auditoría de compartir ubicación por chat; la funcionalidad ya fue implementada.
 - [Auditoría de sucursales y caja por turnos (2026-09-13, resuelta)](informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md) — contactos de sucursal (`phones`, `social_links`) y avisos de caja por turnos; incluye su plan de observaciones ya implementado (`plan-observaciones-auditoria-sucursales-caja-2026-09-13.md`).
@@ -53,8 +57,11 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 .devin/
 ├── environment.yaml              # Blueprint de snapshot para Devin Cloud
 ├── README.md                     # Este índice
+├── config.json                   # Config de Devin Desktop (vacía por defecto)
+├── mcp_config.json               # MCP servers del proyecto (google-maps-platform-code-assist)
 ├── skills/
 │   └── context7-stack/           # IDs de Context7 pre-resueltos por dependencia (SKILL.md)
+├── tmp/                          # Scripts locales de diagnóstico/setup manual (NO trackeado — .gitignore). Infra reutilizable: api.sh, env.ts, env-local.ts, sql.ts, setup.ts
 ├── informes/
 │   ├── reporte-estado.md         # Informe de estado vigente (único)
 │   ├── entornos.md               # Entornos, credenciales y pasos de migración
@@ -62,6 +69,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── arquitectura/             # Mapa de arquitectura vivo: overview, módulos, ER, flujos, servicios externos, stack, salud + diagramas/svg/ (renders .svg; la fuente es el bloque mermaid embebido en cada .md)
+│   ├── shots/                    # Capturas de evidencia de auditorías/QA (NO trackeado — .gitignore)
 │   ├── README.md                 # Índice de informes (tabla de decisión + regla de vida)
 │   └── archivados/               # Solo guías con valor futuro: auditorías y planes implementados por completo (con marcador de estado). Incluye historico/ con snapshots de reportes de estado antiguos (historia, no guía).
 └── prompts/
@@ -73,8 +81,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-cobertura-de-pruebas.md
     ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
     ├── plan-implementacion-multi-tenant.md
-    ├── plan-rediseno-card-y-modal-pedido.md  # Rediseño visual card + modal de /pedido
-    └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
+    └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, rediseño de /pedido, mapa-arquitectura.md, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
 ```
 
 ## Reglas de uso
