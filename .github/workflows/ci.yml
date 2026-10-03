@@ -98,7 +98,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=high
+      # Informativo (no falla el step): incluye devDependencies. Hoy marca
+      # braces <=3.0.3 (GHSA-vfj7-8cjw-p6xm, sin patch publicado), transitivo
+      # de eslint-config-next y del CLI de shadcn.
+      - run: npm audit --audit-level=high || true
+      # Falla el job si hay vulns high en dependencias de producción.
+      - run: npm audit --omit=dev --audit-level=high
 
   e2e:
     name: Tests end-to-end y accesibilidad
