@@ -241,6 +241,25 @@ Variables cuyo valor, default o comportamiento depende del entorno (detalle comp
 - Tools: `retrieve-instructions` (llamar **siempre primero**: carga las instrucciones del servidor) y `retrieve-google-maps-platform-docs` (busca en docs oficiales, code samples y repos de Google).
 - Usarlo para cualquier consulta de Google Maps Platform: Maps Embed API, URLs de mapas, Places, Geocoding, Routes. Relevante para el proveedor `google` de `NEXT_PUBLIC_MAPS_PROVIDER`, `src/lib/maps.ts` (`buildMapEmbedUrl`) y los orígenes `frame-src` de la CSP (`getMapsFrameOrigins` en `src/config/maps.ts`).
 
+## Grafo de conocimiento del código (Graphify MCP)
+
+- El MCP `graphify` (endpoint hosteado `https://api.graphify.com/mcp`, OAuth — sin API key) consulta el grafo de conocimiento del repo indexado en [app.graphify.com](https://app.graphify.com): ~3.000 nodos / ~9.000 aristas / ~150 comunidades, **reindexado automáticamente en cada push a `main`**. Configurado en `.devin/mcp_config.json` (scope project, commiteado) y pre-aprobado en `.devin/config.json` (`mcp__graphify__*`).
+- Autenticación por usuario: `devin mcp login graphify` (abre el browser; el token OAuth vive en `%APPDATA%\devin\mcp\oauth\`, nunca en el repo). Si una sesión reporta `Auth required`, correr `devin mcp logout graphify && devin mcp login graphify`.
+- El workspace de Graphify tiene dos repos (`choy666/pancheria` y `choy666/camaras`): **pasar siempre `repository_id: "choy666/pancheria"`** en cada llamada (o consultar `list_repositories`/`list_workspaces` si falla).
+- **Uso obligatorio al inicio de cada sesión de trabajo sobre este repo**: correr `graph_stats` (confirma frescura del índice) y orientarse con `query_graph`/`graphify_rank_files` antes de grepear o leer archivos en bloque — mejora el contexto y ahorra tokens. Si el MCP no responde o reporta `Auth required`, avisar al usuario y seguir con las herramientas habituales.
+- Cuándo usarlo (complementa grep/lectura, no lo reemplaza):
+  - **Orientación**: `graph_stats` (nodos, aristas, comunidades y `freshness` = commit indexado) al empezar un trabajo amplio; `graphify_rank_files` para los archivos más conectados (hoy `domain/types.ts`, `orderService.ts`, `errors.ts`, `tests/e2e/helpers.ts`, `cashRegisterService.ts`, `lib/auth.ts` — tocarlos tiene blast radius alto).
+  - **Localizar código**: `query_graph` con `skeleton: true` + `budget` bajo para ubicar símbolos barato; sin `skeleton` devuelve cuerpos de definición con `file:line`.
+  - **Impacto antes de refactorizar**: `graphify_callers` / `graphify_callees` / `graphify_impact` / `impact_and_risk`; `graphify_tests_for` para saber qué tests cubren un símbolo.
+  - **Trazar conexiones**: `graphify_trace` (call chains dirigidas A→B), `shortest_path`, `graphify_references`, `graphify_node` (definición + vecinos), `graphify_expand` (expandir un nodo visto en skeleton).
+  - **PRs/review**: `graphify_file_neighbors` e `impact_and_risk` sobre los archivos del diff.
+- Caveats del grafo:
+  - Aristas `INFERRED`/`AMBIGUOUS` son deducciones, no hechos: antes de refactorizar sobre ellas, verificar leyendo el archivo (`strict_calls: true` en `graphify_trace`/`graphify_node` limita a aristas resueltas).
+  - `resolved: "semantic"` en una respuesta = match aproximado por similitud, no prueba de que el símbolo pedido existe.
+  - `graphify_impact` está acotado a vecinos inmediatos; para alcance transitivo usar `graphify_trace` o `shortest_path`.
+  - El índice describe el último commit pusheado (`graph_stats.freshness.commit`); con cambios locales sin push puede quedar desactualizado — en ese caso confiar en lectura directa.
+  - `remember`/`memories_about`/`recall` gestionan notas durables en Graphify; usarlas solo si el usuario lo pide.
+
 ## Promos, recetas y snapshots
 
 - El proyecto soporta promos (`compound`) con insumos críticos, manuales y servicios.

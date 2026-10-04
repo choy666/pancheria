@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "graphify": {
+      "url": "https://api.graphify.com/mcp",
+      "transport": "http"
+    },
     "google-maps-platform-code-assist": {
       "url": "https://mapscodeassist.googleapis.com/mcp",
       "transport": "http"

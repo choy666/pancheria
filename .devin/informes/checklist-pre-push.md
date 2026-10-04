@@ -88,6 +88,7 @@ Si el cambio tocó alguna de estas superficies, revisar que el [mapa de arquitec
 1. `git diff --stat` — confirmar que los archivos modificados son los esperados.
 2. `git diff` — leer los cambios antes del commit.
 3. `git status` — verificar que no quedan archivos sin trackear que deban incluirse.
+4. Si el diff toca nodos muy conectados (`src/domain/types.ts`, `src/application/services/orderService.ts`, `cashRegisterService.ts`, `tests/e2e/helpers.ts`, `src/lib/auth.ts`), opcional pero recomendado: consultar el blast radius con `graphify_impact` / `graphify_callers` del MCP `graphify` (ver sección "Graphify MCP" en `AGENTS.md`), que evalúa el impacto sobre el grafo indexado del repo.
 
 ## Consejos para evitar errores comunes de CI
 

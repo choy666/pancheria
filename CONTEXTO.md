@@ -154,6 +154,7 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 ## 11. Instrucciones para el asistente que lee esto
 
 - Respondé siempre en español y siguiendo las reglas de §6.
+- Si el MCP `graphify` está disponible, usalo para orientarte o medir impacto antes de leer archivos (`query_graph` / `graphify_callers` / `graphify_impact`, siempre con `repository_id: "choy666/pancheria"`): devuelve símbolos con `file:line` del último commit pusheado. Ver la sección "Graphify MCP" de `AGENTS.md` para tools y caveats.
 - Este doc describe el proyecto al commit `987bab1` (2026-10-04). Si tu respuesta depende de un código exacto que podría haber cambiado, **pedime el archivo canónico** en vez de asumir.
 - No propongas helpers/sistemas que ya existen (rate-limit, storage, chat, money, api-handler): revisá la tabla §10 o pedime el archivo.
 - No reintroduzcas integración con WhatsApp ni endpoints de escritura públicos sin rate limit.
