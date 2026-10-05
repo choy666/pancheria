@@ -46,6 +46,8 @@ Cuando se deje un monitoreo en background (CI de GitHub Actions, deploys de Verc
 >
 > `npm run build` y el job `build` de CI no pasan `DATABASE_URL` porque las páginas públicas críticas (`/pedido`, `/pedido/[id]/chat`) usan `dynamic = 'force-dynamic'`; el build no consulta la base de datos durante la generación estática. Si en el futuro se agrega SSG que requiera DB, usar una URL de staging, nunca la productiva.
 >
+> El pipeline de CI tiene un gate inicial (`job cambios`) que calcula si el diff es solo documentación (`.md`, `.devin/`, `docs/`, `LICENSE`): en ese caso los demás jobs se saltan (un job saltado cuenta como éxito para checks requeridos). Además el workflow cancela el run anterior del mismo ref al llegar un push nuevo (`concurrency` a nivel workflow).
+>
 > En E2E el caché de servidor debe estar deshabilitado con `DATA_CACHE_REVALIDATE_S=0` (ya viene en `.env.e2e.example` y en el job de CI): los helpers de `tests/e2e/helpers.ts` mutan `branches` y `cash_registers` escribiendo directo en la base, por detrás de la app, así que ninguna ruta/action dispara la invalidación por tag y la capa serviría datos viejos.
 >
 > Los specs E2E comparten la misma base durante la corrida: cualquier inserción bulk (p. ej. para forzar paginación) debe limpiarse en `finally` — datos residuales desplazan filas en `/productos` y rompen specs posteriores por timeouts o selectores (lección de `auditoria-qa-2026-09-21.md` §11). Para llenar inputs controlados apenas se monta la página, usar `waitForHydratedInput(page, selector)` de `tests/e2e/helpers.ts`: un `fill()` previo a la hidratación se pierde en el primer re-render (se manifiesta en WebKit y dispositivos lentos).

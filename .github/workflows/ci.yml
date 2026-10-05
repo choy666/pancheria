@@ -7,13 +7,57 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+# Un push nuevo cancela el run anterior del mismo ref: ejecutar la suite
+# completa sobre un commit ya superado desperdicia ~15-30 min de runner.
+# La base de E2E no corre riesgo: `global-setup.ts` trunca y re-seedea en cada
+# corrida, y el grupo `e2e-db-*` del job e2e (cancel-in-progress: false)
+# sigue serializando el acceso mientras el run cancelado termina de morir.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  cambios:
+    name: Detectar alcance del cambio
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.diff.outputs.docs-only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Un commit que solo toca documentación (.md, .devin/, docs/, LICENSE)
+      # no puede romper lint, tipos, build ni E2E: los jobs se saltan vía
+      # `docs-only`. Ante cualquier duda (sin rango, diff vacío, evento raro)
+      # se corre todo — el default seguro.
+      - id: diff
+        run: |
+          RANGE=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event_name }}" = "push" ] && \
+               [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${{ github.event.before }}...${{ github.event.after }}"
+          fi
+
+          DOCS_ONLY=false
+          if [ -n "$RANGE" ]; then
+            FILES="$(git diff --name-only "$RANGE" 2>/dev/null || true)"
+            if [ -n "$FILES" ] && ! grep -qvE '(\.md|\.mdx)$|^\.devin/|^docs/|^LICENSE' <<< "$FILES"; then
+              DOCS_ONLY=true
+            fi
+          fi
+          echo "docs-only=$DOCS_ONLY" >> "$GITHUB_OUTPUT"
+          echo "docs-only=$DOCS_ONLY (rango: ${RANGE:-ninguno})"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -23,9 +67,11 @@ jobs:
   typecheck:
     name: Verificación de tipos
     runs-on: ubuntu-latest
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -35,6 +81,8 @@ jobs:
   unit-tests:
     name: Tests unitarios
     runs-on: ubuntu-latest
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     env:
       # Los tests unitarios trabajan con mocks y no deben conectarse a ninguna
       # base de datos. No se pasa DATABASE_URL para evitar impactos accidentales.
@@ -43,8 +91,8 @@ jobs:
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -54,6 +102,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     env:
       # Las páginas públicas usan `dynamic = 'force-dynamic'`, por lo que el
       # build no debería consultar la base de datos. No se pasa DATABASE_URL
@@ -64,8 +114,8 @@ jobs:
       ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
       ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -75,9 +125,11 @@ jobs:
   knip:
     name: Análisis de dependencias no usadas
     runs-on: ubuntu-latest
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -87,13 +139,15 @@ jobs:
   audit:
     name: Auditoría de dependencias (npm audit)
     runs-on: ubuntu-latest
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     # No bloquea el pipeline: los advisories de dependencias transitivas sin
     # fix disponible romperían CI continuamente. El resultado queda visible
     # en el run para revisión manual.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -109,6 +163,8 @@ jobs:
     name: Tests end-to-end y accesibilidad
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    needs: cambios
+    if: needs.cambios.outputs.docs-only != 'true'
     # global-setup trunca y re-seedea la base del shard: dos runs sobre el
     # mismo shard se contaminan entre sí (deadlocks, usuarios del seed
     # inexistentes). El grupo por shard serializa los runs sin frenar el
@@ -175,8 +231,8 @@ jobs:
       NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS: "1000"
       NODE_ENV: test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -223,10 +279,18 @@ jobs:
         run: npx drizzle-kit migrate
         timeout-minutes: 5
 
+      # Cache de los browsers entre corridas: con hit, `playwright install`
+      # verifica los binarios sin descargarlos (ahorra la parte más frágil —
+      # mirrors lentos agotaron el timeout de 10 min dos veces). `--with-deps`
+      # sigue ejecutando apt en cada run, es lo único no cacheable.
+      - name: Cache de browsers de Playwright
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
       # Solo chromium: la suite corre en ese proyecto y webkit es opt-in
       # (E2E_WEBKIT=1). Instalar los 3 browsers duplica los paquetes apt y
-      # las descargas; con mirrors lentos el install completo agotó el
-      # timeout de 10 min dos veces seguidas.
+      # las descargas.
       - run: npx playwright install --with-deps chromium
         timeout-minutes: 15
 
@@ -241,7 +305,7 @@ jobs:
 
       - name: Subir reporte blob del shard
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: blob-report-${{ matrix.shard }}
           path: blob-report
@@ -251,31 +315,35 @@ jobs:
   e2e-report:
     name: Reporte E2E consolidado
     runs-on: ubuntu-latest
-    needs: e2e
-    if: always()
+    needs: [cambios, e2e]
+    if: always() && needs.cambios.outputs.docs-only != 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: blob-report-*
           path: all-blob-reports
           merge-multiple: true
       - name: Consolidar reporte HTML
+        # Sin `npm ci`: el merge solo necesita el CLI de Playwright, que se
+        # instala a la versión exacta del lockfile vía npx (los blobs deben
+        # mezclarse con la misma versión que los produjo).
         # Si ningún shard produjo blobs (falla de infra previa a los tests),
         # merge-reports fallaría con "no input reports found" sin aportar
         # información; en ese caso se omite y el resultado queda en el job e2e.
         run: |
           if [ -n "$(find ./all-blob-reports -name '*.zip' -print -quit)" ]; then
-            npx playwright merge-reports --reporter=html ./all-blob-reports
+            PLAYWRIGHT_VERSION="$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")"
+            npx --yes --package="@playwright/test@$PLAYWRIGHT_VERSION" \
+              playwright merge-reports --reporter=html ./all-blob-reports
           else
             echo "Sin reportes blob para consolidar."
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report
