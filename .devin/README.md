@@ -11,6 +11,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Auditoría QA integral con ejecución de tests](prompts/auditoria-qa-integral.md) — auditoría QA por etapas con tests ejecutables, revisión visual por perfiles e informe con evidencia.
+- [Auditoría de factibilidad — nueva sucursal con inventario y menú](prompts/auditoria-nueva-sucursal-stock.md) — auditoría de solo lectura: alta de sucursal con 59 ítems, 11 promos + extras, trazabilidad por promo y facturación.
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
 
 > **Rediseño de `/pedido` resuelto (2026-10-02):** los prompts `plan-rediseno-card-y-modal-pedido.md`, `rediseno-pedido-pr2-modal.md` y `mapa-arquitectura.md` se archivaron en `prompts/archivados/`; los informes de los PR 1–3 quedaron en `informes/archivados/`.
@@ -24,6 +25,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Lecciones aprendidas](informes/lecciones-aprendidas.md)
 - [Checklist pre-push](informes/checklist-pre-push.md) — verificaciones antes de subir a Git para evitar errores de CI.
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
+- [Auditoría de factibilidad — nueva sucursal (2026-10-04, abierta)](informes/auditoria-nueva-sucursal-stock-2026-10-04.md) — solo lectura: alta de sucursal con inventario de 59 ítems, menú de 11 promos + extras, trazabilidad por promo y facturación. Veredictos A–D parcialmente preparados; incluye plan por PRs, decisiones del usuario incorporadas (D-1..D-6) y consejos operativos.
 - [Rediseño `/pedido` — PR 3 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr3-2026-10-02.md) — aclaraciones por ítem (`notes` en `order_items`/`sale_items`, editor único en `PromoOptionsDialog`, visible en cocina/historial/chat/seguimiento); migración `0034` aplicada en producción (verificado el 2026-10-02).
 - [Rediseño `/pedido` — PR 2 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr2-2026-10-02.md) — modal de personalización rediseñado (hero, toggles "A tu gusto"/"Sumale", stepper de cantidad, CTA con precio, hoja inferior en mobile); `quantity` genera N líneas del carrito; E2E verificados.
 - [Rediseño `/pedido` — PR 1 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr1-2026-10-02.md) — tema claro con scope `[data-theme='light']`, fuentes de marca, nueva card pública (hero, PROMO, quick-add, personalizar) y fallback de imagen.
@@ -68,6 +70,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── lecciones-aprendidas.md   # Resumen transversal de lecciones
 │   ├── checklist-pre-push.md     # Verificaciones antes de subir a Git
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
+│   ├── auditoria-nueva-sucursal-stock-2026-10-04.md  # Auditoría de factibilidad (solo lectura): nueva sucursal + inventario + menú + trazabilidad + facturación
 │   ├── arquitectura/             # Mapa de arquitectura vivo: overview, módulos, ER, flujos, servicios externos, stack, salud + diagramas/svg/ (renders .svg; la fuente es el bloque mermaid embebido en cada .md)
 │   ├── shots/                    # Capturas de evidencia de auditorías/QA (NO trackeado — .gitignore)
 │   ├── README.md                 # Índice de informes (tabla de decisión + regla de vida)
@@ -80,6 +83,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
+    ├── auditoria-nueva-sucursal-stock.md  # Auditoría de factibilidad (solo lectura): nueva sucursal + inventario + menú + trazabilidad + facturación
     ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, rediseño de /pedido, mapa-arquitectura.md, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
 ```

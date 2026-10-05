@@ -13,13 +13,13 @@
 
 ## Tickets abiertos
 
-Ninguno al 2026-10-02 — los últimos tickets (rediseño `/pedido` PR 1–3, auditoría UX de `/sucursales`, prueba de imagen de promo y el par plan/resultados de pruebas manuales pre-producción) se implementaron, mergearon a `main` y se archivaron.
+- [auditoria-nueva-sucursal-stock-2026-10-04.md](auditoria-nueva-sucursal-stock-2026-10-04.md) — auditoría de solo lectura de factibilidad para una nueva sucursal: inventario de 59 ítems, menú de 11 promos + extras, trazabilidad por promo y facturación. Veredictos A–D parcialmente preparados; incluye plan por PRs y las 6 decisiones del usuario ya incorporadas (D-1..D-6); pendiente solo definir el servicio "Paquete".
 
 > Cuando un PR mergea, su informe se archiva y `reporte-estado.md` §0 se actualiza.
 
 ## Referencia viva (nunca se archiva)
 
-`reporte-estado.md` · `entornos.md` · `checklist-pre-push.md` · `guia-funcionamiento-pancheria.md` · `lecciones-aprendidas.md` · `arquitectura/` (mapa de arquitectura vivo)
+`reporte-estado.md` · `entornos.md` · `checklist-pre-push.md` · `guia-funcionamiento-pancheria.md` · `lecciones-aprendidas.md` · `runbook-nueva-sucursal.md` · `arquitectura/` (mapa de arquitectura vivo)
 
 ## Regla de vida del documento
 

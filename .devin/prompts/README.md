@@ -130,6 +130,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría y sincronización de documentación](auditoria-y-documentacion.md) — guía reutilizable para mantener documentación y código alineados.
 - [Auditoría de cobertura de pruebas y tests](auditoria-cobertura-de-pruebas.md) — guía para mapear sectores críticos, tests unitarios y E2E, detectar brechas y proponer tests faltantes.
 - [Auditoría QA integral con ejecución de tests](auditoria-qa-integral.md) — flujo por etapas (plan → aprobación → ejecución → informe) para auditar flujos críticos, concurrencia, seguridad/aislamiento y UX/accesibilidad con evidencia y capturas.
+- [Auditoría de factibilidad — nueva sucursal con inventario y menú vendible](auditoria-nueva-sucursal-stock.md) — auditoría de solo lectura para evaluar el alta de una sucursal con inventario de 59 ítems, 11 promos + extras, trazabilidad por promo y alcance de facturación; incluye el estado ya verificado contra código para no re-derivarlo.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
 
 ### Prompts archivados
