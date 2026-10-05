@@ -32,6 +32,7 @@ Cuando se deje un monitoreo en background (CI de GitHub Actions, deploys de Verc
 | Empujar migraciones (sincronización directa) | `npx drizzle-kit push`               |
 | Empujar migraciones en producción | Ver `.devin/informes/entornos.md`        |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
+| Cargar catálogo Panchería Popular | `npx tsx scripts/cargar-catalogo.ts --branch <id\|nombre>` (dry-run) · agregar `--apply` para escribir · datos en `scripts/data/catalogo-pancheria-popular.ts` |
 
 > **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches` con `RESTART IDENTITY CASCADE` (las tablas hijas como `order_stock_reservations`, `sale_payments`, `sale_item_recipes` y `order_item_recipes` quedan cubiertas por el `CASCADE`), y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
