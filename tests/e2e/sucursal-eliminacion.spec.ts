@@ -105,6 +105,11 @@ test.describe('Eliminación de sucursal', () => {
       // explícita para no compartir el bucket de rate limit con otros tests.
       headers: { 'X-Forwarded-For': `203.0.113.${Date.now() % 254}` },
     });
-    expect(orderRes.status()).toBe(404);
+    // Desde `is_active` (migración 0038), un branchId inexistente o inactivo
+    // resuelve a `null` en `resolvePublicBranchId` y la ruta responde 400 con
+    // el mensaje genérico: no se expone si la sucursal existe o está activa.
+    expect(orderRes.status()).toBe(400);
+    const body = (await orderRes.json()) as { error: string };
+    expect(body.error).toContain('sucursal activa');
   });
 });
