@@ -1,7 +1,7 @@
 # Auditoría de CI — fallo E2E + optimización del workflow
 
 **Fecha:** 2026-10-05
-**Estado:** en curso (verificado localmente; falta confirmación del próximo run de CI)
+**Estado:** implementado — commits `54a1b15` + `56bdaaa` en main; run `37366712355` **success** (9/9 jobs) y deploy Vercel `READY`. Nota: el run tardó ~30 min en arrancar y GitHub canceló 4 jobs sin ejecutarlos por un incidente de asignación de runners (degraded performance, 19:11–21:30Z); se recuperaron con `gh run rerun --failed`.
 
 ## 1. Hallazgo: fallo determinístico, no flake
 
