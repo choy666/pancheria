@@ -215,6 +215,68 @@ export async function getBranchDeletionSummary(
   };
 }
 
+/**
+ * Activa o desactiva una sucursal. La desactivación solo apaga la
+ * superficie pública (selector y resolución de /pedido, catálogo,
+ * disponibilidad, estado y creación de pedidos): el panel, las ventas
+ * internas, la caja y el historial siguen operando, y los pedidos
+ * existentes conservan seguimiento/cancelación/chat. Es la alternativa
+ * reversible a `deleteBranch`.
+ */
+export async function setBranchActive(id: number, isActive: boolean) {
+  const branch = await branchRepository.findById(id);
+
+  if (!branch) {
+    throw new NotFoundError('Sucursal', id);
+  }
+
+  const updated = await branchRepository.update(id, { isActive });
+
+  if (!updated) {
+    throw new DomainError('No se pudo actualizar la sucursal.');
+  }
+
+  return updated as Branch;
+}
+
+/**
+ * Resumen para el diálogo de desactivación: a diferencia del de borrado
+ * (que informa qué se pierde), acá nada se pierde — solo se advierten los
+ * efectos inmediatos de apagar el canal público (caja abierta, pedidos en
+ * curso, sucursal por defecto, última activa).
+ */
+export async function getBranchDeactivationSummary(
+  id: number,
+  currentUserBranchId?: number
+) {
+  const branch = await branchRepository.findById(id);
+
+  if (!branch) {
+    throw new NotFoundError('Sucursal', id);
+  }
+
+  const [productIds, activeBranchCount] = await Promise.all([
+    branchRepository.findProductIdsByBranch(id),
+    branchRepository.countActiveBranches(),
+  ]);
+  const { openCashRegisters, activeOrders } =
+    await branchRepository.countBranchDeletionImpact(id, productIds);
+
+  const defaultBranchName = getDefaultBranchName();
+
+  return {
+    branch: { id: branch.id, name: branch.name, isActive: branch.isActive },
+    openCashRegisters,
+    activeOrders,
+    flags: {
+      isDefaultBranch:
+        !!defaultBranchName && branch.name === defaultBranchName,
+      isSelfBranch: currentUserBranchId === branch.id,
+      isLastActiveBranch: branch.isActive && activeBranchCount === 1,
+    },
+  };
+}
+
 export async function deleteBranch(id: number) {
   const branch = await branchRepository.findById(id);
 

@@ -4,14 +4,17 @@
 import { NextRequest } from 'next/server';
 import { POST } from './route';
 import * as catalogService from '@/application/services/catalogService';
-import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import {
+  resolvePublicBranchId,
+  DEFAULT_BRANCH_ERROR,
+} from '@/lib/branch-resolver';
 import * as rateLimit from '@/lib/rate-limit';
 import { NotFoundError } from '@/domain/errors';
 
 jest.mock('@/application/services/catalogService');
 jest.mock('@/lib/branch-resolver', () => ({
   ...jest.requireActual('@/lib/branch-resolver'),
-  getDefaultBranchId: jest.fn(),
+  resolvePublicBranchId: jest.fn(),
 }));
 jest.mock('@/lib/rate-limit', () => {
   const pollLimiter = jest.fn().mockResolvedValue(false);
@@ -31,9 +34,8 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const mockedCatalogService = catalogService as jest.Mocked<typeof catalogService>;
-const mockedGetDefaultBranchId = getDefaultBranchId as jest.MockedFunction<
-  typeof getDefaultBranchId
->;
+const mockedResolvePublicBranchId =
+  resolvePublicBranchId as jest.MockedFunction<typeof resolvePublicBranchId>;
 
 const BRANCH_ID = 1;
 
@@ -52,7 +54,9 @@ function buildRequest(
 describe('POST /api/public/disponibilidad', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDefaultBranchId.mockResolvedValue(BRANCH_ID);
+    mockedResolvePublicBranchId.mockImplementation(
+      async (id) => id ?? BRANCH_ID
+    );
     mockedCatalogService.validatePublicCart.mockResolvedValue({
       availabilityByProduct: { 1: 5 },
       shortageByProduct: {},
@@ -109,7 +113,7 @@ describe('POST /api/public/disponibilidad', () => {
       })
     );
 
-    expect(mockedGetDefaultBranchId).not.toHaveBeenCalled();
+    expect(mockedResolvePublicBranchId).toHaveBeenCalledWith(2);
     expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
       2,
       [],
@@ -125,7 +129,7 @@ describe('POST /api/public/disponibilidad', () => {
       })
     );
 
-    expect(mockedGetDefaultBranchId).toHaveBeenCalled();
+    expect(mockedResolvePublicBranchId).toHaveBeenCalledWith(null);
     expect(mockedCatalogService.validatePublicCart).toHaveBeenCalledWith(
       BRANCH_ID,
       [],
@@ -151,7 +155,7 @@ describe('POST /api/public/disponibilidad', () => {
   });
 
   test('devuelve 400 si no se puede resolver la sucursal por defecto', async () => {
-    mockedGetDefaultBranchId.mockResolvedValue(null);
+    mockedResolvePublicBranchId.mockResolvedValue(null);
 
     const response = await POST(
       buildRequest('', {

@@ -6,11 +6,17 @@ import { BranchActions } from './branch-actions';
 
 const mockDeleteBranchAction = jest.fn();
 const mockGetSummary = jest.fn();
+const mockSetBranchActiveAction = jest.fn();
+const mockGetDeactivationSummary = jest.fn();
 
 jest.mock('@/app/(panel)/sucursales/actions', () => ({
   deleteBranchAction: (...args: unknown[]) => mockDeleteBranchAction(...args),
   getBranchDeletionSummaryAction: (...args: unknown[]) =>
     mockGetSummary(...args),
+  setBranchActiveAction: (...args: unknown[]) =>
+    mockSetBranchActiveAction(...args),
+  getBranchDeactivationSummaryAction: (...args: unknown[]) =>
+    mockGetDeactivationSummary(...args),
 }));
 
 const SUMMARY = {
@@ -68,7 +74,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" />
+      <BranchActions branchId={1} branchName="Centro" branchIsActive />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -94,7 +100,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockRejectedValue(new Error('fallo de red'));
 
     render(
-      <BranchActions branchId={1} branchName="Centro" />
+      <BranchActions branchId={1} branchName="Centro" branchIsActive />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -120,7 +126,7 @@ describe('BranchActions', () => {
       .mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" />
+      <BranchActions branchId={1} branchName="Centro" branchIsActive />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -143,7 +149,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(RISKY_SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" />
+      <BranchActions branchId={1} branchName="Centro" branchIsActive />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -177,7 +183,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" />
+      <BranchActions branchId={1} branchName="Centro" branchIsActive />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -200,7 +206,7 @@ describe('BranchActions', () => {
     mockGetSummary.mockResolvedValue(SUMMARY);
 
     render(
-      <BranchActions branchId={1} branchName="Centro" />
+      <BranchActions branchId={1} branchName="Centro" branchIsActive />
     );
 
     fireEvent.click(screen.getByTestId('delete-branch-1'));
@@ -231,5 +237,90 @@ describe('BranchActions', () => {
     expect(
       screen.getByRole('button', { name: 'Eliminar definitivamente' })
     ).toBeDisabled();
+  });
+
+  describe('activar/desactivar', () => {
+    const DEACTIVATION_SUMMARY = {
+      branch: { id: 1, name: 'Centro', isActive: true },
+      openCashRegisters: 1,
+      activeOrders: 2,
+      flags: {
+        isDefaultBranch: true,
+        isSelfBranch: true,
+        isLastActiveBranch: false,
+      },
+    };
+
+    test('desactivar muestra los warnings y confirma sin pedir el nombre', async () => {
+      mockGetDeactivationSummary.mockResolvedValue(DEACTIVATION_SUMMARY);
+
+      render(
+        <BranchActions branchId={1} branchName="Centro" branchIsActive />
+      );
+
+      fireEvent.click(screen.getByTestId('toggle-branch-1'));
+
+      expect(
+        await screen.findByText(/Deja de aparecer en el canal público/)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('branch-toggle-warning-default')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('branch-toggle-warning-open-register')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('branch-toggle-warning-active-orders')
+      ).toHaveTextContent('2 pedidos en curso');
+
+      // No destructivo: la confirmación no exige tipear el nombre.
+      const submit = screen.getByRole('button', { name: 'Desactivar' });
+      expect(submit).not.toBeDisabled();
+      fireEvent.click(submit);
+      await waitFor(() =>
+        expect(mockSetBranchActiveAction).toHaveBeenCalled()
+      );
+    });
+
+    test('si falla el resumen de desactivación no habilita el submit', async () => {
+      mockGetDeactivationSummary.mockRejectedValue(new Error('fallo'));
+
+      render(
+        <BranchActions branchId={1} branchName="Centro" branchIsActive />
+      );
+
+      fireEvent.click(screen.getByTestId('toggle-branch-1'));
+
+      expect(
+        await screen.findByText(/No se pudo cargar el resumen de efectos/)
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Desactivar' })
+      ).toBeNull();
+    });
+
+    test('activar no consulta el resumen y confirma directo', async () => {
+      render(
+        <BranchActions
+          branchId={1}
+          branchName="Centro"
+          branchIsActive={false}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('toggle-branch-1'));
+
+      expect(
+        await screen.findByText(/Vas a activar/)
+      ).toBeInTheDocument();
+      expect(mockGetDeactivationSummary).not.toHaveBeenCalled();
+
+      const submit = screen.getByRole('button', { name: 'Activar' });
+      expect(submit).not.toBeDisabled();
+      fireEvent.click(submit);
+      await waitFor(() =>
+        expect(mockSetBranchActiveAction).toHaveBeenCalled()
+      );
+    });
   });
 });

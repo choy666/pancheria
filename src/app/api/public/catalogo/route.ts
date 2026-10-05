@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as catalogService from '@/application/services/catalogService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import {
+  resolvePublicBranchId,
+  DEFAULT_BRANCH_ERROR,
+} from '@/lib/branch-resolver';
 import { buildCdnCacheControlHeaders } from '@/lib/cache-control';
 import {
   getPublicCatalogCacheSMaxage,
@@ -23,7 +26,7 @@ const querySchema = z.object({
 export const GET = withApiErrorHandling(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const query = querySchema.parse(Object.fromEntries(searchParams));
-  const branchId = query.branchId ?? (await getDefaultBranchId());
+  const branchId = await resolvePublicBranchId(query.branchId ?? null);
 
   if (!branchId) {
     return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });

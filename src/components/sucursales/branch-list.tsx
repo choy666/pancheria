@@ -69,6 +69,16 @@ export function BranchList({
                 >
                   <TableCell data-testid="branch-name" className="font-medium">
                     {branch.name}
+                    {!branch.isActive && (
+                      <Badge
+                        variant="outline"
+                        data-testid="branch-inactive-badge"
+                        className="ml-2 border-amber-500/30 bg-amber-500/10 align-middle text-amber-400"
+                        title="Fuera del canal público: no aparece en /pedido ni recibe pedidos nuevos. El panel y el historial siguen disponibles."
+                      >
+                        Inactiva
+                      </Badge>
+                    )}
                     {/* Sub-resumen solo móvil: muestra lo que queda oculto al
                         ocultar las columnas Dirección/Teléfono (A5). */}
                     <span className="block text-xs font-normal text-muted-foreground sm:hidden">
@@ -178,6 +188,7 @@ export function BranchList({
                     <BranchActions
                       branchId={branch.id}
                       branchName={branch.name}
+                      branchIsActive={branch.isActive}
                     />
                   </TableCell>
                 </TableRow>

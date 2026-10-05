@@ -77,38 +77,40 @@ export async function getCachedBranchById(
   return reviveBranch((await cachedBranchById(id)) as Branch | undefined);
 }
 
-const cachedBranchIdByName = unstable_cache(
-  async (name: string): Promise<number | null> => {
-    const branch = await branchRepository.findByName(name);
-    return (branch?.id as number | undefined) ?? null;
-  },
-  ['server-cache', 'branch-id-by-name'],
+const cachedBranchByName = unstable_cache(
+  async (name: string) => branchRepository.findByName(name),
+  ['server-cache', 'branch-by-name'],
   { tags: [DATA_CACHE_TAGS.branches], revalidate: REVALIDATE_OPTION }
 );
 
-export async function getCachedBranchIdByName(
+export async function getCachedBranchByName(
   name: string
-): Promise<number | null> {
+): Promise<Branch | undefined> {
   if (isCacheDisabled()) {
-    const branch = await branchRepository.findByName(name);
-    return (branch?.id as number | undefined) ?? null;
+    return branchRepository.findByName(name) as Promise<Branch | undefined>;
   }
-  return cachedBranchIdByName(name);
+  return reviveBranch((await cachedBranchByName(name)) as Branch | undefined);
 }
 
 const cachedBranchList = unstable_cache(
-  async (limit: number) => branchRepository.findAllOrderedByCreatedAt({ limit }),
+  async (limit: number, activeOnly: boolean) =>
+    branchRepository.findAllOrderedByCreatedAt({ limit, activeOnly }),
   ['server-cache', 'branch-list'],
   { tags: [DATA_CACHE_TAGS.branches], revalidate: REVALIDATE_OPTION }
 );
 
-export async function getCachedBranchList(limit: number): Promise<Branch[]> {
+export async function getCachedBranchList(
+  limit: number,
+  options: { activeOnly?: boolean } = {}
+): Promise<Branch[]> {
+  const activeOnly = options.activeOnly === true;
   if (isCacheDisabled()) {
-    return branchRepository.findAllOrderedByCreatedAt({ limit }) as Promise<
-      Branch[]
-    >;
+    return branchRepository.findAllOrderedByCreatedAt({
+      limit,
+      activeOnly,
+    }) as Promise<Branch[]>;
   }
-  const rows = await cachedBranchList(limit);
+  const rows = await cachedBranchList(limit, activeOnly);
   return (rows as Branch[]).map((row) => reviveBranch(row) as Branch);
 }
 

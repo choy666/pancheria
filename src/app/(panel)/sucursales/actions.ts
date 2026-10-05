@@ -129,3 +129,42 @@ export async function getBranchDeletionSummaryAction(
   // eliminación borra su propia cuenta (riesgo de lockout).
   return branchService.getBranchDeletionSummary(id, session.user.branchId);
 }
+
+/**
+ * Resumen de efectos para el diálogo de desactivación (nada se borra; el
+ * diálogo solo advierte el impacto inmediato en el canal público).
+ */
+export async function getBranchDeactivationSummaryAction(
+  id: number
+): Promise<ReturnType<typeof branchService.getBranchDeactivationSummary>> {
+  const session = await requireAdmin();
+  return branchService.getBranchDeactivationSummary(id, session.user.branchId);
+}
+
+export async function setBranchActiveAction(
+  _prevState: BranchState,
+  formData: FormData
+): Promise<BranchState> {
+  await requireAdmin();
+
+  const id = Number(formData.get('id'));
+  const isActive = formData.get('isActive') === 'true';
+
+  try {
+    await branchService.setBranchActive(id, isActive);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { error: error.message };
+    }
+    return { error: 'No se pudo actualizar la sucursal. Intentá de nuevo.' };
+  }
+
+  // Tag `branches`: el selector público y el resolver de /pedido dejan de
+  // ver la sucursal desactivada. `public-catalog`: las páginas cacheadas
+  // de esa sucursal dejan de servirse.
+  invalidateBranchesCache();
+  invalidatePublicCatalogCache();
+  revalidatePath(routes.sucursales);
+  revalidatePath(routes.home, 'layout');
+  return null;
+}

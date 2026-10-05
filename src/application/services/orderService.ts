@@ -269,6 +269,12 @@ export async function createOrder(
     throw new NotFoundError('Sucursal', branchId);
   }
 
+  // Sucursal inactiva: mismo mensaje genérico que la caja cerrada — el
+  // canal público no distingue "desactivada" de "no atiende ahora".
+  if (!branch.isActive) {
+    throw new ValidationError('En este momento no podemos recibir pedidos.');
+  }
+
   const branchIdempotencyKey = `${branchId}:${idempotencyKey}`;
   const existing = await getOrderByIdempotencyKey(branchId, branchIdempotencyKey);
   if (existing) {

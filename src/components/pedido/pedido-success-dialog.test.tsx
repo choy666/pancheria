@@ -13,6 +13,7 @@ function makeBranch(overrides: Partial<Branch> = {}): Branch {
     openingHours: [],
     phones: [],
     socialLinks: [],
+    isActive: true,
     createdAt: new Date(),
     ...overrides,
   };

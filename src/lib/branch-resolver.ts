@@ -1,6 +1,10 @@
 import { getDefaultBranchName } from '@/config/branch';
 import { MAX_LIMIT } from '@/config/pagination';
-import { getCachedBranchIdByName, getCachedBranchList } from '@/lib/server-cache';
+import {
+  getCachedBranchById,
+  getCachedBranchByName,
+  getCachedBranchList,
+} from '@/lib/server-cache';
 import type { Branch } from '@/domain/types';
 
 /**
@@ -30,10 +34,11 @@ export function parseBranchId(value: unknown): number | null {
 
 export async function listPublicBranches(): Promise<Branch[]> {
   // Cap defensivo: el selector público no debería listar más de MAX_LIMIT
-  // sucursales. La tabla `branches` no tiene flag de activo: todas las
-  // sucursales existentes se consideran activas. Cacheado por tag
-  // `branches` (se invalida al crear/editar/eliminar sucursales).
-  const branches = await getCachedBranchList(MAX_LIMIT);
+  // sucursales. Solo se exponen las activas: una sucursal desactivada
+  // (`is_active = false`) desaparece del canal público sin borrar datos.
+  // Cacheado por tag `branches` (se invalida al crear/editar/eliminar
+  // sucursales y al activarlas/desactivarlas).
+  const branches = await getCachedBranchList(MAX_LIMIT, { activeOnly: true });
   return branches.map((b) => ({
     id: b.id,
     name: b.name,
@@ -42,6 +47,7 @@ export async function listPublicBranches(): Promise<Branch[]> {
     phones: b.phones ?? [],
     socialLinks: b.socialLinks ?? [],
     location: b.location ?? null,
+    isActive: b.isActive,
     createdAt: b.createdAt,
   }));
 }
@@ -62,5 +68,26 @@ export async function getDefaultBranchId(): Promise<number | null> {
 
   // Lookup directo por nombre cacheado (tag `branches`): evita una query
   // por cada request pública que necesita la sucursal por defecto.
-  return getCachedBranchIdByName(defaultBranchName);
+  // Sin fallback a "otra activa": si la por defecto está desactivada,
+  // /pedido debe fallar en vez de vender con el stock y la caja de una
+  // sucursal distinta.
+  const branch = await getCachedBranchByName(defaultBranchName);
+  return branch?.isActive ? branch.id : null;
+}
+
+/**
+ * Resuelve la sucursal para una ruta pública: la del param `branchId` si
+ * apunta a una sucursal activa, o la por defecto cuando no viene param.
+ * Devuelve `null` si la explícita no existe/está inactiva o si el default
+ * no resuelve — los llamadores responden con `DEFAULT_BRANCH_ERROR`.
+ */
+export async function resolvePublicBranchId(
+  branchId: number | null | undefined
+): Promise<number | null> {
+  if (branchId === null || branchId === undefined) {
+    return getDefaultBranchId();
+  }
+
+  const branch = await getCachedBranchById(branchId);
+  return branch?.isActive ? branch.id : null;
 }

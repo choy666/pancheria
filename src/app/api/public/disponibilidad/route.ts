@@ -3,7 +3,10 @@ import { z } from 'zod';
 import * as catalogService from '@/application/services/catalogService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { cartAvailabilitySchema } from '@/lib/zod-schemas';
-import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import {
+  resolvePublicBranchId,
+  DEFAULT_BRANCH_ERROR,
+} from '@/lib/branch-resolver';
 import { getClientIp, createPollRateLimiter } from '@/lib/rate-limit';
 import {
   getPublicPollRateLimitWindowMs,
@@ -34,7 +37,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     );
   }
 
-  const branchId = query.branchId ?? (await getDefaultBranchId());
+  const branchId = await resolvePublicBranchId(query.branchId ?? null);
 
   if (!branchId) {
     return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });

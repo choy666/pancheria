@@ -3,7 +3,10 @@ import { z } from 'zod';
 import * as orderService from '@/application/services/orderService';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
-import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
+import {
+  resolvePublicBranchId,
+  DEFAULT_BRANCH_ERROR,
+} from '@/lib/branch-resolver';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import { InsufficientStockError } from '@/domain/errors';
 import { publicShortageMessage } from '@/lib/public-errors';
@@ -39,7 +42,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const body = await request.json();
   const data = orderSchema.parse(body);
 
-  const branchId = query.branchId ?? (await getDefaultBranchId());
+  const branchId = await resolvePublicBranchId(query.branchId ?? null);
 
   if (!branchId) {
     return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });

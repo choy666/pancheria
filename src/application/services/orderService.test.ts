@@ -81,7 +81,7 @@ function createProductRow(overrides: Partial<ProductRow> = {}): ProductRow {
     unit: 'unidad',
     stock: 0,
     minStock: 0,
-    isActive: true,
+      isActive: true,
     imageUrl: null,
     imageKey: null,
     imageMimeType: null,
@@ -394,6 +394,7 @@ describe('orderService', () => {
       openingHours: [],
       phones: [],
       socialLinks: [],
+      isActive: true,
       createdAt: new Date(),
     });
     mockedIsBranchOpen.mockReturnValue(true);
@@ -790,6 +791,38 @@ describe('orderService', () => {
       ).rejects.toThrow(NotFoundError);
     });
 
+    test('rechaza el pedido si la sucursal está inactiva', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal Test',
+        openingHours: [],
+        phones: [],
+        socialLinks: [],
+        isActive: false,
+        createdAt: new Date(),
+      });
+
+      const error = await createOrder({
+        branchId: BRANCH_ID,
+        items: [{ productId: 1, quantity: 1 }],
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup',
+        idempotencyKey: 'key-inactive-branch',
+      }).catch((e) => e);
+
+      // Mismo mensaje genérico que la caja cerrada: el canal público no
+      // distingue "desactivada" de "no atiende ahora".
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.message).toBe(
+        'En este momento no podemos recibir pedidos.'
+      );
+      // Ni horarios ni caja ni la transacción se consultan.
+      expect(mockedIsBranchOpen).not.toHaveBeenCalled();
+      expect(mockedCashRegisterService.getOpenCashRegister).not.toHaveBeenCalled();
+      expect(findCapturedInsert(orders)).toHaveLength(0);
+    });
+
     test('rechaza el pedido fuera de horario aunque haya caja abierta', async () => {
       mockedBranchService.getBranchById.mockResolvedValue({
         id: BRANCH_ID,
@@ -797,6 +830,7 @@ describe('orderService', () => {
         openingHours: [{ dayOfWeek: 1, open: '10:00', close: '22:00' }],
         phones: [],
         socialLinks: [],
+      isActive: true,
         createdAt: new Date(),
       });
       mockedIsBranchOpen.mockReturnValue(false);
@@ -826,6 +860,7 @@ describe('orderService', () => {
         openingHours: [{ dayOfWeek: 1, open: '10:00', close: '22:00' }],
         phones: [],
         socialLinks: [],
+      isActive: true,
         createdAt: new Date(),
       });
       mockedIsBranchOpen.mockReturnValue(true);
@@ -863,6 +898,7 @@ describe('orderService', () => {
         openingHours: [{ dayOfWeek: 1, open: '10:00', close: '22:00' }],
         phones: [],
         socialLinks: [],
+      isActive: true,
         createdAt: new Date(),
       });
       mockedIsBranchOpen.mockReturnValue(true);

@@ -74,6 +74,7 @@ export type Branch = {
   phones: BranchPhone[];
   socialLinks: BranchSocialLink[];
   location?: string | null;
+  isActive: boolean;
   createdAt: Date;
 };
 

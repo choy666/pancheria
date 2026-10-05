@@ -29,6 +29,35 @@ export const GET = withApiErrorHandling(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Sucursal no encontrada.' }, { status: 404 });
   }
 
+  // Una sucursal inactiva sale del canal público: el estado se reporta como
+  // "cerrada" para que una página ya abierta degrade en vez de romperse.
+  if (!branch.isActive) {
+    return NextResponse.json(
+      {
+        isOpen: false,
+        currentOpening: null,
+        nextOpening: null,
+        branch: {
+          id: branch.id,
+          name: branch.name,
+          openingHours: branch.openingHours,
+          address: branch.address ?? null,
+          phones: branch.phones ?? [],
+          socialLinks: branch.socialLinks ?? [],
+          location: branch.location ?? null,
+          createdAt: branch.createdAt,
+        },
+        message: 'La sucursal está cerrada.',
+      },
+      {
+        headers: buildCdnCacheControlHeaders(
+          getPublicBranchStatusCacheSMaxage(),
+          getPublicBranchStatusCacheSwr()
+        ),
+      }
+    );
+  }
+
   const cashRegister = await cashRegisterService.getOpenCashRegister(query.branchId);
   // Sin horarios configurados no se puede evaluar la franja vigente: basta
   // con que haya una caja abierta para considerar la sucursal abierta.

@@ -59,6 +59,7 @@ const BRANCH = {
   phones: [{ label: 'Pedidos', number: '3415555555' }],
   socialLinks: [{ network: 'instagram', url: '@sucursal.test' }],
   location: 'Rosario',
+  isActive: true,
   createdAt: new Date(),
 };
 
@@ -156,6 +157,29 @@ describe('GET /api/public/sucursal/estado', () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toBe('Sucursal no encontrada.');
+  });
+
+  test('una sucursal inactiva reporta cerrada aunque tenga caja abierta', async () => {
+    mockedBranchService.getBranchById.mockResolvedValue({
+      ...BRANCH,
+      isActive: false,
+    } as any);
+
+    const response = await GET(buildRequest(`branchId=${BRANCH_ID}`));
+    const body = (await response.json()) as {
+      isOpen: boolean;
+      message: string;
+      branch: { id: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.isOpen).toBe(false);
+    expect(body.message).toBe('La sucursal está cerrada.');
+    expect(body.branch.id).toBe(BRANCH_ID);
+    // No se consulta la caja: la sucursal ya salió del canal público.
+    expect(
+      mockedCashRegisterService.getOpenCashRegister
+    ).not.toHaveBeenCalled();
   });
 
   test('devuelve 404 cuando getBranchById lanza NotFoundError', async () => {

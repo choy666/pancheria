@@ -73,6 +73,7 @@ function buildPreviewBranch({
       .map((s) => ({ network: s.network, url: s.url.trim() }))
       .filter((s) => s.url !== ''),
     location: location.trim() || null,
+    isActive: branch?.isActive ?? true,
     createdAt: branch?.createdAt ?? new Date(),
   };
 }

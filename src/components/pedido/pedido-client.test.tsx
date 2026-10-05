@@ -71,6 +71,7 @@ function makeBranch(
     openingHours: [],
     phones: [],
     socialLinks: [],
+    isActive: true,
     createdAt: new Date(),
     ...overrides,
   };

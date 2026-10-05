@@ -23,9 +23,10 @@ export type BranchInsert = typeof branches.$inferInsert;
 export type BranchUpdate = Partial<BranchInsert>;
 
 export async function findAllOrderedByCreatedAt(
-  options: { limit?: number } = {}
+  options: { limit?: number; activeOnly?: boolean } = {}
 ) {
   return db.query.branches.findMany({
+    where: options.activeOnly ? eq(branches.isActive, true) : undefined,
     orderBy: (branches, { desc }) => [desc(branches.createdAt)],
     limit: options.limit,
   });
@@ -336,6 +337,14 @@ export async function countDeletionCascadeChildren(branchId: number) {
 
 export async function countBranches() {
   const rows = await db.select({ count: count() }).from(branches);
+  return rows[0]?.count ?? 0;
+}
+
+export async function countActiveBranches() {
+  const rows = await db
+    .select({ count: count() })
+    .from(branches)
+    .where(eq(branches.isActive, true));
   return rows[0]?.count ?? 0;
 }
 

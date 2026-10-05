@@ -14,6 +14,7 @@
 ## Tickets abiertos
 
 - [auditoria-nueva-sucursal-stock-2026-10-04.md](auditoria-nueva-sucursal-stock-2026-10-04.md) — auditoría de solo lectura de factibilidad para una nueva sucursal: inventario de 59 ítems, menú de 11 promos + extras, trazabilidad por promo y facturación. Veredictos A–D parcialmente preparados; incluye plan por PRs y las 6 decisiones del usuario ya incorporadas (D-1..D-6); pendiente solo definir el servicio "Paquete".
+- [plan-sucursal-activa-2026-10-05.md](plan-sucursal-activa-2026-10-05.md) — auditoría + plan para activar/desactivar sucursales (`branches.is_active`, solo superficie pública) como alternativa no destructiva al borrado en cascada.
 
 > Cuando un PR mergea, su informe se archiva y `reporte-estado.md` §0 se actualiza.
 

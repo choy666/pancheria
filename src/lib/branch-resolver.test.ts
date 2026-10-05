@@ -2,6 +2,7 @@ import {
   parseBranchId,
   listPublicBranches,
   getDefaultBranchId,
+  resolvePublicBranchId,
 } from './branch-resolver';
 import * as branchRepository from '@/repositories/branchRepository';
 import { branches } from '@/db/schema';
@@ -37,6 +38,7 @@ function makeBranch(id: number, name: string): BranchRow {
     address: null,
     phones: [],
     socialLinks: [],
+    isActive: true,
     location: null,
     createdAt: new Date(),
   };
@@ -115,6 +117,68 @@ describe('branch-resolver', () => {
       expect(mockedBranchRepository.findByName).toHaveBeenCalledWith(
         DEFAULT_BRANCH_NAME
       );
+    });
+
+    test('devuelve null si la sucursal por defecto está inactiva (sin fallback)', async () => {
+      process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
+      mockedBranchRepository.findByName.mockResolvedValue({
+        ...makeBranch(1, DEFAULT_BRANCH_NAME),
+        isActive: false,
+      });
+
+      const result = await getDefaultBranchId();
+
+      expect(result).toBeNull();
+      // No hay fallback a otra activa: ni siquiera se consulta el listado.
+      expect(
+        mockedBranchRepository.findAllOrderedByCreatedAt
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolvePublicBranchId', () => {
+    test('con param devuelve el id si la sucursal existe y está activa', async () => {
+      mockedBranchRepository.findById.mockResolvedValue(
+        makeBranch(7, 'Sucursal B')
+      );
+
+      expect(await resolvePublicBranchId(7)).toBe(7);
+      expect(mockedBranchRepository.findById).toHaveBeenCalledWith(7);
+    });
+
+    test('con param devuelve null si la sucursal está inactiva', async () => {
+      mockedBranchRepository.findById.mockResolvedValue({
+        ...makeBranch(7, 'Sucursal B'),
+        isActive: false,
+      });
+
+      expect(await resolvePublicBranchId(7)).toBeNull();
+    });
+
+    test('con param devuelve null si la sucursal no existe', async () => {
+      mockedBranchRepository.findById.mockResolvedValue(undefined);
+
+      expect(await resolvePublicBranchId(99)).toBeNull();
+    });
+
+    test('sin param delega a la sucursal por defecto', async () => {
+      process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
+      mockedBranchRepository.findByName.mockResolvedValue(
+        makeBranch(1, DEFAULT_BRANCH_NAME)
+      );
+
+      expect(await resolvePublicBranchId(null)).toBe(1);
+      expect(await resolvePublicBranchId(undefined)).toBe(1);
+    });
+
+    test('sin param devuelve null si la por defecto está inactiva', async () => {
+      process.env.DEFAULT_BRANCH_NAME = DEFAULT_BRANCH_NAME;
+      mockedBranchRepository.findByName.mockResolvedValue({
+        ...makeBranch(1, DEFAULT_BRANCH_NAME),
+        isActive: false,
+      });
+
+      expect(await resolvePublicBranchId(null)).toBeNull();
     });
   });
 

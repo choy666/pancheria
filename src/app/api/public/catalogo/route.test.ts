@@ -4,13 +4,13 @@
 import { NextRequest } from 'next/server';
 import { GET } from './route';
 import * as catalogService from '@/application/services/catalogService';
-import { getDefaultBranchId } from '@/lib/branch-resolver';
+import { resolvePublicBranchId } from '@/lib/branch-resolver';
 import { NotFoundError } from '@/domain/errors';
 
 jest.mock('@/application/services/catalogService');
 jest.mock('@/lib/branch-resolver', () => ({
   ...jest.requireActual('@/lib/branch-resolver'),
-  getDefaultBranchId: jest.fn(),
+  resolvePublicBranchId: jest.fn(),
 }));
 jest.mock('@/lib/logger', () => ({
   logger: {
@@ -23,9 +23,8 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const mockedCatalogService = catalogService as jest.Mocked<typeof catalogService>;
-const mockedGetDefaultBranchId = getDefaultBranchId as jest.MockedFunction<
-  typeof getDefaultBranchId
->;
+const mockedResolvePublicBranchId =
+  resolvePublicBranchId as jest.MockedFunction<typeof resolvePublicBranchId>;
 
 const BRANCH_ID = 1;
 
@@ -38,9 +37,11 @@ function buildRequest(path = ''): NextRequest {
 describe('GET /api/public/catalogo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDefaultBranchId.mockResolvedValue(BRANCH_ID);
+    mockedResolvePublicBranchId.mockImplementation(
+      async (id) => id ?? BRANCH_ID
+    );
     mockedCatalogService.listPublicCatalogWithAvailability.mockResolvedValue({
-      branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], phones: [], socialLinks: [], createdAt: new Date() },
+      branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], phones: [], socialLinks: [], isActive: true, createdAt: new Date() },
       products: [
         {
           id: 1,
@@ -76,7 +77,7 @@ describe('GET /api/public/catalogo', () => {
   test('usa el branchId del query param cuando está presente', async () => {
     await GET(buildRequest('branchId=2&includeAvailability=true'));
 
-    expect(mockedGetDefaultBranchId).not.toHaveBeenCalled();
+    expect(mockedResolvePublicBranchId).toHaveBeenCalledWith(2);
     expect(mockedCatalogService.listPublicCatalogWithAvailability).toHaveBeenCalledWith(
       2,
       undefined
@@ -86,7 +87,7 @@ describe('GET /api/public/catalogo', () => {
   test('usa la sucursal por defecto si no hay branchId', async () => {
     await GET(buildRequest('includeAvailability=true'));
 
-    expect(mockedGetDefaultBranchId).toHaveBeenCalled();
+    expect(mockedResolvePublicBranchId).toHaveBeenCalledWith(null);
     expect(mockedCatalogService.listPublicCatalogWithAvailability).toHaveBeenCalledWith(
       BRANCH_ID,
       undefined
@@ -120,7 +121,7 @@ describe('GET /api/public/catalogo', () => {
   });
 
   test('devuelve 400 si no se puede resolver la sucursal por defecto', async () => {
-    mockedGetDefaultBranchId.mockResolvedValue(null);
+    mockedResolvePublicBranchId.mockResolvedValue(null);
 
     const response = await GET(buildRequest());
     const body = (await response.json()) as { error: string };

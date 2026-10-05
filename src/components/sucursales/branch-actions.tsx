@@ -19,7 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import {
   deleteBranchAction,
+  getBranchDeactivationSummaryAction,
   getBranchDeletionSummaryAction,
+  setBranchActiveAction,
   type BranchState,
 } from '@/app/(panel)/sucursales/actions';
 import { routes } from '@/config/routes';
@@ -29,6 +31,7 @@ const initialState: BranchState = null;
 interface BranchActionsProps {
   branchId: number;
   branchName: string;
+  branchIsActive: boolean;
 }
 
 // El tipo se infiere de la action para que el contrato con el servidor no
@@ -36,10 +39,14 @@ interface BranchActionsProps {
 type DeletionSummary = Awaited<
   ReturnType<typeof getBranchDeletionSummaryAction>
 >;
+type DeactivationSummary = Awaited<
+  ReturnType<typeof getBranchDeactivationSummaryAction>
+>;
 
 export function BranchActions({
   branchId,
   branchName,
+  branchIsActive,
 }: BranchActionsProps) {
   const [state, formAction, isPending] = useActionState(
     deleteBranchAction,
@@ -54,6 +61,16 @@ export function BranchActions({
   const submitError =
     state?.error && state !== dismissed ? state.error : null;
 
+  const [toggleState, toggleFormAction, isTogglePending] = useActionState(
+    setBranchActiveAction,
+    initialState
+  );
+  const [isToggleDialogOpen, setIsToggleDialogOpen] = useState(false);
+  const [deactivationSummary, setDeactivationSummary] =
+    useState<DeactivationSummary | null>(null);
+  const [isLoadingDeactivation, startLoadingDeactivation] = useTransition();
+  const toggleSubmittedRef = useRef(false);
+
   useEffect(() => {
     if (hasSubmittedRef.current && !isPending && state === null) {
       hasSubmittedRef.current = false;
@@ -62,6 +79,16 @@ export function BranchActions({
       setConfirmName('');
     }
   }, [isPending, state]);
+
+  // El toggle no es destructivo: al terminar se cierra el diálogo y la
+  // página se revalida sola (la action hace revalidatePath).
+  useEffect(() => {
+    if (toggleSubmittedRef.current && !isTogglePending && toggleState === null) {
+      toggleSubmittedRef.current = false;
+      setIsToggleDialogOpen(false);
+      setDeactivationSummary(null);
+    }
+  }, [isTogglePending, toggleState]);
 
   // El diálogo solo se abre una vez resuelta o fallida la consulta: un
   // `summary` nulo dentro del diálogo significa que falló la consulta, en
@@ -90,7 +117,31 @@ export function BranchActions({
     }
   }
 
+  function loadDeactivationSummary() {
+    startLoadingDeactivation(async () => {
+      // Activar es trivial (vuelve al canal público); solo al desactivar se
+      // precargan los warnings. Si falla la consulta se muestra el diálogo
+      // con error y opción de reintento, sin resumen fabricado.
+      const result = branchIsActive
+        ? await getBranchDeactivationSummaryAction(branchId).catch(() => null)
+        : null;
+      setDeactivationSummary(result);
+      setIsToggleDialogOpen(true);
+    });
+  }
+
+  function handleToggleDialogOpenChange(open: boolean) {
+    setIsToggleDialogOpen(open);
+    if (!open) {
+      setDeactivationSummary(null);
+    }
+  }
+
   const canConfirm = !!summary && confirmName.trim() === branchName;
+  // Desactivar exige el resumen cargado: desactivar a ciegas podría apagar
+  // una sucursal con pedidos en curso sin que el admin lo sepa.
+  const canConfirmToggle =
+    !branchIsActive || deactivationSummary !== null;
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
@@ -101,6 +152,21 @@ export function BranchActions({
           Editar
         </Button>
       </Link>
+
+      <Button
+        type="button"
+        data-testid={`toggle-branch-${branchId}`}
+        variant="ghost"
+        size="sm"
+        disabled={isLoadingDeactivation}
+        onClick={loadDeactivationSummary}
+      >
+        {isLoadingDeactivation
+          ? 'Cargando...'
+          : branchIsActive
+            ? 'Desactivar'
+            : 'Activar'}
+      </Button>
 
       <Button
         type="button"
@@ -323,6 +389,167 @@ export function BranchActions({
               )}
             </div>
           </DialogContent>
+      </Dialog>
+
+      <Dialog open={isToggleDialogOpen} onOpenChange={handleToggleDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {branchIsActive ? 'Desactivar sucursal' : 'Activar sucursal'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2 text-sm text-muted-foreground">
+            {branchIsActive ? (
+              <>
+                <p>
+                  Vas a desactivar <strong>{branchName}</strong>. Deja de
+                  aparecer en el canal público (<code>/pedido</code>) y no
+                  recibe pedidos nuevos. <strong>Nada se borra</strong>: el
+                  historial, la caja y el panel siguen disponibles, y podés
+                  reactivarla cuando quieras.
+                </p>
+                {deactivationSummary === null ? (
+                  <div className="space-y-3 rounded-lg border p-3">
+                    <p role="alert" className="text-destructive">
+                      No se pudo cargar el resumen de efectos. Sin el resumen
+                      no se puede confirmar la desactivación.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={loadDeactivationSummary}
+                        disabled={isLoadingDeactivation}
+                      >
+                        {isLoadingDeactivation ? 'Cargando...' : 'Reintentar'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleDialogOpenChange(false)}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  (deactivationSummary.openCashRegisters > 0 ||
+                    deactivationSummary.activeOrders > 0 ||
+                    deactivationSummary.flags.isDefaultBranch ||
+                    deactivationSummary.flags.isLastActiveBranch ||
+                    deactivationSummary.flags.isSelfBranch) && (
+                    <ul
+                      className="space-y-2"
+                      data-testid="branch-toggle-warnings"
+                    >
+                      {deactivationSummary.flags.isLastActiveBranch && (
+                        <li
+                          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-400"
+                          data-testid="branch-toggle-warning-last-active"
+                        >
+                          Es la última sucursal activa: al desactivarla el
+                          canal público queda sin sucursal y{' '}
+                          <code>/pedido</code> deja de funcionar hasta que
+                          reactives una.
+                        </li>
+                      )}
+                      {deactivationSummary.flags.isDefaultBranch && (
+                        <li
+                          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-400"
+                          data-testid="branch-toggle-warning-default"
+                        >
+                          Es la sucursal por defecto del catálogo público:{' '}
+                          <code>/pedido</code> deja de resolver su URL
+                          canónica hasta configurar{' '}
+                          <code>DEFAULT_BRANCH_NAME</code> con otra sucursal
+                          activa.
+                        </li>
+                      )}
+                      {deactivationSummary.openCashRegisters > 0 && (
+                        <li
+                          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-400"
+                          data-testid="branch-toggle-warning-open-register"
+                        >
+                          Tiene una caja abierta: podés cerrarla después desde
+                          el panel (la desactivación no la cierra).
+                        </li>
+                      )}
+                      {deactivationSummary.activeOrders > 0 && (
+                        <li
+                          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-400"
+                          data-testid="branch-toggle-warning-active-orders"
+                        >
+                          Tiene {deactivationSummary.activeOrders}{' '}
+                          {deactivationSummary.activeOrders === 1
+                            ? 'pedido en curso'
+                            : 'pedidos en curso'}{' '}
+                          (pendiente
+                          {deactivationSummary.activeOrders === 1 ? '' : 's'} o
+                          en preparación): siguen gestionándose desde el panel
+                          y el cliente conserva seguimiento, cancelación y
+                          chat.
+                        </li>
+                      )}
+                    </ul>
+                  )
+                )}
+              </>
+            ) : (
+              <p>
+                Vas a activar <strong>{branchName}</strong>: vuelve a aparecer
+                en el selector público de <code>/pedido</code> y puede recibir
+                pedidos nuevos (según sus horarios y caja).
+              </p>
+            )}
+
+            {deactivationSummary !== null || !branchIsActive ? (
+              <form
+                action={toggleFormAction}
+                onSubmit={() => {
+                  toggleSubmittedRef.current = true;
+                }}
+              >
+                <input type="hidden" name="id" value={branchId} />
+                <input
+                  type="hidden"
+                  name="isActive"
+                  value={String(!branchIsActive)}
+                />
+                {toggleState?.error && (
+                  <p
+                    role="alert"
+                    className="mb-3 text-sm text-destructive"
+                    data-testid="branch-toggle-error"
+                  >
+                    {toggleState.error}
+                  </p>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleToggleDialogOpenChange(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant={branchIsActive ? 'destructive' : 'default'}
+                    disabled={!canConfirmToggle || isTogglePending}
+                  >
+                    {isTogglePending
+                      ? 'Aplicando...'
+                      : branchIsActive
+                        ? 'Desactivar'
+                        : 'Activar'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            ) : null}
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

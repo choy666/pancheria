@@ -55,6 +55,7 @@ describe('GET /api/pedidos', () => {
       openingHours: [],
       phones: [],
       socialLinks: [],
+    isActive: true,
       createdAt: new Date(),
     });
   });

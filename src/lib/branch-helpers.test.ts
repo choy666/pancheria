@@ -19,6 +19,7 @@ function makeBranch(openingHours: Branch['openingHours']): Branch {
     openingHours,
     phones: [],
     socialLinks: [],
+    isActive: true,
     createdAt: new Date(),
   };
 }

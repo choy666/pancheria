@@ -12,6 +12,7 @@ import {
 interface Branch {
   id: number;
   name: string;
+  isActive?: boolean;
 }
 
 interface BranchSelectorProps {
@@ -77,6 +78,7 @@ export function BranchSelector({
           {branches.map((branch) => (
             <SelectItem key={branch.id} value={String(branch.id)} data-testid="branch-option">
               {branch.name}
+              {branch.isActive === false ? ' (inactiva)' : ''}
             </SelectItem>
           ))}
         </SelectContent>

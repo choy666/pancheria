@@ -4,6 +4,8 @@ import {
   createBranch,
   updateBranch,
   getBranchDeletionSummary,
+  getBranchDeactivationSummary,
+  setBranchActive,
   deleteBranch,
 } from './branchService';
 import { db } from '@/db';
@@ -531,6 +533,157 @@ describe('branchService', () => {
       await expect(getBranchDeletionSummary(999)).rejects.toThrow(NotFoundError);
       await expect(getBranchDeletionSummary(999)).rejects.toThrow(
         'Sucursal con ID 999 no encontrado.'
+      );
+    });
+  });
+
+  describe('setBranchActive', () => {
+    test('desactiva una sucursal sin borrar nada', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        isActive: true,
+      });
+      mockUpdateReturning.mockResolvedValue([
+        { id: 1, name: 'Sucursal A', isActive: false },
+      ]);
+
+      const result = await setBranchActive(1, false);
+
+      expect(result.isActive).toBe(false);
+      expect(mockedDb.update).toHaveBeenCalled();
+    });
+
+    test('reactiva una sucursal inactiva', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        isActive: false,
+      });
+      mockUpdateReturning.mockResolvedValue([
+        { id: 1, name: 'Sucursal A', isActive: true },
+      ]);
+
+      const result = await setBranchActive(1, true);
+
+      expect(result.isActive).toBe(true);
+    });
+
+    test('lanza NotFoundError si la sucursal no existe', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      await expect(setBranchActive(999, false)).rejects.toThrow(NotFoundError);
+      expect(mockedDb.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getBranchDeactivationSummary', () => {
+    test('devuelve caja/pedidos en curso y los flags de riesgo', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        isActive: true,
+      });
+      jest
+        .spyOn(branchRepository, 'findProductIdsByBranch')
+        .mockResolvedValue([]);
+      jest.spyOn(branchRepository, 'countActiveBranches').mockResolvedValue(2);
+      jest
+        .spyOn(branchRepository, 'countBranchDeletionImpact')
+        .mockResolvedValue({
+          products: 0,
+          sales: 0,
+          cashRegisters: 1,
+          stockMovements: 0,
+          users: 0,
+          recipes: 0,
+          orders: 3,
+          videos: 0,
+          openCashRegisters: 1,
+          activeOrders: 2,
+        });
+
+      process.env.DEFAULT_BRANCH_NAME = 'Sucursal A';
+      try {
+        const result = await getBranchDeactivationSummary(1, 1);
+
+        expect(result.openCashRegisters).toBe(1);
+        expect(result.activeOrders).toBe(2);
+        expect(result.flags).toEqual({
+          isDefaultBranch: true,
+          isSelfBranch: true,
+          isLastActiveBranch: false,
+        });
+      } finally {
+        delete process.env.DEFAULT_BRANCH_NAME;
+      }
+    });
+
+    test('marca isLastActiveBranch solo si la sucursal está activa y es la única', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        isActive: true,
+      });
+      jest
+        .spyOn(branchRepository, 'findProductIdsByBranch')
+        .mockResolvedValue([]);
+      jest.spyOn(branchRepository, 'countActiveBranches').mockResolvedValue(1);
+      jest
+        .spyOn(branchRepository, 'countBranchDeletionImpact')
+        .mockResolvedValue({
+          products: 0,
+          sales: 0,
+          cashRegisters: 0,
+          stockMovements: 0,
+          users: 0,
+          recipes: 0,
+          orders: 0,
+          videos: 0,
+          openCashRegisters: 0,
+          activeOrders: 0,
+        });
+
+      const result = await getBranchDeactivationSummary(1);
+
+      expect(result.flags.isLastActiveBranch).toBe(true);
+    });
+
+    test('una sucursal ya inactiva nunca es isLastActiveBranch', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Sucursal A',
+        isActive: false,
+      });
+      jest
+        .spyOn(branchRepository, 'findProductIdsByBranch')
+        .mockResolvedValue([]);
+      jest.spyOn(branchRepository, 'countActiveBranches').mockResolvedValue(1);
+      jest
+        .spyOn(branchRepository, 'countBranchDeletionImpact')
+        .mockResolvedValue({
+          products: 0,
+          sales: 0,
+          cashRegisters: 0,
+          stockMovements: 0,
+          users: 0,
+          recipes: 0,
+          orders: 0,
+          videos: 0,
+          openCashRegisters: 0,
+          activeOrders: 0,
+        });
+
+      const result = await getBranchDeactivationSummary(1);
+
+      expect(result.flags.isLastActiveBranch).toBe(false);
+    });
+
+    test('lanza NotFoundError para una sucursal inexistente', async () => {
+      mockedDb.query.branches.findFirst.mockResolvedValue(undefined);
+
+      await expect(getBranchDeactivationSummary(999)).rejects.toThrow(
+        NotFoundError
       );
     });
   });

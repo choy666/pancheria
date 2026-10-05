@@ -4,7 +4,7 @@
 import { NextRequest } from 'next/server';
 import { POST } from './route';
 import * as orderService from '@/application/services/orderService';
-import { getDefaultBranchId } from '@/lib/branch-resolver';
+import { resolvePublicBranchId } from '@/lib/branch-resolver';
 import {
   ValidationError,
   NotFoundError,
@@ -14,7 +14,7 @@ import {
 jest.mock('@/application/services/orderService');
 jest.mock('@/lib/branch-resolver', () => ({
   ...jest.requireActual('@/lib/branch-resolver'),
-  getDefaultBranchId: jest.fn(),
+  resolvePublicBranchId: jest.fn(),
 }));
 jest.mock('@/config/catalog', () => ({
   getPedidoRefetchIntervalMs: jest.fn().mockReturnValue(30000),
@@ -30,9 +30,8 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const mockedOrderService = orderService as jest.Mocked<typeof orderService>;
-const mockedGetDefaultBranchId = getDefaultBranchId as jest.MockedFunction<
-  typeof getDefaultBranchId
->;
+const mockedResolvePublicBranchId =
+  resolvePublicBranchId as jest.MockedFunction<typeof resolvePublicBranchId>;
 
 const BRANCH_ID = 1;
 
@@ -82,7 +81,9 @@ function createMockOrder() {
 describe('POST /api/public/pedido', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDefaultBranchId.mockResolvedValue(BRANCH_ID);
+    mockedResolvePublicBranchId.mockImplementation(
+      async (id) => id ?? BRANCH_ID
+    );
   });
 
   const validBody = {
@@ -170,7 +171,7 @@ describe('POST /api/public/pedido', () => {
       })
     );
 
-    expect(mockedGetDefaultBranchId).not.toHaveBeenCalled();
+    expect(mockedResolvePublicBranchId).toHaveBeenCalledWith(2);
     expect(mockedOrderService.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ branchId: 2 })
     );
@@ -189,7 +190,7 @@ describe('POST /api/public/pedido', () => {
   });
 
   test('devuelve 400 si no se puede resolver la sucursal por defecto', async () => {
-    mockedGetDefaultBranchId.mockResolvedValue(null);
+    mockedResolvePublicBranchId.mockResolvedValue(null);
 
     const response = await POST(
       buildRequest('', {

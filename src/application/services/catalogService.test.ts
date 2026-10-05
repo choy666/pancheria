@@ -53,6 +53,7 @@ function makeBranch() {
     openingHours: [],
     phones: [],
     socialLinks: [],
+    isActive: true,
     createdAt: NOW,
   };
 }
@@ -124,6 +125,19 @@ describe('catalogService', () => {
       await expect(listPublicCatalog(999)).rejects.toThrow(
         'Sucursal con ID 999 no encontrado.'
       );
+    });
+
+    test('lanza NotFoundError si la sucursal está inactiva', async () => {
+      mockedBranchService.getBranchById.mockResolvedValue({
+        ...makeBranch(),
+        isActive: false,
+      });
+
+      await expect(listPublicCatalog(BRANCH_ID)).rejects.toThrow(NotFoundError);
+      // Una inactiva responde igual que una inexistente y no toca el catálogo.
+      expect(
+        mockedCatalogRepository.findPublicProducts
+      ).not.toHaveBeenCalled();
     });
 
     test('pasa limit/offset al repositorio y devuelve el total contado', async () => {

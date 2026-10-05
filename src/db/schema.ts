@@ -98,6 +98,7 @@ export const branches = pgTable('branches', {
     .default([])
     .notNull(),
   location: text('location'),
+  isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

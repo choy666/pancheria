@@ -63,6 +63,7 @@ function makeBranch(id: number, name: string) {
     openingHours: [],
     phones: [],
     socialLinks: [],
+    isActive: true,
     createdAt: new Date(),
   };
 }

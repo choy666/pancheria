@@ -75,15 +75,18 @@ describe('server-cache', () => {
       expect(branch?.createdAt).toBeInstanceOf(Date);
     });
 
-    test('getCachedBranchIdByName devuelve el id o null', async () => {
+    test('getCachedBranchByName devuelve la sucursal o undefined', async () => {
       const { serverCache, branchRepository } = await cargarModulo();
-      branchRepository.findByName.mockResolvedValue({
-        id: 3,
-      } as unknown as Awaited<ReturnType<typeof branchRepository.findByName>>);
+      const branchRow = branchConFechasEnTexto();
+      branchRepository.findByName.mockResolvedValue(branchRow);
       branchRepository.findByName.mockResolvedValueOnce(undefined);
 
-      expect(await serverCache.getCachedBranchIdByName('Inexistente')).toBeNull();
-      expect(await serverCache.getCachedBranchIdByName('Centro')).toBe(3);
+      expect(
+        await serverCache.getCachedBranchByName('Inexistente')
+      ).toBeUndefined();
+      expect(await serverCache.getCachedBranchByName('Centro')).toEqual(
+        expect.objectContaining({ id: 1 })
+      );
     });
 
     test('getCachedBranchList revive cada sucursal', async () => {
@@ -96,8 +99,21 @@ describe('server-cache', () => {
 
       expect(branchRepository.findAllOrderedByCreatedAt).toHaveBeenCalledWith({
         limit: 10,
+        activeOnly: false,
       });
       expect(branches[0].createdAt).toBeInstanceOf(Date);
+    });
+
+    test('getCachedBranchList con activeOnly filtra por activas', async () => {
+      const { serverCache, branchRepository } = await cargarModulo();
+      branchRepository.findAllOrderedByCreatedAt.mockResolvedValue([]);
+
+      await serverCache.getCachedBranchList(10, { activeOnly: true });
+
+      expect(branchRepository.findAllOrderedByCreatedAt).toHaveBeenCalledWith({
+        limit: 10,
+        activeOnly: true,
+      });
     });
 
     test('el catálogo sin paginar usa el largo del listado como total', async () => {

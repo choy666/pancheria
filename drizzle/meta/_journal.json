@@ -267,6 +267,13 @@
       "when": 1791155612703,
       "tag": "0037_products_branch_name_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791207945516,
+      "tag": "0038_branches_is_active",
+      "breakpoints": true
     }
   ]
 }

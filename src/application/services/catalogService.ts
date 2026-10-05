@@ -59,7 +59,9 @@ function toPublicCatalogProduct(
 
 async function getBranch(branchId: number): Promise<Branch> {
   const branch = await branchService.getBranchById(branchId);
-  if (!branch) {
+  // Una sucursal inactiva no se expone en el canal público: responde igual
+  // que una inexistente para no revelar su estado interno.
+  if (!branch || !branch.isActive) {
     throw new NotFoundError('Sucursal', branchId);
   }
   return branch;
