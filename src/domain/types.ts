@@ -142,6 +142,11 @@ export type ProductRow = {
   unit: string;
   stock: number;
   minStock: number;
+  /**
+   * Tope de insumos opcionales seleccionables por unidad en una promo
+   * compuesta (ej. 4 aderezos). `null`/`undefined` = sin límite.
+   */
+  maxOptionalSelections?: number | null;
   isActive: boolean;
   imageUrl?: string | null;
   imageKey?: string | null;

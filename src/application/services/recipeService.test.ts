@@ -430,5 +430,63 @@ describe('recipeService', () => {
         ]
       );
     });
+
+    test('rechaza una receta con más preseleccionados que el tope del producto', async () => {
+      mockedProductRepository.findById.mockResolvedValue(
+        createProductRow({
+          id: 1,
+          name: 'Pancho común',
+          type: 'compound',
+          maxOptionalSelections: 2,
+        })
+      );
+
+      mockedProductRepository.findByIds.mockResolvedValue([
+        createProductRow({ id: 2, name: 'Pan', type: 'critical_supply' }),
+        createProductRow({ id: 3, name: 'Ketchup', type: 'manual_supply' }),
+        createProductRow({ id: 4, name: 'Mayonesa', type: 'manual_supply' }),
+        createProductRow({ id: 5, name: 'Mostaza', type: 'manual_supply' }),
+      ]);
+
+      const items: RecipeItemInsert[] = [
+        { supplyId: 2, quantity: 1, autoDiscount: true },
+        { supplyId: 3, quantity: 1, autoDiscount: false, selectedByDefault: true },
+        { supplyId: 4, quantity: 1, autoDiscount: false, selectedByDefault: true },
+        { supplyId: 5, quantity: 1, autoDiscount: false, selectedByDefault: true },
+      ];
+
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(ValidationError);
+      await expect(saveRecipe(BRANCH_ID, 1, items)).rejects.toThrow(
+        '3 insumos preseleccionados pero el producto permite elegir hasta 2'
+      );
+      expect(mockedRecipeRepository.insertMany).not.toHaveBeenCalled();
+    });
+
+    test('acepta una receta con preseleccionados dentro del tope del producto', async () => {
+      mockedProductRepository.findById.mockResolvedValue(
+        createProductRow({
+          id: 1,
+          name: 'Pancho común',
+          type: 'compound',
+          maxOptionalSelections: 4,
+        })
+      );
+
+      mockedProductRepository.findByIds.mockResolvedValue([
+        createProductRow({ id: 2, name: 'Pan', type: 'critical_supply' }),
+        createProductRow({ id: 3, name: 'Ketchup', type: 'manual_supply' }),
+      ]);
+
+      mockedRecipeRepository.insertMany.mockResolvedValue([]);
+
+      const items: RecipeItemInsert[] = [
+        { supplyId: 2, quantity: 1, autoDiscount: true },
+        { supplyId: 3, quantity: 1, autoDiscount: false, selectedByDefault: true },
+      ];
+
+      const result = await saveRecipe(BRANCH_ID, 1, items);
+      expect(result).toEqual([]);
+      expect(mockedRecipeRepository.insertMany).toHaveBeenCalled();
+    });
   });
 });

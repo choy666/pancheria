@@ -35,6 +35,7 @@ export interface ProductCardProduct {
   imageUrl?: string | null;
   availability: number;
   recipe?: RecipeItemConfig[];
+  maxOptionalSelections?: number | null;
 }
 
 type ProductCardVariant = 'catalog' | 'sales';
@@ -227,6 +228,7 @@ export function ProductCardBase({
               1,
               product.availability - inCartQuantity
             )}
+            maxOptionalSelections={product.maxOptionalSelections}
             onConfirm={(payload) => onAdd(payload)}
             variant="public"
           />

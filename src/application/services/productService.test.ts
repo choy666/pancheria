@@ -19,6 +19,7 @@ import * as productImageStorage from '@/lib/product-image-storage';
 import { db } from '@/db';
 import { recipes } from '@/db/schema';
 import { ValidationError, NotFoundError } from '@/domain/errors';
+import { DrizzleQueryError } from 'drizzle-orm/errors';
 import type { PaginatedResult, ProductRow } from '@/domain/types';
 
 jest.mock('@/repositories/productRepository');
@@ -344,6 +345,51 @@ describe('productService', () => {
       expect(result!.stock).toBe(0);
       expect(result!.minStock).toBe(0);
     });
+
+    test('rechaza un nombre ya usado por otro producto (case-insensitive)', async () => {
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue({
+        id: 9,
+        name: 'ketchup',
+      } as ProductRow);
+
+      const data = {
+        name: 'Ketchup',
+        type: 'manual_supply',
+        price: 0,
+        unit: 'sachet',
+        stock: 0,
+        minStock: 0,
+      } as unknown as ProductInsert;
+
+      await expect(createProduct(BRANCH_ID, data)).rejects.toThrow(
+        'Ya existe un producto con ese nombre.'
+      );
+      expect(mockedProductRepository.create).not.toHaveBeenCalled();
+    });
+
+    test('traduce la violación del índice único a un error legible', async () => {
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue(null);
+      mockedProductRepository.create.mockRejectedValue(
+        new DrizzleQueryError(
+          'insert into products',
+          [],
+          Object.assign(new Error('duplicate key'), { code: '23505' })
+        )
+      );
+
+      const data = {
+        name: 'Ketchup',
+        type: 'manual_supply',
+        price: 0,
+        unit: 'sachet',
+        stock: 0,
+        minStock: 0,
+      } as unknown as ProductInsert;
+
+      await expect(createProduct(BRANCH_ID, data)).rejects.toThrow(
+        'Ya existe un producto con ese nombre.'
+      );
+    });
   });
 
   describe('updateProduct', () => {
@@ -383,7 +429,7 @@ describe('productService', () => {
       const result = await updateProduct(BRANCH_ID, 1, data);
 
       expect(result!.type).toBe('manual_supply');
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data, expect.anything());
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, { ...data, maxOptionalSelections: null }, expect.anything());
     });
 
     test('actualiza un producto válido y descarta stock pero conserva minStock', async () => {
@@ -452,7 +498,7 @@ describe('productService', () => {
         expect.anything(),
         1
       );
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data, expect.anything());
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, { ...data, maxOptionalSelections: null }, expect.anything());
     });
 
     test('rechaza criticalSupplyType sin type en un producto no crítico', async () => {
@@ -500,7 +546,7 @@ describe('productService', () => {
 
       expect(result!.name).toBe('Nuevo nombre');
       expect(mockedRecipeRepository.deleteByCompoundProductId).not.toHaveBeenCalled();
-      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, data, expect.anything());
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(BRANCH_ID, 1, { ...data, maxOptionalSelections: null }, expect.anything());
     });
 
     test('permite cambiar un producto a tipo service', async () => {
@@ -609,6 +655,46 @@ describe('productService', () => {
         expect.objectContaining({ minStock: 12 }),
         expect.anything()
       );
+    });
+
+    test('rechaza renombrar a un nombre ya usado por otro producto', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Ketshup',
+        type: 'manual_supply',
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue({
+        id: 2,
+        name: 'Ketchup',
+      } as ProductRow);
+
+      await expect(
+        updateProduct(BRANCH_ID, 1, { name: 'Ketchup' } as ProductUpdate)
+      ).rejects.toThrow('Ya existe otro producto con ese nombre.');
+      expect(mockedProductRepository.findByNameCaseInsensitive).toHaveBeenCalledWith(
+        BRANCH_ID,
+        'Ketchup',
+        1
+      );
+      expect(mockedProductRepository.update).not.toHaveBeenCalled();
+    });
+
+    test('permite renombrar cuando el único que tiene el nombre es el propio producto', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Ketshup',
+        type: 'manual_supply',
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue(null);
+
+      const data = { name: 'Ketchup', price: 0 } as unknown as ProductInsert;
+      mockedProductRepository.update.mockResolvedValue({ id: 1, ...data } as ProductRow);
+
+      const result = await updateProduct(BRANCH_ID, 1, data);
+      expect(result!.name).toBe('Ketchup');
+      expect(mockedProductRepository.update).toHaveBeenCalled();
     });
 
     test('verifica la imagen y persiste la URL canónica cuando cambia la imageKey', async () => {
@@ -854,6 +940,13 @@ describe('productService', () => {
 
   describe('restoreProduct', () => {
     test('restaura un producto', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        branchId: BRANCH_ID,
+        deletedAt: new Date(),
+      } as ProductRow);
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue(null);
       mockedProductRepository.restore.mockResolvedValue({
         id: 1,
         name: 'Pan',
@@ -863,6 +956,24 @@ describe('productService', () => {
 
       expect(result!.id).toBe(1);
       expect(mockedProductRepository.restore).toHaveBeenCalledWith(BRANCH_ID, 1);
+    });
+
+    test('rechaza restaurar si otro producto activo ya usa el nombre', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Ketchup',
+        branchId: BRANCH_ID,
+        deletedAt: new Date(),
+      } as ProductRow);
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue({
+        id: 2,
+        name: 'Ketchup',
+      } as ProductRow);
+
+      await expect(restoreProduct(BRANCH_ID, 1)).rejects.toThrow(
+        'No se puede restaurar: ya existe otro producto activo llamado Ketchup.'
+      );
+      expect(mockedProductRepository.restore).not.toHaveBeenCalled();
     });
   });
 

@@ -4,6 +4,7 @@ import {
   isNull,
   isNotNull,
   and,
+  not,
   gte,
   lte,
   count,
@@ -77,17 +78,45 @@ export async function findByIdForUpdate(
   return result ?? null;
 }
 
+/**
+ * Busca un producto activo por nombre exacto sin distinguir
+ * mayúsculas/minúsculas ni espacios en los bordes — espejo del índice
+ * parcial `products_branch_name_lower_uniq` (deleted_at IS NULL).
+ */
+export async function findByNameCaseInsensitive(
+  branchId: number,
+  name: string,
+  excludeId?: number
+): Promise<ProductRow | null> {
+  const conditions = [
+    eq(products.branchId, branchId),
+    isNull(products.deletedAt),
+    sql`lower(btrim(${products.name})) = lower(btrim(${name}))`,
+  ];
+  if (excludeId !== undefined) {
+    conditions.push(not(eq(products.id, excludeId)));
+  }
+
+  const client = getCurrentTransaction() ?? db;
+  const result = await client.query.products.findFirst({
+    where: and(...conditions),
+  });
+  return result ?? null;
+}
+
 export async function findById(
   branchId: number,
   id: number,
-  includeDeleted = false
+  includeDeleted = false,
+  dbOrTx?: typeof db
 ): Promise<ProductRow | null> {
   const conditions = [eq(products.id, id), eq(products.branchId, branchId)];
   if (!includeDeleted) {
     conditions.push(isNull(products.deletedAt));
   }
 
-  const result = await db.query.products.findFirst({
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  const result = await client.query.products.findFirst({
     where: and(...conditions),
   });
   return result ?? null;
@@ -268,8 +297,12 @@ export async function findDeletedInRange(
   };
 }
 
-export async function create(data: ProductInsert & { branchId: number }): Promise<ProductRow | undefined> {
-  const [result] = await db
+export async function create(
+  data: ProductInsert & { branchId: number },
+  dbOrTx?: typeof db
+): Promise<ProductRow | undefined> {
+  const client = dbOrTx ?? getCurrentTransaction() ?? db;
+  const [result] = await client
     .insert(products)
     .values({
       ...data,

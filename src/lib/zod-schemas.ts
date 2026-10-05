@@ -20,6 +20,12 @@ const productBaseSchema = z.object({
   unit: z.string().min(1).max(50),
   stock: z.coerce.number().int().nonnegative().default(0),
   minStock: z.coerce.number().int().nonnegative().default(0),
+  maxOptionalSelections: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .nullable(),
   isActive: z.coerce.boolean().default(true),
   imageUrl: z.string().url().max(2048).optional().nullable(),
   imageKey: z.string().max(255).optional().nullable(),
@@ -48,6 +54,14 @@ export const productSchema = productBaseSchema
       message: 'Los insumos manuales no pueden tener precio.',
       path: ['price'],
     }
+  )
+  .refine(
+    (data) => !(data.type !== 'compound' && data.maxOptionalSelections != null),
+    {
+      message:
+        'Solo los productos compuestos pueden tener un tope de opcionales.',
+      path: ['maxOptionalSelections'],
+    }
   );
 
 export const productUpdateSchema = productBaseSchema
@@ -71,6 +85,14 @@ export const productUpdateSchema = productBaseSchema
     {
       message: 'Los insumos manuales no pueden tener precio.',
       path: ['price'],
+    }
+  )
+  .refine(
+    (data) => !(data.type !== 'compound' && data.maxOptionalSelections != null),
+    {
+      message:
+        'Solo los productos compuestos pueden tener un tope de opcionales.',
+      path: ['maxOptionalSelections'],
     }
   );
 

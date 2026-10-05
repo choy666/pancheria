@@ -1,0 +1,2 @@
+ALTER TABLE "products" ADD COLUMN "max_optional_selections" integer;--> statement-breakpoint
+ALTER TABLE "products" ADD CONSTRAINT "products_max_optional_selections_check" CHECK ("products"."max_optional_selections" IS NULL OR "products"."max_optional_selections" > 0);

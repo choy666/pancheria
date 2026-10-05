@@ -133,6 +133,7 @@ export const products = pgTable(
     unit: varchar('unit', { length: 50 }).notNull(),
     stock: integer('stock').default(0).notNull(),
     minStock: integer('min_stock').default(0).notNull(),
+    maxOptionalSelections: integer('max_optional_selections'),
     isActive: boolean('is_active').default(true).notNull(),
     imageUrl: text('image_url'),
     imageKey: text('image_key'),
@@ -156,9 +157,18 @@ export const products = pgTable(
       table.deletedAt
     ),
     nameIdx: index('products_name_idx').on(table.name),
+    // Unicidad lógica (branchId, nombre) case-insensitive solo entre
+    // productos vivos: un producto en papelera no bloquea el nombre.
+    branchNameLowerUnique: uniqueIndex('products_branch_name_lower_uniq')
+      .on(table.branchId, sql`lower(btrim(${table.name}))`)
+      .where(sql`${table.deletedAt} IS NULL`),
     imageKeyIdx: index('products_image_key_idx').on(table.imageKey),
     stockCheck: check('products_stock_check', sql`${table.stock} >= 0`),
     minStockCheck: check('products_min_stock_check', sql`${table.minStock} >= 0`),
+    maxOptionalSelectionsCheck: check(
+      'products_max_optional_selections_check',
+      sql`${table.maxOptionalSelections} IS NULL OR ${table.maxOptionalSelections} > 0`
+    ),
   })
 );
 

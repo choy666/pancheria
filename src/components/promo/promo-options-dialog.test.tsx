@@ -346,4 +346,79 @@ describe('PromoOptionsDialog', () => {
       screen.getByRole('textbox', { name: 'Aclaraciones' })
     ).toBeInTheDocument();
   });
+
+  test('al llegar al tope se deshabilitan los opcionales no seleccionados', () => {
+    // La selección por defecto (Ketchup + Vaso) ya llega al tope de 2.
+    renderDialog({ maxOptionalSelections: 2 });
+
+    expect(screen.getByTestId('promo-options-limit')).toHaveTextContent(
+      'Podés elegir hasta 2 opcionales (llevas 2)'
+    );
+    expect(
+      screen.getByRole('switch', { name: /Incluir Mayonesa en Promo/ })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('switch', { name: /Incluir Servilleta extra en Promo/ })
+    ).toBeDisabled();
+    // Los ya seleccionados siguen habilitados para poder quitarlos.
+    expect(
+      screen.getByRole('switch', { name: /Incluir Ketchup en Promo/ })
+    ).not.toBeDisabled();
+  });
+
+  test('al liberar un lugar bajo el tope se puede volver a agregar', () => {
+    renderDialog({ maxOptionalSelections: 2 });
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Incluir Ketchup en Promo/ })
+    );
+
+    const mayonesa = screen.getByRole('switch', {
+      name: /Incluir Mayonesa en Promo/,
+    });
+    expect(mayonesa).not.toBeDisabled();
+
+    fireEvent.click(mayonesa);
+    expect(mayonesa).toHaveAttribute('aria-checked', 'true');
+    expect(
+      screen.getByRole('switch', { name: /Incluir Servilleta extra en Promo/ })
+    ).toBeDisabled();
+    expect(screen.getByTestId('promo-options-limit')).toHaveTextContent(
+      'llevas 2'
+    );
+  });
+
+  test('una selección inicial por encima del tope permite quitar pero no confirmar', () => {
+    renderDialog({
+      maxOptionalSelections: 1,
+      initialSelectedIds: [2, 4],
+      mode: 'edit',
+    });
+
+    expect(screen.getByTestId('promo-options-limit')).toHaveTextContent(
+      'el máximo es 1'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' })
+    ).toBeDisabled();
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Incluir Ketchup en Promo/ })
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' })
+    ).not.toBeDisabled();
+  });
+
+  test('sin tope no hay contador ni toggles deshabilitados', () => {
+    renderDialog();
+
+    expect(
+      screen.queryByTestId('promo-options-limit')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('switch', { name: /Incluir Servilleta extra en Promo/ })
+    ).not.toBeDisabled();
+  });
 });

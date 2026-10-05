@@ -15,6 +15,7 @@ export type PublicCatalogProduct = Pick<
   | 'price'
   | 'unit'
   | 'imageUrl'
+  | 'maxOptionalSelections'
 > & {
   availability: number;
   recipe?: RecipeItemConfig[];
@@ -50,6 +51,7 @@ function toPublicCatalogProduct(
     price: product.price,
     unit: product.unit,
     imageUrl: resolveProductImage(product),
+    maxOptionalSelections: product.maxOptionalSelections,
     availability,
     recipe,
   };

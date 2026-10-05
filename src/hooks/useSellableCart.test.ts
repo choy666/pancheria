@@ -351,4 +351,33 @@ describe('useSellableCart', () => {
 
     expect(result.current.lines[0].notes).toBeNull();
   });
+
+  test('recorta la selección explícita y la por defecto al tope de opcionales', () => {
+    const capped: SellableCartProduct = {
+      id: 5,
+      name: 'Pancho común',
+      price: 1000,
+      unit: 'unidad',
+      type: 'compound',
+      maxOptionalSelections: 2,
+      recipe: [
+        { supplyId: 10, isOptional: true, selectedByDefault: true },
+        { supplyId: 11, isOptional: true, selectedByDefault: true },
+        { supplyId: 12, isOptional: true, selectedByDefault: true },
+      ],
+    };
+    const { result } = renderHook(() =>
+      useSellableCart({ getAvailability: makeAvailability({ 5: 10 }) })
+    );
+
+    act(() => {
+      result.current.addItem(capped, [10, 11, 12]);
+      result.current.addItem(capped);
+    });
+
+    // El producto es personalizable: cada agregado ocupa su propia línea.
+    expect(result.current.lines).toHaveLength(2);
+    expect(result.current.lines[0].selectedRecipeItemIds).toEqual([10, 11]);
+    expect(result.current.lines[1].selectedRecipeItemIds).toEqual([10, 11]);
+  });
 });

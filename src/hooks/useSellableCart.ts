@@ -21,6 +21,8 @@ export interface SellableCartProduct {
   price: number;
   unit: string;
   type: ProductType;
+  /** Tope de opcionales seleccionables por unidad; `null` = sin límite. */
+  maxOptionalSelections?: number | null;
   recipe?: {
     isOptional: boolean;
     selectedByDefault: boolean;
@@ -90,6 +92,12 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
       const isService = isServiceProduct(product);
       const resolvedSelected =
         selectedRecipeItemIds ?? getDefaultSelectedRecipeItemIds(product);
+      // El tope de opcionales también se aplica al quick-add y como red de
+      // seguridad ante un payload del diálogo con un tope viejo en memoria.
+      const cappedSelected =
+        product.maxOptionalSelections == null
+          ? resolvedSelected
+          : resolvedSelected.slice(0, product.maxOptionalSelections);
       const normalizedNote = normalizeItemNote(notes);
 
       setLines((prev) => {
@@ -103,7 +111,7 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
               item.product.id === product.id &&
               areRecipeSelectionsEqual(
                 item.selectedRecipeItemIds,
-                resolvedSelected
+                cappedSelected
               ) &&
               normalizeItemNote(item.notes) === normalizedNote
           );
@@ -145,7 +153,7 @@ export function useSellableCart<TProduct extends SellableCartProduct>({
             lineId: nanoid(),
             product,
             quantity: 1,
-            selectedRecipeItemIds: resolvedSelected,
+            selectedRecipeItemIds: cappedSelected,
             notes: normalizedNote,
           },
         ];

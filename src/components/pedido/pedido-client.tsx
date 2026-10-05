@@ -232,6 +232,7 @@ export function PedidoClient({
           imageUrl={editingLine.product.imageUrl}
           description={editingLine.product.description}
           recipe={editingLine.product.recipe ?? []}
+          maxOptionalSelections={editingLine.product.maxOptionalSelections}
           initialSelectedIds={editingLine.initialSelectedIds}
           initialNotes={editingLine.initialNotes}
           onConfirm={confirmEditLine}

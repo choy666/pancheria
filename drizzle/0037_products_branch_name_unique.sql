@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "products_branch_name_lower_uniq" ON "products" USING btree ("branch_id",lower(btrim("name"))) WHERE "products"."deleted_at" IS NULL;

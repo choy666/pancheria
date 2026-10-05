@@ -56,6 +56,12 @@ export interface PromoOptionsDialogProps {
    */
   maxQuantity?: number;
   /**
+   * Tope de insumos opcionales seleccionables por unidad (ej. 4 aderezos en
+   * el pancho común). Al llegar al tope los toggles no seleccionados se
+   * deshabilitan. `null`/`undefined` = sin límite.
+   */
+  maxOptionalSelections?: number | null;
+  /**
    * `public`: el diálogo se renderiza desde el flujo `/pedido` (tema claro,
    * hero con la imagen del producto y hoja inferior en mobile).
    * Como el popup portalea fuera del scope `[data-theme='light']` de
@@ -74,6 +80,8 @@ interface OptionsSectionProps {
   items: RecipeItemConfig[];
   selectedIds: number[];
   onToggle: (supplyId: number) => void;
+  /** `true` cuando ya se alcanzó el tope de opcionales seleccionables. */
+  limitReached?: boolean;
 }
 
 /**
@@ -87,6 +95,7 @@ function OptionsSection({
   items,
   selectedIds,
   onToggle,
+  limitReached = false,
 }: OptionsSectionProps) {
   if (items.length === 0) return null;
 
@@ -112,9 +121,10 @@ function OptionsSection({
                 role="switch"
                 aria-checked={checked}
                 aria-label={`Incluir ${item.supplyName} en ${productName}`}
+                disabled={!checked && limitReached}
                 onClick={() => onToggle(item.supplyId)}
                 className={cn(
-                  'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
                   checked
                     ? 'border-primary/60 bg-primary/10 text-primary'
                     : 'border-border bg-transparent text-muted-foreground hover:bg-muted/60'
@@ -151,6 +161,7 @@ export function PromoOptionsDialog({
   mode = 'add',
   confirmLabel,
   maxQuantity,
+  maxOptionalSelections,
   variant = 'sales',
 }: PromoOptionsDialogProps) {
   const isPublic = variant === 'public';
@@ -188,12 +199,30 @@ export function PromoOptionsDialog({
     Math.min(maxQuantity ?? DEFAULT_MAX_QUANTITY, DEFAULT_MAX_QUANTITY)
   );
 
+  // Tope de opcionales por unidad (ej. 4 aderezos en el pancho común).
+  // `overLimit` solo puede darse con una selección inicial heredada de un
+  // tope anterior más alto; en ese caso se permite quitar pero no confirmar.
+  const maxOptional =
+    maxOptionalSelections != null && maxOptionalSelections > 0
+      ? maxOptionalSelections
+      : null;
+  const optionalCount =
+    optionalManualItems.length + optionalServiceItems.length;
+  const overOptionalLimit =
+    maxOptional != null && selectedIds.length > maxOptional;
+  const atOptionalLimit =
+    maxOptional != null && selectedIds.length >= maxOptional;
+
   const handleToggle = (supplyId: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(supplyId)
-        ? prev.filter((id) => id !== supplyId)
-        : [...prev, supplyId]
-    );
+    setSelectedIds((prev) => {
+      if (prev.includes(supplyId)) {
+        return prev.filter((id) => id !== supplyId);
+      }
+      if (maxOptional != null && prev.length >= maxOptional) {
+        return prev;
+      }
+      return [...prev, supplyId];
+    });
   };
 
   const handleConfirm = () => {
@@ -258,12 +287,29 @@ export function PromoOptionsDialog({
           </DialogHeader>
 
           <div className="space-y-4 pt-4">
+            {maxOptional != null && optionalCount > 0 && (
+              <p
+                data-testid="promo-options-limit"
+                role={overOptionalLimit ? 'alert' : undefined}
+                className={cn(
+                  'text-sm',
+                  overOptionalLimit
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {overOptionalLimit
+                  ? `Elegiste ${selectedIds.length} opcionales; el máximo es ${maxOptional}. Quitá alguno para continuar.`
+                  : `Podés elegir hasta ${maxOptional} opcionales (llevas ${selectedIds.length}).`}
+              </p>
+            )}
             <OptionsSection
               productName={productName}
               title="A tu gusto"
               items={optionalManualItems}
               selectedIds={selectedIds}
               onToggle={handleToggle}
+              limitReached={atOptionalLimit}
             />
             <OptionsSection
               productName={productName}
@@ -271,6 +317,7 @@ export function PromoOptionsDialog({
               items={optionalServiceItems}
               selectedIds={selectedIds}
               onToggle={handleToggle}
+              limitReached={atOptionalLimit}
             />
             <section>
               <h3
@@ -341,6 +388,7 @@ export function PromoOptionsDialog({
           <Button
             type="button"
             data-testid="promo-options-confirm"
+            disabled={overOptionalLimit}
             onClick={handleConfirm}
             className={cn(
               'min-h-12 flex-1 text-base font-semibold',

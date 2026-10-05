@@ -54,6 +54,7 @@ interface PromoProduct {
   price: number;
   isActive: boolean;
   type: string;
+  maxOptionalSelections?: number | null;
   imageUrl?: string | null;
   imageKey?: string | null;
   imageMimeType?: string | null;
@@ -64,6 +65,7 @@ interface PromoFormData {
   name: string;
   price: string;
   isActive: boolean;
+  maxOptionalSelections: string;
 }
 
 interface PromoRecipeItem {
@@ -81,6 +83,7 @@ const emptyForm: PromoFormData = {
   name: '',
   price: '',
   isActive: true,
+  maxOptionalSelections: '',
 };
 
 const emptyRecipeItem: PromoRecipeItem = {
@@ -170,6 +173,10 @@ export function PromoForm({ product }: PromoFormProps) {
               name: product.name,
               price: String(product.price),
               isActive: product.isActive,
+              maxOptionalSelections:
+                product.maxOptionalSelections != null
+                  ? String(product.maxOptionalSelections)
+                  : '',
             }
           : { ...emptyForm };
 
@@ -322,6 +329,26 @@ export function PromoForm({ product }: PromoFormProps) {
       return;
     }
 
+    const capRaw = form.maxOptionalSelections.trim();
+    const parsedCap = capRaw === '' ? null : Number(capRaw);
+    if (
+      parsedCap !== null &&
+      (!Number.isInteger(parsedCap) || parsedCap < 1)
+    ) {
+      setError('El tope de opcionales debe ser un entero mayor o igual a 1.');
+      return;
+    }
+
+    const defaultOptionalCount = recipeItems.filter(
+      (item) => item.isOptional && item.selectedByDefault
+    ).length;
+    if (parsedCap !== null && defaultOptionalCount > parsedCap) {
+      setError(
+        `Hay ${defaultOptionalCount} insumos preseleccionados pero el tope es ${parsedCap}. Quitá preseleccionados o subí el tope.`
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     async function updateProductImage(productId: number) {
@@ -391,6 +418,7 @@ export function PromoForm({ product }: PromoFormProps) {
             stock: 0,
             minStock: 0,
             isActive: form.isActive,
+            maxOptionalSelections: parsedCap,
           }),
         });
 
@@ -407,6 +435,7 @@ export function PromoForm({ product }: PromoFormProps) {
             name: form.name.trim(),
             price,
             isActive: form.isActive,
+            maxOptionalSelections: parsedCap,
           }),
         });
 
@@ -647,6 +676,32 @@ export function PromoForm({ product }: PromoFormProps) {
             <Plus className="mr-2 size-4" />
             Agregar insumo
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tope de opcionales</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Label htmlFor="promo-max-optional">Máximo seleccionable</Label>
+          <Input
+            id="promo-max-optional"
+            data-testid="promo-max-optional-input"
+            type="number"
+            min={1}
+            step={1}
+            value={form.maxOptionalSelections}
+            onChange={(e) =>
+              setForm({ ...form, maxOptionalSelections: e.target.value })
+            }
+            placeholder="Sin tope"
+            className="sm:w-40"
+          />
+          <p className="text-sm text-muted-foreground">
+            Cuántos insumos opcionales puede elegir el cliente por unidad (ej.
+            4 aderezos en el pancho común). Vacío = sin límite.
+          </p>
         </CardContent>
       </Card>
 

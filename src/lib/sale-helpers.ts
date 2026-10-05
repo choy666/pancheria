@@ -50,7 +50,8 @@ export function buildSaleItemValues(
       recipeSnapshot = buildRecipeSnapshot(
         recipeList,
         item.selectedRecipeItemIds ?? [],
-        product.name
+        product.name,
+        product.maxOptionalSelections
       );
     }
 

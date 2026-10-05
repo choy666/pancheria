@@ -16,6 +16,7 @@ export interface CartProduct {
   unit: string;
   type: ProductType;
   criticalSupplyType?: CriticalSupplyType | null;
+  maxOptionalSelections?: number | null;
   recipe?: RecipeItemConfig[];
 }
 
@@ -70,6 +71,7 @@ function cartProductFromItem(item: CartItem): CartProduct {
     unit: item.unit,
     type: item.type,
     criticalSupplyType: item.criticalSupplyType,
+    maxOptionalSelections: item.maxOptionalSelections,
     recipe: item.recipe,
   };
 }
@@ -117,6 +119,15 @@ function getInitialItems(
 
         if (!isService && quantity <= 0) return [];
 
+        // La selección guardada puede exceder un tope de opcionales que se
+        // configuró después: se recorta para que la línea restaurada siga
+        // siendo válida al confirmar.
+        const storedSelected = item.selectedRecipeItemIds ?? [];
+        const cappedSelected =
+          product.maxOptionalSelections == null
+            ? storedSelected
+            : storedSelected.slice(0, product.maxOptionalSelections);
+
         // Las líneas personalizables guardadas con el modelo anterior
         // (varias unidades agrupadas) se expanden en una línea por unidad.
         if (hasOptionalRecipeItems(product) && quantity > 1) {
@@ -124,7 +135,7 @@ function getInitialItems(
             ...product,
             lineId: nanoid(),
             quantity: 1,
-            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+            selectedRecipeItemIds: cappedSelected,
             notes: item.notes ?? null,
           }));
         }
@@ -134,7 +145,7 @@ function getInitialItems(
             ...product,
             lineId: item.lineId ?? nanoid(),
             quantity,
-            selectedRecipeItemIds: item.selectedRecipeItemIds ?? [],
+            selectedRecipeItemIds: cappedSelected,
             notes: item.notes ?? null,
           },
         ];

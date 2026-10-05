@@ -46,7 +46,8 @@ function isRecipeItemSelected(
 function assertValidSelectedRecipeItemIds(
   recipeItems: { supplyId: number; isOptional: boolean }[],
   selectedRecipeItemIds: number[],
-  productName?: string
+  productName?: string,
+  maxOptionalSelections?: number | null
 ): void {
   if (selectedRecipeItemIds.length === 0) return;
   const selectableIds = new Set(
@@ -59,17 +60,29 @@ function assertValidSelectedRecipeItemIds(
         : 'La selección de opcionales no es válida.'
     );
   }
+  if (
+    maxOptionalSelections != null &&
+    selectedRecipeItemIds.length > maxOptionalSelections
+  ) {
+    throw new ValidationError(
+      productName
+        ? `La selección supera el máximo de ${maxOptionalSelections} opcionales de ${productName}.`
+        : `La selección supera el máximo de ${maxOptionalSelections} opcionales.`
+    );
+  }
 }
 
 export function buildRecipeSnapshot(
   recipeItems: RecipeWithSupply[],
   selectedRecipeItemIds: number[],
-  productName?: string
+  productName?: string,
+  maxOptionalSelections?: number | null
 ): RecipeItemConfig[] {
   assertValidSelectedRecipeItemIds(
     recipeItems,
     selectedRecipeItemIds,
-    productName
+    productName,
+    maxOptionalSelections
   );
   return recipeItems.map((recipe) =>
     recipeItemToConfig(
@@ -335,13 +348,26 @@ export async function calculateAvailabilityForProductIds(
         .filter((r) => r.isOptional && r.selectedByDefault)
         .map((r) => r.supplyId);
 
+      // Si el tope bajó después de guardada la receta, los preseleccionados
+      // pueden excederlo: se recorta la selección por defecto en vez de
+      // romper el cálculo de disponibilidad.
+      const cappedDefaultIds =
+        product.maxOptionalSelections == null
+          ? defaultSelectedIds
+          : defaultSelectedIds.slice(0, product.maxOptionalSelections);
+
       resultById[product.id] = {
         availability: calculateCompoundAvailability(
           recipeList,
           supplyStockById
         ),
         breakdown,
-        recipe: buildRecipeSnapshot(recipeList, defaultSelectedIds),
+        recipe: buildRecipeSnapshot(
+          recipeList,
+          cappedDefaultIds,
+          product.name,
+          product.maxOptionalSelections
+        ),
       };
     } else if (
       product.type === 'critical_supply' &&
@@ -421,7 +447,12 @@ function getRecipeListForItem(
 
   const recipes = recipesByProduct.get(product.id) ?? [];
   const selectedIds = item.selectedRecipeItemIds ?? [];
-  assertValidSelectedRecipeItemIds(recipes, selectedIds, product.name);
+  assertValidSelectedRecipeItemIds(
+    recipes,
+    selectedIds,
+    product.name,
+    product.maxOptionalSelections
+  );
   return recipes.map((recipe) => ({
     supplyId: recipe.supplyId,
     quantity: recipe.quantity,

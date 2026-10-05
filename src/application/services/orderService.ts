@@ -114,7 +114,8 @@ function ensureOrderRecipeSnapshots(
     const newSnapshot = buildRecipeSnapshot(
       recipeList,
       selectedIds,
-      item.product?.name
+      item.product?.name,
+      item.product?.maxOptionalSelections
     );
 
     return { ...item, recipeSnapshot: newSnapshot };

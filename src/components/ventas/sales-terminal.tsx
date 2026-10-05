@@ -494,6 +494,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           imageUrl={promoDialogProduct.imageUrl}
           description={promoDialogProduct.description}
           recipe={promoDialogProduct.recipe ?? []}
+          maxOptionalSelections={promoDialogProduct.maxOptionalSelections}
           maxQuantity={getProductAdditional(
             promoDialogProduct,
             cartAvailability,
@@ -523,6 +524,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           productName={editingLine.product.name}
           productPrice={editingLine.product.price}
           recipe={editingLine.product.recipe ?? []}
+          maxOptionalSelections={editingLine.product.maxOptionalSelections}
           initialSelectedIds={editingLine.initialSelectedIds}
           initialNotes={editingLine.initialNotes}
           onConfirm={confirmEditLine}

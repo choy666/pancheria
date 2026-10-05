@@ -105,6 +105,47 @@ describe('productSchema', () => {
     expect(result.type).toBe('critical_supply');
     expect(result.criticalSupplyType).toBe('bread');
   });
+
+  test('acepta un tope de opcionales en un producto compuesto', () => {
+    const data = {
+      name: 'Pancho común',
+      type: 'compound',
+      price: 1000,
+      unit: 'unidad',
+      maxOptionalSelections: 4,
+    };
+
+    const result = productSchema.parse(data);
+    expect(result.maxOptionalSelections).toBe(4);
+  });
+
+  test('rechaza un tope de opcionales en un producto no compuesto', () => {
+    const data = {
+      name: 'Ketchup',
+      type: 'manual_supply',
+      price: 0,
+      unit: 'unidad',
+      maxOptionalSelections: 4,
+    };
+
+    expect(() => productSchema.parse(data)).toThrow(
+      'Solo los productos compuestos pueden tener un tope de opcionales.'
+    );
+  });
+
+  test('rechaza un tope de opcionales que no sea entero positivo', () => {
+    for (const maxOptionalSelections of [0, -1, 1.5]) {
+      expect(() =>
+        productSchema.parse({
+          name: 'Pancho común',
+          type: 'compound',
+          price: 1000,
+          unit: 'unidad',
+          maxOptionalSelections,
+        })
+      ).toThrow();
+    }
+  });
 });
 
 describe('recipeSchema', () => {

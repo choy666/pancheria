@@ -45,6 +45,21 @@ export async function saveRecipe(
     throw new ValidationError('No puede haber insumos duplicados en la receta.');
   }
 
+  // Si el producto tiene tope de opcionales, los preseleccionados deben
+  // entrar en ese tope: de lo contrario el diálogo nacería en un estado que
+  // el servidor mismo rechaza.
+  if (product.maxOptionalSelections != null) {
+    const defaultCount = items.filter(
+      (item) =>
+        (item.isOptional ?? !item.autoDiscount) && item.selectedByDefault
+    ).length;
+    if (defaultCount > product.maxOptionalSelections) {
+      throw new ValidationError(
+        `La receta tiene ${defaultCount} insumos preseleccionados pero el producto permite elegir hasta ${product.maxOptionalSelections}.`
+      );
+    }
+  }
+
   const supplyIds = items.map((item) => item.supplyId);
   const supplies = await productRepository.findByIds(branchId, supplyIds);
 

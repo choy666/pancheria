@@ -253,6 +253,20 @@
       "when": 1790992260385,
       "tag": "0035_performed_by_stock_movements",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791153595613,
+      "tag": "0036_max_optional_selections",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791155612703,
+      "tag": "0037_products_branch_name_unique",
+      "breakpoints": true
     }
   ]
 }

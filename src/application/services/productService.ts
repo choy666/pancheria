@@ -4,6 +4,7 @@ import * as productRepository from '@/repositories/productRepository';
 import * as recipeRepository from '@/repositories/recipeRepository';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
+import { isUniqueViolationError } from '@/lib/db-errors';
 import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
 import {
   validateProductImageUrl,
@@ -130,7 +131,25 @@ export async function createProduct(branchId: number, data: ProductInsert) {
     product.minStock = 0;
   }
 
-  return productRepository.create({ ...product, branchId });
+  // Unicidad lógica (branchId, nombre) case-insensitive, espejo del índice
+  // parcial `products_branch_name_lower_uniq`: el chequeo da el error
+  // amigable y el catch traduce la ventana de carrera hasta el índice.
+  const nameTaken = await productRepository.findByNameCaseInsensitive(
+    branchId,
+    product.name
+  );
+  if (nameTaken) {
+    throw new ValidationError('Ya existe un producto con ese nombre.');
+  }
+
+  try {
+    return await productRepository.create({ ...product, branchId });
+  } catch (error) {
+    if (isUniqueViolationError(error)) {
+      throw new ValidationError('Ya existe un producto con ese nombre.');
+    }
+    throw error;
+  }
 }
 
 export async function updateProduct(
@@ -175,6 +194,24 @@ export async function updateProduct(
   const updated = await executeInTransaction(async (tx) => {
     const current = await productRepository.findByIdForUpdate(branchId, id, false, tx);
     if (!current) throw new NotFoundError('Producto', id);
+
+    if (updateData.name !== undefined) {
+      const nameTaken = await productRepository.findByNameCaseInsensitive(
+        branchId,
+        updateData.name,
+        id
+      );
+      if (nameTaken) {
+        throw new ValidationError('Ya existe otro producto con ese nombre.');
+      }
+    }
+
+    // El tope de opcionales solo aplica a compuestos: si el tipo efectivo
+    // deja de ser `compound` se limpia igual que stock/minStock, en vez de
+    // rechazar la edición por una regla que ya no corresponde.
+    if ((updateData.type ?? current.type) !== 'compound') {
+      updateData.maxOptionalSelections = null;
+    }
 
     try {
       productUpdateSchema.parse({
@@ -235,7 +272,14 @@ export async function updateProduct(
       }
     }
 
-    return productRepository.update(branchId, id, updateData, tx);
+    try {
+      return await productRepository.update(branchId, id, updateData, tx);
+    } catch (error) {
+      if (isUniqueViolationError(error)) {
+        throw new ValidationError('Ya existe otro producto con ese nombre.');
+      }
+      throw error;
+    }
   });
 
   if (shouldDeletePreviousImage && previousImageKey) {
@@ -274,7 +318,33 @@ export async function deleteProduct(branchId: number, id: number) {
 }
 
 export async function restoreProduct(branchId: number, id: number) {
-  return productRepository.restore(branchId, id);
+  const current = await productRepository.findById(branchId, id, true);
+  if (!current) throw new NotFoundError('Producto', id);
+
+  // Restaurar reactiva el producto: chocaría con el índice parcial si ya
+  // existe otro producto activo con el mismo nombre normalizado.
+  if (current.deletedAt) {
+    const nameTaken = await productRepository.findByNameCaseInsensitive(
+      branchId,
+      current.name
+    );
+    if (nameTaken) {
+      throw new ValidationError(
+        `No se puede restaurar: ya existe otro producto activo llamado ${current.name}.`
+      );
+    }
+  }
+
+  try {
+    return await productRepository.restore(branchId, id);
+  } catch (error) {
+    if (isUniqueViolationError(error)) {
+      throw new ValidationError(
+        `No se puede restaurar: ya existe otro producto activo llamado ${current.name}.`
+      );
+    }
+    throw error;
+  }
 }
 
 export async function permanentlyDeleteProduct(branchId: number, id: number) {

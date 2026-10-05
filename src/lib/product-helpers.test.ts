@@ -665,6 +665,93 @@ describe('product-helpers', () => {
           )
         ).toThrow('no es válida');
       });
+
+      it('rechaza una selección que supera el tope de opcionales del producto', () => {
+        const compuesto = makeProduct({
+          id: 2,
+          name: 'Pancho común',
+          type: 'compound',
+          criticalSupplyType: null,
+          maxOptionalSelections: 2,
+        });
+        const productById = new Map<number, ProductRow>([[2, compuesto]]);
+        const recipesByProduct = new Map<number, RecipeWithSupply[]>([
+          [
+            2,
+            [
+              makeRecipe({ id: 1, compoundProductId: 2, supplyId: 20, isOptional: true }),
+              makeRecipe({ id: 2, compoundProductId: 2, supplyId: 21, isOptional: true }),
+              makeRecipe({ id: 3, compoundProductId: 2, supplyId: 22, isOptional: true }),
+            ],
+          ],
+        ]);
+
+        expect(() =>
+          calculateConsumedBySupply(
+            [
+              {
+                productId: 2,
+                quantity: 1,
+                selectedRecipeItemIds: [20, 21, 22],
+              },
+            ],
+            productById,
+            recipesByProduct
+          )
+        ).toThrow('supera el máximo de 2 opcionales');
+      });
+
+      it('acepta una selección igual al tope y no aplica límite sin tope', () => {
+        const compuesto = makeProduct({
+          id: 2,
+          name: 'Pancho común',
+          type: 'compound',
+          criticalSupplyType: null,
+          maxOptionalSelections: 2,
+        });
+        const sinTope = makeProduct({
+          id: 3,
+          name: 'Pancho completo',
+          type: 'compound',
+          criticalSupplyType: null,
+        });
+        const productById = new Map<number, ProductRow>([
+          [2, compuesto],
+          [3, sinTope],
+        ]);
+        const recipesByProduct = new Map<number, RecipeWithSupply[]>([
+          [
+            2,
+            [
+              makeRecipe({ id: 1, compoundProductId: 2, supplyId: 20, isOptional: true }),
+              makeRecipe({ id: 2, compoundProductId: 2, supplyId: 21, isOptional: true }),
+              makeRecipe({ id: 3, compoundProductId: 2, supplyId: 22, isOptional: true }),
+            ],
+          ],
+          [
+            3,
+            [
+              makeRecipe({ id: 4, compoundProductId: 3, supplyId: 20, isOptional: true }),
+              makeRecipe({ id: 5, compoundProductId: 3, supplyId: 21, isOptional: true }),
+              makeRecipe({ id: 6, compoundProductId: 3, supplyId: 22, isOptional: true }),
+            ],
+          ],
+        ]);
+
+        const result = calculateConsumedBySupply(
+          [
+            { productId: 2, quantity: 1, selectedRecipeItemIds: [20, 21] },
+            { productId: 3, quantity: 1, selectedRecipeItemIds: [20, 21, 22] },
+          ],
+          productById,
+          recipesByProduct
+        );
+
+        // Las selecciones válidas consumen como siempre (20: 1+1, 21: 1+1, 22: 1).
+        expect(result[20]).toBe(2);
+        expect(result[21]).toBe(2);
+        expect(result[22]).toBe(1);
+      });
     });
 
     describe('calculateAvailabilityByProduct', () => {
