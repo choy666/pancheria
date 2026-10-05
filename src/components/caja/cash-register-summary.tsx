@@ -32,6 +32,7 @@ interface CashRegisterSummaryData {
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
   recipeSuppliesSummary?: Record<string, number> | null;
+  suppliesSummary?: Record<string, number> | null;
   /**
    * Horas de cierre automático resueltas en el servidor. Prioridad sobre la
    * env local: `CAJA_AUTO_CLOSE_HOURS` no existe en el bundle del cliente.
@@ -81,6 +82,7 @@ export function CashRegisterSummary({
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
   const recipeSuppliesSummary = cashRegister.recipeSuppliesSummary ?? {};
+  const suppliesSummary = cashRegister.suppliesSummary ?? {};
 
   const cashInDrawer =
     cashRegister.cashInDrawer ??
@@ -317,6 +319,33 @@ export function CashRegisterSummary({
               <li
                 key={name}
                 data-testid="cash-register-recipe-supply-item"
+                data-product-name={name}
+                className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+              >
+                <span>{name}</span>
+                <span className="font-mono font-medium">{quantity}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card
+        data-testid="supplies-summary-card"
+        role="region"
+        aria-labelledby="supplies-summary-title"
+      >
+        <CardHeader>
+          <CardTitle id="supplies-summary-title" className="text-lg">
+            Consumo total por insumo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2" aria-labelledby="supplies-summary-title">
+            {Object.entries(suppliesSummary).map(([name, quantity]) => (
+              <li
+                key={name}
+                data-testid="cash-register-total-supply-item"
                 data-product-name={name}
                 className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
               >

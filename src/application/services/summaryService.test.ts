@@ -218,6 +218,13 @@ describe('summaryService', () => {
         Salchicha: 2,
         Gaseosa: 2,
       });
+      // Consumo unificado: insumos de la receta del compuesto + venta directa
+      // de la bebida crítica (sin duplicar al compuesto "Promo").
+      expect(result.suppliesSummary).toEqual({
+        Pan: 1,
+        Salchicha: 2,
+        Gaseosa: 2,
+      });
     });
 
     test('calcula totales con pago mixto en una sola venta', async () => {

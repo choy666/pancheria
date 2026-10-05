@@ -46,7 +46,10 @@ import {
   validateNonEmptyString,
   validateNonNegativeMoney,
 } from '@/lib/validation-helpers';
-import { fillMissingCriticalSupplies } from '@/lib/summary-helpers';
+import {
+  buildSuppliesSummary,
+  fillMissingCriticalSupplies,
+} from '@/lib/summary-helpers';
 import {
   lockCashRegisterById,
   lockOpenCashRegister,
@@ -201,7 +204,26 @@ export async function parseCashRegisterSummary(
     fillMissingCriticalSupplies(criticalSuppliesSummary, activeCriticalSupplies);
   }
 
-  return { productsSummary, criticalSuppliesSummary, recipeSuppliesSummary };
+  // Consumo unificado derivado (no persistido): incluye eliminados porque un
+  // producto con ventas nunca puede haberse borrado de forma permanente.
+  const productTypesByName = new Map(
+    (await productRepository.findAll(branchId, true)).map((p) => [
+      p.name,
+      p.type,
+    ])
+  );
+  const suppliesSummary = buildSuppliesSummary(
+    productsSummary,
+    recipeSuppliesSummary,
+    productTypesByName
+  );
+
+  return {
+    productsSummary,
+    criticalSuppliesSummary,
+    recipeSuppliesSummary,
+    suppliesSummary,
+  };
 }
 
 export async function getOpenCashRegisterSummary(branchId: number) {

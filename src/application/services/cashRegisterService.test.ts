@@ -184,6 +184,9 @@ describe('cashRegisterService', () => {
       actualSaleRepository.findActiveWithDetailsByCashRegister
     );
     (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
+    // `parseCashRegisterSummary` deriva `suppliesSummary` consultando los
+    // productos de la sucursal (incluidos eliminados) vía `findAll`.
+    (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
     mockedBuildProductContext.mockResolvedValue({
       productsList: [],
       productById: new Map(),
@@ -375,6 +378,34 @@ describe('cashRegisterService', () => {
       expect(result.criticalSuppliesSummary).toEqual({
         Gaseosa: 2,
         Pan: 0,
+      });
+      expect(result.suppliesSummary).toEqual({ Gaseosa: 2 });
+    });
+
+    test('fusiona ventas directas e insumos de receta en suppliesSummary sin compuestos', async () => {
+      mockedCashRegisterRepository.findOpen.mockResolvedValue({
+        id: 1,
+        branchId: BRANCH_ID,
+        openedAt: new Date(),
+        openedBy: 'admin',
+        status: 'open',
+        autoClosed: false,
+        productsSummary: { 'Vaso de gaseosa': 3, 'Promo Amigos': 2 },
+        criticalSuppliesSummary: {},
+        recipeSuppliesSummary: { 'Vaso de gaseosa': 2, Pan: 4 },
+      } as any);
+
+      (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
+        { id: 1, branchId: BRANCH_ID, name: 'Vaso de gaseosa', type: 'service', isActive: true },
+        { id: 2, branchId: BRANCH_ID, name: 'Promo Amigos', type: 'compound', isActive: true },
+        { id: 3, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
+      ] as any);
+
+      const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
+
+      expect(result.suppliesSummary).toEqual({
+        'Vaso de gaseosa': 5,
+        Pan: 4,
       });
     });
 

@@ -3,6 +3,7 @@ import * as productRepository from '@/repositories/productRepository';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import {
   addItemToSummary,
+  buildSuppliesSummary,
   fillMissingCriticalSupplies,
 } from '@/lib/summary-helpers';
 export { calculateCompoundAvailability } from '@/lib/availability-helpers';
@@ -43,6 +44,7 @@ type SummaryState = {
   productsSummary: Record<string, number>;
   criticalSuppliesSummary: Record<string, number>;
   recipeSuppliesSummary: Record<string, number>;
+  productTypesByName: Map<string, string>;
 };
 
 function createSummaryState(): SummaryState {
@@ -53,6 +55,7 @@ function createSummaryState(): SummaryState {
     productsSummary: {},
     criticalSuppliesSummary: {},
     recipeSuppliesSummary: {},
+    productTypesByName: new Map(),
   };
 }
 
@@ -123,6 +126,8 @@ function addSalesToSummaryState(
       const product = item.product;
       if (!product) continue;
 
+      state.productTypesByName.set(product.name, product.type);
+
       addItemToSummary(
         state.productsSummary,
         state.criticalSuppliesSummary,
@@ -158,6 +163,11 @@ async function finalizeSummary(
     productsSummary: state.productsSummary,
     criticalSuppliesSummary: state.criticalSuppliesSummary,
     recipeSuppliesSummary: state.recipeSuppliesSummary,
+    suppliesSummary: buildSuppliesSummary(
+      state.productsSummary,
+      state.recipeSuppliesSummary,
+      state.productTypesByName
+    ),
   };
 }
 

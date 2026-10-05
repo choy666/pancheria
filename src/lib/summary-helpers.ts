@@ -79,3 +79,24 @@ export function fillMissingCriticalSupplies(
     }
   }
 }
+
+/**
+ * Consolida el consumo total por insumo: lo descontado vía recetas más las
+ * ventas directas de productos no compuestos (servicios, bebidas críticas,
+ * etc.). Los compuestos se excluyen porque su consumo ya figura desagregado
+ * en `recipeSuppliesSummary`. Los nombres sin tipo conocido (p. ej. un
+ * producto renombrado después de la venta) se cuentan como insumo para no
+ * perder consumo en la vista.
+ */
+export function buildSuppliesSummary(
+  productsSummary: Record<string, number>,
+  recipeSuppliesSummary: Record<string, number>,
+  productTypesByName: ReadonlyMap<string, string>
+): Record<string, number> {
+  const supplies: Record<string, number> = { ...recipeSuppliesSummary };
+  for (const [name, quantity] of Object.entries(productsSummary)) {
+    if (productTypesByName.get(name) === 'compound') continue;
+    supplies[name] = (supplies[name] ?? 0) + quantity;
+  }
+  return supplies;
+}

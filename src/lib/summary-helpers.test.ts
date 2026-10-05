@@ -1,4 +1,8 @@
-import { addItemToSummary, fillMissingCriticalSupplies } from './summary-helpers';
+import {
+  addItemToSummary,
+  buildSuppliesSummary,
+  fillMissingCriticalSupplies,
+} from './summary-helpers';
 
 describe('summary-helpers', () => {
   describe('addItemToSummary', () => {
@@ -211,6 +215,44 @@ describe('summary-helpers', () => {
       const summary: Record<string, number> = {};
       fillMissingCriticalSupplies(summary, []);
       expect(summary).toEqual({});
+    });
+  });
+
+  describe('buildSuppliesSummary', () => {
+    it('suma ventas directas e insumos de recetas por nombre', () => {
+      const result = buildSuppliesSummary(
+        { 'Vaso de gaseosa': 3, Promo: 2 },
+        { 'Vaso de gaseosa': 2, Mayonesa: 4 },
+        new Map([
+          ['Vaso de gaseosa', 'service'],
+          ['Promo', 'compound'],
+        ])
+      );
+
+      expect(result).toEqual({
+        'Vaso de gaseosa': 5,
+        Mayonesa: 4,
+      });
+    });
+
+    it('incluye nombres sin tipo conocido como insumo', () => {
+      const result = buildSuppliesSummary(
+        { 'Producto viejo': 1 },
+        {},
+        new Map()
+      );
+
+      expect(result).toEqual({ 'Producto viejo': 1 });
+    });
+
+    it('no muta los resúmenes de entrada', () => {
+      const products = { Promo: 1 };
+      const recipeSupplies = { Pan: 2 };
+
+      buildSuppliesSummary(products, recipeSupplies, new Map());
+
+      expect(products).toEqual({ Promo: 1 });
+      expect(recipeSupplies).toEqual({ Pan: 2 });
     });
   });
 });
