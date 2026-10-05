@@ -19,7 +19,7 @@ solo procedimiento verificado contra la implementación real.
 |---|---|---|
 | Nombre, dirección, teléfono, ubicación y horarios de la sucursal | Panel `/sucursales/nueva` o vars `NEW_BRANCH_*` del seed | ☐ |
 | Usuario y contraseña del operador | `/usuarios/nuevo` | ☐ |
-| Precios de venta de bebidas sueltas y postres | Panel `/productos` tras la carga | ☐ (22 ítems nacen inactivos a propósito) |
+| Precios de venta de bebidas sueltas y postres | Archivo de datos (nacen activos con precio **estimado**) → revisar en `/productos` | ☐ (ver §4) |
 | Stock físico inicial por ítem (en la unidad mínima: salchichas por **unidad**, aderezos por sachet, etc.) | Archivo de datos del script (campo `initialStock`) o ajustes en `/stock` | ☐ |
 | Monto inicial de caja | `/caja` al abrir | ☐ |
 | Base descartable configurada en `.env.e2e` para el ensayo | `entornos.md` | ☐ |
@@ -32,16 +32,32 @@ destino debe estar migrada (`npx drizzle-kit migrate` — convención en
 
 ## 1. Alta de la sucursal
 
-Dos caminos, elegir uno:
+Tres caminos, elegir uno:
 
 - **Panel** (recomendado, auditable): admin → `/sucursales/nueva` → nombre,
   dirección, teléfono de contacto principal, ubicación (URL de mapa), redes y
   **horarios de apertura**. Sin horarios la sucursal se considera abierta
   siempre que haya caja abierta.
+- **Script** `scripts/crear-sucursal.ts` (crea sucursal + operador en un paso;
+  dry-run por defecto):
+
+  ```bash
+  SUCURSAL_NOMBRE="..." SUCURSAL_DIRECCION="..." SUCURSAL_TELEFONO="..." \
+  SUCURSAL_USUARIO="..." SUCURSAL_PASSWORD="..." \
+  SUCURSAL_HORARIOS='[{"dayOfWeek":0,"open":"19:30","close":"03:00"}, ...]' \
+  npx tsx scripts/crear-sucursal.ts --apply
+  ```
+
+  Si la sucursal ya existe la reutiliza y solo crea el usuario; un usuario
+  existente se omite sin tocar su contraseña. Turno overnight soportado
+  (`close < open`).
 - **Seed**: definir `NEW_BRANCH_NAME`, `NEW_BRANCH_USERNAME`,
   `NEW_BRANCH_PASSWORD` y opcionales `NEW_BRANCH_ADDRESS`, `NEW_BRANCH_PHONE`,
   `NEW_BRANCH_LOCATION`, `NEW_BRANCH_SOCIAL_LINKS`,
   `NEW_BRANCH_OPENING_HOURS` en `.env` y correr `npx tsx src/db/seeds.ts`.
+  Ojo: el seed además copia el catálogo de la sucursal por defecto
+  (`copyCatalogToBranch`) — si el catálogo nuevo va por `cargar-catalogo.ts`
+  con nombres distintos, conviene el panel o el script.
 
 Verificación: la sucursal aparece en `/sucursales` con sus horarios.
 
@@ -84,14 +100,17 @@ Qué hace:
 > base apunta antes de `--apply` (`entornos.md` §"Cómo identificar a qué
 > entorno apunta una URL").
 
-## 4. Precios pendientes (bloqueo de publicación)
+## 4. Precios estimados (revisar antes de abrir)
 
-Las **bebidas sueltas y postres** (22 ítems) se crean `isActive=false` +
-`price=0` a propósito: el inventario no define su precio de venta y publicarlos
-a `$0` sería un error real.
+Las **bebidas sueltas y postres** (22 ítems) nacen activos con precio
+**estimado** a partir de las promos del menú (encabezado del archivo de
+datos). Antes de abrir al público el dueño debe revisarlos y corregirlos
+desde `/productos`; si alguno no se vende suelto, desactivarlo ahí mismo.
 
-Operador → `/productos` → editar cada uno → cargar precio + activar.
-En recetas ya funcionan igual (`isActive` no afecta el consumo como insumo).
+> Aviso residual del estado anterior a la corrección: una versión previa del
+> archivo creaba esos ítems inactivos a `$0`. Si se cargó con esa versión,
+> quedan ocultos hasta fijarles precio (`isActive=false` no afecta su consumo
+> como insumo de receta).
 
 ## 5. Stock inicial
 
@@ -146,5 +165,8 @@ Las escrituras directas del script **no invalidan** el caché de servidor
 
 ---
 
-**Última actualización:** 2026-10-04 (PR-6 implementado; validado contra
-`scripts/cargar-catalogo.ts` en base descartable E2E).
+**Última actualización:** 2026-10-05 — ejecutado íntegro contra producción para
+"Pancheria Popular Av. Los Minerales" (id 3): sucursal + operador creados con
+`scripts/crear-sucursal.ts`, catálogo aplicado (76 productos + 11 recetas,
+vasos como componentes fijos tras corregir el modelo), verificación SQL
+completa. Backup previo en Neon: `backup-pre-sucursal-2026-10-05`.

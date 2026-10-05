@@ -54,8 +54,9 @@ function printPlan(plan: CatalogPlan): void {
 
   console.log(`\nRecetas a (re)guardar: ${plan.recipes.length}`);
   for (const { def, compoundExisted } of plan.recipes) {
+    const fixeds = (def.fixeds ?? []).length;
     console.log(
-      `  ~ ${def.compound}: ${def.criticals.length} críticos + ${def.optionals.length} opcionales${compoundExisted ? ' (compuesto existente)' : ''}`
+      `  ~ ${def.compound}: ${def.criticals.length} críticos + ${def.optionals.length} opcionales${fixeds > 0 ? ` + ${fixeds} fijos` : ''}${compoundExisted ? ' (compuesto existente)' : ''}`
     );
   }
 
@@ -135,6 +136,15 @@ async function applyPlan(branchId: number, plan: CatalogPlan) {
           supplyId: idByName.get(normalizeName(item.supply))!,
           quantity: item.quantity,
           autoDiscount: true,
+          isOptional: false,
+          selectedByDefault: false,
+        })),
+        // Componentes incluidos sin elección (vaso de gaseosa de promo):
+        // siempre seleccionados, no cuentan al tope ni bloquean stock.
+        ...(def.fixeds ?? []).map((item) => ({
+          supplyId: idByName.get(normalizeName(item.supply))!,
+          quantity: item.quantity,
+          autoDiscount: false,
           isOptional: false,
           selectedByDefault: false,
         })),

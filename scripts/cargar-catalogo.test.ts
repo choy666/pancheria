@@ -34,10 +34,19 @@ describe('buildCatalogPlan', () => {
     expect(plan.creates).toHaveLength(76);
     expect(plan.skips).toHaveLength(0);
     expect(plan.recipes).toHaveLength(11);
-    // 20 bebidas + 2 postres quedan inactivos por precio pendiente.
+    // Bebidas sueltas y postres nacen activos con precio estimado (ver
+    // encabezado del archivo de datos): el dueño los corrige en /productos.
     const inactivos = plan.creates.filter((d) => d.isActive === false);
-    expect(inactivos).toHaveLength(22);
-    expect(plan.warnings.some((w) => w.includes('INACTIVOS'))).toBe(true);
+    expect(inactivos).toHaveLength(0);
+    // Todo producto público (compound/service/bebida) sale con precio > 0.
+    expect(
+      plan.creates.every(
+        (d) =>
+          d.price > 0 ||
+          (d.type === 'critical_supply' && d.criticalSupplyType !== 'beverage') ||
+          d.type === 'manual_supply'
+      )
+    ).toBe(true);
     // Ninguna receta queda sin resolver: todas las referencias existen.
     expect(
       plan.recipes.every((r) => r.compoundExisted === false)
@@ -136,6 +145,48 @@ describe('buildCatalogPlan', () => {
         e.startsWith('"Mayonesa" tiene receta pero su producto no es compound')
       )
     ).toBe(true);
+  });
+
+  test('rechaza una receta con más preseleccionados que el tope del compuesto', () => {
+    const recetas: CatalogRecipeDef[] = [
+      {
+        compound: 'Súper Pancho',
+        criticals: [{ supply: 'Pan super pancho', quantity: 1 }],
+        optionals: [
+          { supply: 'Mayonesa', quantity: 1, selectedByDefault: true },
+          { supply: 'Ketchup', quantity: 1, selectedByDefault: true },
+          { supply: 'Salsa Golf', quantity: 1, selectedByDefault: true },
+          { supply: 'Mostaza', quantity: 1, selectedByDefault: true },
+          { supply: 'Cheddar', quantity: 1, selectedByDefault: true },
+        ],
+      },
+    ];
+
+    const plan = buildCatalogPlan([], PRODUCTOS, recetas);
+    expect(plan.recipes).toHaveLength(0);
+    expect(plan.errors).toEqual([
+      'La receta "Súper Pancho" tiene 5 opcionales preseleccionados pero el producto permite elegir hasta 4.',
+    ]);
+  });
+
+  test('los componentes fijos no cuentan para el tope de opcionales', () => {
+    const recetas: CatalogRecipeDef[] = [
+      {
+        compound: 'Súper Pancho',
+        criticals: [{ supply: 'Pan super pancho', quantity: 1 }],
+        fixeds: [{ supply: 'Vaso de gaseosa', quantity: 1 }],
+        optionals: [
+          { supply: 'Mayonesa', quantity: 1, selectedByDefault: true },
+          { supply: 'Ketchup', quantity: 1, selectedByDefault: true },
+          { supply: 'Salsa Golf', quantity: 1, selectedByDefault: true },
+          { supply: 'Mostaza', quantity: 1, selectedByDefault: true },
+        ],
+      },
+    ];
+
+    const plan = buildCatalogPlan([], PRODUCTOS, recetas);
+    expect(plan.errors).toEqual([]);
+    expect(plan.recipes).toHaveLength(1);
   });
 
   test('detecta insumos que no resuelven cuando el compuesto sí existe', () => {

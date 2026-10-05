@@ -29,11 +29,11 @@ import type {
  *   distintos por pancho el operador carga líneas separadas o usa
  *   aclaraciones de la línea.
  *
- * PRECIOS PENDIENTES: el inventario no define precio de bebidas sueltas ni
- * postres. Esos productos se crean con `price: 0` e `isActive: false` para
- * no publicarlos a $0 en /pedido ni /ventas; el operador fija el precio y
- * los activa en una sola edición desde /productos. Dentro de las recetas
- * funcionan igual (isActive no afecta insumos).
+ * PRECIOS ESTIMADOS: el inventario no define precio de bebidas sueltas ni
+ * postres. Se cargan activos con valores estimados a partir de las promos
+ * (Pritty 500 cc ≈ $800 por Promo Pritty 1; Doble Cola 2,25 L ≈ $1.500 por
+ * Promo Familiar; Tutti 200 cc ≈ $500 por Popu Kids) — el dueño debe
+ * revisarlos y corregirlos desde /productos antes de abrir al público.
  */
 
 export type CatalogProductDef = {
@@ -74,6 +74,13 @@ export type CatalogRecipeDef = {
   compound: string;
   /** Insumos críticos: `autoDiscount=true, isOptional=false` implícito. */
   criticals: CatalogRecipeCriticalDef[];
+  /**
+   * Componentes incluidos sin elección y sin descuento de stock
+   * (`autoDiscount=false, isOptional=false`): p. ej. el vaso de gaseosa de
+   * una promo — siempre va, no lo puede sacar el cliente y no cuenta para
+   * el tope de opcionales. Solo insumos no críticos (service/manual).
+   */
+  fixeds?: CatalogRecipeCriticalDef[];
   /** Opcionales: `autoDiscount=false, isOptional=true` implícito. */
   optionals: CatalogRecipeOptionalDef[];
 };
@@ -197,32 +204,35 @@ export const PRODUCTOS: CatalogProductDef[] = [
   { name: 'Morrones', type: 'manual_supply', price: 0, unit: 'unidad' },
 
   // — Bebidas del inventario (17): vendibles, precio pendiente → inactivas —
-  { name: 'Coca-Cola 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Coca-Cola 1,5 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Coca-Cola chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Doble cola 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Doble cola chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Pritty 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua chica 500 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua 1,5 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua de pera chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua de manzana chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua de pera 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua de manzana 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Agua de pomelo 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Fanta 1,5 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Jugo Tutti 475 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Cerveza grande 700 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: 'Cerveza chica 475 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
+  // Bebidas sueltas — PRECIO ESTIMADO (ver encabezado): revisar en /productos.
+  { name: 'Coca-Cola 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1200, unit: 'botella' },
+  { name: 'Coca-Cola 1,5 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1600, unit: 'botella' },
+  { name: 'Coca-Cola chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 600, unit: 'botella' },
+  { name: 'Doble cola 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1000, unit: 'botella' },
+  { name: 'Doble cola chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 500, unit: 'botella' },
+  { name: 'Pritty 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1000, unit: 'botella' },
+  { name: 'Agua chica 500 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 500, unit: 'botella' },
+  { name: 'Agua 1,5 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 800, unit: 'botella' },
+  { name: 'Agua de pera chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 600, unit: 'botella' },
+  { name: 'Agua de manzana chica', type: 'critical_supply', criticalSupplyType: 'beverage', price: 600, unit: 'botella' },
+  { name: 'Agua de pera 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 900, unit: 'botella' },
+  { name: 'Agua de manzana 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 900, unit: 'botella' },
+  { name: 'Agua de pomelo 1 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 900, unit: 'botella' },
+  { name: 'Fanta 1,5 L', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1400, unit: 'botella' },
+  { name: 'Jugo Tutti 475 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 700, unit: 'botella' },
+  { name: 'Cerveza grande 700 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1800, unit: 'botella' },
+  { name: 'Cerveza chica 475 ml', type: 'critical_supply', criticalSupplyType: 'beverage', price: 1200, unit: 'botella' },
 
   // — Bebidas del menú (3, tamaño real de compra — D-3): precio pendiente —
-  { name: PRITTY_500, type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: DOBLE_COLA_225, type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'botella', isActive: false },
-  { name: TUTTI_200, type: 'critical_supply', criticalSupplyType: 'beverage', price: 0, unit: 'unidad', isActive: false },
+  // Bebidas de las promos (también vendibles sueltas) — PRECIO ESTIMADO.
+  { name: PRITTY_500, type: 'critical_supply', criticalSupplyType: 'beverage', price: 800, unit: 'botella' },
+  { name: DOBLE_COLA_225, type: 'critical_supply', criticalSupplyType: 'beverage', price: 1500, unit: 'botella' },
+  { name: TUTTI_200, type: 'critical_supply', criticalSupplyType: 'beverage', price: 500, unit: 'unidad' },
 
   // — Postres (2, service con precio — D-5): precio pendiente → inactivos —
-  { name: 'Postre Oreo', type: 'service', price: 0, unit: 'unidad', isActive: false },
-  { name: 'Flan', type: 'service', price: 0, unit: 'unidad', isActive: false },
+  // Postres — PRECIO ESTIMADO (ver encabezado): revisar en /productos.
+  { name: 'Postre Oreo', type: 'service', price: 800, unit: 'unidad' },
+  { name: 'Flan', type: 'service', price: 700, unit: 'unidad' },
 
   // — Extras (2 services con precio del menú) —
   {
@@ -330,9 +340,9 @@ export const PRODUCTOS: CatalogProductDef[] = [
 ];
 
 // ————————————————————————————————————————————————————————————————————
-// Recetas (11): críticos con autoDiscount + opcionales del menú.
-// `quantity` en opcionales = cantidad cobrada/consumida por unidad de promo
-// (multiplicada por la cantidad de panchos en promos múltiples).
+// Recetas (11): críticos con autoDiscount + opcionales del menú + fijos.
+// `quantity` en opcionales/fijos = cantidad cobrada/consumida por unidad de
+// promo (multiplicada por la cantidad de panchos en promos múltiples).
 // ————————————————————————————————————————————————————————————————————
 function aderezosComunes(panchos: number): CatalogRecipeOptionalDef[] {
   return ADEREZOS.map((supply) => ({
@@ -350,8 +360,13 @@ function completo(panchos: number): CatalogRecipeOptionalDef[] {
   }));
 }
 
-function vasos(cantidad: number): CatalogRecipeOptionalDef {
-  return { supply: VASO_GASEOSA, quantity: cantidad, selectedByDefault: true };
+/**
+ * Vaso de gaseosa incluido en la promo: componente fijo (no opcional).
+ * Es `service`: no descuenta stock, pero queda registrado en el snapshot
+ * de la receta y en el resumen de insumos del cierre.
+ */
+function vasosFijos(cantidad: number): CatalogRecipeCriticalDef {
+  return { supply: VASO_GASEOSA, quantity: cantidad };
 }
 
 export const RECETAS: CatalogRecipeDef[] = [
@@ -369,7 +384,8 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 1 },
       { supply: SALCHICHAS, quantity: 2 },
     ],
-    optionals: [...aderezosComunes(1), vasos(1)],
+    optionals: aderezosComunes(1),
+    fixeds: [vasosFijos(1)],
   },
   {
     compound: 'Promo 2',
@@ -377,7 +393,8 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 1 },
       { supply: SALCHICHAS, quantity: 2 },
     ],
-    optionals: [...completo(1), vasos(1)],
+    optionals: completo(1),
+    fixeds: [vasosFijos(1)],
   },
   {
     compound: 'Promo Pritty 1',
@@ -403,7 +420,8 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 2 },
       { supply: SALCHICHAS, quantity: 4 },
     ],
-    optionals: [...aderezosComunes(2), vasos(2)],
+    optionals: aderezosComunes(2),
+    fixeds: [vasosFijos(2)],
   },
   {
     compound: 'Promo Amigos 2',
@@ -411,7 +429,8 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 2 },
       { supply: SALCHICHAS, quantity: 4 },
     ],
-    optionals: [...completo(2), vasos(2)],
+    optionals: completo(2),
+    fixeds: [vasosFijos(2)],
   },
   {
     compound: 'Promo Popular',
@@ -532,6 +551,7 @@ export function buildCatalogPlan(
   recipes: CatalogRecipeDef[] = RECETAS
 ): CatalogPlan {
   const byName = new Map<string, ProductRow>();
+  const capByName = new Map<string, number | null>();
   const warnings: string[] = [];
   const errors: string[] = [];
 
@@ -543,6 +563,7 @@ export function buildCatalogPlan(
       );
     } else {
       byName.set(key, product);
+      capByName.set(key, product.maxOptionalSelections ?? null);
     }
   }
 
@@ -557,10 +578,13 @@ export function buildCatalogPlan(
       continue;
     }
     seenDefs.add(key);
+    capByName.set(key, def.maxOptionalSelections ?? null);
 
     const found = byName.get(key);
     if (found) {
       skips.push({ def, existing: found, diffs: describeDiff(def, found) });
+      // El compuesto ya cargado manda: su tope es el vigente, no el del archivo.
+      capByName.set(key, found.maxOptionalSelections ?? null);
     } else {
       creates.push(def);
       // Los ítems a crear también resuelven referencias de recetas.
@@ -610,7 +634,7 @@ export function buildCatalogPlan(
       continue;
     }
 
-    const missing = [...def.criticals, ...def.optionals]
+    const missing = [...def.criticals, ...(def.fixeds ?? []), ...def.optionals]
       .map((item) => item.supply)
       .filter((supply) => !byName.has(normalizeName(supply)));
     if (missing.length > 0) {
@@ -618,6 +642,20 @@ export function buildCatalogPlan(
         `La receta "${def.compound}" referencia insumos inexistentes: ${missing.join(', ')}.`
       );
       continue;
+    }
+
+    // Misma regla que recipeService.saveRecipe: los preseleccionados deben
+    // entrar en el tope del compuesto; si no, el apply rechaza a mitad de
+    // camino. La validación vive en el plan para detectarla en dry-run.
+    const cap = capByName.get(compoundKey) ?? null;
+    if (cap != null) {
+      const defaultCount = def.optionals.filter((o) => o.selectedByDefault).length;
+      if (defaultCount > cap) {
+        errors.push(
+          `La receta "${def.compound}" tiene ${defaultCount} opcionales preseleccionados pero el producto permite elegir hasta ${cap}.`
+        );
+        continue;
+      }
     }
 
     recipeActions.push({ def, compoundExisted: compound.id !== -1 });
