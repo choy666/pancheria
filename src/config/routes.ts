@@ -11,6 +11,7 @@ export const routes = {
   productosEliminados: '/productos/eliminados',
   stock: '/stock',
   cierre: '/cierre',
+  reportes: '/reportes',
   sucursales: '/sucursales',
   sucursalesNueva: '/sucursales/nueva',
   sucursalesEditar: (id: number | string) => `/sucursales/${id}/editar`,

@@ -46,3 +46,4 @@ export const CAJA_API = '/api/caja';
 export const CAJA_HISTORIAL_API = '/api/caja/historial';
 export const CAJA_ELIMINADAS_API = '/api/caja/eliminadas';
 export const PANEL_RESUMEN_API = '/api/panel/resumen';
+export const REPORTES_VENTAS_API = '/api/reportes/ventas';

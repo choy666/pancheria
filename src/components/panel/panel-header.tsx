@@ -41,6 +41,7 @@ const adminNavItems = [
   { href: routes.productos, label: 'Productos' },
   { href: routes.stock, label: 'Stock' },
   { href: routes.cierre, label: 'Caja' },
+  { href: routes.reportes, label: 'Reportes' },
   { href: routes.pedidos, label: 'Pedidos' },
   { href: routes.sucursales, label: 'Sucursales' },
   { href: routes.usuarios, label: 'Usuarios' },

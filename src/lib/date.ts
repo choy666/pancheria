@@ -84,7 +84,7 @@ function dateTimePartsInTimezone(date: Date, timeZone: string) {
  * comparar "mismo día / día siguiente" sin depender de la timezone del
  * runtime (navegador o servidor).
  */
-function dateKeyInTimezone(
+export function dateKeyInTimezone(
   date: Date | string,
   timeZone = getBranchTimezone()
 ): string {
