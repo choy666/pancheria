@@ -1,0 +1,96 @@
+name: Auditoría diaria de producción
+
+on:
+  schedule:
+    # ~06:00 ART (09:00 UTC): después del cierre habitual del turno
+    # (19:30-03:00) y antes de la actividad del día siguiente.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+# No cancelar una auditoría en curso: es read-only y barata, pero un corte
+# a medias deja un artifact incompleto que confunde el diagnóstico.
+concurrency:
+  group: sanity-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Ejecutar sanity-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar CRON_SECRET
+        run: |
+          if [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::Falta el secret CRON_SECRET. Configuralo en GitHub Actions."
+            exit 1
+          fi
+
+      - name: Verificar VERCEL_PRODUCTION_URL
+        run: |
+          if [ -z "${{ vars.VERCEL_PRODUCTION_URL }}" ]; then
+            echo "::error::Falta la variable de repositorio VERCEL_PRODUCTION_URL. Configurala en GitHub Actions."
+            exit 1
+          fi
+
+      - name: Llamar a /api/cron/sanity-audit
+        run: |
+          DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
+          DOMAIN="${DOMAIN#https://}"
+          DOMAIN="${DOMAIN#http://}"
+          DOMAIN="${DOMAIN%%/*}"
+          URL="https://${DOMAIN}/api/cron/sanity-audit"
+          echo "Llamando a ${URL}"
+          curl -sfS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL" -o sanity-audit.json
+          jq . sanity-audit.json
+
+      - name: Resumen en el job
+        if: always()
+        run: |
+          {
+            echo "## Sanity audit $(date -u +%Y-%m-%d)"
+            echo
+            jq -r '
+              "- generatedAt: \(.generatedAt)",
+              "",
+              "| code | severity | count | detail |",
+              "|---|---|---|---|",
+              (if (.findings | length) == 0
+                then "| _(sin hallazgos)_ | - | - | - |"
+                else (.findings[] | "| \(.code) | \(.severity) | \(.count) | \(.detail) |")
+                end),
+              "",
+              "### Métricas",
+              "```json",
+              (.metrics | tojson),
+              "```"
+            ' sanity-audit.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Subir JSON del reporte
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sanity-audit-${{ github.run_id }}
+          path: sanity-audit.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Evaluar hallazgos
+        if: always()
+        run: |
+          if [ ! -s sanity-audit.json ]; then
+            echo "::error::No se generó sanity-audit.json."
+            exit 1
+          fi
+          CRITICAL=$(jq '[.findings[] | select(.severity == "critical")] | length' sanity-audit.json)
+          WARNINGS=$(jq '[.findings[] | select(.severity == "warning")] | length' sanity-audit.json)
+          echo "critical=$CRITICAL warnings=$WARNINGS"
+          if [ "$WARNINGS" -gt 0 ]; then
+            echo "::warning::La auditoría reportó $WARNINGS hallazgo(s) warning."
+          fi
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::La auditoría reportó $CRITICAL hallazgo(s) critical."
+            jq '.findings[] | select(.severity == "critical")' sanity-audit.json
+            exit 1
+          fi
