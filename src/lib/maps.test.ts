@@ -2,6 +2,7 @@ import {
   buildMapCoordinatesUrl,
   buildMapEmbedUrl,
   buildMapSearchUrl,
+  buildMapViewUrl,
   describeLocationInput,
   isKnownMapUrl,
   isValidLocationUrl,
@@ -228,13 +229,15 @@ describe('maps helpers', () => {
       expect(embed.status).toBe('embed');
       expect(embed.embedUrl).toContain('export/embed.html');
 
-      // El embed de Google no es un origen permitido con el proveedor por
-      // defecto (openstreetmap): se muestra como enlace.
-      expect(
-        describeLocationInput(
-          '<iframe src="https://www.google.com/maps/embed?pb=abc"></iframe>'
-        ).status
-      ).toBe('link');
+      // El embed de Google se acepta como mapa embebido aunque el proveedor
+      // configurado sea otro: "Insertar un mapa" siempre produce iframe.
+      const googleEmbed = describeLocationInput(
+        '<iframe src="https://www.google.com/maps/embed?pb=abc"></iframe>'
+      );
+      expect(googleEmbed.status).toBe('embed');
+      expect(googleEmbed.embedUrl).toBe(
+        'https://www.google.com/maps/embed?pb=abc'
+      );
     });
   });
 
@@ -287,6 +290,51 @@ describe('maps helpers', () => {
       const embed =
         'https://www.openstreetmap.org/export/embed.html?bbox=-58.4,-34.7,-58.3,-34.6&layer=mapnik';
       expect(buildMapEmbedUrl(embed)).toBe(embed);
+    });
+
+    test('devuelve tal cual la URL de embed de Google aunque el proveedor sea openstreetmap', () => {
+      // Caso real: el admin pega el HTML de "Insertar un mapa" de Google sin
+      // configurar NEXT_PUBLIC_MAPS_PROVIDER=google.
+      const embed = 'https://www.google.com/maps/embed?pb=abc123';
+      expect(buildMapEmbedUrl(embed)).toBe(embed);
+      expect(
+        buildMapEmbedUrl('https://maps.google.com/maps?q=x&output=embed')
+      ).toBe('https://maps.google.com/maps?q=x&output=embed');
+    });
+
+    test('traduce una URL de Google con coordenadas al embed de Google sin importar el proveedor', () => {
+      const url = buildMapEmbedUrl(
+        'https://www.google.com/maps/place/Pancheria/@-32.9468,-60.6393,17z'
+      );
+      expect(url).toContain('google.com/maps?q=-32.9468,-60.6393');
+      expect(url).toContain('output=embed');
+    });
+
+    test('traduce una URL de OSM al embed de OSM aunque el proveedor sea google', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      const url = buildMapEmbedUrl(
+        'https://www.openstreetmap.org/?mlat=-34.6037&mlon=-58.3816'
+      );
+      expect(url).toContain('openstreetmap.org/export/embed.html');
+      expect(url).toContain('marker=-34.6037,-58.3816');
+    });
+
+    test('traduce un embed de Google en dominio regional al origen canónico', () => {
+      // `google.com.ar` no está en frame-src: el embed se reconstruye sobre
+      // maps.google.com con las coordenadas del `pb` (`!2d`lng`!3d`lat`).
+      const url = buildMapEmbedUrl(
+        'https://www.google.com.ar/maps/embed?pb=!1m18!1m12!1m3!1d3393!2d-60.6544!3d-32.945!2m3!1f0!2f0!3f0'
+      );
+      expect(url).toBe(
+        'https://maps.google.com/maps?q=-32.945,-60.6544&z=16&output=embed'
+      );
+    });
+
+    test('extrae las coordenadas del marcador !3d/!4d del pb de Google', () => {
+      const url = buildMapEmbedUrl(
+        'https://www.google.com.ar/maps/embed?pb=!4m2!3d-32.9468!4d-60.6393'
+      );
+      expect(url).toContain('q=-32.9468,-60.6393');
     });
 
     test('traduce una URL de Google con query=lat,lng al embed', () => {
@@ -349,6 +397,91 @@ describe('maps helpers', () => {
       expect(buildMapEmbedUrl('no es una ubicación')).toBeNull();
       expect(buildMapEmbedUrl('javascript:alert(1)')).toBeNull();
       expect(buildMapEmbedUrl('   ')).toBeNull();
+    });
+  });
+
+  describe('buildMapViewUrl', () => {
+    test('devuelve tal cual una URL de página de mapa', () => {
+      expect(buildMapViewUrl('https://maps.app.goo.gl/abc123')).toBe(
+        'https://maps.app.goo.gl/abc123'
+      );
+      expect(
+        buildMapViewUrl(
+          'https://www.openstreetmap.org/?mlat=-32.9468&mlon=-60.6393'
+        )
+      ).toBe('https://www.openstreetmap.org/?mlat=-32.9468&mlon=-60.6393');
+    });
+
+    test('convierte coordenadas en URL del proveedor configurado', () => {
+      expect(buildMapViewUrl('-34.6037,-58.3816')).toContain(
+        'openstreetmap.org'
+      );
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+      expect(buildMapViewUrl('-34.6037,-58.3816')).toContain('google.com');
+    });
+
+    test('quita output=embed de una URL de Google', () => {
+      const url = buildMapViewUrl(
+        'https://maps.google.com/maps?q=-34.6037,-58.3816&z=16&output=embed'
+      );
+      expect(url).toBe(
+        'https://maps.google.com/maps?q=-34.6037%2C-58.3816&z=16'
+      );
+    });
+
+    test('traduce /maps/embed?pb= de Google a la página de búsqueda con coordenadas', () => {
+      const url = buildMapViewUrl(
+        'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3393!2d-60.6544!3d-32.945!2m3!1f0!2f0!3f0'
+      );
+      expect(url).toContain('google.com/maps/search');
+      expect(decodeURIComponent(url!)).toContain('query=-32.945,-60.6544');
+    });
+
+    test('usa el marcador !3d/!4d del pb cuando está presente', () => {
+      const url = buildMapViewUrl(
+        'https://www.google.com/maps/embed?pb=!4m2!3d-32.9468!4d-60.6393'
+      );
+      expect(decodeURIComponent(url!)).toContain('query=-32.9468,-60.6393');
+    });
+
+    test('usa el texto de q cuando el embed de Google no trae coordenadas', () => {
+      const url = buildMapViewUrl(
+        'https://www.google.com/maps/embed/v1/place?key=k&q=Av.+Pellegrini+1234'
+      );
+      expect(url).toContain('google.com/maps/search');
+      expect(decodeURIComponent(url!)).toContain('query=Av. Pellegrini 1234');
+    });
+
+    test('devuelve null para un embed de Google sin coordenadas ni q', () => {
+      expect(
+        buildMapViewUrl('https://www.google.com/maps/embed?pb=xxx')
+      ).toBeNull();
+    });
+
+    test('traduce el embed de OSM a la página con mlat/mlon desde marker', () => {
+      expect(
+        buildMapViewUrl(
+          'https://www.openstreetmap.org/export/embed.html?bbox=-60.65,-32.95,-60.63,-32.94&layer=mapnik&marker=-32.9468,-60.6393'
+        )
+      ).toBe(
+        'https://www.openstreetmap.org/?mlat=-32.9468&mlon=-60.6393#map=18/-32.9468/-60.6393'
+      );
+    });
+
+    test('traduce el embed de OSM sin marker al centro del bbox', () => {
+      expect(
+        buildMapViewUrl(
+          'https://www.openstreetmap.org/export/embed.html?bbox=-60.65,-32.95,-60.63,-32.94&layer=mapnik'
+        )
+      ).toBe(
+        'https://www.openstreetmap.org/?mlat=-32.945&mlon=-60.64#map=18/-32.945/-60.64'
+      );
+    });
+
+    test('devuelve null para valores inválidos', () => {
+      expect(buildMapViewUrl('no es una ubicación')).toBeNull();
+      expect(buildMapViewUrl('javascript:alert(1)')).toBeNull();
+      expect(buildMapViewUrl('')).toBeNull();
     });
   });
 });

@@ -562,5 +562,39 @@ describe('chatService', () => {
 
       expect(result.content).toContain('openstreetmap.org');
     });
+
+    test('envía la página de mapa cuando la ubicación es una URL de embed', async () => {
+      // La sucursal guardó el src del iframe de "Insertar un mapa": abierta
+      // en una pestaña esa URL muestra el error "must be used in an
+      // iframe", así que el mensaje lleva la página de Maps equivalente.
+      mockedOrderRepository.findByIdForUpdate.mockResolvedValue(
+        buildOrder({ deliveryType: 'pickup' })
+      );
+      mockedBranchService.getBranchById.mockResolvedValue({
+        id: BRANCH_ID,
+        name: 'Sucursal A',
+        openingHours: [],
+        location:
+          'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3393!2d-60.6393!3d-32.9468',
+        createdAt: new Date(),
+      } as any);
+      mockedOrderMessageRepository.insertMessage.mockImplementation(
+        (_tx, values) =>
+          Promise.resolve(
+            buildMessage({
+              senderType: 'operator',
+              content: values.content ?? null,
+            })
+          )
+      );
+
+      const result = await sendBranchLocationMessage(ORDER_ID, BRANCH_ID);
+
+      expect(result.content).toContain('google.com/maps/search');
+      expect(result.content).not.toContain('embed');
+      expect(decodeURIComponent(result.content!)).toContain(
+        'query=-32.9468,-60.6393'
+      );
+    });
   });
 });

@@ -159,8 +159,8 @@ test.describe('Contactos de sucursal', () => {
     await expect(
       infoCard.getByTestId('branch-social-links')
     ).toContainText('Instagram');
-    await infoCard.getByText('Ver mapa').click();
-    await expect(page.getByTestId('branch-map-frame')).toHaveAttribute(
+    // El mapa embebido se muestra directamente, sin toggle.
+    await expect(infoCard.getByTestId('branch-map-frame')).toHaveAttribute(
       'src',
       /export\/embed\.html/
     );

@@ -26,7 +26,7 @@ describe('csp-helpers', () => {
         "media-src 'self' blob:; " +
         "connect-src 'self' https://www.gstatic.com; " +
         "font-src 'self'; " +
-        "frame-src 'self' https://www.openstreetmap.org https://openstreetmap.org; " +
+        "frame-src 'self' https://maps.google.com https://www.google.com https://google.com https://www.openstreetmap.org https://openstreetmap.org; " +
         "object-src 'none'; " +
         "base-uri 'self'; " +
         "form-action 'self'; " +
@@ -34,22 +34,18 @@ describe('csp-helpers', () => {
     );
   });
 
-  test('frame-src incluye los orígenes de Google cuando el proveedor es google', () => {
-    process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'google';
+  test('frame-src incluye los orígenes embebibles de Google y OSM con cualquier proveedor', () => {
+    // El admin puede pegar el iframe de "Insertar un mapa" de cualquier
+    // proveedor soportado: los orígenes no dependen de MAPS_PROVIDER.
+    for (const provider of ['openstreetmap', 'google', 'waze', 'raw']) {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = provider;
 
-    const header = getCspHeader('nonce');
+      const header = getCspHeader('nonce');
 
-    expect(header).toContain(
-      "frame-src 'self' https://maps.google.com https://www.google.com https://google.com"
-    );
-  });
-
-  test('frame-src no incluye orígenes externos cuando el proveedor es waze', () => {
-    process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'waze';
-
-    const header = getCspHeader('nonce');
-
-    expect(header).toContain("frame-src 'self';");
+      expect(header).toContain(
+        "frame-src 'self' https://maps.google.com https://www.google.com https://google.com https://www.openstreetmap.org https://openstreetmap.org"
+      );
+    }
   });
 
   test('frame-src agrega el origen de NEXT_PUBLIC_MAPS_BASE_URL', () => {

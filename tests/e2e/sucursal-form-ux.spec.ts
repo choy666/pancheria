@@ -5,9 +5,10 @@ import { login, unique, waitForHydratedInput } from './helpers';
  * UX del formulario de sucursal: validación en vivo del campo Ubicación,
  * preview del mapa embebido y copiar/pegar de franjas horarias entre días.
  *
- * El entorno E2E no define `NEXT_PUBLIC_MAPS_PROVIDER`, así que corre con el
- * default `openstreetmap`: un iframe/URL de Google Maps se clasifica como
- * "link" (solo enlace) y una URL de embed de OSM como "embed" (preview).
+ * Las URLs de embed de Google Maps y OpenStreetMap se embeben siempre, sin
+ * importar `NEXT_PUBLIC_MAPS_PROVIDER` (el entorno E2E usa el default
+ * `openstreetmap`): pegar el iframe de "Insertar un mapa" de Google muestra
+ * el preview embebido y en `/pedido` el mapa se ve automáticamente.
  */
 
 async function deleteBranchViaUi(
@@ -32,11 +33,14 @@ test.describe('Formulario de sucursal — UX', () => {
     await login(page);
   });
 
-  test('acepta el iframe de "Insertar mapa" de Google, avisa que se verá como enlace y guarda la URL del src', async ({
+  test('acepta el iframe de "Insertar mapa" de Google, muestra el preview embebido y el mapa se ve en el catálogo', async ({
     page,
   }) => {
     const branchName = unique('Sucursal Iframe');
-    const iframeSrc = 'https://www.google.com/maps/embed?pb=abc123xyz';
+    // `pb` realista: incluye `!2d<lng>!3d<lat>` (centro del viewport) como
+    // todo embed de Google — de ahí sale el enlace "Abrir en el mapa".
+    const iframeSrc =
+      'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3393!2d-60.6393!3d-32.9468!2m3!1f0!2f0!3f0';
     const iframeHtml = `<iframe src="${iframeSrc}" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>`;
 
     await page.goto('/sucursales/nueva');
@@ -44,14 +48,22 @@ test.describe('Formulario de sucursal — UX', () => {
     await waitForHydratedInput(page, '[data-testid="branch-location"]');
     await page.getByTestId('branch-location').fill(iframeHtml);
 
-    // El embed de Google no es un origen permitido con el proveedor E2E
-    // (openstreetmap): el admin ve el hint de "se mostrará como enlace".
+    // El embed de Google se embebe siempre, aunque el proveedor E2E sea
+    // openstreetmap: el admin ve el preview del mapa (tras abrir el toggle)
+    // y no el hint de "se mostrará como enlace".
     await expect(
       page.getByTestId('branch-location-link-hint')
-    ).toBeVisible();
+    ).toBeHidden();
     await expect(
       page.getByTestId('branch-location-error')
     ).toBeHidden();
+    const preview = page.getByTestId('branch-location-preview-details');
+    await expect(preview).toBeVisible();
+    await preview.locator('summary').click();
+    await expect(page.getByTestId('branch-location-preview')).toHaveAttribute(
+      'src',
+      iframeSrc
+    );
 
     await page.getByRole('button', { name: 'Crear sucursal' }).click();
 
@@ -68,6 +80,20 @@ test.describe('Formulario de sucursal — UX', () => {
       await row.getByRole('button', { name: 'Editar' }).click();
       await page.waitForURL(`**/sucursales/${branchId}/editar`);
       await expect(page.getByTestId('branch-location')).toHaveValue(iframeSrc);
+
+      // El catálogo público muestra el mapa de Google embebido a primera
+      // vista (sin toggle) y el enlace apunta a la página de Maps, no a la
+      // URL de embed.
+      await page.goto(`/pedido?branchId=${branchId}`);
+      const infoCard = page.getByTestId('branch-info-card');
+      await expect(infoCard).toBeVisible();
+      await expect(
+        infoCard.getByTestId('branch-map-frame')
+      ).toHaveAttribute('src', iframeSrc);
+      await expect(infoCard.getByTestId('branch-map-link')).toHaveAttribute(
+        'href',
+        /google\.com\/maps\/search/
+      );
     } finally {
       if (branchId) await deleteBranchViaUi(page, branchName, branchId);
     }
@@ -103,15 +129,14 @@ test.describe('Formulario de sucursal — UX', () => {
     expect(branchId).not.toBeNull();
 
     try {
-      // El catálogo público muestra la sucursal con mapa embebido.
+      // El catálogo público muestra la sucursal con el mapa embebido a
+      // primera vista (el iframe se monta directamente, sin toggle).
       await page.goto(`/pedido?branchId=${branchId}`);
       const infoCard = page.getByTestId('branch-info-card');
       await expect(infoCard).toBeVisible();
-      await infoCard.getByText('Ver mapa').click();
-      await expect(page.getByTestId('branch-map-frame')).toHaveAttribute(
-        'src',
-        /export\/embed\.html/
-      );
+      await expect(
+        infoCard.getByTestId('branch-map-frame')
+      ).toHaveAttribute('src', /export\/embed\.html/);
     } finally {
       if (branchId) await deleteBranchViaUi(page, branchName, branchId);
     }

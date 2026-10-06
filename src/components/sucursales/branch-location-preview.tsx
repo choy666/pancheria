@@ -9,10 +9,10 @@ interface BranchLocationPreviewProps {
 }
 
 /**
- * Preview del mapa embebido tal como se verá en el catálogo público `/pedido`.
- * El `<iframe>` solo se monta al abrir el `<details>` (mismo patrón que
- * `branch-map.tsx`): el proveedor de mapas no recibe requests sin interacción
- * del admin y la página no hace layout shift mientras el input oscila.
+ * Preview del mapa embebido tal como se verá en el catálogo público `/pedido`
+ * (allí se muestra siempre visible). El `<iframe>` solo se monta al abrir el
+ * `<details>`: en el formulario conviene diferir la carga para no pedir al
+ * proveedor de mapas en cada tecleo del input y evitar layout shift.
  *
  * `embedUrl` solo proviene de orígenes de `getMapsFrameOrigins()`, así que el
  * iframe queda cubierto por la CSP vigente (`frame-src`).

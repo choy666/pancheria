@@ -43,8 +43,8 @@ describe('BranchPublicPreview', () => {
     expect(card).toHaveTextContent('Dirección: Av. Pellegrini 1234');
     expect(card).toHaveTextContent('Pedidos: 3415555555');
     expect(card).toHaveTextContent('Instagram: @pancho.centro');
-    // Coordenadas: el mapa se ofrece embebido en un <details> propio.
-    expect(screen.getByTestId('branch-map-details')).toBeInTheDocument();
+    // Coordenadas: el mapa embebido se muestra visible, como en /pedido.
+    expect(screen.getByTestId('branch-map-frame')).toBeInTheDocument();
   });
 
   test('la vista checkout muestra el nombre, el estado y el banner', () => {

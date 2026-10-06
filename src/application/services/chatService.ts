@@ -6,7 +6,11 @@ import { orderMessages } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
 import { getOrderExpirationMs } from '@/config/orders';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { isValidLocationUrl, tryBuildLocationUrl } from '@/lib/maps';
+import {
+  buildMapViewUrl,
+  isValidLocationUrl,
+  tryBuildLocationUrl,
+} from '@/lib/maps';
 import {
   getChatMaxTextLength,
   getChatImageMaxSizeBytes,
@@ -500,8 +504,12 @@ export async function sendBranchLocationMessage(
       );
     }
 
+    // El enlace se abre en una pestaña: si la sucursal guardó una URL de
+    // embed (p. ej. `/maps/embed?pb=…` de "Insertar un mapa"), se envía la
+    // página de mapa equivalente — la URL de embed mostraría el error "The
+    // Google Maps Embed API must be used in an iframe".
     const values = normalizeMessageValues(orderId, 'operator', {
-      content: locationUrl,
+      content: buildMapViewUrl(locationUrl) ?? locationUrl,
       senderName,
     });
     return orderMessageRepository.insertMessage(tx, values);

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, CheckCheck, MapPin } from 'lucide-react';
 import { ChatAttachment } from './chat-attachment';
-import { isKnownMapUrl } from '@/lib/maps';
+import { buildMapViewUrl, isKnownMapUrl } from '@/lib/maps';
 import { formatTime } from '@/lib/date';
 import type { OrderMessage, OrderMessageSenderType } from '@/domain/types';
 
@@ -65,9 +65,12 @@ function MessageStatusIcon({
 }
 
 function ChatLocationMessage({ content }: { content: string }) {
+  // Los mensajes guardados antes del fix podían contener la URL de embed
+  // (`/maps/embed?pb=…`): `buildMapViewUrl` la traduce a la página de mapa
+  // equivalente para que el enlace abra algo útil en la pestaña nueva.
   return (
     <a
-      href={content}
+      href={buildMapViewUrl(content) ?? content}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-2 rounded-lg border border-border bg-background/50 px-3 py-2 text-sm text-primary hover:underline"

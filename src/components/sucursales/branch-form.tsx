@@ -562,18 +562,17 @@ export function BranchForm({
           <BranchLocationPreview embedUrl={locationDesc.embedUrl} />
         )}
         <p id="branch-location-help" className="text-sm text-muted-foreground">
-          Para que el mapa se vea embebido en el catálogo, lo mejor son las{' '}
+          El mapa se muestra embebido en el catálogo con las{' '}
           <strong>coordenadas</strong> <code>lat,lng</code> (en Google Maps:
           clic derecho sobre el punto → clic en las coordenadas para
-          copiarlas): funcionan con cualquier proveedor. También sirve la
-          URL completa de openstreetmap.org, el enlace de
-          &quot;Compartir&quot; de Google Maps o el código completo de{' '}
-          <strong>&quot;Insertar un mapa&quot;</strong> (Compartir → Insertar
-          un mapa → copiar el HTML del <code>&lt;iframe&gt;</code>: se usa
-          automáticamente la URL del <code>src</code>), siempre que
-          correspondan al proveedor de mapas configurado. Los enlaces cortos
-          (<code>maps.app.goo.gl/…</code>) y otras URLs se muestran como
-          &quot;Ver en mapa&quot; sin mapa embebido.
+          copiarlas), con el código completo de{' '}
+          <strong>&quot;Insertar un mapa&quot;</strong> de Google Maps
+          (Compartir → Insertar un mapa → copiar el HTML del{' '}
+          <code>&lt;iframe&gt;</code>: se usa automáticamente la URL del{' '}
+          <code>src</code>), con la URL completa de openstreetmap.org o con
+          el enlace de &quot;Compartir&quot; de Google Maps. Los enlaces
+          cortos (<code>maps.app.goo.gl/…</code>) y otras URLs se muestran
+          como &quot;Ver en mapa&quot; sin mapa embebido.
         </p>
       </div>
 

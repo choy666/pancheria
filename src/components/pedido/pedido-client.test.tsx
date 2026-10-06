@@ -1219,26 +1219,15 @@ describe('PedidoClient', () => {
       ).not.toBeInTheDocument();
     });
 
-    test('muestra el mapa embebido solo al abrir la sección cuando la ubicación lo permite', async () => {
+    test('muestra el mapa embebido visible al cargar cuando la ubicación lo permite', async () => {
+      const location =
+        'https://www.openstreetmap.org/?mlat=-32.9468&mlon=-60.6393#map=18/-32.9468/-60.6393';
       await renderPedido(
-        makeBranch(1, 'Sucursal A', {
-          location:
-            'https://www.openstreetmap.org/?mlat=-32.9468&mlon=-60.6393#map=18/-32.9468/-60.6393',
-        })
+        makeBranch(1, 'Sucursal A', { location })
       );
 
-      const details = screen.getByTestId('branch-map-details');
-      expect(details).toBeInTheDocument();
-      // El iframe no se monta hasta que el cliente abre la sección.
-      expect(
-        screen.queryByTestId('branch-map-frame')
-      ).not.toBeInTheDocument();
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('Ver mapa'));
-        await Promise.resolve();
-      });
-
+      // El iframe se monta de inmediato (loading lazy): el cliente ve la
+      // ubicación a primera vista, sin abrir ninguna sección.
       const frame = await screen.findByTestId('branch-map-frame');
       expect(frame).toHaveAttribute(
         'src',
@@ -1246,8 +1235,32 @@ describe('PedidoClient', () => {
       );
       expect(frame).toHaveAttribute('title', 'Mapa de Sucursal A');
       expect(frame).toHaveAttribute('loading', 'lazy');
-      expect(screen.getByTestId('branch-map-link')).toHaveTextContent(
-        'Abrir en el mapa'
+      const link = screen.getByTestId('branch-map-link');
+      expect(link).toHaveTextContent('Abrir en el mapa');
+      // El enlace abre la página de mapa, no la URL de embed.
+      expect(link).toHaveAttribute('href', location);
+    });
+
+    test('embebe el iframe de Google y enlaza a la página de mapa equivalente', async () => {
+      // Caso real: el admin pegó el HTML de "Insertar un mapa" de Google y
+      // se guardó la URL del src (`/maps/embed?pb=…`). Abierta en una
+      // pestaña esa URL muestra el error "Embed API must be used in an
+      // iframe", así que el enlace apunta a la página de Maps.
+      await renderPedido(
+        makeBranch(1, 'Sucursal A', {
+          location:
+            'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3393!2d-60.6393!3d-32.9468',
+        })
+      );
+
+      expect(await screen.findByTestId('branch-map-frame')).toHaveAttribute(
+        'src',
+        'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3393!2d-60.6393!3d-32.9468'
+      );
+      const link = screen.getByTestId('branch-map-link');
+      expect(link.getAttribute('href')).toContain('google.com/maps/search');
+      expect(decodeURIComponent(link.getAttribute('href')!)).toContain(
+        'query=-32.9468,-60.6393'
       );
     });
 
@@ -1262,9 +1275,7 @@ describe('PedidoClient', () => {
         'href',
         'https://maps.app.goo.gl/abc123'
       );
-      expect(
-        screen.queryByTestId('branch-map-details')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('branch-map')).not.toBeInTheDocument();
       expect(
         screen.queryByTestId('branch-map-frame')
       ).not.toBeInTheDocument();

@@ -28,33 +28,28 @@ export function getMapsBaseUrl(): string | undefined {
 
 /**
  * Orígenes https permitidos en `frame-src` para el mapa embebido del catálogo
- * público. Se derivan del proveedor configurado (`NEXT_PUBLIC_MAPS_PROVIDER`)
- * y del origen de `NEXT_PUBLIC_MAPS_BASE_URL` cuando existe, para que la CSP
- * y `buildMapEmbedUrl` nunca se desincronicen.
+ * público. Incluyen siempre los orígenes de los proveedores con embed público
+ * (Google y OpenStreetMap), no solo los del proveedor configurado: el admin
+ * puede pegar el código "Insertar un mapa" de cualquiera de ellos y la CSP
+ * debe permitir el iframe resultante. El origen de
+ * `NEXT_PUBLIC_MAPS_BASE_URL` se agrega cuando existe, para que la CSP y
+ * `buildMapEmbedUrl` nunca se desincronicen.
  *
- * Waze no ofrece embed público: no aporta orígenes.
+ * `NEXT_PUBLIC_MAPS_PROVIDER` sigue decidiendo el proveedor para construir
+ * URLs a partir de coordenadas o búsquedas (chat y mapa embebido); Waze no
+ * ofrece embed público: no aporta orígenes.
  */
 export function getMapsFrameOrigins(): string[] {
-  const provider = getMapsProvider();
   const baseUrl = getMapsBaseUrl();
-  const origins: string[] = [];
-
-  if (provider === 'google') {
+  const origins: string[] = [
     // Los embeds de Google Maps se sirven desde maps.google.com
     // (`output=embed`) y www.google.com (`/maps/embed`).
-    origins.push(
-      'https://maps.google.com',
-      'https://www.google.com',
-      'https://google.com'
-    );
-  } else if (provider === 'openstreetmap' || (provider === 'raw' && !baseUrl)) {
-    // `raw` usa la plantilla de OpenStreetMap cuando no hay URL base
-    // personalizada.
-    origins.push(
-      'https://www.openstreetmap.org',
-      'https://openstreetmap.org'
-    );
-  }
+    'https://maps.google.com',
+    'https://www.google.com',
+    'https://google.com',
+    'https://www.openstreetmap.org',
+    'https://openstreetmap.org',
+  ];
 
   if (baseUrl) {
     try {
