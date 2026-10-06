@@ -61,6 +61,28 @@ describe('BranchMap', () => {
     );
   });
 
+  test('deja el mapa interactivo cuando no se puede derivar una URL de vista', () => {
+    // Embed válido pero sin coordenadas ni `q` extraíbles: buildMapViewUrl
+    // devuelve null. Sin overlay ni enlace, apagar los gestos del iframe
+    // dejaría una caja muerta sin salida — se conserva interactivo para que
+    // el embed ofrezca sus propias affordances ("Ver en Google Maps").
+    render(
+      <BranchMap
+        location="https://www.google.com/maps/embed?pb=abc"
+        branchName="Sucursal Centro"
+      />
+    );
+
+    const frame = screen.getByTestId('branch-map-frame');
+    expect(frame).not.toHaveClass('pointer-events-none');
+    expect(frame).not.toHaveAttribute('tabindex');
+    expect(frame).not.toHaveAttribute('aria-hidden');
+    expect(
+      screen.queryByTestId('branch-map-overlay')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('branch-map-link')).not.toBeInTheDocument();
+  });
+
   test('muestra solo el enlace externo cuando la ubicación no es embebible', () => {
     render(
       <BranchMap

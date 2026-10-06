@@ -17,14 +17,17 @@ interface BranchMapProps {
  * interacción del cliente. Si no es embebible (short links, Waze, otros
  * orígenes), se mantiene el enlace externo clásico.
  *
- * El mapa es decorativo: el embed de Google/OSM captura la rueda y el
- * arrastre, así que `pointer-events-none` evita que trabe el scroll del
- * catálogo, `tabIndex={-1}` lo saca del orden de tabulación y
- * `aria-hidden` lo oculta para AT (la acción equivalente es el enlace). Un
- * `<a>` overlay cubre el iframe y abre la ubicación en pestaña nueva. El
- * ancho se acota con `max-w-md`: el `main` de `(public)/layout.tsx` no tiene
- * `max-width` y un 16:9 sin techo ocuparía gran parte del viewport en
- * desktop.
+ * El mapa es decorativo cuando hay URL de vista: el embed de Google/OSM
+ * captura la rueda y el arrastre, así que `pointer-events-none` evita que
+ * trabe el scroll del catálogo, `tabIndex={-1}` lo saca del orden de
+ * tabulación y `aria-hidden` lo oculta para AT (la acción equivalente es el
+ * enlace). Un `<a>` overlay cubre el iframe y abre la ubicación en pestaña
+ * nueva. Si `buildMapViewUrl` no puede derivar una página (embed sin
+ * coordenadas ni `q` extraíbles), el iframe queda interactivo: sin overlay
+ * ni enlace, apagar sus gestos dejaría una caja muerta sin salida — el
+ * embed propio ofrece "ver en Google Maps". El ancho se acota con
+ * `max-w-md`: el `main` de `(public)/layout.tsx` no tiene `max-width` y un
+ * 16:9 sin techo ocuparía gran parte del viewport en desktop.
  *
  * El overlay y el enlace "Abrir en el mapa" usan `buildMapViewUrl`: las URLs
  * de embed (`/maps/embed?pb=…`, `output=embed`) solo funcionan dentro de un
@@ -62,9 +65,9 @@ export function BranchMap({ location, branchName }: BranchMapProps) {
           // scripts para el mapa interactivo, mismo origen para sus recursos
           // y popups para los enlaces "abrir en pestaña" del propio mapa.
           sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-          className="pointer-events-none size-full border-0"
-          tabIndex={-1}
-          aria-hidden="true"
+          className={`size-full border-0 ${viewUrl ? 'pointer-events-none' : ''}`}
+          tabIndex={viewUrl ? -1 : undefined}
+          aria-hidden={viewUrl ? true : undefined}
           data-testid="branch-map-frame"
         />
         {viewUrl && (

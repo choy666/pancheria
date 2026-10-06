@@ -444,6 +444,16 @@ describe('maps helpers', () => {
       expect(decodeURIComponent(url!)).toContain('query=-32.9468,-60.6393');
     });
 
+    test('usa la posición de cámara !2m2!1d/!2d del pb de Street View', () => {
+      // Caso real de producción: "Insertar mapa" desde Street View genera un
+      // pb sin `!3d!4d` ni `!2d!3d`; la posición viaja en `!2m2!1d<lat>!2d<lng>`.
+      const url = buildMapViewUrl(
+        'https://www.google.com/maps/embed?pb=!4v1791241199799!6m8!1m7!1s6eiCIEbZw5dQzx1HP0eEAQ!2m2!1d-28.50341559957752!2d-65.80645698359768!3f118.96815884151276!4f-4.145981633761721!5f0.7820865974627469'
+      );
+      expect(url).toContain('google.com/maps/search');
+      expect(decodeURIComponent(url!)).toContain('query=-28.503416,-65.806457');
+    });
+
     test('usa el texto de q cuando el embed de Google no trae coordenadas', () => {
       const url = buildMapViewUrl(
         'https://www.google.com/maps/embed/v1/place?key=k&q=Av.+Pellegrini+1234'

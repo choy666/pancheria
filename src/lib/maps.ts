@@ -310,6 +310,9 @@ function coordinatesFromMapUrl(url: URL): { lat: number; lng: number } | null {
 
   // El `pb` de los embeds de Google: `!3d<lat>!4d<lng>` marca el lugar y
   // `!2d<lng>!3d<lat>` el centro del viewport (presente en todos los pb).
+  // Los embeds de Street View (`!6m8` + pano id) no traen ninguno: la
+  // posición de la cámara viaja en el bloque `!2m2!1d<lat>!2d<lng>`, que se
+  // evalúa al final para que un pb que traiga marcador o centro gane.
   const pb = url.searchParams.get('pb');
   if (pb) {
     const markerMatch = pb.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
@@ -325,6 +328,15 @@ function coordinatesFromMapUrl(url: URL): { lat: number; lng: number } | null {
         `${centerMatch[2]},${centerMatch[1]}`
       );
       if (fromPbCenter) return fromPbCenter;
+    }
+    const streetViewMatch = pb.match(
+      /!2m2!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)/
+    );
+    if (streetViewMatch) {
+      const fromPbStreetView = tryParseCoordinates(
+        `${streetViewMatch[1]},${streetViewMatch[2]}`
+      );
+      if (fromPbStreetView) return fromPbStreetView;
     }
   }
 
