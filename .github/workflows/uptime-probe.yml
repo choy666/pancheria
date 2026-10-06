@@ -26,25 +26,24 @@ jobs:
             exit 1
           fi
 
-      - name: Resolver dominio base
+      # App + DB: único endpoint que toca la base sin auth.
+      - name: GET /api/health
         run: |
           DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
           DOMAIN="${DOMAIN#https://}"
           DOMAIN="${DOMAIN#http://}"
           DOMAIN="${DOMAIN%%/*}"
-          echo "BASE_URL=https://${DOMAIN}" >> "$GITHUB_ENV"
-          echo "Probing: https://${DOMAIN}"
-
-      # App + DB: único endpoint que toca la base sin auth.
-      - name: GET /api/health
-        run: |
-          curl -sfS "${{ env.BASE_URL }}/api/health" \
+          curl -sfS "https://${DOMAIN}/api/health" \
             | jq -e '.ok == true and .db == "up"'
 
       # Camino real del cliente: catálogo público de la sucursal por defecto.
       - name: GET /api/public/catalogo (sucursal por defecto)
         run: |
-          curl -sfS "${{ env.BASE_URL }}/api/public/catalogo?limit=1" \
+          DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
+          DOMAIN="${DOMAIN#https://}"
+          DOMAIN="${DOMAIN#http://}"
+          DOMAIN="${DOMAIN%%/*}"
+          curl -sfS "https://${DOMAIN}/api/public/catalogo?limit=1" \
             | jq -e '(.products | type) == "array" and (.total | type) == "number"'
 
       # Checks por sucursal puntual: solo si se configuró la repository
@@ -52,13 +51,21 @@ jobs:
       - name: GET /api/public/sucursal/estado?branchId
         if: vars.PROBE_BRANCH_ID != ''
         run: |
-          curl -sfS "${{ env.BASE_URL }}/api/public/sucursal/estado?branchId=${{ vars.PROBE_BRANCH_ID }}" \
+          DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
+          DOMAIN="${DOMAIN#https://}"
+          DOMAIN="${DOMAIN#http://}"
+          DOMAIN="${DOMAIN%%/*}"
+          curl -sfS "https://${DOMAIN}/api/public/sucursal/estado?branchId=${{ vars.PROBE_BRANCH_ID }}" \
             | jq -e --argjson id "${{ vars.PROBE_BRANCH_ID }}" '.branch.id == $id'
 
       - name: GET /api/public/catalogo?branchId
         if: vars.PROBE_BRANCH_ID != ''
         run: |
-          curl -sfS "${{ env.BASE_URL }}/api/public/catalogo?branchId=${{ vars.PROBE_BRANCH_ID }}&limit=1" \
+          DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
+          DOMAIN="${DOMAIN#https://}"
+          DOMAIN="${DOMAIN#http://}"
+          DOMAIN="${DOMAIN%%/*}"
+          curl -sfS "https://${DOMAIN}/api/public/catalogo?branchId=${{ vars.PROBE_BRANCH_ID }}&limit=1" \
             | jq -e --argjson id "${{ vars.PROBE_BRANCH_ID }}" '.branch.id == $id'
 
       - name: Aviso si falta PROBE_BRANCH_ID
