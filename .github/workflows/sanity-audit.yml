@@ -19,9 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      # Webhook opcional (Discord/Slack incoming webhook: payload {content}).
-      # Si el secret no existe el step de notificación se omite.
+      # Notificación opcional vía ntfy: NOTIFY_WEBHOOK_URL es la URL del
+      # topic (https://ntfy.sh/<topic> o instancia propia) y NTFY_TOKEN un
+      # access token de la cuenta para topics reservados. Si el secret no
+      # existe el step de notificación se omite.
       NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
     steps:
       - name: Verificar CRON_SECRET
         run: |
@@ -99,10 +102,15 @@ jobs:
             exit 1
           fi
 
-      - name: Notificar resumen (webhook)
+      - name: Notificar resumen (ntfy)
         if: always() && env.NOTIFY_WEBHOOK_URL != ''
         run: |
+          # NOTIFY_WEBHOOK_URL apunta a un topic de ntfy (https://ntfy.sh/<topic>
+          # o instancia propia): el body es texto plano y los headers
+          # Title/Priority/Tags/Click son nativos de ntfy.
           if [ -s sanity-audit.json ]; then
+            CRITICAL=$(jq '[.findings[] | select(.severity == "critical")] | length' sanity-audit.json)
+            WARNINGS=$(jq '[.findings[] | select(.severity == "warning")] | length' sanity-audit.json)
             SUMMARY=$(jq -r '
               "critical=\([.findings[] | select(.severity == "critical")] | length) " +
               "warning=\([.findings[] | select(.severity == "warning")] | length)" +
@@ -111,12 +119,25 @@ jobs:
                 else " — sin hallazgos" end)
             ' sanity-audit.json)
           else
+            CRITICAL=1
+            WARNINGS=0
             SUMMARY="sin reporte (la llamada al endpoint falló)"
           fi
-          MSG="Sanity audit Panchería (${GITHUB_REF_NAME}): ${SUMMARY} — ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          # La notificación es best-effort: un fallo del webhook no debe
+          if [ "$CRITICAL" -gt 0 ]; then PRIORITY=5; TAGS="rotating_light";
+          elif [ "$WARNINGS" -gt 0 ]; then PRIORITY=3; TAGS="warning";
+          else PRIORITY=2; TAGS="white_check_mark"; fi
+          MSG="Branch ${GITHUB_REF_NAME}: ${SUMMARY}"
+          AUTH_HEADER=()
+          if [ -n "$NTFY_TOKEN" ]; then
+            AUTH_HEADER=(-H "Authorization: Bearer $NTFY_TOKEN")
+          fi
+          # La notificación es best-effort: un fallo de ntfy no debe
           # ensuciar el resultado de la auditoría.
           curl -sfS -X POST "$NOTIFY_WEBHOOK_URL" \
-            -H 'content-type: application/json' \
-            --data "$(jq -nc --arg content "$MSG" '{content: $content}')" \
-            || echo "::warning::No se pudo entregar la notificación del webhook."
+            "${AUTH_HEADER[@]}" \
+            -H "Title: Sanity audit Panchería" \
+            -H "Priority: $PRIORITY" \
+            -H "Tags: $TAGS" \
+            -H "Click: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --data "$MSG" \
+            || echo "::warning::No se pudo entregar la notificación a ntfy."
