@@ -17,10 +17,19 @@ interface BranchMapProps {
  * interacción del cliente. Si no es embebible (short links, Waze, otros
  * orígenes), se mantiene el enlace externo clásico.
  *
- * El enlace "Abrir en el mapa" usa `buildMapViewUrl`: las URLs de embed
- * (`/maps/embed?pb=…`, `output=embed`) solo funcionan dentro de un iframe y
- * abiertas en una pestaña muestran el error "The Google Maps Embed API must
- * be used in an iframe"; la helper las traduce a la página de mapa
+ * El mapa es decorativo: el embed de Google/OSM captura la rueda y el
+ * arrastre, así que `pointer-events-none` evita que trabe el scroll del
+ * catálogo, `tabIndex={-1}` lo saca del orden de tabulación y
+ * `aria-hidden` lo oculta para AT (la acción equivalente es el enlace). Un
+ * `<a>` overlay cubre el iframe y abre la ubicación en pestaña nueva. El
+ * ancho se acota con `max-w-md`: el `main` de `(public)/layout.tsx` no tiene
+ * `max-width` y un 16:9 sin techo ocuparía gran parte del viewport en
+ * desktop.
+ *
+ * El overlay y el enlace "Abrir en el mapa" usan `buildMapViewUrl`: las URLs
+ * de embed (`/maps/embed?pb=…`, `output=embed`) solo funcionan dentro de un
+ * iframe y abiertas en una pestaña muestran el error "The Google Maps Embed
+ * API must be used in an iframe"; la helper las traduce a la página de mapa
  * equivalente.
  */
 export function BranchMap({ location, branchName }: BranchMapProps) {
@@ -43,18 +52,32 @@ export function BranchMap({ location, branchName }: BranchMapProps) {
 
   return (
     <div className="mt-2" data-testid="branch-map">
-      <iframe
-        src={embedUrl}
-        title={`Mapa de ${branchName}`}
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        // El sandbox se limita a lo que requieren los embeds de OSM/Google:
-        // scripts para el mapa interactivo, mismo origen para sus recursos
-        // y popups para los enlaces "abrir en pestaña" del propio mapa.
-        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-        className="aspect-video w-full rounded-md border-0"
-        data-testid="branch-map-frame"
-      />
+      <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-md border border-border shadow-sm">
+        <iframe
+          src={embedUrl}
+          title={`Mapa de ${branchName}`}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          // El sandbox se limita a lo que requieren los embeds de OSM/Google:
+          // scripts para el mapa interactivo, mismo origen para sus recursos
+          // y popups para los enlaces "abrir en pestaña" del propio mapa.
+          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          className="pointer-events-none size-full border-0"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid="branch-map-frame"
+        />
+        {viewUrl && (
+          <a
+            href={viewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Abrir ubicación de ${branchName} en el mapa`}
+            data-testid="branch-map-overlay"
+            className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        )}
+      </div>
       {viewUrl && (
         <a
           href={viewUrl}
