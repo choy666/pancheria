@@ -33,6 +33,8 @@ Cuando se deje un monitoreo en background (CI de GitHub Actions, deploys de Verc
 | Empujar migraciones en producción | Ver `.devin/informes/entornos.md`        |
 | Ejecutar seed            | `npx tsx src/db/seeds.ts`                         |
 | Cargar catálogo Panchería Popular | `npx tsx scripts/cargar-catalogo.ts --branch <id\|nombre>` (dry-run) · agregar `--apply` para escribir · datos en `scripts/data/catalogo-pancheria-popular.ts` |
+| Cargar stock/min_stock en sucursal | `npx tsx scripts/cargar-stock.ts --branch <id\|nombre>` (dry-run) · `--apply` para escribir · datos en `scripts/data/stock-inicial.ts` (`quantity: 0` = pendiente, se omite) · movimientos `restock` auditados |
+| Backfill snapshots de venta | `npx tsx scripts/backfill-sale-item-recipes.ts [--apply]` — reconstruye `sale_item_recipes` de ventas compuestas legacy con la receta vigente (one-off del finding `compound_sale_item_missing_snapshot`; idempotente por el `notExists`) |
 
 > **Atención:** `tests/e2e/global-setup.ts` trunca las tablas `products`, `recipes`, `sales`, `sale_items`, `orders`, `order_items`, `order_messages`, `stock_movements`, `cash_registers`, `public_order_rate_limits`, `login_attempts`, `videos`, `users` y `branches` con `RESTART IDENTITY CASCADE` (las tablas hijas como `order_stock_reservations`, `sale_payments`, `sale_item_recipes` y `order_item_recipes` quedan cubiertas por el `CASCADE`), y re-ejecuta `src/db/seeds.ts`. No correr los tests E2E en una base de datos con datos reales.
 >
@@ -183,7 +185,18 @@ Variables cuyo valor, default o comportamiento depende del entorno (detalle comp
 - `NEXT_PUBLIC_APP_URL` — se setea por deploy en Vercel/CI; en local cae al fallback de `NEXTAUTH_URL`.
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` — solo tiene sentido en producción de Vercel; `ConditionalAnalytics` inyecta el script únicamente si está habilitado y el entorno es producción.
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — solo se usan en el seed y en E2E; no aplican a producción.
-- `CRON_SECRET` y `VERCEL_PRODUCTION_URL` — se configuran en **GitHub** (secret y variable de repositorio) para el workflow `expire-orders.yml`; no son variables de entorno de Vercel, aunque `CRON_SECRET` también debe existir en Vercel producción porque los endpoints `/api/cron/*` lo validan en runtime.
+- `CRON_SECRET` y `VERCEL_PRODUCTION_URL` — se configuran en **GitHub** (secret y variable de repositorio) para los workflows `expire-orders.yml`, `uptime-probe.yml` y `sanity-audit.yml`; no son variables de entorno de Vercel, aunque `CRON_SECRET` también debe existir en Vercel producción porque los endpoints `/api/cron/*` lo validan en runtime.
+- `PROBE_BRANCH_ID` — repository variable opcional de GitHub para `uptime-probe.yml`: si está definida, el probe también verifica `/api/public/sucursal/estado?branchId=` y `/api/public/catalogo?branchId=` de esa sucursal (actualmente `3`).
+- `NOTIFY_WEBHOOK_URL` — repository secret opcional de GitHub para `sanity-audit.yml`: si está definido, el job publica el resumen de findings con un POST `{content: "..."}` (incoming webhook de Discord/Slack). El mismo secret puede configurarse en el worker `pancheria-healthcheck` (Cloudflare) para alertas de caída minuto-a-minuto.
+
+## Monitoreo y automatización de producción
+
+- `.github/workflows/uptime-probe.yml` — probe read-only cada 15 min (`*/15` nominal; GitHub puede demorar schedules) sobre `/api/health` y `/api/public/catalogo`; con `PROBE_BRANCH_ID` agrega checks de la sucursal.
+- `.github/workflows/sanity-audit.yml` — auditoría diaria (`0 9 * * *`, ~06:00 ART) de `GET /api/cron/sanity-audit`: guarda el JSON como artifact (30 días), falla el job si hay hallazgos `critical` y notifica por webhook si `NOTIFY_WEBHOOK_URL` está definido.
+- `.github/workflows/expire-orders.yml` — expira pedidos `pending` vencidos (`*/5` nominal, cadencia real de horas; la expiración lazy de `orderService` cubre la corrección operativa).
+- `ci.yml` — corre el pipeline completo (incluido E2E) también por schedule diario `0 6 * * *` (~03:00 ART) contra la base descartable de Neon; actúa como E2E nocturno y detecta drift de dependencias/infra.
+- `workers/healthcheck/` — Worker de Cloudflare `pancheria-healthcheck` (cron `* * * * *`) que monitorea `/api/health` de producción cada minuto: es el complemento de frecuencia real que GitHub Actions no puede garantizar. Código versionado en el repo; deploy por API de Cloudflare o `wrangler deploy`. Alerta por `NOTIFY_WEBHOOK_URL` si el secret existe; si no, queda solo en logs de Workers.
+- `.github/dependabot.yml` — PRs semanales de dependencias npm (devDependencies agrupadas) y de actions de GitHub.
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` / `RATE_LIMIT_STORE_PROVIDER` — en producción con `DATABASE_URL`/`POSTGRES_URL` definidas el default es `db`; en desarrollo/test el default es `memory`.
 
 ## Configuración del blueprint de Devin
