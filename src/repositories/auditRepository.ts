@@ -143,8 +143,10 @@ export async function findPaidOrdersWithoutSale(limit: number) {
 
 /**
  * Ítems de venta de productos `compound` sin ninguna fila en
- * `sale_item_recipes`: sin snapshot, la anulación no puede reintegrar los
- * insumos correctamente.
+ * `sale_item_recipes`. Sin snapshot, una anulación reintegra contra la
+ * receta vigente (`iterRecipeConsumptions` cae a `recipesByProduct`), que
+ * pudo haber cambiado desde la venta — típico de ventas previas a la
+ * migración que introdujo los snapshots.
  */
 export async function countCompoundSaleItemsMissingSnapshot(): Promise<number> {
   const itemsWithSnapshot = db

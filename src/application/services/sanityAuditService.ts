@@ -15,10 +15,10 @@ import { nowUTC } from '@/lib/date';
  *
  * Severidades:
  * - `critical`: integridad rota (stock negativo, reserva huérfana, pedido
- *   pagado sin venta, ítem de venta compuesto sin snapshot). El workflow
- *   falla cuando hay al menos uno.
+ *   pagado sin venta). El workflow falla cuando hay al menos uno.
  * - `warning`: situación anómala pero autocorregible o esperable (pending
- *   vencido sin barrer por más del umbral, caja abierta vieja, stock bajo).
+ *   vencido sin barrer por más del umbral, caja abierta vieja, stock bajo,
+ *   ítem compuesto sin snapshot — el reintegro usa la receta vigente).
  * - `info`: informativo.
  */
 
@@ -164,11 +164,13 @@ export async function runSanityAudit(): Promise<SanityAuditReport> {
   if (compoundSaleItemsMissingSnapshot > 0) {
     findings.push({
       code: 'compound_sale_item_missing_snapshot',
-      severity: 'critical',
+      severity: 'warning',
       count: compoundSaleItemsMissingSnapshot,
       detail:
-        'Ítems de venta de productos compuestos sin snapshot de receta: ' +
-        'una anulación no puede reintegrar los insumos.',
+        'Ítems de venta de productos compuestos sin snapshot de receta ' +
+        '(típico de ventas anteriores a la migración de snapshots): al ' +
+        'anularse, el reintegro usa la receta vigente, que pudo haber ' +
+        'cambiado desde la venta.',
     });
   }
 
