@@ -18,6 +18,10 @@ jobs:
     name: Ejecutar sanity-audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      # Webhook opcional (Discord/Slack incoming webhook: payload {content}).
+      # Si el secret no existe el step de notificación se omite.
+      NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
     steps:
       - name: Verificar CRON_SECRET
         run: |
@@ -94,3 +98,25 @@ jobs:
             jq '.findings[] | select(.severity == "critical")' sanity-audit.json
             exit 1
           fi
+
+      - name: Notificar resumen (webhook)
+        if: always() && env.NOTIFY_WEBHOOK_URL != ''
+        run: |
+          if [ -s sanity-audit.json ]; then
+            SUMMARY=$(jq -r '
+              "critical=\([.findings[] | select(.severity == "critical")] | length) " +
+              "warning=\([.findings[] | select(.severity == "warning")] | length)" +
+              (if (.findings | length) > 0
+                then " — " + ([.findings[] | "\(.code) x\(.count)"] | join(", "))
+                else " — sin hallazgos" end)
+            ' sanity-audit.json)
+          else
+            SUMMARY="sin reporte (la llamada al endpoint falló)"
+          fi
+          MSG="Sanity audit Panchería (${GITHUB_REF_NAME}): ${SUMMARY} — ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # La notificación es best-effort: un fallo del webhook no debe
+          # ensuciar el resultado de la auditoría.
+          curl -sfS -X POST "$NOTIFY_WEBHOOK_URL" \
+            -H 'content-type: application/json' \
+            --data "$(jq -nc --arg content "$MSG" '{content: $content}')" \
+            || echo "::warning::No se pudo entregar la notificación del webhook."

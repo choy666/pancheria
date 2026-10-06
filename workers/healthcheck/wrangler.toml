@@ -1,0 +1,13 @@
+# Monitor externo de /api/health: corre cada minuto con Cron Trigger.
+# Ver README.md para deploy y configuración del secret de notificación.
+name = "pancheria-healthcheck"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# URL del endpoint de salud a monitorear. Sin default sensible: apunta al
+# dominio de producción configurado en Vercel.
+HEALTHCHECK_URL = "https://pancheria-alpha.vercel.app/api/health"
+
+[triggers]
+crons = ["* * * * *"]

@@ -1,0 +1,37 @@
+version: 2
+
+# Dependabot: PRs semanales de actualización de dependencias.
+# - npm: devDependencies agrupadas en un solo PR; dependencias de runtime
+#   individuales para poder auditar/revertir cada una.
+# - github-actions: versiones de actions en .github/workflows.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Argentina/Buenos_Aires
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Argentina/Buenos_Aires
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
