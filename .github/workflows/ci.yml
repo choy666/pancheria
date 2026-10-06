@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+  schedule:
+    # Corrida nocturna completa (~03:00 ART): ejerce el pipeline entero
+    # contra la base E2E descartable como "bot sintético" (pedidos, ventas,
+    # anulaciones, cancelaciones, concurrencia) y detecta drift de
+    # dependencias/infra sin esperar un push. El job `cambios` no tiene diff
+    # en eventos schedule → `docs-only=false` → corre todo. La concurrencia
+    # `e2e-db-*` serializa estos runs contra los de push/PR sobre la misma
+    # base (mismo workflow → mismo grupo).
+    - cron: '0 6 * * *'
 
 # Un push nuevo cancela el run anterior del mismo ref: ejecutar la suite
 # completa sobre un commit ya superado desperdicia ~15-30 min de runner.

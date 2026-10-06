@@ -1,0 +1,67 @@
+name: Uptime probe producción
+
+on:
+  schedule:
+    # Nominal cada 15 min. Ojo: GitHub Actions retrasa schedules de alta
+    # frecuencia bajo carga (en expire-orders.yml, con */5, la cadencia real
+    # observada es ~3-9 h). Para uptime minuto a minuto con alertas, sumar
+    # un monitor externo (UptimeRobot, cron-job.org) sobre /api/health.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: uptime-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe endpoints públicos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar VERCEL_PRODUCTION_URL
+        run: |
+          if [ -z "${{ vars.VERCEL_PRODUCTION_URL }}" ]; then
+            echo "::error::Falta la variable de repositorio VERCEL_PRODUCTION_URL. Configurala en GitHub Actions."
+            exit 1
+          fi
+
+      - name: Resolver dominio base
+        run: |
+          DOMAIN="${{ vars.VERCEL_PRODUCTION_URL }}"
+          DOMAIN="${DOMAIN#https://}"
+          DOMAIN="${DOMAIN#http://}"
+          DOMAIN="${DOMAIN%%/*}"
+          echo "BASE_URL=https://${DOMAIN}" >> "$GITHUB_ENV"
+          echo "Probing: https://${DOMAIN}"
+
+      # App + DB: único endpoint que toca la base sin auth.
+      - name: GET /api/health
+        run: |
+          curl -sfS "${{ env.BASE_URL }}/api/health" \
+            | jq -e '.ok == true and .db == "up"'
+
+      # Camino real del cliente: catálogo público de la sucursal por defecto.
+      - name: GET /api/public/catalogo (sucursal por defecto)
+        run: |
+          curl -sfS "${{ env.BASE_URL }}/api/public/catalogo?limit=1" \
+            | jq -e '(.products | type) == "array" and (.total | type) == "number"'
+
+      # Checks por sucursal puntual: solo si se configuró la repository
+      # variable PROBE_BRANCH_ID (p. ej. "3" para Av. Los Minerales).
+      - name: GET /api/public/sucursal/estado?branchId
+        if: vars.PROBE_BRANCH_ID != ''
+        run: |
+          curl -sfS "${{ env.BASE_URL }}/api/public/sucursal/estado?branchId=${{ vars.PROBE_BRANCH_ID }}" \
+            | jq -e --argjson id "${{ vars.PROBE_BRANCH_ID }}" '.branch.id == $id'
+
+      - name: GET /api/public/catalogo?branchId
+        if: vars.PROBE_BRANCH_ID != ''
+        run: |
+          curl -sfS "${{ env.BASE_URL }}/api/public/catalogo?branchId=${{ vars.PROBE_BRANCH_ID }}&limit=1" \
+            | jq -e --argjson id "${{ vars.PROBE_BRANCH_ID }}" '.branch.id == $id'
+
+      - name: Aviso si falta PROBE_BRANCH_ID
+        if: vars.PROBE_BRANCH_ID == ''
+        run: |
+          echo "::notice::PROBE_BRANCH_ID no definida: se omitieron los checks por sucursal puntual."
