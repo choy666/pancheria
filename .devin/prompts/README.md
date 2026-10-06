@@ -132,6 +132,7 @@ Si la tarea es puntual, preferir preguntar directamente incluyendo `AGENTS.md` y
 - [Auditoría QA integral con ejecución de tests](auditoria-qa-integral.md) — flujo por etapas (plan → aprobación → ejecución → informe) para auditar flujos críticos, concurrencia, seguridad/aislamiento y UX/accesibilidad con evidencia y capturas.
 - [Auditoría de factibilidad — nueva sucursal con inventario y menú vendible](auditoria-nueva-sucursal-stock.md) — auditoría de solo lectura para evaluar el alta de una sucursal con inventario de 59 ítems, 11 promos + extras, trazabilidad por promo y alcance de facturación; incluye el estado ya verificado contra código para no re-derivarlo.
 - [Plan de implementación — multi-tenant compartido](plan-implementacion-multi-tenant.md) — propuesta estratégica para transformar el sistema en una plataforma SaaS con múltiples tenants (futuro, no implementado).
+- [Análisis del catálogo y comportamiento ante ventas y pedidos](analisis-catalogo-ventas-pedidos.md) — análisis de solo lectura contra producción (sucursal id 3) del catálogo `catalogo-pancheria-popular.ts` y del comportamiento de `/ventas`, `/pedidos`, `/pedido` y el cron de expiración: descuentos de stock, cancelaciones, tablas escritas y casos borde.
 
 ### Prompts archivados
 
