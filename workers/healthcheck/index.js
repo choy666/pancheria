@@ -21,11 +21,13 @@
  * Deploy manual equivalente: `npx wrangler deploy` desde este directorio.
  */
 
-export default {
+const worker = {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(check(env));
   },
 };
+
+export default worker;
 
 async function check(env) {
   let status = 0;
