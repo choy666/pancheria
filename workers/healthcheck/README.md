@@ -9,9 +9,15 @@ un servicio externo equivalente (UptimeRobot, cron-job.org).
 
 - 200 + `{ok: true, db: "up"}` → log `ok`, nada más.
 - Cualquier otro caso → `console.error` (visible en la observabilidad de
-  Workers) y, si existe el secret `NOTIFY_WEBHOOK_URL`, POST al topic de
-  ntfy con texto plano y headers `Title`/`Priority`/`Tags`/`Click`. Con
-  `NTFY_TOKEN` se agrega `Authorization: Bearer` para topics reservados.
+  Workers) y, si existen los bindings `ALERT_URL` + `ALERT_TOKEN`, POST
+  JSON al relay `/api/cron/alert` de la app (con `Authorization: Bearer
+  ALERT_TOKEN`), que reenvía a ntfy como texto plano con headers
+  `Title`/`Priority`/`Tags`/`Click`.
+
+No se publica directo en ntfy.sh: las egress IPs de Cloudflare Workers
+reciben HTTP 429 persistente (rate limit por IP compartida entre todos
+los clientes de Workers). El relay corre en Vercel, cuya IP no está
+limitada.
 
 ## Deploy
 
@@ -25,16 +31,17 @@ npx wrangler deploy
 ## Configurar notificación
 
 ```bash
-npx wrangler secret put NOTIFY_WEBHOOK_URL --name pancheria-healthcheck
-npx wrangler secret put NTFY_TOKEN --name pancheria-healthcheck
+# ALERT_URL ya va en [vars] de wrangler.toml; el token es secret:
+npx wrangler secret put ALERT_TOKEN --name pancheria-healthcheck
 ```
 
-`NOTIFY_WEBHOOK_URL` es la URL del topic ntfy (`https://ntfy.sh/<topic>`)
-y `NTFY_TOKEN` el access token de la cuenta ntfy. Mismos valores que los
-repository secrets de GitHub usados por `sanity-audit.yml`. El nombre del
-topic no se versiona (es pseudo-secreto): está en los secrets de GitHub y
-del worker. Para recibir las alertas hay que suscribirse al topic en la
-app/web de ntfy.
+`ALERT_TOKEN` es el mismo valor que `CRON_SECRET` de producción (el relay
+`/api/cron/alert` lo exige vía `withCronAuth`). El topic de ntfy y su
+access token viven como env vars `NOTIFY_WEBHOOK_URL`/`NTFY_TOKEN` en
+Vercel (los usa el relay) y como repository secrets en GitHub (los usa
+`sanity-audit.yml`). El nombre del topic no se versiona (es
+pseudo-secreto). Para recibir las alertas hay que suscribirse al topic en
+la app/web de ntfy.
 
 ## Cambiar la URL monitoreada
 

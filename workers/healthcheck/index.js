@@ -3,33 +3,37 @@
  *
  * Corre con Cron Trigger (`* * * * *`, cada minuto) en Cloudflare y hace
  * GET a HEALTHCHECK_URL. Si la respuesta no es 200, `ok !== true` o
- * `db !== 'up`, loguea el fallo (visible con la API de observabilidad de
- * Cloudflare) y, si está definido el secret NOTIFY_WEBHOOK_URL, dispara
- * un POST con payload estilo Discord/Slack `{content: "..."}`.
+ * `db !== 'up'`, loguea el fallo (visible con la API de observabilidad de
+ * Cloudflare) y, si están definidos ALERT_URL y ALERT_TOKEN, postea la
+ * alerta al relay `/api/cron/alert` de la app, que la reenvía a ntfy.
  *
- * Variables:
- * - HEALTHCHECK_URL (var de texto en wrangler.toml o metadata del deploy).
- * - NOTIFY_WEBHOOK_URL (secret; `wrangler secret put` o API de secrets):
- *   URL de un topic de ntfy (https://ntfy.sh/<topic> o instancia propia).
- *   El body se envía como texto plano con headers Title/Priority/Tags/Click
- *   nativos de ntfy.
- * - NTFY_TOKEN (secret): access token de la cuenta ntfy para topics
- *   reservados; si existe se manda como `Authorization: Bearer`.
+ * No publica directo en ntfy.sh: las egress IPs de Cloudflare Workers
+ * reciben HTTP 429 persistente de ntfy (rate limit por IP compartida).
+ * El relay sale desde la IP de Vercel, que no está limitada.
+ *
+ * Bindings:
+ * - HEALTHCHECK_URL (plain_text; en wrangler.toml o metadata del deploy).
+ * - ALERT_URL (plain_text): URL del endpoint relay
+ *   (`https://<app>/api/cron/alert`).
+ * - ALERT_TOKEN (secret_text): mismo valor que CRON_SECRET de producción;
+ *   el relay lo exige como `Authorization: Bearer`.
  *
  * Deploy manual equivalente: `npx wrangler deploy` desde este directorio.
  */
 
-addEventListener('scheduled', (event) => {
-  event.waitUntil(check());
-});
+export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(check(env));
+  },
+};
 
-async function check() {
+async function check(env) {
   let status = 0;
   let body = null;
   let error = null;
 
   try {
-    const response = await fetch(HEALTHCHECK_URL, {
+    const response = await fetch(env.HEALTHCHECK_URL, {
       cf: { cacheTtl: 0, cacheEverything: false },
     });
     status = response.status;
@@ -42,26 +46,33 @@ async function check() {
     !error && status === 200 && body && body.ok === true && body.db === 'up';
   if (ok) {
     console.log(`healthcheck ok status=${status}`);
-    return;
+    return { ok: true, status };
   }
 
   const message = `Panchería healthcheck FALLO: status=${status} error=${error} body=${JSON.stringify(body)}`;
   console.error(message);
 
-  if (typeof NOTIFY_WEBHOOK_URL !== 'undefined' && NOTIFY_WEBHOOK_URL) {
-    const headers = {
-      Title: 'Panchería caída',
-      Priority: '5',
-      Tags: 'rotating_light',
-      Click: HEALTHCHECK_URL,
-    };
-    if (typeof NTFY_TOKEN !== 'undefined' && NTFY_TOKEN) {
-      headers.Authorization = `Bearer ${NTFY_TOKEN}`;
+  let notified = 'sin-config';
+  if (env.ALERT_URL && env.ALERT_TOKEN) {
+    try {
+      const res = await fetch(env.ALERT_URL, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${env.ALERT_TOKEN}`,
+        },
+        body: JSON.stringify({
+          title: 'Panchería caída',
+          message,
+          priority: 5,
+          tags: ['rotating_light'],
+          click: env.HEALTHCHECK_URL,
+        }),
+      });
+      notified = `http_${res.status}`;
+    } catch (e) {
+      notified = `fetch_error_${String(e)}`;
     }
-    await fetch(NOTIFY_WEBHOOK_URL, {
-      method: 'POST',
-      headers,
-      body: message,
-    }).catch(() => {});
   }
+  return { ok: false, status, error, notified };
 }

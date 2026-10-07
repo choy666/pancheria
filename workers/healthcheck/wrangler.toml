@@ -8,6 +8,11 @@ compatibility_date = "2025-01-01"
 # URL del endpoint de salud a monitorear. Sin default sensible: apunta al
 # dominio de producción configurado en Vercel.
 HEALTHCHECK_URL = "https://pancheria-alpha.vercel.app/api/health"
+# Relay de alertas de la propia app (forwardea a ntfy desde la IP de
+# Vercel). No se publica directo a ntfy.sh porque las egress IPs de
+# Cloudflare Workers reciben 429 persistente (rate limit por IP
+# compartida).
+ALERT_URL = "https://pancheria-alpha.vercel.app/api/cron/alert"
 
 [triggers]
 crons = ["* * * * *"]
