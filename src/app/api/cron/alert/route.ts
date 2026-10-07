@@ -56,7 +56,13 @@ export const POST = withCronAuth('cron/alert', async (request: NextRequest) => {
 
   const headers: Record<string, string> = {};
   const title = asTrimmedString(body?.title, MAX_TITLE);
-  if (title) headers.Title = title;
+  // Los headers HTTP son ASCII: un título con tildes/eñe llega como
+  // mojibake ("Panchera"). Se codifica en RFC 2047 como pide ntfy.
+  if (title) {
+    headers.Title = /^[\x20-\x7E]*$/.test(title)
+      ? title
+      : `=?UTF-8?B?${Buffer.from(title, 'utf8').toString('base64')}?=`;
+  }
   const priority = Number(body?.priority);
   if (Number.isInteger(priority) && priority >= 1 && priority <= 5) {
     headers.Priority = String(priority);

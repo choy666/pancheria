@@ -56,7 +56,7 @@ describe('POST /api/cron/alert', () => {
     const response = await POST(
       buildRequest(
         {
-          title: 'Pancheria caida',
+          title: 'Panchería caída',
           message: 'health check devolvio 503',
           priority: 5,
           tags: ['rotating_light'],
@@ -77,7 +77,7 @@ describe('POST /api/cron/alert', () => {
         method: 'POST',
         body: 'health check devolvio 503',
         headers: expect.objectContaining({
-          Title: 'Pancheria caida',
+          Title: `=?UTF-8?B?${Buffer.from('Panchería caída', 'utf8').toString('base64')}?=`,
           Priority: '5',
           Tags: 'rotating_light',
           Click: 'https://pancheria-alpha.vercel.app/api/health',
