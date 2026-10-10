@@ -90,6 +90,7 @@ export function CartSummary({
                       <CartItemRecipeDetails
                         recipe={item.recipe}
                         selectedRecipeItemIds={item.selectedRecipeItemIds}
+                        onlySelected
                       />
                     </p>
                   )}

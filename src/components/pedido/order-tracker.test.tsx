@@ -246,7 +246,8 @@ describe('OrderTracker', () => {
     expect(screen.getByText(/Promo 1 × 2/)).toBeInTheDocument();
     expect(screen.getByText(/Vaso de gaseosa × 1/)).toBeInTheDocument();
     expect(screen.getByText(/Incluye: Cheddar/)).toBeInTheDocument();
-    expect(screen.getByText(/Sin: Cebolla/)).toBeInTheDocument();
+    // Vista del cliente: los opcionales no elegidos ya no se listan.
+    expect(screen.queryByText(/Sin: Cebolla/)).not.toBeInTheDocument();
     expect(screen.getByText(/Nota: bien tostado/)).toBeInTheDocument();
   });
 

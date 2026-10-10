@@ -38,6 +38,7 @@ export function CheckoutSummary({ items, total }: CheckoutSummaryProps) {
                       <CartItemRecipeDetails
                         recipe={item.recipe}
                         selectedRecipeItemIds={item.selectedRecipeItemIds}
+                        onlySelected
                       />
                     </p>
                   )}

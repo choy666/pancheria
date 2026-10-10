@@ -55,3 +55,17 @@ export function formatRecipeSummary(recipe: RecipeItemConfig[]): string {
 
   return parts.join('. ');
 }
+
+/**
+ * Resumen para la vista del cliente: solo los insumos efectivamente
+ * incluidos en la línea. Los opcionales no elegidos se omiten por completo
+ * (el "Sin" es información operativa y queda en el panel y en el chat de
+ * preparación, no en el resumen que ve el cliente).
+ */
+export function formatSelectedRecipeSummary(
+  recipe: RecipeItemConfig[]
+): string {
+  const selected = recipe.filter((r) => !r.isOptional || r.selected);
+  if (selected.length === 0) return '';
+  return `Incluye: ${selected.map(formatRecipeItemName).join(', ')}`;
+}

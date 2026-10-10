@@ -1,4 +1,8 @@
-import { formatRecipeSummary, formatRecipeItemName } from './recipe-helpers';
+import {
+  formatRecipeSummary,
+  formatRecipeItemName,
+  formatSelectedRecipeSummary,
+} from './recipe-helpers';
 import type { RecipeItemConfig } from '@/domain/types';
 
 const baseRecipe: RecipeItemConfig[] = [
@@ -59,5 +63,27 @@ describe('recipe-helpers', () => {
       { ...baseRecipe[1], selected: true },
     ];
     expect(formatRecipeSummary(recipe)).toBe('Incluye: Pan (2), Ketchup');
+  });
+
+  test('formatSelectedRecipeSummary muestra solo los seleccionados, sin "Sin"', () => {
+    expect(formatSelectedRecipeSummary(baseRecipe)).toBe(
+      'Incluye: Pan (1), Ketchup'
+    );
+  });
+
+  test('formatSelectedRecipeSummary omite opcionales quitados por el cliente', () => {
+    const recipe: RecipeItemConfig[] = [
+      baseRecipe[0],
+      { ...baseRecipe[1], selected: false, selectedByDefault: true },
+    ];
+    expect(formatSelectedRecipeSummary(recipe)).toBe('Incluye: Pan (1)');
+  });
+
+  test('formatSelectedRecipeSummary devuelve cadena vacía si no hay nada seleccionado', () => {
+    expect(formatSelectedRecipeSummary([])).toBe('');
+    const soloQuitados: RecipeItemConfig[] = [
+      { ...baseRecipe[1], selected: false },
+    ];
+    expect(formatSelectedRecipeSummary(soloQuitados)).toBe('');
   });
 });

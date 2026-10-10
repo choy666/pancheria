@@ -29,11 +29,10 @@ export function OrderItemRecipeDetails({
   const hasRecipe = !!item.recipeSnapshot && item.recipeSnapshot.length > 0;
   if (!hasRecipe && !item.notes) return null;
 
+  // Vista del cliente: solo los insumos elegidos; los opcionales quitados se
+  // listan en el detalle de preparación del panel y del chat, no acá.
   const selected = (item.recipeSnapshot ?? []).filter(
     (r) => !r.isOptional || r.selected
-  );
-  const removed = (item.recipeSnapshot ?? []).filter(
-    (r) => r.isOptional && !r.selected
   );
 
   return (
@@ -41,7 +40,6 @@ export function OrderItemRecipeDetails({
       {hasRecipe && (
         <p className="text-xs text-muted-foreground">
           {selected.length > 0 && `Incluye: ${selected.map((r) => r.supplyName).join(', ')}.`}
-          {removed.length > 0 && ` Sin: ${removed.map((r) => r.supplyName).join(', ')}.`}
         </p>
       )}
       {item.notes && (

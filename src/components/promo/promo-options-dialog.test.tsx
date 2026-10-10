@@ -130,7 +130,7 @@ describe('PromoOptionsDialog', () => {
     ).toBeInTheDocument();
   });
 
-  test('los toggles respetan selectedByDefault y muestran su estado en texto', () => {
+  test('los toggles respetan selectedByDefault y reflejan el estado en el indicador circular', () => {
     renderDialog();
 
     const ketchup = screen.getByRole('switch', {
@@ -141,9 +141,13 @@ describe('PromoOptionsDialog', () => {
     });
 
     expect(ketchup).toHaveAttribute('aria-checked', 'true');
-    expect(ketchup).toHaveTextContent('Lleva');
+    expect(
+      ketchup.querySelector('[data-state="checked"]')
+    ).not.toBeNull();
     expect(mayonesa).toHaveAttribute('aria-checked', 'false');
-    expect(mayonesa).toHaveTextContent('Sin Mayonesa');
+    expect(
+      mayonesa.querySelector('[data-state="unchecked"]')
+    ).not.toBeNull();
   });
 
   test('confirmar emite los ids seleccionados y cantidad 1 por defecto', () => {

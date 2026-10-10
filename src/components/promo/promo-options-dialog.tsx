@@ -86,8 +86,8 @@ interface OptionsSectionProps {
 
 /**
  * Sección de insumos opcionales con toggles accesibles (`role="switch"`).
- * Activo: "✓ Lleva" en el color primario del tema (rojo en la variante
- * pública); inactivo: "Sin <nombre>" en gris.
+ * El control es un checkbox circular de ancho fijo: activo = círculo relleno
+ * en el color primario con ✓; inactivo = círculo vacío con borde gris.
  */
 function OptionsSection({
   productName,
@@ -123,21 +123,22 @@ function OptionsSection({
                 aria-label={`Incluir ${item.supplyName} en ${productName}`}
                 disabled={!checked && limitReached}
                 onClick={() => onToggle(item.supplyId)}
-                className={cn(
-                  'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                  checked
-                    ? 'border-primary/60 bg-primary/10 text-primary'
-                    : 'border-border bg-transparent text-muted-foreground hover:bg-muted/60'
-                )}
+                className="group inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
               >
-                {checked ? (
-                  <>
-                    <Check aria-hidden="true" className="size-4" />
-                    Lleva
-                  </>
-                ) : (
-                  `Sin ${item.supplyName}`
-                )}
+                <span
+                  aria-hidden="true"
+                  data-state={checked ? 'checked' : 'unchecked'}
+                  className={cn(
+                    'flex size-6 items-center justify-center rounded-full border-2 transition-colors',
+                    checked
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-muted-foreground/50 bg-transparent group-hover:border-primary/70'
+                  )}
+                >
+                  {checked && (
+                    <Check aria-hidden="true" className="size-4" strokeWidth={3} />
+                  )}
+                </span>
               </button>
             </li>
           );
