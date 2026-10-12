@@ -14,11 +14,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProductHelpCard } from './product-help-card';
+import { ProductImageUploader } from './product-image-uploader';
 import {
-  ProductImageUploader,
-  ProductImageValue,
-} from './product-image-uploader';
-import { uploadProductImage } from '@/lib/product-image-upload-client';
+  persistProductImageUpload,
+  storedProductImage,
+  toProductImagePayload,
+  type ProductImageValue,
+} from '@/lib/product-image-upload-client';
 import { PRODUCTOS_API, RECETAS_API } from '@/config/api';
 import {
   calculateCompoundAvailability,
@@ -115,6 +117,7 @@ export function PromoForm({ product }: PromoFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [image, setImage] = useState<ProductImageValue>({ source: 'none' });
+  const [createdId, setCreatedId] = useState<number | null>(null);
 
   const supplyById = useMemo(
     () => new Map(supplies.map((s) => [s.id, s])),
@@ -208,17 +211,7 @@ export function PromoForm({ product }: PromoFormProps) {
           setRecipeItems([{ ...emptyRecipeItem }]);
         }
 
-        if (product?.imageUrl) {
-          setImage({
-            source: 'stored',
-            imageUrl: product.imageUrl,
-            imageKey: product.imageKey ?? null,
-            imageMimeType: product.imageMimeType ?? null,
-            imageSize: product.imageSize ?? null,
-          });
-        } else {
-          setImage({ source: 'none' });
-        }
+        setImage(storedProductImage(product));
 
         setForm(base);
       } catch (error) {
@@ -351,63 +344,17 @@ export function PromoForm({ product }: PromoFormProps) {
 
     setIsSubmitting(true);
 
-    async function updateProductImage(productId: number) {
-      if (image.source === 'none') {
-        return authenticatedFetch(`${PRODUCTOS_API}/${productId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageUrl: null,
-            imageKey: null,
-            imageMimeType: null,
-            imageSize: null,
-          }),
-        });
-      }
-
-      if (image.source === 'url') {
-        return authenticatedFetch(`${PRODUCTOS_API}/${productId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageUrl: image.imageUrl,
-            imageKey: null,
-            imageMimeType: null,
-            imageSize: null,
-          }),
-        });
-      }
-
-      if (image.source === 'upload' && image.file) {
-        const saved = await uploadProductImage(image.file, productId);
-        return authenticatedFetch(`${PRODUCTOS_API}/${productId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageUrl: saved.imageUrl,
-            imageKey: saved.imageKey,
-            imageMimeType: saved.imageMimeType,
-            imageSize: saved.imageSize,
-          }),
-        });
-      }
-
-      if (image.source === 'stored') {
-        // No hay cambios; conservar la imagen actual.
-        return new Response(null, { status: 204 });
-      }
-
-      return new Response(null, { status: 204 });
-    }
+    // Si el alta creó la promo y un paso posterior falló, el reintento actualiza
+    // ese mismo producto en vez de crear un duplicado.
+    let productId = product?.id ?? createdId;
 
     try {
       const formData = new FormData(e.currentTarget);
       const price =
         parseMoneyAmount(String(formData.get('promo-price') ?? form.price), 2) ?? 0;
+      const imagePayload = toProductImagePayload(image);
 
-      let productId = product?.id;
-
-      if (!productId) {
+      if (productId === null) {
         const productRes = await authenticatedFetch(PRODUCTOS_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
@@ -419,6 +366,7 @@ export function PromoForm({ product }: PromoFormProps) {
             minStock: 0,
             isActive: form.isActive,
             maxOptionalSelections: parsedCap,
+            ...imagePayload,
           }),
         });
 
@@ -428,6 +376,7 @@ export function PromoForm({ product }: PromoFormProps) {
 
         const created = (await productRes.json()) as { id: number };
         productId = created.id;
+        setCreatedId(created.id);
       } else {
         const productRes = await authenticatedFetch(`${PRODUCTOS_API}/${productId}`, {
           method: 'PUT',
@@ -436,6 +385,7 @@ export function PromoForm({ product }: PromoFormProps) {
             price,
             isActive: form.isActive,
             maxOptionalSelections: parsedCap,
+            ...imagePayload,
           }),
         });
 
@@ -444,10 +394,8 @@ export function PromoForm({ product }: PromoFormProps) {
         }
       }
 
-      const imageRes = await updateProductImage(productId);
-
-      if (!imageRes.ok) {
-        await throwApiError(imageRes, 'Error al guardar la imagen de la promo');
+      if (image.source === 'upload') {
+        await persistProductImageUpload(productId, image.file);
       }
 
       const recipeRes = await authenticatedFetch(RECETAS_API, {
@@ -476,7 +424,12 @@ export function PromoForm({ product }: PromoFormProps) {
       router.push(routes.productos);
       router.refresh();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Error desconocido');
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      setError(
+        !product && productId !== null
+          ? `${message} La promo ya quedó guardada: volvé a guardar para completar el paso que falló.`
+          : message
+      );
     } finally {
       setIsSubmitting(false);
     }

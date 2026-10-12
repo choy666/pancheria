@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { PromoForm } from './promo-form';
 
 const mockPush = jest.fn();
@@ -13,11 +13,26 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/lib/fetch', () => ({
+  ...jest.requireActual('@/lib/fetch'),
   authenticatedFetch: (...args: unknown[]) => mockFetch(...args),
 }));
 
+let mockNextImageValue: unknown = { source: 'none' };
+
 jest.mock('./product-image-uploader', () => ({
-  ProductImageUploader: () => <div data-testid="product-image-uploader" />,
+  ProductImageUploader: ({
+    value,
+    onChange,
+  }: {
+    value: { source: string };
+    onChange: (value: unknown) => void;
+  }) => (
+    <div data-testid="product-image-uploader" data-source={value.source}>
+      <button type="button" onClick={() => onChange(mockNextImageValue)}>
+        Elegir imagen de prueba
+      </button>
+    </div>
+  ),
 }));
 
 jest.mock('./supply-searchable-select', () => ({
@@ -217,5 +232,213 @@ describe('PromoForm', () => {
     expect(
       screen.queryByText(/Con el stock crítico actual/)
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('PromoForm: flujo de imagen (caracterización)', () => {
+  const originalFetch = global.fetch;
+
+  const supplyPan = {
+    id: 1,
+    name: 'Pan',
+    type: 'critical_supply',
+    criticalSupplyType: 'bread',
+    unit: 'unidad',
+    stock: 12,
+  };
+
+  const recetaPan = [
+    {
+      supplyId: 1,
+      quantity: 1,
+      autoDiscount: true,
+      isOptional: false,
+      selectedByDefault: false,
+      supply: supplyPan,
+    },
+  ];
+
+  const promoGuardada = {
+    id: 10,
+    name: 'Promo guardada',
+    price: 1500,
+    isActive: true,
+    type: 'compound' as const,
+    imageUrl: 'https://ejemplo.com/vieja.jpg',
+    imageKey: null,
+    imageMimeType: null,
+    imageSize: null,
+  };
+
+  function jsonResponse(body: unknown) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(body),
+    });
+  }
+
+  function mockApi(prepare?: unknown) {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (url === '/api/productos/imagen/preparar') return jsonResponse(prepare);
+      if (url === '/api/productos' && method === 'POST') return jsonResponse({ id: 9 });
+      if (url.startsWith('/api/productos/') && method === 'PUT') return jsonResponse({});
+      if (url === '/api/recetas' && method === 'POST') return jsonResponse({});
+      if (url.includes('/api/recetas?productId=')) return jsonResponse(recetaPan);
+      return jsonResponse({ items: [supplyPan], total: 1, page: 1, limit: 100 });
+    });
+  }
+
+  function cuerpos(metodo: string, url: string): Record<string, unknown>[] {
+    return mockFetch.mock.calls
+      .filter(([u, init]) => u === url && init?.method === metodo)
+      .map(([, init]) => JSON.parse(init.body));
+  }
+
+  async function esperarFormulario() {
+    await waitFor(() =>
+      expect(screen.getByTestId('promo-recipe-0')).toBeInTheDocument()
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockNextImageValue = { source: 'none' };
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('alta con URL: la URL viaja con el producto y la receta usa el id creado', async () => {
+    mockApi();
+    mockNextImageValue = { source: 'url', imageUrl: 'https://ejemplo.com/promo.jpg' };
+    render(<PromoForm />);
+    await esperarFormulario();
+
+    fireEvent.change(screen.getByLabelText('Nombre de la promo'), {
+      target: { value: 'Promo URL' },
+    });
+    fireEvent.change(screen.getByTestId('promo-recipe-0'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir imagen de prueba' }));
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
+    expect([
+      ...cuerpos('POST', '/api/productos'),
+      ...cuerpos('PUT', '/api/productos/9'),
+    ]).toContainEqual(expect.objectContaining({ imageUrl: 'https://ejemplo.com/promo.jpg' }));
+    expect(cuerpos('PUT', '/api/productos/9')).toHaveLength(0);
+    expect(cuerpos('POST', '/api/recetas')[0]).toMatchObject({ compoundProductId: 9 });
+  });
+
+  test('alta con archivo: sube la imagen y la adjunta al producto creado', async () => {
+    const instrucciones = {
+      url: 'https://storage.example.com/subida',
+      method: 'PUT',
+      key: 'product-images/9/promo.jpg',
+      publicUrl: 'https://cdn.example.com/product-images/9/promo.jpg',
+    };
+    mockApi(instrucciones);
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+    mockNextImageValue = {
+      source: 'upload',
+      file: new File(['imagen'], 'promo.jpg', { type: 'image/jpeg' }),
+      previewUrl: 'blob:promo',
+    };
+    render(<PromoForm />);
+    await esperarFormulario();
+
+    fireEvent.change(screen.getByLabelText('Nombre de la promo'), {
+      target: { value: 'Promo subida' },
+    });
+    fireEvent.change(screen.getByTestId('promo-recipe-0'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir imagen de prueba' }));
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
+    expect(global.fetch).toHaveBeenCalledWith(
+      instrucciones.url,
+      expect.objectContaining({ method: 'PUT' })
+    );
+    expect(cuerpos('PUT', '/api/productos/9')).toEqual([
+      expect.objectContaining({
+        imageKey: instrucciones.key,
+        imageUrl: instrucciones.publicUrl,
+      }),
+    ]);
+  });
+
+  test('editar: el uploader recibe la imagen guardada y quitarla envía imageUrl null', async () => {
+    mockApi();
+    mockNextImageValue = { source: 'none' };
+    render(<PromoForm product={promoGuardada} />);
+    await esperarFormulario();
+
+    expect(screen.getByTestId('product-image-uploader')).toHaveAttribute('data-source', 'stored');
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir imagen de prueba' }));
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
+    expect(cuerpos('PUT', '/api/productos/10')).toContainEqual(
+      expect.objectContaining({ imageUrl: null })
+    );
+  });
+
+  test('editar sin cambiar la imagen no sube nada ni envía campos de imagen', async () => {
+    mockApi();
+    render(<PromoForm product={promoGuardada} />);
+    await esperarFormulario();
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
+    const [principal] = cuerpos('PUT', '/api/productos/10');
+    expect(principal).not.toHaveProperty('imageUrl');
+    expect(
+      mockFetch.mock.calls.some(([url]) => url === '/api/productos/imagen/preparar')
+    ).toBe(false);
+  });
+
+  test('si la subida falla después de crear la promo, reintentar actualiza ese mismo producto', async () => {
+    mockApi({
+      url: 'https://storage.example.com/subida',
+      method: 'PUT',
+      key: 'product-images/9/promo.jpg',
+      publicUrl: 'https://cdn.example.com/product-images/9/promo.jpg',
+    });
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+    mockNextImageValue = {
+      source: 'upload',
+      file: new File(['imagen'], 'promo.jpg', { type: 'image/jpeg' }),
+      previewUrl: 'blob:promo',
+    };
+    render(<PromoForm />);
+    await esperarFormulario();
+
+    fireEvent.change(screen.getByLabelText('Nombre de la promo'), {
+      target: { value: 'Promo reintento' },
+    });
+    fireEvent.change(screen.getByTestId('promo-recipe-0'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Elegir imagen de prueba' }));
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    expect(await screen.findByText(/La promo ya quedó guardada/)).toBeInTheDocument();
+    expect(cuerpos('POST', '/api/recetas')).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
+    expect(cuerpos('POST', '/api/productos')).toHaveLength(1);
+    expect(cuerpos('PUT', '/api/productos/9')).toHaveLength(2);
   });
 });

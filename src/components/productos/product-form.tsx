@@ -4,6 +4,7 @@ import { ApiError, authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
@@ -16,6 +17,15 @@ import {
   SelectTrigger,
 } from '@/components/ui/select';
 import { ProductHelpCard } from './product-help-card';
+import { ProductImageUploader } from './product-image-uploader';
+import {
+  imageToPersist,
+  persistProductImageUpload,
+  storedProductImage,
+  toProductImagePayload,
+  type ProductImageValue,
+} from '@/lib/product-image-upload-client';
+import { isPublicSellableProduct } from '@/lib/catalog';
 import { PRODUCTOS_API } from '@/config/api';
 import { routes } from '@/config/routes';
 import { productTypeLabels, criticalTypeLabels } from '@/lib/product-style';
@@ -52,20 +62,72 @@ interface ProductFormProps {
   product?: ProductFormData & { id: number };
 }
 
+async function saveProductRequest(
+  url: string,
+  method: 'POST' | 'PUT',
+  body: string
+): Promise<Response> {
+  const response = await authenticatedFetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' }, body,
+  });
+
+  if (!response.ok) {
+    // Se clona la response para poder leer el body acá y delegar
+    // después a throwApiError sin consumirlo dos veces.
+    const data = (await response
+      .clone()
+      .json()
+      .catch(() => null)) as {
+      code?: string;
+      details?: { path: (string | number)[]; message: string }[];
+    } | null;
+    const detail = data?.details
+      ?.map((issue) =>
+        issue.path.length
+          ? `${issue.path.join('.')}: ${issue.message}`
+          : issue.message
+      )
+      .join('. ');
+    // Doble ruta: con details (errores Zod) se muestra el detalle en
+    // el formulario; sin details delega en throwApiError, que además
+    // expulsa la sesión si el body trae code BRANCH_REMOVED.
+    if (detail) {
+      throw new ApiError(detail, response.status, data?.code);
+    }
+    await throwApiError(response, 'Error al guardar el producto');
+  }
+
+  return response;
+}
+
 export function ProductForm({ product }: ProductFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<ProductFormData>(() =>
     product
-      ? { ...product, price: product.type === 'manual_supply' ? 0 : product.price }
+      ? {
+          ...product,
+          price: product.type === 'manual_supply' ? 0 : product.price,
+          // La imagen vive en `image`: el formulario principal no la reenvía.
+          imageUrl: undefined,
+          imageKey: undefined,
+          imageMimeType: undefined,
+          imageSize: undefined,
+        }
       : emptyProduct
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [unitTouched, setUnitTouched] = useState(() => !!product);
+  const [image, setImage] = useState<ProductImageValue>(() =>
+    storedProductImage(product)
+  );
+  const [createdId, setCreatedId] = useState<number | null>(null);
 
   const isCritical = form.type === 'critical_supply';
   const isManual = form.type === 'manual_supply';
   const isService = form.type === 'service';
+  const imageVisible = isPublicSellableProduct(form) || image.source === 'stored';
 
   function updateType(value: ProductType) {
     const nextCriticalSupplyType =
@@ -96,48 +158,43 @@ export function ProductForm({ product }: ProductFormProps) {
     setIsSubmitting(true);
     setError(null);
 
+    const imageChange = imageToPersist(image, imageVisible);
+    // Si el alta creó el producto y un paso posterior falló, el reintento
+    // actualiza ese mismo producto en vez de crear un duplicado.
+    let productId = product?.id ?? createdId;
+
     try {
-      const url = product
-        ? `${PRODUCTOS_API}/${product.id}`
-        : PRODUCTOS_API;
-      const method = product ? 'PUT' : 'POST';
-
-      const body = JSON.stringify(form);
-      const response = await authenticatedFetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' }, body,
+      const body = JSON.stringify({
+        ...form,
+        ...(imageChange ? toProductImagePayload(imageChange) : {}),
       });
+      const url =
+        productId === null ? PRODUCTOS_API : `${PRODUCTOS_API}/${productId}`;
+      const response = await saveProductRequest(
+        url,
+        productId === null ? 'POST' : 'PUT',
+        body
+      );
 
-      if (!response.ok) {
-        // Se clona la response para poder leer el body acá y delegar
-        // después a throwApiError sin consumirlo dos veces.
-        const data = (await response
-          .clone()
-          .json()
-          .catch(() => null)) as {
-          code?: string;
-          details?: { path: (string | number)[]; message: string }[];
-        } | null;
-        const detail = data?.details
-          ?.map((issue) =>
-            issue.path.length
-              ? `${issue.path.join('.')}: ${issue.message}`
-              : issue.message
-          )
-          .join('. ');
-        // Doble ruta: con details (errores Zod) se muestra el detalle en
-        // el formulario; sin details delega en throwApiError, que además
-        // expulsa la sesión si el body trae code BRANCH_REMOVED.
-        if (detail) {
-          throw new ApiError(detail, response.status, data?.code);
-        }
-        await throwApiError(response, 'Error al guardar el producto');
+      if (productId === null) {
+        const created = (await response.json()) as { id: number };
+        productId = created.id;
+        setCreatedId(created.id);
+      }
+
+      if (imageChange?.source === 'upload') {
+        await persistProductImageUpload(productId, imageChange.file);
       }
 
       router.push(routes.productos);
       router.refresh();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Error desconocido');
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      setError(
+        !product && productId !== null
+          ? `${message} El producto ya quedó guardado: volvé a guardar para completar el paso que falló.`
+          : message
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -301,6 +358,17 @@ export function ProductForm({ product }: ProductFormProps) {
           </p>
         </div>
       </div>
+
+      {imageVisible && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Imagen ilustrativa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProductImageUploader value={image} onChange={setImage} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-card p-4">
         <input

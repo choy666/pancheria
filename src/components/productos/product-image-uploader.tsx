@@ -10,18 +10,7 @@ import {
   getProductImageUrlMaxLength,
 } from '@/config/product-images';
 import { ImageOff } from 'lucide-react';
-
-export type ProductImageValue =
-  | { source: 'none' }
-  | { source: 'upload'; file: File; previewUrl: string }
-  | { source: 'url'; imageUrl: string }
-  | {
-      source: 'stored';
-      imageUrl: string;
-      imageKey: string | null;
-      imageMimeType: string | null;
-      imageSize: number | null;
-    };
+import type { ProductImageValue } from '@/lib/product-image-upload-client';
 
 interface ProductImageUploaderProps {
   value?: ProductImageValue;
@@ -177,7 +166,7 @@ export function ProductImageUploader({
   const maxBytes = getProductImageMaxSizeBytes();
 
   return (
-    <div data-tour="promo-image-uploader" className="space-y-4">
+    <div data-tour="product-image-uploader" className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

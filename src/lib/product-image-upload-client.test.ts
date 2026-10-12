@@ -1,7 +1,13 @@
 /**
  * @jest-environment node
  */
-import { uploadProductImage } from './product-image-upload-client';
+import {
+  imageToPersist,
+  persistProductImageUpload,
+  storedProductImage,
+  toProductImagePayload,
+  uploadProductImage,
+} from './product-image-upload-client';
 import { authenticatedFetch } from '@/lib/fetch';
 
 jest.mock('@/lib/fetch', () => ({
@@ -302,6 +308,131 @@ describe('product-image-upload-client', () => {
       const file = createFile('imagen.jpg', 'image/jpeg');
 
       await expect(uploadProductImage(file, 1)).rejects.toThrow('connection refused');
+    });
+  });
+});
+
+describe('helpers de imagen de producto', () => {
+  const originalFetch = global.fetch;
+  const mockedAuthenticatedFetch = authenticatedFetch as jest.MockedFunction<typeof authenticatedFetch>;
+  const instrucciones = {
+    url: 'https://s3.example.com/product-images/1/abc.jpg',
+    method: 'PUT',
+    key: 'product-images/1/abc.jpg',
+    publicUrl: 'https://cdn.example.com/product-images/1/abc.jpg',
+  };
+
+  function respuesta(body: unknown, status = 200, statusText = 'OK') {
+    return new Response(JSON.stringify(body), {
+      status,
+      statusText,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  function archivo() {
+    return new File(['imagen'], 'imagen.jpg', { type: 'image/jpeg' });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn().mockResolvedValue(new Response('', { status: 200 })) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  describe('persistProductImageUpload', () => {
+    test('sube el archivo y adjunta la imagen resultante con un PUT al producto', async () => {
+      const file = archivo();
+      mockedAuthenticatedFetch
+        .mockResolvedValueOnce(respuesta(instrucciones))
+        .mockResolvedValueOnce(respuesta({}));
+
+      await persistProductImageUpload(1, file);
+
+      const [url, init] = mockedAuthenticatedFetch.mock.calls[1];
+      expect(url).toBe('/api/productos/1');
+      expect(init).toMatchObject({ method: 'PUT' });
+      expect(JSON.parse(init?.body as string)).toEqual({
+        imageUrl: instrucciones.publicUrl,
+        imageKey: instrucciones.key,
+        imageMimeType: 'image/jpeg',
+        imageSize: file.size,
+      });
+    });
+
+    test('no adjunta nada si la subida al proveedor falla', async () => {
+      mockedAuthenticatedFetch.mockResolvedValueOnce(respuesta(instrucciones));
+      global.fetch = jest.fn().mockResolvedValue(
+        new Response('', { status: 403, statusText: 'Forbidden' })
+      ) as unknown as typeof fetch;
+
+      await expect(persistProductImageUpload(1, archivo())).rejects.toThrow(
+        'Error al subir la imagen: 403 Forbidden'
+      );
+      expect(mockedAuthenticatedFetch).toHaveBeenCalledTimes(1);
+    });
+
+    test('muestra el error del servidor si el PUT del producto falla', async () => {
+      mockedAuthenticatedFetch
+        .mockResolvedValueOnce(respuesta(instrucciones))
+        .mockResolvedValueOnce(
+          respuesta({ error: 'Ya existe otro producto con ese nombre.' }, 400, 'Bad Request')
+        );
+
+      await expect(persistProductImageUpload(1, archivo())).rejects.toThrow(
+        'Ya existe otro producto con ese nombre.'
+      );
+    });
+  });
+
+  describe('estado y payload de la imagen', () => {
+    test('storedProductImage: sin URL no hay imagen; con URL normaliza los campos', () => {
+      expect(storedProductImage()).toEqual({ source: 'none' });
+      expect(storedProductImage({ imageUrl: null })).toEqual({ source: 'none' });
+      expect(storedProductImage({ imageUrl: 'https://ejemplo.com/a.jpg' })).toEqual({
+        source: 'stored',
+        imageUrl: 'https://ejemplo.com/a.jpg',
+        imageKey: null,
+        imageMimeType: null,
+        imageSize: null,
+      });
+    });
+
+    test('toProductImagePayload: URL y quitar viajan en el request; stored y upload no aportan campos', () => {
+      expect(toProductImagePayload({ source: 'url', imageUrl: 'https://ejemplo.com/a.jpg' })).toEqual({
+        imageUrl: 'https://ejemplo.com/a.jpg',
+        imageKey: null,
+        imageMimeType: null,
+        imageSize: null,
+      });
+      expect(toProductImagePayload({ source: 'none' })).toEqual({
+        imageUrl: null,
+        imageKey: null,
+        imageMimeType: null,
+        imageSize: null,
+      });
+      expect(
+        toProductImagePayload({
+          source: 'stored',
+          imageUrl: 'https://ejemplo.com/a.jpg',
+          imageKey: null,
+          imageMimeType: null,
+          imageSize: null,
+        })
+      ).toEqual({});
+      expect(toProductImagePayload({ source: 'upload', file: archivo(), previewUrl: 'blob:a' })).toEqual({});
+    });
+
+    test('imageToPersist: con la sección oculta descarta pendientes, pero respeta quitar', () => {
+      const pendiente = { source: 'url', imageUrl: 'https://ejemplo.com/a.jpg' } as const;
+
+      expect(imageToPersist(pendiente, true)).toBe(pendiente);
+      expect(imageToPersist(pendiente, false)).toBeNull();
+      expect(imageToPersist({ source: 'upload', file: archivo(), previewUrl: 'blob:a' }, false)).toBeNull();
+      expect(imageToPersist({ source: 'none' }, false)).toEqual({ source: 'none' });
     });
   });
 });

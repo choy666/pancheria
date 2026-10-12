@@ -304,9 +304,10 @@ El sistema permite subir, listar, reproducir y transmitir videos desde el panel 
 
 ## Imágenes de productos y promos
 
-El sistema permite asociar una imagen ilustrativa a cada producto/promo (`products.imageUrl`, `imageKey`, `imageMimeType`, `imageSize`). Las imágenes son opcionales, no afectan stock, precio ni disponibilidad, y se muestran en el catálogo público (`/pedido`) y en el panel de productos.
+El sistema permite asociar una imagen ilustrativa a cada promo y a cada producto vendible al público, es decir bebidas y servicios (`products.imageUrl`, `imageKey`, `imageMimeType`, `imageSize`; la regla está en `isPublicSellableProduct`, `src/lib/catalog.ts`). Las imágenes son opcionales, no afectan stock, precio ni disponibilidad, y se muestran en el catálogo público (`/pedido`).
 
-- El administrador puede subir un archivo o ingresar una URL externa desde el formulario de promo (`src/components/productos/promo-form.tsx` / `product-image-uploader.tsx`).
+- El administrador puede subir un archivo o ingresar una URL externa desde el formulario de promo (`src/components/productos/promo-form.tsx`) o de producto (`product-form.tsx`, sección visible para bebidas y servicios, o cuando el producto ya tiene imagen). Ambos usan `product-image-uploader.tsx`.
+- Al guardar, la URL y "quitar" (`none`) viajan en el POST/PUT del producto. Un archivo (`upload`) se sube después con `persistProductImageUpload`, porque su key depende del id del producto. Si la subida falla tras crear el producto, reintentar actualiza ese mismo producto y no lo duplica. Con la sección oculta, un archivo o URL pendiente se descarta sin tocar la imagen guardada (`imageToPersist`).
 - Endpoints de API: `POST /api/productos/imagen/preparar` (devuelve instrucciones de subida), `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]` (lectura pública).
 - La lógica de almacenamiento y validación está en `src/lib/product-image-storage.ts` y `src/lib/product-image-upload-client.ts`, reutilizando el proveedor configurado en `STORAGE_PROVIDER` (`local`, `vercel-blob`, `s3`, `r2`).
 - La configuración de tamaño, MIME, dominios permitidos y URL máxima vive en `src/config/product-images.ts`.

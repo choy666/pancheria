@@ -1,5 +1,6 @@
 export const PRODUCTOS_API = '/api/productos';
 export const PRODUCTOS_ELIMINADAS_API = '/api/productos/eliminadas';
+export const PRODUCTOS_IMAGEN_PREPARAR_API = '/api/productos/imagen/preparar';
 export const RECETAS_API = '/api/recetas';
 export const STOCK_API = '/api/stock';
 export const STOCK_AJUSTAR_API = '/api/stock/ajustar';

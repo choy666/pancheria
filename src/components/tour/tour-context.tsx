@@ -336,7 +336,7 @@ export function TourProvider({
             },
           },
           {
-            element: '[data-tour="promo-image-uploader"]',
+            element: '[data-tour="product-image-uploader"]',
             route: promoNuevoRoute,
             waitForElement: 5000,
             popover: {

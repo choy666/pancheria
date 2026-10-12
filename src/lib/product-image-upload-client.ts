@@ -1,4 +1,5 @@
 import { ApiError, authenticatedFetch, throwApiError } from '@/lib/fetch';
+import { PRODUCTOS_API, PRODUCTOS_IMAGEN_PREPARAR_API } from '@/config/api';
 
 interface ProductImageUploadInstructions {
   url: string;
@@ -16,12 +17,73 @@ export interface ProductImageUploadResult {
   imageSize: number;
 }
 
+export type ProductImageValue =
+  | { source: 'none' }
+  | { source: 'upload'; file: File; previewUrl: string }
+  | { source: 'url'; imageUrl: string }
+  | {
+      source: 'stored';
+      imageUrl: string;
+      imageKey: string | null;
+      imageMimeType: string | null;
+      imageSize: number | null;
+    };
+
+interface ProductImageFields {
+  imageUrl?: string | null;
+  imageKey?: string | null;
+  imageMimeType?: string | null;
+  imageSize?: number | null;
+}
+
+/** Imagen que ya tiene el producto. Sin `imageUrl` no hay imagen guardada. */
+export function storedProductImage(product?: ProductImageFields): ProductImageValue {
+  if (!product?.imageUrl) return { source: 'none' };
+
+  return {
+    source: 'stored',
+    imageUrl: product.imageUrl,
+    imageKey: product.imageKey ?? null,
+    imageMimeType: product.imageMimeType ?? null,
+    imageSize: product.imageSize ?? null,
+  };
+}
+
+/**
+ * Campos de imagen del POST/PUT del producto. `url` y `none` (quitar) viajan
+ * en ese mismo request. `upload` necesita el id del producto para armar la
+ * key, así que se adjunta después con `persistProductImageUpload`.
+ */
+export function toProductImagePayload(image: ProductImageValue): ProductImageFields {
+  switch (image.source) {
+    case 'none':
+      return { imageUrl: null, imageKey: null, imageMimeType: null, imageSize: null };
+    case 'url':
+      return { imageUrl: image.imageUrl, imageKey: null, imageMimeType: null, imageSize: null };
+    default:
+      // stored: sin cambios, conserva la imagen actual. upload: se adjunta después.
+      return {};
+  }
+}
+
+/**
+ * Imagen a persistir al guardar. Con la sección oculta (producto no vendible
+ * al público) un archivo o URL pendiente se descarta y la imagen guardada no
+ * se toca; quitar la imagen sí se aplica.
+ */
+export function imageToPersist(
+  image: ProductImageValue,
+  visible: boolean
+): ProductImageValue | null {
+  return visible || image.source === 'none' ? image : null;
+}
+
 async function prepareProductImageUpload(
   file: File,
   productId: number
 ): Promise<ProductImageUploadInstructions> {
   const response = await authenticatedFetch(
-    '/api/productos/imagen/preparar',
+    PRODUCTOS_IMAGEN_PREPARAR_API,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,4 +190,30 @@ export async function uploadProductImage(
     imageMimeType: file.type,
     imageSize: file.size,
   };
+}
+
+/**
+ * Sube el archivo y adjunta la imagen resultante al producto ya creado. Es el
+ * único caso de dos pasos: la key de la imagen depende del id del producto.
+ */
+export async function persistProductImageUpload(
+  productId: number,
+  file: File
+): Promise<void> {
+  const saved = await uploadProductImage(file, productId);
+
+  const response = await authenticatedFetch(`${PRODUCTOS_API}/${productId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      imageUrl: saved.imageUrl,
+      imageKey: saved.imageKey,
+      imageMimeType: saved.imageMimeType,
+      imageSize: saved.imageSize,
+    }),
+  });
+
+  if (!response.ok) {
+    await throwApiError(response, 'Error al guardar la imagen del producto.');
+  }
 }
