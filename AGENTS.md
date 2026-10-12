@@ -312,6 +312,7 @@ El sistema permite asociar una imagen ilustrativa a cada producto/promo (`produc
 - La configuración de tamaño, MIME, dominios permitidos y URL máxima vive en `src/config/product-images.ts`.
 - La CSP de `src/lib/csp-helpers.ts` (inyectada por `src/proxy.ts`) extiende `img-src` con los dominios de `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS` y con los orígenes de `vercel-blob`, `s3` o `r2` según el proveedor. También extiende `frame-src` con los orígenes de los proveedores de mapas con embed público —Google y OpenStreetMap, siempre, más el de `NEXT_PUBLIC_MAPS_BASE_URL`— (`getMapsFrameOrigins` en `src/config/maps.ts`) para el iframe del mapa embebido de `/pedido`; `buildMapEmbedUrl` (`src/lib/maps.ts`) solo devuelve URLs de esos mismos orígenes, y `buildMapViewUrl` traduce las URLs de embed a la página de mapa equivalente para los enlaces externos (una URL `/maps/embed?pb=…` abierta en pestaña muestra el error "Embed API must be used in an iframe").
 - En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` funciona en desarrollo pero pierde archivos en Vercel por el filesystem efímero.
+- Las tarjetas del catálogo (`ProductCardImage`) usan `object-contain`: la foto se ve completa dentro del 16:9 de la tarjeta, sin recortes. Conviene cargar fotos en proporción original, con fondo blanco y hasta 1200 px en el lado mayor (WebP), para mantener el peso bajo el límite de subida de 5 MB.
 
 ## Despliegue en Vercel
 

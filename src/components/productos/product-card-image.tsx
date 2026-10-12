@@ -63,7 +63,7 @@ function ProductImage({ imageUrl, productName, priority }: ProductImageProps) {
         alt={`Imagen de ${productName}`}
         fill
         className={cn(
-          'object-cover transition duration-300 group-hover/card:scale-105',
+          'object-contain transition duration-300 group-hover/card:scale-105',
           loaded ? 'opacity-100' : 'opacity-0'
         )}
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
