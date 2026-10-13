@@ -221,6 +221,21 @@ describe('productService', () => {
       ).rejects.toThrow(ValidationError);
     });
 
+    test('rechaza una URL externa de imagen: las imágenes se suben como archivo', async () => {
+      await expect(
+        createProduct(BRANCH_ID, {
+          name: 'Gaseosa',
+          type: 'service',
+          price: 500,
+          unit: 'unidad',
+          stock: 0,
+          minStock: 0,
+          imageUrl: 'https://ejemplo.com/gaseosa.jpg',
+        } as unknown as ProductInsert)
+      ).rejects.toThrow('Las imágenes se suben como archivo: no se admiten URLs externas.');
+      expect(mockedProductRepository.create).not.toHaveBeenCalled();
+    });
+
     test('rechaza tipo no crítico con tipo crítico', async () => {
       await expect(
         createProduct(BRANCH_ID, {
@@ -695,6 +710,28 @@ describe('productService', () => {
       const result = await updateProduct(BRANCH_ID, 1, data);
       expect(result!.name).toBe('Ketchup');
       expect(mockedProductRepository.update).toHaveBeenCalled();
+    });
+
+    test('rechaza asignar una URL externa de imagen al editar', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        name: 'Promo',
+        type: 'compound',
+        price: 100,
+        branchId: BRANCH_ID,
+        imageKey: null,
+        imageUrl: null,
+      } as ProductRow);
+      mockedProductRepository.findByNameCaseInsensitive.mockResolvedValue(null);
+
+      await expect(
+        updateProduct(BRANCH_ID, 1, {
+          name: 'Promo',
+          price: 100,
+          imageUrl: 'https://ejemplo.com/promo.jpg',
+        } as unknown as ProductUpdate)
+      ).rejects.toThrow('Las imágenes se suben como archivo: no se admiten URLs externas.');
+      expect(mockedProductRepository.update).not.toHaveBeenCalled();
     });
 
     test('verifica la imagen y persiste la URL canónica cuando cambia la imageKey', async () => {

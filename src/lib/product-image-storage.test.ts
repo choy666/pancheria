@@ -3,7 +3,6 @@
  */
 
 import {
-  validateProductImageUrl,
   validateProductImage,
   isValidProductImageKey,
   resolveProductImage,
@@ -11,34 +10,6 @@ import {
 import { ValidationError } from '@/domain/errors';
 
 describe('product-image-storage', () => {
-  describe('validateProductImageUrl', () => {
-    test('acepta URLs HTTPS válidas', () => {
-      expect(() =>
-        validateProductImageUrl('https://example.com/imagen.jpg')
-      ).not.toThrow();
-    });
-
-    test('rechaza URLs HTTP', () => {
-      expect(() =>
-        validateProductImageUrl('http://example.com/imagen.jpg')
-      ).toThrow(ValidationError);
-    });
-
-    test('rechaza esquemas inseguros', () => {
-      expect(() =>
-        validateProductImageUrl('javascript:alert(1)')
-      ).toThrow(ValidationError);
-      expect(() =>
-        validateProductImageUrl('data:text/html,foo')
-      ).toThrow(ValidationError);
-    });
-
-    test('rechaza URLs que superan la longitud máxima', () => {
-      const longUrl = `https://example.com/${'a'.repeat(2048)}`;
-      expect(() => validateProductImageUrl(longUrl)).toThrow(ValidationError);
-    });
-  });
-
   describe('validateProductImage', () => {
     test('acepta imágenes permitidas', () => {
       expect(() =>

@@ -23,13 +23,21 @@ jest.mock('./product-image-uploader', () => ({
   ProductImageUploader: ({
     value,
     onChange,
+    onErrorChange,
   }: {
     value: { source: string };
     onChange: (value: unknown) => void;
+    onErrorChange: (error: string | null) => void;
   }) => (
     <div data-testid="product-image-uploader" data-source={value.source}>
       <button type="button" onClick={() => onChange(mockNextImageValue)}>
         Elegir imagen de prueba
+      </button>
+      <button type="button" onClick={() => onErrorChange('Archivo de prueba inválido.')}>
+        Simular error de imagen
+      </button>
+      <button type="button" onClick={() => onErrorChange(null)}>
+        Descartar error de imagen
       </button>
     </div>
   ),
@@ -311,26 +319,25 @@ describe('PromoForm: flujo de imagen (caracterización)', () => {
     global.fetch = originalFetch;
   });
 
-  test('alta con URL: la URL viaja con el producto y la receta usa el id creado', async () => {
+  test('con un error de imagen, la promo no se crea y el botón queda bloqueado', async () => {
     mockApi();
-    mockNextImageValue = { source: 'url', imageUrl: 'https://ejemplo.com/promo.jpg' };
     render(<PromoForm />);
     await esperarFormulario();
 
     fireEvent.change(screen.getByLabelText('Nombre de la promo'), {
-      target: { value: 'Promo URL' },
+      target: { value: 'Promo con error' },
     });
     fireEvent.change(screen.getByTestId('promo-recipe-0'), { target: { value: '1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Elegir imagen de prueba' }));
-    fireEvent.click(screen.getByTestId('promo-submit'));
+    fireEvent.click(screen.getByRole('button', { name: 'Simular error de imagen' }));
 
-    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
-    expect([
-      ...cuerpos('POST', '/api/productos'),
-      ...cuerpos('PUT', '/api/productos/9'),
-    ]).toContainEqual(expect.objectContaining({ imageUrl: 'https://ejemplo.com/promo.jpg' }));
-    expect(cuerpos('PUT', '/api/productos/9')).toHaveLength(0);
-    expect(cuerpos('POST', '/api/recetas')[0]).toMatchObject({ compoundProductId: 9 });
+    const guardar = screen.getByTestId('promo-submit');
+    expect(guardar).toBeDisabled();
+    fireEvent.submit(guardar.closest('form') as HTMLFormElement);
+    expect(cuerpos('POST', '/api/productos')).toHaveLength(0);
+    expect(cuerpos('POST', '/api/recetas')).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar error de imagen' }));
+    expect(screen.getByTestId('promo-submit')).toBeEnabled();
   });
 
   test('alta con archivo: sube la imagen y la adjunta al producto creado', async () => {

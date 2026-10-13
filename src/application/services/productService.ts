@@ -7,7 +7,6 @@ import { NotFoundError, ValidationError } from '@/domain/errors';
 import { isUniqueViolationError } from '@/lib/db-errors';
 import { productSchema, productUpdateSchema } from '@/lib/zod-schemas';
 import {
-  validateProductImageUrl,
   deleteProductImage,
   verifyUploadedProductImage,
 } from '@/lib/product-image-storage';
@@ -88,9 +87,14 @@ function normalizeImageFields(
   return data;
 }
 
-function validateImageUrl(product: ProductInsert): void {
-  if (product.imageUrl && !product.imageKey) {
-    validateProductImageUrl(product.imageUrl);
+function assertNoExternalImageUrl(image: {
+  imageUrl?: string | null;
+  imageKey?: string | null;
+}): void {
+  if (image.imageUrl && !image.imageKey) {
+    throw new ValidationError(
+      'Las imágenes se suben como archivo: no se admiten URLs externas.'
+    );
   }
 }
 
@@ -106,7 +110,7 @@ export async function createProduct(branchId: number, data: ProductInsert) {
     throw error;
   }
 
-  validateImageUrl(product);
+  assertNoExternalImageUrl(product);
 
   // Las claves de imagen están acotadas al producto (`product-images/<id>/`)
   // y el upload siempre ocurre después de crear el producto: una key en el
@@ -239,9 +243,7 @@ export async function updateProduct(
       throw error;
     }
 
-    if (updateData.imageUrl && !updateData.imageKey) {
-      validateProductImageUrl(updateData.imageUrl);
-    }
+    assertNoExternalImageUrl(updateData);
 
     previousImageKey = current.imageKey ?? null;
     shouldDeletePreviousImage =

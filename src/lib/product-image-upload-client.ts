@@ -20,7 +20,6 @@ export interface ProductImageUploadResult {
 export type ProductImageValue =
   | { source: 'none' }
   | { source: 'upload'; file: File; previewUrl: string }
-  | { source: 'url'; imageUrl: string }
   | {
       source: 'stored';
       imageUrl: string;
@@ -50,16 +49,14 @@ export function storedProductImage(product?: ProductImageFields): ProductImageVa
 }
 
 /**
- * Campos de imagen del POST/PUT del producto. `url` y `none` (quitar) viajan
- * en ese mismo request. `upload` necesita el id del producto para armar la
+ * Campos de imagen del POST/PUT del producto. Solo `none` (quitar) viaja en
+ * ese mismo request. `upload` necesita el id del producto para armar la
  * key, así que se adjunta después con `persistProductImageUpload`.
  */
 export function toProductImagePayload(image: ProductImageValue): ProductImageFields {
   switch (image.source) {
     case 'none':
       return { imageUrl: null, imageKey: null, imageMimeType: null, imageSize: null };
-    case 'url':
-      return { imageUrl: image.imageUrl, imageKey: null, imageMimeType: null, imageSize: null };
     default:
       // stored: sin cambios, conserva la imagen actual. upload: se adjunta después.
       return {};
@@ -68,8 +65,8 @@ export function toProductImagePayload(image: ProductImageValue): ProductImageFie
 
 /**
  * Imagen a persistir al guardar. Con la sección oculta (producto no vendible
- * al público) un archivo o URL pendiente se descarta y la imagen guardada no
- * se toca; quitar la imagen sí se aplica.
+ * al público) un archivo pendiente se descarta y la imagen guardada no se
+ * toca; quitar la imagen sí se aplica.
  */
 export function imageToPersist(
   image: ProductImageValue,

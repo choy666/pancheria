@@ -27,13 +27,21 @@ jest.mock('./product-image-uploader', () => ({
   ProductImageUploader: ({
     value,
     onChange,
+    onErrorChange,
   }: {
     value: { source: string };
     onChange: (value: unknown) => void;
+    onErrorChange: (error: string | null) => void;
   }) => (
     <div data-testid="product-image-uploader" data-source={value.source}>
       <button type="button" onClick={() => onChange(mockNextImageValue)}>
         Elegir imagen de prueba
+      </button>
+      <button type="button" onClick={() => onErrorChange('Archivo de prueba inválido.')}>
+        Simular error de imagen
+      </button>
+      <button type="button" onClick={() => onErrorChange(null)}>
+        Descartar error de imagen
       </button>
     </div>
   ),
@@ -263,17 +271,27 @@ describe('ProductForm: imagen ilustrativa', () => {
     expect(mockPersistProductImageUpload).toHaveBeenCalledWith(5, archivo);
   });
 
-  test('alta: una bebida con URL envía la imagen en el POST', async () => {
-    render(<ProductForm />);
-    await nombrarAltaBebida();
-    elegirImagen({ source: 'url', imageUrl: 'https://ejemplo.com/gaseosa.jpg' });
-    fireEvent.click(screen.getByRole('button', { name: /guardar/i }));
+  test('con un error de imagen, Guardar queda bloqueado y no envía nada', async () => {
+    render(
+      <ProductForm
+        product={{
+          ...bebida,
+          imageUrl: 'https://ejemplo.com/gaseosa.jpg',
+          imageKey: null,
+          imageMimeType: null,
+          imageSize: null,
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Simular error de imagen' }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalled());
-    expect(cuerpos('POST', '/api/productos')).toEqual([
-      expect.objectContaining({ imageUrl: 'https://ejemplo.com/gaseosa.jpg' }),
-    ]);
-    expect(mockPersistProductImageUpload).not.toHaveBeenCalled();
+    const guardar = screen.getByRole('button', { name: /guardar/i });
+    expect(guardar).toBeDisabled();
+    fireEvent.submit(guardar.closest('form') as HTMLFormElement);
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar error de imagen' }));
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
   });
 
   test('alta: una bebida con archivo crea el producto y después adjunta la imagen', async () => {

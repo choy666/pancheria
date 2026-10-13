@@ -8,8 +8,6 @@ const DEFAULT_PRODUCT_IMAGE_ALLOWED_MIME_TYPES = [
   'image/webp',
 ] as const;
 
-const DEFAULT_PRODUCT_IMAGE_URL_MAX_LENGTH = 2048;
-
 function getProductImageMaxSizeMb(): number {
   const raw = process.env.NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB;
   if (!raw) return DEFAULT_PRODUCT_IMAGE_MAX_SIZE_MB;
@@ -56,18 +54,4 @@ export function getProductImageAllowedExternalDomains(): string[] {
     .split(',')
     .map((domain) => domain.trim().toLowerCase())
     .filter(Boolean);
-}
-
-export function getProductImageUrlMaxLength(): number {
-  const raw =
-    process.env.NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH ??
-    process.env.PRODUCT_IMAGE_URL_MAX_LENGTH;
-  if (!raw) return DEFAULT_PRODUCT_IMAGE_URL_MAX_LENGTH;
-
-  const parsed = Number(raw);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return DEFAULT_PRODUCT_IMAGE_URL_MAX_LENGTH;
-  }
-
-  return parsed;
 }

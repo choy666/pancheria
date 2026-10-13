@@ -188,13 +188,13 @@ Variables de entorno relacionadas:
 
 El panel permite agregar, cambiar o quitar una imagen ilustrativa al crear/editar una promo, una bebida o un servicio. La imagen se muestra en el catálogo público (`/pedido`).
 
-- El administrador sube un archivo o ingresa una URL externa desde el formulario de promo o de producto (bebidas y servicios).
+- El administrador sube un archivo desde el formulario de promo o de producto (bebidas y servicios). Las URLs externas no se aceptan.
 - Endpoints: `POST /api/productos/imagen/preparar`, `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]`.
 - El almacenamiento usa el mismo `STORAGE_PROVIDER` de videos/chat: `local`, `vercel-blob`, `s3` o `r2`.
 - En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` pierde archivos en Vercel.
 
 Variables de entorno relacionadas:
-`NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES`, `PRODUCT_IMAGE_LOCAL_STORAGE_PATH`, `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS`, `NEXT_PUBLIC_PRODUCT_IMAGE_URL_MAX_LENGTH`.
+`NEXT_PUBLIC_PRODUCT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_PRODUCT_IMAGE_ALLOWED_MIME_TYPES`, `PRODUCT_IMAGE_LOCAL_STORAGE_PATH`, `PRODUCT_IMAGE_ALLOWED_EXTERNAL_DOMAINS`.
 
 ## Cron jobs
 

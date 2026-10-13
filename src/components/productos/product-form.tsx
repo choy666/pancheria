@@ -122,12 +122,14 @@ export function ProductForm({ product }: ProductFormProps) {
   const [image, setImage] = useState<ProductImageValue>(() =>
     storedProductImage(product)
   );
+  const [imageError, setImageError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<number | null>(null);
 
   const isCritical = form.type === 'critical_supply';
   const isManual = form.type === 'manual_supply';
   const isService = form.type === 'service';
   const imageVisible = isPublicSellableProduct(form) || image.source === 'stored';
+  const imageBlocked = imageVisible && imageError !== null;
 
   function updateType(value: ProductType) {
     const nextCriticalSupplyType =
@@ -155,6 +157,7 @@ export function ProductForm({ product }: ProductFormProps) {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (imageBlocked) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -365,7 +368,14 @@ export function ProductForm({ product }: ProductFormProps) {
             <CardTitle className="text-base">Imagen ilustrativa</CardTitle>
           </CardHeader>
           <CardContent>
-            <ProductImageUploader value={image} onChange={setImage} />
+            <ProductImageUploader
+              value={image}
+              onChange={setImage}
+              error={imageError}
+              onErrorChange={setImageError}
+              productName={form.name}
+              productPrice={form.price}
+            />
           </CardContent>
         </Card>
       )}
@@ -389,7 +399,7 @@ export function ProductForm({ product }: ProductFormProps) {
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+        <Button type="submit" disabled={isSubmitting || imageBlocked} className="w-full sm:w-auto">
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
         <Button

@@ -401,13 +401,7 @@ describe('helpers de imagen de producto', () => {
       });
     });
 
-    test('toProductImagePayload: URL y quitar viajan en el request; stored y upload no aportan campos', () => {
-      expect(toProductImagePayload({ source: 'url', imageUrl: 'https://ejemplo.com/a.jpg' })).toEqual({
-        imageUrl: 'https://ejemplo.com/a.jpg',
-        imageKey: null,
-        imageMimeType: null,
-        imageSize: null,
-      });
+    test('toProductImagePayload: solo quitar viaja en el request; stored y upload no aportan campos', () => {
       expect(toProductImagePayload({ source: 'none' })).toEqual({
         imageUrl: null,
         imageKey: null,
@@ -427,11 +421,10 @@ describe('helpers de imagen de producto', () => {
     });
 
     test('imageToPersist: con la sección oculta descarta pendientes, pero respeta quitar', () => {
-      const pendiente = { source: 'url', imageUrl: 'https://ejemplo.com/a.jpg' } as const;
+      const pendiente = { source: 'upload', file: archivo(), previewUrl: 'blob:a' } as const;
 
       expect(imageToPersist(pendiente, true)).toBe(pendiente);
       expect(imageToPersist(pendiente, false)).toBeNull();
-      expect(imageToPersist({ source: 'upload', file: archivo(), previewUrl: 'blob:a' }, false)).toBeNull();
       expect(imageToPersist({ source: 'none' }, false)).toEqual({ source: 'none' });
     });
   });

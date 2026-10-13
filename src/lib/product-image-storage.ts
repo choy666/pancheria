@@ -21,7 +21,6 @@ import {
   getProductImageAllowedMimeTypes,
   getProductImageMaxSizeBytes,
   getProductImageAllowedExternalDomains,
-  getProductImageUrlMaxLength,
 } from '@/config/product-images';
 import { getStorageImageOrigins } from '@/config/storage-origins';
 import { ValidationError } from '@/domain/errors';
@@ -117,50 +116,6 @@ export function validateProductImage(file: ProductImageFileInfo): void {
     throw new ValidationError(
       `La imagen supera el tamaño máximo permitido de ${maxBytes} bytes.`
     );
-  }
-}
-
-export function validateProductImageUrl(url: string): void {
-  const maxLength = getProductImageUrlMaxLength();
-  if (url.length > maxLength) {
-    throw new ValidationError(
-      `La URL de la imagen no puede superar los ${maxLength} caracteres.`
-    );
-  }
-
-  if (!url.startsWith('https://')) {
-    throw new ValidationError(
-      'La URL de la imagen debe comenzar con https://.'
-    );
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new ValidationError('La URL de la imagen no es válida.');
-  }
-
-  const protocol = parsed.protocol.replace(':', '');
-  if (protocol !== 'https') {
-    throw new ValidationError('La URL de la imagen debe usar el protocolo HTTPS.');
-  }
-
-  if (!parsed.hostname) {
-    throw new ValidationError('La URL de la imagen no tiene un dominio válido.');
-  }
-
-  const allowedDomains = getProductImageAllowedExternalDomains();
-  if (allowedDomains.length > 0) {
-    const host = parsed.hostname.toLowerCase();
-    const isAllowed = allowedDomains.some(
-      (domain) => host === domain || host.endsWith(`.${domain}`)
-    );
-    if (!isAllowed) {
-      throw new ValidationError(
-        `El dominio de la URL no está permitido. Dominios permitidos: ${allowedDomains.join(', ')}.`
-      );
-    }
   }
 }
 

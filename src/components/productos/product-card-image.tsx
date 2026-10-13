@@ -13,7 +13,7 @@ interface ProductImageFallbackProps {
  * Fallback de marca para productos sin imagen. El contenedor del hero pinta
  * el diagonal rojo→mostaza; acá solo va el monograma del producto.
  */
-function ProductImageFallback({ productName }: ProductImageFallbackProps) {
+export function ProductImageFallback({ productName }: ProductImageFallbackProps) {
   const initial = productName.trim().charAt(0).toUpperCase() || 'P';
 
   return (
