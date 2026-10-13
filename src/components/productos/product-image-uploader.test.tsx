@@ -1,11 +1,20 @@
 /**
  * @jest-environment jsdom
  */
-import { fireEvent, render, screen } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState, type ComponentProps } from 'react';
 import { ProductImageUploader } from './product-image-uploader';
+import { normalizeProductImageFile } from '@/lib/product-image-normalize';
 import type { ProductImageValue } from '@/lib/product-image-upload-client';
 import { formatMoney } from '@/lib/money';
+
+jest.mock('@/lib/product-image-normalize', () => ({
+  normalizeProductImageFile: jest.fn(),
+}));
+
+const mockNormalize = normalizeProductImageFile as jest.MockedFunction<
+  typeof normalizeProductImageFile
+>;
 
 type UploaderProps = ComponentProps<typeof ProductImageUploader>;
 
@@ -57,6 +66,16 @@ describe('ProductImageUploader', () => {
     jest.clearAllMocks();
     global.URL.createObjectURL = jest.fn(() => 'blob:nueva');
     global.URL.revokeObjectURL = jest.fn();
+    mockNormalize.mockImplementation(async (file: File) => ({
+      file: new File(['x'], `${file.name.replace(/\.[^.]+$/, '')}.webp`, {
+        type: 'image/webp',
+      }),
+      width: 1200,
+      height: 675,
+      mimeType: 'image/webp',
+      marginsAdded: false,
+      lowResolution: false,
+    }));
   });
 
   describe('selección de archivo', () => {
@@ -70,7 +89,7 @@ describe('ProductImageUploader', () => {
 
     test('un archivo que supera el tamaño máximo no quita la imagen guardada', () => {
       const { onChange, onErrorChange } = renderUploader({ value: guardada });
-      elegirArchivo(archivo('promo1.png', 'image/png', 6 * MB));
+      elegirArchivo(archivo('promo1.png', 'image/png', 31 * MB));
 
       expect(onChange).not.toHaveBeenCalled();
       expect(onErrorChange).toHaveBeenCalledWith(expect.stringContaining('supera el límite'));
@@ -84,16 +103,143 @@ describe('ProductImageUploader', () => {
       expect(onErrorChange).not.toHaveBeenCalled();
     });
 
-    test('un archivo válido reemplaza la imagen y limpia el error anterior', () => {
+    test('un archivo válido se normaliza y reemplaza la imagen, limpiando el error', async () => {
       const { onChange, onErrorChange } = renderUploader({
         value: guardada,
         error: 'Tipo no permitido. Permitidos: image/jpeg.',
       });
-      const file = archivo('gaseosa.webp', 'image/webp');
-      elegirArchivo(file);
+      elegirArchivo(archivo('gaseosa.png', 'image/png', 6 * MB));
 
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith({
+          source: 'upload',
+          file: expect.objectContaining({
+            name: 'gaseosa.webp',
+            type: 'image/webp',
+          }),
+          previewUrl: 'blob:nueva',
+        })
+      );
       expect(onErrorChange).toHaveBeenCalledWith(null);
-      expect(onChange).toHaveBeenCalledWith({ source: 'upload', file, previewUrl: 'blob:nueva' });
+    });
+
+    test('avisa al formulario mientras normaliza y al terminar', async () => {
+      let resolver:
+        | ((value: Awaited<ReturnType<typeof normalizeProductImageFile>>) => void)
+        | undefined;
+      mockNormalize.mockImplementation(
+        () =>
+          new Promise<Awaited<ReturnType<typeof normalizeProductImageFile>>>(
+            (resolve) => (resolver = resolve)
+          )
+      );
+      const onProcessingChange = jest.fn();
+      renderUploader({ value: guardada, onProcessingChange });
+      elegirArchivo(archivo('lenta.png', 'image/png'));
+
+      await waitFor(() => expect(onProcessingChange).toHaveBeenCalledWith(true));
+      expect(screen.getByText('Procesando imagen…')).toBeInTheDocument();
+      expect(screen.getByLabelText('Archivo de imagen')).toBeDisabled();
+
+      resolver!({
+        file: new File(['x'], 'lista.webp', { type: 'image/webp' }),
+        width: 1200,
+        height: 675,
+        mimeType: 'image/webp',
+        marginsAdded: false,
+        lowResolution: false,
+      });
+      await waitFor(() => expect(onProcessingChange).toHaveBeenCalledWith(false));
+      expect(screen.queryByText('Procesando imagen…')).not.toBeInTheDocument();
+    });
+
+    test('quitar la imagen mientras se procesa descarta el resultado tardío', async () => {
+      let resolver:
+        | ((value: Awaited<ReturnType<typeof normalizeProductImageFile>>) => void)
+        | undefined;
+      mockNormalize.mockImplementation(
+        () =>
+          new Promise<Awaited<ReturnType<typeof normalizeProductImageFile>>>(
+            (resolve) => (resolver = resolve)
+          )
+      );
+      function ConEstado() {
+        const [v, setV] = useState<ProductImageValue>(guardada);
+        return (
+          <ProductImageUploader
+            value={v}
+            onChange={setV}
+            error={null}
+            onErrorChange={jest.fn()}
+            productName="Gaseosa"
+            productPrice={1500}
+          />
+        );
+      }
+      render(<ConEstado />);
+      elegirArchivo(archivo('lenta.png', 'image/png'));
+      await screen.findByText('Procesando imagen…');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Quitar imagen' }));
+      resolver!({
+        file: new File(['x'], 'tarde.webp', { type: 'image/webp' }),
+        width: 1200,
+        height: 675,
+        mimeType: 'image/webp',
+        marginsAdded: false,
+        lowResolution: false,
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByText('Procesando imagen…')).not.toBeInTheDocument()
+      );
+      expect(screen.queryByAltText('Vista previa de la imagen')).not.toBeInTheDocument();
+    });
+
+    test('una imagen que no se puede procesar muestra error y mantiene la guardada', async () => {
+      mockNormalize.mockRejectedValue(new Error('no se pudo decodificar'));
+      const { onChange, onErrorChange } = renderUploader({ value: guardada });
+      elegirArchivo(archivo('rota.png', 'image/png'));
+
+      await waitFor(() =>
+        expect(onErrorChange).toHaveBeenCalledWith(
+          expect.stringContaining('No se pudo procesar')
+        )
+      );
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    test('avisa sin bloquear cuando se ajustó con márgenes o es de baja resolución', async () => {
+      mockNormalize.mockResolvedValue({
+        file: new File(['x'], 'foto.webp', { type: 'image/webp' }),
+        width: 1200,
+        height: 675,
+        mimeType: 'image/webp',
+        marginsAdded: true,
+        lowResolution: true,
+      });
+      const onErrorChange = jest.fn();
+      function ConEstado() {
+        const [v, setV] = useState<ProductImageValue>(guardada);
+        return (
+          <ProductImageUploader
+            value={v}
+            onChange={setV}
+            error={null}
+            onErrorChange={onErrorChange}
+            productName="Gaseosa"
+            productPrice={1500}
+          />
+        );
+      }
+      render(<ConEstado />);
+      elegirArchivo(archivo('cuadrada.png', 'image/png'));
+
+      expect(
+        await screen.findByText(/se ajustó completa con márgenes/)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/puede verse borrosa/)).toBeInTheDocument();
+      expect(onErrorChange).not.toHaveBeenCalledWith(expect.any(String));
     });
   });
 

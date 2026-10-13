@@ -189,6 +189,7 @@ Variables de entorno relacionadas:
 El panel permite agregar, cambiar o quitar una imagen ilustrativa al crear/editar una promo, una bebida o un servicio. La imagen se muestra en el catálogo público (`/pedido`).
 
 - El administrador sube un archivo desde el formulario de promo o de producto (bebidas y servicios). Las URLs externas no se aceptan.
+- El navegador normaliza la imagen antes de subirla (`src/lib/product-image-normalize.ts`): original de hasta 30 MB → lienzo fijo 1200×675 (16:9) con la foto completa y márgenes si hace falta, WebP (JPEG como respaldo), sin metadatos del original.
 - Endpoints: `POST /api/productos/imagen/preparar`, `POST /api/productos/imagen/upload` (solo `local`) y `GET /api/productos/imagen/[key]`.
 - El almacenamiento usa el mismo `STORAGE_PROVIDER` de videos/chat: `local`, `vercel-blob`, `s3` o `r2`.
 - En producción se recomienda `vercel-blob`, `s3` o `r2`; `local` pierde archivos en Vercel.

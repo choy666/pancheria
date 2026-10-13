@@ -28,10 +28,12 @@ jest.mock('./product-image-uploader', () => ({
     value,
     onChange,
     onErrorChange,
+    onProcessingChange,
   }: {
     value: { source: string };
     onChange: (value: unknown) => void;
     onErrorChange: (error: string | null) => void;
+    onProcessingChange?: (processing: boolean) => void;
   }) => (
     <div data-testid="product-image-uploader" data-source={value.source}>
       <button type="button" onClick={() => onChange(mockNextImageValue)}>
@@ -42,6 +44,9 @@ jest.mock('./product-image-uploader', () => ({
       </button>
       <button type="button" onClick={() => onErrorChange(null)}>
         Descartar error de imagen
+      </button>
+      <button type="button" onClick={() => onProcessingChange?.(true)}>
+        Simular procesamiento de imagen
       </button>
     </div>
   ),
@@ -292,6 +297,26 @@ describe('ProductForm: imagen ilustrativa', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Descartar error de imagen' }));
     expect(screen.getByRole('button', { name: /guardar/i })).toBeEnabled();
+  });
+
+  test('mientras la imagen se procesa, Guardar queda bloqueado y no envía nada', async () => {
+    render(
+      <ProductForm
+        product={{
+          ...bebida,
+          imageUrl: 'https://ejemplo.com/gaseosa.jpg',
+          imageKey: null,
+          imageMimeType: null,
+          imageSize: null,
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Simular procesamiento de imagen' }));
+
+    const guardar = screen.getByRole('button', { name: /guardar/i });
+    expect(guardar).toBeDisabled();
+    fireEvent.submit(guardar.closest('form') as HTMLFormElement);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   test('alta: una bebida con archivo crea el producto y después adjunta la imagen', async () => {

@@ -2,6 +2,18 @@ import path from 'path';
 
 const DEFAULT_PRODUCT_IMAGE_MAX_SIZE_MB = 5;
 
+// Normalización en el navegador antes de subir: toda imagen de producto se
+// publica en un lienzo fijo 16:9. El archivo original puede ser mucho más
+// grande que el límite de subida porque se comprime antes de enviarlo.
+export const PRODUCT_IMAGE_TARGET_WIDTH = 1200;
+export const PRODUCT_IMAGE_TARGET_HEIGHT = 675;
+export const PRODUCT_IMAGE_WEBP_QUALITY = 0.8;
+export const PRODUCT_IMAGE_JPEG_QUALITY = 0.85;
+export const PRODUCT_IMAGE_INPUT_MAX_BYTES = 30 * 1024 * 1024;
+// Si el lado mayor del original queda por debajo, se avisa que la imagen
+// puede verse borrosa al estirarse hasta el tamaño de publicación.
+export const PRODUCT_IMAGE_MIN_SOURCE_LONG_EDGE_PX = 800;
+
 const DEFAULT_PRODUCT_IMAGE_ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',

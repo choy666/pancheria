@@ -76,7 +76,7 @@ El tour interactivo (`<ref_file file="C:/developer/paginas/pancheria/src/compone
 - El stock inicial se carga con un movimiento de tipo `restock` a través de `/stock/ajustar` o el seed.
 - Los productos `manual_supply` no pueden tener precio (`price` debe ser `0`). Los demás sí.
 - Los productos `critical_supply` deben tener un `criticalSupplyType`.
-- Los productos (promos `compound`, bebidas y servicios) pueden tener una imagen ilustrativa (`imageUrl`, `imageKey`, `imageMimeType`, `imageSize`). El administrador la sube como archivo desde el formulario de promo o de producto; la imagen se muestra en el catálogo público (`/pedido`). Las URLs externas no se aceptan. El almacenamiento y la validación de tamaño/MIME usan `src/config/product-images.ts` y `src/lib/product-image-storage.ts`, con el mismo `STORAGE_PROVIDER` de videos/chat.
+- Los productos (promos `compound`, bebidas y servicios) pueden tener una imagen ilustrativa (`imageUrl`, `imageKey`, `imageMimeType`, `imageSize`). El administrador la sube como archivo desde el formulario de promo o de producto; la imagen se muestra en el catálogo público (`/pedido`). Las URLs externas no se aceptan. Antes de subir, el navegador la normaliza con `src/lib/product-image-normalize.ts`: acepta originales de hasta 30 MB, la encuadra completa en 1200×675 (16:9) con márgenes transparentes si la proporción es otra, la exporta en WebP (JPEG como respaldo) y elimina los metadatos (ubicación, cámara). El almacenamiento y la validación de tamaño/MIME usan `src/config/product-images.ts` y `src/lib/product-image-storage.ts`, con el mismo `STORAGE_PROVIDER` de videos/chat.
 - El soft delete evita perder el historial de ventas y pedidos.
 
 ### 3.2 Recetas

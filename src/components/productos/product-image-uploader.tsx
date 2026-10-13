@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   getProductImageAllowedMimeTypes,
-  getProductImageMaxSizeBytes,
+  PRODUCT_IMAGE_INPUT_MAX_BYTES,
+  PRODUCT_IMAGE_TARGET_WIDTH,
+  PRODUCT_IMAGE_TARGET_HEIGHT,
 } from '@/config/product-images';
 import { formatMoney } from '@/lib/money';
+import { normalizeProductImageFile } from '@/lib/product-image-normalize';
 import type { ProductImageValue } from '@/lib/product-image-upload-client';
 import { ProductImageFallback } from './product-card-image';
 
@@ -17,6 +20,8 @@ interface ProductImageUploaderProps {
   onChange: (value: ProductImageValue) => void;
   error: string | null;
   onErrorChange: (error: string | null) => void;
+  /** Avisa mientras la imagen se está normalizando, para bloquear el guardado. */
+  onProcessingChange?: (processing: boolean) => void;
   productName: string;
   productPrice: number;
 }
@@ -41,9 +46,8 @@ function validateFile(file: File): string | null {
     return `Tipo no permitido. Permitidos: ${allowedTypes.join(', ')}.`;
   }
 
-  const maxBytes = getProductImageMaxSizeBytes();
-  if (file.size > maxBytes) {
-    return `El archivo supera el límite de ${formatSize(maxBytes)}.`;
+  if (file.size > PRODUCT_IMAGE_INPUT_MAX_BYTES) {
+    return `El archivo supera el límite de ${formatSize(PRODUCT_IMAGE_INPUT_MAX_BYTES)}.`;
   }
 
   return null;
@@ -65,18 +69,22 @@ export function ProductImageUploader({
   onChange,
   error,
   onErrorChange,
+  onProcessingChange,
   productName,
   productPrice,
 }: ProductImageUploaderProps) {
   const [previewIssue, setPreviewIssue] = useState<PreviewIssue | null>(null);
+  const [processing, setProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
+  // Si la selección queda obsoleta (p. ej. el usuario quitó la imagen mientras
+  // se normalizaba), el resultado tardío se descarta en vez de pisar el cambio.
+  const selectionSeq = useRef(0);
 
   const previewUrl = previewUrlOf(value);
   const issueMessage =
     previewIssue && previewIssue.url === previewUrl ? previewIssue.message : null;
   const allowedTypes = getProductImageAllowedMimeTypes();
-  const maxBytes = getProductImageMaxSizeBytes();
 
   function clearFileInput() {
     if (fileInputRef.current) {
@@ -84,9 +92,9 @@ export function ProductImageUploader({
     }
   }
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null;
-    if (!selected) return;
+    if (!selected || processing) return;
 
     const fileError = validateFile(selected);
     if (fileError) {
@@ -95,17 +103,47 @@ export function ProductImageUploader({
       return;
     }
 
-    onErrorChange(null);
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-    }
+    const seq = ++selectionSeq.current;
+    setProcessing(true);
+    onProcessingChange?.(true);
+    try {
+      const normalized = await normalizeProductImageFile(selected);
+      if (seq !== selectionSeq.current) return;
 
-    const nextPreviewUrl = URL.createObjectURL(selected);
-    previewUrlRef.current = nextPreviewUrl;
-    onChange({ source: 'upload', file: selected, previewUrl: nextPreviewUrl });
+      onErrorChange(null);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+
+      const nextPreviewUrl = URL.createObjectURL(normalized.file);
+      previewUrlRef.current = nextPreviewUrl;
+      onChange({
+        source: 'upload',
+        file: normalized.file,
+        previewUrl: nextPreviewUrl,
+      });
+
+      const notes: string[] = [];
+      if (normalized.marginsAdded) {
+        notes.push('La foto no es 16:9: se ajustó completa con márgenes.');
+      }
+      if (normalized.lowResolution) {
+        notes.push('La resolución es baja: puede verse borrosa en el catálogo.');
+      }
+      if (notes.length > 0) {
+        setPreviewIssue({ url: nextPreviewUrl, message: notes.join(' ') });
+      }
+    } catch {
+      onErrorChange('No se pudo procesar la imagen seleccionada. Elegí otra.');
+      clearFileInput();
+    } finally {
+      setProcessing(false);
+      onProcessingChange?.(false);
+    }
   }
 
   function handleRemove() {
+    selectionSeq.current += 1;
     if (value.source === 'upload' && value.previewUrl) {
       URL.revokeObjectURL(value.previewUrl);
     }
@@ -149,10 +187,22 @@ export function ProductImageUploader({
           type="file"
           accept={allowedTypes.join(',')}
           onChange={handleFileChange}
+          disabled={processing}
         />
+        {processing && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Procesando imagen…
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
-          Tipos permitidos: {allowedTypes.join(', ')}. Tamaño máximo:{' '}
-          {formatSize(maxBytes)}.
+          Tipos permitidos: {allowedTypes.join(', ')}. Tamaño máximo del archivo:{' '}
+          {formatSize(PRODUCT_IMAGE_INPUT_MAX_BYTES)}. Se publica en{' '}
+          {PRODUCT_IMAGE_TARGET_WIDTH}×{PRODUCT_IMAGE_TARGET_HEIGHT} (16:9):
+          si la foto tiene otra proporción queda completa con márgenes, y los
+          metadatos (ubicación, cámara) se eliminan.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Tip: producto centrado, fondo neutro y buena luz.
         </p>
         {error && (
           <div

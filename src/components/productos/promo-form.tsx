@@ -118,6 +118,7 @@ export function PromoForm({ product }: PromoFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [image, setImage] = useState<ProductImageValue>({ source: 'none' });
   const [imageError, setImageError] = useState<string | null>(null);
+  const [imageProcessing, setImageProcessing] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
 
   const supplyById = useMemo(
@@ -262,7 +263,7 @@ export function PromoForm({ product }: PromoFormProps) {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (imageError) return;
+    if (imageError || imageProcessing) return;
     setError(null);
 
     if (!form.name.trim()) {
@@ -505,6 +506,7 @@ export function PromoForm({ product }: PromoFormProps) {
             onChange={setImage}
             error={imageError}
             onErrorChange={setImageError}
+            onProcessingChange={setImageProcessing}
             productName={form.name}
             productPrice={parseMoneyAmount(form.price, 2) ?? 0}
           />
@@ -802,7 +804,7 @@ export function PromoForm({ product }: PromoFormProps) {
         <Button
           type="submit"
           data-testid="promo-submit"
-          disabled={isSubmitting || loading || imageError !== null}
+          disabled={isSubmitting || loading || imageError !== null || imageProcessing}
           className="w-full sm:w-auto"
         >
           {isSubmitting

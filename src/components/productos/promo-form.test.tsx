@@ -24,10 +24,12 @@ jest.mock('./product-image-uploader', () => ({
     value,
     onChange,
     onErrorChange,
+    onProcessingChange,
   }: {
     value: { source: string };
     onChange: (value: unknown) => void;
     onErrorChange: (error: string | null) => void;
+    onProcessingChange?: (processing: boolean) => void;
   }) => (
     <div data-testid="product-image-uploader" data-source={value.source}>
       <button type="button" onClick={() => onChange(mockNextImageValue)}>
@@ -38,6 +40,9 @@ jest.mock('./product-image-uploader', () => ({
       </button>
       <button type="button" onClick={() => onErrorChange(null)}>
         Descartar error de imagen
+      </button>
+      <button type="button" onClick={() => onProcessingChange?.(true)}>
+        Simular procesamiento de imagen
       </button>
     </div>
   ),
@@ -338,6 +343,24 @@ describe('PromoForm: flujo de imagen (caracterización)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Descartar error de imagen' }));
     expect(screen.getByTestId('promo-submit')).toBeEnabled();
+  });
+
+  test('mientras la imagen se procesa, la promo no se crea y el botón queda bloqueado', async () => {
+    mockApi();
+    render(<PromoForm />);
+    await esperarFormulario();
+
+    fireEvent.change(screen.getByLabelText('Nombre de la promo'), {
+      target: { value: 'Promo procesando' },
+    });
+    fireEvent.change(screen.getByTestId('promo-recipe-0'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Simular procesamiento de imagen' }));
+
+    const guardar = screen.getByTestId('promo-submit');
+    expect(guardar).toBeDisabled();
+    fireEvent.submit(guardar.closest('form') as HTMLFormElement);
+    expect(cuerpos('POST', '/api/productos')).toHaveLength(0);
+    expect(cuerpos('POST', '/api/recetas')).toHaveLength(0);
   });
 
   test('alta con archivo: sube la imagen y la adjunta al producto creado', async () => {

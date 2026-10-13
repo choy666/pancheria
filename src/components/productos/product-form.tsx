@@ -123,13 +123,14 @@ export function ProductForm({ product }: ProductFormProps) {
     storedProductImage(product)
   );
   const [imageError, setImageError] = useState<string | null>(null);
+  const [imageProcessing, setImageProcessing] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
 
   const isCritical = form.type === 'critical_supply';
   const isManual = form.type === 'manual_supply';
   const isService = form.type === 'service';
   const imageVisible = isPublicSellableProduct(form) || image.source === 'stored';
-  const imageBlocked = imageVisible && imageError !== null;
+  const imageBlocked = imageVisible && (imageError !== null || imageProcessing);
 
   function updateType(value: ProductType) {
     const nextCriticalSupplyType =
@@ -373,6 +374,7 @@ export function ProductForm({ product }: ProductFormProps) {
               onChange={setImage}
               error={imageError}
               onErrorChange={setImageError}
+              onProcessingChange={setImageProcessing}
               productName={form.name}
               productPrice={form.price}
             />
