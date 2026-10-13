@@ -6,6 +6,7 @@ import { rmSync } from 'fs';
 import http from 'http';
 import path from 'path';
 import { setupSecondBranchForE2E } from './helpers';
+import { acquireE2ERunLock, releaseE2ERunLock } from './run-lock';
 
 function getDatabaseUrlForE2E(): string {
   return (
@@ -273,18 +274,7 @@ async function preheatDevServer(): Promise<void> {
   }
 }
 
-export default async function globalSetup() {
-  // Las validaciones son baratas (checks de entorno + un fetch) y se corren
-  // siempre: NO_GLOBAL_SETUP solo salta el truncate/seed/preheat, no la red
-  // de seguridad. Así los tests no pueden escribir en la base de un servidor
-  // ajeno aunque se omita la preparación.
-  validateE2EEnvironment();
-  await assertE2EServer();
-
-  if (process.env.NO_GLOBAL_SETUP) {
-    return;
-  }
-
+async function resetAndSeedE2EDatabase(): Promise<void> {
   if (process.env.LOCAL_STORAGE_PATH) {
     rmSync(process.env.LOCAL_STORAGE_PATH, { recursive: true, force: true });
   }
@@ -354,4 +344,34 @@ export default async function globalSetup() {
       orders
     RESTART IDENTITY CASCADE;
   `);
+}
+
+export default async function globalSetup() {
+  // Las validaciones son baratas (checks de entorno + un fetch) y se corren
+  // siempre: NO_GLOBAL_SETUP solo salta el truncate/seed/preheat, no la red
+  // de seguridad. Así los tests no pueden escribir en la base de un servidor
+  // ajeno aunque se omita la preparación.
+  validateE2EEnvironment();
+  await assertE2EServer();
+
+  // La base descartable es compartida entre CI, corridas locales y el
+  // test-server del IDE: el truncate de resetAndSeedE2EDatabase borraría el
+  // estado de cualquier otra corrida en curso. El lock a nivel base (ver
+  // run-lock.ts) serializa esos accesos — el grupo `e2e-db-*` del workflow
+  // solo cubre jobs de GitHub Actions entre sí. El lock se sostiene durante
+  // toda la suite y lo libera global-teardown.ts.
+  await acquireE2ERunLock();
+
+  if (process.env.NO_GLOBAL_SETUP) {
+    return;
+  }
+
+  try {
+    await resetAndSeedE2EDatabase();
+  } catch (error) {
+    // Si el setup falla a mitad de camino no tiene sentido retener el lock:
+    // la base quedó a medias de todos modos y la próxima corrida re-siembra.
+    await releaseE2ERunLock();
+    throw error;
+  }
 }

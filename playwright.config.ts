@@ -29,6 +29,10 @@ export default defineConfig({
   // entorno y el servidor (checks baratos: env + un fetch) y solo salta el
   // truncate/seed/preheat. Así la red de seguridad no puede esquivarse.
   globalSetup: './tests/e2e/global-setup.ts',
+  // Libera el lock de corrida que toma global-setup sobre la base compartida
+  // (tests/e2e/run-lock.ts): sin esto, una corrida que termina dejaría la
+  // base marcada como "en uso" hasta que el lock expire.
+  globalTeardown: './tests/e2e/global-teardown.ts',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,

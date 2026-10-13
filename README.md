@@ -44,6 +44,8 @@ Para correr tests E2E, `playwright.config.ts` carga `.env.e2e` después de `.env
 5. Alternativa manual: `npm run dev:e2e` en una terminal y `NO_WEB_SERVER=1 npx playwright test` en otra; agregar `NO_GLOBAL_SETUP=1` si la base ya tiene el seed.
 
 > **Importante:** `global-setup.ts` trunca todas las tablas del negocio y re-ejecuta `src/db/seeds.ts`. No correr E2E contra una base con datos reales.
+>
+> Si la base es compartida (p. ej. la remota de CI), una segunda corrida concurrente truncaría los datos de la otra a mitad de camino. Para evitarlo, `global-setup.ts` toma un lock de corrida en la tabla `e2e_run_lock` y `global-teardown.ts` lo libera al terminar; quien llega segundo espera hasta `E2E_RUN_LOCK_WAIT_MINUTES` (default 30) y los locks de corridas muertas expiran a los `E2E_RUN_LOCK_STALE_MINUTES` (default 45). Ver `.env.e2e.example` para los overrides.
 
 ## Notas de seguridad y producción
 
