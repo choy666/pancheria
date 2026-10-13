@@ -33,9 +33,11 @@ const DEFAULT_POLL_MS = 15_000;
 function getE2ERunLockId(): string {
   const repo = process.env.GITHUB_REPOSITORY;
   const runId = process.env.GITHUB_RUN_ID;
-  const attempt = process.env.GITHUB_RUN_ATTEMPT;
   if (repo && runId) {
-    return `ci:${repo}/actions/runs/${runId}${attempt ? `/attempts/${attempt}` : ''}`;
+    // Sin número de intento a propósito: GitHub no ejecuta dos attempts del
+    // mismo run en paralelo, así que un re-run puede re-tomar el lock que dejó
+    // el attempt anterior si murió sin teardown (run cancelado, runner caído).
+    return `ci:${repo}/actions/runs/${runId}`;
   }
   return `local:${os.hostname()}:pid-${process.pid}:${Date.now().toString(36)}`;
 }
@@ -126,6 +128,20 @@ export async function acquireE2ERunLock(options?: {
       )
     );
     const holder = holders[0];
+
+    // El titular es esta misma corrida (re-run del mismo run de CI tras una
+    // cancelación sin teardown, o reintento del mismo proceso): se re-toma
+    // refrescando la marca de tiempo en vez de esperar a que expire.
+    if (holder?.run_id === runId) {
+      await db.execute(sql`
+        UPDATE e2e_run_lock
+        SET started_at = now()
+        WHERE id = ${LOCK_ROW_ID} AND run_id = ${runId}
+      `);
+      process.env.E2E_RUN_LOCK_ID = runId;
+      console.log(`[E2E] Lock de corrida re-tomado por la misma corrida: ${runId}`);
+      return;
+    }
 
     if (Date.now() >= deadline) {
       throw new Error(
