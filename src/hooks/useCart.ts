@@ -119,14 +119,23 @@ function getInitialItems(
 
         if (!isService && quantity <= 0) return [];
 
-        // La selección guardada puede exceder un tope de opcionales que se
-        // configuró después: se recorta para que la línea restaurada siga
-        // siendo válida al confirmar.
+        // La selección guardada puede quedar obsoleta si la receta cambió
+        // mientras la página estuvo cerrada: se intersecta con los opcionales
+        // vigentes (ids desconocidos harían fallar el checkout con 400) y se
+        // recorta al tope de opcionales configurado después.
         const storedSelected = item.selectedRecipeItemIds ?? [];
+        const selectableIds = new Set(
+          (product.recipe ?? [])
+            .filter((r) => r.isOptional)
+            .map((r) => r.supplyId)
+        );
+        const validSelected = storedSelected.filter((id) =>
+          selectableIds.has(id)
+        );
         const cappedSelected =
           product.maxOptionalSelections == null
-            ? storedSelected
-            : storedSelected.slice(0, product.maxOptionalSelections);
+            ? validSelected
+            : validSelected.slice(0, product.maxOptionalSelections);
 
         // Las líneas personalizables guardadas con el modelo anterior
         // (varias unidades agrupadas) se expanden en una línea por unidad.

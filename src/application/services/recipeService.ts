@@ -81,16 +81,34 @@ export async function saveRecipe(
       );
     }
 
+    // Los flags se re-deriven contra el tipo real del insumo: el cliente no
+    // puede mentir `supplyType` ni mandar combinaciones que el schema solo
+    // detecta si el cliente declaró el tipo correcto.
     if (supply.type === 'critical_supply') {
       if (!item.autoDiscount) {
         throw new ValidationError(
           `El insumo crítico ${supply.name} debe tener descuento automático.`
         );
       }
+      if (item.isOptional) {
+        throw new ValidationError(
+          `El insumo crítico ${supply.name} no puede ser opcional.`
+        );
+      }
+      if (item.selectedByDefault) {
+        throw new ValidationError(
+          `El insumo crítico ${supply.name} no puede estar preseleccionado.`
+        );
+      }
     } else {
       if (item.autoDiscount) {
         throw new ValidationError(
           `El insumo ${supply.name} no es crítico y no puede tener descuento automático.`
+        );
+      }
+      if (item.isOptional === false) {
+        throw new ValidationError(
+          `El insumo ${supply.name} no es crítico y debe ser opcional.`
         );
       }
     }

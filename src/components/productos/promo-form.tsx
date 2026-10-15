@@ -2,7 +2,7 @@
 
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { useEffect, useMemo, useState, FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -73,7 +73,6 @@ interface PromoFormData {
 interface PromoRecipeItem {
   supplyId: number;
   quantity: number;
-  isOptional: boolean;
   selectedByDefault: boolean;
 }
 
@@ -91,7 +90,6 @@ const emptyForm: PromoFormData = {
 const emptyRecipeItem: PromoRecipeItem = {
   supplyId: 0,
   quantity: 1,
-  isOptional: true,
   selectedByDefault: true,
 };
 
@@ -120,6 +118,23 @@ export function PromoForm({ product }: PromoFormProps) {
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageProcessing, setImageProcessing] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // Al fallar el guardado el banner queda al tope del formulario (largo):
+  // sin scroll el error era invisible y la acción parecía no hacer nada.
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [error]);
+
+  // Las promos no pueden ser insumos de otra promo: en el pedido un
+  // opcional compuesto no tendría sección donde mostrarse. Tampoco puede
+  // incluirse a sí misma.
+  const selectableSupplies = useMemo(
+    () => supplies.filter((s) => s.type !== 'compound' && s.id !== product?.id),
+    [supplies, product?.id]
+  );
 
   const supplyById = useMemo(
     () => new Map(supplies.map((s) => [s.id, s])),
@@ -194,12 +209,18 @@ export function PromoForm({ product }: PromoFormProps) {
 
           if (recipeRes.ok) {
             const recipe = (await recipeRes.json()) as RecipeItem[];
-            const mapped = recipe.map((r) => ({
-              supplyId: r.supplyId,
-              quantity: r.quantity,
-              isOptional: r.isOptional,
-              selectedByDefault: r.selectedByDefault,
-            }));
+            // Los flags se normalizan contra el tipo del insumo: críticos
+            // nunca son opcionales ni preseleccionables; manuales y
+            // servicios son siempre opcionales (el cliente puede quitarlos).
+            // Esto además sanea filas viejas inconsistentes al re-guardar.
+            const mapped = recipe.map((r) => {
+              const isCritical = r.supply?.type === 'critical_supply';
+              return {
+                supplyId: r.supplyId,
+                quantity: r.quantity,
+                selectedByDefault: isCritical ? false : r.selectedByDefault,
+              };
+            });
 
             setRecipeItems(
               mapped.length > 0 ? mapped : [{ ...emptyRecipeItem }]
@@ -250,9 +271,7 @@ export function PromoForm({ product }: PromoFormProps) {
       if (updates.supplyId !== undefined) {
         const supply = supplies.find((s) => s.id === merged.supplyId);
         if (supply) {
-          const isCritical = supply.type === 'critical_supply';
-          merged.isOptional = isCritical ? false : true;
-          merged.selectedByDefault = isCritical ? false : true;
+          merged.selectedByDefault = supply.type !== 'critical_supply';
         }
       }
 
@@ -308,11 +327,36 @@ export function PromoForm({ product }: PromoFormProps) {
       return;
     }
 
-    const invalidSupply = recipeItems.some(
-      (item) => !supplies.some((s) => s.id === item.supplyId)
+    const missingRows = recipeItems
+      .map((item, index) =>
+        item.supplyId && !supplyById.has(item.supplyId) ? index + 1 : null
+      )
+      .filter((row): row is number => row !== null);
+    if (missingRows.length > 0) {
+      setError(
+        `Las filas ${missingRows.join(', ')} apuntan a insumos inactivos o eliminados. Elegí otro insumo o quitá la fila.`
+      );
+      return;
+    }
+
+    const compoundRow = recipeItems.findIndex(
+      (item) => supplyById.get(item.supplyId)?.type === 'compound'
     );
-    if (invalidSupply) {
-      setError('Uno o más insumos seleccionados no están disponibles.');
+    if (compoundRow >= 0) {
+      setError(
+        `La fila ${compoundRow + 1} usa una promo como insumo; las promos no pueden anidarse. Elegí otro producto.`
+      );
+      return;
+    }
+
+    const editingProductId = product?.id ?? createdId;
+    const selfRow = recipeItems.findIndex(
+      (item) => item.supplyId === editingProductId
+    );
+    if (selfRow >= 0) {
+      setError(
+        `La fila ${selfRow + 1} apunta a esta misma promo. Una receta no puede incluirse a sí misma.`
+      );
       return;
     }
 
@@ -336,7 +380,9 @@ export function PromoForm({ product }: PromoFormProps) {
     }
 
     const defaultOptionalCount = recipeItems.filter(
-      (item) => item.isOptional && item.selectedByDefault
+      (item) =>
+        supplyById.get(item.supplyId)?.type !== 'critical_supply' &&
+        item.selectedByDefault
     ).length;
     if (parsedCap !== null && defaultOptionalCount > parsedCap) {
       setError(
@@ -350,6 +396,9 @@ export function PromoForm({ product }: PromoFormProps) {
     // Si el alta creó la promo y un paso posterior falló, el reintento actualiza
     // ese mismo producto en vez de crear un duplicado.
     let productId = product?.id ?? createdId;
+    // Marca para el mensaje de error: el PUT del producto ya se aplicó cuando
+    // la receta falla (guardado en dos requests, no atómico).
+    let productSaved = false;
 
     try {
       const formData = new FormData(e.currentTarget);
@@ -397,6 +446,8 @@ export function PromoForm({ product }: PromoFormProps) {
         }
       }
 
+      productSaved = true;
+
       if (image.source === 'upload') {
         await persistProductImageUpload(productId, image.file);
       }
@@ -408,12 +459,15 @@ export function PromoForm({ product }: PromoFormProps) {
           items: recipeItems.map((item) => {
             const supply = supplies.find((s) => s.id === item.supplyId);
             const isCritical = supply?.type === 'critical_supply';
+            // isOptional se deriva del tipo: críticos siempre fijos, el resto
+            // siempre opcionales. Nunca se envían combinaciones que la API
+            // rechaza (isOptional=false en no críticos era el 400 típico).
             return {
               supplyId: item.supplyId,
               quantity: item.quantity,
               autoDiscount: isCritical,
-              isOptional: item.isOptional,
-              selectedByDefault: item.selectedByDefault,
+              isOptional: !isCritical,
+              selectedByDefault: isCritical ? false : item.selectedByDefault,
               supplyType: supply?.type,
             };
           }),
@@ -431,7 +485,9 @@ export function PromoForm({ product }: PromoFormProps) {
       setError(
         !product && productId !== null
           ? `${message} La promo ya quedó guardada: volvé a guardar para completar el paso que falló.`
-          : message
+          : product && productSaved
+            ? `${message} Los datos de la promo se guardaron, pero la receta no. Corregí los insumos marcados y volvé a guardar.`
+            : message
       );
     } finally {
       setIsSubmitting(false);
@@ -455,7 +511,11 @@ export function PromoForm({ product }: PromoFormProps) {
       <ProductHelpCard variant="promo" />
 
       {error && (
-        <div className="rounded-lg bg-destructive/15 p-4 text-base text-destructive">
+        <div
+          ref={errorRef}
+          role="alert"
+          className="rounded-lg bg-destructive/15 p-4 text-base text-destructive"
+        >
           {error}
         </div>
       )}
@@ -524,6 +584,8 @@ export function PromoForm({ product }: PromoFormProps) {
                 (s) => s.id === item.supplyId
               );
               const isCritical = selectedSupply?.type === 'critical_supply';
+              const missingSupply = item.supplyId !== 0 && !selectedSupply;
+              const compoundSupply = selectedSupply?.type === 'compound';
 
               return (
                 <div
@@ -538,7 +600,7 @@ export function PromoForm({ product }: PromoFormProps) {
                       <SupplySearchableSelect
                         id={`promo-recipe-${index}`}
                         data-testid={`recipe-supply-select-${index}`}
-                        supplies={supplies}
+                        supplies={selectableSupplies}
                         value={item.supplyId}
                         onChange={(value) =>
                           updateRecipeItem(index, {
@@ -583,26 +645,29 @@ export function PromoForm({ product }: PromoFormProps) {
                     </div>
                   </div>
 
-                  {!isCritical && (
+                  {missingSupply && (
+                    <p
+                      role="alert"
+                      className="border-t border-white/8 pt-3 text-sm font-medium text-destructive"
+                    >
+                      Este insumo está inactivo o fue eliminado. Elegí otro o
+                      quitá la fila.
+                    </p>
+                  )}
+                  {compoundSupply && (
+                    <p
+                      role="alert"
+                      className="border-t border-white/8 pt-3 text-sm font-medium text-destructive"
+                    >
+                      Las promos no pueden ser insumos de otra promo. Elegí
+                      otro producto o quitá la fila.
+                    </p>
+                  )}
+                  {!isCritical && item.supplyId !== 0 && (
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/8 pt-3">
-                      <Label
-                        htmlFor={`promo-recipe-optional-${index}`}
-                        className="cursor-pointer gap-2 text-sm font-normal"
-                      >
-                        <input
-                          id={`promo-recipe-optional-${index}`}
-                          type="checkbox"
-                          className="h-4 w-4 accent-primary"
-                          checked={item.isOptional}
-                          onChange={(e) =>
-                            updateRecipeItem(index, {
-                              isOptional: e.target.checked,
-                            })
-                          }
-                        />
-                        Opcional
-                      </Label>
-
+                      <span className="text-sm text-muted-foreground">
+                        Opcional: el cliente puede quitarlo al pedir
+                      </span>
                       <Label
                         htmlFor={`promo-recipe-default-${index}`}
                         className="cursor-pointer gap-2 text-sm font-normal"
@@ -701,16 +766,17 @@ export function PromoForm({ product }: PromoFormProps) {
                       {item.quantity} {supply.unit}
                     </span>
                     <span className="opacity-80">de {supply.name}</span>
-                    {item.isOptional && (
+                    {supply.type !== 'critical_supply' && (
                       <span className="ml-1 inline-flex items-center rounded-full bg-background/50 px-1.5 py-0.5 text-xs text-foreground">
                         Opcional
                       </span>
                     )}
-                    {item.isOptional && item.selectedByDefault && (
-                      <span className="ml-1 inline-flex items-center rounded-full bg-background/50 px-1.5 py-0.5 text-xs text-foreground">
-                        Preseleccionado
-                      </span>
-                    )}
+                    {supply.type !== 'critical_supply' &&
+                      item.selectedByDefault && (
+                        <span className="ml-1 inline-flex items-center rounded-full bg-background/50 px-1.5 py-0.5 text-xs text-foreground">
+                          Preseleccionado
+                        </span>
+                      )}
                   </Badge>
                 );
               })}

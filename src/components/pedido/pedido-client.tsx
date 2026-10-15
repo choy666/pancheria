@@ -74,6 +74,7 @@ export function PedidoClient({
     addItem,
     removeItem,
     updateQuantity,
+    clearCart,
     recentOrders,
     removeRecentOrder,
     groupedProducts,
@@ -148,6 +149,7 @@ export function PedidoClient({
             onUpdateQuantity={updateQuantity}
             onRemove={removeItem}
             onEditLine={startEditLine}
+            onClearCart={clearCart}
             onCheckout={handleOpenCheckout}
             disabled={isCheckingAvailability}
             isCheckingAvailability={isCheckingAvailability}

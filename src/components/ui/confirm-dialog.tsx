@@ -16,6 +16,11 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /**
+   * El diálogo portalea fuera del scope `[data-theme='light']` del layout
+   * público: en `/pedido` se pasa "light" para heredar el tema claro.
+   */
+  dataTheme?: 'light';
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -26,12 +31,13 @@ export function ConfirmDialog({
   description,
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
+  dataTheme,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" data-theme={dataTheme}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

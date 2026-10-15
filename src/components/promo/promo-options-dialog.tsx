@@ -193,6 +193,14 @@ export function PromoOptionsDialog({
     [recipe]
   );
 
+  // Los insumos no opcionales (pan, salchichas, bebidas fijas) no se pueden
+  // quitar: se muestran como texto para que el cliente sepa qué trae la
+  // promo, igual que en el resumen del carrito ("Incluye: ...").
+  const includedItems = useMemo(
+    () => recipe.filter((item) => !item.isOptional),
+    [recipe]
+  );
+
   // Cota superior de UI para el stepper (99 por defecto); el tope real de
   // stock siempre lo impone `useSellableCart` al confirmar.
   const effectiveMaxQuantity = Math.max(
@@ -288,6 +296,17 @@ export function PromoOptionsDialog({
           </DialogHeader>
 
           <div className="space-y-4 pt-4">
+            {includedItems.length > 0 && (
+              <p
+                data-testid="promo-options-included"
+                className="text-sm text-muted-foreground"
+              >
+                Incluye:{' '}
+                {includedItems
+                  .map((item) => `${item.supplyName} (${item.quantity})`)
+                  .join(', ')}
+              </p>
+            )}
             {maxOptional != null && optionalCount > 0 && (
               <p
                 data-testid="promo-options-limit"

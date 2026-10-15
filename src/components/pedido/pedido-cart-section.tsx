@@ -9,6 +9,7 @@ interface PedidoCartSectionProps {
   onUpdateQuantity: (lineId: string, quantity: number) => void;
   onRemove: (lineId: string) => void;
   onEditLine?: (lineId: string) => void;
+  onClearCart?: () => void;
   onCheckout: () => void;
   disabled: boolean;
   isCheckingAvailability?: boolean;
@@ -22,6 +23,7 @@ export function PedidoCartSection({
   onUpdateQuantity,
   onRemove,
   onEditLine,
+  onClearCart,
   onCheckout,
   disabled,
   isCheckingAvailability,
@@ -35,6 +37,7 @@ export function PedidoCartSection({
       onUpdateQuantity={onUpdateQuantity}
       onRemove={onRemove}
       onEditLine={onEditLine}
+      onClearCart={onClearCart}
       onCheckout={onCheckout}
       disabled={disabled}
       isCheckingAvailability={isCheckingAvailability}

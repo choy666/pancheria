@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CardTitle } from '@/components/ui/card';
-import { ShoppingBag } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Pencil, ShoppingBag, Trash2 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
 import { CartPanel } from '@/components/cart/cart-panel';
 import { CartItemRecipeDetails } from './cart-item-recipe-details';
@@ -21,6 +23,7 @@ interface CartSummaryProps {
   onUpdateQuantity: (lineId: string, quantity: number) => void;
   onRemove: (lineId: string) => void;
   onEditLine?: (lineId: string) => void;
+  onClearCart?: () => void;
   onCheckout: () => void;
   disabled?: boolean;
   /** `true` mientras se verifica la disponibilidad de los ítems. */
@@ -35,10 +38,27 @@ export function CartSummary({
   onUpdateQuantity,
   onRemove,
   onEditLine,
+  onClearCart,
   onCheckout,
   disabled = false,
   isCheckingAvailability = false,
 }: CartSummaryProps) {
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+
+  const headerAction =
+    onClearCart && items.length > 0 ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-testid="cart-clear"
+        disabled={disabled}
+        onClick={() => setConfirmClearOpen(true)}
+      >
+        Vaciar
+      </Button>
+    ) : null;
+
   const top = branchName ? (
     <p className="text-sm text-muted-foreground">
       Sucursal: <span className="text-foreground">{branchName}</span>
@@ -60,7 +80,7 @@ export function CartSummary({
   const list = (() => {
     const shownShortageProductIds = new Set<number>();
     return (
-      <ul className="space-y-3">
+      <ul className="space-y-4">
         {items.map((item) => {
           const personalizable = hasOptionalRecipeItems(item);
           const shortage = shortageByProduct[item.id];
@@ -74,44 +94,47 @@ export function CartSummary({
               data-line-id={item.lineId}
               data-product-id={item.id}
               data-product-name={item.name}
-              className="flex items-center justify-between gap-3"
+              className="space-y-1"
             >
-              <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-3">
                 <p className="truncate font-medium">{item.name}</p>
-                <p className="font-mono text-sm text-muted-foreground">
-                  {personalizable
-                    ? formatMoney(item.price)
-                    : `${formatMoney(item.price)} x ${item.quantity}`}
+                <p className="shrink-0 font-mono text-sm font-medium">
+                  {formatMoney(item.price * item.quantity)}
                 </p>
-                {item.type === 'compound' &&
-                  item.recipe &&
-                  item.recipe.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      <CartItemRecipeDetails
-                        recipe={item.recipe}
-                        selectedRecipeItemIds={item.selectedRecipeItemIds}
-                        onlySelected
-                      />
-                    </p>
-                  )}
-                {item.notes && (
-                  <p
-                    data-testid="cart-item-note"
-                    className="text-xs italic text-muted-foreground"
-                  >
-                    Nota: {item.notes}
-                  </p>
-                )}
-                {showShortage && (
-                  <p
-                    data-testid="cart-item-shortage"
-                    className="text-xs font-medium text-amber-700"
-                  >
-                    {item.name}: no alcanza la disponibilidad. Bajá la cantidad
-                    o quitalo.
-                  </p>
-                )}
               </div>
+              <p className="font-mono text-xs text-muted-foreground">
+                {personalizable
+                  ? formatMoney(item.price)
+                  : `${formatMoney(item.price)} c/u`}
+              </p>
+              {item.type === 'compound' &&
+                item.recipe &&
+                item.recipe.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    <CartItemRecipeDetails
+                      recipe={item.recipe}
+                      selectedRecipeItemIds={item.selectedRecipeItemIds}
+                      onlySelected
+                    />
+                  </p>
+                )}
+              {item.notes && (
+                <p
+                  data-testid="cart-item-note"
+                  className="text-xs italic text-muted-foreground"
+                >
+                  Nota: {item.notes}
+                </p>
+              )}
+              {showShortage && (
+                <p
+                  data-testid="cart-item-shortage"
+                  className="text-xs font-medium text-amber-700"
+                >
+                  {item.name}: no alcanza la disponibilidad. Bajá la cantidad
+                  o quitalo.
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 {!personalizable && (
                   <>
@@ -144,28 +167,32 @@ export function CartSummary({
                     </Button>
                   </>
                 )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Quitar producto"
-                  onClick={() => onRemove(item.lineId)}
-                  disabled={disabled}
-                >
-                  ×
-                </Button>
                 {onEditLine && (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     aria-label={`Editar ${item.name}`}
                     onClick={() => onEditLine(item.lineId)}
                     disabled={disabled}
+                    className="gap-1"
                   >
+                    <Pencil className="h-3.5 w-3.5" />
                     Editar
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  data-testid="cart-item-remove"
+                  aria-label="Quitar producto"
+                  onClick={() => onRemove(item.lineId)}
+                  disabled={disabled}
+                  className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </li>
           );
@@ -219,13 +246,29 @@ export function CartSummary({
   );
 
   return (
-    <CartPanel
-      title={<CardTitle data-testid="cart-title" className="text-lg">Tu pedido</CardTitle>}
-      top={top}
-      hasItems={items.length > 0}
-      list={list}
-      empty={empty}
-      footer={footer}
-    />
+    <>
+      <CartPanel
+        title={<CardTitle data-testid="cart-title" className="text-lg">Tu pedido</CardTitle>}
+        headerAction={headerAction}
+        top={top}
+        hasItems={items.length > 0}
+        list={list}
+        empty={empty}
+        footer={footer}
+      />
+
+      <ConfirmDialog
+        open={confirmClearOpen}
+        dataTheme="light"
+        title="Vaciar pedido"
+        description="Se quitan todos los productos del pedido actual."
+        confirmLabel="Vaciar"
+        onConfirm={() => {
+          setConfirmClearOpen(false);
+          onClearCart?.();
+        }}
+        onCancel={() => setConfirmClearOpen(false)}
+      />
+    </>
   );
 }

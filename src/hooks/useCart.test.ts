@@ -370,6 +370,66 @@ describe('useCart', () => {
     expect(result.current.items[0].notes ?? null).toBeNull();
   });
 
+  test('al restaurar, descarta selecciones de opcionales que ya no existen en la receta vigente', async () => {
+    // La promo tenía los opcionales 10 y 999 cuando se guardó el carrito;
+    // la receta vigente solo conserva el 10. El 999 haría fallar el checkout.
+    const stored = {
+      version: 'pancheria-cart-v1',
+      branchId: 1,
+      items: [
+        { ...products[3], quantity: 1, selectedRecipeItemIds: [10, 999] },
+      ],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products, getAvailability })
+    );
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    expect(result.current.items[0].selectedRecipeItemIds).toEqual([10]);
+  });
+
+  test('al restaurar con una receta sin opcionales vigentes, la selección queda vacía', async () => {
+    const stored = {
+      version: 'pancheria-cart-v1',
+      branchId: 1,
+      items: [
+        { ...products[3], quantity: 1, selectedRecipeItemIds: [999] },
+      ],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+    const productosSinOpcional: CartProduct[] = products.map((p) =>
+      p.id === 4
+        ? {
+            ...p,
+            recipe: [
+              {
+                supplyId: 11,
+                supplyName: 'Pan',
+                supplyType: 'critical_supply' as const,
+                quantity: 1,
+                autoDiscount: true,
+                isOptional: false,
+                selected: true,
+                selectedByDefault: false,
+              },
+            ],
+          }
+        : p
+    );
+
+    const { result } = renderHook(() =>
+      useCart({ branchId: 1, products: productosSinOpcional, getAvailability })
+    );
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    expect(result.current.items[0].selectedRecipeItemIds).toEqual([]);
+  });
+
   test('updateLineNotes edita la aclaración de una línea existente', async () => {
     const { result } = renderHook(() =>
       useCart({ branchId: 1, products, getAvailability })

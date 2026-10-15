@@ -79,6 +79,8 @@ jest.mock('./supply-searchable-select', () => ({
 describe('PromoForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // jsdom no implementa scrollIntoView: el banner de error lo llama.
+    Element.prototype.scrollIntoView = jest.fn();
   });
 
   function buildFetchResponse(body: unknown) {
@@ -318,6 +320,7 @@ describe('PromoForm: flujo de imagen (caracterización)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockNextImageValue = { source: 'none' };
+    Element.prototype.scrollIntoView = jest.fn();
   });
 
   afterEach(() => {
@@ -470,5 +473,233 @@ describe('PromoForm: flujo de imagen (caracterización)', () => {
     await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
     expect(cuerpos('POST', '/api/productos')).toHaveLength(1);
     expect(cuerpos('PUT', '/api/productos/9')).toHaveLength(2);
+  });
+});
+
+describe('PromoForm: reglas de receta y errores', () => {
+  const pan = {
+    id: 1,
+    name: 'Pan',
+    type: 'critical_supply',
+    criticalSupplyType: 'bread',
+    unit: 'unidad',
+    stock: 12,
+  };
+  const aderezo = {
+    id: 3,
+    name: 'Aderezo mayo',
+    type: 'manual_supply',
+    criticalSupplyType: null,
+    unit: 'porción',
+    stock: 20,
+  };
+  const vaso = {
+    id: 4,
+    name: 'Vaso de gaseosa',
+    type: 'service',
+    criticalSupplyType: null,
+    unit: 'unidad',
+    stock: 0,
+  };
+  const otraPromo = {
+    id: 50,
+    name: 'Otra promo',
+    type: 'compound',
+    criticalSupplyType: null,
+    unit: 'unidad',
+    stock: 0,
+  };
+
+  const producto = {
+    id: 10,
+    name: 'Promo test',
+    price: 1500,
+    isActive: true,
+    type: 'compound' as const,
+  };
+
+  function jsonResponse(body: unknown, status = 200) {
+    return Promise.resolve({
+      ok: status >= 200 && status < 300,
+      status,
+      json: () => Promise.resolve(body),
+    });
+  }
+
+  function mockApi({
+    supplies = [pan, aderezo, vaso],
+    recipe = [] as unknown[],
+    recipePostStatus = 200,
+    recipePostBody = {},
+  }: {
+    supplies?: unknown[];
+    recipe?: unknown[];
+    recipePostStatus?: number;
+    recipePostBody?: unknown;
+  } = {}) {
+    mockFetch.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (url === '/api/recetas' && method === 'POST') {
+        return jsonResponse(recipePostBody, recipePostStatus);
+      }
+      if (url.includes('/api/recetas?productId=')) return jsonResponse(recipe);
+      if (url.startsWith('/api/productos/') && method === 'PUT') {
+        return jsonResponse({});
+      }
+      return jsonResponse({ items: supplies, total: supplies.length, page: 1, limit: 100 });
+    });
+  }
+
+  function cuerposReceta(): Record<string, unknown>[] {
+    return mockFetch.mock.calls
+      .filter(([u, init]) => u === '/api/recetas' && init?.method === 'POST')
+      .map(([, init]) => JSON.parse(init.body as string));
+  }
+
+  async function esperarFormulario() {
+    await waitFor(() =>
+      expect(screen.getByTestId('promo-recipe-0')).toBeInTheDocument()
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+
+  test('normaliza flags legacy al guardar: manual sucio pasa a opcional y el crítico pierde el preseleccionado', async () => {
+    mockApi({
+      recipe: [
+        // Fila legacy sucia: crítico con selectedByDefault=true.
+        { supplyId: 1, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: true, supply: pan },
+        // Fila legacy sucia: manual con isOptional=false (causa del 400 en producción).
+        { supplyId: 3, quantity: 1, autoDiscount: false, isOptional: false, selectedByDefault: true, supply: aderezo },
+      ],
+    });
+    render(<PromoForm product={producto} />);
+    await esperarFormulario();
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerposReceta()).toHaveLength(1));
+    const [body] = cuerposReceta();
+    const items = body.items as {
+      supplyId: number;
+      isOptional: boolean;
+      autoDiscount: boolean;
+      selectedByDefault: boolean;
+      supplyType: string;
+    }[];
+    const itemPan = items.find((i) => i.supplyId === 1)!;
+    const itemAderezo = items.find((i) => i.supplyId === 3)!;
+
+    expect(itemPan).toMatchObject({
+      isOptional: false,
+      autoDiscount: true,
+      selectedByDefault: false,
+      supplyType: 'critical_supply',
+    });
+    expect(itemAderezo).toMatchObject({
+      isOptional: true,
+      autoDiscount: false,
+      selectedByDefault: true,
+      supplyType: 'manual_supply',
+    });
+  });
+
+  test('bloquea el guardado si una fila apunta a un insumo inactivo o eliminado', async () => {
+    mockApi({
+      recipe: [
+        { supplyId: 1, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false, supply: pan },
+        // El insumo 99 ya no viene en la lista de productos activos.
+        { supplyId: 99, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: true, supply: null },
+      ],
+    });
+    render(<PromoForm product={producto} />);
+    await esperarFormulario();
+
+    expect(
+      screen.getByText(/Este insumo está inactivo o fue eliminado/)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    expect(
+      await screen.findByText(/apuntan a insumos inactivos o eliminados/)
+    ).toBeInTheDocument();
+    expect(cuerposReceta()).toHaveLength(0);
+  });
+
+  test('las promos no se ofrecen como insumos y una fila legacy con promo queda marcada y bloqueada', async () => {
+    mockApi({
+      supplies: [pan, aderezo, otraPromo],
+      recipe: [
+        { supplyId: 1, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false, supply: pan },
+        { supplyId: 50, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: false, supply: otraPromo },
+      ],
+    });
+    render(<PromoForm product={producto} />);
+    await esperarFormulario();
+
+    // El select no incluye promos ni la propia promo como opciones.
+    const opciones = screen.getAllByTestId(/^promo-recipe-\d+$/).flatMap((s) =>
+      Array.from(s.querySelectorAll('option')).map((o) => o.textContent)
+    );
+    expect(opciones).not.toContain('Otra promo');
+
+    expect(
+      screen.getByText(/Las promos no pueden ser insumos de otra promo/)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    expect(
+      await screen.findByText(/usa una promo como insumo/)
+    ).toBeInTheDocument();
+    expect(cuerposReceta()).toHaveLength(0);
+  });
+
+  test('bloquea el guardado si los preseleccionados superan el tope de opcionales', async () => {
+    mockApi({
+      recipe: [
+        { supplyId: 1, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false, supply: pan },
+        { supplyId: 3, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: true, supply: aderezo },
+        { supplyId: 4, quantity: 1, autoDiscount: false, isOptional: true, selectedByDefault: true, supply: vaso },
+      ],
+    });
+    render(<PromoForm product={{ ...producto, maxOptionalSelections: 1 }} />);
+    await esperarFormulario();
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    expect(
+      await screen.findByText(/Hay 2 insumos preseleccionados pero el tope es 1/)
+    ).toBeInTheDocument();
+    expect(cuerposReceta()).toHaveLength(0);
+  });
+
+  test('un 400 del API muestra el detalle y avisa que el producto se guardó pero la receta no', async () => {
+    mockApi({
+      recipe: [
+        { supplyId: 1, quantity: 1, autoDiscount: true, isOptional: false, selectedByDefault: false, supply: pan },
+      ],
+      recipePostStatus: 400,
+      recipePostBody: {
+        error: 'Los insumos manuales y servicios son siempre opcionales.',
+      },
+    });
+    render(<PromoForm product={producto} />);
+    await esperarFormulario();
+
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent(
+      'Los insumos manuales y servicios son siempre opcionales.'
+    );
+    expect(alerta).toHaveTextContent(
+      'Los datos de la promo se guardaron, pero la receta no.'
+    );
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 });
