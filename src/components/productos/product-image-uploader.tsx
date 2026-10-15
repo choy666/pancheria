@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   getProductImageAllowedMimeTypes,
@@ -75,6 +75,7 @@ export function ProductImageUploader({
 }: ProductImageUploaderProps) {
   const [previewIssue, setPreviewIssue] = useState<PreviewIssue | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
   // Si la selección queda obsoleta (p. ej. el usuario quitó la imagen mientras
@@ -92,8 +93,11 @@ export function ProductImageUploader({
     }
   }
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0] ?? null;
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  async function acceptFile(selected: File | null) {
     if (!selected || processing) return;
 
     const fileError = validateFile(selected);
@@ -142,6 +146,26 @@ export function ProductImageUploader({
     }
   }
 
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    void acceptFile(event.target.files?.[0] ?? null);
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    if (!processing) setIsDragOver(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setIsDragOver(false);
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setIsDragOver(false);
+    void acceptFile(event.dataTransfer.files?.[0] ?? null);
+  }
+
   function handleRemove() {
     selectionSeq.current += 1;
     if (value.source === 'upload' && value.previewUrl) {
@@ -181,21 +205,35 @@ export function ProductImageUploader({
     <div data-tour="product-image-uploader" className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="product-image-file">Archivo de imagen</Label>
-        <Input
+        <input
           id="product-image-file"
           ref={fileInputRef}
           type="file"
           accept={allowedTypes.join(',')}
           onChange={handleFileChange}
           disabled={processing}
+          className="sr-only"
         />
-        {processing && (
-          <p role="status" className="text-sm text-muted-foreground">
-            Procesando imagen…
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={openFilePicker}
+            disabled={processing}
+            className="w-full sm:w-auto"
+          >
+            <ImagePlus className="size-4" aria-hidden="true" />
+            {previewUrl ? 'Cambiar imagen' : 'Elegir imagen'}
+          </Button>
+          {processing && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Procesando imagen…
+            </p>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
-          Tipos permitidos: {allowedTypes.join(', ')}. Tamaño máximo del archivo:{' '}
+          También podés arrastrar una imagen sobre la vista previa. Tipos
+          permitidos: {allowedTypes.join(', ')}. Tamaño máximo del archivo:{' '}
           {formatSize(PRODUCT_IMAGE_INPUT_MAX_BYTES)}. Se publica en{' '}
           {PRODUCT_IMAGE_TARGET_WIDTH}×{PRODUCT_IMAGE_TARGET_HEIGHT} (16:9):
           si la foto tiene otra proporción queda completa con márgenes, y los
@@ -223,8 +261,25 @@ export function ProductImageUploader({
       </div>
 
       <div className="space-y-2">
-        <div className="overflow-hidden rounded-2xl border border-white/8 bg-card">
-          <div className="relative aspect-video w-full overflow-hidden bg-linear-to-br from-brand-red to-brand-mustard">
+        <div
+          className={`overflow-hidden rounded-2xl border bg-card transition-colors ${
+            isDragOver ? 'border-primary' : 'border-white/8'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={openFilePicker}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            disabled={processing}
+            aria-label={
+              previewUrl
+                ? 'Cambiar imagen del producto'
+                : 'Elegir imagen del producto'
+            }
+            className="group relative block aspect-video w-full cursor-pointer overflow-hidden bg-linear-to-br from-brand-red to-brand-mustard focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+          >
             {previewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -235,9 +290,34 @@ export function ProductImageUploader({
                 onError={() => handlePreviewError(previewUrl)}
               />
             ) : (
-              <ProductImageFallback productName={productName} />
+              <>
+                <ProductImageFallback productName={productName} />
+                <span className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+                  <span className="rounded-full bg-black/45 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-xs">
+                    Elegí o arrastrá una imagen
+                  </span>
+                </span>
+              </>
             )}
-          </div>
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity ${
+                isDragOver
+                  ? 'opacity-100'
+                  : previewUrl
+                    ? 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+                    : 'opacity-0'
+              }`}
+            >
+              <span className="rounded-full bg-white/90 px-3 py-1.5 text-sm font-medium text-black">
+                {isDragOver
+                  ? 'Soltá la imagen acá'
+                  : previewUrl
+                    ? 'Cambiar imagen'
+                    : ''}
+              </span>
+            </span>
+          </button>
           <div className="flex flex-wrap items-end justify-between gap-3 p-4">
             <div className="min-w-0">
               <p className="font-heading text-xl leading-tight">

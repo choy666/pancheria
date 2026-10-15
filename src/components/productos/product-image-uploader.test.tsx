@@ -243,6 +243,73 @@ describe('ProductImageUploader', () => {
     });
   });
 
+  describe('accesos para elegir archivo', () => {
+    test('el botón Elegir imagen abre el selector de archivos', () => {
+      renderUploader();
+      const input = screen.getByLabelText('Archivo de imagen');
+      const clickSpy = jest
+        .spyOn(input, 'click')
+        .mockImplementation(() => undefined);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Elegir imagen' }));
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+
+    test('con imagen cargada el botón ofrece Cambiar imagen', () => {
+      renderUploader({ value: guardada });
+
+      expect(
+        screen.getByRole('button', { name: 'Cambiar imagen' })
+      ).toBeInTheDocument();
+    });
+
+    test('la zona de vista previa también abre el selector', () => {
+      renderUploader();
+      const input = screen.getByLabelText('Archivo de imagen');
+      const clickSpy = jest
+        .spyOn(input, 'click')
+        .mockImplementation(() => undefined);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Elegir imagen del producto' })
+      );
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+
+    test('soltar un archivo válido en la vista previa lo normaliza y lo aplica', async () => {
+      const { onChange } = renderUploader();
+
+      fireEvent.drop(
+        screen.getByRole('button', { name: 'Elegir imagen del producto' }),
+        { dataTransfer: { files: [archivo('foto.png', 'image/png')] } }
+      );
+
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith(
+          expect.objectContaining({ source: 'upload', previewUrl: 'blob:nueva' })
+        )
+      );
+    });
+
+    test('soltar un tipo no permitido avisa el error y no quita la imagen guardada', () => {
+      const { onChange, onErrorChange } = renderUploader({ value: guardada });
+
+      fireEvent.drop(
+        screen.getByRole('button', { name: 'Cambiar imagen del producto' }),
+        { dataTransfer: { files: [archivo('catalogo.gif', 'image/gif')] } }
+      );
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onErrorChange).toHaveBeenCalledWith(
+        expect.stringContaining('Tipo no permitido')
+      );
+    });
+  });
+
   describe('vista previa', () => {
     test('un archivo pendiente que el navegador no puede mostrar bloquea con error y no lo descarta', () => {
       const pendiente: ProductImageValue = {

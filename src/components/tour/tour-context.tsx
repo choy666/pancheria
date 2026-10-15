@@ -342,7 +342,7 @@ export function TourProvider({
             popover: {
               title: 'Imagen de la promo',
               description:
-                'Subí una imagen desde tu dispositivo o usá una URL pública. Se mostrará en el catálogo de pedidos.',
+                'Tocá "Elegir imagen" o arrastrá un archivo sobre la vista previa. Se mostrará en el catálogo de pedidos.',
             },
           }
         );
