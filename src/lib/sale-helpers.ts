@@ -1,12 +1,24 @@
 import { addMoney, moneyToNumber, multiplyMoney, parseMoney } from '@/lib/money';
 import { buildRecipeSnapshot } from '@/lib/product-helpers';
 import { normalizeItemNote } from '@/lib/cart-helpers';
-import type { ProductRow, RecipeItemConfig } from '@/domain/types';
+import type {
+  CriticalSupplyType,
+  ProductRow,
+  ProductType,
+  RecipeItemConfig,
+} from '@/domain/types';
 import type { RecipeWithSupply } from '@/lib/recipe-helpers';
 
 export type SaleItemValue = {
-  productId: number;
+  /**
+   * `null` solo cuando el valor proviene de una fila histórica cuyo
+   * producto fue purgado (anulación/reintegro); en el alta siempre está
+   * seteado porque `prepareCart` valida que el producto exista.
+   */
+  productId: number | null;
   productName: string;
+  productType: ProductType;
+  criticalSupplyType: CriticalSupplyType | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -58,6 +70,8 @@ export function buildSaleItemValues(
     saleItemValues.push({
       productId: item.productId,
       productName: product.name,
+      productType: product.type,
+      criticalSupplyType: product.criticalSupplyType,
       quantity: item.quantity,
       unitPrice: moneyToNumber(unitPrice),
       subtotal: moneyToNumber(subtotal),

@@ -14,6 +14,7 @@ import {
 import * as productRepository from '@/repositories/productRepository';
 import type { ProductInsert, ProductUpdate } from '@/repositories/productRepository';
 import * as recipeRepository from '@/repositories/recipeRepository';
+import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import * as saleService from '@/application/services/saleService';
 import * as productImageStorage from '@/lib/product-image-storage';
 import { db } from '@/db';
@@ -24,6 +25,7 @@ import type { PaginatedResult, ProductRow } from '@/domain/types';
 
 jest.mock('@/repositories/productRepository');
 jest.mock('@/repositories/recipeRepository');
+jest.mock('@/repositories/orderStockReservationRepository');
 jest.mock('@/application/services/saleService');
 jest.mock('@/lib/product-image-storage');
 jest.mock('@/application/transactionService', () => ({
@@ -57,6 +59,10 @@ const mockedRecipeRepository = recipeRepository as unknown as {
   findBySupplyId: jest.Mock;
   deleteByCompoundProductId: jest.Mock;
 };
+const mockedOrderStockReservationRepository =
+  orderStockReservationRepository as jest.Mocked<
+    typeof orderStockReservationRepository
+  >;
 const mockedSaleService = saleService as jest.Mocked<typeof saleService>;
 const mockedProductImageStorage = productImageStorage as jest.Mocked<
   typeof productImageStorage
@@ -88,9 +94,14 @@ describe('productService', () => {
       async (branchId: number, id: number, includeDeleted = false) =>
         mockedProductRepository.findById(branchId, id, includeDeleted)
     );
-    mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+    mockedProductRepository.findProductIdsInOpenOrders.mockResolvedValue(
       new Set<number>()
     );
+    mockedProductRepository.findProductIdsUsedByRecipes.mockResolvedValue(
+      new Set<number>()
+    );
+    mockedProductRepository.findDeletedIdsInRange.mockResolvedValue([]);
+    mockedProductRepository.findDeletedByIds.mockResolvedValue([]);
     mockedProductRepository.hardDeleteMany.mockResolvedValue([]);
   });
 
@@ -1016,7 +1027,10 @@ describe('productService', () => {
 
   describe('permanentlyDeleteProduct', () => {
     beforeEach(() => {
-      mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+      mockedProductRepository.findProductIdsInOpenOrders.mockResolvedValue(
+        new Set<number>()
+      );
+      mockedProductRepository.findProductIdsUsedByRecipes.mockResolvedValue(
         new Set<number>()
       );
     });
@@ -1036,7 +1050,7 @@ describe('productService', () => {
       expect(mockedProductRepository.hardDelete).not.toHaveBeenCalled();
     });
 
-    test('rechaza eliminar un producto con ventas asociadas', async () => {
+    test('rechaza eliminar un producto que es insumo de una receta existente', async () => {
       mockedProductRepository.findByIdForUpdate.mockResolvedValue({
         id: 1,
         name: 'Pan',
@@ -1044,7 +1058,7 @@ describe('productService', () => {
         deletedAt: new Date(),
         branchId: BRANCH_ID,
       } as ProductRow);
-      mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+      mockedProductRepository.findProductIdsUsedByRecipes.mockResolvedValue(
         new Set([1])
       );
 
@@ -1052,6 +1066,57 @@ describe('productService', () => {
         ValidationError
       );
       expect(mockedProductRepository.hardDelete).not.toHaveBeenCalled();
+    });
+
+    test('rechaza eliminar un producto presente en un pedido abierto', async () => {
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue({
+        id: 1,
+        name: 'Pan',
+        type: 'critical_supply',
+        deletedAt: new Date(),
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedProductRepository.findProductIdsInOpenOrders.mockResolvedValue(
+        new Set([1])
+      );
+
+      await expect(permanentlyDeleteProduct(BRANCH_ID, 1)).rejects.toThrow(
+        ValidationError
+      );
+      expect(mockedProductRepository.hardDelete).not.toHaveBeenCalled();
+    });
+
+    test('permite eliminar un producto con historial (ventas, pedidos, movimientos)', async () => {
+      // Las referencias históricas ya no bloquean: las filas llevan
+      // snapshot y sus FKs son `ON DELETE SET NULL`. Solo las
+      // dependencias vivas (receta vigente, pedido abierto) bloquean.
+      mockedProductRepository.findByIdForUpdate.mockResolvedValue({
+        id: 1,
+        name: 'Pan viejo',
+        type: 'critical_supply',
+        deletedAt: new Date(),
+        imageKey: null,
+        branchId: BRANCH_ID,
+      } as ProductRow);
+      mockedProductRepository.hardDelete.mockResolvedValue({
+        id: 1,
+        name: 'Pan viejo',
+        deletedAt: new Date(),
+        imageKey: null,
+      } as ProductRow);
+
+      const result = await permanentlyDeleteProduct(BRANCH_ID, 1);
+
+      expect(result!.id).toBe(1);
+      expect(mockedProductRepository.hardDelete).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        db
+      );
+      // Las reservas transitorias se purgan explícito antes del delete.
+      expect(
+        mockedOrderStockReservationRepository.deleteByProductIds
+      ).toHaveBeenCalledWith(db, [1]);
     });
 
     test('elimina permanentemente un producto en papelera y borra la imagen', async () => {
@@ -1155,21 +1220,17 @@ describe('productService', () => {
 
   describe('emptyTrash', () => {
     beforeEach(() => {
-      mockedProductRepository.findDeletedInRange.mockResolvedValue({
-        items: [
-          { id: 1, name: 'Pancho', deletedAt: new Date(), imageKey: null },
-          { id: 2, name: 'Gaseosa', deletedAt: new Date(), imageKey: null },
-        ] as ProductRow[],
-        total: 2,
-        page: 1,
-        limit: 2,
-      });
+      mockedProductRepository.findDeletedIdsInRange.mockResolvedValue([1, 2]);
+      mockedProductRepository.findDeletedByIds.mockResolvedValue([
+        { id: 1, name: 'Pancho', deletedAt: new Date(), imageKey: null },
+        { id: 2, name: 'Gaseosa', deletedAt: new Date(), imageKey: null },
+      ] as ProductRow[]);
 
       mockedProductRepository.hardDeleteMany.mockResolvedValue([]);
     });
 
-    test('elimina productos sin referencias y omite los que tienen historial', async () => {
-      mockedProductRepository.findReferencedProductIds.mockResolvedValue(
+    test('elimina productos sin bloqueos y omite los que tienen dependencias vivas', async () => {
+      mockedProductRepository.findProductIdsUsedByRecipes.mockResolvedValue(
         new Set([2])
       );
 
@@ -1185,18 +1246,25 @@ describe('productService', () => {
 
       expect(result.deleted).toBe(1);
       expect(result.skipped).toEqual([
-        { id: 2, name: 'Gaseosa' },
+        {
+          id: 2,
+          name: 'Gaseosa',
+          reason: 'Es insumo de la receta de un producto compuesto.',
+        },
       ]);
-      expect(mockedProductRepository.findDeletedInRange).toHaveBeenCalledWith(
+      expect(
+        mockedProductRepository.findDeletedIdsInRange
+      ).toHaveBeenCalledWith(BRANCH_ID, expect.any(Date), expect.any(Date));
+      expect(mockedProductRepository.findDeletedByIds).toHaveBeenCalledWith(
         BRANCH_ID,
-        expect.any(Date),
-        expect.any(Date),
-        expect.objectContaining({ page: 1, limit: 100 })
-      );
-      expect(mockedProductRepository.findReferencedProductIds).toHaveBeenCalledWith(
-        expect.anything(),
         [1, 2]
       );
+      expect(
+        mockedProductRepository.findProductIdsInOpenOrders
+      ).toHaveBeenCalledWith(expect.anything(), [1, 2]);
+      expect(
+        mockedProductRepository.findProductIdsUsedByRecipes
+      ).toHaveBeenCalledWith(expect.anything(), [1, 2], [1, 2]);
       expect(mockedProductRepository.hardDeleteMany).toHaveBeenCalledWith(
         BRANCH_ID,
         [1],
@@ -1205,12 +1273,7 @@ describe('productService', () => {
     });
 
     test('devuelve 0 eliminados si no hay productos en el rango', async () => {
-      mockedProductRepository.findDeletedInRange.mockResolvedValue({
-        items: [],
-        total: 0,
-        page: 1,
-        limit: 0,
-      });
+      mockedProductRepository.findDeletedIdsInRange.mockResolvedValue([]);
 
       const result = await emptyTrash(
         BRANCH_ID,

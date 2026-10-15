@@ -6,7 +6,7 @@ import {
 } from './ventas-helpers';
 import { getDefaultSelectedRecipeItemIds } from '@/lib/cart-helpers';
 import type { SellableProduct } from './ventas-helpers';
-import type { ProductType, CriticalSupplyType, RecipeItemConfig } from '@/domain/types';
+import type { ProductType, CriticalSupplyType, CartRecipeItem } from '@/domain/types';
 
 function makeProduct(overrides: {
   id: number;
@@ -14,7 +14,7 @@ function makeProduct(overrides: {
   type: ProductType;
   criticalSupplyType?: CriticalSupplyType | null;
   availability?: number;
-  recipe?: RecipeItemConfig[];
+  recipe?: CartRecipeItem[];
 }): SellableProduct {
   return {
     id: overrides.id,
@@ -37,8 +37,8 @@ function makeProduct(overrides: {
 }
 
 function makeRecipeItem(
-  overrides: Partial<RecipeItemConfig> & { supplyId: number }
-): RecipeItemConfig {
+  overrides: Partial<CartRecipeItem> & { supplyId: number }
+): CartRecipeItem {
   return {
     supplyId: overrides.supplyId,
     supplyName: overrides.supplyName ?? 'Insumo',

@@ -17,7 +17,7 @@ import { ProductCardAvailability } from '@/components/productos/product-card-ava
 import { ProductCardRecipeIncluded } from '@/components/productos/product-card-recipe-included';
 import { ProductCardSalesExtra } from '@/components/productos/product-card-sales-extra';
 import { productTypeLabels, criticalTypeLabels } from '@/lib/product-style';
-import type { CriticalSupplyType, ProductType, RecipeItemConfig } from '@/domain/types';
+import type { CriticalSupplyType, ProductType, CartRecipeItem } from '@/domain/types';
 
 /**
  * Campos mínimos que necesita la tarjeta de producto en ambos contextos.
@@ -34,7 +34,7 @@ export interface ProductCardProduct {
   unit?: string;
   imageUrl?: string | null;
   availability: number;
-  recipe?: RecipeItemConfig[];
+  recipe?: CartRecipeItem[];
   maxOptionalSelections?: number | null;
 }
 

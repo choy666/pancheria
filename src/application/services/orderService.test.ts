@@ -178,6 +178,9 @@ function createOrderItemRow(
     id: 1,
     orderId: 1,
     productId: 1,
+    productName: 'Pan',
+    productType: 'critical_supply',
+    criticalSupplyType: 'bread',
     quantity: 1,
     unitPrice: 1000,
     subtotal: 1000,
@@ -1405,7 +1408,7 @@ describe('orderService', () => {
       });
 
       mockedOrderStockReservationRepository.findByOrderId.mockResolvedValue([
-        { branchId: BRANCH_ID, orderId: 1, productId: 1, quantity: 2 },
+        { branchId: BRANCH_ID, orderId: 1, productId: 1, productName: 'Gaseosa', quantity: 2 },
       ]);
 
       const result = await cancelOrder(
@@ -1624,7 +1627,7 @@ describe('orderService', () => {
       });
 
       mockedOrderStockReservationRepository.findByOrderId.mockResolvedValue([
-        { branchId: BRANCH_ID, orderId: 1, productId: 1, quantity: 2 },
+        { branchId: BRANCH_ID, orderId: 1, productId: 1, productName: 'Gaseosa', quantity: 2 },
       ]);
 
       const result = await convertOrderToSale({
@@ -2307,12 +2310,14 @@ describe('orderService', () => {
         branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
         items: [
           {
-            ...createOrderItemRow({ quantity: 2, subtotal: 2000, notes: 'bien tostado' }),
+            ...createOrderItemRow({ productName: 'Promo 1', quantity: 2, subtotal: 2000, notes: 'bien tostado' }),
             product: { id: 1, name: 'Promo 1' },
             recipeSnapshots: recipeSnapshot,
           },
           {
-            ...createOrderItemRow({ id: 2, productId: 9, quantity: 1, subtotal: 500 }),
+            // Ítem cuyo producto fue purgado: productId quedó null y el
+            // nombre sobrevive en el snapshot `product_name`.
+            ...createOrderItemRow({ id: 2, productId: null, productName: 'Producto #9', quantity: 1, subtotal: 500 }),
             product: null,
           },
         ],

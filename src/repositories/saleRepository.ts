@@ -10,7 +10,14 @@ import {
 } from '@/db/schema';
 import { DomainError } from '@/domain/errors';
 import { nowUTC } from '@/lib/date';
-import type { PaginatedResult, PaginationParams, PaymentPart, SaleStatus } from '@/domain/types';
+import type {
+  CriticalSupplyType,
+  PaginatedResult,
+  PaginationParams,
+  PaymentPart,
+  ProductType,
+  SaleStatus,
+} from '@/domain/types';
 
 export type SaleRow = typeof sales.$inferSelect;
 export type SalePublicRow = Omit<SaleRow, 'idempotencyHash'>;
@@ -189,6 +196,9 @@ export async function create(params: {
   idempotencyKey: string;
   items: {
     productId: number;
+    productName: string;
+    productType: ProductType;
+    criticalSupplyType?: CriticalSupplyType | null;
     quantity: number;
     unitPrice: number;
     subtotal: number;
@@ -216,6 +226,9 @@ export async function create(params: {
     items.map((item) => ({
       saleId: sale.id,
       productId: item.productId,
+      productName: item.productName,
+      productType: item.productType,
+      criticalSupplyType: item.criticalSupplyType ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,

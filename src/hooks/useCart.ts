@@ -4,9 +4,9 @@ import { nanoid } from 'nanoid';
 import { hasOptionalRecipeItems } from '@/lib/cart-helpers';
 import { useSellableCart, type SellableCartLine } from './useSellableCart';
 import type {
+  CartRecipeItem,
   CriticalSupplyType,
   ProductType,
-  RecipeItemConfig,
 } from '@/domain/types';
 
 export interface CartProduct {
@@ -17,7 +17,7 @@ export interface CartProduct {
   type: ProductType;
   criticalSupplyType?: CriticalSupplyType | null;
   maxOptionalSelections?: number | null;
-  recipe?: RecipeItemConfig[];
+  recipe?: CartRecipeItem[];
 }
 
 export interface CartItem extends CartProduct {

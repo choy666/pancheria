@@ -127,8 +127,10 @@ async function getLegacySaleHash(
   if (
     savedItems.some(
       (item) =>
+        item.productId == null ||
         !item.product ||
-        (item.product.type === 'compound' && !item.recipeSnapshots?.length)
+        ((item.productType ?? item.product.type) === 'compound' &&
+          !item.recipeSnapshots?.length)
     )
   ) {
     return null;
@@ -138,11 +140,13 @@ async function getLegacySaleHash(
     branchId,
     items: normalizeIdempotencyItems(
       savedItems.map((item) => ({
-        productId: item.productId,
+        // El `some` anterior garantiza `productId` no nulo acá.
+        productId: item.productId!,
         quantity: item.quantity,
         selectedRecipeItemIds: (item.recipeSnapshots ?? [])
           .filter((recipe) => recipe.isOptional && recipe.selected)
-          .map((recipe) => recipe.supplyId),
+          .map((recipe) => recipe.supplyId)
+          .filter((id): id is number => id != null),
         notes: item.notes,
       }))
     ),

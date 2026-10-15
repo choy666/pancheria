@@ -92,6 +92,7 @@ describe('stockMovementRepository', () => {
         id: 1,
         branchId: BRANCH_ID,
         productId: 1,
+        productName: 'Pan',
         type: 'restock',
         quantity: 10,
         reason: 'Compra semanal',
@@ -102,6 +103,7 @@ describe('stockMovementRepository', () => {
       const result = await stockMovementRepository.create({
         branchId: BRANCH_ID,
         productId: 1,
+        productName: 'Pan',
         type: 'restock',
         quantity: 10,
         reason: 'Compra semanal',
@@ -113,6 +115,7 @@ describe('stockMovementRepository', () => {
         expect.objectContaining({
           branchId: BRANCH_ID,
           productId: 1,
+          productName: 'Pan',
           type: 'restock',
           quantity: 10,
           reason: 'Compra semanal',
@@ -127,6 +130,7 @@ describe('stockMovementRepository', () => {
       await stockMovementRepository.create({
         branchId: BRANCH_ID,
         productId: 1,
+        productName: 'Pan',
         type: 'sale',
         quantity: -1,
       });
@@ -145,6 +149,7 @@ describe('stockMovementRepository', () => {
       const result = await stockMovementRepository.create({
         branchId: BRANCH_ID,
         productId: 1,
+        productName: 'Pan',
         type: 'manual_adjustment',
         quantity: 0,
       });

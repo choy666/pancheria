@@ -274,6 +274,13 @@
       "when": 1791207945516,
       "tag": "0038_branches_is_active",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792094472453,
+      "tag": "0039_flippant_daredevil",
+      "breakpoints": true
     }
   ]
 }

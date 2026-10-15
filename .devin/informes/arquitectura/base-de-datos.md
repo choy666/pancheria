@@ -99,7 +99,10 @@ erDiagram
     sale_items {
         serial id PK
         integer sale_id FK "cascade"
-        integer product_id FK "restrict"
+        integer product_id FK "products.id set null — snapshot propio (0039)"
+        varchar product_name "snapshot del producto (0039)"
+        product_type product_type "snapshot (0039)"
+        critical_supply_type critical_supply_type "snapshot (0039)"
         integer quantity
         numeric unit_price
         numeric subtotal
@@ -115,7 +118,7 @@ erDiagram
     sale_item_recipes {
         serial id PK
         integer sale_item_id FK "cascade"
-        integer supply_id FK "products.id restrict"
+        integer supply_id FK "products.id set null (0039)"
         varchar supply_name
         product_type supply_type
         integer quantity
@@ -148,7 +151,10 @@ erDiagram
     order_items {
         serial id PK
         integer order_id FK "cascade"
-        integer product_id FK "restrict"
+        integer product_id FK "products.id set null — snapshot propio (0039)"
+        varchar product_name "snapshot del producto (0039)"
+        product_type product_type "snapshot (0039)"
+        critical_supply_type critical_supply_type "snapshot (0039)"
         integer quantity
         numeric unit_price
         numeric subtotal
@@ -157,7 +163,7 @@ erDiagram
     order_item_recipes {
         serial id PK
         integer order_item_id FK "cascade"
-        integer supply_id FK "products.id restrict"
+        integer supply_id FK "products.id set null (0039)"
         varchar supply_name
         product_type supply_type
         integer quantity
@@ -193,7 +199,8 @@ erDiagram
     stock_movements {
         serial id PK
         integer branch_id FK
-        integer product_id FK
+        integer product_id FK "products.id set null (0039)"
+        varchar product_name "snapshot del producto (0039)"
         stock_movement_type type "sale|cancellation|manual_adjustment|restock|reserve|reserve_release"
         integer quantity
         text reason
@@ -238,12 +245,12 @@ erDiagram
 
     products ||--o{ recipes : "compound_product_id (cascade)"
     products ||--o{ recipes : "supply_id (cascade)"
-    products ||--o{ sale_items : "product_id (restrict)"
-    products ||--o{ order_items : "product_id (restrict)"
+    products ||--o{ sale_items : "product_id (set null, snapshot)"
+    products ||--o{ order_items : "product_id (set null, snapshot)"
     products ||--o{ order_stock_reservations : "product_id (restrict)"
-    products ||--o{ stock_movements : "product_id (restrict)"
-    products ||--o{ sale_item_recipes : "supply_id (restrict)"
-    products ||--o{ order_item_recipes : "supply_id (restrict)"
+    products ||--o{ stock_movements : "product_id (set null, snapshot)"
+    products ||--o{ sale_item_recipes : "supply_id (set null, snapshot)"
+    products ||--o{ order_item_recipes : "supply_id (set null, snapshot)"
 
     cash_registers ||--o{ sales : "cash_register_id (set null)"
     sales ||--o{ sale_items : "sale_id (cascade)"
@@ -266,8 +273,8 @@ erDiagram
 
 | Enum | Valores | Uso |
 | --- | --- | --- |
-| `product_type` | `critical_supply`, `compound`, `manual_supply`, `service` | `products.type`, `*_item_recipes.supply_type` |
-| `critical_supply_type` | `bread`, `sausage`, `beverage` | `products.critical_supply_type` |
+| `product_type` | `critical_supply`, `compound`, `manual_supply`, `service` | `products.type`, `*_item_recipes.supply_type`, `sale_items.product_type`, `order_items.product_type` |
+| `critical_supply_type` | `bread`, `sausage`, `beverage` | `products.critical_supply_type`, `sale_items.critical_supply_type`, `order_items.critical_supply_type` |
 | `payment_method` | `cash`, `transfer` | `sales.payment_method`, `sale_payments.method` |
 | `sale_status` | `active`, `cancelled` | `sales.status` |
 | `order_status` | `pending`, `in_process`, `paid`, `finished`, `cancelled` | `orders.status` |
@@ -291,15 +298,15 @@ erDiagram
 | `recipes` | Receta: insumo (`supply_id`) que compone un producto `compound` | FKs cascade a `products` ×2; idx por ambas FK |
 | `cash_registers` | Cajas por turno. Resúmenes congelados en JSONB al cerrar | **Unique parcial**: una sola `open` por `branch_id` con `deleted_at IS NULL`; idx `status`, `opened_at`, `(branch_id,status,deleted_at)` |
 | `sales` | Venta (cabecera). `idempotency_key` por sucursal | UNIQUE `(branch_id, idempotency_key)`; idx `created_at`, `(branch_id,created_at)`, `(cash_register_id,created_at)` |
-| `sale_items` | Línea de venta; `notes` guarda aclaraciones por ítem (migración `0034`) | cascade a `sales`; `product_id` restrict |
+| `sale_items` | Línea de venta; `notes` guarda aclaraciones por ítem (migración `0034`); snapshot del producto en `product_name`/`product_type`/`critical_supply_type` (migración `0039`) | cascade a `sales`; `product_id` set null |
 | `sale_payments` | Pagos multi-parte de la venta | cascade a `sales` |
-| `sale_item_recipes` | **Snapshot** de la receta al vender (insumo, qty, selected) | cascade a `sale_items`; `supply_id` restrict |
+| `sale_item_recipes` | **Snapshot** de la receta al vender (insumo, qty, selected) | cascade a `sale_items`; `supply_id` set null (0039) |
 | `orders` | Pedido público. `cancellation_token` = credencial del cliente | UNIQUE `cancellation_token`; UNIQUE `(branch_id, order_number)`; UNIQUE `(branch_id, idempotency_key)`; idx `status`, `created_at`, `customer_name`, `customer_phone`, `converted_sale_id` |
-| `order_items` | Línea de pedido; `notes` guarda aclaraciones por ítem (migración `0034`) | cascade a `orders`; `product_id` restrict |
-| `order_item_recipes` | **Snapshot** de receta en pedido | cascade a `order_items`; `supply_id` restrict |
+| `order_items` | Línea de pedido; `notes` guarda aclaraciones por ítem (migración `0034`); snapshot del producto en `product_name`/`product_type`/`critical_supply_type` (migración `0039`) | cascade a `orders`; `product_id` set null |
+| `order_item_recipes` | **Snapshot** de receta en pedido | cascade a `order_items`; `supply_id` set null (0039) |
 | `order_stock_reservations` | Reserva de stock de pedidos `in_process` | cascade a `orders`; idx `(branch_id, product_id)` |
 | `order_messages` | Chat del pedido (texto/adjunto/ubicación) | cascade a `orders`; idx `(order_id, created_at)`, `(order_id, sender_type, read_at)`, `attachment_key` |
-| `stock_movements` | Auditoría de stock (venta, anulación, ajuste, restock, reserva, liberación). `performed_by` guarda el usuario que registró un ajuste manual (migración `0035`; NULL en movimientos de sistema — ventas, reservas — e históricos) | `sale_id`/`order_id` set null; idx `(branch_id, product_id, created_at)` |
+| `stock_movements` | Auditoría de stock (venta, anulación, ajuste, restock, reserva, liberación). `performed_by` guarda el usuario que registró un ajuste manual (migración `0035`; NULL en movimientos de sistema — ventas, reservas — e históricos); `product_name` snapshot del producto (migración `0039`) | `product_id`/`sale_id`/`order_id` set null; idx `(branch_id, product_id, created_at)` |
 | `videos` | Videos para cartelera/Cast. `file_url` apunta al provider | idx `(branch_id, is_active, deleted_at)` |
 
 ### Tablas de infraestructura (rate limiting)

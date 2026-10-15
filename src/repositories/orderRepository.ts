@@ -173,7 +173,7 @@ export async function findChatStreamState(
 export async function findByIdForCancel(
   branchId: number,
   id: number
-): Promise<(OrderWithItems & { items: { productId: number; quantity: number }[] }) | undefined> {
+): Promise<(OrderWithItems & { items: { productId: number | null; quantity: number }[] }) | undefined> {
   const order = await db.query.orders.findFirst({
     where: and(eq(orders.id, id), eq(orders.branchId, branchId), isNull(orders.deletedAt)),
     with: { branch: true, items: true },
@@ -181,7 +181,7 @@ export async function findByIdForCancel(
 
   if (!order) return undefined;
   const safeOrder = stripIdempotencyHash(order);
-  return safeOrder as OrderWithItems & { items: { productId: number; quantity: number }[] };
+  return safeOrder as OrderWithItems & { items: { productId: number | null; quantity: number }[] };
 }
 
 export async function findByIdempotencyKey(

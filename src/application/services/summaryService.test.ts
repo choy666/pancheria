@@ -139,6 +139,10 @@ describe('summaryService', () => {
           items: [
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Promo',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: {
                 id: 1,
                 name: 'Promo',
@@ -154,6 +158,10 @@ describe('summaryService', () => {
           items: [
             {
               quantity: 2,
+              productId: 3,
+              productName: 'Gaseosa',
+              productType: 'critical_supply',
+              criticalSupplyType: 'beverage',
               product: {
                 id: 3,
                 name: 'Gaseosa',
@@ -279,6 +287,10 @@ describe('summaryService', () => {
           items: [
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Promo',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: {
                 id: 1,
                 name: 'Promo',
@@ -296,6 +308,10 @@ describe('summaryService', () => {
           items: [
             {
               quantity: 2,
+              productId: 3,
+              productName: 'Gaseosa',
+              productType: 'critical_supply',
+              criticalSupplyType: 'beverage',
               product: {
                 id: 3,
                 name: 'Gaseosa',
@@ -305,6 +321,10 @@ describe('summaryService', () => {
             },
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Promo',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: {
                 id: 1,
                 name: 'Promo',

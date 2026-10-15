@@ -52,8 +52,8 @@ describe('sale-helpers', () => {
       ]);
 
       expect(saleItemValues).toEqual([
-        { productId: 1, productName: 'Pancho', quantity: 2, unitPrice: 1000, subtotal: 2000, notes: null },
-        { productId: 2, productName: 'Coca', quantity: 1, unitPrice: 1500, subtotal: 1500, notes: null },
+        { productId: 1, productName: 'Pancho', productType: 'critical_supply', criticalSupplyType: 'sausage', quantity: 2, unitPrice: 1000, subtotal: 2000, notes: null, recipeSnapshot: undefined },
+        { productId: 2, productName: 'Coca', productType: 'critical_supply', criticalSupplyType: 'beverage', quantity: 1, unitPrice: 1500, subtotal: 1500, notes: null, recipeSnapshot: undefined },
       ]);
       expect(total).toBe(3500);
     });
@@ -64,7 +64,7 @@ describe('sale-helpers', () => {
       ]);
 
       expect(saleItemValues).toEqual([
-        { productId: 1, productName: 'Pancho', quantity: 2, unitPrice: 1200, subtotal: 2400, notes: null },
+        { productId: 1, productName: 'Pancho', productType: 'critical_supply', criticalSupplyType: 'sausage', quantity: 2, unitPrice: 1200, subtotal: 2400, notes: null, recipeSnapshot: undefined },
       ]);
       expect(total).toBe(2400);
     });

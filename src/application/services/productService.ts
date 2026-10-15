@@ -2,6 +2,7 @@ import { db } from '@/db';
 import { executeInTransaction } from '@/application/transactionService';
 import * as productRepository from '@/repositories/productRepository';
 import * as recipeRepository from '@/repositories/recipeRepository';
+import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import * as saleService from '@/application/services/saleService';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { isUniqueViolationError } from '@/lib/db-errors';
@@ -349,6 +350,16 @@ export async function restoreProduct(branchId: number, id: number) {
   }
 }
 
+/**
+ * Elimina el producto definitivamente. Las referencias históricas
+ * (ventas, pedidos, movimientos, recetas de ítems) quedan desacopladas
+ * por `ON DELETE SET NULL` + snapshots de nombre/tipo, así que ya no
+ * bloquean. Solo se rechaza cuando el producto todavía es necesario para
+ * un workflow vivo:
+ *  - un pedido abierto (`pending`/`in_process`) que lo contiene, o
+ *  - la receta de un compuesto que no se está eliminando en la misma
+ *    purga (la cascada de `recipes.supply_id` la mutilaría en silencio).
+ */
 export async function permanentlyDeleteProduct(branchId: number, id: number) {
   const product = await executeInTransaction(async (tx) => {
     const current = await productRepository.findByIdForUpdate(branchId, id, true, tx);
@@ -360,15 +371,26 @@ export async function permanentlyDeleteProduct(branchId: number, id: number) {
       );
     }
 
-    const referencedIds = await productRepository.findReferencedProductIds(tx, [
-      id,
+    const [inOpenOrders, usedByRecipes] = await Promise.all([
+      productRepository.findProductIdsInOpenOrders(tx, [id]),
+      productRepository.findProductIdsUsedByRecipes(tx, [id], [id]),
     ]);
 
-    if (referencedIds.has(id)) {
+    if (inOpenOrders.has(id)) {
       throw new ValidationError(
-        `No se puede eliminar permanentemente '${current.name}' porque tiene ventas, pedidos o movimientos asociados.`
+        `No se puede eliminar permanentemente '${current.name}' porque está en un pedido pendiente o en preparación. Cancelá o completá el pedido primero.`
       );
     }
+
+    if (usedByRecipes.has(id)) {
+      throw new ValidationError(
+        `No se puede eliminar permanentemente '${current.name}' porque es insumo de la receta de un producto compuesto. Eliminá primero esa receta.`
+      );
+    }
+
+    // Las reservas de stock son transitorias y el FK es `restrict`: se
+    // borran explícito antes de eliminar la fila.
+    await orderStockReservationRepository.deleteByProductIds(tx, [id]);
 
     const deleted = await productRepository.hardDelete(branchId, id, tx);
     if (!deleted) throw new NotFoundError('Producto', id);
@@ -385,47 +407,86 @@ export async function permanentlyDeleteProduct(branchId: number, id: number) {
 
 const EMPTY_TRASH_BATCH_SIZE = 100;
 
+type TrashSkip = { id: number; name: string; reason: string };
+
+/**
+ * Vacía la papelera del rango. Se itera por chunks de ids obtenidos al
+ * inicio (no por páginas) porque borrar filas mientras se pagina
+ * desplaza el offset y saltea productos.
+ *
+ * Las referencias históricas ya no bloquean: `sale_items`, `order_items`,
+ * `stock_movements` y las recetas de ítems llevan snapshots y su FK es
+ * `ON DELETE SET NULL`. Solo se omite un producto si sigue siendo
+ * necesario para un workflow vivo: un pedido abierto o la receta de un
+ * compuesto que no se elimina en esta misma corrida.
+ */
 export async function emptyTrash(
   branchId: number,
   start: Date,
   end: Date
-): Promise<{ deleted: number; skipped: Array<{ id: number; name: string }> }> {
+): Promise<{ deleted: number; skipped: TrashSkip[] }> {
   let deleted = 0;
-  let skipped: Array<{ id: number; name: string }> = [];
-  let page = 1;
+  let skipped: TrashSkip[] = [];
 
-  for (;;) {
-    const { items: deletedProducts } = await productRepository.findDeletedInRange(
+  // Ids de TODA la papelera del rango: un compuesto que muere en esta
+  // corrida no debe bloquear a sus insumos por la receta compartida.
+  const trashIds = await productRepository.findDeletedIdsInRange(
+    branchId,
+    start,
+    end
+  );
+
+  for (let i = 0; i < trashIds.length; i += EMPTY_TRASH_BATCH_SIZE) {
+    const batchIds = trashIds.slice(i, i + EMPTY_TRASH_BATCH_SIZE);
+    const deletedProducts = await productRepository.findDeletedByIds(
       branchId,
-      start,
-      end,
-      { page, limit: EMPTY_TRASH_BATCH_SIZE }
+      batchIds
     );
 
-    if (deletedProducts.length === 0) break;
+    if (deletedProducts.length === 0) continue;
 
     const productIds = deletedProducts.map((product) => product.id);
-    const imageKeysToDelete: string[] = [];
 
     const result = await executeInTransaction(async (tx) => {
-      const referencedIds = await productRepository.findReferencedProductIds(
-        tx,
-        productIds
-      );
+      const [inOpenOrders, usedByRecipes] = await Promise.all([
+        productRepository.findProductIdsInOpenOrders(tx, productIds),
+        productRepository.findProductIdsUsedByRecipes(tx, productIds, trashIds),
+      ]);
 
-      const deletableProducts = deletedProducts.filter(
-        (product) => !referencedIds.has(product.id)
-      );
+      const deletableProducts: typeof deletedProducts = [];
+      const batchSkipped: TrashSkip[] = [];
 
-      const batchSkipped = deletedProducts
-        .filter((product) => referencedIds.has(product.id))
-        .map((product) => ({ id: product.id, name: product.name }));
+      for (const product of deletedProducts) {
+        if (inOpenOrders.has(product.id)) {
+          batchSkipped.push({
+            id: product.id,
+            name: product.name,
+            reason: 'Está en un pedido pendiente o en preparación.',
+          });
+        } else if (usedByRecipes.has(product.id)) {
+          batchSkipped.push({
+            id: product.id,
+            name: product.name,
+            reason: 'Es insumo de la receta de un producto compuesto.',
+          });
+        } else {
+          deletableProducts.push(product);
+        }
+      }
 
       if (deletableProducts.length === 0) {
         return { deleted: 0, skipped: batchSkipped, imageKeys: [] };
       }
 
       const deletableIds = deletableProducts.map((product) => product.id);
+
+      // Reservas de stock: transitorias y con FK `restrict`, se borran
+      // explícito antes de eliminar los productos.
+      await orderStockReservationRepository.deleteByProductIds(
+        tx,
+        deletableIds
+      );
+
       const deletedRows = await productRepository.hardDeleteMany(
         branchId,
         deletableIds,
@@ -445,14 +506,12 @@ export async function emptyTrash(
 
     deleted += result.deleted;
     skipped = skipped.concat(result.skipped);
-    imageKeysToDelete.push(...result.imageKeys);
 
-    for (const imageKey of imageKeysToDelete) {
+    // Las imágenes se borran fuera de la transacción, solo después del
+    // commit: un fallo posterior no puede dejar la fila sin su imagen.
+    for (const imageKey of result.imageKeys) {
       await deleteProductImage(imageKey);
     }
-
-    if (deletedProducts.length < EMPTY_TRASH_BATCH_SIZE) break;
-    page++;
   }
 
   return { deleted, skipped };

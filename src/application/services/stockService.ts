@@ -101,6 +101,7 @@ export async function adjustStock(
     await tx.insert(stockMovements).values({
       branchId,
       productId,
+      productName: current.name,
       type,
       quantity,
       reason,

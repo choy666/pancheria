@@ -311,9 +311,15 @@ export const saleItems = pgTable(
     saleId: integer('sale_id')
       .notNull()
       .references(() => sales.id, { onDelete: 'cascade' }),
-    productId: integer('product_id')
-      .notNull()
-      .references(() => products.id, { onDelete: 'restrict' }),
+    // `product_id` queda en NULL al eliminar el producto definitivamente:
+    // nombre/tipo/tipo de insumo quedan congelados en la línea (snapshot)
+    // y el historial de ventas no depende de la fila de `products`.
+    productId: integer('product_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
+    productName: varchar('product_name', { length: 255 }).notNull(),
+    productType: productTypeEnum('product_type').notNull(),
+    criticalSupplyType: criticalSupplyTypeEnum('critical_supply_type'),
     quantity: integer('quantity').notNull(),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).notNull(),
@@ -387,9 +393,14 @@ export const orderItems = pgTable(
     orderId: integer('order_id')
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
-    productId: integer('product_id')
-      .notNull()
-      .references(() => products.id, { onDelete: 'restrict' }),
+    // Mismo criterio que `sale_items`: `set null` + snapshot de
+    // nombre/tipo para que el pedido histórico sobreviva al producto.
+    productId: integer('product_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
+    productName: varchar('product_name', { length: 255 }).notNull(),
+    productType: productTypeEnum('product_type').notNull(),
+    criticalSupplyType: criticalSupplyTypeEnum('critical_supply_type'),
     quantity: integer('quantity').notNull(),
     unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).notNull(),
@@ -408,9 +419,9 @@ export const saleItemRecipes = pgTable(
     saleItemId: integer('sale_item_id')
       .notNull()
       .references(() => saleItems.id, { onDelete: 'cascade' }),
-    supplyId: integer('supply_id')
-      .notNull()
-      .references(() => products.id, { onDelete: 'restrict' }),
+    supplyId: integer('supply_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
     supplyName: varchar('supply_name', { length: 255 }).notNull(),
     supplyType: productTypeEnum('supply_type').notNull(),
     quantity: integer('quantity').notNull(),
@@ -433,9 +444,9 @@ export const orderItemRecipes = pgTable(
     orderItemId: integer('order_item_id')
       .notNull()
       .references(() => orderItems.id, { onDelete: 'cascade' }),
-    supplyId: integer('supply_id')
-      .notNull()
-      .references(() => products.id, { onDelete: 'restrict' }),
+    supplyId: integer('supply_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
     supplyName: varchar('supply_name', { length: 255 }).notNull(),
     supplyType: productTypeEnum('supply_type').notNull(),
     quantity: integer('quantity').notNull(),
@@ -518,9 +529,12 @@ export const stockMovements = pgTable(
     branchId: integer('branch_id')
       .notNull()
       .references(() => branches.id, { onDelete: 'restrict' }),
-    productId: integer('product_id')
-      .notNull()
-      .references(() => products.id, { onDelete: 'restrict' }),
+    // `product_id` queda en NULL al purgar el producto; `product_name`
+    // conserva la legibilidad del audit trail ("restock +50 de Pan").
+    productId: integer('product_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
+    productName: varchar('product_name', { length: 255 }).notNull(),
     type: stockMovementTypeEnum('type').notNull(),
     quantity: integer('quantity').notNull(),
     reason: text('reason'),

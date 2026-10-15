@@ -72,7 +72,13 @@ async function buildPlan(): Promise<Plan> {
       )
     );
 
-  const compoundIds = [...new Set(items.map((i) => i.productId))];
+  const compoundIds = [
+    ...new Set(
+      items
+        .map((i) => i.productId)
+        .filter((id): id is number => id != null)
+    ),
+  ];
   const compoundRows = compoundIds.length
     ? await db
         .select({ id: products.id, type: products.type })
@@ -108,6 +114,16 @@ async function buildPlan(): Promise<Plan> {
   const skipped: Plan['skipped'] = [];
 
   for (const item of items) {
+    if (item.productId == null) {
+      // El producto fue purgado: no hay receta vigente de donde
+      // reconstruir el snapshot.
+      skipped.push({
+        saleItemId: item.saleItemId,
+        productName: item.productName,
+        reason: 'el producto ya no existe (fue eliminado definitivamente)',
+      });
+      continue;
+    }
     if (typeById.get(item.productId) !== 'compound') {
       continue;
     }

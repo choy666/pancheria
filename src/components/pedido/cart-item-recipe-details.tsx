@@ -2,10 +2,10 @@ import {
   formatRecipeSummary,
   formatSelectedRecipeSummary,
 } from '@/lib/recipe-helpers';
-import type { RecipeItemConfig } from '@/domain/types';
+import type { CartRecipeItem } from '@/domain/types';
 
 interface CartItemRecipeDetailsProps {
-  recipe?: RecipeItemConfig[] | null;
+  recipe?: CartRecipeItem[] | null;
   selectedRecipeItemIds?: number[] | null;
   /**
    * `true` en las vistas del cliente: lista solo los insumos elegidos, sin

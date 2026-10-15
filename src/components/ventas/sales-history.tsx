@@ -41,11 +41,20 @@ interface Sale {
   items: {
     quantity: number;
     notes?: string | null;
-    product: {
+    /** Snapshot histórico: el nombre que tenía el producto al venderse. */
+    productName?: string | null;
+    product?: {
       name: string;
-    };
+    } | null;
     recipeSnapshot?: RecipeItemConfig[];
   }[];
+}
+
+function formatItemProductName(item: {
+  productName?: string | null;
+  product?: { name: string } | null;
+}): string {
+  return item.productName ?? item.product?.name ?? 'Producto eliminado';
 }
 
 interface SalesHistoryProps {
@@ -190,7 +199,9 @@ export function SalesHistory({
                 >
                   {sale.items.map((item, index) => (
                     <div key={index}>
-                      <span>{item.product.name} x{item.quantity}</span>
+                      <span>
+                        {formatItemProductName(item)} x{item.quantity}
+                      </span>
                       {item.recipeSnapshot && item.recipeSnapshot.length > 0 && (
                         <p className="text-xs text-muted-foreground">
                           {formatItemRecipeDetails(item.recipeSnapshot)}
@@ -289,7 +300,7 @@ export function SalesHistory({
                 <p>Productos:</p>
                 {selectedSale.items.map((item, index) => (
                   <p key={index}>
-                    {item.product.name} x{item.quantity}
+                    {formatItemProductName(item)} x{item.quantity}
                     {item.recipeSnapshot && item.recipeSnapshot.length > 0 && (
                       <span className="text-sm text-muted-foreground">
                         {' '}

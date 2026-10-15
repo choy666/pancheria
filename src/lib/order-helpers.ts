@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { nowUTC } from '@/lib/date';
 import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { SaleItemValue } from '@/lib/sale-helpers';
+import type { orderItems } from '@/db/schema';
 import type { RecipeItemConfig } from '@/domain/types';
 
 export function generateOrderNumber(branchId: number): string {
@@ -56,17 +57,13 @@ export function buildOrderValues(input: {
 export function buildOrderItemValues(
   saleItemValues: SaleItemValue[],
   orderId: number
-): {
-  orderId: number;
-  productId: number;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
-  notes: string | null;
-}[] {
+): typeof orderItems.$inferInsert[] {
   return saleItemValues.map((item) => ({
     orderId,
     productId: item.productId,
+    productName: item.productName,
+    productType: item.productType,
+    criticalSupplyType: item.criticalSupplyType,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     subtotal: item.subtotal,

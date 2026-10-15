@@ -97,6 +97,7 @@ interface ReservationInput {
   branchId: number;
   orderId: number;
   productId: number;
+  productName: string;
   quantity: number;
 }
 
@@ -105,16 +106,20 @@ function ensureOrderRecipeSnapshots(
   recipesByProduct: Map<number, RecipeWithSupply[]>
 ): OrderItem[] {
   return items.map((item) => {
-    const recipeList = recipesByProduct.get(item.productId) ?? [];
+    const recipeList =
+      item.productId != null ? (recipesByProduct.get(item.productId) ?? []) : [];
     if (recipeList.length === 0) return item;
     if (item.recipeSnapshot && item.recipeSnapshot.length > 0) return item;
 
     const selectedIds =
-      item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [];
+      item.recipeSnapshot
+        ?.filter((s) => s.selected)
+        .map((s) => s.supplyId)
+        .filter((id): id is number => id != null) ?? [];
     const newSnapshot = buildRecipeSnapshot(
       recipeList,
       selectedIds,
-      item.product?.name,
+      item.productName ?? item.product?.name,
       item.product?.maxOptionalSelections
     );
 
@@ -126,10 +131,15 @@ function toSaleItemInputWithSelection(
   items: OrderItem[]
 ): SaleItemInput[] {
   return items.map((item) => ({
-    productId: item.productId,
+    // El purge bloquea productos con pedidos abiertos, así que un ítem sin
+    // `productId` acá sería un estado inconsistente (verificado antes).
+    productId: item.productId!,
     quantity: item.quantity,
     selectedRecipeItemIds:
-      item.recipeSnapshot?.filter((s) => s.selected).map((s) => s.supplyId) ?? [],
+      item.recipeSnapshot
+        ?.filter((s) => s.selected)
+        .map((s) => s.supplyId)
+        .filter((id): id is number => id != null) ?? [],
     recipeSnapshot: item.recipeSnapshot,
     notes: item.notes,
   }));
@@ -153,8 +163,9 @@ function createStoredOrderRequestHash(order: OrderWithItems): string | null {
   if (
     order.items.some(
       (item) =>
+        item.productId == null ||
         !item.product ||
-        (item.product.type === 'compound' && !item.recipeSnapshot?.length)
+        (item.productType === 'compound' && !item.recipeSnapshot?.length)
     )
   ) {
     return null;
@@ -163,12 +174,13 @@ function createStoredOrderRequestHash(order: OrderWithItems): string | null {
   return createOrderRequestHash({
     branchId: order.branchId,
     items: order.items.map((item) => ({
-      productId: item.productId,
+      productId: item.productId!,
       quantity: item.quantity,
       selectedRecipeItemIds:
         item.recipeSnapshot
           ?.filter((recipe) => recipe.isOptional && recipe.selected)
-          .map((recipe) => recipe.supplyId) ?? [],
+          .map((recipe) => recipe.supplyId)
+          .filter((id): id is number => id != null) ?? [],
       notes: item.notes,
     })),
     customerName: order.customerName,
@@ -200,6 +212,7 @@ async function insertStockReserveMovements(
   const rows: StockMovementInsert[] = reservations.map((reservation) => ({
     branchId,
     productId: reservation.productId,
+    productName: reservation.productName,
     type,
     quantity: type === 'reserve' ? -reservation.quantity : reservation.quantity,
     saleId: null,
@@ -214,46 +227,59 @@ async function insertStockReserveMovements(
 function buildReservationsForItems(
   branchId: number,
   orderId: number,
-  items: { productId: number; quantity: number; recipeSnapshot?: RecipeItemConfig[] }[],
+  items: {
+    productId: number | null;
+    quantity: number;
+    recipeSnapshot?: RecipeItemConfig[];
+  }[],
   productById: Map<number, ProductRow>,
   recipesByProduct: Map<number, RecipeWithSupply[]>
 ): ReservationInput[] {
-  const quantityByProduct = new Map<number, number>();
+  const reservationByProduct = new Map<
+    number,
+    { quantity: number; productName: string }
+  >();
 
   for (const item of items) {
+    if (item.productId == null) continue;
     const product = productById.get(item.productId);
     if (!product) continue;
 
     if (product.type === 'compound') {
       const recipeSnapshot = item.recipeSnapshot;
-      for (const { supplyId, consumed } of iterRecipeConsumptions(
+      for (const { supplyId, consumed, supplyName } of iterRecipeConsumptions(
         product,
         item.quantity,
         recipesByProduct,
         recipeSnapshot
       )) {
-        quantityByProduct.set(
-          supplyId,
-          (quantityByProduct.get(supplyId) ?? 0) + consumed
-        );
+        const entry = reservationByProduct.get(supplyId) ?? {
+          quantity: 0,
+          productName: supplyName,
+        };
+        entry.quantity += consumed;
+        reservationByProduct.set(supplyId, entry);
       }
     } else if (
       product.type === 'critical_supply' &&
       product.criticalSupplyType === 'beverage'
     ) {
-      quantityByProduct.set(
-        product.id,
-        (quantityByProduct.get(product.id) ?? 0) + item.quantity
-      );
+      const entry = reservationByProduct.get(product.id) ?? {
+        quantity: 0,
+        productName: product.name,
+      };
+      entry.quantity += item.quantity;
+      reservationByProduct.set(product.id, entry);
     }
   }
 
-  return Array.from(quantityByProduct.entries()).map(
-    ([productId, quantity]) => ({
+  return Array.from(reservationByProduct.entries()).map(
+    ([productId, entry]) => ({
       branchId,
       orderId,
       productId,
-      quantity,
+      productName: entry.productName,
+      quantity: entry.quantity,
     })
   );
 }
@@ -398,7 +424,8 @@ export async function createOrder(
         ...item,
         id: insertedOrderItems[index]?.id ?? 0,
         orderId: order.id,
-        product: productById.get(item.productId)!,
+        product:
+          item.productId != null ? productById.get(item.productId)! : null,
       })
     );
 
@@ -599,7 +626,18 @@ export async function convertOrderToSale(
         );
       }
 
-      const productIds = order.items.map((item) => item.productId);
+      // Un ítem con `productId` NULL solo puede venir de un pedido viejo
+      // cuyo producto fue purgado antes del bloqueo actual (los pedidos
+      // abiertos impiden el purge). No hay forma válida de cobrarlo.
+      if (order.items.some((item) => item.productId == null)) {
+        throw new ValidationError(
+          'El pedido contiene productos que ya no existen. Cancelalo y cargá uno nuevo.'
+        );
+      }
+
+      const productIds = order.items
+        .map((item) => item.productId)
+        .filter((id): id is number => id != null);
       const { productById, recipesByProduct } = await buildProductContext(
         branchId,
         productIds,
@@ -631,7 +669,7 @@ export async function convertOrderToSale(
 
       const itemsForValidation = toSaleItemInputWithSelection(order.items);
       const buildItems = order.items.map((item) => ({
-        productId: item.productId,
+        productId: item.productId!,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
@@ -738,7 +776,17 @@ export async function receiveOrder(
         );
       }
 
-      const productIds = order.items.map((item) => item.productId);
+      // Misma guarda que `convertOrderToSale`: un pedido abierto no puede
+      // contener productos purgados (el purge los bloquea).
+      if (order.items.some((item) => item.productId == null)) {
+        throw new ValidationError(
+          'El pedido contiene productos que ya no existen. Cancelalo y cargá uno nuevo.'
+        );
+      }
+
+      const productIds = order.items
+        .map((item) => item.productId)
+        .filter((id): id is number => id != null);
       const { productById, recipesByProduct } = await buildProductContext(
         branchId,
         productIds,
@@ -1162,7 +1210,7 @@ export async function trackOrder(
     branchId: order.branchId,
     branchName: order.branch?.name ?? null,
     items: (order.items ?? []).map((item) => ({
-      productName: item.product?.name ?? `Producto #${item.productId}`,
+      productName: item.productName,
       quantity: item.quantity,
       subtotal: item.subtotal,
       notes: item.notes ?? null,

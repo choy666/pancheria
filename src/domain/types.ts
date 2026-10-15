@@ -159,7 +159,12 @@ export type ProductRow = {
 };
 
 export type RecipeItemConfig = {
-  supplyId: number;
+  /**
+   * `null` cuando el insumo fue eliminado definitivamente: el snapshot de
+   * receta sobrevive al producto (`supply_name`/`supply_type` son la fuente
+   * de verdad para mostrar y para los resúmenes de consumo).
+   */
+  supplyId: number | null;
   supplyName: string;
   supplyType: ProductType;
   quantity: number;
@@ -167,6 +172,16 @@ export type RecipeItemConfig = {
   isOptional: boolean;
   selected: boolean;
   selectedByDefault: boolean;
+};
+
+/**
+ * Ítem de receta en contexto vivo (carrito, catálogo, diálogo de
+ * personalización): se construye desde la receta vigente del producto,
+ * así que `supplyId` siempre apunta a un producto existente. Para
+ * snapshots históricos usar `RecipeItemConfig`, donde puede ser `null`.
+ */
+export type CartRecipeItem = Omit<RecipeItemConfig, 'supplyId'> & {
+  supplyId: number;
 };
 
 export type SaleItemInput = {
@@ -201,12 +216,17 @@ export type Order = {
 export type OrderItem = {
   id: number;
   orderId: number;
-  productId: number;
+  /** `null` si el producto fue eliminado definitivamente. */
+  productId: number | null;
+  /** Snapshot del producto al momento del pedido: sobrevive al purge. */
+  productName: string;
+  productType: ProductType;
+  criticalSupplyType: CriticalSupplyType | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;
   notes?: string | null;
-  product?: ProductRow;
+  product?: ProductRow | null;
   recipeSnapshot?: RecipeItemConfig[];
 };
 
@@ -238,7 +258,7 @@ export type OrderWithUnreadCount = OrderWithItems & {
 };
 
 export type PublicOrderItem = {
-  productId: number;
+  productId: number | null;
   name: string;
   price: number;
   unit: string;
@@ -250,7 +270,10 @@ export type PublicOrderItem = {
 export type StockMovement = {
   id: number;
   branchId: number;
-  productId: number;
+  /** `null` si el producto fue eliminado definitivamente. */
+  productId: number | null;
+  /** Snapshot del nombre para mantener legible el historial. */
+  productName: string;
   type: StockMovementType;
   quantity: number;
   reason: string | null;

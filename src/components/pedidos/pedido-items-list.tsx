@@ -4,7 +4,10 @@ import type { RecipeItemConfig } from '@/domain/types';
 
 interface OrderDetailItem {
   id: number;
-  productId: number;
+  /** `null` si el producto fue eliminado definitivamente. */
+  productId: number | null;
+  /** Snapshot histórico del nombre al momento del pedido. */
+  productName?: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -53,7 +56,9 @@ export function PedidoItemsList({ items }: PedidoItemsListProps) {
             >
               <td className="p-3">
                 <div>
-                  {item.product?.name ?? `Producto ${item.productId}`}
+                  {item.productName ??
+                    item.product?.name ??
+                    `Producto ${item.productId ?? 'eliminado'}`}
                   <ItemRecipeDetails recipeSnapshot={item.recipeSnapshot} />
                   {item.notes && (
                     <p

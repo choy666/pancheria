@@ -1,10 +1,11 @@
 import { eq, and, inArray, sql } from 'drizzle-orm';
-import { orderStockReservations, orders } from '@/db/schema';
+import { orderStockReservations, orders, products } from '@/db/schema';
 
 export interface ReservationInput {
   branchId: number;
   orderId: number;
   productId: number;
+  productName: string;
   quantity: number;
 }
 
@@ -12,14 +13,19 @@ export async function findByOrderId(
   tx: typeof import('@/db').db,
   orderId: number
 ): Promise<ReservationInput[]> {
+  // Inner join seguro: `product_id` es `restrict`, así que la fila de
+  // `products` siempre existe mientras la reserva exista (el purge borra
+  // las reservas del producto antes de eliminarlo).
   return tx
     .select({
       branchId: orderStockReservations.branchId,
       orderId: orderStockReservations.orderId,
       productId: orderStockReservations.productId,
+      productName: products.name,
       quantity: orderStockReservations.quantity,
     })
     .from(orderStockReservations)
+    .innerJoin(products, eq(orderStockReservations.productId, products.id))
     .where(eq(orderStockReservations.orderId, orderId));
 }
 
@@ -76,7 +82,16 @@ export async function insertReservations(
 ): Promise<void> {
   if (reservations.length === 0) return;
 
-  await tx.insert(orderStockReservations).values(reservations);
+  // `productName` viaja en el input solo para los movimientos de stock;
+  // la tabla de reservas es transitoria y no guarda snapshots.
+  await tx.insert(orderStockReservations).values(
+    reservations.map(({ branchId, orderId, productId, quantity }) => ({
+      branchId,
+      orderId,
+      productId,
+      quantity,
+    }))
+  );
 }
 
 export async function deleteByOrderId(
@@ -86,4 +101,19 @@ export async function deleteByOrderId(
   await tx
     .delete(orderStockReservations)
     .where(eq(orderStockReservations.orderId, orderId));
+}
+
+/**
+ * Elimina las reservas de un producto. El purge ya verificó que ninguna
+ * pertenece a un pedido `in_process`, así que solo quedan huérfanas de
+ * pedidos cerrados/cancelados.
+ */
+export async function deleteByProductIds(
+  tx: typeof import('@/db').db,
+  productIds: number[]
+): Promise<void> {
+  if (productIds.length === 0) return;
+  await tx
+    .delete(orderStockReservations)
+    .where(inArray(orderStockReservations.productId, productIds));
 }

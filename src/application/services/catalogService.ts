@@ -3,7 +3,7 @@ import * as saleService from '@/application/services/saleService';
 import { NotFoundError } from '@/domain/errors';
 import { resolveProductImage } from '@/lib/product-image-storage';
 import { getCachedPublicCatalogBase } from '@/lib/server-cache';
-import type { Branch, ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
+import type { Branch, ProductRow, SaleItemInput, CartRecipeItem } from '@/domain/types';
 
 export type PublicCatalogProduct = Pick<
   ProductRow,
@@ -18,7 +18,7 @@ export type PublicCatalogProduct = Pick<
   | 'maxOptionalSelections'
 > & {
   availability: number;
-  recipe?: RecipeItemConfig[];
+  recipe?: CartRecipeItem[];
 };
 
 export type PublicCatalogResponse = {
@@ -40,7 +40,7 @@ export interface CatalogPagination {
 function toPublicCatalogProduct(
   product: ProductRow,
   availability: number,
-  recipe?: RecipeItemConfig[]
+  recipe?: CartRecipeItem[]
 ): PublicCatalogProduct {
   return {
     id: product.id,

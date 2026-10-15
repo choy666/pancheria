@@ -72,7 +72,10 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
 
   const publicItems: PublicOrderItem[] = order.items.map((item) => ({
     productId: item.productId,
-    name: item.product?.name ?? `Producto ${item.productId}`,
+    name:
+      item.productName ??
+      item.product?.name ??
+      `Producto ${item.productId ?? 'eliminado'}`,
     price: item.product?.price ?? item.unitPrice,
     unit: item.product?.unit ?? 'unidad',
     quantity: item.quantity,

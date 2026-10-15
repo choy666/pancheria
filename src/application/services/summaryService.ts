@@ -16,11 +16,17 @@ import { getCashRegisterSummaryPageSize } from '@/config/caja';
 import type {
   CriticalSupplyType,
   PaymentPart,
+  ProductType,
   RecipeItemConfig,
 } from '@/domain/types';
 
 type SaleItemWithProduct = {
   quantity: number;
+  productId: number | null;
+  productName: string;
+  productType: ProductType | null;
+  criticalSupplyType: CriticalSupplyType | null;
+  // `product` queda solo como respaldo para filas viejas sin snapshot.
   product: {
     id: number;
     name: string;
@@ -73,11 +79,17 @@ async function collectMissingRecipes(
   const missingProductIds = new Set<number>();
   for (const sale of sales) {
     for (const item of sale.items ?? []) {
+      // Tipo del snapshot primero: un compuesto purgado igual tiene que
+      // aportar su receta. Si el ítem ya tiene snapshot propio no hace
+      // falta buscar la receta viva.
+      const productType = item.productType ?? item.product?.type;
       if (
-        item.product?.type === 'compound' &&
-        !recipesByProduct.has(item.product.id)
+        productType === 'compound' &&
+        item.productId != null &&
+        !item.recipeSnapshot?.length &&
+        !recipesByProduct.has(item.productId)
       ) {
-        missingProductIds.add(item.product.id);
+        missingProductIds.add(item.productId);
       }
     }
   }
@@ -123,16 +135,27 @@ function addSalesToSummaryState(
     }
 
     for (const item of sale.items ?? []) {
-      const product = item.product;
-      if (!product) continue;
+      // El snapshot del ítem preserva nombre/tipo aunque el producto haya
+      // sido renombrado o purgado; la relación queda solo para filas
+      // legacy sin backfill.
+      const productName = item.productName ?? item.product?.name;
+      const productType = item.productType ?? item.product?.type;
+      const criticalSupplyType =
+        item.criticalSupplyType ?? item.product?.criticalSupplyType ?? null;
+      if (!productName || !productType) continue;
 
-      state.productTypesByName.set(product.name, product.type);
+      state.productTypesByName.set(productName, productType);
 
       addItemToSummary(
         state.productsSummary,
         state.criticalSuppliesSummary,
         state.recipeSuppliesSummary,
-        product,
+        {
+          id: item.productId ?? item.product?.id ?? 0,
+          name: productName,
+          type: productType,
+          criticalSupplyType,
+        },
         item.quantity,
         recipesByProduct,
         item.recipeSnapshot

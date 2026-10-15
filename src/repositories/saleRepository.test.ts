@@ -206,6 +206,8 @@ describe('saleRepository', () => {
       const items = [
         {
           productId: 1,
+          productName: 'Panchuque',
+          productType: 'compound' as const,
           quantity: 2,
           unitPrice: 500,
           subtotal: 1000,
@@ -259,7 +261,14 @@ describe('saleRepository', () => {
           cashRegisterId: 1,
           idempotencyKey: 'abc',
           items: [
-            { productId: 1, quantity: 1, unitPrice: 1000, subtotal: 1000 },
+            {
+              productId: 1,
+              productName: 'Pan',
+              productType: 'critical_supply' as const,
+              quantity: 1,
+              unitPrice: 1000,
+              subtotal: 1000,
+            },
           ],
         })
       ).rejects.toThrow('No se pudo crear la venta.');

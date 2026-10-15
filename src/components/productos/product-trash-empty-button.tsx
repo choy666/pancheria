@@ -17,7 +17,7 @@ export function ProductTrashEmptyButton() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{
     deleted: number;
-    skipped: Array<{ id: number; name: string }>;
+    skipped: Array<{ id: number; name: string; reason: string }>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ export function ProductTrashEmptyButton() {
     const shouldEmpty = await confirm({
       title: 'Vaciar papelera',
       description:
-        '¿Eliminar definitivamente todos los productos en el rango seleccionado? Los que tengan ventas, pedidos o movimientos se omitirán.',
+        '¿Eliminar definitivamente todos los productos en el rango seleccionado? Las ventas y el historial se conservan; solo se omiten los que sigan en un pedido abierto o en la receta de un compuesto.',
       confirmLabel: 'Vaciar',
       cancelLabel: 'Cancelar',
     });
@@ -59,7 +59,7 @@ export function ProductTrashEmptyButton() {
 
       const data = (await response.json()) as {
         deleted: number;
-        skipped: Array<{ id: number; name: string }>;
+        skipped: Array<{ id: number; name: string; reason: string }>;
       };
       setResult(data);
       router.refresh();
@@ -121,11 +121,13 @@ export function ProductTrashEmptyButton() {
           {result.skipped.length > 0 && (
             <div className="mt-2">
               <p className="text-destructive">
-                Omitidos por tener historial ({result.skipped.length}):
+                Omitidos por seguridad ({result.skipped.length}):
               </p>
               <ul className="mt-1 list-disc space-y-1 pl-5">
                 {result.skipped.map((item) => (
-                  <li key={item.id}>{item.name}</li>
+                  <li key={item.id}>
+                    {item.name} — {item.reason}
+                  </li>
                 ))}
               </ul>
             </div>

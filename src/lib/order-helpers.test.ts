@@ -81,15 +81,15 @@ describe('order-helpers', () => {
     it('agrega orderId a cada item', () => {
       const result = buildOrderItemValues(
         [
-          { productId: 1, productName: 'Pan', quantity: 2, unitPrice: 1000, subtotal: 2000 },
-          { productId: 2, productName: 'Panchuque', quantity: 1, unitPrice: 1500, subtotal: 1500 },
+          { productId: 1, productName: 'Pan', productType: 'critical_supply', criticalSupplyType: 'bread', quantity: 2, unitPrice: 1000, subtotal: 2000 },
+          { productId: 2, productName: 'Panchuque', productType: 'compound', criticalSupplyType: null, quantity: 1, unitPrice: 1500, subtotal: 1500 },
         ],
         10
       );
 
       expect(result).toEqual([
-        { orderId: 10, productId: 1, quantity: 2, unitPrice: 1000, subtotal: 2000, notes: null },
-        { orderId: 10, productId: 2, quantity: 1, unitPrice: 1500, subtotal: 1500, notes: null },
+        { orderId: 10, productId: 1, productName: 'Pan', productType: 'critical_supply', criticalSupplyType: 'bread', quantity: 2, unitPrice: 1000, subtotal: 2000, notes: null },
+        { orderId: 10, productId: 2, productName: 'Panchuque', productType: 'compound', criticalSupplyType: null, quantity: 1, unitPrice: 1500, subtotal: 1500, notes: null },
       ]);
     });
 
@@ -99,6 +99,8 @@ describe('order-helpers', () => {
           {
             productId: 1,
             productName: 'Pan',
+            productType: 'critical_supply',
+            criticalSupplyType: 'bread',
             quantity: 1,
             unitPrice: 1000,
             subtotal: 1000,
@@ -120,7 +122,7 @@ describe('order-helpers', () => {
   describe('buildRecipeSnapshotMessageContent', () => {
     it('devuelve null cuando no hay snapshot ni aclaraciones', () => {
       const result = buildRecipeSnapshotMessageContent([
-        { productId: 1, productName: 'Gaseosa', quantity: 1, unitPrice: 500, subtotal: 500 },
+        { productId: 1, productName: 'Gaseosa', productType: 'critical_supply', criticalSupplyType: 'beverage', quantity: 1, unitPrice: 500, subtotal: 500 },
       ]);
 
       expect(result).toBeNull();
@@ -131,6 +133,8 @@ describe('order-helpers', () => {
         {
           productId: 1,
           productName: 'Gaseosa',
+          productType: 'critical_supply',
+          criticalSupplyType: 'beverage',
           quantity: 2,
           unitPrice: 500,
           subtotal: 1000,
@@ -148,6 +152,8 @@ describe('order-helpers', () => {
         {
           productId: 1,
           productName: 'Panchuque',
+          productType: 'compound',
+          criticalSupplyType: null,
           quantity: 1,
           unitPrice: 1500,
           subtotal: 1500,

@@ -33,6 +33,7 @@ export async function findByProductId(
 export async function create(params: {
   branchId: number;
   productId: number;
+  productName: string;
   type: StockMovementType;
   quantity: number;
   reason?: string;
@@ -44,6 +45,7 @@ export async function create(params: {
     .values({
       branchId: params.branchId,
       productId: params.productId,
+      productName: params.productName,
       type: params.type,
       quantity: params.quantity,
       reason: params.reason ?? null,

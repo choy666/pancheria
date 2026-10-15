@@ -686,6 +686,10 @@ describe('cashRegisterService', () => {
           items: [
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Panchuque',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
             },
           ],
@@ -809,6 +813,10 @@ describe('cashRegisterService', () => {
           items: [
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Panchuque',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
             },
           ],
@@ -1626,6 +1634,10 @@ describe('cashRegisterService', () => {
           items: [
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Panchuque',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
             },
           ],
@@ -1640,6 +1652,10 @@ describe('cashRegisterService', () => {
           items: [
             {
               quantity: 2,
+              productId: 2,
+              productName: 'Gaseosa',
+              productType: 'critical_supply',
+              criticalSupplyType: 'beverage',
               product: {
                 id: 2,
                 branchId: BRANCH_ID,
@@ -1701,6 +1717,10 @@ describe('cashRegisterService', () => {
           items: [
             {
               quantity: 1,
+              productId: 1,
+              productName: 'Panchuque',
+              productType: 'compound',
+              criticalSupplyType: null,
               product: { id: 1, branchId: BRANCH_ID, name: 'Panchuque', type: 'compound' },
             },
           ],

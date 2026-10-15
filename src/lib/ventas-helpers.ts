@@ -1,10 +1,10 @@
 export { areRecipeSelectionsEqual } from '@/lib/cart-helpers';
 
-import type { ProductRow, RecipeItemConfig } from '@/domain/types';
+import type { CartRecipeItem, ProductRow } from '@/domain/types';
 
 export interface SellableProduct extends ProductRow {
   availability: number;
-  recipe?: RecipeItemConfig[];
+  recipe?: CartRecipeItem[];
 }
 
 function sellablePriority(product: SellableProduct): number {

@@ -4,7 +4,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
 import { PromoOptionsDialog } from './promo-options-dialog';
-import type { RecipeItemConfig } from '@/domain/types';
+import type { CartRecipeItem } from '@/domain/types';
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -21,7 +21,7 @@ jest.mock('next/image', () => ({
 }));
 
 describe('PromoOptionsDialog', () => {
-  const baseRecipe: RecipeItemConfig[] = [
+  const baseRecipe: CartRecipeItem[] = [
     {
       supplyId: 1,
       supplyName: 'Pan',

@@ -140,7 +140,12 @@ export async function getSalesReport(
       day.transferTotal = addMoney(day.transferTotal, saleTransfer);
 
       for (const item of sale.items ?? []) {
-        const name = item.product?.name ?? `Producto #${item.productId}`;
+        // Snapshot primero: el nombre histórico no cambia si el producto
+        // fue renombrado o purgado.
+        const name =
+          item.productName ??
+          item.product?.name ??
+          `Producto #${item.productId ?? 'eliminado'}`;
         const product = byProduct.get(name) ?? {
           quantity: 0,
           total: parseMoney(0),

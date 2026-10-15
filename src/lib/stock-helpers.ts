@@ -6,19 +6,20 @@ import type { StockMovementInsert } from '@/repositories/stockMovementRepository
 
 type ProductLike = {
   id: number;
+  name: string;
   type: string;
   criticalSupplyType: string | null;
 };
 
 type RecipeLike = {
-  supplyId: number;
+  supplyId: number | null;
   quantity: number;
   autoDiscount: boolean;
   supply?: { name: string } | null;
 };
 
 type ItemWithRecipeSnapshot = {
-  productId: number;
+  productId: number | null;
   quantity: number;
   recipeSnapshot?: RecipeItemConfig[];
 };
@@ -37,6 +38,7 @@ export function collectStockProductIdsToLock(
   const productIdsToLock = new Set<number>();
 
   for (const item of items) {
+    if (item.productId == null) continue;
     const product = productById.get(item.productId);
     if (!product) continue;
 
@@ -48,6 +50,8 @@ export function collectStockProductIdsToLock(
       for (const recipeItem of recipeList) {
         if (!recipeItem.autoDiscount) continue;
         if (hasSupplyName(recipeItem) && !recipeItem.selected) continue;
+        // Insumo purgado: no hay fila de stock que lockear.
+        if (recipeItem.supplyId == null) continue;
         productIdsToLock.add(recipeItem.supplyId);
       }
     } else if (
@@ -76,6 +80,8 @@ export function* iterRecipeConsumptions(
   for (const recipeItem of recipeList) {
     if (!recipeItem.autoDiscount) continue;
     if (hasSupplyName(recipeItem) && !recipeItem.selected) continue;
+    // Insumo purgado: no hay stock que descontar/reintegrar.
+    if (recipeItem.supplyId == null) continue;
 
     const supplyName = hasSupplyName(recipeItem)
       ? recipeItem.supplyName
@@ -150,12 +156,19 @@ export async function reintegrateStockForItems(
   const movementRows: StockMovementInsert[] = [];
 
   for (const item of items) {
+    // Ítem de una venta histórica cuyo producto fue purgado: no hay stock
+    // que reintegrar (la fila de `products` ya no existe).
+    if (item.productId == null) continue;
     const product = productById.get(item.productId);
     if (!product) continue;
 
     if (product.type === 'compound') {
       const recipeSnapshot = item.recipeSnapshot ?? [];
-      for (const { supplyId, consumed: reintegrated } of iterRecipeConsumptions(
+      for (const {
+        supplyId,
+        consumed: reintegrated,
+        supplyName,
+      } of iterRecipeConsumptions(
         product,
         item.quantity,
         recipesByProduct,
@@ -166,6 +179,7 @@ export async function reintegrateStockForItems(
         movementRows.push({
           branchId,
           productId: supplyId,
+          productName: supplyName,
           type: movementType,
           quantity: reintegrated,
           saleId: source.saleId ?? null,
@@ -183,6 +197,7 @@ export async function reintegrateStockForItems(
       movementRows.push({
         branchId,
         productId: product.id,
+        productName: product.name,
         type: movementType,
         quantity: item.quantity,
         saleId: source.saleId ?? null,

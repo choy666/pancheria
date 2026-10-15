@@ -27,9 +27,11 @@ const mockedDb = db as unknown as {
 const BRANCH_ID = 1;
 
 function createSelectBuilder(rows: unknown[]) {
+  const where = jest.fn().mockResolvedValue(rows);
   return {
     from: jest.fn().mockReturnValue({
-      where: jest.fn().mockResolvedValue(rows),
+      where,
+      innerJoin: jest.fn().mockReturnValue({ where }),
     }),
   };
 }
@@ -118,13 +120,17 @@ describe('orderStockReservationRepository', () => {
       mockedDb.insert.mockReturnValue({ values });
 
       const reservations = [
-        { branchId: BRANCH_ID, orderId: 1, productId: 10, quantity: 2 },
+        { branchId: BRANCH_ID, orderId: 1, productId: 10, productName: 'Pan', quantity: 2 },
       ];
 
       await insertReservations(db, reservations);
 
       expect(mockedDb.insert).toHaveBeenCalledWith(orderStockReservations);
-      expect(values).toHaveBeenCalledWith(reservations);
+      // `productName` no es columna de la tabla: solo viaja para los
+      // movimientos de stock, se descarta al insertar.
+      expect(values).toHaveBeenCalledWith([
+        { branchId: BRANCH_ID, orderId: 1, productId: 10, quantity: 2 },
+      ]);
     });
 
     test('no inserta si el array está vacío', async () => {

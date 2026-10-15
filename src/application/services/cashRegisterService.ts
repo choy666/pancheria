@@ -452,9 +452,14 @@ async function restoreStockForDeletedCashRegisters(
         ),
       }));
 
+      // `productId` NULL (producto purgado) se excluye del contexto:
+      // `reintegrateStockForItems` saltea esos ítems porque ya no hay fila
+      // de stock a la que devolver.
       const { productById, recipesByProduct } = await buildProductContext(
         branchId,
-        items.map((item) => item.productId),
+        items
+          .map((item) => item.productId)
+          .filter((id): id is number => id != null),
         { dbOrTx: tx, includeDeleted: true }
       );
 

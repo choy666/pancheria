@@ -391,7 +391,7 @@ describe('orderRepository', () => {
       mockReturning.mockResolvedValue([]);
 
       const tx: any = { insert: mockInsert };
-      const values = [{ orderId: ORDER_ID, productId: 1, quantity: 2, unitPrice: 1000, subtotal: 2000 }];
+      const values = [{ orderId: ORDER_ID, productId: 1, productName: 'Pancho', productType: 'compound' as const, quantity: 2, unitPrice: 1000, subtotal: 2000 }];
 
       await orderRepository.insertOrderItems(tx, values);
 
@@ -406,6 +406,8 @@ describe('orderRepository', () => {
         {
           orderId: ORDER_ID,
           productId: 1,
+          productName: 'Pancho',
+          productType: 'compound' as const,
           quantity: 1,
           unitPrice: 1000,
           subtotal: 1000,

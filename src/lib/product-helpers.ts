@@ -1,7 +1,7 @@
 import { InsufficientStockError, NotFoundError, ValidationError } from '@/domain/errors';
 import { validateBranchOwnership } from '@/lib/validation-helpers';
 import { isPublicSellableProduct } from '@/lib/catalog';
-import type { ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
+import type { CartRecipeItem, ProductRow, SaleItemInput, RecipeItemConfig } from '@/domain/types';
 import { db } from '@/db';
 import * as productRepository from '@/repositories/productRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
@@ -16,7 +16,7 @@ import {
 function recipeItemToConfig(
   recipe: RecipeWithSupply,
   selected: boolean
-): RecipeItemConfig {
+): CartRecipeItem {
   return {
     supplyId: recipe.supplyId,
     supplyName: recipe.supply?.name ?? `Insumo ${recipe.supplyId}`,
@@ -77,7 +77,7 @@ export function buildRecipeSnapshot(
   selectedRecipeItemIds: number[],
   productName?: string,
   maxOptionalSelections?: number | null
-): RecipeItemConfig[] {
+): CartRecipeItem[] {
   assertValidSelectedRecipeItemIds(
     recipeItems,
     selectedRecipeItemIds,
@@ -102,7 +102,7 @@ export interface RecipeBreakdownItem {
 export interface ProductAvailability {
   availability: number;
   breakdown: RecipeBreakdownItem[];
-  recipe?: RecipeItemConfig[];
+  recipe?: CartRecipeItem[];
 }
 
 export async function buildProductContext(
@@ -203,6 +203,9 @@ async function buildAvailabilityContext(
 
       for (const config of snapshot) {
         if (!config.autoDiscount) continue;
+        // `supplyId` NULL = insumo purgado: sin fila de stock no aporta
+        // a la disponibilidad.
+        if (config.supplyId == null) continue;
         const supply = productById.get(config.supplyId);
         if (supply) {
           supplyStockById[config.supplyId] = supply.stock;
@@ -392,7 +395,9 @@ export async function calculateAvailabilityForProductIds(
 
 export function validateProductsForOperation(
   items: {
-    productId: number;
+    // `null` cuando el ítem viene de una fila histórica cuyo producto fue
+    // purgado; no hay producto que validar y el caller decide si sigue.
+    productId: number | null;
     selectedRecipeItemIds?: number[];
     recipeSnapshot?: RecipeItemConfig[];
   }[],
@@ -401,9 +406,10 @@ export function validateProductsForOperation(
   operation: 'pedido' | 'venta'
 ) {
   for (const item of items) {
-    const product = productById.get(item.productId);
+    const product =
+      item.productId != null ? productById.get(item.productId) : undefined;
     if (!product) {
-      throw new NotFoundError('Producto', item.productId);
+      throw new NotFoundError('Producto', item.productId ?? 'eliminado');
     }
 
     validateBranchOwnership(product, branchId, 'Producto');
@@ -438,7 +444,7 @@ function getRecipeListForItem(
   item: SaleItemInput,
   product: ProductRow,
   recipesByProduct: Map<number, RecipeWithSupply[]>
-): { supplyId: number; quantity: number; autoDiscount: boolean; selected: boolean }[] {
+): { supplyId: number | null; quantity: number; autoDiscount: boolean; selected: boolean }[] {
   if (product.type !== 'compound') return [];
 
   if (item.recipeSnapshot && item.recipeSnapshot.length > 0) {
@@ -479,11 +485,13 @@ export function collectCartProductIds(
   productIds?: number[]
 ): number[] {
   const itemProductIds = items.map((item) => item.productId);
+  // `supplyId` NULL = insumo purgado: no hay producto que cargar.
   const snapshotSupplyIds = items.flatMap(
     (item) =>
       item.recipeSnapshot
         ?.filter((config) => config.autoDiscount)
-        .map((config) => config.supplyId) ?? []
+        .map((config) => config.supplyId)
+        .filter((id): id is number => id != null) ?? []
   );
   return Array.from(
     new Set([...itemProductIds, ...(productIds ?? []), ...snapshotSupplyIds])
@@ -585,6 +593,8 @@ export function calculateConsumedBySupply(
       const recipeList = getRecipeListForItem(item, product, recipesByProduct);
       for (const recipeItem of recipeList) {
         if (!recipeItem.autoDiscount || !recipeItem.selected) continue;
+        // Insumo purgado del snapshot: no hay stock que consumir.
+        if (recipeItem.supplyId == null) continue;
         consumedBySupply[recipeItem.supplyId] =
           (consumedBySupply[recipeItem.supplyId] ?? 0) +
           item.quantity * recipeItem.quantity;
@@ -710,6 +720,9 @@ export function calculateShortageByProduct(
       let minCapacity = Infinity;
 
       for (const recipeItem of criticalItems) {
+        // Insumo purgado del snapshot: sin fila de stock no puede ser
+        // cuello de botella.
+        if (recipeItem.supplyId == null) continue;
         const available = supplyStockById[recipeItem.supplyId] ?? 0;
         const required = consumedBySupply[recipeItem.supplyId] ?? 0;
         const capacity = Math.floor(

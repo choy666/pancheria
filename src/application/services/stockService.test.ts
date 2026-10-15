@@ -75,6 +75,7 @@ function createStockMovement(overrides: Partial<StockMovement> = {}): StockMovem
     id: 1,
     branchId: BRANCH_ID,
     productId: 1,
+    productName: 'Pan',
     type: 'manual_adjustment',
     quantity: 0,
     reason: null,

@@ -16,7 +16,7 @@ import { ProductCardImage } from '@/components/productos/product-card-image';
 import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { ITEM_NOTE_MAX_LENGTH } from '@/lib/cart-helpers';
-import type { RecipeItemConfig } from '@/domain/types';
+import type { CartRecipeItem } from '@/domain/types';
 
 export interface PromoOptionsConfirmPayload {
   selectedRecipeItemIds: number[];
@@ -38,7 +38,7 @@ export interface PromoOptionsDialogProps {
   onOpenChange: (open: boolean) => void;
   productName: string;
   productPrice: number;
-  recipe: RecipeItemConfig[];
+  recipe: CartRecipeItem[];
   /** Imagen del producto para el hero (solo `variant="public"`). */
   imageUrl?: string | null;
   /** Descripción corta del producto, bajo el nombre. */
@@ -77,7 +77,7 @@ const DEFAULT_MAX_QUANTITY = 99;
 interface OptionsSectionProps {
   productName: string;
   title: string;
-  items: RecipeItemConfig[];
+  items: CartRecipeItem[];
   selectedIds: number[];
   onToggle: (supplyId: number) => void;
   /** `true` cuando ya se alcanzó el tope de opcionales seleccionables. */

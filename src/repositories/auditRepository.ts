@@ -8,6 +8,7 @@ import {
   lte,
   ne,
   notInArray,
+  or,
   sql,
 } from 'drizzle-orm';
 import { db } from '@/db';
@@ -153,13 +154,22 @@ export async function countCompoundSaleItemsMissingSnapshot(): Promise<number> {
     .select({ saleItemId: saleItemRecipes.saleItemId })
     .from(saleItemRecipes);
 
+  // El tipo viene del snapshot `product_type`; la relación queda como
+  // respaldo para filas legacy aún sin backfill (y permite detectar
+  // ítems cuyo producto ya fue purgado).
   const [{ count: total }] = await db
     .select({ count: count() })
     .from(saleItems)
-    .innerJoin(products, eq(saleItems.productId, products.id))
+    .leftJoin(products, eq(saleItems.productId, products.id))
     .where(
       and(
-        eq(products.type, 'compound'),
+        or(
+          eq(saleItems.productType, 'compound'),
+          and(
+            isNull(saleItems.productType),
+            eq(products.type, 'compound')
+          )
+        ),
         notInArray(saleItems.id, itemsWithSnapshot)
       )
     );
@@ -180,10 +190,16 @@ export async function countCompoundOrderItemsMissingSnapshot(): Promise<number> 
   const [{ count: total }] = await db
     .select({ count: count() })
     .from(orderItems)
-    .innerJoin(products, eq(orderItems.productId, products.id))
+    .leftJoin(products, eq(orderItems.productId, products.id))
     .where(
       and(
-        eq(products.type, 'compound'),
+        or(
+          eq(orderItems.productType, 'compound'),
+          and(
+            isNull(orderItems.productType),
+            eq(products.type, 'compound')
+          )
+        ),
         notInArray(orderItems.id, itemsWithSnapshot)
       )
     );

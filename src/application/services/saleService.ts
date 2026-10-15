@@ -33,6 +33,7 @@ import {
   validatePaymentParts,
 } from '@/lib/payment-helpers';
 import type {
+  CriticalSupplyType,
   PaginationParams,
   PaymentPart,
   ProductRow,
@@ -87,8 +88,17 @@ async function updateCashRegisterSummary(
     cashRegister.recipeSuppliesSummary ?? {};
 
   for (const item of saleItems) {
-    const product = productById.get(item.productId);
-    if (!product) continue;
+    // Si el producto fue purgado (`productId` NULL o fila inexistente), el
+    // descriptor se arma desde el snapshot del ítem: el resumen de caja
+    // debe reflejar la línea igual.
+    const product = (item.productId != null
+      ? productById.get(item.productId)
+      : undefined) ?? {
+      id: item.productId ?? 0,
+      name: item.productName,
+      type: item.productType,
+      criticalSupplyType: item.criticalSupplyType,
+    };
 
     addItemToSummary(
       productsSummary,
@@ -142,6 +152,7 @@ async function deductStockForItems(
   const movementRows: StockMovementInsert[] = [];
 
   for (const item of items) {
+    if (item.productId == null) continue;
     const product = productById.get(item.productId)!;
 
     if (product.type === 'compound') {
@@ -166,6 +177,7 @@ async function deductStockForItems(
         movementRows.push({
           branchId,
           productId: supplyId,
+          productName: supplyName,
           type: movementType,
           quantity: -consumed,
           saleId: source.saleId ?? null,
@@ -195,6 +207,7 @@ async function deductStockForItems(
       movementRows.push({
         branchId,
         productId: product.id,
+        productName: product.name,
         type: movementType,
         quantity: -item.quantity,
         saleId: source.saleId ?? null,
@@ -316,6 +329,9 @@ export async function insertSaleAndUpdateCashRegister(
     saleItemValues.map((item) => ({
       saleId: sale.id,
       productId: item.productId,
+      productName: item.productName,
+      productType: item.productType,
+      criticalSupplyType: item.criticalSupplyType,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
@@ -499,14 +515,17 @@ export async function cancelSale(
       status: 'active' | 'cancelled';
       cashRegisterId: number | null;
       items: {
-        productId: number;
+        productId: number | null;
+        productName: string;
+        productType: ProductType;
+        criticalSupplyType: CriticalSupplyType | null;
         quantity: number;
         unitPrice: number;
         subtotal: number;
         notes: string | null;
         product: { name: string } | null;
         recipeSnapshots: {
-          supplyId: number;
+          supplyId: number | null;
           supplyName: string;
           supplyType: ProductType;
           quantity: number;
@@ -549,7 +568,9 @@ export async function cancelSale(
 
     const saleItemValues: SaleItemValue[] = sale.items.map((item) => ({
       productId: item.productId,
-      productName: item.product?.name ?? `Producto ${item.productId}`,
+      productName: item.productName,
+      productType: item.productType,
+      criticalSupplyType: item.criticalSupplyType,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
@@ -585,9 +606,13 @@ export async function cancelSale(
     // `includeDeleted`: la anulación debe funcionar aunque el producto haya
     // sido eliminado después de la venta; sin esto el pedido/venta quedaba
     // incancelable hasta restaurar el producto (404 "Producto no encontrado").
+    // Los `productId` en NULL (producto purgado) se excluyen del contexto:
+    // `reintegrateStockForItems` los saltea porque no hay fila de stock.
     const { productById, recipesByProduct } = await buildProductContext(
       branchId,
-      saleItemValues.map((item) => item.productId),
+      saleItemValues
+        .map((item) => item.productId)
+        .filter((id): id is number => id != null),
       { dbOrTx: tx, includeDeleted: true }
     );
 

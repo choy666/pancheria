@@ -5,6 +5,7 @@ import {
   isNotNull,
   and,
   not,
+  notInArray,
   gte,
   lte,
   count,
@@ -14,12 +15,8 @@ import {
 import { db } from '@/db';
 import {
   products,
-  saleItems,
   orderItems,
-  saleItemRecipes,
-  orderItemRecipes,
-  orderStockReservations,
-  stockMovements,
+  orders,
   recipes,
 } from '@/db/schema';
 import { getCurrentTransaction } from '@/application/transactionService';
@@ -297,6 +294,26 @@ export async function findDeletedInRange(
   };
 }
 
+/**
+ * Filas de productos en papelera por ids. `emptyTrash` la usa para
+ * procesar lotes estables: los ids se resuelven una vez al inicio y los
+ * chunks no se ven afectados por las filas que ya se eliminaron.
+ */
+export async function findDeletedByIds(
+  branchId: number,
+  ids: number[]
+): Promise<ProductRow[]> {
+  if (ids.length === 0) return [];
+  return db.query.products.findMany({
+    where: and(
+      eq(products.branchId, branchId),
+      inArray(products.id, ids),
+      isNotNull(products.deletedAt)
+    ),
+    orderBy: (products, { asc }) => [asc(products.name)],
+  });
+}
+
 export async function create(
   data: ProductInsert & { branchId: number },
   dbOrTx?: typeof db
@@ -485,80 +502,97 @@ export async function findByImageKey(
 }
 
 /**
- * Devuelve el conjunto de ids de productos que tienen referencias en
- * ventas, pedidos, recetas o movimientos, y por lo tanto no pueden
- * eliminarse permanentemente de forma segura.
+ * Ids de todos los productos en papelera dentro del rango. `emptyTrash`
+ * lo usa para saber qué compuestos mueren en la misma corrida y no
+ * bloquear insumos por recetas que también van a desaparecer.
  */
-export async function findReferencedProductIds(
+export async function findDeletedIdsInRange(
+  branchId: number,
+  start: Date,
+  end: Date
+): Promise<number[]> {
+  const rows = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(
+      and(
+        eq(products.branchId, branchId),
+        isNotNull(products.deletedAt),
+        gte(products.deletedAt, start),
+        lte(products.deletedAt, end)
+      )
+    );
+
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Productos presentes en pedidos abiertos (`pending`/`in_process`).
+ * Bloquea el purge: cobrar un pedido que referencia un producto
+ * inexistente rompería la conversión a venta. Los pedidos cerrados,
+ * cancelados o en papelera no bloquean — sus ítems viajan con snapshot.
+ */
+export async function findProductIdsInOpenOrders(
   dbOrTx: typeof db,
   productIds: number[]
 ): Promise<Set<number>> {
-  const referencedIds = new Set<number>();
+  const ids = new Set<number>();
+  if (productIds.length === 0) return ids;
 
-  if (productIds.length === 0) return referencedIds;
+  const rows = await dbOrTx
+    .select({ productId: orderItems.productId })
+    .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(
+      and(
+        inArray(orderItems.productId, productIds),
+        inArray(orders.status, ['pending', 'in_process']),
+        isNull(orders.deletedAt)
+      )
+    )
+    .groupBy(orderItems.productId);
 
-  const [saleItemsRows, orderItemsRows] = await Promise.all([
-    dbOrTx
-      .select({ productId: saleItems.productId })
-      .from(saleItems)
-      .where(inArray(saleItems.productId, productIds))
-      .groupBy(saleItems.productId),
-    dbOrTx
-      .select({ productId: orderItems.productId })
-      .from(orderItems)
-      .where(inArray(orderItems.productId, productIds))
-      .groupBy(orderItems.productId),
-  ]);
-
-  const recipeRows = await dbOrTx
-    .select({ supplyId: saleItemRecipes.supplyId })
-    .from(saleItemRecipes)
-    .where(inArray(saleItemRecipes.supplyId, productIds))
-    .groupBy(saleItemRecipes.supplyId)
-    .union(
-      dbOrTx
-        .select({ supplyId: orderItemRecipes.supplyId })
-        .from(orderItemRecipes)
-        .where(inArray(orderItemRecipes.supplyId, productIds))
-        .groupBy(orderItemRecipes.supplyId)
-    );
-
-  const [reservationRows, movementRows, recipeAsSupplyRows] = await Promise.all([
-    dbOrTx
-      .select({ productId: orderStockReservations.productId })
-      .from(orderStockReservations)
-      .where(inArray(orderStockReservations.productId, productIds))
-      .groupBy(orderStockReservations.productId),
-    dbOrTx
-      .select({ productId: stockMovements.productId })
-      .from(stockMovements)
-      .where(inArray(stockMovements.productId, productIds))
-      .groupBy(stockMovements.productId),
-    dbOrTx
-      .select({ supplyId: recipes.supplyId })
-      .from(recipes)
-      .where(inArray(recipes.supplyId, productIds))
-      .groupBy(recipes.supplyId),
-  ]);
-
-  for (const row of saleItemsRows) {
-    if (row.productId !== null) referencedIds.add(row.productId);
-  }
-  for (const row of orderItemsRows) {
-    if (row.productId !== null) referencedIds.add(row.productId);
-  }
-  for (const row of recipeRows) {
-    referencedIds.add(row.supplyId);
-  }
-  for (const row of reservationRows) {
-    if (row.productId !== null) referencedIds.add(row.productId);
-  }
-  for (const row of movementRows) {
-    if (row.productId !== null) referencedIds.add(row.productId);
-  }
-  for (const row of recipeAsSupplyRows) {
-    if (row.supplyId !== null) referencedIds.add(row.supplyId);
+  for (const row of rows) {
+    if (row.productId !== null) ids.add(row.productId);
   }
 
-  return referencedIds;
+  return ids;
+}
+
+/**
+ * Productos usados como insumo (`supply_id`) en la receta de un compuesto
+ * que NO se está eliminando en esta misma purga. Bloquea el purge porque
+ * el `onDelete: cascade` de `recipes.supply_id` borraría la fila de la
+ * receta y mutilaría silenciosamente al compuesto — incluso si está en
+ * papelera, una restauración posterior lo devolvería sin receta.
+ *
+ * `excludeCompoundIds` es el conjunto de compuestos que se eliminan en la
+ * misma corrida (toda la papelera en `emptyTrash`, el propio producto en
+ * el borrado individual): sus recetas desaparecen por la cascada de
+ * `compound_product_id`, así que no deben bloquear al insumo.
+ */
+export async function findProductIdsUsedByRecipes(
+  dbOrTx: typeof db,
+  productIds: number[],
+  excludeCompoundIds: number[] = []
+): Promise<Set<number>> {
+  const ids = new Set<number>();
+  if (productIds.length === 0) return ids;
+
+  const conditions = [inArray(recipes.supplyId, productIds)];
+  if (excludeCompoundIds.length > 0) {
+    conditions.push(notInArray(recipes.compoundProductId, excludeCompoundIds));
+  }
+
+  const rows = await dbOrTx
+    .select({ supplyId: recipes.supplyId })
+    .from(recipes)
+    .where(and(...conditions))
+    .groupBy(recipes.supplyId);
+
+  for (const row of rows) {
+    ids.add(row.supplyId);
+  }
+
+  return ids;
 }
