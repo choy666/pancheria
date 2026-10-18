@@ -181,6 +181,8 @@ Verificado vía MCPs de Vercel y Neon durante la consolidación pre-multi-tenant
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — credenciales consistentes con `src/db/seeds.ts`.
 - `DEFAULT_BRANCH_NAME` — nombre de la sucursal por defecto (opcional, el seed lo define).
 
+Opcionales pero recomendadas (ya están en `.env.e2e.example` y en el `env:` del job `e2e` de CI): las duraciones `NEXT_PUBLIC_PANTALLA_*_MS` acortan las escenas de `/pantalla` para que el spec vea rotar el ciclo en segundos, y `NEXT_PUBLIC_PANTALLA_VIDEO_MAX_MS=8000` hace determinista el salto de una escena de video cuyo stream falla sin disparar `error` en headless-shell (el default de 120 s supera cualquier timeout razonable del test).
+
 ### Cómo levantar y correr
 
 ```powershell

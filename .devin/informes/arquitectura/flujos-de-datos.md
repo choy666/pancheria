@@ -219,6 +219,7 @@ Puntos clave: el provider se elige por `STORAGE_PROVIDER` en runtime (`config/vi
 | `branches` (lookup por id/nombre) | `unstable_cache` tag `branches` — invalida `revalidateTag('branches', {expire:0})` al mutar sucursales |
 | Catálogo público base | tag `public-catalog` — invalida al mutar productos/recetas |
 | Stock, reservas, caja, mensajes | **siempre en vivo** (decisión deliberada) |
-| Estado de sucursal público | headers CDN `s-maxage`/`swr` (`/api/public/sucursal/estado`) |
+| Catálogo público y snapshot de `/pantalla` | headers CDN `s-maxage`/`swr` vía `PUBLIC_CATALOG_CACHE_*` (`/api/public/catalogo`, `/api/public/pantalla`) |
+| Estado de sucursal público | headers CDN `s-maxage`/`swr` vía `PUBLIC_BRANCH_STATUS_CACHE_*` (`/api/public/sucursal/estado`) |
 
 Volver al índice: [README.md](README.md)
