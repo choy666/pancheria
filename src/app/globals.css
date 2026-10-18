@@ -148,6 +148,29 @@
   --tw-ring-color: var(--border);
 }
 
+/*
+ * Tema de la pantalla publicitaria `(kiosk)`: conserva la paleta oscura de
+ * `:root` y solo aplica las tipografías de marca del flujo público (Anton
+ * para títulos/precios vía `font-heading`, Poppins para texto).
+ */
+[data-theme='screen'] {
+  --font-sans: var(--font-poppins), -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', 'Noto Sans', Arial, sans-serif;
+  --font-heading: var(--font-anton), var(--font-poppins), -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Barra de progreso por escena de `/pantalla` (dura lo que dure la escena). */
+@keyframes pantalla-scene-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .dark {
   --background: oklch(0.08 0 0);
   --foreground: oklch(0.95 0 0);

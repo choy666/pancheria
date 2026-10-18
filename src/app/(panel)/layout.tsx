@@ -49,6 +49,7 @@ export default async function PanelLayout({
           role={session.user.role}
           branches={branches}
           activeBranchId={currentBranchId}
+          activeBranchIsActive={branch?.isActive}
           setActiveBranchAction={setActiveBranchAction}
           signOutAction={signOutAction}
         />

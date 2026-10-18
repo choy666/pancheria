@@ -91,6 +91,7 @@ flowchart TB
 | Dinero | `dinero.js ^2.0.2` + `src/lib/money.ts` |
 | Fechas | `date-fns ^4.4.0` + helpers UTC en `src/lib/date.ts` |
 | IDs | `nanoid ^6.0.1` (keys de storage / idempotencia) |
+| QR | `react-qr-code ^2.2.0` — SVG inline del QR de `/pantalla` hacia `/pedido` |
 
 ## Testing y calidad
 

@@ -7,7 +7,7 @@ import { TourButton } from '@/components/tour/tour-context';
 import { BranchSelector } from './branch-selector';
 import { cn } from '@/lib/utils';
 import { routes } from '@/config/routes';
-import { Menu, X } from 'lucide-react';
+import { Menu, MonitorPlay, X } from 'lucide-react';
 
 interface Branch {
   id: number;
@@ -20,6 +20,8 @@ interface PanelHeaderProps {
   role?: string | null;
   branches?: Branch[];
   activeBranchId?: number;
+  /** `isActive` de la sucursal activa; `undefined` = desconocido (no deshabilita). */
+  activeBranchIsActive?: boolean;
   setActiveBranchAction: (formData: FormData) => Promise<{ error: string } | null>;
   signOutAction: () => Promise<void>;
 }
@@ -55,6 +57,7 @@ export function PanelHeader({
   role,
   branches,
   activeBranchId,
+  activeBranchIsActive,
   setActiveBranchAction,
   signOutAction,
 }: PanelHeaderProps) {
@@ -63,6 +66,27 @@ export function PanelHeader({
   const isAdmin = role === 'admin';
   const navItems = isAdmin ? adminNavItems : operatorNavItems;
   const showBranchSelector = isAdmin && branches && branches.length > 1;
+
+  // Enlace a la pantalla publicitaria pineado a la sucursal activa al
+  // momento del click: la pestaña que se abre sigue el `branchId` de su
+  // URL y no la cookie del panel (por diseño — una TV por local). Nunca se
+  // emite `/pantalla` pelado porque esa ruta resuelve la sucursal por
+  // defecto, no la seleccionada. Con sucursal inactiva el acceso queda
+  // deshabilitado con aviso, porque la pantalla solo mostraría el error.
+  const pantallaBranchName =
+    branches?.find((branch) => branch.id === activeBranchId)?.name ??
+    branchName ??
+    undefined;
+  const pantallaHref =
+    activeBranchId !== undefined
+      ? `${routes.pantalla}?branchId=${activeBranchId}`
+      : null;
+  const pantallaDisabled = activeBranchIsActive === false;
+  const pantallaLabel = pantallaBranchName
+    ? `Abrir la pantalla publicitaria de ${pantallaBranchName}`
+    : 'Abrir la pantalla publicitaria';
+  const pantallaDisabledTitle =
+    'La sucursal activa está inactiva: la pantalla publicitaria no puede mostrarla';
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/8 bg-background/95 backdrop-blur-sm">
@@ -98,6 +122,35 @@ export function PanelHeader({
               setActiveBranchAction={setActiveBranchAction}
             />
           )}
+          {pantallaHref &&
+            (pantallaDisabled ? (
+              <span
+                data-testid="pantalla-link"
+                aria-disabled="true"
+                title={pantallaDisabledTitle}
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+                  'cursor-not-allowed opacity-50'
+                )}
+              >
+                <MonitorPlay aria-hidden />
+                <span className="sr-only">{pantallaLabel}</span>
+              </span>
+            ) : (
+              <Link
+                href={pantallaHref}
+                target="_blank"
+                rel="noopener"
+                data-testid="pantalla-link"
+                aria-label={pantallaLabel}
+                title={`${pantallaLabel} (nueva pestaña)`}
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'icon-sm' })
+                )}
+              >
+                <MonitorPlay aria-hidden />
+              </Link>
+            ))}
           <TourButton />
           {branchName && !showBranchSelector && (
             <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
@@ -163,6 +216,38 @@ export function PanelHeader({
                 setActiveBranchAction={setActiveBranchAction}
               />
             )}
+            {pantallaHref &&
+              (pantallaDisabled ? (
+                <span
+                  data-testid="pantalla-link-mobile"
+                  aria-disabled="true"
+                  title={pantallaDisabledTitle}
+                  className={cn(
+                    buttonVariants({ variant: 'ghost', size: 'sm' }),
+                    'w-full cursor-not-allowed justify-start opacity-50'
+                  )}
+                >
+                  <MonitorPlay aria-hidden />
+                  Pantalla publicitaria
+                  {pantallaBranchName ? ` · ${pantallaBranchName}` : ''}
+                </span>
+              ) : (
+                <Link
+                  href={pantallaHref}
+                  target="_blank"
+                  rel="noopener"
+                  data-testid="pantalla-link-mobile"
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    buttonVariants({ variant: 'ghost', size: 'sm' }),
+                    'w-full justify-start'
+                  )}
+                >
+                  <MonitorPlay aria-hidden />
+                  Pantalla publicitaria
+                  {pantallaBranchName ? ` · ${pantallaBranchName}` : ''}
+                </Link>
+              ))}
             <TourButton
               className="w-full"
               onBeforeToggle={() => setOpen(false)}

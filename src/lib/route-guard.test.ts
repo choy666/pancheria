@@ -9,6 +9,10 @@ describe('isPublicPath', () => {
     expect(isPublicPath(routes.pedido)).toBe(true);
   });
 
+  test('/pantalla es público', () => {
+    expect(isPublicPath(routes.pantalla)).toBe(true);
+  });
+
   test('/login es público', () => {
     expect(isPublicPath(routes.login)).toBe(true);
   });
@@ -34,6 +38,11 @@ describe('isPublicPath', () => {
 describe('getAuthRedirect', () => {
   test('permite /pedido sin sesión', () => {
     const redirect = getAuthRedirect(false, routes.pedido, ORIGIN);
+    expect(redirect).toBeNull();
+  });
+
+  test('permite /pantalla sin sesión', () => {
+    const redirect = getAuthRedirect(false, routes.pantalla, ORIGIN);
     expect(redirect).toBeNull();
   });
 

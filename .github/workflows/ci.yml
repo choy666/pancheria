@@ -238,6 +238,16 @@ jobs:
       NEXT_PUBLIC_CATALOG_PAGE_SIZE: "200"
       # Refresco de chat más rápido en E2E (paridad con .env.e2e.example).
       NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS: "1000"
+      # Duraciones cortas de las escenas de /pantalla para que el spec E2E
+      # vea rotar productos → sucursal → QR en segundos (paridad con
+      # .env.e2e.example; en CI no existe .env.e2e).
+      NEXT_PUBLIC_PANTALLA_PRODUCTO_MS: "1200"
+      NEXT_PUBLIC_PANTALLA_SUCURSAL_MS: "1500"
+      NEXT_PUBLIC_PANTALLA_QR_MS: "1500"
+      NEXT_PUBLIC_PANTALLA_MAX_PRODUCTOS: "5"
+      # Watchdog bajo: un stream que falla sin `error` solo se salta por
+      # este timer (el default de 120 s supera los timeouts del spec).
+      NEXT_PUBLIC_PANTALLA_VIDEO_MAX_MS: "8000"
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v7

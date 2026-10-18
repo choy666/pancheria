@@ -25,6 +25,7 @@ Regla observada en código: las **API routes y Server Actions nunca tocan `db` d
 flowchart LR
     subgraph PRES["Presentación — src/app"]
         PUB["(public)<br/>/pedido · /pedido/seguimiento<br/>/pedido/[id]/chat · /sesion-finalizada"]
+        KIOSK["(kiosk)<br/>/pantalla"]
         PAN["(panel)<br/>/ · /ventas · /pedidos · /cierre<br/>/productos · /stock · /sucursales<br/>/usuarios · /videos · /perfil"]
         AUTHG["(auth)<br/>/login"]
         APIR["api/ routes"]
@@ -58,6 +59,7 @@ flowchart LR
     end
 
     PUB --> APIR
+    KIOSK --> APIR
     PAN --> APIR
     PAN -->|"Server Actions"| SVC
     AUTHG -->|"Server Action login"| SVC
@@ -77,7 +79,7 @@ flowchart LR
     classDef data fill:#fff4e5,stroke:#e8a13b,color:#111
     classDef cross fill:#f5f5f5,stroke:#999,color:#111
     classDef dom fill:#fdf2f8,stroke:#c2185b,color:#111
-    class PUB,PAN,AUTHG,APIR pres
+    class PUB,KIOSK,PAN,AUTHG,APIR pres
     class SVC,TX,IDEM app
     class REPOS,SCHEMA,DBCONN data
     class LIBS,CFG cross
@@ -94,6 +96,7 @@ flowchart LR
 | Grupo | Rutas | Características |
 | --- | --- | --- |
 | `(public)` | `/pedido`, `/pedido/seguimiento`, `/pedido/[id]/chat` | Sin login. `force-dynamic` en las tres páginas (CSP nonce + no consultar DB en build). `PedidoClient` orquesta catálogo + carrito en `localStorage` (`pancheria-branch-id`, carrito por `cart-helpers`). |
+| `(kiosk)` | `/pantalla` | Sin login, layout propio oscuro `data-theme="screen"` (sin el header/footer de `(public)`). Pantalla publicitaria para TV: `PantallaClient` rota en bucle videos activos, escenas de productos (foto+nombre+precio), escena de sucursal y QR a `/pedido`. Snapshot SSR inicial + poll a `GET /api/public/pantalla`; duraciones por env `NEXT_PUBLIC_PANTALLA_*_MS`. |
 | `(panel)` | `/` dashboard, `/ventas` (+`historial`, `historial/[id]`, `historial/eliminadas`), `/pedidos` (+`[id]`), `/cierre`, `/productos` (+`nuevo`, `[id]/editar`, `eliminados`), `/stock`, `/sucursales` (+`nueva`, `[id]/editar`), `/usuarios` (+`nuevo`, `[id]/editar`), `/videos` (+`nuevo`, `[id]`, `eliminados`), `/perfil` | Requiere sesión: el layout llama `getCurrentBranchIdOrRedirect` y envuelve todo en `TourProvider` (driver.js). Admin ve selector de sucursal (`branch-selector` → Server Action `setActiveBranchAction` → cookie `activeBranchId`). |
 | `(auth)` | `/login` | Server Action `login` → `signIn` de NextAuth. |
 | raíz | `/sesion-finalizada`, `not-found`, `layout.tsx` | `/sesion-finalizada`: cierre de sesión forzado cuando la sucursal/usuario del JWT fue eliminado. Layout raíz inyecta `ConditionalAnalytics`. |
@@ -123,7 +126,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `api/stock` | `GET /` (alertas), `ajustar`, `movimientos` | `stockService` |
 | `api/recetas` | `GET /` (insumos para recetas) | `recipeService` |
 | `api/videos` | `upload` (POST, solo local), `[id]/stream` (GET admin: stream local con Range o redirect a URL pública remota) | `videoService`, `storage` |
-| `api/public` | `catalogo`, `disponibilidad`, `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
+| `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
 | `api/panel` | `resumen` (GET: resumen de sucursal para dashboard) | `cashRegisterService` + `orderService` + `stockService` |
 | `api/cron` | `expire-orders`, `rate-limit-cleanup`, `chat-attachments-cleanup` (todos GET + Bearer) | `orderService`, `cleanupService`, rate-limit stores |
 | `api/chat` | `attachment/[key]` (GET: solo provider `local`; sesión o `?token`) | `chat-storage` |
@@ -183,7 +186,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 
 ## 6. UI — `src/components`, `src/hooks`
 
-Componentes agrupados por feature (coexisten `pedido/` = catálogo público y `pedidos/` = gestión en panel): `caja/`, `cart/`, `chat/`, `pagos/`, `panel/`, `pedido/`, `pedidos/`, `productos/`, `promo/`, `stock/`, `sucursales/`, `tour/` (driver.js), `usuarios/`, `ventas/`, `videos/` + `ui/` (shadcn/ui sobre `@base-ui/react`).
+Componentes agrupados por feature (coexisten `pedido/` = catálogo público y `pedidos/` = gestión en panel): `caja/`, `cart/`, `chat/`, `pagos/`, `panel/`, `pantalla/` (escenas de `/pantalla`: video, producto, sucursal, QR + orquestador `pantalla-client`), `pedido/`, `pedidos/`, `productos/`, `promo/`, `stock/`, `sucursales/`, `tour/` (driver.js), `usuarios/`, `ventas/`, `videos/` + `ui/` (shadcn/ui sobre `@base-ui/react`).
 
 Hooks con lógica compartida: `usePaginatedData`, `useVisibilityPolling`, `useCart`, `useSellableCart`, `useCashRegister`, `useDashboard`, `useCast` (Google Cast sender), `useSubmitIdempotencyKey`, `useConfirmDialog`, `useErrorDialog`, `usePaymentParts`, `useRecentOrders`, `useClockInterval`.
 

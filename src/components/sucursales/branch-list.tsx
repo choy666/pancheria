@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, Phone, Share2 } from 'lucide-react';
+import { MapPin, MonitorPlay, Phone, Share2 } from 'lucide-react';
 import type { Branch } from '@/domain/types';
 import type { BranchOperationalStatus } from '@/lib/branch-helpers';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { routes } from '@/config/routes';
 import {
   Table,
@@ -185,11 +187,46 @@ export function BranchList({
                     {branch.id}
                   </TableCell>
                   <TableCell className="text-right">
-                    <BranchActions
-                      branchId={branch.id}
-                      branchName={branch.name}
-                      branchIsActive={branch.isActive}
-                    />
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {/* Acceso directo a la TV del local: la URL queda
+                          pineada a esta sucursal (la pantalla sigue el
+                          branchId de la URL, no la cookie del panel). */}
+                      {branch.isActive ? (
+                        <Link
+                          href={`${routes.pantalla}?branchId=${branch.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          data-testid={`branch-pantalla-link-${branch.id}`}
+                          aria-label={`Abrir la pantalla publicitaria de ${branch.name}`}
+                          title={`Abrir la pantalla publicitaria de ${branch.name} (nueva pestaña)`}
+                          className={cn(
+                            buttonVariants({ variant: 'ghost', size: 'icon-sm' })
+                          )}
+                        >
+                          <MonitorPlay aria-hidden />
+                        </Link>
+                      ) : (
+                        <span
+                          data-testid={`branch-pantalla-disabled-${branch.id}`}
+                          aria-disabled="true"
+                          title={`${branch.name} está inactiva: la pantalla publicitaria no puede mostrarla`}
+                          className={cn(
+                            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+                            'cursor-not-allowed opacity-50'
+                          )}
+                        >
+                          <MonitorPlay aria-hidden />
+                          <span className="sr-only">
+                            Pantalla publicitaria de {branch.name} no disponible
+                          </span>
+                        </span>
+                      )}
+                      <BranchActions
+                        branchId={branch.id}
+                        branchName={branch.name}
+                        branchIsActive={branch.isActive}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               );

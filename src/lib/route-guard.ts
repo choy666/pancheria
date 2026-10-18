@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { routes } from '@/config/routes';
 
-const PUBLIC_PATHS: Set<string> = new Set([routes.pedido, routes.login]);
+const PUBLIC_PATHS: Set<string> = new Set([
+  routes.pedido,
+  routes.pantalla,
+  routes.login,
+]);
 
 const PUBLIC_PREFIXES = [
   '/api/public',
