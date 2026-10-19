@@ -118,6 +118,27 @@ seed la segunda aparición de la escena queda a ~2 min.
 - `AGENTS.md`, `.env.example`, `.env.e2e`, `.env.e2e.example`,
   `.github/workflows/ci.yml` — docs y envs
 
+## Ampliación posterior (mismo día): simetría visual de las escenas de producto
+
+Detectado en producción por el usuario: cada foto tiene su propio aspect
+ratio y fondo blanco opaco, así que con `object-contain` libre el
+rectángulo blanco visible cambiaba de forma escena a escena.
+
+- `pantalla-product-scene.tsx`: la foto ahora vive en una **tarjeta
+  cuadrada constante** (`aspect-square h-[80%]`, `rounded-[2rem]`,
+  `bg-white`, sombra y ring) centrada en el panel; detrás, un **backdrop
+  ambient** (la misma imagen `object-cover scale-125 blur-3xl opacity-35`
+  + overlay `bg-black/40`) llena el panel con los colores de la foto.
+  Sin imagen (o imagen rota) el fallback de inicial ocupa la misma
+  tarjeta, con paleta ajustada a fondo claro.
+- El aspect se eligió **midiendo el corpus real** de producción (14
+  imágenes vía `/api/public/pantalla?branchId=3`): 11 de 14 entre ratio
+  1.0 y 1.28 → `aspect-square` minimiza el letterbox. Con 4:3 las
+  cuadradas hubieran dejado bandas laterales del ~25 %.
+- Verificado con screenshots de Playwright contra la DB de desarrollo
+  (fotos panorámicas, verticales y sin foto: marco idéntico en todas) y
+  `tests/e2e/pantalla.spec.ts` sigue 9/9.
+
 ## Fuera de alcance / limitaciones restantes
 
 - **Timezone por sucursal**: reloj y horarios con `NEXT_PUBLIC_BRANCH_TIMEZONE`
@@ -126,6 +147,12 @@ seed la segunda aparición de la escena queda a ~2 min.
   con fallback a la env (requiere migración).
 - **Pantalla y videos con `STORAGE_PROVIDER=local`**: limitación ya conocida
   (stream exige sesión admin), sin cambios.
+- **Normalización de imágenes (Paso 4, ticket aparte)**: extender el
+  pipeline de upload existente (`src/lib/product-image-normalize.ts` /
+  `verifyUploadedProductImage`) para re-encuadrar a aspect uniforme (1:1)
+  al persistir + script one-off de reproceso de las existentes. Recomendación
+  operativa paralela: guía de fotografía (mismo fondo y encuadre) — la
+  "normalización" más barata es la fuente.
 - Nota de repo: la feature `/pantalla` completa estaba **sin commitear** en
   el working tree al iniciar esta tarea (directorios `(kiosk)`,
   `components/pantalla`, `lib/pantalla-*`, el spec y sus configs como

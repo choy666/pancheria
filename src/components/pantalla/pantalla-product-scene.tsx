@@ -14,34 +14,56 @@ interface PantallaProductSceneProps {
 function ProductHeroImage({ product }: { product: PublicCatalogProduct }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const imageUrl = product.imageUrl;
-
-  if (!imageUrl || failedUrl === imageUrl) {
-    const initial = product.name.trim().charAt(0).toUpperCase() || 'P';
-    return (
-      <div
-        className="flex h-full w-full items-center justify-center"
-        role="img"
-        aria-label={`Imagen no disponible para ${product.name}`}
-      >
-        <span
-          aria-hidden="true"
-          className="flex size-40 items-center justify-center rounded-full bg-brand-red/20 font-heading text-8xl text-brand-mustard ring-4 ring-brand-red/40 select-none md:size-56 md:text-9xl"
-        >
-          {initial}
-        </span>
-      </div>
-    );
-  }
+  const hasImage = Boolean(imageUrl) && failedUrl !== imageUrl;
 
   return (
-    <Image
-      src={imageUrl}
-      alt={`Imagen de ${product.name}`}
-      fill
-      className="object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
-      sizes="(max-width: 768px) 100vw, 50vw"
-      onError={() => setFailedUrl(imageUrl)}
-    />
+    <>
+      {/* Backdrop ambient: la misma foto difuminada llena el panel y da
+          continuidad cromática detrás de la tarjeta, sin importar el
+          aspect ratio de la foto. */}
+      {hasImage && (
+        <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+          <Image
+            src={imageUrl!}
+            alt=""
+            fill
+            className="scale-125 object-cover opacity-35 blur-3xl saturate-150"
+            sizes="50vw"
+            onError={() => setFailedUrl(imageUrl ?? null)}
+          />
+          <div className="absolute inset-0 bg-black/40" />
+        </div>
+      )}
+
+      {/* Tarjeta cuadrada constante: la foto se adapta dentro con contain,
+          así el rectángulo visible es siempre el mismo entre escenas
+          (la mayoría de las fotos del catálogo son ~1:1). */}
+      <div className="relative aspect-square h-[80%] max-h-full w-auto max-w-full overflow-hidden rounded-[2rem] bg-white shadow-[0_25px_80px_-15px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
+        {hasImage ? (
+          <Image
+            src={imageUrl!}
+            alt={`Imagen de ${product.name}`}
+            fill
+            className="object-contain p-4 md:p-8"
+            sizes="(max-width: 768px) 70vw, 40vw"
+            onError={() => setFailedUrl(imageUrl ?? null)}
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            role="img"
+            aria-label={`Imagen no disponible para ${product.name}`}
+          >
+            <span
+              aria-hidden="true"
+              className="flex size-40 items-center justify-center rounded-full bg-brand-red/10 font-heading text-8xl text-brand-red ring-4 ring-brand-red/30 select-none md:size-56 md:text-9xl"
+            >
+              {product.name.trim().charAt(0).toUpperCase() || 'P'}
+            </span>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
