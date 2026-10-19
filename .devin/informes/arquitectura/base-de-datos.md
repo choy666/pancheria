@@ -222,6 +222,28 @@ erDiagram
         timestamp updated_at
         timestamp deleted_at "soft delete"
     }
+    pantalla_settings {
+        integer branch_id PK "FK branches (cascade), 1:1"
+        pantalla_playlist_mode playlist_mode "auto|custom (0040)"
+        integer producto_ms "check >= 1000"
+        integer sucursal_ms "check >= 1000"
+        integer qr_ms "check >= 1000"
+        integer video_max_ms "check >= 1000"
+        integer max_productos "check >= 1"
+        boolean show_branch_scene
+        boolean show_qr_scene
+        timestamp updated_at
+    }
+    pantalla_items {
+        serial id PK
+        integer branch_id FK "branches (cascade)"
+        pantalla_item_kind kind "product|video (0040)"
+        integer product_id FK "products (cascade), XOR con video_id"
+        integer video_id FK "videos (cascade), XOR con product_id"
+        integer position "orden denso 0..n-1, check >= 0"
+        boolean is_enabled
+        timestamp created_at
+    }
     login_attempts {
         varchar username PK
         integer count
@@ -242,6 +264,11 @@ erDiagram
     branches ||--o{ stock_movements : "branch_id (restrict)"
     branches ||--o{ order_stock_reservations : "branch_id (restrict)"
     branches ||--o{ videos : "branch_id (restrict)"
+    branches ||--o{ pantalla_items : "branch_id (cascade)"
+    branches ||--|| pantalla_settings : "branch_id (cascade)"
+
+    products ||--o{ pantalla_items : "product_id (cascade)"
+    videos ||--o{ pantalla_items : "video_id (cascade)"
 
     products ||--o{ recipes : "compound_product_id (cascade)"
     products ||--o{ recipes : "supply_id (cascade)"
@@ -269,7 +296,7 @@ erDiagram
 
 > Render: [diagramas/svg/base-de-datos.svg](diagramas/svg/base-de-datos.svg)
 
-## Enums (10)
+## Enums (12)
 
 | Enum | Valores | Uso |
 | --- | --- | --- |
@@ -283,10 +310,12 @@ erDiagram
 | `stock_movement_type` | `sale`, `cancellation`, `manual_adjustment`, `restock`, `reserve`, `reserve_release` | `stock_movements.type` |
 | `cash_register_status` | `open`, `closed` | `cash_registers.status` |
 | `user_role` | `admin`, `operator` | `users.role` |
+| `pantalla_playlist_mode` | `auto`, `custom` | `pantalla_settings.playlist_mode` |
+| `pantalla_item_kind` | `product`, `video` | `pantalla_items.kind` |
 
 > ⚠️ Histórico: las migraciones `0008`/`0009` mencionan `order`/`order_cancellation` en `stock_movement_type`; el enum fue recreado en `0009` y los valores actuales son solo los 6 listados (la guía ya refleja los valores vigentes).
 
-## Catálogo de tablas (18)
+## Catálogo de tablas (20)
 
 ### Núcleo de negocio
 
@@ -308,6 +337,8 @@ erDiagram
 | `order_messages` | Chat del pedido (texto/adjunto/ubicación) | cascade a `orders`; idx `(order_id, created_at)`, `(order_id, sender_type, read_at)`, `attachment_key` |
 | `stock_movements` | Auditoría de stock (venta, anulación, ajuste, restock, reserva, liberación). `performed_by` guarda el usuario que registró un ajuste manual (migración `0035`; NULL en movimientos de sistema — ventas, reservas — e históricos); `product_name` snapshot del producto (migración `0039`) | `product_id`/`sale_id`/`order_id` set null; idx `(branch_id, product_id, created_at)` |
 | `videos` | Videos para cartelera/Cast. `file_url` apunta al provider | idx `(branch_id, is_active, deleted_at)` |
+| `pantalla_settings` | Config de `/pantalla` por sucursal (1:1): modo de playlist, duraciones de escena en ms, tope de productos, toggles de escenas fijas. Sin fila → defaults de env (migración `0040`) | PK `branch_id` → branches (cascade); CHECKs `*_ms >= 1000`, `max_productos >= 1` |
+| `pantalla_items` | Playlist explícita de `/pantalla` (modo `custom`): ítem → producto o video de la sucursal, orden `position` denso, `is_enabled` para ocultar sin borrar (migración `0040`) | idx `(branch_id, position)`; UNIQUE parcial `(branch_id, product_id)` y `(branch_id, video_id)`; CHECK XOR `kind`↔referencia; FKs cascade a `branches`/`products`/`videos` |
 
 ### Tablas de infraestructura (rate limiting)
 
@@ -318,7 +349,7 @@ erDiagram
 
 ## Reglas de integridad y borrado
 
-- **`branches` → hijos: `restrict`.** No hay cascada de FK en los hijos directos: `branchService.deleteBranch` borra manualmente todos los descendientes dentro de una transacción (`branchRepository.deleteCascade`), luego elimina archivos externos **post-commit best-effort** (imágenes de productos, adjuntos de chat, videos) y limpia `login_attempts` de sus usuarios.
+- **`branches` → hijos: `restrict` (excepto pantalla).** Los hijos directos del negocio no tienen cascada de FK: `branchService.deleteBranch` borra manualmente todos los descendientes dentro de una transacción (`branchRepository.deleteCascade`), luego elimina archivos externos **post-commit best-effort** (imágenes de productos, adjuntos de chat, videos) y limpia `login_attempts` de sus usuarios. La excepción deliberada es la configuración de `/pantalla` (`pantalla_settings` y `pantalla_items`, cascade desde `0040`): son datos derivados sin historial ni archivos, así que la FK los limpia sola al borrar la sucursal, el producto o el video referenciado (el soft-delete de videos se detecta al construir la playlist, no por FK).
 - **Soft delete (`deleted_at`):** `products`, `cash_registers`, `orders`, `videos` — papelera con restauración. `branches`, `users`, `sales` y demás: borrado físico. `sales` no se borra: se anula (`status=cancelled`).
 - **`set null`:** `sales.cash_register_id`, `orders.converted_sale_id`, `stock_movements.sale_id/order_id` — preservan historial si el padre desaparece.
 - **`restrict`:** cualquier `product_id`/`supply_id`/`branch_id` referenciado por historiales impide borrar el padre (los servicios lo manejan).

@@ -296,3 +296,37 @@ export type VideoRow = {
   updatedAt: Date;
   deletedAt: Date | null;
 };
+
+/**
+ * Modo de la playlist de la pantalla publicitaria (`pantalla_settings`):
+ * `auto` rota el catálogo con stock + videos activos; `custom` usa solo la
+ * playlist explícita de `pantalla_items`.
+ */
+export type PantallaPlaylistMode = 'auto' | 'custom';
+
+/** Referencia de un ítem de playlist de pantalla: producto o video. */
+export type PantallaItemKind = 'product' | 'video';
+
+export type PantallaSettingsRow = {
+  branchId: number;
+  playlistMode: PantallaPlaylistMode;
+  productoMs: number;
+  sucursalMs: number;
+  qrMs: number;
+  videoMaxMs: number;
+  maxProductos: number;
+  showBranchScene: boolean;
+  showQrScene: boolean;
+  updatedAt: Date;
+};
+
+export type PantallaItemRow = {
+  id: number;
+  branchId: number;
+  kind: PantallaItemKind;
+  productId: number | null;
+  videoId: number | null;
+  position: number;
+  isEnabled: boolean;
+  createdAt: Date;
+};

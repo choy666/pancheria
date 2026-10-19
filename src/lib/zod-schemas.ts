@@ -310,6 +310,66 @@ export const videoSchema = z.object({
 
 export const videoUpdateSchema = videoSchema.partial();
 
+/**
+ * Configuración de la pantalla publicitaria (una fila por sucursal en
+ * `pantalla_settings`). Las duraciones viajan en milisegundos; la UI del
+ * panel las convierte a segundos. Los límites replican los mínimos de
+ * `src/config/pantalla.ts` (mínimo 1 s por escena) y agregan un tope sanos
+ * de 10 minutos para evitar errores de tipeo que congelen la pantalla.
+ */
+const pantallaDurationMsSchema = z.coerce
+  .number()
+  .int({ message: 'La duración debe ser un número entero de milisegundos.' })
+  .min(1000, { message: 'La duración mínima de una escena es 1 segundo.' })
+  .max(600_000, {
+    message: 'La duración máxima de una escena es 600 segundos (10 minutos).',
+  });
+
+export const pantallaSettingsSchema = z.object({
+  playlistMode: z.enum(['auto', 'custom']),
+  productoMs: pantallaDurationMsSchema,
+  sucursalMs: pantallaDurationMsSchema,
+  qrMs: pantallaDurationMsSchema,
+  videoMaxMs: pantallaDurationMsSchema,
+  maxProductos: z.coerce
+    .number()
+    .int({ message: 'El máximo de productos debe ser un número entero.' })
+    .min(1, { message: 'El máximo de productos debe ser al menos 1.' })
+    .max(200, { message: 'El máximo de productos no puede superar 200.' }),
+  showBranchScene: z.boolean(),
+  showQrScene: z.boolean(),
+});
+
+const pantallaPlaylistItemSchema = z.object({
+  kind: z.enum(['product', 'video']),
+  refId: z.number().int().positive(),
+  isEnabled: z.boolean().default(true),
+});
+
+/**
+ * Playlist explícita de la pantalla (modo `custom`): el orden del array es
+ * el orden del ciclo; `position` se reescribe como el índice al guardar.
+ * Se rechazan duplicados (misma referencia producto/video dos veces).
+ */
+export const pantallaPlaylistSchema = z
+  .array(pantallaPlaylistItemSchema)
+  .max(100, { message: 'La playlist no puede tener más de 100 ítems.' })
+  .superRefine((items, ctx) => {
+    const seen = new Set<string>();
+    for (const item of items) {
+      const key = `${item.kind}:${item.refId}`;
+      if (seen.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'No puede haber ítems duplicados en la playlist.',
+          path: ['items'],
+        });
+        return;
+      }
+      seen.add(key);
+    }
+  });
+
 export const chatMessageContentSchema = z.object({
   content: z
     .string()

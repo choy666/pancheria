@@ -8,16 +8,26 @@ interface PantallaVideoSceneProps {
   video: PantallaVideo;
   /** Avanza la playlist: se llama al terminar, al fallar o al agotar el watchdog. */
   onDone: () => void;
+  /**
+   * Tope del watchdog cuando el video no reporta duración (stream roto o
+   * metadata ausente). Viene de `pantalla_settings.video_max_ms`; si falta,
+   * se cae a `NEXT_PUBLIC_PANTALLA_VIDEO_MAX_MS`.
+   */
+  maxDurationMs?: number;
 }
 
 /**
  * Escena de video: reproduce el archivo a pantalla completa en silencio
  * (`muted` habilita autoplay en cualquier navegador/kiosk) y avanza al
  * terminar. Un watchdog cubre streams rotos que nunca disparan `ended` ni
- * `error`: sin metadata en `PANTALLA_VIDEO_MAX_MS` se salta la escena, y con
+ * `error`: sin metadata en `maxDurationMs` se salta la escena, y con
  * metadata conocida se acota a duración + 5 s.
  */
-export function PantallaVideoScene({ video, onDone }: PantallaVideoSceneProps) {
+export function PantallaVideoScene({
+  video,
+  onDone,
+  maxDurationMs,
+}: PantallaVideoSceneProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [durationSec, setDurationSec] = useState<number | null>(null);
 
@@ -25,10 +35,10 @@ export function PantallaVideoScene({ video, onDone }: PantallaVideoSceneProps) {
     const watchdogMs =
       durationSec !== null && Number.isFinite(durationSec)
         ? durationSec * 1000 + 5_000
-        : getPantallaVideoMaxMs();
+        : (maxDurationMs ?? getPantallaVideoMaxMs());
     const id = setTimeout(onDone, watchdogMs);
     return () => clearTimeout(id);
-  }, [durationSec, onDone]);
+  }, [durationSec, onDone, maxDurationMs]);
 
   useEffect(() => {
     // autoplay + muted deberían bastar; el play() explícito cubre kiosks que

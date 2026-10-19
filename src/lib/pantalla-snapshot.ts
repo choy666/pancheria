@@ -1,6 +1,7 @@
 import * as catalogService from '@/application/services/catalogService';
 import * as videoService from '@/application/services/videoService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import * as pantallaService from '@/application/services/pantallaService';
 import {
   isBranchOpen,
   getTodayOpening,
@@ -66,11 +67,17 @@ function toPantallaVideo(video: VideoRow): PantallaVideo {
 export async function buildPantallaSnapshot(
   branchId: number
 ): Promise<PantallaSnapshot> {
-  const [catalog, videoRows, cashRegister] = await Promise.all([
-    catalogService.listPublicCatalogWithAvailability(branchId),
-    videoService.listActiveVideos(branchId),
-    cashRegisterService.getOpenCashRegister(branchId),
-  ]);
+  const [catalog, videoRows, cashRegister, settings, items] =
+    await Promise.all([
+      catalogService.listPublicCatalogWithAvailability(branchId),
+      videoService.listActiveVideos(branchId),
+      cashRegisterService.getOpenCashRegister(branchId),
+      // Configuración efectiva de la sucursal (fila propia o defaults de
+      // entorno) y su playlist explícita habilitada — vacía en modo `auto`,
+      // donde `buildPantallaPlaylist` la ignora.
+      pantallaService.getSettings(branchId),
+      pantallaService.listEnabledItems(branchId),
+    ]);
 
   const { branch } = catalog;
   // Misma semántica que GET /api/public/sucursal/estado: sin horarios
@@ -93,5 +100,7 @@ export async function buildPantallaSnapshot(
     message,
     products: catalog.products,
     videos: videoRows.map(toPantallaVideo),
+    settings,
+    items,
   };
 }

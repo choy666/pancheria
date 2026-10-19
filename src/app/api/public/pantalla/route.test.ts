@@ -52,6 +52,17 @@ const SNAPSHOT = {
       mimeType: 'video/mp4',
     },
   ],
+  settings: {
+    playlistMode: 'auto',
+    productoMs: 6000,
+    sucursalMs: 8000,
+    qrMs: 12000,
+    videoMaxMs: 120000,
+    maxProductos: 15,
+    showBranchScene: true,
+    showQrScene: true,
+  },
+  items: [],
 };
 
 function buildRequest(query = ''): NextRequest {

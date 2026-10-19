@@ -5,6 +5,7 @@ import { buildPantallaSnapshot } from './pantalla-snapshot';
 import * as catalogService from '@/application/services/catalogService';
 import * as videoService from '@/application/services/videoService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
+import * as pantallaService from '@/application/services/pantallaService';
 import {
   isBranchOpen,
   getTodayOpening,
@@ -16,6 +17,7 @@ import { getStorageProvider } from '@/config/videos';
 jest.mock('@/application/services/catalogService');
 jest.mock('@/application/services/videoService');
 jest.mock('@/application/services/cashRegisterService');
+jest.mock('@/application/services/pantallaService');
 jest.mock('@/lib/branch-helpers', () => ({
   isBranchOpen: jest.fn(),
   getTodayOpening: jest.fn(),
@@ -36,6 +38,22 @@ const mockedVideoService = videoService as jest.Mocked<typeof videoService>;
 const mockedCashRegisterService = cashRegisterService as jest.Mocked<
   typeof cashRegisterService
 >;
+const mockedPantallaService = pantallaService as jest.Mocked<
+  typeof pantallaService
+>;
+
+const SETTINGS = {
+  playlistMode: 'auto' as const,
+  productoMs: 6000,
+  sucursalMs: 8000,
+  qrMs: 12000,
+  videoMaxMs: 120000,
+  maxProductos: 15,
+  showBranchScene: true,
+  showQrScene: true,
+};
+
+const ITEMS = [{ kind: 'product' as const, refId: 10 }];
 const mockedIsBranchOpen = isBranchOpen as jest.MockedFunction<
   typeof isBranchOpen
 >;
@@ -102,6 +120,8 @@ describe('buildPantallaSnapshot', () => {
     mockedGetTodayOpening.mockReturnValue('Hoy de 12:00 a 23:00');
     mockedGetNextOpening.mockReturnValue('Mañana de 12:00 a 23:00');
     mockedGetStorageProvider.mockReturnValue('vercel-blob');
+    mockedPantallaService.getSettings.mockResolvedValue(SETTINGS);
+    mockedPantallaService.listEnabledItems.mockResolvedValue(ITEMS);
   });
 
   test('devuelve el snapshot completo con sucursal abierta', async () => {
@@ -132,6 +152,12 @@ describe('buildPantallaSnapshot', () => {
       },
     ]);
     expect(snapshot.message).toContain('abierta');
+    expect(snapshot.settings).toEqual(SETTINGS);
+    expect(snapshot.items).toEqual(ITEMS);
+    expect(mockedPantallaService.getSettings).toHaveBeenCalledWith(BRANCH_ID);
+    expect(mockedPantallaService.listEnabledItems).toHaveBeenCalledWith(
+      BRANCH_ID
+    );
   });
 
   test('marca cerrada cuando no hay caja abierta', async () => {

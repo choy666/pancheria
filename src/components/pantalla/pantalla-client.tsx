@@ -4,16 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildPantallaPlaylist,
   type PantallaScene,
+  type PantallaSettings,
   type PantallaSnapshot,
 } from '@/lib/pantalla-playlist';
 import { PUBLIC_PANTALLA_API } from '@/config/api';
-import {
-  getPantallaProductoMs,
-  getPantallaSucursalMs,
-  getPantallaQrMs,
-  getPantallaRefetchIntervalMs,
-  getPantallaMaxProductos,
-} from '@/config/pantalla';
+import { getPantallaRefetchIntervalMs } from '@/config/pantalla';
 import { getBranchTimezone } from '@/config/branch';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import { useClockInterval } from '@/hooks/use-clock-interval';
@@ -27,17 +22,24 @@ interface PantallaClientProps {
   initialSnapshot: PantallaSnapshot;
 }
 
-function sceneDurationMs(scene: PantallaScene): number | null {
+/**
+ * Duración de una escena según la configuración de la sucursal
+ * (`snapshot.settings`: fila de `pantalla_settings` o defaults de entorno).
+ * Las escenas de video no tienen duración fija: la dicta el propio video
+ * (onEnded) más el watchdog interno de la escena para streams rotos.
+ */
+function sceneDurationMs(
+  scene: PantallaScene,
+  settings: PantallaSettings
+): number | null {
   switch (scene.kind) {
     case 'product':
-      return getPantallaProductoMs();
+      return settings.productoMs;
     case 'branch':
-      return getPantallaSucursalMs();
+      return settings.sucursalMs;
     case 'qr':
-      return getPantallaQrMs();
+      return settings.qrMs;
     case 'video':
-      // La duración la dicta el propio video (onEnded) más el watchdog
-      // interno de la escena para streams rotos.
       return null;
   }
 }
@@ -52,15 +54,8 @@ function sceneDurationMs(scene: PantallaScene): number | null {
  */
 export function PantallaClient({ initialSnapshot }: PantallaClientProps) {
   const [snapshot, setSnapshot] = useState<PantallaSnapshot>(initialSnapshot);
-  const maxProductos = getPantallaMaxProductos();
 
-  const playlist = useMemo(
-    () =>
-      buildPantallaPlaylist(snapshot.videos, snapshot.products, {
-        maxProductos,
-      }),
-    [snapshot.videos, snapshot.products, maxProductos]
-  );
+  const playlist = useMemo(() => buildPantallaPlaylist(snapshot), [snapshot]);
 
   const [sceneKey, setSceneKey] = useState<string>(playlist[0].key);
   const index = playlist.findIndex((s) => s.key === sceneKey);
@@ -87,7 +82,7 @@ export function PantallaClient({ initialSnapshot }: PantallaClientProps) {
     });
   }, []);
 
-  const timedMs = sceneDurationMs(scene);
+  const timedMs = sceneDurationMs(scene, snapshot.settings);
   useEffect(() => {
     if (timedMs === null) return;
     const id = setTimeout(advance, timedMs);
@@ -160,7 +155,13 @@ function SceneContent({
 }) {
   switch (scene.kind) {
     case 'video':
-      return <PantallaVideoScene video={scene.video} onDone={onDone} />;
+      return (
+        <PantallaVideoScene
+          video={scene.video}
+          onDone={onDone}
+          maxDurationMs={snapshot.settings.videoMaxMs}
+        />
+      );
     case 'product':
       return <PantallaProductScene product={scene.product} />;
     case 'branch':

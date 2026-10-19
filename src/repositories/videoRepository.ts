@@ -1,4 +1,4 @@
-import { eq, and, count, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, count, isNull, isNotNull, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { nowUTC } from '@/lib/date';
@@ -100,6 +100,35 @@ export async function findActive(branchId: number): Promise<VideoRow[]> {
       isNull(videos.deletedAt)
     ),
     orderBy: (videos, { asc: ascFn }) => [ascFn(videos.title)],
+  });
+}
+
+/**
+ * Todos los videos no eliminados de la sucursal (activos e inactivos). La
+ * usa el configurador de la pantalla para ofrecerlos como candidatos de la
+ * playlist, incluidos los pausados.
+ */
+export async function findAllNonDeleted(branchId: number): Promise<VideoRow[]> {
+  return db.query.videos.findMany({
+    where: and(eq(videos.branchId, branchId), isNull(videos.deletedAt)),
+    orderBy: (videos, { asc: ascFn }) => [ascFn(videos.title)],
+  });
+}
+
+export async function findByIds(
+  branchId: number,
+  ids: number[],
+  includeDeleted = false
+): Promise<VideoRow[]> {
+  if (ids.length === 0) return [];
+
+  const conditions = [eq(videos.branchId, branchId), inArray(videos.id, ids)];
+  if (!includeDeleted) {
+    conditions.push(isNull(videos.deletedAt));
+  }
+
+  return db.query.videos.findMany({
+    where: and(...conditions),
   });
 }
 

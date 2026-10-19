@@ -281,6 +281,13 @@
       "when": 1792094472453,
       "tag": "0039_flippant_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792421758359,
+      "tag": "0040_pantalla-config",
+      "breakpoints": true
     }
   ]
 }

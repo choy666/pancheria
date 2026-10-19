@@ -76,6 +76,17 @@ function makeSnapshot(branchId: number) {
     message: 'Sucursal abierta.',
     products: [],
     videos: [],
+    settings: {
+      playlistMode: 'auto' as const,
+      productoMs: 6000,
+      sucursalMs: 8000,
+      qrMs: 12000,
+      videoMaxMs: 120000,
+      maxProductos: 15,
+      showBranchScene: true,
+      showQrScene: true,
+    },
+    items: [],
   };
 }
 

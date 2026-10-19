@@ -84,6 +84,24 @@ export const cashRegisterStatusEnum = pgEnum('cash_register_status', [
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'operator']);
 
+/**
+ * Modo de la playlist de la pantalla publicitaria:
+ * - `auto`: rotación automática (todos los productos con stock + videos
+ *   activos, intercalados) — el comportamiento histórico.
+ * - `custom`: solo los ítems de `pantalla_items`, en el orden elegido desde
+ *   el panel.
+ */
+export const pantallaPlaylistModeEnum = pgEnum('pantalla_playlist_mode', [
+  'auto',
+  'custom',
+]);
+
+/** Tipo de ítem de la playlist personalizada de la pantalla publicitaria. */
+export const pantallaItemKindEnum = pgEnum('pantalla_item_kind', [
+  'product',
+  'video',
+]);
+
 export const branches = pgTable('branches', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(),
@@ -586,7 +604,102 @@ export const videos = pgTable(
   })
 );
 
-export const branchesRelations = relations(branches, ({ many }) => ({
+/**
+ * Configuración por sucursal de la pantalla publicitaria `/pantalla`
+ * (1:1 con `branches`). Los defaults de las duraciones replican los de
+ * `src/config/pantalla.ts`; el servicio cae a las variables de entorno
+ * cuando la sucursal todavía no tiene fila (sin configurar).
+ */
+export const pantallaSettings = pgTable(
+  'pantalla_settings',
+  {
+    branchId: integer('branch_id')
+      .primaryKey()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    playlistMode: pantallaPlaylistModeEnum('playlist_mode')
+      .default('auto')
+      .notNull(),
+    productoMs: integer('producto_ms').default(6000).notNull(),
+    sucursalMs: integer('sucursal_ms').default(8000).notNull(),
+    qrMs: integer('qr_ms').default(12000).notNull(),
+    // Tope del watchdog de escenas de video (stream colgado sin `ended`
+    // ni `error`); la duración real la dicta el archivo.
+    videoMaxMs: integer('video_max_ms').default(120000).notNull(),
+    // Solo modo `auto`: tope de productos del catálogo por ciclo.
+    maxProductos: integer('max_productos').default(15).notNull(),
+    showBranchScene: boolean('show_branch_scene').default(true).notNull(),
+    showQrScene: boolean('show_qr_scene').default(true).notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      'pantalla_settings_producto_ms_check',
+      sql`${table.productoMs} >= 1000`
+    ),
+    check(
+      'pantalla_settings_sucursal_ms_check',
+      sql`${table.sucursalMs} >= 1000`
+    ),
+    check('pantalla_settings_qr_ms_check', sql`${table.qrMs} >= 1000`),
+    check(
+      'pantalla_settings_video_max_ms_check',
+      sql`${table.videoMaxMs} >= 1000`
+    ),
+    check(
+      'pantalla_settings_max_productos_check',
+      sql`${table.maxProductos} >= 1`
+    ),
+  ]
+);
+
+/**
+ * Playlist explícita de la pantalla publicitaria (modo `custom`): cada fila
+ * referencia un producto vendible al público o un video de la misma
+ * sucursal. `position` ordena el ciclo (0..n-1, sin huecos, reescrito en
+ * cada guardado). El check garantiza que exactamente una referencia esté
+ * presente según `kind`; los FK en cascade limpian ítems huérfanos ante un
+ * borrado definitivo (el soft-delete se detecta al construir la playlist).
+ */
+export const pantallaItems = pgTable(
+  'pantalla_items',
+  {
+    id: serial('id').primaryKey(),
+    branchId: integer('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    kind: pantallaItemKindEnum('kind').notNull(),
+    productId: integer('product_id').references(() => products.id, {
+      onDelete: 'cascade',
+    }),
+    videoId: integer('video_id').references(() => videos.id, {
+      onDelete: 'cascade',
+    }),
+    position: integer('position').notNull(),
+    isEnabled: boolean('is_enabled').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('pantalla_items_branch_position_idx').on(
+      table.branchId,
+      table.position
+    ),
+    // Un producto o video no puede estar dos veces en la playlist de la
+    // sucursal (parciales porque la otra columna es NULL).
+    uniqueIndex('pantalla_items_branch_product_uniq')
+      .on(table.branchId, table.productId)
+      .where(sql`${table.productId} IS NOT NULL`),
+    uniqueIndex('pantalla_items_branch_video_uniq')
+      .on(table.branchId, table.videoId)
+      .where(sql`${table.videoId} IS NOT NULL`),
+    check('pantalla_items_position_check', sql`${table.position} >= 0`),
+    check(
+      'pantalla_items_ref_check',
+      sql`((${table.kind} = 'product' AND ${table.productId} IS NOT NULL AND ${table.videoId} IS NULL) OR (${table.kind} = 'video' AND ${table.videoId} IS NOT NULL AND ${table.productId} IS NULL))`
+    ),
+  ]
+);
+
+export const branchesRelations = relations(branches, ({ one, many }) => ({
   users: many(users),
   products: many(products),
   cashRegisters: many(cashRegisters),
@@ -594,6 +707,8 @@ export const branchesRelations = relations(branches, ({ many }) => ({
   orders: many(orders),
   stockMovements: many(stockMovements),
   videos: many(videos),
+  pantallaItems: many(pantallaItems),
+  pantallaSettings: one(pantallaSettings),
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -778,5 +893,30 @@ export const videosRelations = relations(videos, ({ one }) => ({
   branch: one(branches, {
     fields: [videos.branchId],
     references: [branches.id],
+  }),
+}));
+
+export const pantallaSettingsRelations = relations(
+  pantallaSettings,
+  ({ one }) => ({
+    branch: one(branches, {
+      fields: [pantallaSettings.branchId],
+      references: [branches.id],
+    }),
+  })
+);
+
+export const pantallaItemsRelations = relations(pantallaItems, ({ one }) => ({
+  branch: one(branches, {
+    fields: [pantallaItems.branchId],
+    references: [branches.id],
+  }),
+  product: one(products, {
+    fields: [pantallaItems.productId],
+    references: [products.id],
+  }),
+  video: one(videos, {
+    fields: [pantallaItems.videoId],
+    references: [videos.id],
   }),
 }));

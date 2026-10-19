@@ -96,8 +96,8 @@ flowchart LR
 | Grupo | Rutas | Características |
 | --- | --- | --- |
 | `(public)` | `/pedido`, `/pedido/seguimiento`, `/pedido/[id]/chat` | Sin login. `force-dynamic` en las tres páginas (CSP nonce + no consultar DB en build). `PedidoClient` orquesta catálogo + carrito en `localStorage` (`pancheria-branch-id`, carrito por `cart-helpers`). |
-| `(kiosk)` | `/pantalla` | Sin login, layout propio oscuro `data-theme="screen"` (sin el header/footer de `(public)`). Pantalla publicitaria para TV: `PantallaClient` rota en bucle videos activos, escenas de productos (foto+nombre+precio), escena de sucursal y QR a `/pedido`. Snapshot SSR inicial + poll a `GET /api/public/pantalla`; duraciones por env `NEXT_PUBLIC_PANTALLA_*_MS`. La TV queda pineada al `branchId` de su URL (no a la cookie del panel); se accede desde el header del panel (ícono junto al `BranchSelector`, pineado a la sucursal activa al momento del click) y por fila en `/sucursales`. |
-| `(panel)` | `/` dashboard, `/ventas` (+`historial`, `historial/[id]`, `historial/eliminadas`), `/pedidos` (+`[id]`), `/cierre`, `/productos` (+`nuevo`, `[id]/editar`, `eliminados`), `/stock`, `/sucursales` (+`nueva`, `[id]/editar`), `/usuarios` (+`nuevo`, `[id]/editar`), `/videos` (+`nuevo`, `[id]`, `eliminados`), `/perfil` | Requiere sesión: el layout llama `getCurrentBranchIdOrRedirect` y envuelve todo en `TourProvider` (driver.js). Admin ve selector de sucursal (`branch-selector` → Server Action `setActiveBranchAction` → cookie `activeBranchId`). |
+| `(kiosk)` | `/pantalla` | Sin login, layout propio oscuro `data-theme="screen"` (sin el header/footer de `(public)`). Pantalla publicitaria para TV: `PantallaClient` rota en bucle las escenas según `pantalla_settings` de la sucursal — modo `auto` (videos activos + productos con stock intercalados) o `custom` (solo la playlist explícita de `pantalla_items`, en el orden del panel) — más las escenas fijas habilitadas (sucursal y QR a `/pedido`). Snapshot SSR inicial + poll a `GET /api/public/pantalla` (el snapshot incluye `settings` e `items` habilitados); duraciones/toggles por sucursal desde `/pantalla-config`, con las env `NEXT_PUBLIC_PANTALLA_*_MS` como defaults si no hay fila. La TV queda pineada al `branchId` de su URL (no a la cookie del panel); se accede desde el header del panel (ícono junto al `BranchSelector`, pineado a la sucursal activa al momento del click), por fila en `/sucursales` y con "Ver pantalla" desde `/pantalla-config`. |
+| `(panel)` | `/` dashboard, `/ventas` (+`historial`, `historial/[id]`, `historial/eliminadas`), `/pedidos` (+`[id]`), `/cierre`, `/productos` (+`nuevo`, `[id]/editar`, `eliminados`), `/stock`, `/sucursales` (+`nueva`, `[id]/editar`), `/usuarios` (+`nuevo`, `[id]/editar`), `/videos` (+`nuevo`, `[id]`, `eliminados`), `/pantalla-config` (solo admin: duraciones, escenas fijas y playlist de `/pantalla` de la sucursal activa), `/perfil` | Requiere sesión: el layout llama `getCurrentBranchIdOrRedirect` y envuelve todo en `TourProvider` (driver.js). Admin ve selector de sucursal (`branch-selector` → Server Action `setActiveBranchAction` → cookie `activeBranchId`). |
 | `(auth)` | `/login` | Server Action `login` → `signIn` de NextAuth. |
 | raíz | `/sesion-finalizada`, `not-found`, `layout.tsx` | `/sesion-finalizada`: cierre de sesión forzado cuando la sucursal/usuario del JWT fue eliminado. Layout raíz inyecta `ConditionalAnalytics`. |
 
@@ -110,6 +110,7 @@ flowchart LR
 | `(panel)/sucursales/actions.ts` | CRUD sucursales + resumen de eliminación (`requireAdmin`) |
 | `(panel)/usuarios/actions.ts` | CRUD usuarios (`requireAdmin`) |
 | `(panel)/videos/actions.ts` | prepareUpload / CRUD / papelera de videos |
+| `(panel)/pantalla-config/actions.ts` | `updatePantallaSettingsAction` (duraciones, modo, escenas fijas), `savePantallaPlaylistAction` (reemplazo transaccional de `pantalla_items`) — `requireAdmin` + sucursal activa |
 | `(panel)/perfil/actions.ts` | `changePassword` |
 | `(auth)/login/actions.ts` | `login` |
 
@@ -126,7 +127,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `api/stock` | `GET /` (alertas), `ajustar`, `movimientos` | `stockService` |
 | `api/recetas` | `GET /` (insumos para recetas) | `recipeService` |
 | `api/videos` | `upload` (POST, solo local), `[id]/stream` (GET admin: stream local con Range o redirect a URL pública remota) | `videoService`, `storage` |
-| `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
+| `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado+`settings`/`items` de pantalla), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
 | `api/panel` | `resumen` (GET: resumen de sucursal para dashboard) | `cashRegisterService` + `orderService` + `stockService` |
 | `api/cron` | `expire-orders`, `rate-limit-cleanup`, `chat-attachments-cleanup` (todos GET + Bearer) | `orderService`, `cleanupService`, rate-limit stores |
 | `api/chat` | `attachment/[key]` (GET: solo provider `local`; sesión o `?token`) | `chat-storage` |
@@ -135,7 +136,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 
 ## 2. Aplicación — `src/application`
 
-14 servicios de dominio en `services/` + 2 servicios transversales en la raíz de `application/` (`transactionService`, `idempotencyService`).
+15 servicios de dominio en `services/` + 2 servicios transversales en la raíz de `application/` (`transactionService`, `idempotencyService`).
 
 | Servicio | Responsabilidad (verificada) |
 | --- | --- |
@@ -146,6 +147,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `chatService` | Mensajes cliente/operador, ubicación de sucursal, estado SSE (`getChatStreamState`/`pollChatStreamTick`), marcas `deliveredAt`/`readAt`, bloqueo en estados terminales/expirados |
 | `cleanupService` | Limpiezas del cron: adjuntos/imágenes/videos huérfanos, retención de mensajes |
 | `orderService` | Ciclo de vida del pedido: `createOrder` (con idempotencia), `receiveOrder` (reservas), `convertOrderToSale`, `cancelOrder`, `finishOrder`, `expirePendingOrders`, `trackOrder` (lazy expiration) |
+| `pantallaService` | Config de `/pantalla` por sucursal: `getSettings` (fila o defaults de env), `updateSettings`, `listPlaylist` (ítems + estado mostrado), `listEnabledItems` (snapshot público), `listCandidates`, `savePlaylist` (reemplazo en TX con validación de referencias) |
 | `productService` | CRUD productos, papelera (soft delete / restore / delete permanente / vaciado), imágenes |
 | `recipeService` | CRUD recetas e insumos |
 | `saleService` | `confirmSale`, `cancelSale`, `insertSaleAndUpdateCashRegister`, listados por caja/rango, resúmenes de caja |
@@ -158,9 +160,9 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 
 ## 3. Datos — `src/repositories`, `src/db`
 
-- **12 repositorios** alineados a agregados: `branch`, `cashRegister`, `catalog`, `order`, `orderMessage`, `orderStockReservation`, `product`, `recipe`, `sale`, `stockMovement`, `user`, `video`.
+- **13 repositorios** alineados a agregados: `branch`, `cashRegister`, `catalog`, `order`, `orderMessage`, `orderStockReservation`, `pantalla`, `product`, `recipe`, `sale`, `stockMovement`, `user`, `video`.
 - **`src/db/index.ts`**: proxy lazy que elige driver según la URL — `@neondatabase/serverless` si contiene `neon.tech`, si no `pg.Pool` — con pool configurable (`DATABASE_POOL_MAX`, `DATABASE_CONNECTION_TIMEOUT_MS`, `DATABASE_IDLE_TIMEOUT_MS`).
-- **`src/db/schema.ts`**: 18 tablas, 10 enums, índices y checks — detalle completo en [base-de-datos.md](base-de-datos.md).
+- **`src/db/schema.ts`**: 20 tablas, 12 enums, índices y checks — detalle completo en [base-de-datos.md](base-de-datos.md).
 - Patrones de concurrencia usados: `SELECT … FOR UPDATE` vía repositorios (`findByIdForUpdate`, `findByIdWithTokenForUpdate`), unique parcial `cash_registers` (una caja `open` por sucursal), upserts atómicos en tablas de rate limit.
 
 ## 4. Dominio — `src/domain`, `src/types`
@@ -186,7 +188,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 
 ## 6. UI — `src/components`, `src/hooks`
 
-Componentes agrupados por feature (coexisten `pedido/` = catálogo público y `pedidos/` = gestión en panel): `caja/`, `cart/`, `chat/`, `pagos/`, `panel/`, `pantalla/` (escenas de `/pantalla`: video, producto, sucursal, QR + orquestador `pantalla-client`), `pedido/`, `pedidos/`, `productos/`, `promo/`, `stock/`, `sucursales/`, `tour/` (driver.js), `usuarios/`, `ventas/`, `videos/` + `ui/` (shadcn/ui sobre `@base-ui/react`).
+Componentes agrupados por feature (coexisten `pedido/` = catálogo público y `pedidos/` = gestión en panel): `caja/`, `cart/`, `chat/`, `pagos/`, `panel/`, `pantalla/` (escenas de `/pantalla`: video, producto, sucursal, QR + orquestador `pantalla-client`), `pantalla-config/` (form de settings + editor de playlist de `/pantalla-config`), `pedido/`, `pedidos/`, `productos/`, `promo/`, `stock/`, `sucursales/`, `tour/` (driver.js), `usuarios/`, `ventas/`, `videos/` + `ui/` (shadcn/ui sobre `@base-ui/react`).
 
 Hooks con lógica compartida: `usePaginatedData`, `useVisibilityPolling`, `useCart`, `useSellableCart`, `useCashRegister`, `useDashboard`, `useCast` (Google Cast sender), `useSubmitIdempotencyKey`, `useConfirmDialog`, `useErrorDialog`, `usePaymentParts`, `useRecentOrders`, `useClockInterval`.
 
