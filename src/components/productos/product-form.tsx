@@ -4,7 +4,13 @@ import { ApiError, authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
@@ -223,7 +229,9 @@ export function ProductForm({ product }: ProductFormProps) {
           required
         />
         <p className="text-sm text-muted-foreground">
-          Nombre visible en listados, ventas y cierres.
+          Lo ve el cliente en el catálogo, además de la terminal de ventas y
+          cierres. Ej: &quot;Súper Pancho&quot;, &quot;Cerveza chica 475
+          ml&quot;.
         </p>
       </div>
 
@@ -237,7 +245,8 @@ export function ProductForm({ product }: ProductFormProps) {
           }
         />
         <p className="text-sm text-muted-foreground">
-          Notas internas opcionales.
+          La ve el cliente bajo el nombre en el catálogo (ej: &quot;Súper
+          Pancho con hasta 4 aderezos a elección&quot;). Opcional.
         </p>
       </div>
 
@@ -266,7 +275,9 @@ export function ProductForm({ product }: ProductFormProps) {
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            Define si se vende, si descontará stock y como se comporta.
+            Define si se vende, si descontará stock y cómo se comporta. Los
+            tipos vendibles al público (servicio, bebida crítica) muestran
+            además el campo Imagen.
           </p>
         </div>
 
@@ -367,6 +378,10 @@ export function ProductForm({ product }: ProductFormProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Imagen ilustrativa</CardTitle>
+            <CardDescription>
+              La ve el cliente en el catálogo y en la pantalla del local. Se
+              publica en 16:9 sobre fondo blanco: sirve cualquier formato.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ProductImageUploader

@@ -342,7 +342,7 @@ export function TourProvider({
             popover: {
               title: 'Imagen de la promo',
               description:
-                'Tocá "Elegir imagen" o arrastrá un archivo sobre la vista previa. Se mostrará en el catálogo de pedidos.',
+                'Tocá "Elegir imagen" o arrastrá un archivo sobre la vista previa. Se publica automáticamente en 16:9 sobre fondo blanco — sirve cualquier formato — y se muestra en el catálogo de pedidos y la pantalla del local.',
             },
           }
         );

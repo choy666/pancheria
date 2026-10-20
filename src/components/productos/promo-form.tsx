@@ -12,7 +12,14 @@ import { MoneyAmountInput } from '@/components/pagos/money-amount-input';
 import { parseMoneyAmount } from '@/lib/payment-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { ProductHelpCard } from './product-help-card';
 import { ProductImageUploader } from './product-image-uploader';
 import {
@@ -53,6 +60,7 @@ interface RecipeItem {
 interface PromoProduct {
   id: number;
   name: string;
+  description?: string | null;
   price: number;
   isActive: boolean;
   type: string;
@@ -65,6 +73,7 @@ interface PromoProduct {
 
 interface PromoFormData {
   name: string;
+  description: string;
   price: string;
   isActive: boolean;
   maxOptionalSelections: string;
@@ -82,6 +91,7 @@ interface PromoFormProps {
 
 const emptyForm: PromoFormData = {
   name: '',
+  description: '',
   price: '',
   isActive: true,
   maxOptionalSelections: '',
@@ -191,6 +201,7 @@ export function PromoForm({ product }: PromoFormProps) {
         const base: PromoFormData = product
           ? {
               name: product.name,
+              description: product.description ?? '',
               price: String(product.price),
               isActive: product.isActive,
               maxOptionalSelections:
@@ -411,6 +422,7 @@ export function PromoForm({ product }: PromoFormProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             name: form.name.trim(),
+            description: form.description.trim() || null,
             type: 'compound',
             price,
             unit: 'unidad',
@@ -434,6 +446,7 @@ export function PromoForm({ product }: PromoFormProps) {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             name: form.name.trim(),
+            description: form.description.trim() || null,
             price,
             isActive: form.isActive,
             maxOptionalSelections: parsedCap,
@@ -530,7 +543,24 @@ export function PromoForm({ product }: PromoFormProps) {
           required
         />
         <p className="text-sm text-muted-foreground">
-          Nombre visible en la terminal de ventas y cierres.
+          Lo ve el cliente en el catálogo, además de la terminal de ventas y
+          cierres. Tip: nombrá el contenido, ej. &quot;Promo Familiar&quot;.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="promo-description">Descripción</Label>
+        <Textarea
+          id="promo-description"
+          value={form.description}
+          onChange={(e) =>
+            setForm({ ...form, description: e.target.value })
+          }
+          placeholder="Ej: 5 Súper Panchos completos + Doble Cola 2,25 L."
+        />
+        <p className="text-sm text-muted-foreground">
+          La ve el cliente bajo el nombre en el catálogo: describí qué incluye
+          la promo en una o dos líneas. Opcional.
         </p>
       </div>
 
@@ -559,6 +589,10 @@ export function PromoForm({ product }: PromoFormProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Imagen ilustrativa</CardTitle>
+          <CardDescription>
+            La ve el cliente en el catálogo y en la pantalla del local. Se
+            publica en 16:9 sobre fondo blanco: sirve cualquier formato.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ProductImageUploader

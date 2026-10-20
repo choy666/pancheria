@@ -366,6 +366,29 @@ describe('PromoForm: flujo de imagen (caracterización)', () => {
     expect(cuerpos('POST', '/api/recetas')).toHaveLength(0);
   });
 
+  test('alta: la descripción se envía al crear la promo', async () => {
+    mockApi();
+    render(<PromoForm />);
+    await esperarFormulario();
+
+    fireEvent.change(screen.getByLabelText('Nombre de la promo'), {
+      target: { value: 'Promo con descripción' },
+    });
+    fireEvent.change(screen.getByLabelText('Descripción'), {
+      target: { value: '5 panchos + gaseosa 2,25 L' },
+    });
+    fireEvent.change(screen.getByTestId('promo-recipe-0'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('promo-submit'));
+
+    await waitFor(() => expect(cuerpos('POST', '/api/recetas')).toHaveLength(1));
+    expect(cuerpos('POST', '/api/productos')[0]).toEqual(
+      expect.objectContaining({
+        name: 'Promo con descripción',
+        description: '5 panchos + gaseosa 2,25 L',
+      })
+    );
+  });
+
   test('alta con archivo: sube la imagen y la adjunta al producto creado', async () => {
     const instrucciones = {
       url: 'https://storage.example.com/subida',

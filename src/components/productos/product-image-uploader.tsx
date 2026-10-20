@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import {
   getProductImageAllowedMimeTypes,
   PRODUCT_IMAGE_INPUT_MAX_BYTES,
+  PRODUCT_IMAGE_MIN_SOURCE_LONG_EDGE_PX,
   PRODUCT_IMAGE_TARGET_WIDTH,
   PRODUCT_IMAGE_TARGET_HEIGHT,
 } from '@/config/product-images';
@@ -231,18 +232,31 @@ export function ProductImageUploader({
             </p>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          También podés arrastrar una imagen sobre la vista previa. Tipos
-          permitidos: {allowedTypes.join(', ')}. Tamaño máximo del archivo:{' '}
-          {formatSize(PRODUCT_IMAGE_INPUT_MAX_BYTES)}. Se publica en{' '}
-          {PRODUCT_IMAGE_TARGET_WIDTH}×{PRODUCT_IMAGE_TARGET_HEIGHT} (16:9):
-          se recorta el aire uniforme del fondo y, si la foto tiene otra
-          proporción, queda completa con márgenes; los metadatos (ubicación,
-          cámara) se eliminan.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Tip: producto centrado, fondo neutro y buena luz.
-        </p>
+        <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+          <li>
+            <strong className="font-medium text-foreground">
+              Cualquier formato sirve.
+            </strong>{' '}
+            Se publica siempre en {PRODUCT_IMAGE_TARGET_WIDTH}×
+            {PRODUCT_IMAGE_TARGET_HEIGHT} (16:9) sobre fondo blanco: se
+            recorta el aire uniforme del fondo y la foto queda completa, sin
+            cortar el producto.
+          </li>
+          <li>
+            <strong className="font-medium text-foreground">
+              Mejor resultado:
+            </strong>{' '}
+            producto centrado sobre fondo blanco o liso, con buena luz y al
+            menos {PRODUCT_IMAGE_MIN_SOURCE_LONG_EDGE_PX} px en el lado
+            mayor.
+          </li>
+          <li>
+            También podés arrastrar la imagen sobre la vista previa. Tipos:{' '}
+            {allowedTypes.join(', ')} · máx.{' '}
+            {formatSize(PRODUCT_IMAGE_INPUT_MAX_BYTES)}. Los metadatos
+            (ubicación, cámara) se eliminan.
+          </li>
+        </ul>
         {error && (
           <div
             role="alert"

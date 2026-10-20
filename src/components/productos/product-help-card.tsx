@@ -76,6 +76,12 @@ export function ProductHelpCard({ variant }: ProductHelpCardProps) {
           envase para aderezos, litro para artículos de limpieza y unidad para
           servicios.
         </p>
+        <p>
+          Los tipos que se venden al público (servicio y bebida crítica)
+          muestran además el campo <strong className="text-foreground">Imagen</strong>:
+          la foto aparece en el catálogo del cliente y en la pantalla del
+          local, y se publica siempre en 16:9 sobre fondo blanco.
+        </p>
       </CardContent>
     </Card>
   );
