@@ -19,6 +19,15 @@ export interface NormalizedProductImage {
 
 const RATIO_TOLERANCE = 0.05;
 
+// Recorte de "aire" uniforme: el escaneo se hace sobre una copia reducida
+// para no recorrer megapíxeles en el navegador.
+const TRIM_SCAN_MAX_EDGE = 800;
+const TRIM_ALPHA_MIN = 128;
+const TRIM_COLOR_TOLERANCE = 30;
+const TRIM_PAD_RATIO = 0.06;
+// Si el recorte no gana al menos esta fracción de área, no vale la pena.
+const TRIM_MIN_GAIN_RATIO = 0.03;
+
 const EXTENSION_BY_MIME: Record<string, string> = {
   'image/webp': 'webp',
   'image/jpeg': 'jpg',
@@ -69,6 +78,127 @@ async function decodeImage(file: File): Promise<DecodedImage> {
   }
 }
 
+interface ContentFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Bounding box del contenido sobre un fondo uniforme. El fondo se estima
+ * desde las esquinas: si la mayoría es transparente el aire es alpha; si no,
+ * el color promedio de esquina con tolerancia por canal. Devuelve null
+ * cuando el lienzo es uniforme o no hay píxeles visibles.
+ */
+export function findContentBounds(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number
+): ContentFrame | null {
+  const corners = [0, width - 1, (height - 1) * width, height * width - 1];
+  let transparentCorners = 0;
+  let br = 0;
+  let bg = 0;
+  let bb = 0;
+  let opaqueCorners = 0;
+  for (const corner of corners) {
+    const i = corner * 4;
+    if (data[i + 3] < TRIM_ALPHA_MIN) {
+      transparentCorners += 1;
+    } else {
+      br += data[i];
+      bg += data[i + 1];
+      bb += data[i + 2];
+      opaqueCorners += 1;
+    }
+  }
+  const transparentBg = transparentCorners > corners.length / 2;
+  if (opaqueCorners > 0) {
+    br /= opaqueCorners;
+    bg /= opaqueCorners;
+    bb /= opaqueCorners;
+  }
+
+  let minX = width;
+  let maxX = -1;
+  let minY = height;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      if (data[i + 3] < TRIM_ALPHA_MIN) continue;
+      if (!transparentBg) {
+        const diff = Math.max(
+          Math.abs(data[i] - br),
+          Math.abs(data[i + 1] - bg),
+          Math.abs(data[i + 2] - bb)
+        );
+        if (diff <= TRIM_COLOR_TOLERANCE) continue;
+      }
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+/**
+ * Encuadre del contenido dentro del original: recorta el aire uniforme del
+ * fondo para que el producto ocupe una fracción parecida del lienzo entre
+ * imágenes que traen márgenes internos distintos. Devuelve null cuando el
+ * fondo no es uniforme o el recorte apenas gana área (foto real full-bleed).
+ */
+function detectContentFrame(decoded: DecodedImage): ContentFrame | null {
+  const { width: sourceWidth, height: sourceHeight } = decoded;
+  const scale = Math.min(
+    1,
+    TRIM_SCAN_MAX_EDGE / Math.max(sourceWidth, sourceHeight)
+  );
+  const scanWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const scanHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = scanWidth;
+  canvas.height = scanHeight;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+
+  try {
+    ctx.drawImage(decoded.source, 0, 0, scanWidth, scanHeight);
+    const bounds = findContentBounds(
+      ctx.getImageData(0, 0, scanWidth, scanHeight).data,
+      scanWidth,
+      scanHeight
+    );
+    if (!bounds) return null;
+
+    const inv = 1 / scale;
+    const pad = Math.max(bounds.width, bounds.height) * TRIM_PAD_RATIO;
+    const x = Math.max(0, Math.floor((bounds.x - pad) * inv));
+    const y = Math.max(0, Math.floor((bounds.y - pad) * inv));
+    const x2 = Math.min(
+      sourceWidth,
+      Math.ceil((bounds.x + bounds.width + pad) * inv)
+    );
+    const y2 = Math.min(
+      sourceHeight,
+      Math.ceil((bounds.y + bounds.height + pad) * inv)
+    );
+    const frame = { x, y, width: x2 - x, height: y2 - y };
+
+    const gain = 1 - (frame.width * frame.height) / (sourceWidth * sourceHeight);
+    return gain >= TRIM_MIN_GAIN_RATIO ? frame : null;
+  } catch {
+    // getImageData puede lanzar (lienzo tainted o sin soporte): en ese caso
+    // se conserva el encuadre completo.
+    return null;
+  }
+}
+
 /** Rectángulo destino para encuadrar la imagen completa (contain) en el lienzo. */
 export function computeContainFit(
   sourceWidth: number,
@@ -99,10 +229,12 @@ function canvasToBlob(
 
 /**
  * Normaliza la imagen elegida en el panel al formato de publicación del
- * catálogo: lienzo fijo 16:9, imagen completa con márgenes transparentes,
- * WebP con pérdida. Safari no exporta WebP desde canvas: en ese caso se
- * reintenta como JPEG sobre fondo blanco (o se acepta el PNG que devuelva).
- * La re-codificación descarta los metadatos del archivo original (GPS, cámara).
+ * catálogo: primero recorta el aire uniforme del fondo (bounding box del
+ * contenido) para que el producto llene el lienzo parejo entre imágenes, y
+ * después encuadra en lienzo fijo 16:9 con márgenes transparentes, WebP con
+ * pérdida. Safari no exporta WebP desde canvas: en ese caso se reintenta como
+ * JPEG sobre fondo blanco (o se acepta el PNG que devuelva). La
+ * re-codificación descarta los metadatos del archivo original (GPS, cámara).
  */
 export async function normalizeProductImageFile(
   file: File
@@ -120,6 +252,13 @@ export async function normalizeProductImageFile(
       throw new Error('La imagen no tiene dimensiones válidas.');
     }
 
+    const frame = detectContentFrame(decoded) ?? {
+      x: 0,
+      y: 0,
+      width: sourceWidth,
+      height: sourceHeight,
+    };
+
     const canvas = document.createElement('canvas');
     canvas.width = PRODUCT_IMAGE_TARGET_WIDTH;
     canvas.height = PRODUCT_IMAGE_TARGET_HEIGHT;
@@ -129,12 +268,22 @@ export async function normalizeProductImageFile(
     }
 
     const fit = computeContainFit(
-      sourceWidth,
-      sourceHeight,
+      frame.width,
+      frame.height,
       canvas.width,
       canvas.height
     );
-    ctx.drawImage(decoded.source, fit.dx, fit.dy, fit.width, fit.height);
+    ctx.drawImage(
+      decoded.source,
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+      fit.dx,
+      fit.dy,
+      fit.width,
+      fit.height
+    );
 
     let blob = await canvasToBlob(
       canvas,
@@ -145,7 +294,17 @@ export async function normalizeProductImageFile(
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(decoded.source, fit.dx, fit.dy, fit.width, fit.height);
+      ctx.drawImage(
+        decoded.source,
+        frame.x,
+        frame.y,
+        frame.width,
+        frame.height,
+        fit.dx,
+        fit.dy,
+        fit.width,
+        fit.height
+      );
       blob = await canvasToBlob(
         canvas,
         'image/jpeg',
@@ -170,7 +329,7 @@ export async function normalizeProductImageFile(
       mimeType,
       marginsAdded:
         Math.abs(
-          sourceWidth / sourceHeight -
+          frame.width / frame.height -
             PRODUCT_IMAGE_TARGET_WIDTH / PRODUCT_IMAGE_TARGET_HEIGHT
         ) > RATIO_TOLERANCE,
       lowResolution:

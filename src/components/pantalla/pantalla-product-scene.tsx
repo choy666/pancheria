@@ -35,10 +35,10 @@ function ProductHeroImage({ product }: { product: PublicCatalogProduct }) {
         </div>
       )}
 
-      {/* Tarjeta cuadrada constante: la foto se adapta dentro con contain,
-          así el rectángulo visible es siempre el mismo entre escenas
-          (la mayoría de las fotos del catálogo son ~1:1). */}
-      <div className="relative aspect-square h-[80%] max-h-full w-auto max-w-full overflow-hidden rounded-[2rem] bg-white shadow-[0_25px_80px_-15px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
+      {/* Tarjeta 16:9 constante: coincide con el lienzo que publica el
+          normalizador de imágenes del panel (1200×675) y con las cards del
+          catálogo, así el producto llena lo mismo en todas las escenas. */}
+      <div className="relative aspect-video max-h-[80%] w-full max-w-full overflow-hidden rounded-[2rem] bg-white shadow-[0_25px_80px_-15px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
         {hasImage ? (
           <Image
             src={imageUrl!}

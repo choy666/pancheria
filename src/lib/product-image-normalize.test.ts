@@ -3,6 +3,7 @@
  */
 import {
   computeContainFit,
+  findContentBounds,
   normalizeProductImageFile,
 } from './product-image-normalize';
 import {
@@ -13,9 +14,19 @@ import {
 const drawImage = jest.fn();
 const fillRect = jest.fn();
 const clearRect = jest.fn();
+const getImageData = jest.fn();
 
 let blobTypeFor: (requested: string) => string | null = (type) => type;
 let bitmap = { width: 1600, height: 900, close: jest.fn() };
+
+/** Lienzo RGBA uniforme: todo blanco opaco (sin contenido detectable). */
+function lienzoBlanco(width: number, height: number): ImageData {
+  return {
+    data: new Uint8ClampedArray(width * height * 4).fill(255),
+    width,
+    height,
+  } as ImageData;
+}
 
 function archivo(nombre = 'promo.png'): File {
   return new File(['bytes'], nombre, { type: 'image/png' });
@@ -26,6 +37,10 @@ beforeEach(() => {
   blobTypeFor = (type) => type;
   bitmap = { width: 1600, height: 900, close: jest.fn() };
 
+  getImageData.mockImplementation((_x, _y, w: number, h: number) =>
+    lienzoBlanco(w, h)
+  );
+
   (globalThis as unknown as { createImageBitmap: jest.Mock }).createImageBitmap =
     jest.fn().mockResolvedValue(bitmap);
 
@@ -35,6 +50,7 @@ beforeEach(() => {
       drawImage,
       fillRect,
       clearRect,
+      getImageData,
       fillStyle: '',
     } as unknown as CanvasRenderingContext2D);
 
@@ -95,7 +111,17 @@ describe('normalizeProductImageFile', () => {
     expect(result.height).toBe(PRODUCT_IMAGE_TARGET_HEIGHT);
     expect(result.marginsAdded).toBe(false);
     expect(result.lowResolution).toBe(false);
-    expect(drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 1200, 675);
+    expect(drawImage).toHaveBeenLastCalledWith(
+      bitmap,
+      0,
+      0,
+      1600,
+      900,
+      0,
+      0,
+      1200,
+      675
+    );
     expect(bitmap.close).toHaveBeenCalled();
   });
 
@@ -106,7 +132,52 @@ describe('normalizeProductImageFile', () => {
     const result = await normalizeProductImageFile(archivo());
 
     expect(result.marginsAdded).toBe(true);
-    expect(drawImage).toHaveBeenCalledWith(bitmap, 263, 0, 675, 675);
+    expect(drawImage).toHaveBeenLastCalledWith(
+      bitmap,
+      0,
+      0,
+      1200,
+      1200,
+      263,
+      0,
+      675,
+      675
+    );
+  });
+
+  test('recorta el aire uniforme alrededor del producto antes de encuadrar', async () => {
+    bitmap = { width: 1000, height: 1000, close: jest.fn() };
+    (globalThis.createImageBitmap as jest.Mock).mockResolvedValue(bitmap);
+    // Escaneo a 800×800 (scale 0.8): cuadrado oscuro centrado en 160..639.
+    getImageData.mockImplementation((_x, _y, w: number, h: number) => {
+      const data = new Uint8ClampedArray(w * h * 4).fill(255);
+      for (let py = 160; py < 640; py += 1) {
+        for (let px = 160; px < 640; px += 1) {
+          const i = (py * w + px) * 4;
+          data[i] = 20;
+          data[i + 1] = 20;
+          data[i + 2] = 20;
+        }
+      }
+      return { data, width: w, height: h } as ImageData;
+    });
+
+    const result = await normalizeProductImageFile(archivo());
+
+    // bounds 480×480 en (160,160); pad 28.8 e inv 1.25 → frame 672×672 en
+    // (164,164), y containFit de un cuadrado en 16:9 centra a dx=263.
+    expect(drawImage).toHaveBeenLastCalledWith(
+      bitmap,
+      164,
+      164,
+      672,
+      672,
+      263,
+      0,
+      675,
+      675
+    );
+    expect(result.marginsAdded).toBe(true);
   });
 
   test('marca baja resolución cuando el lado mayor del original queda corto', async () => {
@@ -126,7 +197,8 @@ describe('normalizeProductImageFile', () => {
     expect(result.file.name).toBe('foto.jpg');
     expect(result.mimeType).toBe('image/jpeg');
     expect(fillRect).toHaveBeenCalledWith(0, 0, 1200, 675);
-    expect(drawImage).toHaveBeenCalledTimes(2);
+    // 1 dibujo en el lienzo de escaneo + 2 en el final (WebP fallido y JPEG).
+    expect(drawImage).toHaveBeenCalledTimes(3);
   });
 
   test('rechaza un archivo que no decodifica como imagen', async () => {
@@ -145,5 +217,81 @@ describe('normalizeProductImageFile', () => {
     await expect(normalizeProductImageFile(archivo())).rejects.toThrow(
       'no pudo generar la imagen'
     );
+  });
+});
+
+describe('findContentBounds', () => {
+  const W = 6;
+  const H = 6;
+
+  function pintar(data: Uint8ClampedArray, x: number, y: number, rgb = 20) {
+    const i = (y * W + x) * 4;
+    data[i] = rgb;
+    data[i + 1] = rgb;
+    data[i + 2] = rgb;
+    data[i + 3] = 255;
+  }
+
+  test('detecta el rectángulo de contenido sobre fondo blanco', () => {
+    const { data } = lienzoBlanco(W, H);
+    for (const [x, y] of [
+      [2, 1],
+      [3, 1],
+      [4, 1],
+      [2, 2],
+      [3, 2],
+      [4, 2],
+    ]) {
+      pintar(data, x, y);
+    }
+
+    expect(findContentBounds(data, W, H)).toEqual({
+      x: 2,
+      y: 1,
+      width: 3,
+      height: 2,
+    });
+  });
+
+  test('el aire transparente no cuenta como contenido', () => {
+    const data = new Uint8ClampedArray(W * H * 4); // todo alpha 0
+    pintar(data, 4, 5, 200);
+
+    expect(findContentBounds(data, W, H)).toEqual({
+      x: 4,
+      y: 5,
+      width: 1,
+      height: 1,
+    });
+  });
+
+  test('devuelve null cuando el lienzo es uniforme o vacío', () => {
+    expect(findContentBounds(lienzoBlanco(W, H).data, W, H)).toBeNull();
+    expect(
+      findContentBounds(new Uint8ClampedArray(W * H * 4), W, H)
+    ).toBeNull();
+  });
+
+  test('una sombra suave dentro de la tolerancia no extiende el bounding box', () => {
+    const { data } = lienzoBlanco(W, H);
+    pintar(data, 3, 3);
+    // Sombra casi blanca (240) alrededor: no supera la tolerancia de 30.
+    const sombra = (x: number, y: number) => {
+      const i = (y * W + x) * 4;
+      data[i] = 240;
+      data[i + 1] = 240;
+      data[i + 2] = 240;
+    };
+    sombra(2, 3);
+    sombra(4, 3);
+    sombra(3, 2);
+    sombra(3, 4);
+
+    expect(findContentBounds(data, W, H)).toEqual({
+      x: 3,
+      y: 3,
+      width: 1,
+      height: 1,
+    });
   });
 });

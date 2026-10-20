@@ -236,8 +236,9 @@ export function ProductImageUploader({
           permitidos: {allowedTypes.join(', ')}. Tamaño máximo del archivo:{' '}
           {formatSize(PRODUCT_IMAGE_INPUT_MAX_BYTES)}. Se publica en{' '}
           {PRODUCT_IMAGE_TARGET_WIDTH}×{PRODUCT_IMAGE_TARGET_HEIGHT} (16:9):
-          si la foto tiene otra proporción queda completa con márgenes, y los
-          metadatos (ubicación, cámara) se eliminan.
+          se recorta el aire uniforme del fondo y, si la foto tiene otra
+          proporción, queda completa con márgenes; los metadatos (ubicación,
+          cámara) se eliminan.
         </p>
         <p className="text-xs text-muted-foreground">
           Tip: producto centrado, fondo neutro y buena luz.
