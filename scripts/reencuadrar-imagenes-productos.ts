@@ -56,7 +56,7 @@ const WEBP_QUALITY = 80; // PRODUCT_IMAGE_WEBP_QUALITY 0.8 → sharp 0-100
 const TRIM_SCAN_MAX_EDGE = 800;
 const TRIM_ALPHA_MIN = 128;
 const TRIM_COLOR_TOLERANCE = 30;
-const TRIM_PAD_RATIO = 0.06;
+const TRIM_PAD_RATIO = 0.1;
 const TRIM_MIN_GAIN_RATIO = 0.03;
 
 interface Args {
@@ -220,7 +220,9 @@ async function normalizeProductImage(filePath: string): Promise<NormalizedImage>
     }
   }
 
-  // Contain-fit del frame en el lienzo 16:9 transparente.
+  // Contain-fit del frame en el lienzo 16:9 sobre fondo blanco opaco: el
+  // aire del producto comparte el mismo escenario en todas las cards (un
+  // lienzo transparente dejaba ver el gradiente de marca y se veía desparejo).
   const fitScale = Math.min(TARGET_WIDTH / frame.width, TARGET_HEIGHT / frame.height);
   const drawW = Math.max(1, Math.round(frame.width * fitScale));
   const drawH = Math.max(1, Math.round(frame.height * fitScale));
@@ -237,7 +239,7 @@ async function normalizeProductImage(filePath: string): Promise<NormalizedImage>
       width: TARGET_WIDTH,
       height: TARGET_HEIGHT,
       channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
     },
   })
     .composite([{ input: cropped, left: dx, top: dy }])

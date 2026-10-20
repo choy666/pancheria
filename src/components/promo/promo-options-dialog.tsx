@@ -264,7 +264,7 @@ export function PromoOptionsDialog({
         )}
       >
         {isPublic && (
-          <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-linear-to-br from-brand-red to-brand-mustard">
+          <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-linear-to-br from-brand-red to-brand-mustard after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-black/10">
             <ProductCardImage
               imageUrl={imageUrl}
               productName={productName}

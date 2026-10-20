@@ -111,6 +111,8 @@ describe('normalizeProductImageFile', () => {
     expect(result.height).toBe(PRODUCT_IMAGE_TARGET_HEIGHT);
     expect(result.marginsAdded).toBe(false);
     expect(result.lowResolution).toBe(false);
+    // El lienzo de salida es opaco: fondo uniforme debajo de la imagen.
+    expect(fillRect).toHaveBeenCalledWith(0, 0, 1200, 675);
     expect(drawImage).toHaveBeenLastCalledWith(
       bitmap,
       0,
@@ -164,14 +166,14 @@ describe('normalizeProductImageFile', () => {
 
     const result = await normalizeProductImageFile(archivo());
 
-    // bounds 480×480 en (160,160); pad 28.8 e inv 1.25 → frame 672×672 en
-    // (164,164), y containFit de un cuadrado en 16:9 centra a dx=263.
+    // bounds 480×480 en (160,160); pad 48 e inv 1.25 → frame 720×720 en
+    // (140,140), y containFit de un cuadrado en 16:9 centra a dx=263.
     expect(drawImage).toHaveBeenLastCalledWith(
       bitmap,
-      164,
-      164,
-      672,
-      672,
+      140,
+      140,
+      720,
+      720,
       263,
       0,
       675,
@@ -196,9 +198,10 @@ describe('normalizeProductImageFile', () => {
 
     expect(result.file.name).toBe('foto.jpg');
     expect(result.mimeType).toBe('image/jpeg');
+    // El lienzo ya sale opaco: el reintento JPEG re-exporta el mismo canvas.
     expect(fillRect).toHaveBeenCalledWith(0, 0, 1200, 675);
-    // 1 dibujo en el lienzo de escaneo + 2 en el final (WebP fallido y JPEG).
-    expect(drawImage).toHaveBeenCalledTimes(3);
+    // 1 dibujo en el lienzo de escaneo + 1 en el final.
+    expect(drawImage).toHaveBeenCalledTimes(2);
   });
 
   test('rechaza un archivo que no decodifica como imagen', async () => {

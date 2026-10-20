@@ -4,6 +4,7 @@ import {
   PRODUCT_IMAGE_WEBP_QUALITY,
   PRODUCT_IMAGE_JPEG_QUALITY,
   PRODUCT_IMAGE_MIN_SOURCE_LONG_EDGE_PX,
+  PRODUCT_IMAGE_BACKGROUND,
 } from '@/config/product-images';
 
 export interface NormalizedProductImage {
@@ -24,7 +25,9 @@ const RATIO_TOLERANCE = 0.05;
 const TRIM_SCAN_MAX_EDGE = 800;
 const TRIM_ALPHA_MIN = 128;
 const TRIM_COLOR_TOLERANCE = 30;
-const TRIM_PAD_RATIO = 0.06;
+// Aire generoso alrededor del contenido: el producto no toca los bordes del
+// lienzo y la composición se siente más espaciada en la card.
+const TRIM_PAD_RATIO = 0.1;
 // Si el recorte no gana al menos esta fracción de área, no vale la pena.
 const TRIM_MIN_GAIN_RATIO = 0.03;
 
@@ -231,9 +234,11 @@ function canvasToBlob(
  * Normaliza la imagen elegida en el panel al formato de publicación del
  * catálogo: primero recorta el aire uniforme del fondo (bounding box del
  * contenido) para que el producto llene el lienzo parejo entre imágenes, y
- * después encuadra en lienzo fijo 16:9 con márgenes transparentes, WebP con
- * pérdida. Safari no exporta WebP desde canvas: en ese caso se reintenta como
- * JPEG sobre fondo blanco (o se acepta el PNG que devuelva). La
+ * después encuadra en lienzo fijo 16:9 sobre fondo blanco opaco, WebP con
+ * pérdida. El fondo uniforme es parte del contrato visual del catálogo: cada
+ * imagen comparte el mismo escenario y el gradiente de marca queda reservado
+ * para productos sin foto. Safari no exporta WebP desde canvas: en ese caso
+ * se reintenta como JPEG (o se acepta el PNG que devuelva). La
  * re-codificación descarta los metadatos del archivo original (GPS, cámara).
  */
 export async function normalizeProductImageFile(
@@ -273,6 +278,11 @@ export async function normalizeProductImageFile(
       canvas.width,
       canvas.height
     );
+    // Escenario uniforme: el lienzo sale siempre opaco para que el aire del
+    // producto se vea igual en cualquier card (un fondo transparente dejaba
+    // ver el gradiente de marca y cada imagen quedaba con un patrón distinto).
+    ctx.fillStyle = PRODUCT_IMAGE_BACKGROUND;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(
       decoded.source,
       frame.x,
@@ -291,20 +301,6 @@ export async function normalizeProductImageFile(
       PRODUCT_IMAGE_WEBP_QUALITY
     );
     if (!blob || blob.type !== 'image/webp') {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(
-        decoded.source,
-        frame.x,
-        frame.y,
-        frame.width,
-        frame.height,
-        fit.dx,
-        fit.dy,
-        fit.width,
-        fit.height
-      );
       blob = await canvasToBlob(
         canvas,
         'image/jpeg',

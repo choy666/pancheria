@@ -78,7 +78,7 @@ flowchart TB
 | `local` | filesystem `LOCAL_STORAGE_PATH` (dev/e2e; prohibido en build de producción) |
 | `vercel-blob` | `@vercel/blob ^2.8.0` (import dinámico) |
 | `s3` / `r2` | `@aws-sdk/client-s3 ^3.1110.0` + `@aws-sdk/s3-presigned-post ^3.1110.0` (presigned POST) |
-| Imágenes de producto | normalización client-side en canvas (`product-image-normalize.ts`: trim de aire uniforme + lienzo fijo 16:9 1200×675 webp); `sharp ^0.35.5` (devDep) para la réplica en scripts (`reencuadrar-imagenes-productos.ts`) |
+| Imágenes de producto | normalización client-side en canvas (`product-image-normalize.ts`: trim de aire uniforme + lienzo fijo 16:9 1200×675 webp sobre fondo blanco opaco); `sharp ^0.35.5` (devDep) para la réplica en scripts (`reencuadrar-imagenes-productos.ts`) |
 
 ## Frontend
 

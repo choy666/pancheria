@@ -142,8 +142,11 @@ export function ProductCardBase({
         }`}
       >
         {/* Hero: imagen a todo ancho sobre el diagonal de marca; el fallback
-            sin imagen lo pinta `ProductImageFallback` sobre este fondo. */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-t-3xl bg-linear-to-br from-brand-red to-brand-mustard">
+            sin imagen lo pinta `ProductImageFallback` sobre este fondo. El
+            ::after dibuja una hairline bajo el hero: la imagen publicada es
+            blanca igual que el body de la card y sin ella no hay borde
+            visible entre foto y texto. */}
+        <div className="relative aspect-video w-full overflow-hidden rounded-t-3xl bg-linear-to-br from-brand-red to-brand-mustard after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-black/10">
           <ProductCardImage
             imageUrl={product.imageUrl}
             productName={product.name}

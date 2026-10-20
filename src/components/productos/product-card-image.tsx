@@ -53,8 +53,10 @@ function ProductImage({ imageUrl, productName, priority }: ProductImageProps) {
   return (
     <>
       {!loaded && (
+        // Neutro, del mismo tono que el escenario blanco de la imagen: el
+        // flash translúcido sobre el gradiente se leía como "otra card".
         <Skeleton
-          className="absolute inset-0 rounded-none bg-white/25"
+          className="absolute inset-0 rounded-none bg-muted"
           aria-hidden="true"
         />
       )}
@@ -63,7 +65,10 @@ function ProductImage({ imageUrl, productName, priority }: ProductImageProps) {
         alt={`Imagen de ${productName}`}
         fill
         className={cn(
-          'object-contain transition duration-300 group-hover/card:scale-105',
+          // bg-white: cualquier imagen con márgenes transparentes (assets
+          // publicados antes de la normalización opaca) queda sobre el mismo
+          // escenario blanco uniforme en vez de dejar ver el gradiente.
+          'bg-white object-contain transition duration-300 group-hover/card:scale-105',
           loaded ? 'opacity-100' : 'opacity-0'
         )}
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

@@ -13,6 +13,10 @@ export const PRODUCT_IMAGE_INPUT_MAX_BYTES = 30 * 1024 * 1024;
 // Si el lado mayor del original queda por debajo, se avisa que la imagen
 // puede verse borrosa al estirarse hasta el tamaño de publicación.
 export const PRODUCT_IMAGE_MIN_SOURCE_LONG_EDGE_PX = 800;
+// Fondo del lienzo publicado: blanco opaco. Todas las imágenes comparten el
+// mismo escenario neutro (la alternativa transparente dejaba ver el fondo de
+// cada card, que varía entre contextos, y generaba un look inconsistente).
+export const PRODUCT_IMAGE_BACKGROUND = '#ffffff';
 
 const DEFAULT_PRODUCT_IMAGE_ALLOWED_MIME_TYPES = [
   'image/jpeg',
