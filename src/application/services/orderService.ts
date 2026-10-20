@@ -21,6 +21,7 @@ import {
   getExpireOrdersTimeBudgetMs,
 } from '@/config/orders';
 import { logger } from '@/lib/logger';
+import { tokensMatch } from '@/lib/crypto-helpers';
 import {
   ConflictError,
   DomainError,
@@ -442,7 +443,7 @@ export async function cancelOrder(
 ): Promise<OrderWithItems> {
   const order = await orderRepository.findById(branchId, id);
 
-  if (!order) {
+  if (!order || (token !== undefined && !tokensMatch(order.cancellationToken, token))) {
     throw new NotFoundError('Pedido', id);
   }
 
@@ -454,10 +455,6 @@ export async function cancelOrder(
     throw new ValidationError(
       'El pedido ya fue finalizado y no puede cancelarse.'
     );
-  }
-
-  if (token !== undefined && order.cancellationToken !== token) {
-    throw new ValidationError('El token de cancelación no es válido.');
   }
 
   // Con token (vía pública) solo se cancela `pending`/`in_process`: un pedido
@@ -472,7 +469,7 @@ export async function cancelOrder(
   return executeInTransaction(async (tx) => {
     const locked = await orderRepository.findByIdForUpdate(tx, branchId, id);
 
-    if (!locked) {
+    if (!locked || (token !== undefined && !tokensMatch(locked.cancellationToken, token))) {
       throw new NotFoundError('Pedido', id);
     }
 
@@ -484,10 +481,6 @@ export async function cancelOrder(
       throw new ValidationError(
         'El pedido ya fue finalizado y no puede cancelarse.'
       );
-    }
-
-    if (token !== undefined && locked.cancellationToken !== token) {
-      throw new ValidationError('El token de cancelación no es válido.');
     }
 
     if (token !== undefined && locked.status === 'paid') {
@@ -1175,10 +1168,10 @@ export interface TrackOrderResult {
 export async function trackOrder(
   branchId: number,
   orderNumber: string,
-  customerName?: string,
-  customerPhone?: string
+  customerName: string,
+  customerPhone: string
 ): Promise<TrackOrderResult | null> {
-  if (!customerName?.trim() && !customerPhone?.trim()) {
+  if (!customerName.trim() || !customerPhone.trim()) {
     return null;
   }
 

@@ -5,12 +5,17 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { chatStreamQuerySchema } from '@/lib/zod-schemas';
 import { getClientIp } from '@/lib/rate-limit';
 import { parseId } from '@/lib/id';
-import { createChatStreamResponse } from '@/lib/chat-stream';
+import {
+  acquireChatStreamSlots,
+  createChatStreamResponse,
+} from '@/lib/chat-stream';
 import { isChatPollRateLimited } from '@/lib/chat-poll-rate-limit';
 import {
   getChatStreamIntervalMs,
   getChatStreamHeartbeatMs,
   getChatStreamBudgetMs,
+  getChatStreamMaxPerOrder,
+  getChatStreamMaxPerIp,
 } from '@/config/chat';
 
 const querySchema = chatStreamQuerySchema.extend({
@@ -53,7 +58,7 @@ export const GET = withApiErrorHandling(
     const after = lastEventId ?? query.after ?? 0;
 
     const intervalMs = Math.max(
-      500,
+      getChatStreamIntervalMs(),
       Math.min(query.interval ?? getChatStreamIntervalMs(), 60_000)
     );
     const budgetMs = Math.max(
@@ -71,6 +76,18 @@ export const GET = withApiErrorHandling(
       );
     }
 
+    const releaseSlot = acquireChatStreamSlots([
+      { key: `pedido:${orderId}`, max: getChatStreamMaxPerOrder() },
+      { key: `ip:${ip}`, max: getChatStreamMaxPerIp() },
+    ]);
+
+    if (!releaseSlot) {
+      return NextResponse.json(
+        { error: 'Demasiadas conexiones abiertas. Intentalo más tarde.' },
+        { status: 429 }
+      );
+    }
+
     return createChatStreamResponse({
       signal: request.signal,
       after,
@@ -78,6 +95,7 @@ export const GET = withApiErrorHandling(
       heartbeatMs: getChatStreamHeartbeatMs(),
       budgetMs,
       initialState,
+      onClose: releaseSlot,
       fetchTick: (cursor) =>
         chatService.pollChatStreamTick(orderId, scope, 'operator', cursor),
     });

@@ -6,6 +6,8 @@ import {
   getChatImageMaxSizeBytes,
   getChatAllowedImageMimeTypes,
   getChatPageSize,
+  getChatStreamMaxPerOrder,
+  getChatStreamMaxPerIp,
 } from './chat';
 
 describe('chat config', () => {
@@ -73,5 +75,17 @@ describe('chat config', () => {
   test('getChatPageSize respeta el máximo de 100', () => {
     process.env.NEXT_PUBLIC_CHAT_PAGE_SIZE = '200';
     expect(getChatPageSize()).toBe(100);
+  });
+
+  test('getChatStreamMaxPerOrder y getChatStreamMaxPerIp usan sus valores por defecto', () => {
+    delete process.env.CHAT_STREAM_MAX_PER_ORDER;
+    delete process.env.CHAT_STREAM_MAX_PER_IP;
+    expect(getChatStreamMaxPerOrder()).toBe(3);
+    expect(getChatStreamMaxPerIp()).toBe(20);
+  });
+
+  test('getChatStreamMaxPerOrder rechaza valores menores a 1', () => {
+    process.env.CHAT_STREAM_MAX_PER_ORDER = '0';
+    expect(getChatStreamMaxPerOrder()).toBe(3);
   });
 });

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 import { getCronSecret } from '@/config/cron';
 import { logger, logError } from '@/lib/logger';
+
+const sha256 = (value: string) => createHash('sha256').update(value).digest();
 
 /**
  * Envuelve un handler de cron con:
@@ -18,12 +20,10 @@ export function withCronAuth(
   return async (request: NextRequest): Promise<Response> => {
     const authHeader = request.headers.get('authorization') ?? '';
     const cronSecret = getCronSecret();
-    const expected = cronSecret ? `Bearer ${cronSecret}` : '';
 
     if (
-      !expected ||
-      authHeader.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected))
+      !cronSecret ||
+      !timingSafeEqual(sha256(authHeader), sha256(`Bearer ${cronSecret}`))
     ) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
     }

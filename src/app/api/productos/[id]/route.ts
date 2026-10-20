@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { productUpdateSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
 import { parseId } from '@/lib/id';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 import { invalidatePublicCatalogCache } from '@/lib/server-cache';
 
@@ -35,7 +35,7 @@ export const PUT = withApiErrorHandling(
         { status: 400 }
       );
     }
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = productUpdateSchema.parse(body);
     const product = await productService.updateProduct(branchId, productId, data);
     invalidatePublicCatalogCache();

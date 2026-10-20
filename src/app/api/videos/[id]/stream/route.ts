@@ -10,6 +10,7 @@ import {
 import { withAuth } from '@/lib/with-auth';
 import { withApiErrorHandling } from '@/lib/api-handler';
 import { NotFoundError } from '@/domain/errors';
+import { decodeRouteParam } from '@/lib/id';
 
 function fileToWebStream(
   filePath: string,
@@ -105,7 +106,7 @@ export const GET = withApiErrorHandling(
     { params }: { params: Promise<{ id: string }> }
   ) => {
     const { id } = await params;
-    const key = decodeURIComponent(id);
+    const key = decodeRouteParam(id);
 
     const providerName = getStorageProvider();
 

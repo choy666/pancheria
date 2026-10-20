@@ -1,3 +1,5 @@
+import { readdirSync, statSync } from 'fs';
+import path from 'path';
 import { NextResponse } from 'next/server';
 import { getAuthRedirect, isPublicPath } from './route-guard';
 import { routes } from '@/config/routes';
@@ -26,6 +28,29 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/_next/static/chunk.js')).toBe(true);
     expect(isPublicPath('/_next/image?url=...')).toBe(true);
     expect(isPublicPath('/favicon.ico')).toBe(true);
+  });
+
+  test('archivos estáticos sueltos en la raíz son públicos', () => {
+    expect(isPublicPath('/logo.png')).toBe(true);
+    expect(isPublicPath('/icono.svg')).toBe(true);
+  });
+
+  test('un archivo con extensión dentro de una ruta no es público', () => {
+    expect(isPublicPath('/reportes/exportar.png')).toBe(false);
+    expect(isPublicPath('/ventas/historial.jpg')).toBe(false);
+  });
+
+  test('todo archivo de public/ es público', () => {
+    const publicDir = path.join(process.cwd(), 'public');
+    const entries = readdirSync(publicDir, { recursive: true }) as string[];
+    const files = entries.filter((entry) =>
+      statSync(path.join(publicDir, entry)).isFile()
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      expect(isPublicPath(`/${file.split(path.sep).join('/')}`)).toBe(true);
+    }
   });
 
   test('rutas del panel no son públicas', () => {

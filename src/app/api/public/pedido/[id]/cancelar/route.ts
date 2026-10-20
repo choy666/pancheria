@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as orderService from '@/application/services/orderService';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { orderCancellationSchema } from '@/lib/zod-schemas';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
@@ -10,6 +10,7 @@ import {
   getOrderRateLimitMaxRequests,
 } from '@/config/orders';
 import { parseId } from '@/lib/id';
+import { toPublicCancelledOrder } from '@/lib/order-helpers';
 
 const querySchema = z.object({
   branchId: z.coerce.number().int().positive().optional(),
@@ -48,7 +49,7 @@ export const POST = withApiErrorHandling(
       return NextResponse.json({ error: 'ID de pedido inválido' }, { status: 400 });
     }
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = orderCancellationSchema.parse(body);
 
     if (!data.token) {
@@ -65,7 +66,7 @@ export const POST = withApiErrorHandling(
       data.token
     );
 
-    return NextResponse.json({ order });
+    return NextResponse.json({ order: toPublicCancelledOrder(order) });
   }
 );
 

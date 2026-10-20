@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { recipeSchema } from '@/lib/zod-schemas';
 import * as recipeService from '@/application/services/recipeService';
 import { parseId } from '@/lib/id';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 
 export const GET = withApiErrorHandling(
@@ -24,7 +24,7 @@ export const GET = withApiErrorHandling(
 
 export const POST = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { branchId }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = recipeSchema.parse(body);
     const recipe = await recipeService.saveRecipe(
       branchId,

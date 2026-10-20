@@ -1,4 +1,5 @@
 import {
+  assertClientCanSend,
   sendClientMessage,
   sendOperatorMessage,
   sendBranchLocationMessage,
@@ -133,6 +134,44 @@ describe('chatService', () => {
       await expect(
         sendClientMessage(ORDER_ID, TOKEN, { content: 'Hola' })
       ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('assertClientCanSend', () => {
+    test('acepta un pedido pendiente con token válido sin escribir mensajes', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(buildOrder());
+
+      await expect(assertClientCanSend(ORDER_ID, TOKEN)).resolves.toBeUndefined();
+      expect(mockedOrderMessageRepository.insertMessage).not.toHaveBeenCalled();
+    });
+
+    test('rechaza un token inválido como si el pedido no existiera', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(undefined);
+
+      await expect(assertClientCanSend(ORDER_ID, 'wrong-token')).rejects.toThrow(
+        NotFoundError
+      );
+    });
+
+    test('rechaza un pedido finalizado o cancelado', async () => {
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(
+        buildOrder({ status: 'finished' })
+      );
+
+      await expect(assertClientCanSend(ORDER_ID, TOKEN)).rejects.toThrow(
+        ValidationError
+      );
+    });
+
+    test('rechaza un pedido vencido', async () => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000);
+      mockedOrderRepository.findByIdWithToken.mockResolvedValue(
+        buildOrder({ createdAt: twoHoursAgo })
+      );
+
+      await expect(assertClientCanSend(ORDER_ID, TOKEN)).rejects.toThrow(
+        ValidationError
+      );
     });
   });
 

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { withApiErrorHandling } from './api-handler';
+import { parseJsonBody, withApiErrorHandling } from './api-handler';
 import { logger } from './logger';
 import {
   ConflictError,
@@ -22,6 +22,35 @@ jest.mock('./logger', () => ({
 }));
 
 const mockedLogger = logger as jest.Mocked<typeof logger>;
+
+describe('parseJsonBody', () => {
+  test('devuelve el cuerpo JSON parseado', async () => {
+    const request = new NextRequest('http://localhost:3000/api/test', {
+      method: 'POST',
+      body: JSON.stringify({ productId: 1 }),
+    });
+
+    await expect(parseJsonBody(request)).resolves.toEqual({ productId: 1 });
+  });
+
+  test('responde 400 con el motivo si el cuerpo no es JSON', async () => {
+    const wrapped = withApiErrorHandling(async (request: NextRequest) => {
+      await parseJsonBody(request);
+      return new Response('ok');
+    });
+    const request = new NextRequest('http://localhost:3000/api/test', {
+      method: 'POST',
+      body: '{',
+    });
+
+    const response = await wrapped(request);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'El cuerpo de la solicitud debe ser JSON válido.',
+    });
+  });
+});
 
 function createRequest(): NextRequest {
   return new NextRequest('http://localhost:3000/api/test');

@@ -199,4 +199,14 @@ describe('GET /api/chat/attachment/[key]', () => {
     expect(response.status).toBe(404);
     expect(mockedChatStorage.readChatAttachment).not.toHaveBeenCalled();
   });
+
+  test('devuelve 400 si la clave tiene escapes inválidos', async () => {
+    const response = await GET(
+      buildRequest(KEY),
+      { params: Promise.resolve({ key: '%E0%A4%A' }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedChatStorage.readChatAttachment).not.toHaveBeenCalled();
+  });
 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as orderService from '@/application/services/orderService';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { orderSchema } from '@/lib/zod-schemas';
 import {
   resolvePublicBranchId,
@@ -39,7 +39,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     );
   }
 
-  const body = await request.json();
+  const body = await parseJsonBody(request);
   const data = orderSchema.parse(body);
 
   const branchId = await resolvePublicBranchId(query.branchId ?? null);

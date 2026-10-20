@@ -55,6 +55,7 @@ describe('POST /api/public/pedido/seguimiento', () => {
     const response = await POST(
       buildRequest({
         orderNumber: 'PED-1-1234567890-abc',
+        customerName: 'Juan Pérez',
         customerPhone: '3415555555',
       })
     );
@@ -72,7 +73,7 @@ describe('POST /api/public/pedido/seguimiento', () => {
     expect(mockedOrderService.trackOrder).toHaveBeenCalledWith(
       1,
       'PED-1-1234567890-abc',
-      undefined,
+      'Juan Pérez',
       '3415555555'
     );
   });
@@ -84,6 +85,7 @@ describe('POST /api/public/pedido/seguimiento', () => {
       buildRequest({
         orderNumber: 'PED-7',
         customerName: 'Ana',
+        customerPhone: '3415555555',
         branchId: 5,
       })
     );
@@ -93,7 +95,7 @@ describe('POST /api/public/pedido/seguimiento', () => {
       5,
       'PED-7',
       'Ana',
-      undefined
+      '3415555555'
     );
     expect(mockedGetDefaultBranchId).not.toHaveBeenCalled();
   });
@@ -102,7 +104,11 @@ describe('POST /api/public/pedido/seguimiento', () => {
     mockedGetDefaultBranchId.mockResolvedValue(null);
 
     const response = await POST(
-      buildRequest({ orderNumber: 'PED-1', customerName: 'Ana' })
+      buildRequest({
+        orderNumber: 'PED-1',
+        customerName: 'Ana',
+        customerPhone: '3415555555',
+      })
     );
     const body = (await response.json()) as { error: string };
 
@@ -115,12 +121,41 @@ describe('POST /api/public/pedido/seguimiento', () => {
     mockedOrderService.trackOrder.mockResolvedValue(null);
 
     const response = await POST(
-      buildRequest({ orderNumber: 'PED-999', customerPhone: '3415555555' })
+      buildRequest({
+        orderNumber: 'PED-999',
+        customerName: 'Juan Pérez',
+        customerPhone: '3415555555',
+      })
     );
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
     expect(body.error).toContain('No se encontró el pedido');
+  });
+
+  test('exige nombre y teléfono antes de buscar', async () => {
+    const onlyName = await POST(
+      buildRequest({ orderNumber: 'PED-1', customerName: 'Ana' })
+    );
+    const onlyPhone = await POST(
+      buildRequest({ orderNumber: 'PED-1', customerPhone: '3415555555' })
+    );
+
+    expect(onlyName.status).toBe(400);
+    expect(onlyPhone.status).toBe(400);
+    expect(mockedOrderService.trackOrder).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 400 si el cuerpo no es JSON', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost:3000/api/public/pedido/seguimiento', {
+        method: 'POST',
+        body: '{',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedOrderService.trackOrder).not.toHaveBeenCalled();
   });
 
   test('devuelve 400 cuando faltan datos', async () => {

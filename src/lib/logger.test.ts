@@ -156,4 +156,59 @@ describe('logger', () => {
       );
     });
   });
+
+  describe('redacción de datos sensibles', () => {
+    beforeEach(() => {
+      setNodeEnv('development');
+    });
+
+    test('oculta el valor del token en las URLs del contexto', () => {
+      logger.info('GET /api/public/pedido/1/chat', {
+        url: 'http://localhost:3000/api/public/pedido/1/chat?token=abc123&limit=50',
+      });
+
+      expect(infoSpy).toHaveBeenCalledWith('GET /api/public/pedido/1/chat', {
+        url: 'http://localhost:3000/api/public/pedido/1/chat?token=[redacted]&limit=50',
+      });
+    });
+
+    test('oculta las claves sensibles del contexto', () => {
+      logger.warn('aviso', { token: 'abc', cancellationToken: 'def', ventaId: 7 });
+
+      expect(warnSpy).toHaveBeenCalledWith('aviso', {
+        token: '[redacted]',
+        cancellationToken: '[redacted]',
+        ventaId: 7,
+      });
+    });
+
+    test('en producción tampoco escribe el token en el JSON', () => {
+      setNodeEnv('production');
+
+      logger.info('GET /api/public/pedido/1/estado', {
+        url: 'https://app.example.com/api/public/pedido/1/estado?token=secreto',
+      });
+
+      const [salida] = infoSpy.mock.calls[0];
+      expect(salida).not.toContain('secreto');
+      expect(JSON.parse(salida as string).url).toBe(
+        'https://app.example.com/api/public/pedido/1/estado?token=[redacted]'
+      );
+    });
+
+    test('en producción oculta el token que aparece en el mensaje y el stack de un Error', () => {
+      setNodeEnv('production');
+      const error = new Error('fetch https://app.example.com/x?token=secreto falló');
+
+      logError('falló la operación', error);
+
+      const [salida] = errorSpy.mock.calls[0];
+      const payload = JSON.parse(salida as string);
+      expect(payload.errorMessage).toBe(
+        'fetch https://app.example.com/x?token=[redacted] falló'
+      );
+      expect(payload.errorStack).toContain('token=[redacted]');
+      expect(payload.errorStack).not.toContain('secreto');
+    });
+  });
 });

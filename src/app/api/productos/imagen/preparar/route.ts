@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 import * as productRepository from '@/repositories/productRepository';
 import {
@@ -18,7 +18,7 @@ const prepareSchema = z.object({
 
 export const POST = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { branchId }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = prepareSchema.parse(body);
 
     const product = await productRepository.findById(

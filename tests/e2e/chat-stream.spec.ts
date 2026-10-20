@@ -66,7 +66,7 @@ test.describe('SSE del chat de pedidos (spike T13)', () => {
     const token = encodeURIComponent(order.cancellationToken);
 
     const streamPromise = page.request.get(
-      `/api/public/pedido/${order.id}/chat/stream?token=${token}&budget=2500&interval=500`
+      `/api/public/pedido/${order.id}/chat/stream?token=${token}&budget=5000&interval=2000`
     );
 
     // Deja que el stream conecte y luego publica un mensaje del cliente.

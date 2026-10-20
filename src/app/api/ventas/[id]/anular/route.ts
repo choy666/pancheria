@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cancellationSchema } from '@/lib/zod-schemas';
 import * as saleService from '@/application/services/saleService';
 import { parseId } from '@/lib/id';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 
 interface RouteParams {
@@ -19,7 +19,7 @@ export const POST = withApiErrorHandling(
         { status: 400 }
       );
     }
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { reason } = cancellationSchema.parse(body);
     const sale = await saleService.cancelSale(branchId, saleId, reason);
     return NextResponse.json(sale);

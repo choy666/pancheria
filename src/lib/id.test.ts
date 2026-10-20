@@ -1,4 +1,5 @@
-import { parseId } from './id';
+import { decodeRouteParam, parseId } from './id';
+import { ValidationError } from '@/domain/errors';
 
 describe('parseId', () => {
   test('convierte un string numérico a número', () => {
@@ -28,5 +29,15 @@ describe('parseId', () => {
   test('rechaza valores nulos o indefinidos', () => {
     expect(parseId(null)).toBeNull();
     expect(parseId(undefined)).toBeNull();
+  });
+});
+
+describe('decodeRouteParam', () => {
+  test('decodifica un segmento escapado', () => {
+    expect(decodeRouteParam('chat%2F10%2Fabc.jpg')).toBe('chat/10/abc.jpg');
+  });
+
+  test('rechaza escapes inválidos con un error de validación', () => {
+    expect(() => decodeRouteParam('%E0%A4%A')).toThrow(ValidationError);
   });
 });

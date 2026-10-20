@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as catalogService from '@/application/services/catalogService';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { cartAvailabilitySchema } from '@/lib/zod-schemas';
 import {
   resolvePublicBranchId,
@@ -43,7 +43,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     return NextResponse.json({ error: DEFAULT_BRANCH_ERROR }, { status: 400 });
   }
 
-  const body = await request.json();
+  const body = await parseJsonBody(request);
   const data = cartAvailabilitySchema.parse(body);
 
   const result = await catalogService.validatePublicCart(

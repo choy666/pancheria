@@ -3,7 +3,7 @@ import { nowUTC } from '@/lib/date';
 import { formatRecipeSummary } from '@/lib/recipe-helpers';
 import type { SaleItemValue } from '@/lib/sale-helpers';
 import type { orderItems } from '@/db/schema';
-import type { RecipeItemConfig } from '@/domain/types';
+import type { OrderWithItems, RecipeItemConfig } from '@/domain/types';
 
 export function generateOrderNumber(branchId: number): string {
   return `PED-${branchId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -73,6 +73,17 @@ export function buildOrderItemValues(
 
 function formatRecipeItemLine(recipe: RecipeItemConfig[]): string {
   return formatRecipeSummary(recipe);
+}
+
+export function toPublicCancelledOrder(
+  order: Pick<OrderWithItems, 'id' | 'orderNumber' | 'status' | 'cancelledAt'>
+) {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    cancelledAt: order.cancelledAt,
+  };
 }
 
 export function buildRecipeSnapshotMessageContent(

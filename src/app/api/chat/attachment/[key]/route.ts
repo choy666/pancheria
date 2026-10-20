@@ -6,6 +6,7 @@ import { auth } from '@/auth';
 import { revalidateSessionUser } from '@/lib/auth';
 import * as orderRepository from '@/repositories/orderRepository';
 import { UnauthorizedError } from '@/domain/errors';
+import { decodeRouteParam } from '@/lib/id';
 
 function extractOrderIdFromKey(key: string): number | null {
   const parts = key.split('/');
@@ -52,7 +53,7 @@ export const GET = withApiErrorHandling(
     { params }: { params: Promise<{ key: string }> }
   ) => {
     const { key } = await params;
-    const decodedKey = decodeURIComponent(key);
+    const decodedKey = decodeRouteParam(key);
 
     const provider = getStorageProvider();
     if (provider !== 'local') {

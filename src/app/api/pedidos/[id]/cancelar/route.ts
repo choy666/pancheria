@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as orderService from '@/application/services/orderService';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { cancellationSchema } from '@/lib/zod-schemas';
 import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
@@ -21,7 +21,7 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = cancellationSchema.parse(body);
 
     const order = await orderService.cancelOrder(

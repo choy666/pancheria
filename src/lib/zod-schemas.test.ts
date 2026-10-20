@@ -3,6 +3,8 @@ import {
   recipeSchema,
   saleSchema,
   orderSchema,
+  cartAvailabilitySchema,
+  orderTrackingSchema,
   stockAdjustmentSchema,
   cancellationSchema,
 } from './zod-schemas';
@@ -395,5 +397,103 @@ describe('cancellationSchema', () => {
 
   test('rechaza un motivo muy corto', () => {
     expect(() => cancellationSchema.parse({ reason: 'x' })).toThrow();
+  });
+});
+
+describe('límites de listas y cantidades', () => {
+  const saleWith = (items: unknown[]) => ({
+    items,
+    payments: [{ method: 'cash', amount: 100 }],
+    idempotencyKey: 'abc123',
+  });
+
+  const orderWith = (items: unknown[]) => ({
+    deliveryType: 'pickup',
+    customerName: 'Ana',
+    customerPhone: '3415551234',
+    items,
+    idempotencyKey: 'abc123',
+  });
+
+  const repeatItem = (count: number, item: object) =>
+    Array.from({ length: count }, () => ({ ...item }));
+
+  test('saleSchema acepta hasta 100 ítems y rechaza el siguiente', () => {
+    const atLimit = repeatItem(100, { productId: 1, quantity: 1 });
+
+    expect(saleSchema.parse(saleWith(atLimit)).items).toHaveLength(100);
+    expect(() =>
+      saleSchema.parse(saleWith([...atLimit, { productId: 1, quantity: 1 }]))
+    ).toThrow();
+  });
+
+  test('saleSchema y orderSchema rechazan más de 100 ítems', () => {
+    const overLimit = repeatItem(101, { productId: 1, quantity: 1 });
+
+    expect(() => saleSchema.parse(saleWith(overLimit))).toThrow();
+    expect(() => orderSchema.parse(orderWith(overLimit))).toThrow();
+  });
+
+  test('cartAvailabilitySchema rechaza más de 100 ítems', () => {
+    expect(() =>
+      cartAvailabilitySchema.parse({
+        items: repeatItem(101, { productId: 1, quantity: 1 }),
+      })
+    ).toThrow();
+  });
+
+  test('rechaza una cantidad por ítem mayor a 999', () => {
+    expect(() =>
+      saleSchema.parse(saleWith([{ productId: 1, quantity: 1000 }]))
+    ).toThrow();
+    expect(
+      saleSchema.parse(saleWith([{ productId: 1, quantity: 999 }])).items[0]
+        .quantity
+    ).toBe(999);
+  });
+
+  test('rechaza más de 100 opciones seleccionadas en un ítem', () => {
+    const selectedRecipeItemIds = Array.from({ length: 101 }, (_, index) => index + 1);
+
+    expect(() =>
+      saleSchema.parse(
+        saleWith([{ productId: 1, quantity: 1, selectedRecipeItemIds }])
+      )
+    ).toThrow();
+  });
+
+  test('recipeSchema rechaza más de 100 insumos', () => {
+    const items = Array.from({ length: 101 }, (_, index) => ({
+      supplyId: index + 2,
+      quantity: 1,
+      autoDiscount: false,
+    }));
+
+    expect(() => recipeSchema.parse({ compoundProductId: 1, items })).toThrow();
+  });
+
+  test('orderTrackingSchema exige nombre y teléfono y acota su longitud', () => {
+    const complete = {
+      orderNumber: 'PED-1',
+      customerName: 'Ana',
+      customerPhone: '3415551234',
+    };
+
+    expect(orderTrackingSchema.parse(complete).customerName).toBe('Ana');
+    expect(() =>
+      orderTrackingSchema.parse({ ...complete, customerName: '   ' })
+    ).toThrow('Ingresá tu nombre.');
+    expect(() =>
+      orderTrackingSchema.parse({ ...complete, customerPhone: '   ' })
+    ).toThrow('Ingresá tu teléfono.');
+    expect(() =>
+      orderTrackingSchema.parse({ ...complete, customerPhone: '123' })
+    ).toThrow();
+    expect(() =>
+      orderTrackingSchema.parse({ ...complete, orderNumber: 'x'.repeat(101) })
+    ).toThrow();
+    expect(() =>
+      orderTrackingSchema.parse({ ...complete, customerName: 'x'.repeat(256) })
+    ).toThrow();
   });
 });

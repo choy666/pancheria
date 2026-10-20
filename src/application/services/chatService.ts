@@ -88,6 +88,18 @@ function isOrderExpired(order: { createdAt: Date }): boolean {
   return order.createdAt.getTime() + getOrderExpirationMs() < Date.now();
 }
 
+function assertAcceptsClientMessages(order: { status: OrderStatus; createdAt: Date }): void {
+  if (order.status === 'finished' || order.status === 'cancelled') {
+    throw new ValidationError(
+      'El pedido está finalizado o cancelado, no se pueden enviar mensajes.'
+    );
+  }
+
+  if (isOrderExpired(order)) {
+    throw new ValidationError('El pedido expiró, no se pueden enviar mensajes.');
+  }
+}
+
 function sanitizeContent(content: unknown): string | null {
   if (content === undefined || content === null) return null;
   const text = String(content).trim();
@@ -395,6 +407,19 @@ export async function getOrderChatStatus(
   };
 }
 
+export async function assertClientCanSend(
+  orderId: number,
+  token: string
+): Promise<void> {
+  const order = await orderRepository.findByIdWithToken(orderId, token);
+
+  if (!order) {
+    throw new NotFoundError('Pedido', orderId);
+  }
+
+  assertAcceptsClientMessages(order);
+}
+
 export async function sendClientMessage(
   orderId: number,
   token: string,
@@ -411,15 +436,7 @@ export async function sendClientMessage(
       throw new NotFoundError('Pedido', orderId);
     }
 
-    if (order.status === 'finished' || order.status === 'cancelled') {
-      throw new ValidationError(
-        'El pedido está finalizado o cancelado, no se pueden enviar mensajes.'
-      );
-    }
-
-    if (isOrderExpired(order)) {
-      throw new ValidationError('El pedido expiró, no se pueden enviar mensajes.');
-    }
+    assertAcceptsClientMessages(order);
 
     const values = normalizeMessageValues(orderId, 'client', input);
     return orderMessageRepository.insertMessage(tx, values);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as orderService from '@/application/services/orderService';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { orderTrackingSchema } from '@/lib/zod-schemas';
 import { getClientIp, createRateLimiter } from '@/lib/rate-limit';
 import { getDefaultBranchId, DEFAULT_BRANCH_ERROR } from '@/lib/branch-resolver';
@@ -24,7 +24,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
     );
   }
 
-  const body = await request.json();
+  const body = await parseJsonBody(request);
   const data = orderTrackingSchema.parse(body);
 
   // El orderNumber solo es único por sucursal: sin scope el lookup podría
@@ -37,8 +37,8 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
   const order = await orderService.trackOrder(
     branchId,
     data.orderNumber.trim(),
-    data.customerName?.trim(),
-    data.customerPhone?.trim()
+    data.customerName,
+    data.customerPhone
   );
 
   if (!order) {

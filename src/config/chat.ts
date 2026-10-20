@@ -158,6 +158,26 @@ export function getChatStreamBudgetMs(): number {
   return Math.min(parsed, 280_000);
 }
 
+export function getChatStreamMaxPerOrder(): number {
+  const raw = process.env.CHAT_STREAM_MAX_PER_ORDER;
+  if (!raw) return 3;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return 3;
+
+  return Math.floor(parsed);
+}
+
+export function getChatStreamMaxPerIp(): number {
+  const raw = process.env.CHAT_STREAM_MAX_PER_IP;
+  if (!raw) return 20;
+
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed) || parsed < 1) return 20;
+
+  return Math.floor(parsed);
+}
+
 /**
  * Días de retención de mensajes de pedidos en estado terminal
  * (`finished`/`cancelled`). `null` = sin purga (default: se conserva el

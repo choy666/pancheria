@@ -1,5 +1,7 @@
 import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import * as userRepository from '@/repositories/userRepository';
+import { BCRYPT_HASH_COST } from '@/config/auth';
 import { LoginAttemptsExceededError } from '@/domain/errors';
 import {
   getRateLimitStore,
@@ -12,6 +14,13 @@ import {
 } from '@/config/rate-limit';
 
 const rateLimitStore = getRateLimitStore();
+
+let dummyPasswordHash: Promise<string> | undefined;
+
+function getDummyPasswordHash(): Promise<string> {
+  dummyPasswordHash ??= bcrypt.hash(randomBytes(32).toString('hex'), BCRYPT_HASH_COST);
+  return dummyPasswordHash;
+}
 
 export function setRateLimitStore(store: RateLimitStore): void {
   setRateLimitStoreBase(store);
@@ -54,6 +63,7 @@ export async function verifyCredentials(
   const user = await userRepository.findByUsernameWithBranch(username);
 
   if (!user) {
+    await bcrypt.compare(password, await getDummyPasswordHash());
     await recordFailedAttempt(username);
     return null;
   }

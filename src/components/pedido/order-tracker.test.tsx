@@ -57,6 +57,56 @@ describe('OrderTracker', () => {
     expect(screen.getByDisplayValue('3415555555')).toBeInTheDocument();
   });
 
+  test('exige el nombre y el teléfono para buscar', () => {
+    render(<OrderTracker />);
+
+    expect(screen.getByLabelText(/Tu nombre/i)).toBeRequired();
+    expect(screen.getByLabelText(/Teléfono/i)).toBeRequired();
+  });
+
+  test('envía el nombre sin espacios y el teléfono sin separadores', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        order: {
+          id: 1,
+          orderNumber: 'PED-1-1234567890-abc',
+          status: 'pending',
+          total: 1200,
+          customerName: 'Juan Pérez',
+          customerPhone: '3415555555',
+          branchId: 1,
+          branchName: 'Sucursal A',
+        },
+      }),
+    });
+
+    render(<OrderTracker />);
+
+    fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
+      target: { value: 'PED-1-1234567890-abc' },
+    });
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
+      target: { value: ' Juan Pérez ' },
+    });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '341 555 5555' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      orderNumber: 'PED-1-1234567890-abc',
+      customerName: 'Juan Pérez',
+      customerPhone: '3415555555',
+    });
+  });
+
   test('guarda el nombre en localStorage al buscar con éxito', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -86,6 +136,9 @@ describe('OrderTracker', () => {
     });
     fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Juan Pérez' },
+    });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
 
@@ -130,6 +183,9 @@ describe('OrderTracker', () => {
     fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Ana' },
     });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
 
     await waitFor(() => {
@@ -168,6 +224,9 @@ describe('OrderTracker', () => {
     });
     fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Juan Pérez' },
+    });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
 
@@ -237,6 +296,9 @@ describe('OrderTracker', () => {
     fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Juan Pérez' },
     });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
 
     await waitFor(() => {
@@ -276,6 +338,9 @@ describe('OrderTracker', () => {
     });
     fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
       target: { value: 'Juan Pérez' },
+    });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
 

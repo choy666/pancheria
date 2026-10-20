@@ -9,7 +9,7 @@ import {
 } from '@/lib/date';
 import { parseId } from '@/lib/id';
 import { parsePaginationParams } from '@/lib/pagination';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 
 export const GET = withApiErrorHandling(
@@ -51,7 +51,7 @@ export const GET = withApiErrorHandling(
 
 export const POST = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { branchId }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = saleSchema.parse(body);
     const sale = await saleService.confirmSale({ branchId, ...data });
     return NextResponse.json(sale, { status: 201 });

@@ -75,13 +75,14 @@ describe('authService', () => {
     expect(mockedBcrypt.compare).toHaveBeenCalledWith('secreto', 'hash123');
   });
 
-  test('devuelve null si el usuario no existe', async () => {
+  test('devuelve null si el usuario no existe y compara contra un hash dummy', async () => {
     mockedDb.query.users.findFirst.mockResolvedValue(undefined);
 
     const result = await verifyCredentials('admin', 'secreto');
 
     expect(result).toBeNull();
-    expect(mockedBcrypt.compare).not.toHaveBeenCalled();
+    expect(mockedBcrypt.compare).toHaveBeenCalledTimes(1);
+    expect(mockedBcrypt.compare.mock.calls[0][0]).toBe('secreto');
   });
 
   test('devuelve null si la contraseña es incorrecta', async () => {

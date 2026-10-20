@@ -15,7 +15,7 @@ const PUBLIC_PREFIXES = [
   '/favicon.ico',
 ];
 
-const PUBLIC_FILE_EXTENSIONS = new Set(['.svg', '.png', '.ico', '.jpg', '.jpeg']);
+const PUBLIC_ROOT_FILE_PATTERN = /^\/[^/]+\.(?:svg|png|ico|jpe?g)$/;
 
 export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) {
@@ -28,8 +28,7 @@ export function isPublicPath(pathname: string): boolean {
     }
   }
 
-  const ext = pathname.slice(pathname.lastIndexOf('.'));
-  if (PUBLIC_FILE_EXTENSIONS.has(ext)) {
+  if (PUBLIC_ROOT_FILE_PATTERN.test(pathname)) {
     return true;
   }
 

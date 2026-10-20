@@ -12,7 +12,7 @@ import {
 /**
  * Flujo público de seguimiento de pedidos (`/pedido/seguimiento`).
  *
- * El cliente ingresa el número de pedido más su nombre o teléfono; el
+ * El cliente ingresa el número de pedido, su nombre y su teléfono; el
  * servidor resuelve con `trackOrder` filtrando por sucursal. Cubre también
  * la cancelación pública con `cancellationToken` y que la numeración de un
  * pedido no se resuelva bajo otra sucursal.
@@ -94,6 +94,7 @@ test.describe('Seguimiento público de pedidos', () => {
     await waitForHydratedInput(page, '#orderNumber');
     await page.getByLabel('Número de pedido').fill(order.orderNumber);
     await page.getByLabel('Tu nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(order.customerPhone);
     await page.getByRole('button', { name: 'Buscar pedido' }).click();
 
     // La tarjeta del pedido muestra el estado actual y el progreso
@@ -135,6 +136,7 @@ test.describe('Seguimiento público de pedidos', () => {
     await waitForHydratedInput(page, '#orderNumber');
     await page.getByLabel('Número de pedido').fill(order.orderNumber);
     await page.getByLabel('Tu nombre').fill('Otro Nombre Que No Coincide');
+    await page.getByLabel('Teléfono').fill(order.customerPhone);
     await page.getByRole('button', { name: 'Buscar pedido' }).click();
 
     await expect(page.getByText(/No se encontró el pedido/)).toBeVisible();
@@ -163,6 +165,7 @@ test.describe('Seguimiento público de pedidos', () => {
     await page.goto('/pedido/seguimiento');
     await waitForHydratedInput(page, '#orderNumber');
     await page.getByLabel('Número de pedido').fill(order.orderNumber);
+    await page.getByLabel('Tu nombre').fill(order.customerName);
     await page.getByLabel('Teléfono').fill(order.customerPhone);
     await page.getByRole('button', { name: 'Buscar pedido' }).click();
 
@@ -194,7 +197,7 @@ test.describe('Seguimiento público de pedidos', () => {
         },
       }
     );
-    expect(cancelResponse.status()).toBe(400);
+    expect(cancelResponse.status()).toBe(404);
   });
 
   test('un pedido no se resuelve bajo otra sucursal aunque coincida el número', async ({
@@ -212,6 +215,7 @@ test.describe('Seguimiento público de pedidos', () => {
       data: {
         orderNumber: order.orderNumber,
         customerName,
+        customerPhone: order.customerPhone,
         branchId: second.branchId,
       },
     });

@@ -4,6 +4,7 @@ import {
   buildOrderValues,
   buildOrderItemValues,
   buildRecipeSnapshotMessageContent,
+  toPublicCancelledOrder,
 } from './order-helpers';
 
 describe('order-helpers', () => {
@@ -176,6 +177,31 @@ describe('order-helpers', () => {
       expect(result).toContain('Panchuque x1:');
       expect(result).toContain('Aclaración: bien tostado');
       expect(result).toContain('Sin: Cebolla');
+    });
+  });
+
+  describe('toPublicCancelledOrder', () => {
+    it('expone solo los datos públicos del pedido', () => {
+      const order = {
+        id: 7,
+        orderNumber: 'PED-1-123-abc',
+        status: 'cancelled' as const,
+        cancelledAt: new Date('2026-10-19T10:00:00.000Z'),
+        cancellationToken: 'secreto',
+        idempotencyKey: '1:clave',
+        customerPhone: '3415555555',
+        items: [{ productName: 'Gaseosa', product: { stock: 4 } }],
+      };
+
+      const result = toPublicCancelledOrder(order);
+
+      expect(result).toEqual({
+        id: 7,
+        orderNumber: 'PED-1-123-abc',
+        status: 'cancelled',
+        cancelledAt: new Date('2026-10-19T10:00:00.000Z'),
+      });
+      expect(result).not.toHaveProperty('cancellationToken');
     });
   });
 });

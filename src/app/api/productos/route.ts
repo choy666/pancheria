@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { productSchema } from '@/lib/zod-schemas';
 import * as productService from '@/application/services/productService';
 import { parsePaginationParams } from '@/lib/pagination';
-import { withApiErrorHandling } from '@/lib/api-handler';
+import { parseJsonBody, withApiErrorHandling } from '@/lib/api-handler';
 import { withAuth } from '@/lib/with-auth';
 import { invalidatePublicCatalogCache } from '@/lib/server-cache';
 
@@ -25,7 +25,7 @@ export const GET = withApiErrorHandling(
 
 export const POST = withApiErrorHandling(
   withAuth(async (request: NextRequest, _context, { branchId }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const data = productSchema.parse(body);
     const product = await productService.createProduct(branchId, data);
     invalidatePublicCatalogCache();

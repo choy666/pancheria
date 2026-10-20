@@ -11,6 +11,7 @@ import {
   getLoginIpRateLimitMaxAttempts,
   getLoginIpRateLimitWindowMs,
 } from '@/config/rate-limit';
+import { logger } from '@/lib/logger';
 
 /**
  * Error de login por lockout: Auth.js propaga un `CredentialsSignin` lanzado
@@ -40,7 +41,8 @@ function resolveLoginIp(request: Request | undefined): string | null {
   try {
     const ip = getClientIp(request);
     return ip === 'unknown' ? null : ip;
-  } catch {
+  } catch (error) {
+    logger.warn('Límite por IP de login inactivo: no hay IP confiable para el request', { error });
     return null;
   }
 }

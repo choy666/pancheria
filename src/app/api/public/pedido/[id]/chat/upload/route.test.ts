@@ -6,6 +6,7 @@ import { POST } from './route';
 import * as chatService from '@/application/services/chatService';
 import * as chatStorage from '@/lib/chat-storage';
 import * as rateLimit from '@/lib/rate-limit';
+import { ValidationError } from '@/domain/errors';
 
 jest.mock('@/application/services/chatService');
 jest.mock('@/lib/chat-storage');
@@ -149,6 +150,28 @@ describe('POST /api/public/pedido/[id]/chat/upload', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mockedChatStorage.saveChatAttachment).not.toHaveBeenCalled();
+    expect(mockedChatService.sendClientMessage).not.toHaveBeenCalled();
+  });
+
+  test('no guarda el adjunto si el pedido ya no admite mensajes del cliente', async () => {
+    mockedChatService.assertClientCanSend.mockRejectedValueOnce(
+      new ValidationError(
+        'El pedido está finalizado o cancelado, no se pueden enviar mensajes.'
+      )
+    );
+    const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
+
+    const response = await POST(
+      buildRequest(createFormData(file, 'Hola')),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockedChatService.assertClientCanSend).toHaveBeenCalledWith(
+      ORDER_ID,
+      TOKEN
+    );
     expect(mockedChatStorage.saveChatAttachment).not.toHaveBeenCalled();
     expect(mockedChatService.sendClientMessage).not.toHaveBeenCalled();
   });

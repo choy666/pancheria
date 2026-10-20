@@ -1309,7 +1309,7 @@ describe('orderService', () => {
       expect(findCapturedInsert(stockMovements)).toHaveLength(0);
     });
 
-    test('rechaza cancelación con token inválido', async () => {
+    test('rechaza cancelación con token inválido como si el pedido no existiera', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({ cancellationToken: 'valid-token' }),
         items: [createOrderItemRow({ productId: 1, quantity: 1 })],
@@ -1317,7 +1317,18 @@ describe('orderService', () => {
 
       await expect(
         cancelOrder(BRANCH_ID, 1, 'Motivo', 'invalid-token')
-      ).rejects.toThrow('El token de cancelación no es válido.');
+      ).rejects.toThrow('Pedido con ID 1 no encontrado.');
+    });
+
+    test('con token de otra longitud responde como pedido inexistente, sin error interno', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ cancellationToken: 'valid-token' }),
+        items: [],
+      });
+
+      await expect(
+        cancelOrder(BRANCH_ID, 1, 'Motivo', 'a'.repeat(64))
+      ).rejects.toThrow(NotFoundError);
     });
 
     test('rechaza la cancelación pública (con token) de un pedido pagado', async () => {
@@ -1338,7 +1349,7 @@ describe('orderService', () => {
       expect(findCapturedUpdate(orders)).toHaveLength(0);
     });
 
-    test('con token inválido sobre pedido pagado informa el token, no el estado', async () => {
+    test('con token inválido sobre pedido pagado responde como pedido inexistente', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({
           status: 'paid',
@@ -1350,7 +1361,41 @@ describe('orderService', () => {
 
       await expect(
         cancelOrder(BRANCH_ID, 1, 'Motivo', 'invalid-token')
-      ).rejects.toThrow('El token de cancelación no es válido.');
+      ).rejects.toThrow('Pedido con ID 1 no encontrado.');
+    });
+
+    test('con token inválido sobre pedido cancelado no devuelve el pedido', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'cancelled', cancellationToken: 'valid-token' }),
+        items: [],
+      });
+
+      await expect(
+        cancelOrder(BRANCH_ID, 1, 'Motivo', 'invalid-token')
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    test('con token inválido sobre pedido finalizado responde como pedido inexistente', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'finished', cancellationToken: 'valid-token' }),
+        items: [],
+      });
+
+      await expect(
+        cancelOrder(BRANCH_ID, 1, 'Motivo', 'invalid-token')
+      ).rejects.toThrow('Pedido con ID 1 no encontrado.');
+    });
+
+    test('con token válido sobre pedido cancelado devuelve el pedido sin modificarlo', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'cancelled', cancellationToken: 'valid-token' }),
+        items: [],
+      });
+
+      const result = await cancelOrder(BRANCH_ID, 1, 'Motivo', 'valid-token');
+
+      expect(result.status).toBe('cancelled');
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
     });
 
     test('el panel sí puede cancelar un pedido pagado (sin token)', async () => {
@@ -2233,7 +2278,8 @@ describe('orderService', () => {
       const result = await trackOrder(
         BRANCH_ID,
         stale.orderNumber,
-        'Juan Pérez'
+        'Juan Pérez',
+        '3415555555'
       );
 
       expect(result).not.toBeNull();
@@ -2255,7 +2301,8 @@ describe('orderService', () => {
       const result = await trackOrder(
         BRANCH_ID,
         'PED-1-1234567890-abcdef',
-        'Juan Pérez'
+        'Juan Pérez',
+        '3415555555'
       );
 
       expect(result).not.toBeNull();
@@ -2275,7 +2322,8 @@ describe('orderService', () => {
       const result = await trackOrder(
         BRANCH_ID,
         'PED-1-1234567890-abcdef',
-        'Juan Pérez'
+        'Juan Pérez',
+        '3415555555'
       );
 
       expect(result).not.toBeNull();
@@ -2287,9 +2335,16 @@ describe('orderService', () => {
     test('devuelve null si no encuentra el pedido', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue(undefined);
 
-      const result = await trackOrder(BRANCH_ID, 'PED-999', 'Juan Pérez');
+      const result = await trackOrder(BRANCH_ID, 'PED-999', 'Juan Pérez', '3415555555');
 
       expect(result).toBeNull();
+    });
+
+    test('devuelve null sin consultar la base si falta el teléfono', async () => {
+      const result = await trackOrder(BRANCH_ID, 'PED-1-1234567890-abcdef', 'Juan Pérez', '  ');
+
+      expect(result).toBeNull();
+      expect(mockedDb.query.orders.findFirst).not.toHaveBeenCalled();
     });
 
     test('incluye los ítems con nombre, nota y snapshot de receta', async () => {
@@ -2326,7 +2381,8 @@ describe('orderService', () => {
       const result = await trackOrder(
         BRANCH_ID,
         'PED-1-1234567890-abcdef',
-        'Juan Pérez'
+        'Juan Pérez',
+        '3415555555'
       );
 
       expect(result?.items).toEqual([

@@ -166,7 +166,7 @@ sequenceDiagram
 
 > Render: [diagramas/svg/flujo-chat.svg](diagramas/svg/flujo-chat.svg)
 
-Puntos clave: el SSE (`chat-stream.ts`) hace polling interno a la DB con heartbeat y presupuesto de conexión (`CHAT_STREAM_*`); al expirar el budget el `EventSource` reconecta solo. El polling REST es el fallback por defecto. Solo se permite ubicación de sucursal en pedidos `pickup`.
+Puntos clave: el SSE (`chat-stream.ts`) hace polling interno a la DB con heartbeat y presupuesto de conexión (`CHAT_STREAM_*`); al expirar el budget el `EventSource` reconecta solo. El polling REST es el fallback por defecto. Solo se permite ubicación de sucursal en pedidos `pickup`. Límites del stream: como máximo `CHAT_STREAM_MAX_PER_ORDER` (3) conexiones abiertas por pedido y `CHAT_STREAM_MAX_PER_IP` (20) por IP, en memoria por instancia; por encima responde 429 y el cliente pasa a polling sin reintentar SSE hasta remontar la página. El `interval` de la query no baja de `CHAT_STREAM_INTERVAL_MS` (2000 ms).
 
 ## 5. Subida de archivos (storage)
 

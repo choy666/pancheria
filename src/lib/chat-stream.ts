@@ -39,6 +39,7 @@ interface SseStreamOptions {
   onStart?: (emit: SseEmit) => void | Promise<void>;
   /** Trabajo de cada tick; decide qué emitir vía `emit`. */
   poll: (emit: SseEmit, control: SseControl) => Promise<void>;
+  onClose?: () => void;
 }
 
 function encodeEvent(
@@ -54,13 +55,14 @@ function encodeEvent(
 }
 
 export function createSseResponse(options: SseStreamOptions): Response {
-  const { signal, intervalMs, heartbeatMs, budgetMs, onStart, poll } = options;
+  const { signal, intervalMs, heartbeatMs, budgetMs, onStart, poll, onClose } = options;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let closed = false;
       let polling = false;
+      let stopped = false;
 
       const safeEnqueue = (chunk: Uint8Array): boolean => {
         if (closed) return false;
@@ -69,6 +71,7 @@ export function createSseResponse(options: SseStreamOptions): Response {
           return true;
         } catch {
           closed = true;
+          cleanup();
           return false;
         }
       };
@@ -78,11 +81,13 @@ export function createSseResponse(options: SseStreamOptions): Response {
       };
 
       const cleanup = () => {
-        if (closed) return;
+        if (stopped) return;
+        stopped = true;
         closed = true;
         clearInterval(pollTimer);
         clearInterval(heartbeatTimer);
         clearTimeout(budgetTimer);
+        onClose?.();
         try {
           controller.close();
         } catch {
@@ -117,6 +122,7 @@ export function createSseResponse(options: SseStreamOptions): Response {
       const budgetTimer = setTimeout(cleanup, budgetMs);
 
       signal.addEventListener('abort', cleanup, { once: true });
+      if (signal.aborted) cleanup();
 
       queueMicrotask(async () => {
         if (closed) return;
@@ -155,6 +161,32 @@ interface ChatStreamResponseOptions {
    * estado vigente, o `null` si el pedido salió del scope (cierra el stream).
    */
   fetchTick: (cursor: number) => Promise<ChatStreamTick | null>;
+  onClose?: () => void;
+}
+
+const openChatStreams = new Map<string, number>();
+
+export function acquireChatStreamSlots(
+  limits: { key: string; max: number }[]
+): (() => void) | null {
+  if (limits.some(({ key, max }) => (openChatStreams.get(key) ?? 0) >= max)) {
+    return null;
+  }
+
+  for (const { key } of limits) {
+    openChatStreams.set(key, (openChatStreams.get(key) ?? 0) + 1);
+  }
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    for (const { key } of limits) {
+      const open = (openChatStreams.get(key) ?? 1) - 1;
+      if (open > 0) openChatStreams.set(key, open);
+      else openChatStreams.delete(key);
+    }
+  };
 }
 
 function lastMessageId(messages: OrderMessage[]): number {
@@ -176,7 +208,7 @@ function lastMessageId(messages: OrderMessage[]): number {
 export function createChatStreamResponse(
   options: ChatStreamResponseOptions
 ): Response {
-  const { signal, after, intervalMs, heartbeatMs, budgetMs, initialState, fetchTick } =
+  const { signal, after, intervalMs, heartbeatMs, budgetMs, initialState, fetchTick, onClose } =
     options;
 
   let cursor = after;
@@ -188,6 +220,7 @@ export function createChatStreamResponse(
     intervalMs,
     heartbeatMs,
     budgetMs,
+    onClose,
     onStart: (emit) => {
       emit('state', initialState);
     },

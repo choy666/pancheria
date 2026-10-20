@@ -47,6 +47,25 @@ function buildMessage(id: number): OrderMessage {
 }
 
 describe('createSseResponse', () => {
+  test('libera el slot y no sondea si el request ya venía abortado', () => {
+    const controller = new AbortController();
+    controller.abort();
+    const onClose = jest.fn();
+    const poll = jest.fn();
+
+    createSseResponse({
+      signal: controller.signal,
+      intervalMs: 20,
+      heartbeatMs: 15,
+      budgetMs: 60,
+      poll,
+      onClose,
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(poll).not.toHaveBeenCalled();
+  });
+
   test('emite el evento inicial, heartbeat y cierra al agotar el presupuesto', async () => {
     const response = createSseResponse({
       signal: neverAborted(),
@@ -98,6 +117,23 @@ describe('createSseResponse', () => {
     await readAll(response);
     expect(logger.warn).toHaveBeenCalled();
     expect(poll.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  test('libera los recursos cuando el consumidor cancela el stream', async () => {
+    const onClose = jest.fn();
+    const response = createSseResponse({
+      signal: neverAborted(),
+      intervalMs: 5_000,
+      heartbeatMs: 10,
+      budgetMs: 60_000,
+      onClose,
+      poll: async () => {},
+    });
+
+    await response.body!.cancel();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -174,5 +210,25 @@ describe('createChatStreamResponse', () => {
     // El stream cerró por scope inválido, no por presupuesto: el tick corrió
     // una sola vez.
     expect(fetchTick).toHaveBeenCalledTimes(1);
+  });
+
+  test('invoca onClose al cerrar por presupuesto', async () => {
+    const onClose = jest.fn();
+    const response = createChatStreamResponse({
+      signal: neverAborted(),
+      after: 0,
+      intervalMs: 10,
+      heartbeatMs: 5_000,
+      budgetMs: 40,
+      initialState: buildState(),
+      onClose,
+      fetchTick: jest
+        .fn()
+        .mockResolvedValue({ messages: [], status: 'pending', isExpired: false }),
+    });
+
+    await readAll(response);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

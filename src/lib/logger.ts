@@ -43,8 +43,8 @@ function preparePayload(
 
   for (const [key, value] of Object.entries(extra)) {
     if (key === 'error' && value instanceof Error) {
-      payload.errorMessage = value.message;
-      payload.errorStack = value.stack;
+      payload.errorMessage = redactString(value.message);
+      payload.errorStack = value.stack && redactString(value.stack);
       continue;
     }
 
@@ -54,6 +54,26 @@ function preparePayload(
   return payload;
 }
 
+const SENSITIVE_KEYS = new Set([
+  'token',
+  'cancellationToken',
+  'password',
+  'authorization',
+  'cookie',
+]);
+
+const SENSITIVE_QUERY_PARAM =
+  /([?&](?:token|cancellationToken|password)=)[^&#\s"']*/gi;
+
+function redactString(text: string): string {
+  return text.replace(SENSITIVE_QUERY_PARAM, '$1[redacted]');
+}
+
+function redactValue(key: string, value: unknown): unknown {
+  if (SENSITIVE_KEYS.has(key)) return '[redacted]';
+  return typeof value === 'string' ? redactString(value) : value;
+}
+
 function writeLog(
   level: LogLevel,
   message: string,
@@ -61,13 +81,17 @@ function writeLog(
 ): void {
   if (!shouldEmit(level)) return;
 
-  const payload = preparePayload(level, message, extra);
+  const safeMessage = redactString(message);
+  const safeExtra = Object.fromEntries(
+    Object.entries(extra).map(([key, value]) => [key, redactValue(key, value)])
+  );
+  const payload = preparePayload(level, safeMessage, safeExtra);
 
   // En el navegador usar siempre texto plano; en el servidor usar JSON en prod.
   if (isProduction() && !isBrowser) {
     writeConsoleLog(level, JSON.stringify(payload));
   } else {
-    writeConsoleLog(level, message, extra);
+    writeConsoleLog(level, safeMessage, safeExtra);
   }
 }
 

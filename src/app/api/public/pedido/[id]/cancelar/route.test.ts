@@ -170,4 +170,46 @@ describe('POST /api/public/pedido/[id]/cancelar', () => {
     expect(body.error).toContain('sucursal activa');
     expect(mockedOrderService.cancelOrder).not.toHaveBeenCalled();
   });
+
+  test('responde solo con los datos públicos del pedido cancelado', async () => {
+    mockedOrderService.cancelOrder.mockResolvedValue({
+      id: 1,
+      branchId: BRANCH_ID,
+      orderNumber: 'PED-1-1234567890-abcdef',
+      status: 'cancelled',
+      cancelledAt: new Date('2026-10-19T10:00:00.000Z'),
+      cancellationToken: 'token-secreto',
+      idempotencyKey: '1:clave',
+      customerPhone: '3415555555',
+      items: [{ productName: 'Gaseosa', product: { stock: 4, minStock: 2 } }],
+    } as any);
+
+    const [request, routeParams] = buildRequest(1, `branchId=${BRANCH_ID}`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: 'Cancelado por el cliente', token: 'token' }),
+    });
+
+    const response = await POST(request, routeParams);
+    const body = (await response.json()) as { order: unknown };
+
+    expect(body.order).toEqual({
+      id: 1,
+      orderNumber: 'PED-1-1234567890-abcdef',
+      status: 'cancelled',
+      cancelledAt: '2026-10-19T10:00:00.000Z',
+    });
+    expect(JSON.stringify(body)).not.toContain('token-secreto');
+  });
+
+  test('devuelve 400 si el cuerpo no es JSON', async () => {
+    const [request, routeParams] = buildRequest(1, `branchId=${BRANCH_ID}`, {
+      method: 'POST',
+      body: '{',
+    });
+
+    const response = await POST(request, routeParams);
+
+    expect(response.status).toBe(400);
+    expect(mockedOrderService.cancelOrder).not.toHaveBeenCalled();
+  });
 });

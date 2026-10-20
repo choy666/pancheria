@@ -100,4 +100,15 @@ describe('withCronAuth', () => {
       expect.objectContaining({ source: 'cron' })
     );
   });
+
+  test('responde 401 sin lanzar si el header tiene caracteres multibyte de igual longitud', async () => {
+    const sameLengthInCharacters = 'Bearer secreto-cron'.slice(0, -1) + 'é';
+    const handler = jest.fn();
+    const GET = withCronAuth('cron/test', handler);
+
+    const response = await GET(buildRequest(sameLengthInCharacters));
+
+    expect(response.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
 });

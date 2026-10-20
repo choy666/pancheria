@@ -147,4 +147,42 @@ describe('GET /api/public/pedido/[id]/chat/stream', () => {
 
     expect(response.status).toBe(404);
   });
+
+  test('no acepta un intervalo de poll menor al configurado', async () => {
+    mockedChatService.getChatStreamState.mockResolvedValue(buildState());
+
+    const response = await GET(buildRequest('&interval=1&budget=600'), {
+      params: Promise.resolve({ id: String(ORDER_ID) }),
+    });
+    await readAll(response);
+
+    expect(mockedChatService.pollChatStreamTick).toHaveBeenCalledTimes(1);
+  });
+
+  test('devuelve 429 cuando el pedido alcanza el máximo de streams abiertos', async () => {
+    process.env.CHAT_STREAM_MAX_PER_ORDER = '1';
+    mockedChatService.getChatStreamState.mockResolvedValue(buildState());
+
+    try {
+      const first = await GET(buildRequest('&budget=600'), {
+        params: Promise.resolve({ id: String(ORDER_ID) }),
+      });
+      const second = await GET(buildRequest('&budget=600'), {
+        params: Promise.resolve({ id: String(ORDER_ID) }),
+      });
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(429);
+
+      await readAll(first);
+
+      const third = await GET(buildRequest('&budget=600'), {
+        params: Promise.resolve({ id: String(ORDER_ID) }),
+      });
+      expect(third.status).toBe(200);
+      await readAll(third);
+    } finally {
+      delete process.env.CHAT_STREAM_MAX_PER_ORDER;
+    }
+  });
 });

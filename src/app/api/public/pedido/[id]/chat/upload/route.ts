@@ -77,6 +77,8 @@ export const POST = withApiErrorHandling(
       content: typeof contentField === 'string' ? contentField : undefined,
     });
 
+    await chatService.assertClientCanSend(orderId, query.token);
+
     const attachment = await saveChatAttachment(file, orderId);
 
     try {

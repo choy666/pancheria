@@ -125,9 +125,10 @@ Copiar `.env.example` a `.env.local` y completar:
 - `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de envío de ubicación de sucursal por chat en milisegundos (por defecto 60000 ms). Se aplica por `branchId` en `POST /api/pedidos/[id]/chat/ubicacion`.
 - `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de envíos de ubicación de sucursal por ventana (por defecto 5).
 - `NEXT_PUBLIC_CHAT_STREAM_ENABLED` (opcional) — si se define como `true`, los chats abiertos reciben mensajes por SSE (`GET /api/pedidos/[id]/chat/stream` del operador y `GET /api/public/pedido/[id]/chat/stream` del cliente) en lugar del poll de `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`; ante cualquier falla el cliente vuelve al polling automáticamente. Spike de T13: en Vercel la conexión factura duración de función, evaluar costo antes de producción (`.devin/informes/archivados/spike-sse-chat-2026-09-19.md`).
-- `CHAT_STREAM_INTERVAL_MS` (opcional, **solo servidor**) — intervalo del poll interno del endpoint SSE contra la base (por defecto 2000 ms; mínimo 500 ms, máximo 60000 ms).
+- `CHAT_STREAM_INTERVAL_MS` (opcional, **solo servidor**) — intervalo del poll interno del endpoint SSE contra la base (por defecto 2000 ms; mínimo 500 ms, máximo 60000 ms). El parámetro `interval` de la URL del stream no puede bajar de este valor.
 - `CHAT_STREAM_HEARTBEAT_MS` (opcional, **solo servidor**) — intervalo del comentario `: heartbeat` que mantiene viva la conexión SSE (por defecto 15000 ms; mínimo 1000 ms).
 - `CHAT_STREAM_BUDGET_MS` (opcional, **solo servidor**) — presupuesto máximo de cada conexión SSE en milisegundos (por defecto 55000 ms; máximo 280000 ms). El stream cierra antes del `maxDuration` de la función y el cliente reconecta con `Last-Event-ID`.
+- `CHAT_STREAM_MAX_PER_ORDER` / `CHAT_STREAM_MAX_PER_IP` (opcionales, **solo servidor**) — máximo de streams SSE abiertos a la vez por pedido (por defecto 3) y por IP (por defecto 20). Es un veto en memoria por instancia: por encima responde 429 y el cliente vuelve al polling.
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor del rate limit de creación de pedidos y del chat público: `memory` o `db` (PostgreSQL). En producción, si `DATABASE_URL` o `POSTGRES_URL` están definidas y no se especifica lo contrario, se usa `db`; en desarrollo/test y sin base de datos disponible, `memory`. `db` es recomendado para producción con múltiples instancias. Requiere la tabla `public_order_rate_limits` en el esquema.
 - `PUBLIC_ORDER_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de creación de pedidos en milisegundos (por defecto 60000 ms).
 - `PUBLIC_ORDER_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de pedidos por IP en la ventana (por defecto 10).
@@ -142,11 +143,11 @@ Copiar `.env.example` a `.env.local` y completar:
 > Los schedules de los cron jobs en `vercel.json` (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`, `0 0 * * *` por defecto) no se leen de variables de entorno; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente). El cron `/api/cron/expire-orders` se dispara desde `.github/workflows/expire-orders.yml` con schedule `*/5 * * * *` y también requiere `CRON_SECRET`. **Verificado 2026-09-19:** la cadencia real del schedule de GitHub Actions es de ~2–5 horas entre corridas (best-effort severo), no 5 minutos — un pedido `pending` tarda en expirar `max(ORDER_EXPIRATION_MS, cadencia real)`; además las lecturas principales (`trackOrder`, `getOrderById`, `getPendingOrders`, `getOrders`) expiran pendings vencidos en el momento (expiración lazy en `orderService`), así que un vencido no se muestra como vigente aunque el cron todavía no haya corrido.
 >
 > Las rutas de cron y las rutas pesadas (cierre de caja, vaciado de papelera de cajas y productos) exportan `maxDuration = 300`: el plan Hobby con Fluid Compute (default en proyectos creados desde 2025) permite hasta 300 s por función. Si el proyecto migra a otro plan, revisar el límite antes de subirlo.
-- `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar.
+- `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar. Esta misma ventana cierra el **envío** de mensajes: vencida (`createdAt` + ese valor), ni el cliente ni el operador pueden enviar, en cualquier estado; además el cliente no escribe en pedidos `finished`/`cancelled`. La lectura del historial sigue disponible con el token (decisión de negocio vigente: pedidos aceptados o pagados tras 1 h no admiten mensajes).
 - `EXPIRE_ORDERS_TIME_BUDGET_MS` (opcional, **solo servidor**) — presupuesto de tiempo de una corrida de expiración de pedidos (por defecto 240_000 ms; mínimo 5_000 ms). Al agotarse, el cron corta dejando el resto para la próxima invocación (la operación es reentrante) y loguea `expired`/`remaining`. Debe quedar por debajo del `maxDuration` de la ruta (300 s).
 - `SANITY_AUDIT_STALE_PENDING_MAX_AGE_HOURS` (opcional, **solo servidor**) — umbral en horas para que un pedido `pending` vencido sin barrer se reporte como `warning` en `GET /api/cron/sanity-audit` (por defecto 24). El endpoint es de solo lectura: lo dispara `.github/workflows/sanity-audit.yml` una vez por día (`0 9 * * *`) y falla el job si hay hallazgos `critical`.
 - `SANITY_AUDIT_SAMPLE_LIMIT` (opcional, **solo servidor**) — tope de filas de muestra por hallazgo en el reporte de `sanity-audit` (por defecto 50).
-- `ORDER_MESSAGES_RETENTION_DAYS` (opcional, **solo servidor**) — retención en días de los mensajes de pedidos terminales (`finished`/`cancelled`). Si se define, el cron `chat-attachments-cleanup` borra los mensajes cuyo `createdAt` supere el período; si no se define, no se purgan mensajes. El mismo cron también elimina archivos huérfanos de `chat/`, `product-images/` y `videos/` en el storage configurado.
+- `ORDER_MESSAGES_RETENTION_DAYS` (opcional, **solo servidor**) — retención en días de los mensajes de pedidos terminales (`finished`/`cancelled`). Si se define, el cron `chat-attachments-cleanup` borra los mensajes cuyo `createdAt` supere el período junto con sus archivos adjuntos del storage; si no se define, no se purgan mensajes. El mismo cron también elimina archivos huérfanos de `chat/`, `product-images/` y `videos/` en el storage configurado.
 - `RATE_LIMIT_STORE_PROVIDER` (opcional) — proveedor de almacenamiento de intentos fallidos de login:
   - `memory`: en memoria (por defecto en desarrollo y en `NODE_ENV=test`).
   - `db`: en PostgreSQL usando la tabla `login_attempts` (por defecto en producción cuando `DATABASE_URL` o `POSTGRES_URL` están definidas; configurable explícitamente con `RATE_LIMIT_STORE_PROVIDER=db`).
@@ -491,12 +492,26 @@ useEffect(() => {
 - Además, `src/lib/route-guard.ts` redirige `/` sin sesión a `/pedido`, mientras que `src/app/(panel)/layout.tsx` redirige `/` sin sesión a `/login`. Eso genera una inconsistencia si ambas capas se ejecutan.
 - Solución: la redirección autoritaria es la del proxy (`src/proxy.ts` + `src/lib/route-guard.ts`). `src/app/(panel)/layout.tsx` y `src/app/(auth)/login/page.tsx` son redirecciones defensivas de fallback (el matcher del proxy excluye `/api`, `/_next/static`, `/_next/image`, `favicon.ico` y archivos `.svg`; aplica CSP a las rutas de UI y redirecciones de `route-guard`). No hace falta eliminarlas, pero sí documentar su rol. Verificar que `NEXTAUTH_URL`/`AUTH_URL` apunten al dominio de producción.
 
+### Un asset público redirige a `/login`
+
+- Síntoma: una imagen o archivo estático que debería verse sin sesión (catálogo, pantalla, login) responde con la página de login.
+- Causa: el matcher de `src/proxy.ts` excluye `api`, `_next/static`, `_next/image`, `favicon.ico` y cualquier `.svg`, así que los SVG se sirven siempre. Cualquier otro asset sí pasa por la guardia: `isPublicPath` (`src/lib/route-guard.ts`) lo deja público solo si es un archivo suelto en la raíz de `public/` con extensión `png`, `ico`, `jpg` o `jpeg`. Un PNG anidado (p. ej. `public/img/promo.png`) o un `.webp` en la raíz redirige a `/login` sin sesión.
+- Solución: moverlo a la raíz de `public/` con una de esas extensiones o ampliar la regla. El test "todo archivo de public/ es público" en `route-guard.test.ts` falla si queda un archivo que `isPublicPath` no reconoce.
+
 ### `ECONNREFUSED` al conectar con PostgreSQL en desarrollo
 
 - Verificar que `DATABASE_URL` en `.env.local` no apunte a `localhost` si no hay un PostgreSQL local corriendo.
 - Preferir usar la misma URL de Neon que en Vercel (`POSTGRES_URL`) para que dev y prod se comporten igual.
 - Revisar `src/db/index.ts` para entender el orden de resolución: `DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL`.
 - Para migraciones, `drizzle.config.ts` usa `DATABASE_URL_UNPOOLED` → `POSTGRES_URL_NON_POOLING` → `DATABASE_URL` → `POSTGRES_URL`.
+
+### Usuario bloqueado por intentos fallidos de login
+
+- Síntoma: el login responde "Demasiados intentos fallidos" aunque la contraseña sea correcta.
+- Causa: el bloqueo es por usuario (`LOGIN_RATE_LIMIT_MAX_ATTEMPTS`, 5 por defecto, dentro de `LOGIN_RATE_LIMIT_WINDOW_MS`, 15 minutos) y rechaza también la contraseña correcta mientras dura. Quien conozca el usuario puede mantenerlo bloqueado enviando 5 fallos por ventana, desde cualquier IP.
+- Solución: esperar a que venza la ventana desde el último intento fallido, o borrar la fila del usuario en `login_attempts` de la base del entorno afectado (`DELETE FROM login_attempts WHERE username = '<usuario>';`). Confirmar el entorno antes de ejecutarlo: es una operación sobre datos reales.
+- Si el bloqueo se repite, revisar si algún cliente o script insiste con esa cuenta. El límite por IP (`LOGIN_IP_RATE_LIMIT_MAX_ATTEMPTS`) frena a una sola IP, no a una red de IPs.
+- Si aparece el log `Límite por IP de login inactivo`, el límite por IP no está activo: configurar `TRUSTED_PROXY_IP_HEADER` o desplegar en Vercel.
 
 ## Auditorías e informes
 

@@ -7,6 +7,7 @@ import {
   InsufficientStockError,
   NotFoundError,
   UnauthorizedError,
+  ValidationError,
 } from '@/domain/errors';
 import { isDatabaseConnectionError } from '@/lib/db-errors';
 import { logger } from '@/lib/logger';
@@ -195,6 +196,17 @@ export function withApiErrorHandling<TArgs extends unknown[]>(
       );
     }
   };
+}
+
+export async function parseJsonBody(request: Request) {
+  try {
+    return await request.json();
+  } catch (error) {
+    if ((error as Error | undefined)?.name === 'SyntaxError') {
+      throw new ValidationError('El cuerpo de la solicitud debe ser JSON válido.');
+    }
+    throw error;
+  }
 }
 
 function logApiWarning(

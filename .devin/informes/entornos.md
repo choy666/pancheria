@@ -151,7 +151,8 @@ Verificado vía MCPs de Vercel y Neon durante la consolidación pre-multi-tenant
 
 - **Migraciones:** `drizzle.__drizzle_migrations` registra **32** migraciones; `0031` (índices de FKs) se aplicó manualmente el 2026-09-20 en el branch `main` (endpoint directo), con `hash` = SHA-256 del archivo y `created_at` = `when` del journal, manteniendo la semántica de `drizzle-kit migrate`.
 - **`POSTGRES_URL_NON_POOLING`:** corregida — apuntaba al host `-pooler` (mal rotulada, sin impacto porque `DATABASE_URL_UNPOOLED` tiene precedencia) y ahora apunta al endpoint directo de `main`.
-- **`ORDER_MESSAGES_RETENTION_DAYS=90`:** definida en producción; el cron `chat-attachments-cleanup` purga mensajes de pedidos terminales más viejos que 90 días.
+- **`ORDER_MESSAGES_RETENTION_DAYS=90`** (valor registrado en esta verificación): el cron `chat-attachments-cleanup` purga mensajes de pedidos terminales más viejos que 90 días.
+- **Cambio 2026-10-19 → `ORDER_MESSAGES_RETENTION_DAYS=30`:** decisión del responsable, tomada con el valor previo a la vista. La variable se sobrescribió con `upsert` (tipo `encrypted`, target `production`) y se redeployó el commit `84b36d4` de `main` para aplicarla. El valor previo no se pudo leer (cifrado en Vercel) y consta solo en esta documentación. Según los horarios de deploy, la corrida de las 00:00 UTC del 2026-10-20 aún usó el deployment anterior (90 días). Desde la corrida del 2026-10-21 se purgan los mensajes de pedidos `finished`/`cancelled` con más de 30 días y sus archivos adjuntos del storage, de forma irreversible.
 - **`DATABASE_POOL_MAX=5`:** definida en producción para acotar conexiones por instancia (compute Neon de 0.25 CU).
 - **`DATA_CACHE_REVALIDATE_S`:** sin definir → default 60 s del caché de servidor.
 - **`NEXT_PUBLIC_CHAT_STREAM_ENABLED`:** sin definir → SSE deshabilitado; el chat usa polling.

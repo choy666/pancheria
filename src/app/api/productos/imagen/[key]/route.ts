@@ -4,6 +4,7 @@ import { withApiErrorHandling } from '@/lib/api-handler';
 import { readProductImage } from '@/lib/product-image-storage';
 import { isPublicSellableProduct } from '@/lib/catalog';
 import { parseBranchId } from '@/lib/branch-resolver';
+import { decodeRouteParam } from '@/lib/id';
 
 interface RouteParams {
   params: Promise<{ key: string }>;
@@ -20,7 +21,7 @@ function extractProductIdFromKey(key: string): number | null {
 export const GET = withApiErrorHandling(
   async (request: NextRequest, { params }: RouteParams) => {
     const { key } = await params;
-    const decodedKey = decodeURIComponent(key);
+    const decodedKey = decodeRouteParam(key);
 
     const productId = extractProductIdFromKey(decodedKey);
     if (!productId) {

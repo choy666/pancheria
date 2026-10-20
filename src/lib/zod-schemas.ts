@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { getChatMaxTextLength } from '@/config/chat';
 import { ITEM_NOTE_MAX_LENGTH } from '@/lib/cart-helpers';
 
+const MAX_ITEMS_PER_LIST = 100;
+const MAX_ITEM_QUANTITY = 999;
+const MAX_ORDER_NUMBER_LENGTH = 100;
+
 const productTypeSchema = z.enum([
   'critical_supply',
   'compound',
@@ -163,7 +167,7 @@ export const recipeItemSchema = z
 export const recipeSchema = z
   .object({
     compoundProductId: z.number().int().positive(),
-    items: z.array(recipeItemSchema).min(1),
+    items: z.array(recipeItemSchema).min(1).max(MAX_ITEMS_PER_LIST),
   })
   .superRefine((data, ctx) => {
     const supplyIds = data.items.map((item) => item.supplyId);
@@ -203,8 +207,12 @@ export const recipeSchema = z
 
 const saleItemSchema = z.object({
   productId: z.number().int().positive(),
-  quantity: z.number().int().positive(),
-  selectedRecipeItemIds: z.array(z.number().int().positive()).optional().default([]),
+  quantity: z.number().int().positive().max(MAX_ITEM_QUANTITY),
+  selectedRecipeItemIds: z
+    .array(z.number().int().positive())
+    .max(MAX_ITEMS_PER_LIST)
+    .optional()
+    .default([]),
   notes: z.string().trim().max(ITEM_NOTE_MAX_LENGTH).optional().nullable(),
 });
 
@@ -228,13 +236,13 @@ const paymentPartsSchema = z
   });
 
 export const saleSchema = z.object({
-  items: z.array(saleItemSchema).min(1),
+  items: z.array(saleItemSchema).min(1).max(MAX_ITEMS_PER_LIST),
   payments: paymentPartsSchema,
   idempotencyKey: z.string().min(1),
 });
 
 export const cartAvailabilitySchema = z.object({
-  items: z.array(saleItemSchema),
+  items: z.array(saleItemSchema).max(MAX_ITEMS_PER_LIST),
   productIds: z.array(z.number().int().positive()).max(500).optional(),
 });
 
@@ -260,7 +268,7 @@ const phoneRegex = /^\+?\d{8,15}$/;
 
 export const orderSchema = z
   .object({
-    items: z.array(saleItemSchema).min(1),
+    items: z.array(saleItemSchema).min(1).max(MAX_ITEMS_PER_LIST),
     customerName: z.string().min(1).max(255),
     customerPhone: z
       .string()
@@ -401,17 +409,19 @@ export const chatStreamQuerySchema = z.object({
 });
 
 export const orderTrackingSchema = z.object({
-  orderNumber: z.string().min(1),
+  orderNumber: z.string().min(1).max(MAX_ORDER_NUMBER_LENGTH),
   branchId: z.coerce.number().int().positive().optional(),
-  customerName: z.string().optional(),
+  customerName: z
+    .string()
+    .trim()
+    .min(1, { message: 'Ingresá tu nombre.' })
+    .max(255),
   customerPhone: z
     .string()
-    .optional()
+    .trim()
+    .min(1, { message: 'Ingresá tu teléfono.' })
     .refine(
-      (value) =>
-        value === undefined ||
-        value === '' ||
-        phoneRegex.test(value.replace(/\s/g, '')),
+      (value) => value === '' || phoneRegex.test(value.replace(/\s/g, '')),
       {
         message:
           'El teléfono debe contener entre 8 y 15 dígitos, opcionalmente con un signo + al inicio.',

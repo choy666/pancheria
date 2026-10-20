@@ -104,8 +104,8 @@ export function OrderTracker() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNumber: orderNumber.trim(),
-          customerName: customerName.trim() || undefined,
-          customerPhone: customerPhone.trim().replace(/\s/g, '') || undefined,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim().replace(/\s/g, ''),
           // La numeración de pedidos es única por sucursal: se envía la
           // sucursal seleccionada en el catálogo cuando existe.
           branchId: getStoredBranchId() ?? undefined,
@@ -186,7 +186,7 @@ export function OrderTracker() {
           Seguimiento de pedido
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ingresá el número de pedido y tu nombre o teléfono para consultar el estado.
+          Ingresá el número de pedido, tu nombre y tu teléfono para consultar el estado.
         </p>
       </div>
 
@@ -220,13 +220,14 @@ export function OrderTracker() {
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Tu nombre"
+                required
                 aria-describedby="customerName-help"
               />
               <p
                 id="customerName-help"
                 className="text-xs text-muted-foreground"
               >
-                Completá tu nombre o tu teléfono; alcanza con uno de los dos.
+                Tu nombre tal como lo diste al hacer el pedido.
               </p>
             </div>
             <div className="space-y-2">
@@ -237,6 +238,7 @@ export function OrderTracker() {
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 placeholder="Ej: 3415555555"
+                required
               />
             </div>
             {error && (

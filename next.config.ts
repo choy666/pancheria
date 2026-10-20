@@ -144,7 +144,15 @@ const nextConfig: NextConfig = {
       },
       {
         key: 'X-Frame-Options',
-        value: 'SAMEORIGIN',
+        value: 'DENY',
+      },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)',
+      },
+      {
+        key: 'Cross-Origin-Opener-Policy',
+        value: 'same-origin',
       },
       {
         key: 'X-Content-Type-Options',
