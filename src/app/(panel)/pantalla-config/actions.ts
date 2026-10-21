@@ -78,9 +78,10 @@ export async function savePantallaPlaylistAction(
 
 /**
  * Guarda la configuración del menú digital `/menu` de la sucursal activa.
- * `hiddenProductIds` llega como checkboxes marcados (`getAll`); se descarta
- * cualquier valor no entero positivo antes del schema por robustez (un
- * checkbox del form solo puede emitir IDs legítimos).
+ * `hiddenProductIds`/`featuredProductIds` llegan como checkboxes marcados
+ * (`getAll`); se descarta cualquier valor no entero positivo antes del
+ * schema por robustez (un checkbox del form solo puede emitir IDs
+ * legítimos). Los enums viajan por inputs hidden de los `Select` controlados.
  */
 export async function updateMenuSettingsAction(
   _prevState: PantallaConfigState,
@@ -89,17 +90,25 @@ export async function updateMenuSettingsAction(
   const session = await requireAdmin();
   const branchId = await getCurrentBranchId(session);
 
-  const hiddenProductIds = formData
-    .getAll('hiddenProductIds')
-    .map((value) => Number(value))
-    .filter((value) => Number.isInteger(value) && value > 0);
+  const readIdList = (field: string) =>
+    formData
+      .getAll(field)
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0);
 
   try {
     await menuService.updateSettings(branchId, {
       paginaMs: secondsToMs(formData, 'paginaSegundos'),
       filasPagina: formData.get('filasPagina')?.toString(),
+      gridColumns: formData.get('gridColumns')?.toString(),
+      fontScale: formData.get('fontScale')?.toString(),
+      showDescriptions: formData.get('showDescriptions') === 'on',
+      cardStyle: formData.get('cardStyle')?.toString(),
+      sortOrder: formData.get('sortOrder')?.toString(),
       showQrStrip: formData.get('showQrStrip') === 'on',
-      hiddenProductIds,
+      hiddenProductIds: readIdList('hiddenProductIds'),
+      featuredProductIds: readIdList('featuredProductIds'),
+      qrStripText: formData.get('qrStripText')?.toString(),
     });
   } catch (error) {
     if (error instanceof DomainError) {

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 import { db } from '../../src/db';
-import { branches, menuSettings } from '../../src/db/schema';
+import { branches, menuSettings, products } from '../../src/db/schema';
 import {
   createPromoWithRecipeViaApi,
   getDefaultBranchId,
@@ -192,6 +192,50 @@ test.describe('Menú digital (/menu)', () => {
     );
   });
 
+  test('muestra la descripción, marca el destacado y usa el CTA configurado', async ({
+    page,
+  }) => {
+    await login(page);
+    const branchId = await getDefaultBranchId();
+    const { promo } = await createPromoWithRecipeViaApi(page, {
+      baseName: 'Menu promo desc',
+    });
+    // La descripción es la data que más falta en las promos del tablero.
+    await db
+      .update(products)
+      .set({ description: 'Con papas y gaseosa incluida' })
+      .where(eq(products.id, promo.id));
+
+    // Fila `menu_settings` como si se hubiera guardado desde el panel.
+    await db.insert(menuSettings).values({
+      branchId,
+      featuredProductIds: [promo.id],
+      qrStripText: 'Mirá el menú acá',
+    });
+
+    try {
+      await page.goto(`/menu?branchId=${branchId}`);
+
+      const card = page.locator(
+        `[data-testid="menu-card"][data-product-id="${promo.id}"]`
+      );
+      await expect(card).toBeVisible({ timeout: 20_000 });
+      await expect(card).toContainText('Con papas y gaseosa incluida');
+      await expect(
+        card.getByTestId('menu-card-featured')
+      ).toContainText('Recomendado');
+
+      // El CTA de la franja QR viene de la configuración de la sucursal.
+      await expect(page.getByTestId('menu-qr-strip')).toContainText(
+        'Mirá el menú acá'
+      );
+    } finally {
+      await db
+        .delete(menuSettings)
+        .where(eq(menuSettings.branchId, branchId));
+    }
+  });
+
   test('una sucursal sin catálogo muestra el estado vacío con el QR', async ({
     page,
   }) => {
@@ -208,9 +252,13 @@ test.describe('Menú digital (/menu)', () => {
       await expect(page.getByTestId('menu-empty')).toBeVisible({
         timeout: 20_000,
       });
-      // Sin caja abierta ni horarios: la sucursal figura cerrada.
+      // Sin caja abierta ni horarios: la sucursal figura cerrada, con la
+      // aclaración de que la carta sigue disponible.
       await expect(page.getByTestId('pantalla-status')).toContainText(
         'Cerrado'
+      );
+      await expect(page.getByTestId('pantalla-closed-hint')).toContainText(
+        'pedir desde el QR'
       );
       await expect(page.getByTestId('menu-qr-url')).toContainText(
         `/pedido?branchId=${branch.id}`

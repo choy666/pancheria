@@ -77,8 +77,15 @@ function makeSnapshot(branchId: number) {
     settings: {
       paginaMs: 12000,
       filasPagina: 4,
+      gridColumns: 4,
+      fontScale: 'normal' as const,
+      showDescriptions: true,
+      cardStyle: 'image' as const,
+      sortOrder: 'catalog' as const,
       showQrStrip: true,
       hiddenProductIds: [],
+      featuredProductIds: [],
+      qrStripText: 'Pedí desde tu celu',
     },
   };
 }

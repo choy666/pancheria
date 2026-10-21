@@ -7,19 +7,29 @@ import { getMenuFilasPagina, getMenuPaginaMs } from '@/config/menu';
 import { ValidationError } from '@/domain/errors';
 import { menuSettingsSchema } from '@/lib/zod-schemas';
 import type { MenuSettings } from '@/lib/menu-pages';
-import type { ProductType } from '@/domain/types';
+import type { ProductRow, ProductType } from '@/domain/types';
 
 /**
  * Sin fila en `menu_settings` la sucursal conserva el comportamiento de las
- * variables `NEXT_PUBLIC_MENU_*`: rotación de 12s, 4 filas por página, la
- * franja QR visible y todo el catálogo vendible en el tablero.
+ * variables `NEXT_PUBLIC_MENU_*` para duración y filas; el resto de las
+ * opciones arranca con los mismos defaults que las columnas de la tabla:
+ * grilla de 4 columnas, textos en escala normal, tarjetas con imagen,
+ * orden de catálogo, descripciones visibles, franja QR con su CTA default
+ * y todo el catálogo vendible en el tablero (sin ocultos ni destacados).
  */
 function defaultSettings(): MenuSettings {
   return {
     paginaMs: getMenuPaginaMs(),
     filasPagina: getMenuFilasPagina(),
+    gridColumns: 4,
+    fontScale: 'normal',
+    showDescriptions: true,
+    cardStyle: 'image',
+    sortOrder: 'catalog',
     showQrStrip: true,
     hiddenProductIds: [],
+    featuredProductIds: [],
+    qrStripText: 'Pedí desde tu celu',
   };
 }
 
@@ -30,16 +40,56 @@ export async function getSettings(branchId: number): Promise<MenuSettings> {
   return {
     paginaMs: row.paginaMs,
     filasPagina: row.filasPagina,
+    gridColumns: row.gridColumns,
+    fontScale: row.fontScale,
+    showDescriptions: row.showDescriptions,
+    cardStyle: row.cardStyle,
+    sortOrder: row.sortOrder,
     showQrStrip: row.showQrStrip,
     hiddenProductIds: row.hiddenProductIds,
+    featuredProductIds: row.featuredProductIds,
+    qrStripText: row.qrStripText,
   };
 }
 
 /**
- * Persiste la configuración del menú de una sucursal. Los IDs ocultos deben
- * ser productos vendibles al público de esa sucursal: ocultar un insumo o un
- * producto que nunca podría aparecer en el tablero sería un efecto nulo que
- * confundiría al operador. Duplicados se consolidan antes de guardar.
+ * Verifica que cada ID sea un producto vendible al público de la sucursal.
+ * Es la validación compartida de las listas de curaduría del menú (ocultos
+ * y destacados): referenciar un insumo o un producto que nunca podría
+ * aparecer en el tablero sería un efecto nulo que confundiría al operador.
+ * `accion` completa el mensaje de producto eliminado ('ocultarse del menú' |
+ * 'destacarse en el menú').
+ */
+function assertSellableMenuProducts(
+  ids: number[],
+  productById: Map<number, ProductRow>,
+  accion: string
+): void {
+  for (const id of ids) {
+    const product = productById.get(id);
+    if (!product) {
+      throw new ValidationError(
+        `El producto con ID ${id} no existe en esta sucursal.`
+      );
+    }
+    if (product.deletedAt) {
+      throw new ValidationError(
+        `El producto "${product.name}" está eliminado y no puede ${accion}.`
+      );
+    }
+    if (!isPublicSellableProduct(product)) {
+      throw new ValidationError(
+        `El producto "${product.name}" no es vendible al público y nunca aparecería en el menú.`
+      );
+    }
+  }
+}
+
+/**
+ * Persiste la configuración del menú de una sucursal. Las listas de ocultos
+ * y destacados se validan contra los productos vendibles al público de esa
+ * sucursal en una sola consulta; los duplicados se consolidan antes de
+ * guardar.
  */
 export async function updateSettings(branchId: number, input: unknown) {
   let data;
@@ -55,45 +105,41 @@ export async function updateSettings(branchId: number, input: unknown) {
   }
 
   const hiddenProductIds = [...new Set(data.hiddenProductIds)];
+  const featuredProductIds = [...new Set(data.featuredProductIds)];
 
-  if (hiddenProductIds.length > 0) {
+  const idsAValidar = [...new Set([...hiddenProductIds, ...featuredProductIds])];
+  if (idsAValidar.length > 0) {
     const found = await productRepository.findByIds(
       branchId,
-      hiddenProductIds,
+      idsAValidar,
       true
     );
     const productById = new Map(found.map((product) => [product.id, product]));
 
-    for (const id of hiddenProductIds) {
-      const product = productById.get(id);
-      if (!product) {
-        throw new ValidationError(
-          `El producto con ID ${id} no existe en esta sucursal.`
-        );
-      }
-      if (product.deletedAt) {
-        throw new ValidationError(
-          `El producto "${product.name}" está eliminado y no puede ocultarse del menú.`
-        );
-      }
-      if (!isPublicSellableProduct(product)) {
-        throw new ValidationError(
-          `El producto "${product.name}" no es vendible al público y nunca aparecería en el menú.`
-        );
-      }
-    }
+    assertSellableMenuProducts(
+      hiddenProductIds,
+      productById,
+      'ocultarse del menú'
+    );
+    assertSellableMenuProducts(
+      featuredProductIds,
+      productById,
+      'destacarse en el menú'
+    );
   }
 
   return menuRepository.upsertSettings(branchId, {
     ...data,
     hiddenProductIds,
+    featuredProductIds,
   });
 }
 
 /**
- * Productos vendibles al público de la sucursal para el selector de ocultos
- * del configurador: la lista que el menú podría mostrar, sin importar el
- * stock del momento (ocultar no depende de la disponibilidad).
+ * Productos vendibles al público de la sucursal para los selectores de
+ * curaduría del configurador (ocultos y destacados): la lista que el menú
+ * podría mostrar, sin importar el stock del momento (la curaduría no
+ * depende de la disponibilidad).
  */
 export type MenuProductItem = {
   id: number;

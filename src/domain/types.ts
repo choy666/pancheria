@@ -331,11 +331,38 @@ export type PantallaItemRow = {
   createdAt: Date;
 };
 
+/**
+ * Escala tipográfica del menú digital (`menu_settings.font_scale`):
+ * `normal` es el tamaño base; `large` agranda los textos un paso para
+ * lectura a mayor distancia.
+ */
+export type MenuFontScale = 'normal' | 'large';
+
+/**
+ * Estilo de la tarjeta del menú (`menu_settings.card_style`): `image`
+ * apila foto sobre texto; `compact` pone imagen lateral y texto a la derecha.
+ */
+export type MenuCardStyle = 'image' | 'compact';
+
+/**
+ * Orden de los productos dentro de cada categoría del menú
+ * (`menu_settings.sort_order`): `catalog` conserva el orden del
+ * agrupamiento público; `price_asc`/`price_desc` reordenan por precio.
+ */
+export type MenuSortOrder = 'catalog' | 'price_asc' | 'price_desc';
+
 export type MenuSettingsRow = {
   branchId: number;
   paginaMs: number;
   filasPagina: number;
+  gridColumns: number;
+  fontScale: MenuFontScale;
+  showDescriptions: boolean;
+  cardStyle: MenuCardStyle;
+  sortOrder: MenuSortOrder;
   showQrStrip: boolean;
   hiddenProductIds: number[];
+  featuredProductIds: number[];
+  qrStripText: string;
   updatedAt: Date;
 };

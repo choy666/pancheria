@@ -17,10 +17,10 @@ import {
 } from '@/app/(panel)/pantalla-config/actions';
 
 /**
- * Configuración de las TVs de la sucursal activa: el carrusel publicitario
- * `/pantalla` y el menú digital `/menu`. Solo admin (mismo criterio que
- * `/videos` y `/sucursales`): el operador solo opera caja/pedidos, la
- * vidriera la decide el dueño.
+ * Configuración de las TVs de la sucursal activa, agrupada por vista: el
+ * carrusel publicitario `/pantalla` y el menú digital `/menu`. Solo admin
+ * (mismo criterio que `/videos` y `/sucursales`): el operador solo opera
+ * caja/pedidos, la vidriera la decide el dueño.
  */
 export default async function PantallaConfigPage() {
   const session = await auth();
@@ -41,18 +41,24 @@ export default async function PantallaConfigPage() {
     ]);
 
   return (
-    <div data-tour="pantalla-config-page" className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pantalla publicitaria
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Qué se muestra en las TVs de esta sucursal: el carrusel
-            publicitario y el menú digital.
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+    <div data-tour="pantalla-config-page" className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Pantallas</h1>
+        <p className="text-sm text-muted-foreground">
+          Qué se muestra en las TVs de esta sucursal, una sección por vista:
+          el carrusel publicitario y el menú digital.
+        </p>
+      </div>
+
+      <section aria-labelledby="seccion-carrusel" className="space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2
+            id="seccion-carrusel"
+            className="text-lg font-semibold tracking-tight"
+          >
+            Carrusel publicitario{' '}
+            <code className="text-sm text-muted-foreground">/pantalla</code>
+          </h2>
           <Link
             href={`${routes.pantalla}?branchId=${branchId}`}
             target="_blank"
@@ -68,6 +74,30 @@ export default async function PantallaConfigPage() {
               Ver pantalla
             </Button>
           </Link>
+        </div>
+
+        <PantallaSettingsForm
+          settings={settings}
+          updateAction={updatePantallaSettingsAction}
+        />
+
+        <PantallaPlaylistEditor
+          mode={settings.playlistMode}
+          items={items}
+          candidates={candidates}
+          saveAction={savePantallaPlaylistAction}
+        />
+      </section>
+
+      <section aria-labelledby="seccion-menu" className="space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2
+            id="seccion-menu"
+            className="text-lg font-semibold tracking-tight"
+          >
+            Menú digital{' '}
+            <code className="text-sm text-muted-foreground">/menu</code>
+          </h2>
           <Link
             href={`${routes.menu}?branchId=${branchId}`}
             target="_blank"
@@ -84,25 +114,13 @@ export default async function PantallaConfigPage() {
             </Button>
           </Link>
         </div>
-      </div>
 
-      <PantallaSettingsForm
-        settings={settings}
-        updateAction={updatePantallaSettingsAction}
-      />
-
-      <PantallaPlaylistEditor
-        mode={settings.playlistMode}
-        items={items}
-        candidates={candidates}
-        saveAction={savePantallaPlaylistAction}
-      />
-
-      <MenuSettingsForm
-        settings={menuSettings}
-        products={menuProducts}
-        updateAction={updateMenuSettingsAction}
-      />
+        <MenuSettingsForm
+          settings={menuSettings}
+          products={menuProducts}
+          updateAction={updateMenuSettingsAction}
+        />
+      </section>
     </div>
   );
 }

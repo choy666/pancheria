@@ -11,7 +11,9 @@ import type { MenuSettings } from '@/lib/menu-pages';
  * la página y lo refresca `GET /api/public/menu` en cada poll. A diferencia
  * del de `/pantalla` no incluye videos ni playlist: el menú muestra el
  * catálogo completo siempre, paginado por categorías. `settings` trae la
- * personalización por sucursal (duración de página, filas, QR, ocultos).
+ * personalización por sucursal (duración de página, filas, columnas,
+ * escala de texto, estilo de tarjeta, orden, QR con su CTA, descripciones
+ * y curaduría de ocultos/destacados).
  */
 export type MenuSnapshot = {
   branch: Branch;

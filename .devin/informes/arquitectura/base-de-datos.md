@@ -248,8 +248,15 @@ erDiagram
         integer branch_id PK "FK branches (cascade), 1:1"
         integer pagina_ms "check >= 1000 (0041)"
         integer filas_pagina "check >= 1"
+        integer grid_columns "check between 3 y 5 (0042)"
+        menu_font_scale font_scale "normal|large (0042)"
+        boolean show_descriptions "(0042)"
+        menu_card_style card_style "image|compact (0042)"
+        menu_sort_order sort_order "catalog|price_asc|price_desc (0042)"
         boolean show_qr_strip
         jsonb hidden_product_ids "IDs vendibles ocultos del tablero"
+        jsonb featured_product_ids "IDs destacados del tablero (0042)"
+        text qr_strip_text "CTA de la franja QR (0042)"
         timestamp updated_at
     }
     login_attempts {
@@ -348,7 +355,7 @@ erDiagram
 | `videos` | Videos para cartelera/Cast. `file_url` apunta al provider | idx `(branch_id, is_active, deleted_at)` |
 | `pantalla_settings` | Config de `/pantalla` por sucursal (1:1): modo de playlist, duraciones de escena en ms, tope de productos, toggles de escenas fijas. Sin fila → defaults de env (migración `0040`) | PK `branch_id` → branches (cascade); CHECKs `*_ms >= 1000`, `max_productos >= 1` |
 | `pantalla_items` | Playlist explícita de `/pantalla` (modo `custom`): ítem → producto o video de la sucursal, orden `position` denso, `is_enabled` para ocultar sin borrar (migración `0040`) | idx `(branch_id, position)`; UNIQUE parcial `(branch_id, product_id)` y `(branch_id, video_id)`; CHECK XOR `kind`↔referencia; FKs cascade a `branches`/`products`/`videos` |
-| `menu_settings` | Config de `/menu` por sucursal (1:1): `pagina_ms` (duración de página al rotar), `filas_pagina` (presupuesto de filas de la grilla), `show_qr_strip` (franja QR fija) y `hidden_product_ids` (jsonb: productos vendibles ocultos del tablero — siguen vendiéndose por caja/pedido). Sin fila → defaults de env `NEXT_PUBLIC_MENU_*` (migración `0041`) | PK `branch_id` → branches (cascade); CHECKs `pagina_ms >= 1000`, `filas_pagina >= 1` |
+| `menu_settings` | Config de `/menu` por sucursal (1:1): `pagina_ms` (duración de página al rotar), `filas_pagina` (presupuesto de filas de la grilla), `grid_columns` (columnas en landscape, migración `0042`), `font_scale` (`normal`/`large`, escala tipográfica), `show_descriptions` (descripción en la tarjeta), `card_style` (`image`/`compact`), `sort_order` (`catalog`/`price_asc`/`price_desc` dentro de cada categoría), `show_qr_strip` (franja QR fija), `hidden_product_ids` (jsonb: productos vendibles ocultos del tablero — siguen vendiéndose por caja/pedido), `featured_product_ids` (jsonb: destacados que encabezan su categoría con marca "Recomendado"; un ID en ambas listas queda oculto) y `qr_strip_text` (CTA de la franja QR). Sin fila → defaults de env `NEXT_PUBLIC_MENU_*` (migración `0041`; columnas `grid_columns`…`qr_strip_text` agregadas en `0042`) | PK `branch_id` → branches (cascade); CHECKs `pagina_ms >= 1000`, `filas_pagina >= 1`, `grid_columns between 3 y 5` |
 
 ### Tablas de infraestructura (rate limiting)
 

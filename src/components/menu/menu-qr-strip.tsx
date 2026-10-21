@@ -7,6 +7,8 @@ import type { Branch } from '@/domain/types';
 
 interface MenuQrStripProps {
   branch: Branch;
+  /** CTA principal de la franja (`menu_settings.qr_strip_text`). */
+  text: string;
 }
 
 /**
@@ -15,7 +17,7 @@ interface MenuQrStripProps {
  * es la puerta de entrada al pedido desde el celular mientras el cliente
  * mira la carta.
  */
-export function MenuQrStrip({ branch }: MenuQrStripProps) {
+export function MenuQrStrip({ branch, text }: MenuQrStripProps) {
   // La URL del QR se resuelve solo tras la hidratación (igual que el reloj
   // del chrome): sin `NEXT_PUBLIC_APP_URL` el origen depende de
   // `window.location`, así que el texto SSR nunca coincide con el cliente.
@@ -34,7 +36,7 @@ export function MenuQrStrip({ branch }: MenuQrStripProps) {
     >
       <div className="flex min-w-0 flex-col gap-1">
         <p className="font-heading text-2xl tracking-wide text-white md:text-3xl">
-          Pedí desde tu celu
+          {text}
         </p>
         <p className="text-sm text-white/65 md:text-base">
           Escaneá el código, armá tu pedido y seguilo por el chat. Sin filas.

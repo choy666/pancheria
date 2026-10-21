@@ -350,8 +350,10 @@ export const pantallaSettingsSchema = z.object({
 
 /**
  * Configuración del menú digital `/menu`: duración de cada página al rotar,
- * presupuesto de filas por página, si se muestra la franja QR fija y los
- * productos vendibles que la sucursal decidió no listar en el tablero.
+ * presupuesto de filas y columnas de la grilla, escala tipográfica, estilo
+ * de tarjeta, orden dentro de cada categoría, si se muestra la franja QR
+ * fija (y su CTA), las descripciones y la curaduría de productos ocultos y
+ * destacados del tablero.
  */
 export const menuSettingsSchema = z.object({
   paginaMs: pantallaDurationMsSchema,
@@ -362,6 +364,21 @@ export const menuSettingsSchema = z.object({
     .max(12, {
       message: 'Más de 12 filas por página hace ilegible el menú en la TV.',
     }),
+  gridColumns: z.coerce
+    .number()
+    .int({ message: 'Las columnas de la grilla deben ser un número entero.' })
+    .min(3, { message: 'La grilla del menú admite al menos 3 columnas.' })
+    .max(5, { message: 'Más de 5 columnas hace ilegible el menú en la TV.' }),
+  fontScale: z.enum(['normal', 'large'], {
+    message: 'La escala de texto debe ser normal o grande.',
+  }),
+  showDescriptions: z.boolean(),
+  cardStyle: z.enum(['image', 'compact'], {
+    message: 'El estilo de tarjeta debe ser imagen o compacta.',
+  }),
+  sortOrder: z.enum(['catalog', 'price_asc', 'price_desc'], {
+    message: 'El orden debe ser catálogo, precio ascendente o precio descendente.',
+  }),
   showQrStrip: z.boolean(),
   hiddenProductIds: z
     .array(z.number().int().positive(), {
@@ -371,6 +388,21 @@ export const menuSettingsSchema = z.object({
       message: 'No se pueden ocultar más de 500 productos del menú.',
     })
     .default([]),
+  featuredProductIds: z
+    .array(z.number().int().positive(), {
+      message: 'Los productos destacados deben ser una lista de IDs.',
+    })
+    .max(50, {
+      message: 'No se pueden destacar más de 50 productos del menú.',
+    })
+    .default([]),
+  qrStripText: z
+    .string()
+    .trim()
+    .min(1, { message: 'El texto de la franja QR no puede quedar vacío.' })
+    .max(60, {
+      message: 'El texto de la franja QR admite hasta 60 caracteres.',
+    }),
 });
 
 const pantallaPlaylistItemSchema = z.object({

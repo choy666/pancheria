@@ -90,13 +90,20 @@ test.describe('Configuración de la pantalla (/pantalla-config)', () => {
     await page.goto('/');
 
     const nav = page.getByTestId('main-nav');
-    const link = nav.getByRole('link', { name: 'Pantalla', exact: true });
+    const link = nav.getByRole('link', { name: 'Pantallas', exact: true });
     await expect(link).toHaveAttribute('href', '/pantalla-config');
 
     await link.click();
     await expect(page).toHaveURL('/pantalla-config');
     await expect(
-      page.getByRole('heading', { name: 'Pantalla publicitaria' })
+      page.getByRole('heading', { name: 'Pantallas' })
+    ).toBeVisible();
+    // La página separa las dos TVs en secciones rotuladas.
+    await expect(
+      page.getByRole('heading', { name: /Carrusel publicitario/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /Menú digital/ })
     ).toBeVisible();
     await expect(page.getByTestId('pantalla-settings-form')).toBeVisible();
     await expect(page.getByTestId('pantalla-playlist-form')).toBeVisible();

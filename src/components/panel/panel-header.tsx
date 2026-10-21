@@ -49,7 +49,7 @@ const adminNavItems = [
   { href: routes.sucursales, label: 'Sucursales' },
   { href: routes.usuarios, label: 'Usuarios' },
   { href: routes.videos, label: 'Videos' },
-  { href: routes.pantallaConfig, label: 'Pantalla' },
+  { href: routes.pantallaConfig, label: 'Pantallas' },
   { href: routes.pedido, label: 'Catálogo' },
 ];
 

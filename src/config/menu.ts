@@ -38,10 +38,11 @@ export function getMenuPaginaMs(): number {
 
 /**
  * Presupuesto de filas por página del menú: cada cabezal de categoría y
- * cada fila de tarjetas (grilla de 4 columnas en landscape) consume una
- * fila. Con el default 4 caben, por ejemplo, 12 productos de una misma
- * categoría o 3 categorías de ~4 ítems cada una. `NEXT_PUBLIC_MENU_FILAS_PAGINA`,
- * por defecto 4; mínimo efectivo 1.
+ * cada fila de tarjetas consume una fila. Las columnas de la grilla son
+ * configurables por sucursal (`menu_settings.grid_columns`, default 4):
+ * con 4 columnas y el default de 4 filas caben, por ejemplo, 12 productos
+ * de una misma categoría o 3 categorías de ~4 ítems cada una.
+ * `NEXT_PUBLIC_MENU_FILAS_PAGINA`, por defecto 4; mínimo efectivo 1.
  */
 export function getMenuFilasPagina(): number {
   return readPositiveInt(

@@ -9,6 +9,11 @@ import type { Branch } from '@/domain/types';
 interface PantallaChromeProps {
   branch: Branch;
   isOpen: boolean;
+  /**
+   * Mensaje secundario opcional bajo el estado "Cerrado" (solo lo usa
+   * `/menu`; `/pantalla` no lo pasa y no muestra nada extra).
+   */
+  closedHint?: string;
 }
 
 /**
@@ -17,7 +22,11 @@ interface PantallaChromeProps {
  * timezone de la sucursal. Flota sobre el contenido con un gradiente para
  * mantener legibilidad.
  */
-export function PantallaChrome({ branch, isOpen }: PantallaChromeProps) {
+export function PantallaChrome({
+  branch,
+  isOpen,
+  closedHint,
+}: PantallaChromeProps) {
   // El reloj se renderiza solo tras la hidratación: el instante SSR del
   // servidor y el del cliente nunca coinciden.
   const [mounted, setMounted] = useState(false);
@@ -59,6 +68,14 @@ export function PantallaChrome({ branch, isOpen }: PantallaChromeProps) {
           />
           {isOpen ? 'Abierto' : 'Cerrado'}
         </p>
+        {!isOpen && closedHint && (
+          <p
+            data-testid="pantalla-closed-hint"
+            className="max-w-56 text-xs text-white/65 md:max-w-72 md:text-sm"
+          >
+            {closedHint}
+          </p>
+        )}
         {clock && (
           <p
             data-testid="pantalla-clock"

@@ -72,8 +72,15 @@ describe('buildMenuSnapshot', () => {
     mockedMenuService.getSettings.mockResolvedValue({
       paginaMs: 12000,
       filasPagina: 4,
+      gridColumns: 4,
+      fontScale: 'normal',
+      showDescriptions: true,
+      cardStyle: 'image',
+      sortOrder: 'catalog',
       showQrStrip: true,
       hiddenProductIds: [],
+      featuredProductIds: [],
+      qrStripText: 'Pedí desde tu celu',
     });
   });
 
@@ -98,8 +105,15 @@ describe('buildMenuSnapshot', () => {
     expect(snapshot.settings).toEqual({
       paginaMs: 12000,
       filasPagina: 4,
+      gridColumns: 4,
+      fontScale: 'normal',
+      showDescriptions: true,
+      cardStyle: 'image',
+      sortOrder: 'catalog',
       showQrStrip: true,
       hiddenProductIds: [],
+      featuredProductIds: [],
+      qrStripText: 'Pedí desde tu celu',
     });
     // El snapshot del menú no incluye videos ni la playlist de /pantalla.
     expect(snapshot).not.toHaveProperty('videos');
@@ -110,15 +124,25 @@ describe('buildMenuSnapshot', () => {
     mockedMenuService.getSettings.mockResolvedValue({
       paginaMs: 9000,
       filasPagina: 2,
+      gridColumns: 3,
+      fontScale: 'large',
+      showDescriptions: false,
+      cardStyle: 'compact',
+      sortOrder: 'price_asc',
       showQrStrip: false,
       hiddenProductIds: [10],
+      featuredProductIds: [20],
+      qrStripText: 'Escaneá y pedí',
     });
 
     const snapshot = await buildMenuSnapshot(BRANCH_ID);
 
     expect(snapshot.settings.paginaMs).toBe(9000);
+    expect(snapshot.settings.gridColumns).toBe(3);
     expect(snapshot.settings.showQrStrip).toBe(false);
     expect(snapshot.settings.hiddenProductIds).toEqual([10]);
+    expect(snapshot.settings.featuredProductIds).toEqual([20]);
+    expect(snapshot.settings.qrStripText).toBe('Escaneá y pedí');
   });
 
   test('marca cerrada cuando no hay caja abierta', async () => {

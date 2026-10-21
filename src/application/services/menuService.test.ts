@@ -26,8 +26,15 @@ function makeSettingsRow(
     branchId: BRANCH_ID,
     paginaMs: 9000,
     filasPagina: 3,
+    gridColumns: 5,
+    fontScale: 'large',
+    showDescriptions: false,
+    cardStyle: 'compact',
+    sortOrder: 'price_desc',
     showQrStrip: false,
     hiddenProductIds: [10, 20],
+    featuredProductIds: [30],
+    qrStripText: 'Escaneá y pedí',
     updatedAt: new Date(),
     ...overrides,
   };
@@ -56,8 +63,15 @@ function makeProduct(overrides: Partial<ProductRow> = {}): ProductRow {
 const VALID_SETTINGS_INPUT = {
   paginaMs: 8000,
   filasPagina: '3',
+  gridColumns: '4',
+  fontScale: 'normal',
+  showDescriptions: true,
+  cardStyle: 'image',
+  sortOrder: 'catalog',
   showQrStrip: false,
   hiddenProductIds: [] as number[],
+  featuredProductIds: [] as number[],
+  qrStripText: 'Pedí desde tu celu',
 };
 
 describe('menuService', () => {
@@ -73,8 +87,15 @@ describe('menuService', () => {
 
       expect(settings.paginaMs).toBe(12000);
       expect(settings.filasPagina).toBe(4);
+      expect(settings.gridColumns).toBe(4);
+      expect(settings.fontScale).toBe('normal');
+      expect(settings.showDescriptions).toBe(true);
+      expect(settings.cardStyle).toBe('image');
+      expect(settings.sortOrder).toBe('catalog');
       expect(settings.showQrStrip).toBe(true);
       expect(settings.hiddenProductIds).toEqual([]);
+      expect(settings.featuredProductIds).toEqual([]);
+      expect(settings.qrStripText).toBe('Pedí desde tu celu');
     });
 
     test('con fila devuelve la configuración persistida', async () => {
@@ -84,8 +105,15 @@ describe('menuService', () => {
 
       expect(settings.paginaMs).toBe(9000);
       expect(settings.filasPagina).toBe(3);
+      expect(settings.gridColumns).toBe(5);
+      expect(settings.fontScale).toBe('large');
+      expect(settings.showDescriptions).toBe(false);
+      expect(settings.cardStyle).toBe('compact');
+      expect(settings.sortOrder).toBe('price_desc');
       expect(settings.showQrStrip).toBe(false);
       expect(settings.hiddenProductIds).toEqual([10, 20]);
+      expect(settings.featuredProductIds).toEqual([30]);
+      expect(settings.qrStripText).toBe('Escaneá y pedí');
     });
   });
 
@@ -183,6 +211,131 @@ describe('menuService', () => {
         })
       ).rejects.toThrow('no es vendible al público');
       expect(mockedRepository.upsertSettings).not.toHaveBeenCalled();
+    });
+
+    test('deduplica y valida los productos destacados antes de guardar', async () => {
+      mockedRepository.upsertSettings.mockResolvedValue(makeSettingsRow());
+      mockedProductRepository.findByIds.mockResolvedValue([
+        makeProduct({ id: 10 }),
+      ]);
+
+      await updateSettings(BRANCH_ID, {
+        ...VALID_SETTINGS_INPUT,
+        featuredProductIds: [10, 10],
+      });
+
+      expect(mockedProductRepository.findByIds).toHaveBeenCalledWith(
+        BRANCH_ID,
+        [10],
+        true
+      );
+      expect(mockedRepository.upsertSettings).toHaveBeenCalledWith(
+        BRANCH_ID,
+        expect.objectContaining({ featuredProductIds: [10] })
+      );
+    });
+
+    test('rechaza un producto destacado que no existe en la sucursal', async () => {
+      mockedProductRepository.findByIds.mockResolvedValue([]);
+
+      await expect(
+        updateSettings(BRANCH_ID, {
+          ...VALID_SETTINGS_INPUT,
+          featuredProductIds: [999],
+        })
+      ).rejects.toThrow('no existe en esta sucursal');
+      expect(mockedRepository.upsertSettings).not.toHaveBeenCalled();
+    });
+
+    test('rechaza un producto destacado eliminado', async () => {
+      mockedProductRepository.findByIds.mockResolvedValue([
+        makeProduct({ deletedAt: new Date() }),
+      ]);
+
+      await expect(
+        updateSettings(BRANCH_ID, {
+          ...VALID_SETTINGS_INPUT,
+          featuredProductIds: [10],
+        })
+      ).rejects.toThrow('está eliminado');
+      expect(mockedRepository.upsertSettings).not.toHaveBeenCalled();
+    });
+
+    test('rechaza destacar un producto no vendible al público', async () => {
+      mockedProductRepository.findByIds.mockResolvedValue([
+        makeProduct({ id: 30, type: 'manual_supply', name: 'Papel aluminio' }),
+      ]);
+
+      await expect(
+        updateSettings(BRANCH_ID, {
+          ...VALID_SETTINGS_INPUT,
+          featuredProductIds: [30],
+        })
+      ).rejects.toThrow('no es vendible al público');
+      expect(mockedRepository.upsertSettings).not.toHaveBeenCalled();
+    });
+
+    test('valida ocultos y destacados con una sola consulta a la base', async () => {
+      mockedRepository.upsertSettings.mockResolvedValue(makeSettingsRow());
+      mockedProductRepository.findByIds.mockResolvedValue([
+        makeProduct({ id: 10 }),
+        makeProduct({
+          id: 20,
+          name: 'Gaseosa',
+          type: 'critical_supply',
+          criticalSupplyType: 'beverage',
+        }),
+      ]);
+
+      await updateSettings(BRANCH_ID, {
+        ...VALID_SETTINGS_INPUT,
+        hiddenProductIds: [10],
+        featuredProductIds: [20],
+      });
+
+      expect(mockedProductRepository.findByIds).toHaveBeenCalledTimes(1);
+      expect(mockedProductRepository.findByIds).toHaveBeenCalledWith(
+        BRANCH_ID,
+        [10, 20],
+        true
+      );
+    });
+
+    test('rechaza columnas fuera del rango admitido', async () => {
+      await expect(
+        updateSettings(BRANCH_ID, { ...VALID_SETTINGS_INPUT, gridColumns: 2 })
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        updateSettings(BRANCH_ID, { ...VALID_SETTINGS_INPUT, gridColumns: 6 })
+      ).rejects.toThrow(ValidationError);
+      expect(mockedRepository.upsertSettings).not.toHaveBeenCalled();
+    });
+
+    test('rechaza un texto de franja QR vacío o demasiado largo', async () => {
+      await expect(
+        updateSettings(BRANCH_ID, { ...VALID_SETTINGS_INPUT, qrStripText: '  ' })
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        updateSettings(BRANCH_ID, {
+          ...VALID_SETTINGS_INPUT,
+          qrStripText: 'x'.repeat(61),
+        })
+      ).rejects.toThrow(ValidationError);
+      expect(mockedRepository.upsertSettings).not.toHaveBeenCalled();
+    });
+
+    test('recorta espacios del texto de la franja QR antes de persistir', async () => {
+      mockedRepository.upsertSettings.mockResolvedValue(makeSettingsRow());
+
+      await updateSettings(BRANCH_ID, {
+        ...VALID_SETTINGS_INPUT,
+        qrStripText: '  Mirá la carta  ',
+      });
+
+      expect(mockedRepository.upsertSettings).toHaveBeenCalledWith(
+        BRANCH_ID,
+        expect.objectContaining({ qrStripText: 'Mirá la carta' })
+      );
     });
   });
 

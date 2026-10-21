@@ -102,6 +102,37 @@ export const pantallaItemKindEnum = pgEnum('pantalla_item_kind', [
   'video',
 ]);
 
+/**
+ * Escala tipográfica del menú digital `/menu`: `normal` es el tamaño base
+ * pensado para la grilla default; `large` agranda un paso todos los textos
+ * para lectura a mayor distancia (rinde mejor con pocas filas/columnas).
+ */
+export const menuFontScaleEnum = pgEnum('menu_font_scale', [
+  'normal',
+  'large',
+]);
+
+/**
+ * Estilo de la tarjeta del menú digital: `image` apila foto sobre texto;
+ * `compact` pone una imagen lateral chica con el texto a la derecha.
+ */
+export const menuCardStyleEnum = pgEnum('menu_card_style', [
+  'image',
+  'compact',
+]);
+
+/**
+ * Orden de los productos dentro de cada categoría del menú digital:
+ * `catalog` conserva el orden del agrupamiento público (alfabético, con la
+ * sub-prioridad de insumos críticos); `price_asc`/`price_desc` reordenan por
+ * precio dentro de cada categoría.
+ */
+export const menuSortOrderEnum = pgEnum('menu_sort_order', [
+  'catalog',
+  'price_asc',
+  'price_desc',
+]);
+
 export const branches = pgTable('branches', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(),
@@ -708,6 +739,8 @@ export const pantallaItems = pgTable(
  * `hiddenProductIds` es la curaduría del tablero: productos vendibles que la
  * sucursal decide no mostrar en el menú (p. ej. extras que saturarían la
  * grilla). El pedido online y la pantalla publicitaria no se ven afectados.
+ * `featuredProductIds` es la curaduría inversa: productos que encabezan su
+ * categoría con marca "Recomendado" (un ID en ambas listas queda oculto).
  */
 export const menuSettings = pgTable(
   'menu_settings',
@@ -717,10 +750,22 @@ export const menuSettings = pgTable(
       .references(() => branches.id, { onDelete: 'cascade' }),
     paginaMs: integer('pagina_ms').default(12000).notNull(),
     filasPagina: integer('filas_pagina').default(4).notNull(),
+    gridColumns: integer('grid_columns').default(4).notNull(),
+    fontScale: menuFontScaleEnum('font_scale').default('normal').notNull(),
+    showDescriptions: boolean('show_descriptions').default(true).notNull(),
+    cardStyle: menuCardStyleEnum('card_style').default('image').notNull(),
+    sortOrder: menuSortOrderEnum('sort_order').default('catalog').notNull(),
     showQrStrip: boolean('show_qr_strip').default(true).notNull(),
     hiddenProductIds: jsonb('hidden_product_ids')
       .$type<number[]>()
       .default([])
+      .notNull(),
+    featuredProductIds: jsonb('featured_product_ids')
+      .$type<number[]>()
+      .default([])
+      .notNull(),
+    qrStripText: text('qr_strip_text')
+      .default('Pedí desde tu celu')
       .notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -729,6 +774,10 @@ export const menuSettings = pgTable(
     check(
       'menu_settings_filas_pagina_check',
       sql`${table.filasPagina} >= 1`
+    ),
+    check(
+      'menu_settings_grid_columns_check',
+      sql`${table.gridColumns} between 3 and 5`
     ),
   ]
 );

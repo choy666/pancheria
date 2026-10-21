@@ -14,6 +14,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Auditoría de factibilidad — nueva sucursal con inventario y menú](prompts/auditoria-nueva-sucursal-stock.md) — auditoría de solo lectura: alta de sucursal con 59 ítems, 11 promos + extras, trazabilidad por promo y facturación.
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
 - [Análisis del catálogo y comportamiento ante ventas y pedidos](prompts/analisis-catalogo-ventas-pedidos.md) — análisis de solo lectura contra producción (sucursal id 3): catálogo vendible, efectos en stock, cancelaciones y registros en `/ventas`, `/pedidos`, `/pedido` y cron.
+- [Mejora del menú digital `/menu` y reorganización de `/pantalla-config`](prompts/mejora-menu-digital-y-pantalla-config.md) — mejoras visuales de la carta TV, nuevas opciones en `menu_settings` y renombre de la página a "Pantallas" (con addendum auditado pre-ejecución).
 
 > **Rediseño de `/pedido` resuelto (2026-10-02):** los prompts `plan-rediseno-card-y-modal-pedido.md`, `rediseno-pedido-pr2-modal.md` y `mapa-arquitectura.md` se archivaron en `prompts/archivados/`; los informes de los PR 1–3 quedaron en `informes/archivados/`.
 > **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
@@ -88,6 +89,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
     ├── auditoria-nueva-sucursal-stock.md  # Auditoría de factibilidad (solo lectura): nueva sucursal + inventario + menú + trazabilidad + facturación
     ├── analisis-catalogo-ventas-pedidos.md  # Análisis (solo lectura, producción) del catálogo de la sucursal id 3 y comportamiento de ventas/pedidos
+    ├── mejora-menu-digital-y-pantalla-config.md  # Mejoras de /menu, nuevas opciones de menu_settings y renombre de /pantalla-config a "Pantallas"
     ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, rediseño de /pedido, mapa-arquitectura.md, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
 ```

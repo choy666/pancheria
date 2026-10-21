@@ -32,9 +32,27 @@ export function MenuClient({ initialSnapshot }: MenuClientProps) {
     () => new Set(settings.hiddenProductIds),
     [settings.hiddenProductIds]
   );
+  const featuredProductIds = useMemo(
+    () => new Set(settings.featuredProductIds),
+    [settings.featuredProductIds]
+  );
   const pages = useMemo(
-    () => buildMenuPages(snapshot.products, settings.filasPagina, hiddenProductIds),
-    [snapshot.products, settings.filasPagina, hiddenProductIds]
+    () =>
+      buildMenuPages(snapshot.products, {
+        filasPagina: settings.filasPagina,
+        columnas: settings.gridColumns,
+        ocultos: hiddenProductIds,
+        destacados: featuredProductIds,
+        orden: settings.sortOrder,
+      }),
+    [
+      snapshot.products,
+      settings.filasPagina,
+      settings.gridColumns,
+      settings.sortOrder,
+      hiddenProductIds,
+      featuredProductIds,
+    ]
   );
 
   const [pageIndex, setPageIndex] = useState(0);
@@ -90,7 +108,11 @@ export function MenuClient({ initialSnapshot }: MenuClientProps) {
       data-testid="menu-screen"
       className="relative flex h-dvh flex-col overflow-hidden bg-background"
     >
-      <PantallaChrome branch={snapshot.branch} isOpen={snapshot.isOpen} />
+      <PantallaChrome
+        branch={snapshot.branch}
+        isOpen={snapshot.isOpen}
+        closedHint="Podés mirar la carta y pedir desde el QR."
+      />
 
       <main className="relative min-h-0 flex-1 pt-24 md:pt-28">
         {/* Halos de marca sobre el fondo oscuro, el mismo lenguaje visual
@@ -111,12 +133,21 @@ export function MenuClient({ initialSnapshot }: MenuClientProps) {
             key={safeIndex}
             className="h-full animate-in fade-in slide-in-from-bottom-4 duration-700"
           >
-            <MenuBoard page={page} />
+            <MenuBoard
+              page={page}
+              columnas={settings.gridColumns}
+              fontScale={settings.fontScale}
+              cardStyle={settings.cardStyle}
+              showDescriptions={settings.showDescriptions}
+              destacados={featuredProductIds}
+            />
           </div>
         )}
       </main>
 
-      {settings.showQrStrip && <MenuQrStrip branch={snapshot.branch} />}
+      {settings.showQrStrip && (
+        <MenuQrStrip branch={snapshot.branch} text={settings.qrStripText} />
+      )}
 
       {rotating && (
         <div className="absolute inset-x-0 bottom-0 z-20 h-1.5 bg-white/10">

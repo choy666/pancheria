@@ -295,6 +295,13 @@
       "when": 1792475569661,
       "tag": "0041_menu-settings",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792590000141,
+      "tag": "0042_majestic_mongu",
+      "breakpoints": true
     }
   ]
 }
