@@ -15,6 +15,10 @@ describe('isPublicPath', () => {
     expect(isPublicPath(routes.pantalla)).toBe(true);
   });
 
+  test('/menu es público', () => {
+    expect(isPublicPath(routes.menu)).toBe(true);
+  });
+
   test('/login es público', () => {
     expect(isPublicPath(routes.login)).toBe(true);
   });
@@ -68,6 +72,11 @@ describe('getAuthRedirect', () => {
 
   test('permite /pantalla sin sesión', () => {
     const redirect = getAuthRedirect(false, routes.pantalla, ORIGIN);
+    expect(redirect).toBeNull();
+  });
+
+  test('permite /menu sin sesión', () => {
+    const redirect = getAuthRedirect(false, routes.menu, ORIGIN);
     expect(redirect).toBeNull();
   });
 

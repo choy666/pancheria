@@ -1,22 +1,26 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MonitorPlay } from 'lucide-react';
+import { LayoutGrid, MonitorPlay } from 'lucide-react';
 import { auth } from '@/auth';
 import { routes } from '@/config/routes';
 import * as pantallaService from '@/application/services/pantallaService';
+import * as menuService from '@/application/services/menuService';
 import { getCurrentBranchIdOrRedirect } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { PantallaSettingsForm } from '@/components/pantalla-config/pantalla-settings-form';
 import { PantallaPlaylistEditor } from '@/components/pantalla-config/pantalla-items-editor';
+import { MenuSettingsForm } from '@/components/menu-config/menu-settings-form';
 import {
   savePantallaPlaylistAction,
+  updateMenuSettingsAction,
   updatePantallaSettingsAction,
 } from '@/app/(panel)/pantalla-config/actions';
 
 /**
- * Configuración de la pantalla publicitaria `/pantalla` de la sucursal
- * activa. Solo admin (mismo criterio que `/videos` y `/sucursales`):
- * el operador solo opera caja/pedidos, la vidriera la decide el dueño.
+ * Configuración de las TVs de la sucursal activa: el carrusel publicitario
+ * `/pantalla` y el menú digital `/menu`. Solo admin (mismo criterio que
+ * `/videos` y `/sucursales`): el operador solo opera caja/pedidos, la
+ * vidriera la decide el dueño.
  */
 export default async function PantallaConfigPage() {
   const session = await auth();
@@ -27,11 +31,14 @@ export default async function PantallaConfigPage() {
 
   const branchId = await getCurrentBranchIdOrRedirect(session);
 
-  const [settings, items, candidates] = await Promise.all([
-    pantallaService.getSettings(branchId),
-    pantallaService.listPlaylist(branchId),
-    pantallaService.listCandidates(branchId),
-  ]);
+  const [settings, items, candidates, menuSettings, menuProducts] =
+    await Promise.all([
+      pantallaService.getSettings(branchId),
+      pantallaService.listPlaylist(branchId),
+      pantallaService.listCandidates(branchId),
+      menuService.getSettings(branchId),
+      menuService.listMenuProducts(branchId),
+    ]);
 
   return (
     <div data-tour="pantalla-config-page" className="space-y-5">
@@ -41,25 +48,42 @@ export default async function PantallaConfigPage() {
             Pantalla publicitaria
           </h1>
           <p className="text-sm text-muted-foreground">
-            Qué se muestra, en qué orden y cuánto dura cada escena en la TV de
-            esta sucursal.
+            Qué se muestra en las TVs de esta sucursal: el carrusel
+            publicitario y el menú digital.
           </p>
         </div>
-        <Link
-          href={`${routes.pantalla}?branchId=${branchId}`}
-          target="_blank"
-          rel="noopener"
-          className="w-full sm:w-auto"
-        >
-          <Button
-            variant="outline"
-            data-testid="pantalla-open-live"
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Link
+            href={`${routes.pantalla}?branchId=${branchId}`}
+            target="_blank"
+            rel="noopener"
             className="w-full sm:w-auto"
           >
-            <MonitorPlay aria-hidden />
-            Ver pantalla
-          </Button>
-        </Link>
+            <Button
+              variant="outline"
+              data-testid="pantalla-open-live"
+              className="w-full sm:w-auto"
+            >
+              <MonitorPlay aria-hidden />
+              Ver pantalla
+            </Button>
+          </Link>
+          <Link
+            href={`${routes.menu}?branchId=${branchId}`}
+            target="_blank"
+            rel="noopener"
+            className="w-full sm:w-auto"
+          >
+            <Button
+              variant="outline"
+              data-testid="menu-open-live"
+              className="w-full sm:w-auto"
+            >
+              <LayoutGrid aria-hidden />
+              Ver menú
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <PantallaSettingsForm
@@ -72,6 +96,12 @@ export default async function PantallaConfigPage() {
         items={items}
         candidates={candidates}
         saveAction={savePantallaPlaylistAction}
+      />
+
+      <MenuSettingsForm
+        settings={menuSettings}
+        products={menuProducts}
+        updateAction={updateMenuSettingsAction}
       />
     </div>
   );

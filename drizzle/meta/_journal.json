@@ -288,6 +288,13 @@
       "when": 1792421758359,
       "tag": "0040_pantalla-config",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792475569661,
+      "tag": "0041_menu-settings",
+      "breakpoints": true
     }
   ]
 }

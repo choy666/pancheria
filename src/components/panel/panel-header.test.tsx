@@ -120,3 +120,53 @@ describe('PanelHeader — enlace a /pantalla', () => {
     expect(screen.queryByTestId('pantalla-link-mobile')).toBeNull();
   });
 });
+
+describe('PanelHeader — enlace a /menu', () => {
+  test('el ícono apunta a la sucursal activa y abre en pestaña nueva', () => {
+    renderHeader({ activeBranchId: 2 });
+
+    const link = screen.getByTestId('menu-link');
+    expect(link.tagName).toBe('A');
+    expect(link).toHaveAttribute('href', '/menu?branchId=2');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+    expect(link).toHaveAttribute(
+      'aria-label',
+      'Abrir el menú digital de Sucursal Norte'
+    );
+  });
+
+  test('sin activeBranchId no se renderiza el enlace (nunca /menu pelado)', () => {
+    renderHeader({ activeBranchId: undefined });
+
+    expect(screen.queryByTestId('menu-link')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menú' }));
+    expect(screen.queryByTestId('menu-link-mobile')).toBeNull();
+  });
+
+  test('sucursal activa inactiva: el acceso queda deshabilitado con aviso', () => {
+    renderHeader({ activeBranchIsActive: false });
+
+    const control = screen.getByTestId('menu-link');
+    expect(control.tagName).not.toBe('A');
+    expect(control).toHaveAttribute('aria-disabled', 'true');
+    expect(control).toHaveAttribute(
+      'title',
+      'La sucursal activa está inactiva: el menú digital no puede mostrarla'
+    );
+    expect(
+      screen.queryByRole('link', { name: /menú digital/i })
+    ).toBeNull();
+  });
+
+  test('menú mobile: el enlace figura con el branchId', () => {
+    renderHeader({ activeBranchId: 2 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menú' }));
+
+    const link = screen.getByTestId('menu-link-mobile');
+    expect(link).toHaveAttribute('href', '/menu?branchId=2');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+});

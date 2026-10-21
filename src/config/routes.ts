@@ -25,6 +25,7 @@ export const routes = {
   perfil: '/perfil',
   pedido: '/pedido',
   pantalla: '/pantalla',
+  menu: '/menu',
   pantallaConfig: '/pantalla-config',
   pedidoSeguimiento: '/pedido/seguimiento',
   pedidos: '/pedidos',

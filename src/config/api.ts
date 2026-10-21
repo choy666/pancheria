@@ -11,6 +11,7 @@ export const PUBLIC_CATALOGO_API = '/api/public/catalogo';
 export const PUBLIC_DISPONIBILIDAD_API = '/api/public/disponibilidad';
 export const PUBLIC_SUCURSAL_ESTADO_API = '/api/public/sucursal/estado';
 export const PUBLIC_PANTALLA_API = '/api/public/pantalla';
+export const PUBLIC_MENU_API = '/api/public/menu';
 export const PUBLIC_PEDIDO_API = '/api/public/pedido';
 export const PUBLIC_PEDIDO_SEGUIMIENTO_API = '/api/public/pedido/seguimiento';
 export const PUBLIC_PEDIDO_CANCELAR_API = (orderId: number | string) =>

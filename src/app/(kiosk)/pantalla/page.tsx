@@ -1,9 +1,5 @@
 import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
-import {
-  getDefaultBranchId,
-  parseBranchId,
-} from '@/lib/branch-resolver';
+import { resolveKioskBranchId } from '@/lib/kiosk-branch';
 import { buildPantallaSnapshot } from '@/lib/pantalla-snapshot';
 import { PantallaClient } from '@/components/pantalla/pantalla-client';
 import { PantallaError } from '@/components/pantalla/pantalla-error';
@@ -41,28 +37,10 @@ export default async function PantallaPage({
   searchParams,
 }: PantallaPageProps) {
   const params = await searchParams;
-  let branchId: number | null = null;
-  let resolvedFromDefault = false;
-
-  if (params.branchId) {
-    const parsed = parseBranchId(params.branchId);
-    if (parsed === null) {
-      redirect(routes.pantalla);
-    }
-    branchId = parsed;
-  } else {
-    branchId = await getDefaultBranchId();
-    resolvedFromDefault = true;
-  }
+  const branchId = await resolveKioskBranchId(params, routes.pantalla);
 
   if (branchId === null) {
     return <PantallaError />;
-  }
-
-  // URL canónica con branchId explícito, igual que /pedido: la TV puede
-  // quedar fijada a una sucursal concreta y el QR apunta siempre bien.
-  if (resolvedFromDefault) {
-    redirect(`${routes.pantalla}?branchId=${branchId}`);
   }
 
   return (

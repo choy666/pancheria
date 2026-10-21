@@ -100,8 +100,58 @@ test.describe('Configuración de la pantalla (/pantalla-config)', () => {
     ).toBeVisible();
     await expect(page.getByTestId('pantalla-settings-form')).toBeVisible();
     await expect(page.getByTestId('pantalla-playlist-form')).toBeVisible();
-    // Atajo a la TV pineada a la sucursal activa.
+    // La misma página configura el menú digital de la sucursal.
+    await expect(page.getByTestId('menu-settings-form')).toBeVisible();
+    // Atajos a ambas TVs pineadas a la sucursal activa.
     await expect(page.getByTestId('pantalla-open-live')).toBeVisible();
+    await expect(page.getByTestId('menu-open-live')).toBeVisible();
+  });
+
+  test('guarda la configuración del menú y el snapshot la refleja', async ({
+    page,
+  }) => {
+    const branch = await createIsolatedBranch();
+    try {
+      await login(page);
+      await activateBranch(page, branch.id);
+      const { promo } = await createPromoWithRecipeViaApi(page, {
+        baseName: 'Cfg menu promo',
+      });
+
+      await page.goto('/pantalla-config');
+      await waitForHydratedInput(
+        page,
+        '[data-testid="menu-pagina-segundos"]'
+      );
+
+      await page.getByTestId('menu-pagina-segundos').fill('8');
+      await page.getByTestId('menu-filas-pagina').fill('3');
+      await page.getByTestId('menu-show-qr').uncheck();
+      await page.getByTestId(`menu-hide-product-${promo.id}`).check();
+      await page.getByTestId('menu-settings-save').click();
+      await expect(
+        page.getByTestId('menu-settings-success')
+      ).toBeVisible();
+
+      const response = await page.request.get(
+        `/api/public/menu?branchId=${branch.id}`
+      );
+      expect(response.status()).toBe(200);
+      const snapshot = (await response.json()) as {
+        settings: {
+          paginaMs: number;
+          filasPagina: number;
+          showQrStrip: boolean;
+          hiddenProductIds: number[];
+        };
+      };
+      expect(snapshot.settings.paginaMs).toBe(8000);
+      expect(snapshot.settings.filasPagina).toBe(3);
+      expect(snapshot.settings.showQrStrip).toBe(false);
+      expect(snapshot.settings.hiddenProductIds).toContain(promo.id);
+    } finally {
+      await deleteIsolatedBranch(branch.id);
+    }
   });
 
   test('un operador es redirigido fuera de la configuración', async ({

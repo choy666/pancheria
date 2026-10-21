@@ -699,6 +699,40 @@ export const pantallaItems = pgTable(
   ]
 );
 
+/**
+ * Configuración por sucursal del menú digital `/menu` (1:1 con `branches`),
+ * espejo de `pantalla_settings` para la otra TV. Los defaults de duración y
+ * filas replican los de `src/config/menu.ts`; el servicio cae a las variables
+ * de entorno cuando la sucursal todavía no tiene fila (sin configurar).
+ *
+ * `hiddenProductIds` es la curaduría del tablero: productos vendibles que la
+ * sucursal decide no mostrar en el menú (p. ej. extras que saturarían la
+ * grilla). El pedido online y la pantalla publicitaria no se ven afectados.
+ */
+export const menuSettings = pgTable(
+  'menu_settings',
+  {
+    branchId: integer('branch_id')
+      .primaryKey()
+      .references(() => branches.id, { onDelete: 'cascade' }),
+    paginaMs: integer('pagina_ms').default(12000).notNull(),
+    filasPagina: integer('filas_pagina').default(4).notNull(),
+    showQrStrip: boolean('show_qr_strip').default(true).notNull(),
+    hiddenProductIds: jsonb('hidden_product_ids')
+      .$type<number[]>()
+      .default([])
+      .notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    check('menu_settings_pagina_ms_check', sql`${table.paginaMs} >= 1000`),
+    check(
+      'menu_settings_filas_pagina_check',
+      sql`${table.filasPagina} >= 1`
+    ),
+  ]
+);
+
 export const branchesRelations = relations(branches, ({ one, many }) => ({
   users: many(users),
   products: many(products),
@@ -709,6 +743,7 @@ export const branchesRelations = relations(branches, ({ one, many }) => ({
   videos: many(videos),
   pantallaItems: many(pantallaItems),
   pantallaSettings: one(pantallaSettings),
+  menuSettings: one(menuSettings),
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -918,5 +953,12 @@ export const pantallaItemsRelations = relations(pantallaItems, ({ one }) => ({
   video: one(videos, {
     fields: [pantallaItems.videoId],
     references: [videos.id],
+  }),
+}));
+
+export const menuSettingsRelations = relations(menuSettings, ({ one }) => ({
+  branch: one(branches, {
+    fields: [menuSettings.branchId],
+    references: [branches.id],
   }),
 }));

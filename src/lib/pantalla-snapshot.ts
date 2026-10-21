@@ -2,11 +2,7 @@ import * as catalogService from '@/application/services/catalogService';
 import * as videoService from '@/application/services/videoService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as pantallaService from '@/application/services/pantallaService';
-import {
-  isBranchOpen,
-  getTodayOpening,
-  getNextOpening,
-} from '@/lib/branch-helpers';
+import { computeKioskBranchStatus } from '@/lib/kiosk-status';
 import { getStorageProvider } from '@/config/videos';
 import {
   extractVideoKeyFromUrl,
@@ -80,24 +76,11 @@ export async function buildPantallaSnapshot(
     ]);
 
   const { branch } = catalog;
-  // Misma semántica que GET /api/public/sucursal/estado: sin horarios
-  // configurados basta una caja abierta para considerar la sucursal abierta.
-  const hasOpeningHours = (branch.openingHours ?? []).length > 0;
-  const isOpen =
-    cashRegister !== null && (!hasOpeningHours || isBranchOpen(branch));
-
-  const currentOpening = getTodayOpening(branch);
-  const nextOpening = getNextOpening(branch);
-  const message = isOpen
-    ? `Sucursal abierta: ${currentOpening}.`
-    : `La sucursal está cerrada. Próxima apertura: ${nextOpening}.`;
+  const status = computeKioskBranchStatus(branch, cashRegister !== null);
 
   return {
     branch,
-    isOpen,
-    currentOpening,
-    nextOpening,
-    message,
+    ...status,
     products: catalog.products,
     videos: videoRows.map(toPantallaVideo),
     settings,

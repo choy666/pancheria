@@ -96,8 +96,8 @@ flowchart LR
 | Grupo | Rutas | Características |
 | --- | --- | --- |
 | `(public)` | `/pedido`, `/pedido/seguimiento`, `/pedido/[id]/chat` | Sin login. `force-dynamic` en las tres páginas (CSP nonce + no consultar DB en build). `PedidoClient` orquesta catálogo + carrito en `localStorage` (`pancheria-branch-id`, carrito por `cart-helpers`). |
-| `(kiosk)` | `/pantalla` | Sin login, layout propio oscuro `data-theme="screen"` (sin el header/footer de `(public)`). Pantalla publicitaria para TV: `PantallaClient` rota en bucle las escenas según `pantalla_settings` de la sucursal — modo `auto` (videos activos + productos con stock intercalados) o `custom` (solo la playlist explícita de `pantalla_items`, en el orden del panel) — más las escenas fijas habilitadas (sucursal y QR a `/pedido`). Snapshot SSR inicial + poll a `GET /api/public/pantalla` (el snapshot incluye `settings` e `items` habilitados); duraciones/toggles por sucursal desde `/pantalla-config`, con las env `NEXT_PUBLIC_PANTALLA_*_MS` como defaults si no hay fila. La TV queda pineada al `branchId` de su URL (no a la cookie del panel); se accede desde el header del panel (ícono junto al `BranchSelector`, pineado a la sucursal activa al momento del click), por fila en `/sucursales` y con "Ver pantalla" desde `/pantalla-config`. |
-| `(panel)` | `/` dashboard, `/ventas` (+`historial`, `historial/[id]`, `historial/eliminadas`), `/pedidos` (+`[id]`), `/cierre`, `/productos` (+`nuevo`, `[id]/editar`, `eliminados`), `/stock`, `/sucursales` (+`nueva`, `[id]/editar`), `/usuarios` (+`nuevo`, `[id]/editar`), `/videos` (+`nuevo`, `[id]`, `eliminados`), `/pantalla-config` (solo admin: duraciones, escenas fijas y playlist de `/pantalla` de la sucursal activa), `/perfil` | Requiere sesión: el layout llama `getCurrentBranchIdOrRedirect` y envuelve todo en `TourProvider` (driver.js). Admin ve selector de sucursal (`branch-selector` → Server Action `setActiveBranchAction` → cookie `activeBranchId`). |
+| `(kiosk)` | `/pantalla`, `/menu` | Sin login, layout propio oscuro `data-theme="screen"` (sin el header/footer de `(public)`). Pantalla publicitaria para TV: `PantallaClient` rota en bucle las escenas según `pantalla_settings` de la sucursal — modo `auto` (videos activos + productos con stock intercalados) o `custom` (solo la playlist explícita de `pantalla_items`, en el orden del panel) — más las escenas fijas habilitadas (sucursal y QR a `/pedido`). Snapshot SSR inicial + poll a `GET /api/public/pantalla` (el snapshot incluye `settings` e `items` habilitados); duraciones/toggles por sucursal desde `/pantalla-config`, con las env `NEXT_PUBLIC_PANTALLA_*_MS` como defaults si no hay fila. Menú digital `/menu`: `MenuClient` muestra la carta completa en grilla paginada por categorías con QR de pedidos persistente; snapshot propio (`buildMenuSnapshot`: catálogo+estado+`menu_settings`, sin videos) servido por SSR y `GET /api/public/menu`, con `NEXT_PUBLIC_MENU_*` como defaults. Ambas comparten la resolución de sucursal (`resolveKioskBranchId`), el estado operativo (`computeKioskBranchStatus`), el chrome (`PantallaChrome`) y la URL del QR (`getPedidoUrl`). La TV queda pineada al `branchId` de su URL (no a la cookie del panel); se accede desde el header del panel (íconos junto al `BranchSelector` via `KioskLink`, pineados a la sucursal activa al momento del click), por fila en `/sucursales` y con "Ver pantalla"/"Ver menú" desde `/pantalla-config`. |
+| `(panel)` | `/` dashboard, `/ventas` (+`historial`, `historial/[id]`, `historial/eliminadas`), `/pedidos` (+`[id]`), `/cierre`, `/productos` (+`nuevo`, `[id]/editar`, `eliminados`), `/stock`, `/sucursales` (+`nueva`, `[id]/editar`), `/usuarios` (+`nuevo`, `[id]/editar`), `/videos` (+`nuevo`, `[id]`, `eliminados`), `/reportes`, `/pantalla-config` (solo admin: duraciones, escenas fijas y playlist de `/pantalla` de la sucursal activa), `/perfil` | Requiere sesión: el layout llama `getCurrentBranchIdOrRedirect` y envuelve todo en `TourProvider` (driver.js). Admin ve selector de sucursal (`branch-selector` → Server Action `setActiveBranchAction` → cookie `activeBranchId`). |
 | `(auth)` | `/login` | Server Action `login` → `signIn` de NextAuth. |
 | raíz | `/sesion-finalizada`, `not-found`, `layout.tsx` | `/sesion-finalizada`: cierre de sesión forzado cuando la sucursal/usuario del JWT fue eliminado. Layout raíz inyecta `ConditionalAnalytics`. |
 
@@ -110,7 +110,7 @@ flowchart LR
 | `(panel)/sucursales/actions.ts` | CRUD sucursales + resumen de eliminación (`requireAdmin`) |
 | `(panel)/usuarios/actions.ts` | CRUD usuarios (`requireAdmin`) |
 | `(panel)/videos/actions.ts` | prepareUpload / CRUD / papelera de videos |
-| `(panel)/pantalla-config/actions.ts` | `updatePantallaSettingsAction` (duraciones, modo, escenas fijas), `savePantallaPlaylistAction` (reemplazo transaccional de `pantalla_items`) — `requireAdmin` + sucursal activa |
+| `(panel)/pantalla-config/actions.ts` | `updatePantallaSettingsAction` (duraciones, modo, escenas fijas), `savePantallaPlaylistAction` (reemplazo transaccional de `pantalla_items`), `updateMenuSettingsAction` (paginación, franja QR y productos ocultos de `/menu` → `menu_settings`) — `requireAdmin` + sucursal activa |
 | `(panel)/perfil/actions.ts` | `changePassword` |
 | `(auth)/login/actions.ts` | `login` |
 
@@ -123,20 +123,21 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `api/caja` | `abrir`, `cerrar`, `resumen`, `historial` (GET/DELETE), `eliminadas` (GET/DELETE), `[id]` (GET/DELETE), `[id]/restaurar`, `[id]/permanente` | `cashRegisterService` |
 | `api/pedidos` | `GET /` (lista paginada), `[id]` (GET), `[id]/recibir`, `[id]/confirmar`, `[id]/cancelar`, `[id]/finalizar`, `[id]/chat` (GET/POST), `[id]/chat/leido`, `[id]/chat/ubicacion`, `[id]/chat/upload`, `[id]/chat/stream` (SSE) | `orderService`, `chatService`, `branchService` |
 | `api/ventas` | `GET /`, `POST /` (confirmar venta), `[id]/anular`, `disponibilidad` | `saleService` |
+| `api/reportes` | `ventas` (GET: reporte de ventas por rango `start`/`end`) | `reportService` |
 | `api/productos` | `GET/POST /`, `[id]` (GET/PUT/DELETE), `disponibilidad`, `eliminadas` (GET/DELETE), `imagen/preparar`, `imagen/upload`, `imagen/[key]` (GET **pública**, scoped por `?branchId`, solo imágenes de productos vendibles — provider local) | `productService`, `saleService` (disponibilidad), storage |
 | `api/stock` | `GET /` (alertas), `ajustar`, `movimientos` | `stockService` |
 | `api/recetas` | `GET /` (insumos para recetas) | `recipeService` |
 | `api/videos` | `upload` (POST, solo local), `[id]/stream` (GET admin: stream local con Range o redirect a URL pública remota) | `videoService`, `storage` |
-| `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado+`settings`/`items` de pantalla), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
+| `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado+`settings`/`items` de pantalla), `menu` (snapshot de `/menu`: catálogo+estado+`menu_settings`, sin videos ni playlist), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `menuService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
 | `api/panel` | `resumen` (GET: resumen de sucursal para dashboard) | `cashRegisterService` + `orderService` + `stockService` |
-| `api/cron` | `expire-orders`, `rate-limit-cleanup`, `chat-attachments-cleanup` (todos GET + Bearer) | `orderService`, `cleanupService`, rate-limit stores |
+| `api/cron` | `expire-orders`, `rate-limit-cleanup`, `chat-attachments-cleanup`, `sanity-audit` (GET: auditoría read-only de invariantes del dominio) — todos GET + Bearer; `alert` (POST + Bearer: relay de alertas a ntfy desde la IP de Vercel) | `orderService`, `cleanupService`, `sanityAuditService`, rate-limit stores |
 | `api/chat` | `attachment/[key]` (GET: solo provider `local`; sesión o `?token`) | `chat-storage` |
 | `api/auth` | `[...nextauth]` | NextAuth handlers |
 | `api/health` | `GET` (`SELECT 1`) | `db` directo (sin servicio) |
 
 ## 2. Aplicación — `src/application`
 
-15 servicios de dominio en `services/` + 2 servicios transversales en la raíz de `application/` (`transactionService`, `idempotencyService`).
+18 servicios de dominio en `services/` + 2 servicios transversales en la raíz de `application/` (`transactionService`, `idempotencyService`).
 
 | Servicio | Responsabilidad (verificada) |
 | --- | --- |
@@ -146,11 +147,14 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `catalogService` | Catálogo público, disponibilidad y `validatePublicCart` |
 | `chatService` | Mensajes cliente/operador, ubicación de sucursal, estado SSE (`getChatStreamState`/`pollChatStreamTick`), marcas `deliveredAt`/`readAt`, bloqueo en estados terminales/expirados |
 | `cleanupService` | Limpiezas del cron: adjuntos/imágenes/videos huérfanos, retención de mensajes |
+| `menuService` | Config de `/menu` por sucursal: `getSettings` (fila o defaults de env `NEXT_PUBLIC_MENU_*`), `updateSettings` (valida referencias de `hiddenProductIds` contra productos vendibles), `listMenuProducts` (selector del configurador) |
 | `orderService` | Ciclo de vida del pedido: `createOrder` (con idempotencia), `receiveOrder` (reservas), `convertOrderToSale`, `cancelOrder`, `finishOrder`, `expirePendingOrders`, `trackOrder` (lazy expiration) |
 | `pantallaService` | Config de `/pantalla` por sucursal: `getSettings` (fila o defaults de env), `updateSettings`, `listPlaylist` (ítems + estado mostrado), `listEnabledItems` (snapshot público), `listCandidates`, `savePlaylist` (reemplazo en TX con validación de referencias) |
 | `productService` | CRUD productos, papelera (soft delete / restore / delete permanente / vaciado), imágenes |
 | `recipeService` | CRUD recetas e insumos |
+| `reportService` | `getSalesReport`: agregados de ventas por rango para `/api/reportes/ventas` |
 | `saleService` | `confirmSale`, `cancelSale`, `insertSaleAndUpdateCashRegister`, listados por caja/rango, resúmenes de caja |
+| `sanityAuditService` | `runSanityAudit`: barrido read-only de invariantes (stock negativo, reservas huérfanas, pedidos pagados sin venta, etc.) con severidades `info`/`warning`/`critical` para `api/cron/sanity-audit` |
 | `stockService` | Alertas de stock, ajuste manual, historial de movimientos |
 | `summaryService` | Cálculo de resúmenes de ventas para la caja (`calculateSummaryFromSales`, versión paginada); re-exporta `calculateCompoundAvailability` |
 | `userService` | CRUD usuarios, cambio de contraseña |
@@ -160,9 +164,9 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 
 ## 3. Datos — `src/repositories`, `src/db`
 
-- **13 repositorios** alineados a agregados: `branch`, `cashRegister`, `catalog`, `order`, `orderMessage`, `orderStockReservation`, `pantalla`, `product`, `recipe`, `sale`, `stockMovement`, `user`, `video`.
+- **15 repositorios** alineados a agregados: `audit` (queries transversales para la auditoría de cordura), `branch`, `cashRegister`, `catalog`, `menu` (`menu_settings`), `order`, `orderMessage`, `orderStockReservation`, `pantalla`, `product`, `recipe`, `sale`, `stockMovement`, `user`, `video`.
 - **`src/db/index.ts`**: proxy lazy que elige driver según la URL — `@neondatabase/serverless` si contiene `neon.tech`, si no `pg.Pool` — con pool configurable (`DATABASE_POOL_MAX`, `DATABASE_CONNECTION_TIMEOUT_MS`, `DATABASE_IDLE_TIMEOUT_MS`).
-- **`src/db/schema.ts`**: 20 tablas, 12 enums, índices y checks — detalle completo en [base-de-datos.md](base-de-datos.md).
+- **`src/db/schema.ts`**: 21 tablas, 12 enums, índices y checks — detalle completo en [base-de-datos.md](base-de-datos.md).
 - Patrones de concurrencia usados: `SELECT … FOR UPDATE` vía repositorios (`findByIdForUpdate`, `findByIdWithTokenForUpdate`), unique parcial `cash_registers` (una caja `open` por sucursal), upserts atómicos en tablas de rate limit.
 
 ## 4. Dominio — `src/domain`, `src/types`

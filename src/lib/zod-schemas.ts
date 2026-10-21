@@ -348,6 +348,31 @@ export const pantallaSettingsSchema = z.object({
   showQrScene: z.boolean(),
 });
 
+/**
+ * Configuración del menú digital `/menu`: duración de cada página al rotar,
+ * presupuesto de filas por página, si se muestra la franja QR fija y los
+ * productos vendibles que la sucursal decidió no listar en el tablero.
+ */
+export const menuSettingsSchema = z.object({
+  paginaMs: pantallaDurationMsSchema,
+  filasPagina: z.coerce
+    .number()
+    .int({ message: 'Las filas por página deben ser un número entero.' })
+    .min(1, { message: 'Debe entrar al menos una fila por página.' })
+    .max(12, {
+      message: 'Más de 12 filas por página hace ilegible el menú en la TV.',
+    }),
+  showQrStrip: z.boolean(),
+  hiddenProductIds: z
+    .array(z.number().int().positive(), {
+      message: 'Los productos ocultos deben ser una lista de IDs.',
+    })
+    .max(500, {
+      message: 'No se pueden ocultar más de 500 productos del menú.',
+    })
+    .default([]),
+});
+
 const pantallaPlaylistItemSchema = z.object({
   kind: z.enum(['product', 'video']),
   refId: z.number().int().positive(),

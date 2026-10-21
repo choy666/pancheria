@@ -4,6 +4,7 @@ import { routes } from '@/config/routes';
 const PUBLIC_PATHS: Set<string> = new Set([
   routes.pedido,
   routes.pantalla,
+  routes.menu,
   routes.login,
 ]);
 

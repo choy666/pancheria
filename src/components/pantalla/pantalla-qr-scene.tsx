@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
-import { routes } from '@/config/routes';
+import { getPedidoUrl } from '@/lib/pedido-url';
 import type { Branch } from '@/domain/types';
 
 interface PantallaQrSceneProps {
@@ -11,14 +12,18 @@ interface PantallaQrSceneProps {
 /**
  * Escena de cierre del ciclo: QR hacia `/pedido?branchId=N` para que el
  * cliente arme el pedido desde el celular, junto a la URL legible.
- * La base usa `NEXT_PUBLIC_APP_URL` cuando está configurada (dominio público
- * alcanzable por teléfonos) y cae al origen que sirve la propia pantalla.
  */
 export function PantallaQrScene({ branch }: PantallaQrSceneProps) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ??
-    (typeof window !== 'undefined' ? window.location.origin : '');
-  const pedidoUrl = `${baseUrl}${routes.pedido}?branchId=${branch.id}`;
+  // La URL del QR se resuelve solo tras la hidratación: sin
+  // `NEXT_PUBLIC_APP_URL` depende de `window.location` y el texto/QR del
+  // SSR nunca coinciden con el cliente (hoy la escena casi nunca está en el
+  // render inicial, pero una playlist con solo la escena QR sí la expone).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
+
+  const pedidoUrl = mounted ? getPedidoUrl(branch.id) : '';
   const readableUrl = pedidoUrl.replace(/^https?:\/\//, '');
 
   return (
@@ -32,15 +37,18 @@ export function PantallaQrScene({ branch }: PantallaQrSceneProps) {
       />
 
       <div className="relative flex flex-col items-center gap-4 rounded-3xl bg-white p-6 shadow-2xl md:p-10">
-        <QRCode
-          value={pedidoUrl}
-          size={256}
-          bgColor="#ffffff"
-          fgColor="#1a1a1a"
-          level="M"
-          style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
-          viewBox="0 0 256 256"
-        />
+        {mounted && (
+          <QRCode
+            value={pedidoUrl}
+            size={256}
+            bgColor="#ffffff"
+            fgColor="#1a1a1a"
+            level="M"
+            style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
+            viewBox="0 0 256 256"
+          />
+        )}
+        {!mounted && <div className="size-[256px]" aria-hidden="true" />}
       </div>
 
       <div className="relative flex max-w-xl flex-col items-center gap-4 text-center md:items-start md:text-left">
@@ -55,7 +63,7 @@ export function PantallaQrScene({ branch }: PantallaQrSceneProps) {
           data-testid="pantalla-qr-url"
           className="rounded-lg bg-white/10 px-4 py-2 font-mono text-lg text-brand-mustard md:text-2xl"
         >
-          {readableUrl}
+          {mounted ? readableUrl : ' '}
         </p>
       </div>
     </div>

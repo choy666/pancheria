@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as pantallaService from '@/application/services/pantallaService';
+import * as menuService from '@/application/services/menuService';
 import { getCurrentBranchId, requireAdmin } from '@/lib/auth';
 import { DomainError } from '@/domain/errors';
 import { routes } from '@/config/routes';
@@ -73,4 +74,40 @@ export async function savePantallaPlaylistAction(
 
   revalidatePath(routes.pantallaConfig);
   return { success: 'Playlist guardada.' };
+}
+
+/**
+ * Guarda la configuración del menú digital `/menu` de la sucursal activa.
+ * `hiddenProductIds` llega como checkboxes marcados (`getAll`); se descarta
+ * cualquier valor no entero positivo antes del schema por robustez (un
+ * checkbox del form solo puede emitir IDs legítimos).
+ */
+export async function updateMenuSettingsAction(
+  _prevState: PantallaConfigState,
+  formData: FormData
+): Promise<PantallaConfigState> {
+  const session = await requireAdmin();
+  const branchId = await getCurrentBranchId(session);
+
+  const hiddenProductIds = formData
+    .getAll('hiddenProductIds')
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  try {
+    await menuService.updateSettings(branchId, {
+      paginaMs: secondsToMs(formData, 'paginaSegundos'),
+      filasPagina: formData.get('filasPagina')?.toString(),
+      showQrStrip: formData.get('showQrStrip') === 'on',
+      hiddenProductIds,
+    });
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+
+  revalidatePath(routes.pantallaConfig);
+  return { success: 'Configuración del menú guardada.' };
 }

@@ -1,7 +1,7 @@
 # Base de datos — Nivel 3: modelo ER completo
 
 **Estado:** implementado
-**Fuente de verdad:** [`src/db/schema.ts`](../../../src/db/schema.ts) (18 tablas, 10 enums) + migraciones `drizzle/`
+**Fuente de verdad:** [`src/db/schema.ts`](../../../src/db/schema.ts) (21 tablas, 12 enums) + migraciones `drizzle/`
 **Motor:** PostgreSQL — driver `pg.Pool` o `@neondatabase/serverless` elegido en runtime por URL (`src/db/index.ts`). Migraciones con `drizzle-kit` (`drizzle.config.ts`, `out: ./drizzle`).
 
 ## Diagrama ER completo
@@ -244,6 +244,14 @@ erDiagram
         boolean is_enabled
         timestamp created_at
     }
+    menu_settings {
+        integer branch_id PK "FK branches (cascade), 1:1"
+        integer pagina_ms "check >= 1000 (0041)"
+        integer filas_pagina "check >= 1"
+        boolean show_qr_strip
+        jsonb hidden_product_ids "IDs vendibles ocultos del tablero"
+        timestamp updated_at
+    }
     login_attempts {
         varchar username PK
         integer count
@@ -266,6 +274,7 @@ erDiagram
     branches ||--o{ videos : "branch_id (restrict)"
     branches ||--o{ pantalla_items : "branch_id (cascade)"
     branches ||--|| pantalla_settings : "branch_id (cascade)"
+    branches ||--|| menu_settings : "branch_id (cascade)"
 
     products ||--o{ pantalla_items : "product_id (cascade)"
     videos ||--o{ pantalla_items : "video_id (cascade)"
@@ -315,7 +324,7 @@ erDiagram
 
 > ⚠️ Histórico: las migraciones `0008`/`0009` mencionan `order`/`order_cancellation` en `stock_movement_type`; el enum fue recreado en `0009` y los valores actuales son solo los 6 listados (la guía ya refleja los valores vigentes).
 
-## Catálogo de tablas (20)
+## Catálogo de tablas (21)
 
 ### Núcleo de negocio
 
@@ -339,6 +348,7 @@ erDiagram
 | `videos` | Videos para cartelera/Cast. `file_url` apunta al provider | idx `(branch_id, is_active, deleted_at)` |
 | `pantalla_settings` | Config de `/pantalla` por sucursal (1:1): modo de playlist, duraciones de escena en ms, tope de productos, toggles de escenas fijas. Sin fila → defaults de env (migración `0040`) | PK `branch_id` → branches (cascade); CHECKs `*_ms >= 1000`, `max_productos >= 1` |
 | `pantalla_items` | Playlist explícita de `/pantalla` (modo `custom`): ítem → producto o video de la sucursal, orden `position` denso, `is_enabled` para ocultar sin borrar (migración `0040`) | idx `(branch_id, position)`; UNIQUE parcial `(branch_id, product_id)` y `(branch_id, video_id)`; CHECK XOR `kind`↔referencia; FKs cascade a `branches`/`products`/`videos` |
+| `menu_settings` | Config de `/menu` por sucursal (1:1): `pagina_ms` (duración de página al rotar), `filas_pagina` (presupuesto de filas de la grilla), `show_qr_strip` (franja QR fija) y `hidden_product_ids` (jsonb: productos vendibles ocultos del tablero — siguen vendiéndose por caja/pedido). Sin fila → defaults de env `NEXT_PUBLIC_MENU_*` (migración `0041`) | PK `branch_id` → branches (cascade); CHECKs `pagina_ms >= 1000`, `filas_pagina >= 1` |
 
 ### Tablas de infraestructura (rate limiting)
 
@@ -349,7 +359,7 @@ erDiagram
 
 ## Reglas de integridad y borrado
 
-- **`branches` → hijos: `restrict` (excepto pantalla).** Los hijos directos del negocio no tienen cascada de FK: `branchService.deleteBranch` borra manualmente todos los descendientes dentro de una transacción (`branchRepository.deleteCascade`), luego elimina archivos externos **post-commit best-effort** (imágenes de productos, adjuntos de chat, videos) y limpia `login_attempts` de sus usuarios. La excepción deliberada es la configuración de `/pantalla` (`pantalla_settings` y `pantalla_items`, cascade desde `0040`): son datos derivados sin historial ni archivos, así que la FK los limpia sola al borrar la sucursal, el producto o el video referenciado (el soft-delete de videos se detecta al construir la playlist, no por FK).
+- **`branches` → hijos: `restrict` (excepto pantallas kiosk).** Los hijos directos del negocio no tienen cascada de FK: `branchService.deleteBranch` borra manualmente todos los descendientes dentro de una transacción (`branchRepository.deleteCascade`), luego elimina archivos externos **post-commit best-effort** (imágenes de productos, adjuntos de chat, videos) y limpia `login_attempts` de sus usuarios. La excepción deliberada es la configuración de las pantallas (`pantalla_settings` y `pantalla_items`, cascade desde `0040`; `menu_settings`, cascade desde `0041`): son datos derivados sin historial ni archivos, así que la FK los limpia sola al borrar la sucursal, el producto o el video referenciado (el soft-delete de videos se detecta al construir la playlist, no por FK).
 - **Soft delete (`deleted_at`):** `products`, `cash_registers`, `orders`, `videos` — papelera con restauración. `branches`, `users`, `sales` y demás: borrado físico. `sales` no se borra: se anula (`status=cancelled`).
 - **`set null`:** `sales.cash_register_id`, `orders.converted_sale_id`, `stock_movements.sale_id/order_id` — preservan historial si el padre desaparece.
 - **`restrict`:** cualquier `product_id`/`supply_id`/`branch_id` referenciado por historiales impide borrar el padre (los servicios lo manejan).

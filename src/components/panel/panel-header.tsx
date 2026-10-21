@@ -7,7 +7,8 @@ import { TourButton } from '@/components/tour/tour-context';
 import { BranchSelector } from './branch-selector';
 import { cn } from '@/lib/utils';
 import { routes } from '@/config/routes';
-import { Menu, MonitorPlay, X } from 'lucide-react';
+import { LayoutGrid, Menu, MonitorPlay, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface Branch {
   id: number;
@@ -52,6 +53,73 @@ const adminNavItems = [
   { href: routes.pedido, label: 'Catálogo' },
 ];
 
+/**
+ * Acceso a una TV kiosk (`/pantalla`, `/menu`) pineado a la sucursal al
+ * momento del click: la pestaña que se abre sigue el `branchId` de su URL y
+ * no la cookie del panel (por diseño — una TV por local). Sin `href` no
+ * renderiza: nunca se emite la ruta pelada, que resolvería la sucursal por
+ * defecto y no la seleccionada. Con sucursal inactiva queda deshabilitado
+ * con aviso, porque la TV solo mostraría el error. En desktop es un botón
+ * ícono; en el menú móvil lleva texto (los `children`).
+ */
+function KioskLink({
+  testid,
+  href,
+  disabled,
+  disabledTitle,
+  label,
+  icon,
+  children,
+  onClick,
+}: {
+  testid: string;
+  href: string | null;
+  disabled: boolean;
+  disabledTitle: string;
+  label: string;
+  icon: ReactNode;
+  children?: ReactNode;
+  onClick?: () => void;
+}) {
+  if (!href) return null;
+  const isMobile = children !== undefined;
+  const className = cn(
+    buttonVariants({ variant: 'ghost', size: isMobile ? 'sm' : 'icon-sm' }),
+    isMobile && 'w-full justify-start',
+    disabled && 'cursor-not-allowed opacity-50'
+  );
+
+  if (disabled) {
+    return (
+      <span
+        data-testid={testid}
+        aria-disabled="true"
+        title={disabledTitle}
+        className={className}
+      >
+        {icon}
+        {children ?? <span className="sr-only">{label}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener"
+      data-testid={testid}
+      aria-label={label}
+      title={`${label} (nueva pestaña)`}
+      onClick={onClick}
+      className={className}
+    >
+      {icon}
+      {children}
+    </Link>
+  );
+}
+
 export function PanelHeader({
   userName,
   branchName,
@@ -68,26 +136,42 @@ export function PanelHeader({
   const navItems = isAdmin ? adminNavItems : operatorNavItems;
   const showBranchSelector = isAdmin && branches && branches.length > 1;
 
-  // Enlace a la pantalla publicitaria pineado a la sucursal activa al
-  // momento del click: la pestaña que se abre sigue el `branchId` de su
-  // URL y no la cookie del panel (por diseño — una TV por local). Nunca se
-  // emite `/pantalla` pelado porque esa ruta resuelve la sucursal por
-  // defecto, no la seleccionada. Con sucursal inactiva el acceso queda
-  // deshabilitado con aviso, porque la pantalla solo mostraría el error.
-  const pantallaBranchName =
+  const kioskBranchName =
     branches?.find((branch) => branch.id === activeBranchId)?.name ??
     branchName ??
     undefined;
-  const pantallaHref =
-    activeBranchId !== undefined
-      ? `${routes.pantalla}?branchId=${activeBranchId}`
-      : null;
-  const pantallaDisabled = activeBranchIsActive === false;
-  const pantallaLabel = pantallaBranchName
-    ? `Abrir la pantalla publicitaria de ${pantallaBranchName}`
-    : 'Abrir la pantalla publicitaria';
-  const pantallaDisabledTitle =
-    'La sucursal activa está inactiva: la pantalla publicitaria no puede mostrarla';
+  const kioskDisabled = activeBranchIsActive === false;
+  const kioskSuffix = kioskBranchName ? ` · ${kioskBranchName}` : '';
+  const kioskLinks = [
+    {
+      testid: 'pantalla-link',
+      href:
+        activeBranchId !== undefined
+          ? `${routes.pantalla}?branchId=${activeBranchId}`
+          : null,
+      label: kioskBranchName
+        ? `Abrir la pantalla publicitaria de ${kioskBranchName}`
+        : 'Abrir la pantalla publicitaria',
+      mobileText: 'Pantalla publicitaria',
+      disabledTitle:
+        'La sucursal activa está inactiva: la pantalla publicitaria no puede mostrarla',
+      icon: <MonitorPlay aria-hidden />,
+    },
+    {
+      testid: 'menu-link',
+      href:
+        activeBranchId !== undefined
+          ? `${routes.menu}?branchId=${activeBranchId}`
+          : null,
+      label: kioskBranchName
+        ? `Abrir el menú digital de ${kioskBranchName}`
+        : 'Abrir el menú digital',
+      mobileText: 'Menú digital',
+      disabledTitle:
+        'La sucursal activa está inactiva: el menú digital no puede mostrarla',
+      icon: <LayoutGrid aria-hidden />,
+    },
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/8 bg-background/95 backdrop-blur-sm">
@@ -123,35 +207,17 @@ export function PanelHeader({
               setActiveBranchAction={setActiveBranchAction}
             />
           )}
-          {pantallaHref &&
-            (pantallaDisabled ? (
-              <span
-                data-testid="pantalla-link"
-                aria-disabled="true"
-                title={pantallaDisabledTitle}
-                className={cn(
-                  buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-                  'cursor-not-allowed opacity-50'
-                )}
-              >
-                <MonitorPlay aria-hidden />
-                <span className="sr-only">{pantallaLabel}</span>
-              </span>
-            ) : (
-              <Link
-                href={pantallaHref}
-                target="_blank"
-                rel="noopener"
-                data-testid="pantalla-link"
-                aria-label={pantallaLabel}
-                title={`${pantallaLabel} (nueva pestaña)`}
-                className={cn(
-                  buttonVariants({ variant: 'ghost', size: 'icon-sm' })
-                )}
-              >
-                <MonitorPlay aria-hidden />
-              </Link>
-            ))}
+          {kioskLinks.map((link) => (
+            <KioskLink
+              key={link.testid}
+              testid={link.testid}
+              href={link.href}
+              disabled={kioskDisabled}
+              disabledTitle={link.disabledTitle}
+              label={link.label}
+              icon={link.icon}
+            />
+          ))}
           <TourButton />
           {branchName && !showBranchSelector && (
             <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
@@ -217,38 +283,21 @@ export function PanelHeader({
                 setActiveBranchAction={setActiveBranchAction}
               />
             )}
-            {pantallaHref &&
-              (pantallaDisabled ? (
-                <span
-                  data-testid="pantalla-link-mobile"
-                  aria-disabled="true"
-                  title={pantallaDisabledTitle}
-                  className={cn(
-                    buttonVariants({ variant: 'ghost', size: 'sm' }),
-                    'w-full cursor-not-allowed justify-start opacity-50'
-                  )}
-                >
-                  <MonitorPlay aria-hidden />
-                  Pantalla publicitaria
-                  {pantallaBranchName ? ` · ${pantallaBranchName}` : ''}
-                </span>
-              ) : (
-                <Link
-                  href={pantallaHref}
-                  target="_blank"
-                  rel="noopener"
-                  data-testid="pantalla-link-mobile"
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    buttonVariants({ variant: 'ghost', size: 'sm' }),
-                    'w-full justify-start'
-                  )}
-                >
-                  <MonitorPlay aria-hidden />
-                  Pantalla publicitaria
-                  {pantallaBranchName ? ` · ${pantallaBranchName}` : ''}
-                </Link>
-              ))}
+            {kioskLinks.map((link) => (
+              <KioskLink
+                key={link.testid}
+                testid={`${link.testid}-mobile`}
+                href={link.href}
+                disabled={kioskDisabled}
+                disabledTitle={link.disabledTitle}
+                label={link.label}
+                icon={link.icon}
+                onClick={() => setOpen(false)}
+              >
+                {link.mobileText}
+                {kioskSuffix}
+              </KioskLink>
+            ))}
             <TourButton
               className="w-full"
               onBeforeToggle={() => setOpen(false)}

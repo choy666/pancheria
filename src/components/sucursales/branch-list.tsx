@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, MonitorPlay, Phone, Share2 } from 'lucide-react';
+import { LayoutGrid, MapPin, MonitorPlay, Phone, Share2 } from 'lucide-react';
 import type { Branch } from '@/domain/types';
 import type { BranchOperationalStatus } from '@/lib/branch-helpers';
 import { Badge } from '@/components/ui/badge';
@@ -218,6 +218,38 @@ export function BranchList({
                           <MonitorPlay aria-hidden />
                           <span className="sr-only">
                             Pantalla publicitaria de {branch.name} no disponible
+                          </span>
+                        </span>
+                      )}
+                      {/* Acceso al menú digital del local: igual que la
+                          pantalla, la URL queda pineada a esta sucursal. */}
+                      {branch.isActive ? (
+                        <Link
+                          href={`${routes.menu}?branchId=${branch.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          data-testid={`branch-menu-link-${branch.id}`}
+                          aria-label={`Abrir el menú digital de ${branch.name}`}
+                          title={`Abrir el menú digital de ${branch.name} (nueva pestaña)`}
+                          className={cn(
+                            buttonVariants({ variant: 'ghost', size: 'icon-sm' })
+                          )}
+                        >
+                          <LayoutGrid aria-hidden />
+                        </Link>
+                      ) : (
+                        <span
+                          data-testid={`branch-menu-disabled-${branch.id}`}
+                          aria-disabled="true"
+                          title={`${branch.name} está inactiva: el menú digital no puede mostrarla`}
+                          className={cn(
+                            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+                            'cursor-not-allowed opacity-50'
+                          )}
+                        >
+                          <LayoutGrid aria-hidden />
+                          <span className="sr-only">
+                            Menú digital de {branch.name} no disponible
                           </span>
                         </span>
                       )}

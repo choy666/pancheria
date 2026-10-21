@@ -330,3 +330,12 @@ export type PantallaItemRow = {
   isEnabled: boolean;
   createdAt: Date;
 };
+
+export type MenuSettingsRow = {
+  branchId: number;
+  paginaMs: number;
+  filasPagina: number;
+  showQrStrip: boolean;
+  hiddenProductIds: number[];
+  updatedAt: Date;
+};
