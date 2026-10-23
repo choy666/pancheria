@@ -39,10 +39,17 @@ const DESCRIPTION_FONT: Record<MenuFontScale, string> = {
  * Tarjeta del menú digital: foto sobre lienzo blanco (las imágenes del
  * catálogo se publican normalizadas a 16:9 con fondo blanco y su propio
  * aire — por eso la imagen no lleva padding interno —, el mismo encuadre
- * que usa la escena de producto de `/pantalla`), nombre en dos líneas,
- * descripción opcional y precio en mostaza. En estilo `compact` la imagen
- * pasa a un lateral chico y el texto va a la derecha. Sin stock ni
- * descuentos inventados: solo datos del catálogo.
+ * que usa la escena de producto de `/pantalla`). La tarjeta reparte su
+ * alto en proporción fija ~7/3 (`flex-[7]`/`flex-[3]` con `min-h-0` en
+ * ambos): la foto domina la tarjeta y nunca queda aplastada por un bloque
+ * de texto alto. La descripción opcional viaja como caption dentro del
+ * lienzo (chip blanco translúcido en el borde inferior, sobre el aire que
+ * deja el normalizador), así no le come alto a la foto. En la zona oscura
+ * quedan solo nombre y precio compartiendo línea (precio en mostaza a la
+ * derecha, como en una carta); si la zona no alcanza, `overflow-hidden`
+ * recorta el texto y no la foto. En estilo `compact` la imagen pasa a un
+ * lateral y el texto va a la derecha con su descripción propia. Sin stock
+ * ni descuentos inventados: solo datos del catálogo.
  */
 export function MenuCard({
   product,
@@ -78,8 +85,8 @@ export function MenuCard({
 
       <div
         className={cn(
-          'relative min-h-0 overflow-hidden rounded-xl bg-white',
-          isCompact ? 'w-20 shrink-0 self-stretch md:w-28' : 'flex-1'
+          'relative min-h-0 overflow-hidden rounded-xl bg-white shadow-lg shadow-black/25',
+          isCompact ? 'w-24 shrink-0 self-stretch md:w-36' : 'flex-[7]'
         )}
       >
         {hasImage ? (
@@ -105,40 +112,75 @@ export function MenuCard({
             </span>
           </div>
         )}
-      </div>
-
-      <div
-        className={cn(
-          'flex flex-col gap-0.5 px-1 pb-1',
-          isCompact && 'min-w-0 flex-1 justify-center'
-        )}
-      >
-        <h3
-          className={cn(
-            'line-clamp-2 font-heading leading-tight tracking-wide text-white',
-            NAME_FONT[fontScale]
-          )}
-        >
-          {product.name}
-        </h3>
-        {showDescription && product.description && (
+        {!isCompact && showDescription && product.description && (
           <p
             className={cn(
-              'line-clamp-2 leading-snug text-white/70',
+              'absolute inset-x-2 bottom-1 line-clamp-1 rounded-md bg-white/85 px-2 py-0.5 text-center leading-tight text-neutral-600 backdrop-blur-[2px]',
               DESCRIPTION_FONT[fontScale]
             )}
           >
             {product.description}
           </p>
         )}
-        <p
-          className={cn(
-            'font-heading text-brand-mustard',
-            PRICE_FONT[fontScale]
-          )}
-        >
-          {formatMoney(product.price)}
-        </p>
+      </div>
+
+      <div
+        className={cn(
+          'flex min-h-0 flex-col gap-0.5 px-1 pb-1',
+          isCompact
+            ? 'min-w-0 flex-1 justify-center'
+            : 'flex-[3] justify-center overflow-hidden'
+        )}
+      >
+        {isCompact ? (
+          <>
+            <h3
+              className={cn(
+                'line-clamp-2 font-heading leading-tight tracking-wide text-white',
+                NAME_FONT[fontScale]
+              )}
+            >
+              {product.name}
+            </h3>
+            {showDescription && product.description && (
+              <p
+                className={cn(
+                  'line-clamp-2 leading-snug text-white/70',
+                  DESCRIPTION_FONT[fontScale]
+                )}
+              >
+                {product.description}
+              </p>
+            )}
+            <p
+              className={cn(
+                'font-heading text-brand-mustard',
+                PRICE_FONT[fontScale]
+              )}
+            >
+              {formatMoney(product.price)}
+            </p>
+          </>
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <h3
+              className={cn(
+                'min-w-0 flex-1 line-clamp-2 font-heading leading-tight tracking-wide text-white',
+                NAME_FONT[fontScale]
+              )}
+            >
+              {product.name}
+            </h3>
+            <p
+              className={cn(
+                'shrink-0 font-heading text-brand-mustard',
+                PRICE_FONT[fontScale]
+              )}
+            >
+              {formatMoney(product.price)}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -32,7 +32,7 @@ export function MenuQrStrip({ branch, text }: MenuQrStripProps) {
   return (
     <footer
       data-testid="menu-qr-strip"
-      className="relative z-10 flex items-center justify-between gap-4 border-t border-white/10 bg-black/50 px-6 py-3 md:px-12"
+      className="relative z-10 flex items-center justify-between gap-4 border-t border-white/10 bg-black/50 px-6 py-2 md:px-12"
     >
       <div className="flex min-w-0 flex-col gap-1">
         <p className="font-heading text-2xl tracking-wide text-white md:text-3xl">
@@ -53,15 +53,15 @@ export function MenuQrStrip({ branch, text }: MenuQrStripProps) {
         {mounted && (
           <QRCode
             value={pedidoUrl}
-            size={112}
+            size={96}
             bgColor="#ffffff"
             fgColor="#1a1a1a"
             level="M"
             style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
-            viewBox="0 0 112 112"
+            viewBox="0 0 96 96"
           />
         )}
-        {!mounted && <div className="size-[112px]" aria-hidden="true" />}
+        {!mounted && <div className="size-[96px]" aria-hidden="true" />}
       </div>
     </footer>
   );
