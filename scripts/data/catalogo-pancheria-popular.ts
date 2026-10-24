@@ -74,13 +74,6 @@ export type CatalogRecipeDef = {
   compound: string;
   /** Insumos críticos: `autoDiscount=true, isOptional=false` implícito. */
   criticals: CatalogRecipeCriticalDef[];
-  /**
-   * Componentes incluidos sin elección y sin descuento de stock
-   * (`autoDiscount=false, isOptional=false`): p. ej. el vaso de gaseosa de
-   * una promo — siempre va, no lo puede sacar el cliente y no cuenta para
-   * el tope de opcionales. Solo insumos no críticos (service/manual).
-   */
-  fixeds?: CatalogRecipeCriticalDef[];
   /** Opcionales: `autoDiscount=false, isOptional=true` implícito. */
   optionals: CatalogRecipeOptionalDef[];
 };
@@ -267,7 +260,8 @@ export const PRODUCTOS: CatalogProductDef[] = [
     price: 1500,
     unit: 'unidad',
     description: 'Súper Pancho con hasta 4 aderezos + vaso de gaseosa.',
-    maxOptionalSelections: TOPE_ADEREZOS_COMUN,
+    // +1: el vaso incluido es un opcional preseleccionado y ocupa un lugar.
+    maxOptionalSelections: TOPE_ADEREZOS_COMUN + 1,
   },
   {
     name: 'Promo 2',
@@ -298,7 +292,8 @@ export const PRODUCTOS: CatalogProductDef[] = [
     unit: 'unidad',
     description:
       '2 Súper Panchos con hasta 4 aderezos compartidos + 2 vasos de gaseosa.',
-    maxOptionalSelections: TOPE_ADEREZOS_COMUN,
+    // +1: los vasos incluidos son opcionales preseleccionados y ocupan un lugar.
+    maxOptionalSelections: TOPE_ADEREZOS_COMUN + 1,
   },
   {
     name: 'Promo Amigos 2',
@@ -340,8 +335,8 @@ export const PRODUCTOS: CatalogProductDef[] = [
 ];
 
 // ————————————————————————————————————————————————————————————————————
-// Recetas (11): críticos con autoDiscount + opcionales del menú + fijos.
-// `quantity` en opcionales/fijos = cantidad cobrada/consumida por unidad de
+// Recetas (11): críticos con autoDiscount + opcionales del menú.
+// `quantity` en opcionales = cantidad cobrada/consumida por unidad de
 // promo (multiplicada por la cantidad de panchos en promos múltiples).
 // ————————————————————————————————————————————————————————————————————
 function aderezosComunes(panchos: number): CatalogRecipeOptionalDef[] {
@@ -361,12 +356,15 @@ function completo(panchos: number): CatalogRecipeOptionalDef[] {
 }
 
 /**
- * Vaso de gaseosa incluido en la promo: componente fijo (no opcional).
- * Es `service`: no descuenta stock, pero queda registrado en el snapshot
- * de la receta y en el resumen de insumos del cierre.
+ * Vaso de gaseosa incluido en la promo: opcional preseleccionado. Desde
+ * a4352cf los insumos no críticos (service/manual) deben ser opcionales, así
+ * que "incluido" se expresa con `selectedByDefault: true` — el cliente puede
+ * sacarlo y ocupa un lugar del tope de opcionales. Es `service`: no descuenta
+ * stock, pero queda registrado en el snapshot de la receta y en el resumen
+ * de insumos del cierre.
  */
-function vasosFijos(cantidad: number): CatalogRecipeCriticalDef {
-  return { supply: VASO_GASEOSA, quantity: cantidad };
+function vasosIncluidos(cantidad: number): CatalogRecipeOptionalDef {
+  return { supply: VASO_GASEOSA, quantity: cantidad, selectedByDefault: true };
 }
 
 export const RECETAS: CatalogRecipeDef[] = [
@@ -384,8 +382,7 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 1 },
       { supply: SALCHICHAS, quantity: 2 },
     ],
-    optionals: aderezosComunes(1),
-    fixeds: [vasosFijos(1)],
+    optionals: [...aderezosComunes(1), vasosIncluidos(1)],
   },
   {
     compound: 'Promo 2',
@@ -393,8 +390,7 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 1 },
       { supply: SALCHICHAS, quantity: 2 },
     ],
-    optionals: completo(1),
-    fixeds: [vasosFijos(1)],
+    optionals: [...completo(1), vasosIncluidos(1)],
   },
   {
     compound: 'Promo Pritty 1',
@@ -420,8 +416,7 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 2 },
       { supply: SALCHICHAS, quantity: 4 },
     ],
-    optionals: aderezosComunes(2),
-    fixeds: [vasosFijos(2)],
+    optionals: [...aderezosComunes(2), vasosIncluidos(2)],
   },
   {
     compound: 'Promo Amigos 2',
@@ -429,8 +424,7 @@ export const RECETAS: CatalogRecipeDef[] = [
       { supply: PAN, quantity: 2 },
       { supply: SALCHICHAS, quantity: 4 },
     ],
-    optionals: completo(2),
-    fixeds: [vasosFijos(2)],
+    optionals: [...completo(2), vasosIncluidos(2)],
   },
   {
     compound: 'Promo Popular',
@@ -634,7 +628,7 @@ export function buildCatalogPlan(
       continue;
     }
 
-    const missing = [...def.criticals, ...(def.fixeds ?? []), ...def.optionals]
+    const missing = [...def.criticals, ...def.optionals]
       .map((item) => item.supply)
       .filter((supply) => !byName.has(normalizeName(supply)));
     if (missing.length > 0) {

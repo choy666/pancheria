@@ -169,24 +169,26 @@ describe('buildCatalogPlan', () => {
     ]);
   });
 
-  test('los componentes fijos no cuentan para el tope de opcionales', () => {
+  test('un insumo incluido preseleccionado cuenta para el tope de opcionales', () => {
     const recetas: CatalogRecipeDef[] = [
       {
         compound: 'Súper Pancho',
         criticals: [{ supply: 'Pan super pancho', quantity: 1 }],
-        fixeds: [{ supply: 'Vaso de gaseosa', quantity: 1 }],
         optionals: [
           { supply: 'Mayonesa', quantity: 1, selectedByDefault: true },
           { supply: 'Ketchup', quantity: 1, selectedByDefault: true },
           { supply: 'Salsa Golf', quantity: 1, selectedByDefault: true },
           { supply: 'Mostaza', quantity: 1, selectedByDefault: true },
+          { supply: 'Vaso de gaseosa', quantity: 1, selectedByDefault: true },
         ],
       },
     ];
 
     const plan = buildCatalogPlan([], PRODUCTOS, recetas);
-    expect(plan.errors).toEqual([]);
-    expect(plan.recipes).toHaveLength(1);
+    expect(plan.recipes).toHaveLength(0);
+    expect(plan.errors).toEqual([
+      'La receta "Súper Pancho" tiene 5 opcionales preseleccionados pero el producto permite elegir hasta 4.',
+    ]);
   });
 
   test('detecta insumos que no resuelven cuando el compuesto sí existe', () => {
