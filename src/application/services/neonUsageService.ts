@@ -76,10 +76,18 @@ export async function getNeonUsage(): Promise<NeonUsage> {
     return { configured: false };
   }
 
-  const [project, endpoints] = await Promise.all([
-    neonFetch<NeonProjectResponse>(`/projects/${projectId}`, apiKey),
+  const [projectRes, endpoints] = await Promise.all([
+    neonFetch<{ project?: NeonProjectResponse } | NeonProjectResponse>(
+      `/projects/${projectId}`,
+      apiKey
+    ),
     neonFetch<NeonEndpointsResponse>(`/projects/${projectId}/endpoints`, apiKey),
   ]);
+  // La API de Neon envuelve el recurso: GET /projects/{id} → { project: {...} }.
+  const project =
+    'project' in projectRes && projectRes.project
+      ? projectRes.project
+      : (projectRes as NeonProjectResponse);
 
   const rwEndpoint = endpoints.endpoints?.find((e) => e.type === 'read_write');
   const cuSize =
