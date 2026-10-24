@@ -2,11 +2,11 @@ name: Uptime probe producción
 
 on:
   schedule:
-    # Nominal cada 15 min. Ojo: GitHub Actions retrasa schedules de alta
-    # frecuencia bajo carga (en expire-orders.yml, con */5, la cadencia real
-    # observada es ~3-9 h). Para uptime minuto a minuto con alertas, sumar
-    # un monitor externo (UptimeRobot, cron-job.org) sobre /api/health.
-    - cron: '*/15 * * * *'
+    # Nominal cada 30 min: el probe frecuente lo cubre el worker
+    # pancheria-healthcheck de Cloudflare (workers/healthcheck, cada 10 min).
+    # Bajar la cadencia reduce la presión sobre el plan free de Neon: cada
+    # probe despierta el compute y el auto-suspend exige ~5 min sin tráfico.
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:

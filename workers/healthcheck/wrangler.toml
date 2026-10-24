@@ -15,4 +15,7 @@ HEALTHCHECK_URL = "https://pancheria-alpha.vercel.app/api/health"
 ALERT_URL = "https://pancheria-alpha.vercel.app/api/cron/alert"
 
 [triggers]
-crons = ["* * * * *"]
+# Cada 10 min: Neon free suspende el compute tras ~5 min sin tráfico; a 1/min
+# nunca dormía y agotaba la cuota mensual de CU-horas. Menos frecuencia deja
+# ventanas de suspensión reales entre probes.
+crons = ["*/10 * * * *"]
