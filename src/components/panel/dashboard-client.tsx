@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { addHours, intervalToDuration } from 'date-fns';
 import {
   AlertCircle,
   Banknote,
   ClipboardList,
+  Database,
   Package,
   ShoppingCart,
   Store,
@@ -19,6 +20,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboard } from '@/hooks/useDashboard';
+import { authenticatedFetch } from '@/lib/fetch';
+import { PANEL_NEON_USAGE_API } from '@/config/api';
+import type { NeonUsage } from '@/application/services/neonUsageService';
 import { routes } from '@/config/routes';
 import { getAutoCloseHours } from '@/config/caja';
 import { safeFormatDuration } from '@/lib/date';
@@ -254,6 +258,90 @@ function StockCard({ data }: { data: NonNullable<ReturnType<typeof useDashboard>
   );
 }
 
+function NeonUsageCard() {
+  const [usage, setUsage] = useState<NeonUsage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    authenticatedFetch(PANEL_NEON_USAGE_API)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return (await response.json()) as NeonUsage;
+      })
+      .then((data) => {
+        if (!cancelled) setUsage(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError('No se pudo consultar el consumo de la base.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const percent = usage?.configured ? Math.min(100, usage.usedPercent) : 0;
+  const barColor =
+    percent >= 85
+      ? 'bg-destructive'
+      : percent >= 60
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+
+  return (
+    <Card data-testid="dashboard-neon-card">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Database className="h-5 w-5" />
+          Base de datos
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error && (
+          <p className="text-base text-muted-foreground">{error}</p>
+        )}
+        {!error && !usage && (
+          <Skeleton className="h-16 w-full" />
+        )}
+        {!error && usage && !usage.configured && (
+          <p className="text-base text-muted-foreground">
+            Para ver el consumo de Neon configurá{' '}
+            <span className="font-mono text-sm">NEON_API_KEY</span> y{' '}
+            <span className="font-mono text-sm">NEON_PROJECT_ID</span>.
+          </p>
+        )}
+        {!error && usage?.configured && (
+          <>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn('h-full transition-all', barColor)}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <p className="text-base">
+              <span className="font-mono font-semibold">
+                {usage.usedCuHours.toFixed(1)}
+              </span>{' '}
+              / {usage.quotaCuHours} CU-h usadas — quedan{' '}
+              <span className="font-mono font-semibold">
+                {usage.remainingCuHours.toFixed(1)}
+              </span>
+            </p>
+            {usage.periodEnd && (
+              <p className="text-sm text-muted-foreground">
+                El ciclo se renueva el{' '}
+                {new Date(usage.periodEnd).toLocaleDateString('es-AR')}.
+                {percent >= 85 &&
+                  ' Consumo alto: si llega al techo la base se apaga.'}
+              </p>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface ActionItem {
   href: string;
   label: string;
@@ -435,6 +523,12 @@ export function DashboardClient({
             <PedidosCard data={data} />
             <StockCard data={data} />
           </div>
+
+          {isAdmin && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <NeonUsageCard />
+            </div>
+          )}
 
           <DashboardActions isAdmin={isAdmin} />
 
