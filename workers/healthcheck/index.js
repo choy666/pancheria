@@ -1,7 +1,7 @@
 /**
  * Worker de monitoreo externo de Panchería.
  *
- * Corre con Cron Trigger (`*/10 * * * *`, cada 10 minutos) en Cloudflare y hace
+ * Corre con Cron Trigger cada 10 minutos en Cloudflare y hace
  * GET a HEALTHCHECK_URL. Si la respuesta no es 200, `ok !== true` o
  * `db !== 'up'`, loguea el fallo (visible con la API de observabilidad de
  * Cloudflare) y, si están definidos ALERT_URL y ALERT_TOKEN, postea la
