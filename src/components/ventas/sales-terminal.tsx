@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CajaStatus } from '@/components/caja/caja-status';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { useSellableCart } from '@/hooks/useSellableCart';
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
 import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-options-dialog';
 import { isPublicSellableProduct } from '@/lib/catalog';
@@ -26,6 +27,7 @@ import {
   VENTAS_API,
   VENTAS_DISPONIBILIDAD_API,
 } from '@/config/api';
+import { getVentasCatalogRefreshIntervalMs } from '@/config/ventas';
 import { formatMoney } from '@/lib/money';
 import { usePaymentParts } from '@/hooks/usePaymentParts';
 import {
@@ -57,6 +59,9 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Espejo de `isSubmitting` para que el polling lea el valor vigente sin
+  // re-crear el intervalo en cada cambio de estado.
+  const isSubmittingRef = useRef(false);
   // La clave persiste durante reintentos y rota cuando cambia el payload de venta.
   const saleKey = useSubmitIdempotencyKey();
   const [cartAvailability, setCartAvailability] = useState<
@@ -118,7 +123,11 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     });
   }, [products, showOutOfStock, cartAvailability]);
 
-  async function fetchProducts() {
+  // `silent` se usa para los refrescos de fondo (reanudar visibilidad): no
+  // enciende `isCheckingAvailability` ni muestra errores — el cambio de
+  // `products` dispara el precheck reactivo, que sí informa su estado.
+  async function fetchProducts(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
     try {
       // El endpoint está paginado: el terminal necesita el catálogo completo
       // para precalcular disponibilidad, así que recorre todas las páginas.
@@ -140,10 +149,12 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
 
       if (!isMountedRef.current) return;
       setProducts(sellable);
-      setIsCheckingAvailability(sellable.length > 0);
+      if (!silent) setIsCheckingAvailability(sellable.length > 0);
     } catch (error) {
       if (!isMountedRef.current) return;
-      setError(error instanceof Error ? error.message : 'Error desconocido');
+      if (!silent) {
+        setError(error instanceof Error ? error.message : 'Error desconocido');
+      }
     } finally {
       if (isMountedRef.current) setLoading(false);
     }
@@ -157,13 +168,19 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     };
   }, []);
 
-  useEffect(() => {
-    if (products.length === 0) return;
+  // Precheck de disponibilidad contra `POST /api/ventas/disponibilidad` con el
+  // carrito actual y el catálogo completo. `silent: true` lo usa el polling
+  // periódico: actualiza `cartAvailability`/`cartShortage` sin encender el
+  // indicador de verificación ni bloquear "Confirmar venta". El request más
+  // reciente gana: todos comparten `availabilityRequestIdRef` y solo el
+  // vigente aplica resultados y apaga el indicador.
+  const runAvailabilityCheck = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (products.length === 0) return;
 
-    const requestId = ++availabilityRequestIdRef.current;
-
-    const timer = setTimeout(async () => {
-      if (requestId !== availabilityRequestIdRef.current) return;
+      const silent = options?.silent ?? false;
+      const requestId = ++availabilityRequestIdRef.current;
+      if (!silent) setIsCheckingAvailability(true);
 
       const requestItems = groupCartItemsForSubmit(
         lines.map((line) => ({
@@ -217,12 +234,43 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           setIsCheckingAvailability(false);
         }
       }
+    },
+    [lines, products]
+  );
+
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    // Invalidar de inmediato cualquier verificación en vuelo (incluidos los
+    // ticks del polling) apenas cambian el carrito o el catálogo.
+    availabilityRequestIdRef.current += 1;
+
+    const timer = setTimeout(() => {
+      void runAvailabilityCheck();
     }, 300);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [lines, products]);
+  }, [lines, products, runAvailabilityCheck]);
+
+  // Refresco en vivo del catálogo del POS: el tick es el POST de
+  // disponibilidad (liviano, incluye reservas y ventas ajenas); al reanudar
+  // la pestaña se re-descarga el catálogo completo para ver altas/bajas o
+  // ediciones hechas mientras dormía. `immediate: false` porque el montaje ya
+  // dispara `fetchProducts` + el primer precheck por el cambio de `products`.
+  const catalogRefreshIntervalMs = getVentasCatalogRefreshIntervalMs();
+  useVisibilityPolling(
+    () => {
+      // La confirmación en curso ya refresca al terminar vía `confirmSale`.
+      if (isSubmittingRef.current) return;
+      void runAvailabilityCheck({ silent: true });
+    },
+    catalogRefreshIntervalMs,
+    catalogRefreshIntervalMs > 0 && products.length > 0,
+    false,
+    () => void fetchProducts({ silent: true })
+  );
 
   function addToCart(
     product: SellableProduct,
@@ -334,6 +382,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setError(null);
 
@@ -378,6 +427,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         await refresh();
       }
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }

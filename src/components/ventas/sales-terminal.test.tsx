@@ -4,6 +4,7 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { SalesTerminal } from './sales-terminal';
 import * as useCashRegisterModule from '@/hooks/useCashRegister';
+import * as ventasConfigModule from '@/config/ventas';
 import {
   PRODUCTOS_API,
   VENTAS_DISPONIBILIDAD_API,
@@ -42,6 +43,8 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/hooks/useCashRegister');
 
+jest.mock('@/config/ventas');
+
 jest.mock('@/components/caja/caja-status', () => ({
   CajaStatus: () => <div data-testid="caja-status" />,
 }));
@@ -49,6 +52,11 @@ jest.mock('@/components/caja/caja-status', () => ({
 const mockedUseCashRegister =
   useCashRegisterModule.useCashRegister as jest.MockedFunction<
     typeof useCashRegisterModule.useCashRegister
+  >;
+
+const mockedGetVentasCatalogRefreshIntervalMs =
+  ventasConfigModule.getVentasCatalogRefreshIntervalMs as jest.MockedFunction<
+    typeof ventasConfigModule.getVentasCatalogRefreshIntervalMs
   >;
 
 const originalFetch = global.fetch;
@@ -122,6 +130,12 @@ function mockCashRegister(open: boolean) {
 }
 
 describe('SalesTerminal', () => {
+  beforeEach(() => {
+    // Polling deshabilitado por defecto para que los tests existentes corran
+    // deterministas; los casos de refresco lo habilitan con otro retorno.
+    mockedGetVentasCatalogRefreshIntervalMs.mockReturnValue(0);
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
     global.fetch = originalFetch;
@@ -1114,5 +1128,359 @@ describe('SalesTerminal', () => {
         screen.getByTestId('confirm-sale-blocker')
       ).toHaveTextContent('Faltan $ 500 por cobrar');
     });
+  });
+
+  test('refresca la disponibilidad del catálogo periódicamente sin interacción', async () => {
+    mockCashRegister(true);
+    mockedGetVentasCatalogRefreshIntervalMs.mockReturnValue(50);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+      {
+        id: 2,
+        name: 'Pritty',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 800,
+        unit: 'lata',
+        availability: 3,
+      },
+    ];
+
+    let disponibilidadCalls = 0;
+    let productosCalls = 0;
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        productosCalls++;
+        return createFetchResponse({
+          items: products,
+          total: products.length,
+          page: 1,
+          limit: 100,
+        });
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        disponibilidadCalls++;
+        return createFetchResponse({
+          availabilityByProduct: { 1: 5, 2: 3 },
+          shortageByProduct: {},
+        });
+      }
+      return createFetchResponse(null, false, 404);
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(disponibilidadCalls).toBeGreaterThanOrEqual(1)
+    );
+    // Los ticks periódicos siguen consultando sin cambios en el carrito.
+    await waitFor(() =>
+      expect(disponibilidadCalls).toBeGreaterThanOrEqual(3)
+    );
+    // El tick no re-descarga el catálogo: solo el POST de disponibilidad.
+    expect(productosCalls).toBe(1);
+  });
+
+  test('el tick periódico envía los productIds de todo el catálogo cargado', async () => {
+    mockCashRegister(true);
+    mockedGetVentasCatalogRefreshIntervalMs.mockReturnValue(50);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+      {
+        id: 2,
+        name: 'Pritty',
+        type: 'critical_supply',
+        criticalSupplyType: 'beverage',
+        price: 800,
+        unit: 'lata',
+        availability: 3,
+      },
+    ];
+
+    const disponibilidadBodies: { productIds?: number[] }[] = [];
+    global.fetch = jest.fn().mockImplementation(
+      (url: string, init?: RequestInit) => {
+        if (
+          typeof url === 'string' &&
+          url.startsWith(`${PRODUCTOS_API}?`) &&
+          url.includes('includeAvailability=true')
+        ) {
+          return createFetchResponse({
+            items: products,
+            total: products.length,
+            page: 1,
+            limit: 100,
+          });
+        }
+        if (url === VENTAS_DISPONIBILIDAD_API) {
+          disponibilidadBodies.push(
+            JSON.parse(
+              typeof init?.body === 'string' ? init.body : '{}'
+            ) as { productIds?: number[] }
+          );
+          return createFetchResponse({
+            availabilityByProduct: { 1: 5, 2: 3 },
+            shortageByProduct: {},
+          });
+        }
+        return createFetchResponse(null, false, 404);
+      }
+    );
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+    // La primera llamada es el precheck reactivo; las siguientes son ticks.
+    await waitFor(() =>
+      expect(disponibilidadBodies.length).toBeGreaterThanOrEqual(2)
+    );
+    expect(disponibilidadBodies.at(-1)?.productIds).toEqual([1, 2]);
+  });
+
+  test('el tick no enciende el indicador de verificación ni bloquea Confirmar venta', async () => {
+    mockCashRegister(true);
+    mockedGetVentasCatalogRefreshIntervalMs.mockReturnValue(50);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    let disponibilidadCalls = 0;
+    let deferTicks = false;
+    const pendingTickResolvers: ((response: Response) => void)[] = [];
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        return createFetchResponse({
+          items: products,
+          total: products.length,
+          page: 1,
+          limit: 100,
+        });
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        disponibilidadCalls++;
+        if (deferTicks) {
+          return new Promise<Response>((resolve) =>
+            pendingTickResolvers.push(resolve)
+          );
+        }
+        return createFetchResponse({
+          availabilityByProduct: { 1: 5 },
+          shortageByProduct: {},
+        });
+      }
+      return createFetchResponse(null, false, 404);
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+
+    // Agregar un ítem y cubrir el pago para que el único bloqueo posible del
+    // botón sea el indicador de verificación de disponibilidad.
+    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
+    fireEvent.click(card);
+    fireEvent.change(screen.getByTestId('payment-cash-input'), {
+      target: { value: '1500' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('confirm-sale-button')).not.toBeDisabled()
+    );
+
+    // Los próximos ticks quedan en vuelo para observar el estado del bloqueo.
+    deferTicks = true;
+    const callsAntes = disponibilidadCalls;
+    await waitFor(() =>
+      expect(disponibilidadCalls).toBeGreaterThan(callsAntes)
+    );
+
+    // Con un tick silencioso en vuelo el confirm sigue habilitado y no
+    // aparece "Verificando disponibilidad…" (con pago completo ni siquiera
+    // se renderiza el blocker).
+    expect(screen.getByTestId('confirm-sale-button')).not.toBeDisabled();
+    expect(
+      screen.queryByTestId('confirm-sale-blocker')
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      for (const resolve of pendingTickResolvers) {
+        resolve(
+          createFetchResponse({
+            availabilityByProduct: { 1: 4 },
+            shortageByProduct: {},
+          })
+        );
+      }
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('confirm-sale-button')).not.toBeDisabled()
+    );
+    expect(
+      screen.queryByTestId('confirm-sale-blocker')
+    ).not.toBeInTheDocument();
+  });
+
+  test('un intervalo de 0 deshabilita el polling por completo', async () => {
+    mockCashRegister(true);
+    mockedGetVentasCatalogRefreshIntervalMs.mockReturnValue(0);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    let disponibilidadCalls = 0;
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        return createFetchResponse({
+          items: products,
+          total: products.length,
+          page: 1,
+          limit: 100,
+        });
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        disponibilidadCalls++;
+        return createFetchResponse({
+          availabilityByProduct: { 1: 5 },
+          shortageByProduct: {},
+        });
+      }
+      return createFetchResponse(null, false, 404);
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+    await waitFor(() => expect(disponibilidadCalls).toBe(1));
+
+    // Sin polling no hay más llamadas que el precheck de la carga inicial.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(disponibilidadCalls).toBe(1);
+  });
+
+  test('al volver a ser visible la pestaña re-descarga el catálogo', async () => {
+    mockCashRegister(true);
+    // Intervalo alto: solo importa el refresco al reanudar, no los ticks.
+    mockedGetVentasCatalogRefreshIntervalMs.mockReturnValue(60_000);
+
+    const products: Product[] = [
+      {
+        id: 1,
+        name: 'Panchuque',
+        type: 'compound',
+        criticalSupplyType: null,
+        price: 1500,
+        unit: 'unidad',
+        availability: 5,
+      },
+    ];
+
+    let productosCalls = 0;
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (
+        typeof url === 'string' &&
+        url.startsWith(`${PRODUCTOS_API}?`) &&
+        url.includes('includeAvailability=true')
+      ) {
+        productosCalls++;
+        return createFetchResponse({
+          items: products,
+          total: products.length,
+          page: 1,
+          limit: 100,
+        });
+      }
+      if (url === VENTAS_DISPONIBILIDAD_API) {
+        return createFetchResponse({
+          availabilityByProduct: { 1: 5 },
+          shortageByProduct: {},
+        });
+      }
+      return createFetchResponse(null, false, 404);
+    });
+
+    render(<SalesTerminal />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Panchuque')).toBeInTheDocument()
+    );
+    await waitFor(() => expect(productosCalls).toBe(1));
+
+    await act(async () => {
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        value: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await act(async () => {
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        value: false,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => expect(productosCalls).toBe(2));
   });
 });

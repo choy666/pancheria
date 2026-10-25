@@ -238,6 +238,10 @@ jobs:
       NEXT_PUBLIC_CATALOG_PAGE_SIZE: "200"
       # Refresco de chat más rápido en E2E (paridad con .env.e2e.example).
       NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS: "1000"
+      # Polling del catálogo de /ventas deshabilitado en E2E (paridad con
+      # .env.e2e.example): la suite corre determinista sin ticks periódicos;
+      # la cobertura del refresco es unitaria.
+      NEXT_PUBLIC_VENTAS_REFETCH_INTERVAL_MS: "0"
       # Duraciones cortas de las escenas de /pantalla para que el spec E2E
       # vea rotar productos → sucursal → QR en segundos (paridad con
       # .env.e2e.example; en CI no existe .env.e2e).

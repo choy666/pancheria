@@ -104,6 +104,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `TRUSTED_PROXY_IP_HEADER` (opcional) — header confiable para obtener la IP real del cliente en rate limiting. Si no se define, en producción se usa el header `x-vercel-forwarded-for` y en desarrollo se usa `X-Forwarded-For` como fallback.
 - `PUBLIC_RATE_LIMIT_TRUST_PRIVATE_IPS` (opcional) — si se define como `true`, permite usar `X-Forwarded-For` en producción cuando no hay proxy confiable configurado. Puede ser vulnerable a IP spoofing; usalo solo si un proxy sanitiza el header.
 - `NEXT_PUBLIC_PEDIDO_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco del catálogo público en milisegundos (por defecto 30000 ms).
+- `NEXT_PUBLIC_VENTAS_REFETCH_INTERVAL_MS` (opcional) — intervalo de refresco en vivo de la disponibilidad del catálogo del terminal `/ventas` en milisegundos (por defecto 30000 ms; mínimo 5000 ms; `0` lo deshabilita). En cada tick se reenvía el carrito actual junto con los `productIds` de todo el catálogo a `POST /api/ventas/disponibilidad` (precheck de solo lectura que contempla ventas de otras terminales y reservas de pedidos `in_process`); al reanudar la pestaña se re-descarga el catálogo completo. Cada tick recalcula la disponibilidad del catálogo entero: con muchas terminales abiertas, subir el intervalo es la válvula de escape.
 - `NEXT_PUBLIC_CATALOG_PAGE_SIZE` (opcional) — tamaño de página del catálogo público en `/pedido` (por defecto 48; el listado inicial se carga por SSR y el resto con el botón "Cargar más").
 - `PUBLIC_CATALOG_CACHE_S_MAXAGE` / `PUBLIC_CATALOG_CACHE_SWR` (opcionales, **solo servidor**) — `s-maxage` y `stale-while-revalidate` en segundos del `Cache-Control` de `GET /api/public/catalogo` (por defecto 10 y 30; `0` en `s-maxage` deshabilita el header y cada request pega al origen).
 - `PUBLIC_BRANCH_STATUS_CACHE_S_MAXAGE` / `PUBLIC_BRANCH_STATUS_CACHE_SWR` (opcionales, **solo servidor**) — ídem para `GET /api/public/sucursal/estado` (mismos valores por defecto). `GET /api/public/pantalla` y `GET /api/public/menu` en cambio usan `PUBLIC_CATALOG_CACHE_S_MAXAGE` / `PUBLIC_CATALOG_CACHE_SWR` (sus snapshots son mayormente catálogo).
@@ -661,3 +662,13 @@ Playwright y `dev-e2e` cargan `.env.local` primero y luego `.env.e2e` con priori
 - Nunca hardcodear URLs de base de datos, credenciales ni secretos.
 - `npx vercel env pull` descarga secretos en texto plano: borrar `.env.production.local` inmediatamente después de usarlo.
 - Si una credencial se expone, rotarla en Neon/Vercel de inmediato.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
