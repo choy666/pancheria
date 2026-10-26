@@ -84,8 +84,6 @@ async function updateCashRegisterSummary(
     cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary: Record<string, number> =
     cashRegister.criticalSuppliesSummary ?? {};
-  const recipeSuppliesSummary: Record<string, number> =
-    cashRegister.recipeSuppliesSummary ?? {};
 
   for (const item of saleItems) {
     // Si el producto fue purgado (`productId` NULL o fila inexistente), el
@@ -103,7 +101,6 @@ async function updateCashRegisterSummary(
     addItemToSummary(
       productsSummary,
       criticalSuppliesSummary,
-      recipeSuppliesSummary,
       product,
       item.quantity,
       recipesByProduct,
@@ -122,7 +119,6 @@ async function updateCashRegisterSummary(
       totalSales,
       productsSummary,
       criticalSuppliesSummary,
-      recipeSuppliesSummary,
     },
     tx
   );

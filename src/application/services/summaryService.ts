@@ -3,7 +3,6 @@ import * as productRepository from '@/repositories/productRepository';
 import { addMoney, moneyToNumber, parseMoney } from '@/lib/money';
 import {
   addItemToSummary,
-  buildSuppliesSummary,
   fillMissingCriticalSupplies,
 } from '@/lib/summary-helpers';
 export { calculateCompoundAvailability } from '@/lib/availability-helpers';
@@ -49,8 +48,6 @@ type SummaryState = {
   totalSales: number;
   productsSummary: Record<string, number>;
   criticalSuppliesSummary: Record<string, number>;
-  recipeSuppliesSummary: Record<string, number>;
-  productTypesByName: Map<string, string>;
 };
 
 function createSummaryState(): SummaryState {
@@ -60,8 +57,6 @@ function createSummaryState(): SummaryState {
     totalSales: 0,
     productsSummary: {},
     criticalSuppliesSummary: {},
-    recipeSuppliesSummary: {},
-    productTypesByName: new Map(),
   };
 }
 
@@ -144,12 +139,9 @@ function addSalesToSummaryState(
         item.criticalSupplyType ?? item.product?.criticalSupplyType ?? null;
       if (!productName || !productType) continue;
 
-      state.productTypesByName.set(productName, productType);
-
       addItemToSummary(
         state.productsSummary,
         state.criticalSuppliesSummary,
-        state.recipeSuppliesSummary,
         {
           id: item.productId ?? item.product?.id ?? 0,
           name: productName,
@@ -185,12 +177,6 @@ async function finalizeSummary(
     totalSales: state.totalSales,
     productsSummary: state.productsSummary,
     criticalSuppliesSummary: state.criticalSuppliesSummary,
-    recipeSuppliesSummary: state.recipeSuppliesSummary,
-    suppliesSummary: buildSuppliesSummary(
-      state.productsSummary,
-      state.recipeSuppliesSummary,
-      state.productTypesByName
-    ),
   };
 }
 

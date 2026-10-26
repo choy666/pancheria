@@ -198,7 +198,8 @@ Los ajustes manuales (`restock`/`manual_adjustment`) registran además el usuari
 
 - Una caja (`cashRegisters`) representa un turno de ventas en una sucursal.
 - Solo puede haber una caja abierta por sucursal.
-- La caja lleva un resumen de ventas: `total`, `cashTotal`, `transferTotal`, `totalSales`, `productsSummary`, `criticalSuppliesSummary`, `recipeSuppliesSummary`.
+- La caja lleva un resumen de ventas: `total`, `cashTotal`, `transferTotal`, `totalSales`, `productsSummary`, `criticalSuppliesSummary`.
+- La columna `recipeSuppliesSummary` quedó **legacy**: conserva los datos de cajas históricas pero ya no se escribe ni se muestra (las tarjetas "Insumos de recetas" y "Consumo total por insumo" del cierre fueron retiradas).
 
 ### 5.2 Ciclo de vida
 
@@ -211,8 +212,7 @@ Los ajustes manuales (`restock`/`manual_adjustment`) registran además el usuari
 2. **Ventas**
    - Cada venta confirmada incrementa `totalSales`, `total`, `cashTotal` o `transferTotal` según medio de pago.
    - `productsSummary` cuenta unidades vendidas por nombre de producto.
-   - `criticalSuppliesSummary` cuenta unidades de bebidas y, para promos, las cantidades de insumos críticos consumidos.
-   - `recipeSuppliesSummary` cuenta, para cada insumo incluido en promos, la cantidad consumida considerando los snapshots (`Insumos de recetas` en el cierre).
+   - `criticalSuppliesSummary` cuenta unidades de bebidas y, para promos, las cantidades de insumos críticos (`autoDiscount`) consumidos según el snapshot de la venta.
 
 3. **Cierre manual**
    - El operador/cierra la caja.

@@ -1,6 +1,5 @@
 import {
   addItemToSummary,
-  buildSuppliesSummary,
   fillMissingCriticalSupplies,
 } from './summary-helpers';
 
@@ -9,12 +8,10 @@ describe('summary-helpers', () => {
     it('suma un producto simple a productsSummary', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         { id: 1, name: 'Pancho', type: 'service', criticalSupplyType: null },
         2,
         new Map()
@@ -22,18 +19,15 @@ describe('summary-helpers', () => {
 
       expect(productsSummary).toEqual({ Pancho: 2 });
       expect(criticalSuppliesSummary).toEqual({});
-      expect(recipeSuppliesSummary).toEqual({});
     });
 
     it('suma una bebida critica a criticalSuppliesSummary', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         { id: 1, name: 'Coca 500ml', type: 'critical_supply', criticalSupplyType: 'beverage' },
         3,
         new Map()
@@ -41,18 +35,15 @@ describe('summary-helpers', () => {
 
       expect(productsSummary).toEqual({ 'Coca 500ml': 3 });
       expect(criticalSuppliesSummary).toEqual({ 'Coca 500ml': 3 });
-      expect(recipeSuppliesSummary).toEqual({});
     });
 
     it('ignora insumos criticos que no sean bebidas', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         { id: 1, name: 'Pan', type: 'critical_supply', criticalSupplyType: 'bread' },
         5,
         new Map()
@@ -60,13 +51,11 @@ describe('summary-helpers', () => {
 
       expect(productsSummary).toEqual({ Pan: 5 });
       expect(criticalSuppliesSummary).toEqual({});
-      expect(recipeSuppliesSummary).toEqual({});
     });
 
-    it('acumula consumos de recetas con autoDiscount para productos compuestos', () => {
+    it('acumula en criticalSuppliesSummary solo los insumos con autoDiscount de productos compuestos', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       const recipesByProduct = new Map([
         [
@@ -82,7 +71,6 @@ describe('summary-helpers', () => {
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         { id: 1, name: 'Panchuque', type: 'compound', criticalSupplyType: null },
         3,
         recipesByProduct
@@ -93,17 +81,11 @@ describe('summary-helpers', () => {
         Pan: 6,
         Chorizo: 3,
       });
-      expect(recipeSuppliesSummary).toEqual({
-        Pan: 6,
-        Chorizo: 3,
-        Sal: 3,
-      });
     });
 
     it('usa supplyId como fallback cuando no hay nombre de insumo', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       const recipesByProduct = new Map([
         [
@@ -115,25 +97,21 @@ describe('summary-helpers', () => {
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         { id: 1, name: 'Combo', type: 'compound', criticalSupplyType: null },
         2,
         recipesByProduct
       );
 
       expect(criticalSuppliesSummary).toEqual({ 'Insumo 99': 2 });
-      expect(recipeSuppliesSummary).toEqual({ 'Insumo 99': 2 });
     });
 
     it('resta cuando el signo es negativo', () => {
       const productsSummary: Record<string, number> = { Panchuque: 5 };
       const criticalSuppliesSummary: Record<string, number> = { Coca: 5 };
-      const recipeSuppliesSummary: Record<string, number> = { Panchuque: 5 };
 
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         { id: 1, name: 'Panchuque', type: 'critical_supply', criticalSupplyType: 'beverage' },
         2,
         new Map(),
@@ -143,39 +121,35 @@ describe('summary-helpers', () => {
 
       expect(productsSummary).toEqual({ Panchuque: 3 });
       expect(criticalSuppliesSummary).toEqual({ Coca: 5, Panchuque: -2 });
-      expect(recipeSuppliesSummary).toEqual({ Panchuque: 5 });
     });
 
     it('acumula multiples llamadas en el mismo resumen', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       const product = { id: 1, name: 'Coca 500ml', type: 'critical_supply' as const, criticalSupplyType: 'beverage' as const };
 
-      addItemToSummary(productsSummary, criticalSuppliesSummary, recipeSuppliesSummary, product, 2, new Map());
-      addItemToSummary(productsSummary, criticalSuppliesSummary, recipeSuppliesSummary, product, 3, new Map());
+      addItemToSummary(productsSummary, criticalSuppliesSummary, product, 2, new Map());
+      addItemToSummary(productsSummary, criticalSuppliesSummary, product, 3, new Map());
 
       expect(productsSummary).toEqual({ 'Coca 500ml': 5 });
       expect(criticalSuppliesSummary).toEqual({ 'Coca 500ml': 5 });
-      expect(recipeSuppliesSummary).toEqual({});
     });
 
-    it('acumula todos los insumos seleccionados cuando hay snapshot', () => {
+    it('acumula solo los insumos seleccionados con autoDiscount cuando hay snapshot', () => {
       const productsSummary: Record<string, number> = {};
       const criticalSuppliesSummary: Record<string, number> = {};
-      const recipeSuppliesSummary: Record<string, number> = {};
 
       const product = { id: 1, name: 'Promo', type: 'compound', criticalSupplyType: null };
       const recipeSnapshot = [
         { supplyId: 10, supplyName: 'Pan', supplyType: 'critical_supply' as const, quantity: 1, autoDiscount: true, isOptional: false, selected: true, selectedByDefault: false },
         { supplyId: 11, supplyName: 'Mayonesa', supplyType: 'manual_supply' as const, quantity: 1, autoDiscount: false, isOptional: true, selected: true, selectedByDefault: true },
+        { supplyId: 12, supplyName: 'Ketchup', supplyType: 'manual_supply' as const, quantity: 1, autoDiscount: true, isOptional: true, selected: false, selectedByDefault: false },
       ];
 
       addItemToSummary(
         productsSummary,
         criticalSuppliesSummary,
-        recipeSuppliesSummary,
         product,
         2,
         new Map(),
@@ -184,7 +158,6 @@ describe('summary-helpers', () => {
 
       expect(productsSummary).toEqual({ Promo: 2 });
       expect(criticalSuppliesSummary).toEqual({ Pan: 2 });
-      expect(recipeSuppliesSummary).toEqual({ Pan: 2, Mayonesa: 2 });
     });
   });
 
@@ -215,44 +188,6 @@ describe('summary-helpers', () => {
       const summary: Record<string, number> = {};
       fillMissingCriticalSupplies(summary, []);
       expect(summary).toEqual({});
-    });
-  });
-
-  describe('buildSuppliesSummary', () => {
-    it('suma ventas directas e insumos de recetas por nombre', () => {
-      const result = buildSuppliesSummary(
-        { 'Vaso de gaseosa': 3, Promo: 2 },
-        { 'Vaso de gaseosa': 2, Mayonesa: 4 },
-        new Map([
-          ['Vaso de gaseosa', 'service'],
-          ['Promo', 'compound'],
-        ])
-      );
-
-      expect(result).toEqual({
-        'Vaso de gaseosa': 5,
-        Mayonesa: 4,
-      });
-    });
-
-    it('incluye nombres sin tipo conocido como insumo', () => {
-      const result = buildSuppliesSummary(
-        { 'Producto viejo': 1 },
-        {},
-        new Map()
-      );
-
-      expect(result).toEqual({ 'Producto viejo': 1 });
-    });
-
-    it('no muta los resúmenes de entrada', () => {
-      const products = { Promo: 1 };
-      const recipeSupplies = { Pan: 2 };
-
-      buildSuppliesSummary(products, recipeSupplies, new Map());
-
-      expect(products).toEqual({ Promo: 1 });
-      expect(recipeSupplies).toEqual({ Pan: 2 });
     });
   });
 });

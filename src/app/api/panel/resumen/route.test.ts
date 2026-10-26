@@ -58,8 +58,6 @@ function buildCashRegister(status: 'open' | 'closed' = 'open') {
     cashInDrawer: 1500,
     productsSummary: { Panchuque: 3 },
     criticalSuppliesSummary: { Pan: 3 },
-    recipeSuppliesSummary: { Salchicha: 3 },
-    suppliesSummary: { Salchicha: 3 },
     createdAt: new Date(),
     deletedAt: null,
     closingCashCount: null,

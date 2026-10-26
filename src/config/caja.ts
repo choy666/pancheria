@@ -92,7 +92,6 @@ export interface CashRegister {
   forcedCloseReason?: string | null;
   productsSummary?: Record<string, number>;
   criticalSuppliesSummary?: Record<string, number>;
-  recipeSuppliesSummary?: Record<string, number>;
   /**
    * Estado del turno calculado en el servidor contra los horarios vigentes de
    * la sucursal. Presente en los payloads de `/api/caja/resumen`,

@@ -122,7 +122,7 @@ sequenceDiagram
 
 > Render: [diagramas/svg/flujo-cierre-caja.svg](diagramas/svg/flujo-cierre-caja.svg)
 
-Puntos clave: el cierre congela `products_summary`, `critical_supplies_summary` y `recipe_supplies_summary` (JSONB); las diferencias se calculan contra el conteo declarado; el auto-cierre usa la etiqueta `CAJA_AUTO_CLOSED_BY` (por eso `closed_by` no es FK).
+Puntos clave: el cierre congela `products_summary` y `critical_supplies_summary` (JSONB); la columna `recipe_supplies_summary` quedó legacy (conserva datos de cajas históricas pero ya no se escribe); las diferencias se calculan contra el conteo declarado; el auto-cierre usa la etiqueta `CAJA_AUTO_CLOSED_BY` (por eso `closed_by` no es FK).
 
 ## 4. Chat del pedido (polling + SSE opt-in)
 

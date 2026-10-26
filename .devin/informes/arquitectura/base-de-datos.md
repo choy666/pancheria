@@ -79,7 +79,7 @@ erDiagram
         text forced_close_reason
         jsonb products_summary
         jsonb critical_supplies_summary
-        jsonb recipe_supplies_summary
+        jsonb recipe_supplies_summary "legacy: ya no se escribe"
         timestamp deleted_at "soft delete"
         timestamp created_at
     }

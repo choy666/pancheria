@@ -184,8 +184,8 @@ describe('cashRegisterService', () => {
       actualSaleRepository.findActiveWithDetailsByCashRegister
     );
     (mockedDb.query.sales.findMany as jest.Mock).mockResolvedValue([]);
-    // `parseCashRegisterSummary` deriva `suppliesSummary` consultando los
-    // productos de la sucursal (incluidos eliminados) vía `findAll`.
+    // `products.findMany` lo usan `findActiveCriticalSupplies` (relleno de
+    // críticos sin ventas) y el cálculo paginado del resumen.
     (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([]);
     mockedBuildProductContext.mockResolvedValue({
       productsList: [],
@@ -379,10 +379,13 @@ describe('cashRegisterService', () => {
         Gaseosa: 2,
         Pan: 0,
       });
-      expect(result.suppliesSummary).toEqual({ Gaseosa: 2 });
+      // Las vistas `recipeSuppliesSummary`/`suppliesSummary` fueron retiradas
+      // del payload de la caja.
+      expect(result).not.toHaveProperty('recipeSuppliesSummary');
+      expect(result).not.toHaveProperty('suppliesSummary');
     });
 
-    test('fusiona ventas directas e insumos de receta en suppliesSummary sin compuestos', async () => {
+    test('no expone la columna legacy recipeSuppliesSummary aunque la caja la tenga', async () => {
       mockedCashRegisterRepository.findOpen.mockResolvedValue({
         id: 1,
         branchId: BRANCH_ID,
@@ -396,17 +399,17 @@ describe('cashRegisterService', () => {
       } as any);
 
       (mockedDb.query.products.findMany as jest.Mock).mockResolvedValue([
-        { id: 1, branchId: BRANCH_ID, name: 'Vaso de gaseosa', type: 'service', isActive: true },
-        { id: 2, branchId: BRANCH_ID, name: 'Promo Amigos', type: 'compound', isActive: true },
         { id: 3, branchId: BRANCH_ID, name: 'Pan', type: 'critical_supply', isActive: true },
       ] as any);
 
       const result = (await getOpenCashRegisterSummary(BRANCH_ID)) as any;
 
-      expect(result.suppliesSummary).toEqual({
-        'Vaso de gaseosa': 5,
-        Pan: 4,
+      expect(result.productsSummary).toEqual({
+        'Vaso de gaseosa': 3,
+        'Promo Amigos': 2,
       });
+      expect(result).not.toHaveProperty('recipeSuppliesSummary');
+      expect(result).not.toHaveProperty('suppliesSummary');
     });
 
     test('incluye autoCloseHours resuelto en el servidor en el payload', async () => {

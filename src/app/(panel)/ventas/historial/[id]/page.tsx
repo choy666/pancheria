@@ -45,6 +45,14 @@ export default async function CashRegisterSalesDetailPage({
     isOpen
   );
 
+  // `recipeSuppliesSummary` es una columna legacy que ya no se expone: se
+  // excluye de las props serializadas hacia el componente cliente.
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    recipeSuppliesSummary: _legacyRecipeSuppliesSummary,
+    ...cashRegisterData
+  } = cashRegister;
+
   const branch = await branchService.getBranchById(cashRegister.branchId);
   const branchName = session?.user?.role === 'admin' ? branch?.name : null;
 
@@ -96,7 +104,7 @@ export default async function CashRegisterSalesDetailPage({
 
       <CashRegisterSummary
         cashRegister={{
-          ...cashRegister,
+          ...cashRegisterData,
           ...summary,
           // Resuelto en el servidor: `CAJA_AUTO_CLOSE_HOURS` no existe en el
           // bundle del cliente; pasarlo evita mismatch de hidratación.

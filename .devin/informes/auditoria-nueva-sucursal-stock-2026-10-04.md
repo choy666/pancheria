@@ -3,7 +3,7 @@
 **Estado:** abierto
 **Fecha de ejecución:** 2026-10-04
 **HEAD:** `73f3073a3f35c76717ffbc3c3a4e8b98924785ba`
-**Alcance:** auditoría de solo lectura. No se modificó código, esquema, migraciones, seeds ni datos; no se conectó a ninguna base; no se ejecutaron tests E2E ni seeds. La evidencia cita `archivo → función/export/tabla` contra el `HEAD` indicado. El prompt de origen es `.devin/prompts/auditoria-nueva-sucursal-stock.md`.
+**Alcance:** auditoría de solo lectura. No se modificó código, esquema, migraciones, seeds ni datos; no se conectó a ninguna base; no se ejecutaron tests E2E ni seeds. La evidencia cita `archivo → función/export/tabla` contra el `HEAD` indicado. El prompt de origen es `.devin/prompts/archivados/auditoria-nueva-sucursal-stock.md`.
 
 **Decisiones del usuario incorporadas (2026-10-04):** las 6 decisiones del §7 ya fueron respondidas y se recibió el menú real completo (11 promos, 13 aderezos, 5 toppings, 2 extras); el mapeo (§3), las brechas (§5) y el plan (§6) quedaron ajustados en consecuencia. El tope quedó confirmado: el pancho común lleva **4 aderezos elegidos por el cliente entre los 13** — requiere la feature `maxOptionalSelections` (B-13 → PR-8, ya no condicional).
 
@@ -274,9 +274,10 @@ Orden sugerido; cada PR es independiente y revertible. **Orden efectivo:** PR-8 
 - **Implementado:** índice único parcial `(branch_id, lower(btrim(name)))` `WHERE deleted_at IS NULL` (`0037_products_branch_name_unique.sql`, aplicado en dev y E2E); `productRepository.findByNameCaseInsensitive`; validación amigable en `createProduct`/`updateProduct`/`restoreProduct` con traducción del error 23505 vía `isUniqueViolationError` (`src/lib/db-errors.ts`) para la ventana de carrera; `restoreProduct` ahora valida que el nombre no lo use otro producto activo. Verificado end-to-end en la base E2E (rechazo case-insensitive con espacios, insert directo rechazado por el índice, no-duplicados insertan).
 - **Migración pendiente:** producción según `entornos.md` con backup.
 
-### PR-3 — Vista unificada de insumos en cierre (sin migración) — **implementado 2026-10-04**
+### PR-3 — Vista unificada de insumos en cierre (sin migración) — **implementado 2026-10-04, retirado 2026-10-26**
 
 - **Implementado:** `buildSuppliesSummary` (`src/lib/summary-helpers.ts`) fusiona por nombre `recipeSuppliesSummary` + entradas no-compuestas de `productsSummary` (servicios y bebidas críticas vendidas sueltas); los compuestos se excluyen porque su consumo ya está desagregado por insumo. `suppliesSummary` es **derivado, no persistido** (sin columna nueva): `summaryService.finalizeSummary` lo computa con los tipos vistos en las ventas y `cashRegisterService.parseCashRegisterSummary` con `productRepository.findAll(branchId, true)` — los productos con ventas nunca se borran permanentes, así que el nombre siempre resuelve. Tarjeta "Consumo total por insumo" nueva en `cash-register-summary.tsx` (visible en caja abierta e historial de cierres).
+- **Retirado 2026-10-26** (simplificación de `/cierre`): se eliminaron `buildSuppliesSummary`, la tarjeta "Consumo total por insumo" y la de "Insumos de recetas"; `recipeSuppliesSummary` dejó de acumularse y de exponerse (la columna `recipe_supplies_summary` quedó legacy con los datos históricos). Si el negocio necesita la vista consolidada a futuro, hay que re-derivarla.
 - **Tests:** `summary-helpers.test.ts` (merge, exclusión de compuestos, sin mutación), `summaryService.test.ts`, `cashRegisterService.test.ts` (fusión con compuestos excluidos), `cash-register-summary.test.tsx` nuevo.
 - **Archivos:** `src/lib/summary-helpers.ts`, `src/application/services/summaryService.ts`, `src/application/services/cashRegisterService.ts`, `src/components/caja/cash-register-summary.tsx`.
 

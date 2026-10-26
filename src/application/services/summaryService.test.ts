@@ -226,13 +226,10 @@ describe('summaryService', () => {
         Salchicha: 2,
         Gaseosa: 2,
       });
-      // Consumo unificado: insumos de la receta del compuesto + venta directa
-      // de la bebida crítica (sin duplicar al compuesto "Promo").
-      expect(result.suppliesSummary).toEqual({
-        Pan: 1,
-        Salchicha: 2,
-        Gaseosa: 2,
-      });
+      // El pipeline `recipeSuppliesSummary`/`suppliesSummary` fue retirado:
+      // el resumen final solo expone los mapas persistidos y los totales.
+      expect(result).not.toHaveProperty('recipeSuppliesSummary');
+      expect(result).not.toHaveProperty('suppliesSummary');
     });
 
     test('calcula totales con pago mixto en una sola venta', async () => {

@@ -17,7 +17,6 @@ type RecipeLike = {
 export function addItemToSummary(
   productsSummary: Record<string, number>,
   criticalSuppliesSummary: Record<string, number>,
-  recipeSuppliesSummary: Record<string, number>,
   product: SummaryProduct,
   quantity: number,
   recipesByProduct: Map<number, RecipeLike[]>,
@@ -33,31 +32,23 @@ export function addItemToSummary(
   if (product.type === 'compound') {
     if (hasSnapshot) {
       for (const config of effectiveSnapshot) {
-        if (!config.selected) continue;
+        if (!config.selected || !config.autoDiscount) continue;
 
         const consumed = config.quantity * quantity;
-        recipeSuppliesSummary[config.supplyName] =
-          (recipeSuppliesSummary[config.supplyName] ?? 0) + sign * consumed;
-
-        if (config.autoDiscount) {
-          criticalSuppliesSummary[config.supplyName] =
-            (criticalSuppliesSummary[config.supplyName] ?? 0) + sign * consumed;
-        }
+        criticalSuppliesSummary[config.supplyName] =
+          (criticalSuppliesSummary[config.supplyName] ?? 0) + sign * consumed;
       }
     } else {
       const recipeList = recipesByProduct.get(product.id) ?? [];
       for (const recipeItem of recipeList) {
+        if (!recipeItem.autoDiscount) continue;
+
         const consumed = recipeItem.quantity * quantity;
         const supplyName =
           recipeItem.supply?.name ?? `Insumo ${recipeItem.supplyId}`;
 
-        recipeSuppliesSummary[supplyName] =
-          (recipeSuppliesSummary[supplyName] ?? 0) + sign * consumed;
-
-        if (recipeItem.autoDiscount) {
-          criticalSuppliesSummary[supplyName] =
-            (criticalSuppliesSummary[supplyName] ?? 0) + sign * consumed;
-        }
+        criticalSuppliesSummary[supplyName] =
+          (criticalSuppliesSummary[supplyName] ?? 0) + sign * consumed;
       }
     }
   } else if (
@@ -78,25 +69,4 @@ export function fillMissingCriticalSupplies(
       criticalSuppliesSummary[supply.name] = 0;
     }
   }
-}
-
-/**
- * Consolida el consumo total por insumo: lo descontado vía recetas más las
- * ventas directas de productos no compuestos (servicios, bebidas críticas,
- * etc.). Los compuestos se excluyen porque su consumo ya figura desagregado
- * en `recipeSuppliesSummary`. Los nombres sin tipo conocido (p. ej. un
- * producto renombrado después de la venta) se cuentan como insumo para no
- * perder consumo en la vista.
- */
-export function buildSuppliesSummary(
-  productsSummary: Record<string, number>,
-  recipeSuppliesSummary: Record<string, number>,
-  productTypesByName: ReadonlyMap<string, string>
-): Record<string, number> {
-  const supplies: Record<string, number> = { ...recipeSuppliesSummary };
-  for (const [name, quantity] of Object.entries(productsSummary)) {
-    if (productTypesByName.get(name) === 'compound') continue;
-    supplies[name] = (supplies[name] ?? 0) + quantity;
-  }
-  return supplies;
 }

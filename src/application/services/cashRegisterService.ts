@@ -46,10 +46,7 @@ import {
   validateNonEmptyString,
   validateNonNegativeMoney,
 } from '@/lib/validation-helpers';
-import {
-  buildSuppliesSummary,
-  fillMissingCriticalSupplies,
-} from '@/lib/summary-helpers';
+import { fillMissingCriticalSupplies } from '@/lib/summary-helpers';
 import {
   lockCashRegisterById,
   lockOpenCashRegister,
@@ -182,7 +179,7 @@ export async function calculateCashRegisterSummary(
 
 type CashRegisterSummaryInput = Pick<
   cashRegisterRepository.CashRegisterRow,
-  'productsSummary' | 'criticalSuppliesSummary' | 'recipeSuppliesSummary'
+  'productsSummary' | 'criticalSuppliesSummary'
 >;
 
 export async function parseCashRegisterSummary(
@@ -194,8 +191,6 @@ export async function parseCashRegisterSummary(
     cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary: Record<string, number> =
     cashRegister.criticalSuppliesSummary ?? {};
-  const recipeSuppliesSummary: Record<string, number> =
-    cashRegister.recipeSuppliesSummary ?? {};
 
   if (shouldFillMissingCriticalSupplies) {
     const activeCriticalSupplies =
@@ -204,25 +199,9 @@ export async function parseCashRegisterSummary(
     fillMissingCriticalSupplies(criticalSuppliesSummary, activeCriticalSupplies);
   }
 
-  // Consumo unificado derivado (no persistido): incluye eliminados porque un
-  // producto con ventas nunca puede haberse borrado de forma permanente.
-  const productTypesByName = new Map(
-    (await productRepository.findAll(branchId, true)).map((p) => [
-      p.name,
-      p.type,
-    ])
-  );
-  const suppliesSummary = buildSuppliesSummary(
-    productsSummary,
-    recipeSuppliesSummary,
-    productTypesByName
-  );
-
   return {
     productsSummary,
     criticalSuppliesSummary,
-    recipeSuppliesSummary,
-    suppliesSummary,
   };
 }
 
@@ -230,6 +209,14 @@ export async function getOpenCashRegisterSummary(branchId: number) {
   const cashRegister = await getOpenCashRegister(branchId);
 
   if (!cashRegister) return null;
+
+  // `recipeSuppliesSummary` quedó como columna legacy en la base (conserva el
+  // histórico de cajas viejas) pero ya no se expone en el payload.
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    recipeSuppliesSummary: _legacyRecipeSuppliesSummary,
+    ...cashRegisterData
+  } = cashRegister;
 
   const [summary, branch] = await Promise.all([
     parseCashRegisterSummary(branchId, cashRegister, true),
@@ -256,7 +243,7 @@ export async function getOpenCashRegisterSummary(branchId: number) {
   );
 
   return {
-    ...cashRegister,
+    ...cashRegisterData,
     ...summary,
     cashInDrawer,
     estadoTurno,

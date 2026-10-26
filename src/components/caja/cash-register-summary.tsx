@@ -31,8 +31,6 @@ interface CashRegisterSummaryData {
   forcedCloseReason?: string | null;
   productsSummary?: Record<string, number> | null;
   criticalSuppliesSummary?: Record<string, number> | null;
-  recipeSuppliesSummary?: Record<string, number> | null;
-  suppliesSummary?: Record<string, number> | null;
   /**
    * Horas de cierre automático resueltas en el servidor. Prioridad sobre la
    * env local: `CAJA_AUTO_CLOSE_HOURS` no existe en el bundle del cliente.
@@ -81,8 +79,6 @@ export function CashRegisterSummary({
 
   const productsSummary = cashRegister.productsSummary ?? {};
   const criticalSuppliesSummary = cashRegister.criticalSuppliesSummary ?? {};
-  const recipeSuppliesSummary = cashRegister.recipeSuppliesSummary ?? {};
-  const suppliesSummary = cashRegister.suppliesSummary ?? {};
 
   const cashInDrawer =
     cashRegister.cashInDrawer ??
@@ -266,19 +262,25 @@ export function CashRegisterSummary({
           <CardTitle className="text-lg">Productos vendidos</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {Object.entries(productsSummary).map(([name, quantity]) => (
-              <li
-                key={name}
-                data-testid="cash-register-product-item"
-                data-product-name={name}
-                className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
-              >
-                <span>{name}</span>
-                <span className="font-mono font-medium">{quantity}</span>
-              </li>
-            ))}
-          </ul>
+          {Object.keys(productsSummary).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Sin ventas registradas
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {Object.entries(productsSummary).map(([name, quantity]) => (
+                <li
+                  key={name}
+                  data-testid="cash-register-product-item"
+                  data-product-name={name}
+                  className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+                >
+                  <span>{name}</span>
+                  <span className="font-mono font-medium">{quantity}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
@@ -287,73 +289,27 @@ export function CashRegisterSummary({
           <CardTitle className="text-lg">Consumo de insumos críticos</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {Object.entries(criticalSuppliesSummary).map(([name, quantity]) => (
-              <li
-                key={name}
-                data-testid="cash-register-supply-item"
-                data-product-name={name}
-                className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
-              >
-                <span>{name}</span>
-                <span className="font-mono font-medium">{quantity}</span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card
-        data-testid="recipe-supplies-card"
-        role="region"
-        aria-labelledby="recipe-supplies-title"
-      >
-        <CardHeader>
-          <CardTitle id="recipe-supplies-title" className="text-lg">
-            Insumos de recetas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2" aria-labelledby="recipe-supplies-title">
-            {Object.entries(recipeSuppliesSummary).map(([name, quantity]) => (
-              <li
-                key={name}
-                data-testid="cash-register-recipe-supply-item"
-                data-product-name={name}
-                className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
-              >
-                <span>{name}</span>
-                <span className="font-mono font-medium">{quantity}</span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card
-        data-testid="supplies-summary-card"
-        role="region"
-        aria-labelledby="supplies-summary-title"
-      >
-        <CardHeader>
-          <CardTitle id="supplies-summary-title" className="text-lg">
-            Consumo total por insumo
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2" aria-labelledby="supplies-summary-title">
-            {Object.entries(suppliesSummary).map(([name, quantity]) => (
-              <li
-                key={name}
-                data-testid="cash-register-total-supply-item"
-                data-product-name={name}
-                className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
-              >
-                <span>{name}</span>
-                <span className="font-mono font-medium">{quantity}</span>
-              </li>
-            ))}
-          </ul>
+          {Object.keys(criticalSuppliesSummary).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Sin consumo registrado
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {Object.entries(criticalSuppliesSummary).map(
+                ([name, quantity]) => (
+                  <li
+                    key={name}
+                    data-testid="cash-register-supply-item"
+                    data-product-name={name}
+                    className="flex items-center justify-between rounded-lg bg-muted/20 p-2"
+                  >
+                    <span>{name}</span>
+                    <span className="font-mono font-medium">{quantity}</span>
+                  </li>
+                )
+              )}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

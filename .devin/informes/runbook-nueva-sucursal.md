@@ -139,9 +139,9 @@ En **descartable** primero, luego en producción:
 - [ ] Una venta del operador en `/ventas` con promo completa (13 aderezos +
   5 toppings por defecto).
 - [ ] Cancelación de un pedido/devolución → reintegro de stock verificable en
-  `/stock/movimientos` y en `suppliesSummary` de la caja.
-- [ ] Cierre de caja: resumen con consumo total por insumo fusionado y
-  diferencia de arqueo correcta.
+  `/stock/movimientos` y en "Consumo de insumos críticos" del cierre de caja.
+- [ ] Cierre de caja: resumen con productos vendidos, consumo de insumos
+  críticos y diferencia de arqueo correcta.
 - [ ] En la base de datos: `stock_movements` con `performedBy` coherente y
   `sale_items.recipe_snapshot` registrando los aderezos elegidos.
 

@@ -20,36 +20,39 @@ const baseCashRegister = {
 };
 
 describe('CashRegisterSummary', () => {
-  it('muestra el consumo total por insumo fusionado', () => {
+  it('lista los productos vendidos y el consumo de insumos críticos', () => {
     render(
       <CashRegisterSummary
         cashRegister={{
           ...baseCashRegister,
           productsSummary: { 'Vaso de gaseosa': 3, 'Promo Amigos': 2 },
-          recipeSuppliesSummary: { 'Vaso de gaseosa': 2, Pan: 4 },
-          suppliesSummary: { 'Vaso de gaseosa': 5, Pan: 4 },
+          criticalSuppliesSummary: { Pan: 4 },
         }}
         now={new Date('2026-10-04T13:00:00Z')}
       />
     );
 
-    const card = screen.getByTestId('supplies-summary-card');
-    expect(card).toBeInTheDocument();
-    expect(card).toHaveTextContent('Consumo total por insumo');
-
-    const items = screen.getAllByTestId('cash-register-total-supply-item');
-    const byName = Object.fromEntries(
-      items.map((item) => [
+    const productItems = screen.getAllByTestId('cash-register-product-item');
+    const productsByName = Object.fromEntries(
+      productItems.map((item) => [
         item.getAttribute('data-product-name'),
         item.textContent,
       ])
     );
-    expect(byName['Vaso de gaseosa']).toContain('5');
-    expect(byName['Pan']).toContain('4');
-    expect(byName['Promo Amigos']).toBeUndefined();
+    expect(productsByName['Vaso de gaseosa']).toContain('3');
+    expect(productsByName['Promo Amigos']).toContain('2');
+
+    const supplyItems = screen.getAllByTestId('cash-register-supply-item');
+    const suppliesByName = Object.fromEntries(
+      supplyItems.map((item) => [
+        item.getAttribute('data-product-name'),
+        item.textContent,
+      ])
+    );
+    expect(suppliesByName['Pan']).toContain('4');
   });
 
-  it('no muestra la tarjeta vacía si no llega suppliesSummary', () => {
+  it('muestra mensajes de vacío cuando no hay ventas ni consumo', () => {
     render(
       <CashRegisterSummary
         cashRegister={baseCashRegister}
@@ -57,10 +60,29 @@ describe('CashRegisterSummary', () => {
       />
     );
 
-    const card = screen.getByTestId('supplies-summary-card');
-    expect(card).toBeInTheDocument();
+    expect(screen.getByText('Sin ventas registradas')).toBeInTheDocument();
+    expect(screen.getByText('Sin consumo registrado')).toBeInTheDocument();
     expect(
-      card.querySelectorAll('[data-testid="cash-register-total-supply-item"]')
-    ).toHaveLength(0);
+      screen.queryByTestId('cash-register-product-item')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('cash-register-supply-item')
+    ).not.toBeInTheDocument();
+  });
+
+  it('no renderiza las tarjetas retiradas de insumos de recetas ni consumo total', () => {
+    render(
+      <CashRegisterSummary
+        cashRegister={{
+          ...baseCashRegister,
+          productsSummary: { 'Vaso de gaseosa': 3 },
+          criticalSuppliesSummary: { Pan: 4 },
+        }}
+        now={new Date('2026-10-04T13:00:00Z')}
+      />
+    );
+
+    expect(screen.queryByTestId('recipe-supplies-card')).toBeNull();
+    expect(screen.queryByTestId('supplies-summary-card')).toBeNull();
   });
 });
