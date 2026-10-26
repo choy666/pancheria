@@ -491,8 +491,8 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="grid gap-5 md:grid-cols-5 lg:grid-cols-3">
+        <div className="space-y-4 md:col-span-3 lg:col-span-2">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold">Catálogo</h2>
             <Button

@@ -160,6 +160,39 @@ describe('ProductCardBase', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
+    test('la superficie de la card hace quick-add una sola vez', () => {
+      const onAdd = jest.fn();
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct()}
+          isOutOfStock={false}
+          onAdd={onAdd}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('add-product-surface-1'));
+      expect(onAdd).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    test('la superficie queda deshabilitada cuando el producto está agotado', () => {
+      const onAdd = jest.fn();
+      render(
+        <ProductCardBase
+          variant="catalog"
+          product={makeProduct()}
+          isOutOfStock={true}
+          onAdd={onAdd}
+        />
+      );
+
+      const surface = screen.getByTestId('add-product-surface-1');
+      expect(surface).toBeDisabled();
+      fireEvent.click(surface);
+      expect(onAdd).not.toHaveBeenCalled();
+    });
+
     test('el botón circular abre el diálogo de personalización', () => {
       const onAdd = jest.fn();
       const product = makeProduct({
@@ -289,6 +322,49 @@ describe('ProductCardBase', () => {
       expect(onAdd).toHaveBeenCalledTimes(1);
     });
 
+    test('la superficie de la card hace quick-add una sola vez', () => {
+      const onAdd = jest.fn();
+      render(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct()}
+          isOutOfStock={false}
+          onAdd={onAdd}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('add-sale-product-surface'));
+      expect(onAdd).toHaveBeenCalledTimes(1);
+    });
+
+    test('la superficie queda deshabilitada con producto agotado o carrito bloqueado', () => {
+      const onAdd = jest.fn();
+      const { rerender } = render(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct()}
+          isOutOfStock={true}
+          onAdd={onAdd}
+        />
+      );
+
+      const surface = screen.getByTestId('add-sale-product-surface');
+      expect(surface).toBeDisabled();
+
+      rerender(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct()}
+          isOutOfStock={false}
+          disabled={true}
+          onAdd={onAdd}
+        />
+      );
+
+      expect(screen.getByTestId('add-sale-product-surface')).toBeDisabled();
+      expect(onAdd).not.toHaveBeenCalled();
+    });
+
     test('los controles son botones reales (Enter/Espacio nativos)', () => {
       const onAdd = jest.fn();
       render(
@@ -354,6 +430,35 @@ describe('ProductCardBase', () => {
       ).not.toBeInTheDocument();
     });
 
+    test('no muestra el badge con la cantidad de opcionales', () => {
+      render(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct({
+            recipe: [
+              {
+                supplyId: 20,
+                supplyName: 'Cebolla',
+                supplyType: 'manual_supply',
+                quantity: 1,
+                autoDiscount: false,
+                isOptional: true,
+                selected: false,
+                selectedByDefault: true,
+              },
+            ],
+          })}
+          isOutOfStock={false}
+          onAdd={jest.fn()}
+          onCustomize={jest.fn()}
+        />
+      );
+
+      expect(screen.queryByText(/opcionales/)).not.toBeInTheDocument();
+      // La existencia de opcionales la delata el botón de personalizar.
+      expect(screen.getByTestId('customize-sale-product')).toBeInTheDocument();
+    });
+
     test('muestra el badge de cantidad en venta', () => {
       render(
         <ProductCardBase
@@ -385,6 +490,37 @@ describe('ProductCardBase', () => {
         'Disponible: 5 botella'
       );
       expect(screen.getByText('Podés sumar: 4 más')).toBeInTheDocument();
+    });
+
+    test('oculta "Podés sumar" cuando el remanente coincide con la disponibilidad', () => {
+      render(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct()}
+          isOutOfStock={false}
+          maxAdditional={5}
+          onAdd={jest.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('product-availability')).toHaveTextContent(
+        'Disponible: 5 unidad'
+      );
+      expect(screen.queryByText(/Podés sumar/)).not.toBeInTheDocument();
+    });
+
+    test('muestra "Sin stock" aunque el remanente coincida con la disponibilidad en cero', () => {
+      render(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct({ availability: 0 })}
+          isOutOfStock={true}
+          maxAdditional={0}
+          onAdd={jest.fn()}
+        />
+      );
+
+      expect(screen.getByText('Sin stock')).toBeInTheDocument();
     });
 
     test('muestra "Sin stock" y no dispara onAdd cuando está agotado', () => {

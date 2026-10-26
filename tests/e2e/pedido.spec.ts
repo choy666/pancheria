@@ -33,7 +33,9 @@ test.describe('Pedido público con chat', () => {
     await page.goto('/pedido');
     await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
 
-    await page.getByTestId(`add-product-${product.id}`).click();
+    // Click en el cuerpo de la card (ca en el botón estirado que cubre la
+    // superficie): agrega igual que el CTA "Agregar".
+    await page.getByTestId(`product-card-${product.id}`).click();
     await expect(page.getByTestId('cart-title')).toBeVisible();
     await expect(page.locator(`[data-product-id="${product.id}"]`)).toBeVisible();
 

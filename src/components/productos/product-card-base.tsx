@@ -14,7 +14,6 @@ import { formatMoney } from '@/lib/money';
 import { ProductCardImage } from '@/components/productos/product-card-image';
 import { ProductCardPrice } from '@/components/productos/product-card-price';
 import { ProductCardAvailability } from '@/components/productos/product-card-availability';
-import { ProductCardRecipeIncluded } from '@/components/productos/product-card-recipe-included';
 import { ProductCardSalesExtra } from '@/components/productos/product-card-sales-extra';
 import { productTypeLabels, criticalTypeLabels } from '@/lib/product-style';
 import type { CriticalSupplyType, ProductType, CartRecipeItem } from '@/domain/types';
@@ -79,10 +78,18 @@ interface ProductCardBaseProps {
  *   diálogo de personalización.
  * - `variant="sales"`: terminal de `/ventas`. Mismo lenguaje visual que
  *   catálogo (hero, pill "Promo", CTA redondo) con datos operativos extra
- *   (disponibilidad numérica, stock restante `maxAdditional`, badge "N en
- *   venta"). La card es presentacional: `add-sale-product` hace quick-add
- *   con la selección por defecto y `customize-sale-product` abre el diálogo
- *   de personalización del terminal vía `onCustomize`.
+ *   (disponibilidad numérica, stock restante `maxAdditional` cuando difiere
+ *   del total, badge "N en venta"). `add-sale-product` hace quick-add con
+ *   la selección por defecto y `customize-sale-product` abre el diálogo de
+ *   personalización del terminal vía `onCustomize`.
+ *
+ * En ambas variantes la superficie completa agrega una unidad vía un botón
+ * estirado (`absolute inset-0 z-10`, testid `add-*-surface`): es un `<button>`
+ * real, así que click/touch/teclado funcionan sin `role="button"` en el
+ * contenedor ni `eslint-disable` de jsx-a11y. Los controles internos van a
+ * `relative z-20` por encima — cualquier futuro elemento interactivo dentro
+ * de la card necesita la misma elevación para no quedar "muerto" bajo el
+ * overlay.
  *
  * Los `data-testid` se mantienen por variante para no romper los selectores
  * E2E existentes (`product-card-${id}`/`add-product-${id}` en catálogo y
@@ -116,6 +123,14 @@ export function ProductCardBase({
       ? 'Agregar otro'
       : 'Agregar';
 
+  // Nombre accesible del botón estirado (toda la card) y del "Agregar" del
+  // terminal: la acción es la misma (quick-add de una unidad).
+  const addActionLabel = isOutOfStock
+    ? `${product.name} agotado`
+    : inCartQuantity > 0 || inCart
+      ? `Agregar otro ${product.name} ${isCatalog ? 'al pedido' : 'a la venta'}`
+      : `Agregar ${product.name} ${isCatalog ? 'al pedido' : 'a la venta'}`;
+
   const defaultSelectedIds = recipe
     .filter((item) => item.isOptional && item.selectedByDefault)
     .map((item) => item.supplyId);
@@ -126,18 +141,35 @@ export function ProductCardBase({
   }, []);
 
   // Ambas variantes son presentacionales (sin rol interactivo) para no
-  // anidar botones dentro de un `role="button"`. "Agregar" siempre hace
+  // anidar botones dentro de un `role="button"`. La superficie completa
+  // agrega vía el botón estirado `add-*-surface`; "Agregar" siempre hace
   // quick-add (los opcionales van con su `selectedByDefault`); el botón
   // circular abre el diálogo de personalización — propio en catálogo,
   // delegado al terminal en ventas.
+  const surfaceButton = (
+    <button
+      type="button"
+      data-testid={
+        isCatalog
+          ? `add-product-surface-${product.id}`
+          : 'add-sale-product-surface'
+      }
+      aria-label={addActionLabel}
+      disabled={isDisabled}
+      onClick={() => onAdd()}
+      className="absolute inset-0 z-10 cursor-pointer rounded-3xl [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red focus-visible:ring-inset active:bg-black/[0.04] disabled:cursor-not-allowed"
+    />
+  );
+
   if (isCatalog) {
     return (
       <Card
         data-testid={`product-card-${product.id}`}
-        className={`group/card gap-0 rounded-3xl py-0 shadow-sm transition-shadow ${
+        className={`group/card relative select-none gap-0 rounded-3xl py-0 shadow-sm transition-shadow ${
           isDisabled ? 'opacity-60' : 'hover:shadow-lg'
         }`}
       >
+        {surfaceButton}
         {/* Hero: imagen a todo ancho sobre el diagonal de marca; el fallback
             sin imagen lo pinta `ProductImageFallback` sobre este fondo. El
             ::after dibuja una hairline bajo el hero: la imagen publicada es
@@ -185,7 +217,7 @@ export function ProductCardBase({
             <p className="font-heading text-2xl text-brand-red">
               {formatMoney(product.price)}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="relative z-20 flex items-center gap-2">
               {hasOptions && (
                 <Button
                   type="button"
@@ -241,17 +273,24 @@ export function ProductCardBase({
     ? `${productTypeLabels[product.type]} — ${criticalTypeLabels[product.criticalSupplyType]}`
     : productTypeLabels[product.type];
 
-  const optionalItems = recipe.filter((item) => item.isOptional);
+  // El remanente solo se muestra cuando aporta información nueva: difiere
+  // del total cuando el carrito ya consume el producto o sus insumos
+  // compartidos (y siempre que está agotado, para el "Sin stock").
+  const showSalesExtra =
+    product.type !== 'service' &&
+    maxAdditional !== undefined &&
+    (isOutOfStock || maxAdditional !== product.availability);
 
   return (
     <Card
       data-testid="product-card"
       data-product-name={product.name}
       data-out-of-stock={isOutOfStock}
-      className={`gap-0 rounded-3xl py-0 shadow-sm transition-shadow ${
+      className={`relative select-none gap-0 rounded-3xl py-0 shadow-sm transition-shadow ${
         isDisabled ? 'opacity-50' : 'hover:shadow-md'
       }`}
     >
+      {surfaceButton}
       {/* Hero igual que la variante catalog: imagen a todo ancho sobre el
           diagonal de marca; la cantidad en venta se superpone a la derecha
           y la pill "Promo" a la izquierda (solo compuestos). */}
@@ -283,15 +322,11 @@ export function ProductCardBase({
             {product.name}
           </CardTitle>
           <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5">
-            {/* En compuestos la pill "Promo" del hero ya identifica el tipo. */}
+            {/* En compuestos la pill "Promo" del hero ya identifica el tipo;
+                los opcionales los delata el botón de personalizar. */}
             {typeLabel && product.type !== 'compound' && (
               <Badge variant="secondary" className="shrink-0">
                 {typeLabel}
-              </Badge>
-            )}
-            {optionalItems.length > 0 && (
-              <Badge variant="outline" className="shrink-0">
-                +{optionalItems.length} opcionales
               </Badge>
             )}
           </div>
@@ -301,29 +336,31 @@ export function ProductCardBase({
       <CardContent className="flex flex-1 flex-col gap-1.5 p-4 pt-0">
         <ProductCardPrice price={product.price} />
 
-        <ProductCardAvailability
-          type={product.type}
-          availability={product.availability}
-          unit={product.unit}
-        />
-
-        {product.type === 'compound' && recipe.length > 0 && (
-          <ProductCardRecipeIncluded
-            recipe={recipe}
-            showOptionalHint={optionalItems.length > 0}
+        <div className="flex flex-wrap items-baseline gap-x-1.5">
+          <ProductCardAvailability
+            type={product.type}
+            availability={product.availability}
+            unit={product.unit}
           />
-        )}
-
-        {product.type !== 'service' && maxAdditional !== undefined && (
-          <ProductCardSalesExtra
-            isOutOfStock={isOutOfStock}
-            maxAdditional={maxAdditional}
-          />
-        )}
+          {showSalesExtra && (
+            <>
+              <span
+                aria-hidden="true"
+                className="text-sm text-muted-foreground"
+              >
+                ·
+              </span>
+              <ProductCardSalesExtra
+                isOutOfStock={isOutOfStock}
+                maxAdditional={maxAdditional ?? 0}
+              />
+            </>
+          )}
+        </div>
 
         {/* Quick-add con la selección por defecto (`onAdd`); la tuerca
             abre el diálogo del terminal (`onCustomize`). */}
-        <div className="mt-auto flex items-center justify-end gap-2 pt-3">
+        <div className="relative z-20 mt-auto flex items-center justify-end gap-2 pt-3">
           {hasOptions && onCustomize && (
             <Button
               type="button"
@@ -343,13 +380,7 @@ export function ProductCardBase({
             data-testid="add-sale-product"
             // El nombre accesible incluye el producto (hay N botones
             // "Agregar" en el grid) y contiene el texto visible.
-            aria-label={
-              isOutOfStock
-                ? `${product.name} agotado`
-                : inCartQuantity > 0 || inCart
-                  ? `Agregar otro ${product.name} a la venta`
-                  : `Agregar ${product.name} a la venta`
-            }
+            aria-label={addActionLabel}
             disabled={isDisabled}
             onClick={() => onAdd()}
             className="rounded-full bg-brand-red px-5 font-semibold text-white hover:bg-brand-red/90"

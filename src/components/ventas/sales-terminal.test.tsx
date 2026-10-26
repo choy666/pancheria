@@ -116,7 +116,6 @@ function mockCashRegister(open: boolean) {
           totalSales: 0,
           productsSummary: {},
           criticalSuppliesSummary: {},
-          recipeSuppliesSummary: {},
           createdAt: new Date().toISOString(),
         }
       : null,
@@ -499,9 +498,11 @@ describe('SalesTerminal', () => {
     );
 
     // Mantener agotados visibles porque el stock compartido las deja en 0.
+    // Con el carrito vacío el remanente coincide con la disponibilidad y
+    // "Podés sumar" se oculta (deduplicación): la barrera usa "Disponible".
     fireEvent.click(screen.getByTestId('toggle-show-out-of-stock'));
     await waitFor(() =>
-      expect(screen.getAllByText(/4 más/)).toHaveLength(2)
+      expect(screen.getAllByText('Disponible: 4 unidad')).toHaveLength(2)
     );
 
     const cardA = screen.getByText('Promo A').closest<HTMLElement>('[data-slot="card"]');

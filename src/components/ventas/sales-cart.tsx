@@ -331,6 +331,7 @@ export function SalesCart({
   return (
     <div data-tour="sales-cart" className="space-y-4" ref={cartRef}>
       <CartPanel
+        className="md:sticky md:top-24"
         title={title}
         headerAction={headerAction}
         top={top}
@@ -356,10 +357,10 @@ export function SalesCart({
       {itemCount > 0 && (
         <>
           {/* Espacio para que la barra fija no tape el contenido en mobile. */}
-          <div className="h-20 lg:hidden" aria-hidden="true" />
+          <div className="h-20 md:hidden" aria-hidden="true" />
           {/* Pill flotante de marca, igual que la barra "Ver pedido" del
               catálogo público. */}
-          <div className="fixed inset-x-0 bottom-0 z-40 p-3 lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-40 p-3 md:hidden">
             <Button
               type="button"
               data-testid="cart-mobile-bar"

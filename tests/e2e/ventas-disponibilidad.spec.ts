@@ -40,9 +40,11 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       timeout: 10000,
     });
 
-    // El carrito no permite agregar más unidades de las disponibles.
+    // El carrito no permite agregar más unidades de las disponibles. El
+    // segundo agregado ejercita el click en la superficie completa de la
+    // card (el centro cae sobre el botón estirado `add-sale-product-surface`).
     await card.getByTestId('add-sale-product').click();
-    await card.getByTestId('add-sale-product').click();
+    await card.click();
 
     const cartItem = page.locator('[data-testid="cart-item"][data-product-name="' + bebida.name + '"]');
 
