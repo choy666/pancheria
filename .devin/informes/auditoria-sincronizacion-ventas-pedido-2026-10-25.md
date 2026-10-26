@@ -225,29 +225,29 @@ Todo ítem de esta lista es contrato operativo: ninguna recomendación del infor
 | Pago | Sin cobro | `PaymentPartsInput` mixto | Ninguna | Preservar | — | — | — |
 | Idempotencia | `checkoutSignature` | `saleSignature` | Ninguna | Preservar | — | — | — |
 
-### 8.2 Propuesta de fases (sin ejecutar)
+### 8.2 Propuesta de fases
 
-**Fase 1 — Tema y estructura** *(prioridad alta, sin cambios funcionales)*
-1. Envolver el contenido de `/ventas` en `data-theme="light"` (contenedor en `ventas/page.tsx` o raíz de `SalesTerminal`), chrome oscuro.
-2. Migrar `border-white/10` → `border-border` en `sales-cart.tsx:282,288` y auditar clases `*-400`/`*-300` dentro del scope (`product-style.ts`, `cash-register-shift-badge.tsx`).
-3. Pasar tema claro a portales: `ConfirmDialog` "Vaciar venta" (`dataTheme="light"`), `PromoOptionsDialog` (prop nueva o `dataTheme`), diálogos de caja (prop propagado por `CajaStatus` — decidir vs. dejarlos oscuros como "chrome operativo").
-4. Headers de grupo con `groupProductsByType` + `salesProductTypeLabels`/`publicProductTypeGroupClasses`; estado vacío de catálogo.
-5. Verificaciones sugeridas para esa fase: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run test:e2e` con `.env.e2e` en base descartable, `npm run test:accessibility`, revisión visual 1280/390.
+> **Estado (2026-10-25): todas las fases implementadas.** Resumen: Fase 1 (tema híbrido + grupos + estado vacío), Fase 2 ítems 1–4 (refresco en vivo desde `da0af67` + quick-add + migración de specs/tests) y Fase 3 ítems 1–4 (hero, diálogo `variant="public"`, barra pill, `lecciones-aprendidas`). Detalle por ítem abajo.
 
-**Fase 2 — Funciones** *(prioridad alta, comportamiento)*
+**Fase 1 — Tema y estructura** *(prioridad alta, sin cambios funcionales)* — prompt dedicado: `.devin/prompts/implementacion-tema-claro-ventas.md` — ✅ implementada
+1. ✅ Contenido de `/ventas` envuelto en `data-theme="light"` en `ventas/page.tsx` (sheet `bg-background` + `text-foreground` con `min-h-[calc(100dvh-9rem)]`); el chrome del panel sigue oscuro.
+2. ✅ `border-white/10` → `border-border` en `sales-cart.tsx` (×2). `cash-register-shift-badge.tsx` sumó prop `dataTheme?: 'light'` (clases `green-700`/`amber-700` en claro; `/cierre` sigue oscuro). `payment-parts-input.tsx` igual (`text-amber-700` bajo tema claro).
+3. ✅ Portales con tema explícito: `ConfirmDialog` "Vaciar venta" con `dataTheme="light"`; `PromoOptionsDialog` quedó con `variant="public"` en ambos diálogos del POS (ver decisión Fase 3.2 — cubre el tema claro y el hero sin prop nueva); `CajaStatus` propaga `dataTheme="light"` a los diálogos de abrir/cerrar caja (`cash-register-controls.tsx` sumó la prop en `DialogContent`).
+4. ✅ Headers de grupo: `groupProductsByType(displayProducts, typePriority, criticalSupplyTypePriority)` + `salesProductTypeLabels` (nuevo en `product-style.ts`: "Combos y promos"/"Bebidas"/"Servicios y extras") + `publicProductTypeGroupClasses`; estado vacío `data-testid="sales-catalog-empty"` con mensaje según filtro.
+5. Verificaciones: `lint`, `tsc`, `npm test` (2396), `knip` y `build` en verde; E2E migrados contra base descartable.
 
-> **Estado parcial (2026-10-25):** ítems 1–2 (refresco en vivo del catálogo) **implementados** — `src/config/ventas.ts` (`getVentasCatalogRefreshIntervalMs`: default 30000 ms, mínimo 5000 ms, `0` deshabilita) + `useVisibilityPolling` en `SalesTerminal` con tick silencioso a `POST /api/ventas/disponibilidad` y `onResume` → `fetchProducts({ silent: true })`. Restan quick-add (ítem 3) y la migración de specs (ítem 4).
+**Fase 2 — Funciones** *(prioridad alta, comportamiento)* — ítems 3–4 con prompt dedicado: `.devin/prompts/implementacion-quick-add-ventas.md` — ✅ implementada
 
-1. `NEXT_PUBLIC_VENTAS_REFETCH_INTERVAL_MS` en `src/config/` (default 15-30 s, mínimo ~5 s). ✅
-2. `useVisibilityPolling` en `SalesTerminal`: tick = POST `/api/ventas/disponibilidad` `{items, productIds: todos}` (reusa el efecto actual); `onResume`/intervalo mayor = `fetchProducts()`. ✅
-3. Quick-add: reestructurar variante `sales` de `ProductCardBase` a card con botones reales (`add-sale-product`, `customize-sale-product`), conservando `product-card`/`data-product-name`/`data-out-of-stock` en el contenedor; `addToCart` deja de abrir el diálogo salvo desde el control de personalizar.
-4. Migración mecánica de specs ventas-* (§7.2) + tests unitarios de `sales-terminal.test.tsx` (`[data-slot="card"]`).
+1. ✅ `NEXT_PUBLIC_VENTAS_REFETCH_INTERVAL_MS` en `src/config/ventas.ts` (default 30000 ms, mínimo 5000 ms, `0` deshabilita).
+2. ✅ `useVisibilityPolling` en `SalesTerminal`: tick silencioso = POST `/api/ventas/disponibilidad` `{items, productIds: todos}`; `onResume` → `fetchProducts({ silent: true })`; `isSubmittingRef` lo pausa durante `confirmSale`.
+3. ✅ Quick-add: variante `sales` de `ProductCardBase` reestructurada a card presentacional (sin `role="button"` ni `aria-disabled` en el contenedor) con botones reales `add-sale-product` (quick-add vía `onAdd` → `useSellableCart.addItem`, selección por defecto de la receta) y `customize-sale-product` (tuerca, solo con opcionales, llama `onCustomize` → `openCustomize` en `SalesTerminal` que conserva `maxQuantity` con `cartAvailability` y `confirmLabel="Agregar a la venta"`). Se conservan `product-card`/`data-product-name`/`data-out-of-stock` en el contenedor.
+4. ✅ Migración mecánica: `sales-terminal.test.tsx` (~20 clicks → `within(card).getByTestId(...)`, `closest<HTMLElement>`), `product-card-base.test.tsx` (sales: presentacional, botones reales, disabled, `onCustomize`), y los specs `ventas-disponibilidad` (2 clicks → `customize-sale-product`, `aria-disabled` → `toBeDisabled` del botón), `ventas-historial`, `ventas-pago-mixto`, `ventas-stock-compartido`, `paso3` y `flujo-diario` (→ `add-sale-product`).
 
-**Fase 3 — Pulido** *(prioridad media/baja, opcionales)*
-1. Evaluar hero/imagen en card `sales` (densidad vs. reconocimiento — capturas anexo A).
-2. `variant` del diálogo con tema claro para `/ventas` (o `data-theme` neutro), decisión sobre bottom-sheet mobile.
-3. Unificación visual de la barra móvil (pill) conservando `cart-mobile-bar`.
-4. Documentar en `lecciones-aprendidas.md` el patrón "contenido claro + chrome oscuro" si se adopta en otras páginas del panel.
+**Fase 3 — Pulido** *(prioridad media/baja, opcionales)* — prompt dedicado: `.devin/prompts/implementacion-pulido-ventas.md` — ✅ implementada
+1. ✅ Hero adoptado en card `sales` (mismo `aspect-video` + gradiente marca + pill "Promo" + badge "N en venta" sobre el hero, como `catalog`): paridad visual con `/pedido` sin perder datos operativos (disponibilidad numérica, "Podés sumar", receta incluida quedan en el cuerpo).
+2. ✅ Diálogos del POS con `variant="public"` (hero + bottom-sheet mobile + tema claro); el de edición sumó `imageUrl`/`description`. Esto supera la alternativa "prop `dataTheme` + `variant='sales'`" del prompt de Fase 1: una sola variante cubre tema y hero.
+3. ✅ Barra móvil a pill flotante de marca (`bg-brand-red`, `rounded-full`, texto "Ver venta · N ítems · $total"), conservando `data-testid="cart-mobile-bar"`.
+4. ✅ Precio de la card a Anton/rojo de marca (`ProductCardPrice` → `font-heading text-2xl text-brand-red`); patrón híbrido documentado en `lecciones-aprendidas.md` §20.
 
 ---
 

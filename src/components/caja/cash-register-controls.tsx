@@ -31,6 +31,11 @@ interface CashRegisterOpenControlsProps {
   onOpen: (initialAmount: number) => Promise<void>;
   /** Valor de `data-tour` del botón (contrato declarado para /cierre). */
   dataTour?: string;
+  /**
+   * `light` marca el diálogo portaleado como superficie clara (`/ventas`);
+   * sin valor el diálogo conserva el tema oscuro del panel (`/cierre`).
+   */
+  dataTheme?: 'light';
 }
 
 /**
@@ -42,6 +47,7 @@ export function CashRegisterOpenControls({
   loading = false,
   onOpen,
   dataTour,
+  dataTheme,
 }: CashRegisterOpenControlsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
@@ -85,7 +91,7 @@ export function CashRegisterOpenControls({
         {busy ? 'Abriendo...' : 'Abrir caja'}
       </Button>
       <Dialog open={openDialog} onOpenChange={handleDialogChange}>
-        <DialogContent>
+        <DialogContent data-theme={dataTheme}>
           <DialogHeader>
             <DialogTitle>Abrir caja</DialogTitle>
             <DialogDescription>
@@ -149,6 +155,11 @@ interface CashRegisterCloseControlsProps {
   size?: 'default' | 'lg';
   /** Valor de `data-tour` del botón (contrato declarado para /cierre). */
   dataTour?: string;
+  /**
+   * `light` marca el diálogo portaleado como superficie clara (`/ventas`);
+   * sin valor el diálogo conserva el tema oscuro del panel (`/cierre`).
+   */
+  dataTheme?: 'light';
 }
 
 /**
@@ -164,6 +175,7 @@ export function CashRegisterCloseControls({
   onClose,
   size,
   dataTour,
+  dataTheme,
 }: CashRegisterCloseControlsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeDialog, setCloseDialog] = useState(false);
@@ -237,7 +249,7 @@ export function CashRegisterCloseControls({
         </p>
       )}
       <Dialog open={closeDialog} onOpenChange={handleDialogChange}>
-        <DialogContent>
+        <DialogContent data-theme={dataTheme}>
           <DialogHeader>
             <DialogTitle>
               {isForcedClose ? 'Cierre forzado de caja' : 'Cerrar caja'}

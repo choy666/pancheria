@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { SalesTerminal } from './sales-terminal';
 import * as useCashRegisterModule from '@/hooks/useCashRegister';
 import * as ventasConfigModule from '@/config/ventas';
@@ -322,19 +322,22 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Pritty')).toBeInTheDocument()
     );
 
-    const panchuqueCard = screen.getByText('Panchuque').closest('[data-slot="card"]');
-    const prittyCard = screen.getByText('Pritty').closest('[data-slot="card"]');
+    const panchuqueCard = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]');
+    const prittyCard = screen.getByText('Pritty').closest<HTMLElement>('[data-slot="card"]');
 
     expect(panchuqueCard).not.toHaveClass('opacity-50');
     expect(prittyCard).toHaveClass('opacity-50');
 
-    fireEvent.click(panchuqueCard!);
+    fireEvent.click(
+      within(panchuqueCard!).getByTestId('add-sale-product')
+    );
     await waitFor(() => {
       expect(screen.getAllByText('Panchuque')).toHaveLength(2);
       expect(screen.queryByText('El carrito está vacío.')).not.toBeInTheDocument();
     });
 
-    fireEvent.click(prittyCard!);
+    // La card agotada muestra el botón deshabilitado: el click no agrega.
+    fireEvent.click(within(prittyCard!).getByTestId('add-sale-product'));
     expect(screen.getAllByText('Pritty')).toHaveLength(1);
     expect(screen.getAllByText('Panchuque')).toHaveLength(2);
     expect(screen.queryByText('El carrito está vacío.')).not.toBeInTheDocument();
@@ -363,10 +366,10 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]');
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]');
     expect(card).toHaveClass('opacity-50');
 
-    fireEvent.click(card!);
+    fireEvent.click(within(card!).getByTestId('add-sale-product'));
     expect(screen.queryByText('1 unidad')).not.toBeInTheDocument();
 
     // El aviso de caja cerrada se muestra dentro del carrito.
@@ -411,17 +414,17 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Bebida agotada')).toBeInTheDocument()
     );
 
-    const bebidaCard = screen.getByText('Bebida agotada').closest('[data-slot="card"]');
-    const servicioCard = screen.getByText('Servicio libre').closest('[data-slot="card"]');
+    const bebidaCard = screen.getByText('Bebida agotada').closest<HTMLElement>('[data-slot="card"]');
+    const servicioCard = screen.getByText('Servicio libre').closest<HTMLElement>('[data-slot="card"]');
 
     expect(bebidaCard).toHaveClass('opacity-50');
     expect(servicioCard).not.toHaveClass('opacity-50');
 
-    fireEvent.click(bebidaCard!);
+    fireEvent.click(within(bebidaCard!).getByTestId('add-sale-product'));
     expect(screen.getAllByText('Bebida agotada')).toHaveLength(1);
 
-    fireEvent.click(servicioCard!);
-    fireEvent.click(servicioCard!);
+    fireEvent.click(within(servicioCard!).getByTestId('add-sale-product'));
+    fireEvent.click(within(servicioCard!).getByTestId('add-sale-product'));
 
     await waitFor(() => {
       expect(screen.getAllByText('Servicio libre')).toHaveLength(2);
@@ -501,17 +504,17 @@ describe('SalesTerminal', () => {
       expect(screen.getAllByText(/4 más/)).toHaveLength(2)
     );
 
-    const cardA = screen.getByText('Promo A').closest('[data-slot="card"]');
-    const cardB = screen.getByText('Promo B').closest('[data-slot="card"]');
+    const cardA = screen.getByText('Promo A').closest<HTMLElement>('[data-slot="card"]');
+    const cardB = screen.getByText('Promo B').closest<HTMLElement>('[data-slot="card"]');
 
-    fireEvent.click(cardA!);
+    fireEvent.click(within(cardA!).getByTestId('add-sale-product'));
     await waitFor(() =>
       expect(screen.getAllByText('Promo A')).toHaveLength(2)
     );
 
-    fireEvent.click(cardA!);
-    fireEvent.click(cardA!);
-    fireEvent.click(cardA!);
+    fireEvent.click(within(cardA!).getByTestId('add-sale-product'));
+    fireEvent.click(within(cardA!).getByTestId('add-sale-product'));
+    fireEvent.click(within(cardA!).getByTestId('add-sale-product'));
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenLastCalledWith(
@@ -532,7 +535,7 @@ describe('SalesTerminal', () => {
       )
     );
 
-    fireEvent.click(cardB!);
+    fireEvent.click(within(cardB!).getByTestId('add-sale-product'));
     expect(screen.getAllByText('Promo B')).toHaveLength(1);
   });
 
@@ -595,12 +598,12 @@ describe('SalesTerminal', () => {
     );
     await waitFor(() => expect(availabilityCallCount).toBe(1));
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]');
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]');
     const button = screen.getByTestId('confirm-sale-button');
 
     expect(button).toBeDisabled();
 
-    fireEvent.click(card!);
+    fireEvent.click(within(card!).getByTestId('add-sale-product'));
 
     await waitFor(() => {
       const updatedButton = screen.getByTestId('confirm-sale-button');
@@ -693,9 +696,9 @@ describe('SalesTerminal', () => {
     );
     await waitFor(() => expect(availabilityCallCount).toBe(1));
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]');
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]');
 
-    fireEvent.click(card!);
+    fireEvent.click(within(card!).getByTestId('add-sale-product'));
 
     await waitFor(() => expect(availabilityCallCount).toBe(2));
 
@@ -820,8 +823,8 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
 
     await waitFor(() =>
       expect(
@@ -853,8 +856,8 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
 
     await waitFor(() =>
       expect(screen.getByTestId('product-card-cart-quantity-1')).toBeInTheDocument()
@@ -905,8 +908,8 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
 
     await waitFor(() =>
       expect(screen.getByTestId('product-card-cart-quantity-1')).toBeInTheDocument()
@@ -976,8 +979,10 @@ describe('SalesTerminal', () => {
     );
 
     const cards = screen.getAllByText('Panchuque');
-    const card = cards[0].closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = cards[0].closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(
+      within(card).getByTestId('customize-sale-product')
+    );
 
     await waitFor(() =>
       expect(
@@ -997,7 +1002,9 @@ describe('SalesTerminal', () => {
       expect(screen.getByTestId('product-card-cart-quantity-1')).toHaveTextContent('1 en venta')
     );
 
-    fireEvent.click(card);
+    fireEvent.click(
+      within(card).getByTestId('customize-sale-product')
+    );
 
     await waitFor(() =>
       expect(
@@ -1038,8 +1045,8 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
 
     await waitFor(() =>
       expect(screen.getByTestId('cart-item-remove')).toBeInTheDocument()
@@ -1077,8 +1084,8 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
 
     await waitFor(() =>
       expect(screen.getByTestId('cart-clear')).toBeInTheDocument()
@@ -1115,8 +1122,8 @@ describe('SalesTerminal', () => {
       expect(screen.getByText('Panchuque')).toBeInTheDocument()
     );
 
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
 
     fireEvent.change(screen.getByTestId('payment-cash-input'), {
       target: { value: '1000' },
@@ -1320,8 +1327,8 @@ describe('SalesTerminal', () => {
 
     // Agregar un ítem y cubrir el pago para que el único bloqueo posible del
     // botón sea el indicador de verificación de disponibilidad.
-    const card = screen.getByText('Panchuque').closest('[data-slot="card"]')!;
-    fireEvent.click(card);
+    const card = screen.getByText('Panchuque').closest<HTMLElement>('[data-slot="card"]')!;
+    fireEvent.click(within(card).getByTestId('add-sale-product'));
     fireEvent.change(screen.getByTestId('payment-cash-input'), {
       target: { value: '1500' },
     });

@@ -17,6 +17,9 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Mejora del menú digital `/menu` y reorganización de `/pantalla-config`](prompts/mejora-menu-digital-y-pantalla-config.md) — mejoras visuales de la carta TV, nuevas opciones en `menu_settings` y renombre de la página a "Pantallas" (con addendum auditado pre-ejecución).
 - [Auditoría de sincronización `/ventas` ↔ `/pedido`](prompts/auditoria-sincronizacion-ventas-pedido.md) — auditoría de solo lectura: comparar el POS `/ventas` con el `/pedido` rediseñado (tema claro en página del panel, catálogo en vivo, quick-add) y producir informe con recomendaciones priorizadas.
 - [Implementación — refresco en vivo del catálogo de `/ventas`](prompts/implementacion-refresco-catalogo-ventas.md) — fase 1 de la sincronización: polling silencioso de disponibilidad + recarga del catálogo al reanudar visibilidad; sin cambios visuales ni de selectores.
+- [Implementación — tema claro híbrido en `/ventas`](prompts/implementacion-tema-claro-ventas.md) — Fase 1 de §8.2: contenido del terminal en tema claro con chrome oscuro, portales con `dataTheme`, headers de grupo y estado vacío.
+- [Implementación — quick-add en `/ventas`](prompts/implementacion-quick-add-ventas.md) — Fase 2 restante de §8.2: card sales con botones reales (`add-sale-product`/`customize-sale-product`) y migración de specs.
+- [Implementación — pulido de `/ventas`](prompts/implementacion-pulido-ventas.md) — Fase 3 (opcional): hero en card, diálogo con hero/bottom-sheet, barra móvil pill, precio Anton, documentación del patrón.
 
 > **Rediseño de `/pedido` resuelto (2026-10-02):** los prompts `plan-rediseno-card-y-modal-pedido.md`, `rediseno-pedido-pr2-modal.md` y `mapa-arquitectura.md` se archivaron en `prompts/archivados/`; los informes de los PR 1–3 quedaron en `informes/archivados/`.
 > **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
@@ -96,6 +99,9 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── mejora-menu-digital-y-pantalla-config.md  # Mejoras de /menu, nuevas opciones de menu_settings y renombre de /pantalla-config a "Pantallas"
     ├── auditoria-sincronizacion-ventas-pedido.md  # Auditoría (solo lectura): sincronizar /ventas con el /pedido rediseñado — tema claro, catálogo en vivo, quick-add
     ├── implementacion-refresco-catalogo-ventas.md  # Implementación fase 1: refresco en vivo del catálogo del POS (polling silencioso de disponibilidad)
+    ├── implementacion-tema-claro-ventas.md  # Fase 1 §8.2: tema claro híbrido en /ventas (contenido claro + chrome oscuro) + headers de grupo
+    ├── implementacion-quick-add-ventas.md   # Fase 2 §8.2: quick-add con botones reales en la card sales + migración de specs
+    ├── implementacion-pulido-ventas.md      # Fase 3 §8.2 (opcional): hero en card, diálogo POS, barra móvil pill, precio Anton
     ├── plan-implementacion-multi-tenant.md
     └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, rediseño de /pedido, mapa-arquitectura.md, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
 ```

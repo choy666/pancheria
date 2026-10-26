@@ -105,13 +105,13 @@ test.describe('Flujo completo de un día de operación', () => {
     const cardBebida = page
       .locator('[data-testid="product-card"][data-product-name="' + bebida.name + '"]');
 
-    await cardCombo.click();
-    await cardCombo.click();
+    await cardCombo.getByTestId('add-sale-product').click();
+    await cardCombo.getByTestId('add-sale-product').click();
     await expect(
       page.locator('[data-testid="cart-item"][data-product-name="' + combo.name + '"]').getByText('2', { exact: true })
     ).toBeVisible({ timeout: 10000 });
 
-    await cardBebida.click();
+    await cardBebida.getByTestId('add-sale-product').click();
 
     // El efectivo arranca cubriendo el total; para pagar todo por
     // transferencia hay que llevarlo a cero antes de cargar el monto.

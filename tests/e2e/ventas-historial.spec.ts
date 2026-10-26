@@ -31,7 +31,7 @@ test.describe('Historial de cajas con ventas', () => {
       `[data-testid="product-card"][data-product-name="${product.name}"]`
     );
     await expect(card).toBeVisible({ timeout: 10000 });
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
 
     await page.getByTestId('payment-cash-input').fill('500');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
@@ -86,7 +86,7 @@ test.describe('Historial de cajas con ventas', () => {
       `[data-testid="product-card"][data-product-name="${product.name}"]`
     );
     await expect(card).toBeVisible({ timeout: 10000 });
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
 
     // La aclaración se carga editando la línea del carrito.
     await page

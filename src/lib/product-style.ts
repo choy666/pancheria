@@ -39,6 +39,17 @@ export const criticalSupplyTypePriority: Record<CriticalSupplyType, number> = {
   beverage: 3,
 };
 
+/**
+ * Etiquetas de grupo para el terminal `/ventas` (tema claro): lenguaje de
+ * mostrador, sin jerga interna de stock ni copy de cliente final.
+ */
+export const salesProductTypeLabels: Record<ProductType, string> = {
+  compound: 'Combos y promos',
+  critical_supply: 'Bebidas',
+  manual_supply: 'Otros productos',
+  service: 'Servicios y extras',
+};
+
 export const productTypeBadgeClasses: Record<ProductType, string> = {
   compound: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
   critical_supply: 'bg-rose-500/15 text-rose-400 border-rose-500/30',

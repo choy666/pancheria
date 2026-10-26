@@ -269,7 +269,7 @@ describe('ProductCardBase', () => {
   });
 
   describe('variant="sales"', () => {
-    test('la tarjeta completa actúa como botón y llama onAdd', () => {
+    test('la tarjeta es presentacional y el botón Agregar llama onAdd', () => {
       const onAdd = jest.fn();
       render(
         <ProductCardBase
@@ -280,14 +280,16 @@ describe('ProductCardBase', () => {
         />
       );
 
-      const card = screen.getByRole('button', {
-        name: 'Agregar Panchuque a la venta',
-      });
-      fireEvent.click(card);
+      // Sin `role="button"` en el contenedor: no hay botones anidados.
+      const card = screen.getByTestId('product-card');
+      expect(card).not.toHaveAttribute('role');
+      expect(card).not.toHaveAttribute('tabindex');
+
+      fireEvent.click(screen.getByTestId('add-sale-product'));
       expect(onAdd).toHaveBeenCalledTimes(1);
     });
 
-    test('responde a Enter y Espacio', () => {
+    test('los controles son botones reales (Enter/Espacio nativos)', () => {
       const onAdd = jest.fn();
       render(
         <ProductCardBase
@@ -298,10 +300,58 @@ describe('ProductCardBase', () => {
         />
       );
 
-      const card = screen.getByTestId('product-card');
-      fireEvent.keyDown(card, { key: 'Enter' });
-      fireEvent.keyDown(card, { key: ' ' });
-      expect(onAdd).toHaveBeenCalledTimes(2);
+      const button = screen.getByTestId('add-sale-product');
+      expect(button.tagName).toBe('BUTTON');
+      expect(button).not.toBeDisabled();
+    });
+
+    test('el botón de personalizar llama onCustomize sin agregar', () => {
+      const onAdd = jest.fn();
+      const onCustomize = jest.fn();
+      const product = makeProduct({
+        recipe: [
+          {
+            supplyId: 20,
+            supplyName: 'Cebolla',
+            supplyType: 'manual_supply',
+            quantity: 1,
+            autoDiscount: false,
+            isOptional: true,
+            selected: false,
+            selectedByDefault: false,
+          },
+        ],
+      });
+
+      render(
+        <ProductCardBase
+          variant="sales"
+          product={product}
+          isOutOfStock={false}
+          onAdd={onAdd}
+          onCustomize={onCustomize}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('customize-sale-product'));
+      expect(onCustomize).toHaveBeenCalledTimes(1);
+      expect(onAdd).not.toHaveBeenCalled();
+    });
+
+    test('sin opcionales no se muestra el botón de personalizar', () => {
+      render(
+        <ProductCardBase
+          variant="sales"
+          product={makeProduct()}
+          isOutOfStock={false}
+          onAdd={jest.fn()}
+          onCustomize={jest.fn()}
+        />
+      );
+
+      expect(
+        screen.queryByTestId('customize-sale-product')
+      ).not.toBeInTheDocument();
     });
 
     test('muestra el badge de cantidad en venta', () => {
@@ -351,11 +401,13 @@ describe('ProductCardBase', () => {
 
       const card = screen.getByTestId('product-card');
       expect(card).toHaveAttribute('data-out-of-stock', 'true');
-      expect(card).toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByText('Sin stock')).toBeInTheDocument();
 
-      fireEvent.click(card);
-      fireEvent.keyDown(card, { key: 'Enter' });
+      const button = screen.getByTestId('add-sale-product');
+      expect(button).toBeDisabled();
+      expect(button).toHaveTextContent('Agotado');
+
+      fireEvent.click(button);
       expect(onAdd).not.toHaveBeenCalled();
     });
 
@@ -371,7 +423,9 @@ describe('ProductCardBase', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('product-card'));
+      const button = screen.getByTestId('add-sale-product');
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
       expect(onAdd).not.toHaveBeenCalled();
     });
 

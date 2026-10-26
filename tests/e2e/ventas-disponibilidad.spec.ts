@@ -41,8 +41,8 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     });
 
     // El carrito no permite agregar más unidades de las disponibles.
-    await card.click();
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
+    await card.getByTestId('add-sale-product').click();
 
     const cartItem = page.locator('[data-testid="cart-item"][data-product-name="' + bebida.name + '"]');
 
@@ -52,7 +52,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
 
     // La tarjeta se deshabilita al quedar sin stock.
     await expect(card).toHaveAttribute('data-out-of-stock', 'true');
-    await expect(card).toHaveAttribute('aria-disabled', 'true');
+    await expect(card.getByTestId('add-sale-product')).toBeDisabled();
 
     await page.getByTestId('payment-cash-input').fill('600');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
@@ -95,9 +95,9 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       timeout: 10000,
     });
 
-    await card.click();
-    await card.click();
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
+    await card.getByTestId('add-sale-product').click();
+    await card.getByTestId('add-sale-product').click();
 
     const cartItem = page.locator('[data-testid="cart-item"][data-product-name="' + servicio.name + '"]');
 
@@ -176,7 +176,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       timeout: 10000,
     });
 
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
 
     await page.getByTestId('payment-cash-input').fill('1500');
     await page.getByRole('button', { name: 'Confirmar venta' }).click();
@@ -242,7 +242,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
       timeout: 10000,
     });
 
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
 
     const button = page.getByRole('button', { name: 'Confirmar venta' });
 
@@ -329,7 +329,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     await expect(card).toBeVisible({ timeout: 10000 });
 
     // Agregar variante con cebolla.
-    await card.click();
+    await card.getByTestId('customize-sale-product').click();
     await expect(page.getByRole('heading', { name: promo.name })).toBeVisible({
       timeout: 5000,
     });
@@ -345,7 +345,7 @@ test.describe('Disponibilidad en el terminal de ventas', () => {
     ).toHaveCount(1, { timeout: 5000 });
 
     // Agregar variante sin cebolla.
-    await card.click();
+    await card.getByTestId('customize-sale-product').click();
     await expect(page.getByRole('heading', { name: promo.name })).toBeVisible({
       timeout: 5000,
     });

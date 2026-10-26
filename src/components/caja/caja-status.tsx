@@ -28,6 +28,11 @@ interface CajaStatusProps {
   error: string | null;
   role?: 'admin' | 'operator';
   userName?: string | null;
+  /**
+   * `light` pinta badges y diálogos sobre superficie clara (`/ventas`); sin
+   * valor conserva el tema oscuro compartido con `/cierre`.
+   */
+  dataTheme?: 'light';
 }
 
 export function CajaStatus({
@@ -38,6 +43,7 @@ export function CajaStatus({
   error,
   role = 'operator',
   userName,
+  dataTheme,
 }: CajaStatusProps) {
   const now = useClockInterval(getCajaClockIntervalMs());
 
@@ -52,6 +58,7 @@ export function CajaStatus({
             error={error}
             loading={loading}
             onOpen={onOpen}
+            dataTheme={dataTheme}
           />
         </CardContent>
       </Card>
@@ -87,7 +94,10 @@ export function CajaStatus({
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="default">Abierta</Badge>
-          <CashRegisterShiftBadge estadoTurno={cashRegister.estadoTurno} />
+          <CashRegisterShiftBadge
+            estadoTurno={cashRegister.estadoTurno}
+            dataTheme={dataTheme}
+          />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,6 +130,7 @@ export function CajaStatus({
           userName={userName}
           loading={loading}
           onClose={onClose}
+          dataTheme={dataTheme}
         />
       </CardContent>
     </Card>

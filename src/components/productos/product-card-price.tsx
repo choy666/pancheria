@@ -6,7 +6,7 @@ interface ProductCardPriceProps {
 
 export function ProductCardPrice({ price }: ProductCardPriceProps) {
   return (
-    <p className="font-mono text-2xl font-bold text-primary">
+    <p className="font-heading text-2xl text-brand-red">
       {formatMoney(price)}
     </p>
   );

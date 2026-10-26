@@ -14,12 +14,19 @@ import type { PromoOptionsConfirmPayload } from '@/components/promo/promo-option
 import { isPublicSellableProduct } from '@/lib/catalog';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
-import { groupCartItemsForSubmit, hasOptionalRecipeItems } from '@/lib/cart-helpers';
+import { groupCartItemsForSubmit } from '@/lib/cart-helpers';
+import { groupProductsByType } from '@/lib/product-grouping';
 import {
   getProductAdditional,
   sortSellableProducts,
   type SellableProduct,
 } from '@/lib/ventas-helpers';
+import {
+  typePriority,
+  criticalSupplyTypePriority,
+  salesProductTypeLabels,
+  publicProductTypeGroupClasses,
+} from '@/lib/product-style';
 import { SalesProductCard } from '@/components/ventas/sales-product-card';
 import { SalesCart } from '@/components/ventas/sales-cart';
 import {
@@ -122,6 +129,20 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
       return additional > 0;
     });
   }, [products, showOutOfStock, cartAvailability]);
+
+  // Grupos por tipo como en el catálogo público: respeta el orden vendible
+  // (compound → insumos críticos por subtipo → servicios → resto) y ordena
+  // por nombre dentro de cada grupo. Se calcula sobre `displayProducts`
+  // para que "Mostrar agotados" solo agregue ítems a su grupo.
+  const groupedDisplayProducts = useMemo(
+    () =>
+      groupProductsByType(
+        displayProducts,
+        typePriority,
+        criticalSupplyTypePriority
+      ),
+    [displayProducts]
+  );
 
   // `silent` se usa para los refrescos de fondo (reanudar visibilidad): no
   // enciende `isCheckingAvailability` ni muestra errores — el cambio de
@@ -279,19 +300,23 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
     if (!cashRegister || cashRegister.status !== 'open') return;
     setError(null);
 
-    if (hasOptionalRecipeItems(product) && payload === undefined) {
-      setPromoDialogKey((prev) => prev + 1);
-      setPromoDialogProduct(product);
-      return;
-    }
-
     setIsCheckingAvailability(true);
     // El diálogo puede pedir N unidades: una línea por unidad con la misma
     // aclaración y `useSellableCart` impone la disponibilidad en cada agregado.
+    // El quick-add (sin payload) agrega una unidad con la selección por
+    // defecto de la receta.
     const units = Math.max(1, Math.floor(payload?.quantity ?? 1));
     for (let i = 0; i < units; i += 1) {
       addLine(product, payload?.selectedRecipeItemIds, payload?.notes);
     }
+  }
+
+  // La personalización vive acá (no en la card) para compartir
+  // `cartAvailability` en `maxQuantity` y confirmar por `addToCart`.
+  function openCustomize(product: SellableProduct) {
+    if (!cashRegister || cashRegister.status !== 'open') return;
+    setPromoDialogKey((prev) => prev + 1);
+    setPromoDialogProduct(product);
   }
 
   function removeFromCart(lineId: string) {
@@ -462,6 +487,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           error={cashError}
           role={role}
           userName={userName}
+          dataTheme="light"
         />
       </div>
 
@@ -481,30 +507,49 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
             </Button>
           </div>
 
-          <div
-            data-tour="sales-products"
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {displayProducts.map((product) => {
-              const inCartQuantity = lines.reduce(
-                (sum, line) =>
-                  line.product.id === product.id
-                    ? sum + line.quantity
-                    : sum,
-                0
-              );
+          <div data-tour="sales-products" className="space-y-6">
+            {displayProducts.length === 0 && (
+              <p
+                data-testid="sales-catalog-empty"
+                className="rounded-lg border border-border p-4 text-sm text-muted-foreground"
+              >
+                {products.length === 0
+                  ? 'No hay productos vendibles en el catálogo.'
+                  : 'Todos los productos están agotados. Activá "Mostrar agotados" para ver el catálogo.'}
+              </p>
+            )}
+            {groupedDisplayProducts.map((group) => (
+              <section key={group.type} className="space-y-3">
+                <h3
+                  className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium ${publicProductTypeGroupClasses[group.type]}`}
+                >
+                  {salesProductTypeLabels[group.type]}
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.items.map((product) => {
+                    const inCartQuantity = lines.reduce(
+                      (sum, line) =>
+                        line.product.id === product.id
+                          ? sum + line.quantity
+                          : sum,
+                      0
+                    );
 
-              return (
-                <SalesProductCard
-                  key={product.id}
-                  product={product}
-                  cartAvailability={cartAvailability}
-                  inCartQuantity={inCartQuantity}
-                  cartDisabled={cartDisabled}
-                  onAdd={addToCart}
-                />
-              );
-            })}
+                    return (
+                      <SalesProductCard
+                        key={product.id}
+                        product={product}
+                        cartAvailability={cartAvailability}
+                        inCartQuantity={inCartQuantity}
+                        cartDisabled={cartDisabled}
+                        onAdd={addToCart}
+                        onCustomize={openCustomize}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
 
@@ -561,6 +606,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
             setPromoDialogProduct(null);
           }}
           confirmLabel="Agregar a la venta"
+          variant="public"
         />
       )}
 
@@ -573,6 +619,8 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           }}
           productName={editingLine.product.name}
           productPrice={editingLine.product.price}
+          imageUrl={editingLine.product.imageUrl}
+          description={editingLine.product.description}
           recipe={editingLine.product.recipe ?? []}
           maxOptionalSelections={editingLine.product.maxOptionalSelections}
           initialSelectedIds={editingLine.initialSelectedIds}
@@ -580,6 +628,7 @@ export function SalesTerminal({ role = 'operator', userName }: SalesTerminalProp
           onConfirm={confirmEditLine}
           mode="edit"
           confirmLabel="Guardar cambios"
+          variant="public"
         />
       )}
     </div>

@@ -19,6 +19,11 @@ interface PaymentPartsInputProps {
   payments: PaymentPart[];
   onChange: (payments: PaymentPart[]) => void;
   disabled?: boolean;
+  /**
+   * `light` sube el contraste del aviso de faltante sobre superficies
+   * `[data-theme='light']` (`/ventas`); sin valor conserva el tono oscuro.
+   */
+  dataTheme?: 'light';
 }
 
 const METHOD_ICONS: Record<
@@ -53,6 +58,7 @@ export function PaymentPartsInput({
   payments,
   onChange,
   disabled,
+  dataTheme,
 }: PaymentPartsInputProps) {
   const totalRounded = roundAmount(total);
   const byMethod = useMemo(() => amountByPaymentMethod(payments), [payments]);
@@ -73,7 +79,11 @@ export function PaymentPartsInput({
         : 'Pago completo';
 
   const remainingClass =
-    remaining === 0 ? 'text-muted-foreground' : 'text-amber-500';
+    remaining === 0
+      ? 'text-muted-foreground'
+      : dataTheme === 'light'
+        ? 'text-amber-700'
+        : 'text-amber-500';
 
   function updatePayment(method: PaymentMethod, raw: string) {
     const parsed = raw.trim() === '' ? 0 : parsePaymentAmount(raw);

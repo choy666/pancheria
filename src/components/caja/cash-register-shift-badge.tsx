@@ -7,6 +7,11 @@ import type { CashRegisterShiftInfoDTO } from '@/domain/types';
 
 interface CashRegisterShiftBadgeProps {
   estadoTurno: CashRegisterShiftInfoDTO | null | undefined;
+  /**
+   * `light` pinta sobre superficies `[data-theme='light']` (`/ventas`); sin
+   * valor conserva las clases pensadas para el panel oscuro (`/cierre`).
+   */
+  dataTheme?: 'light';
 }
 
 function formatShiftSlot(slot: { dayOfWeek: number; open: string; close: string; start: string; end: string }): string {
@@ -14,7 +19,7 @@ function formatShiftSlot(slot: { dayOfWeek: number; open: string; close: string;
   return `${dayName} de ${slot.open} a ${slot.close}`;
 }
 
-export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgeProps) {
+export function CashRegisterShiftBadge({ estadoTurno, dataTheme }: CashRegisterShiftBadgeProps) {
   if (!estadoTurno) {
     return null;
   }
@@ -38,7 +43,11 @@ export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgePr
     return (
       <Badge
         variant="default"
-        className="bg-green-500/20 text-green-400 border-green-500/30"
+        className={
+          dataTheme === 'light'
+            ? 'bg-green-500/15 text-green-700 border-green-600/40'
+            : 'bg-green-500/20 text-green-400 border-green-500/30'
+        }
         data-testid="cash-register-shift-badge"
         data-shift-status={status}
       >
@@ -52,7 +61,11 @@ export function CashRegisterShiftBadge({ estadoTurno }: CashRegisterShiftBadgePr
     return (
       <Badge
         variant="outline"
-        className="text-amber-400 border-amber-500/30"
+        className={
+          dataTheme === 'light'
+            ? 'text-amber-700 border-amber-500/40'
+            : 'text-amber-400 border-amber-500/30'
+        }
         data-testid="cash-register-shift-badge"
         data-shift-status={status}
       >

@@ -4,6 +4,7 @@
 import {
   productTypeLabels,
   publicProductTypeLabels,
+  salesProductTypeLabels,
   criticalTypeLabels,
   typePriority,
   criticalSupplyTypePriority,
@@ -28,6 +29,7 @@ describe('product-style', () => {
     const maps: Record<ProductType, string | number>[] = [
       productTypeLabels,
       publicProductTypeLabels,
+      salesProductTypeLabels,
       typePriority,
       productTypeBadgeClasses,
       productTypeTextClasses,
@@ -64,5 +66,11 @@ describe('product-style', () => {
     expect(publicProductTypeLabels.compound).toBe('Combos y promos');
     expect(publicProductTypeLabels.critical_supply).toBe('Bebidas');
     expect(publicProductTypeLabels.service).toBe('Extras');
+  });
+
+  test('las etiquetas del terminal usan lenguaje de mostrador', () => {
+    expect(salesProductTypeLabels.compound).toBe('Combos y promos');
+    expect(salesProductTypeLabels.critical_supply).toBe('Bebidas');
+    expect(salesProductTypeLabels.service).toBe('Servicios y extras');
   });
 });

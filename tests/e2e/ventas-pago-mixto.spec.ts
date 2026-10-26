@@ -49,7 +49,7 @@ test.describe('Pago mixto en el terminal de ventas', () => {
       timeout: 10000,
     });
 
-    await card.click();
+    await card.getByTestId('add-sale-product').click();
 
     const cartItem = page.locator(
       '[data-testid="cart-item"][data-product-name="' + bebida.name + '"]'

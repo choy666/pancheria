@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type KeyboardEvent } from 'react';
+import { useCallback, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,13 @@ interface ProductCardBaseProps {
    * carrito agrega una sola unidad con la selección por defecto.
    */
   onAdd: (payload?: PromoOptionsConfirmPayload) => void;
+  /**
+   * Solo `variant="sales"`: abre el diálogo de personalización del terminal
+   * (vive en el padre para compartir `cartAvailability` y `maxQuantity`).
+   * Cuando el producto tiene opcionales y hay callback, la card muestra el
+   * botón circular `customize-sale-product`.
+   */
+  onCustomize?: () => void;
 }
 
 /**
@@ -70,9 +77,12 @@ interface ProductCardBaseProps {
  *   y CTA "Agregar" (quick-add con la selección por defecto). En productos
  *   con opcionales, el botón circular `customize-product-${id}` abre el
  *   diálogo de personalización.
- * - `variant="sales"`: terminal de `/ventas`. Toda la tarjeta actúa como
- *   botón, muestra el badge de cantidad en el pedido y el stock restante
- *   calculado por el padre (`isOutOfStock`/`maxAdditional`).
+ * - `variant="sales"`: terminal de `/ventas`. Mismo lenguaje visual que
+ *   catálogo (hero, pill "Promo", CTA redondo) con datos operativos extra
+ *   (disponibilidad numérica, stock restante `maxAdditional`, badge "N en
+ *   venta"). La card es presentacional: `add-sale-product` hace quick-add
+ *   con la selección por defecto y `customize-sale-product` abre el diálogo
+ *   de personalización del terminal vía `onCustomize`.
  *
  * Los `data-testid` se mantienen por variante para no romper los selectores
  * E2E existentes (`product-card-${id}`/`add-product-${id}` en catálogo y
@@ -88,6 +98,7 @@ export function ProductCardBase({
   maxAdditional,
   imagePriority = false,
   onAdd,
+  onCustomize,
 }: ProductCardBaseProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
@@ -114,25 +125,11 @@ export function ProductCardBase({
     setDialogOpen(true);
   }, []);
 
-  // Catálogo: la card es presentacional (sin rol interactivo) para no anidar
-  // botones dentro de un `role="button"`. "Agregar" siempre hace quick-add
-  // (los opcionales van con su `selectedByDefault`) y el botón circular
-  // `customize-product-${id}` abre el diálogo de personalización.
-  const handleCardActivate = useCallback(() => {
-    if (isDisabled) return;
-    onAdd();
-  }, [isDisabled, onAdd]);
-
-  const handleCardKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      handleCardActivate();
-    },
-    [handleCardActivate]
-  );
-
+  // Ambas variantes son presentacionales (sin rol interactivo) para no
+  // anidar botones dentro de un `role="button"`. "Agregar" siempre hace
+  // quick-add (los opcionales van con su `selectedByDefault`); el botón
+  // circular abre el diálogo de personalización — propio en catálogo,
+  // delegado al terminal en ventas.
   if (isCatalog) {
     return (
       <Card
@@ -251,25 +248,43 @@ export function ProductCardBase({
       data-testid="product-card"
       data-product-name={product.name}
       data-out-of-stock={isOutOfStock}
-      role="button"
-      tabIndex={isDisabled ? -1 : 0}
-      aria-disabled={isDisabled}
-      aria-label={`Agregar ${product.name} a la venta`}
-      onClick={handleCardActivate}
-      onKeyDown={handleCardKeyDown}
-      className={`transition-all ${
-        isDisabled
-          ? 'opacity-50'
-          : 'cursor-pointer touch-manipulation hover:border-primary/30 hover:bg-muted/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+      className={`gap-0 rounded-3xl py-0 shadow-sm transition-shadow ${
+        isDisabled ? 'opacity-50' : 'hover:shadow-md'
       }`}
     >
-      <CardHeader className="p-5">
+      {/* Hero igual que la variante catalog: imagen a todo ancho sobre el
+          diagonal de marca; la cantidad en venta se superpone a la derecha
+          y la pill "Promo" a la izquierda (solo compuestos). */}
+      <div className="relative aspect-video w-full overflow-hidden rounded-t-3xl bg-linear-to-br from-brand-red to-brand-mustard after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-black/10">
+        <ProductCardImage
+          imageUrl={product.imageUrl}
+          productName={product.name}
+          priority={imagePriority}
+        />
+        {product.type === 'compound' && (
+          <span className="absolute left-3 top-3 rounded-full bg-brand-mustard px-3 py-1 font-heading text-xs uppercase tracking-wide text-brand-ink shadow-sm">
+            Promo
+          </span>
+        )}
+        {inCartQuantity > 0 && (
+          <Badge
+            key={inCartQuantity}
+            data-testid={`product-card-cart-quantity-${product.id}`}
+            className="absolute right-3 top-3 animate-in zoom-in-50 bg-white/95 text-brand-ink duration-200"
+          >
+            {inCartQuantity} en venta
+          </Badge>
+        )}
+      </div>
+
+      <CardHeader className="p-4 pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg font-semibold leading-tight">
+          <CardTitle className="font-heading text-xl leading-tight">
             {product.name}
           </CardTitle>
           <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5">
-            {typeLabel && (
+            {/* En compuestos la pill "Promo" del hero ya identifica el tipo. */}
+            {typeLabel && product.type !== 'compound' && (
               <Badge variant="secondary" className="shrink-0">
                 {typeLabel}
               </Badge>
@@ -279,21 +294,11 @@ export function ProductCardBase({
                 +{optionalItems.length} opcionales
               </Badge>
             )}
-            {inCartQuantity > 0 && (
-              <Badge
-                key={inCartQuantity}
-                variant="default"
-                className="shrink-0"
-                data-testid={`product-card-cart-quantity-${product.id}`}
-              >
-                {inCartQuantity} en venta
-              </Badge>
-            )}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="p-5 pt-0">
+      <CardContent className="flex flex-1 flex-col gap-1.5 p-4 pt-0">
         <ProductCardPrice price={product.price} />
 
         <ProductCardAvailability
@@ -315,6 +320,43 @@ export function ProductCardBase({
             maxAdditional={maxAdditional}
           />
         )}
+
+        {/* Quick-add con la selección por defecto (`onAdd`); la tuerca
+            abre el diálogo del terminal (`onCustomize`). */}
+        <div className="mt-auto flex items-center justify-end gap-2 pt-3">
+          {hasOptions && onCustomize && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-testid="customize-sale-product"
+              aria-label={`Personalizar ${product.name}`}
+              disabled={isDisabled}
+              onClick={onCustomize}
+              className="rounded-full border border-border text-foreground hover:bg-muted"
+            >
+              <SlidersHorizontal />
+            </Button>
+          )}
+          <Button
+            type="button"
+            data-testid="add-sale-product"
+            // El nombre accesible incluye el producto (hay N botones
+            // "Agregar" en el grid) y contiene el texto visible.
+            aria-label={
+              isOutOfStock
+                ? `${product.name} agotado`
+                : inCartQuantity > 0 || inCart
+                  ? `Agregar otro ${product.name} a la venta`
+                  : `Agregar ${product.name} a la venta`
+            }
+            disabled={isDisabled}
+            onClick={() => onAdd()}
+            className="rounded-full bg-brand-red px-5 font-semibold text-white hover:bg-brand-red/90"
+          >
+            {buttonLabel}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

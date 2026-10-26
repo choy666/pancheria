@@ -13,6 +13,8 @@ interface SalesProductCardProps {
   inCartQuantity: number;
   cartDisabled: boolean;
   onAdd: (product: SellableProduct) => void;
+  /** Abre el diálogo de personalización del terminal para este producto. */
+  onCustomize: (product: SellableProduct) => void;
 }
 
 export function SalesProductCard({
@@ -21,6 +23,7 @@ export function SalesProductCard({
   inCartQuantity,
   cartDisabled,
   onAdd,
+  onCustomize,
 }: SalesProductCardProps) {
   const additional = getProductAdditional(
     product,
@@ -45,6 +48,7 @@ export function SalesProductCard({
       disabled={cartDisabled}
       maxAdditional={maxAdditional}
       onAdd={() => onAdd(product)}
+      onCustomize={() => onCustomize(product)}
     />
   );
 }

@@ -279,19 +279,20 @@ export function SalesCart({
 
   const footer = (
     <>
-      <div className="border-t border-white/10 pt-4">
+      <div className="border-t border-border pt-4">
         <p className="font-mono text-2xl font-bold" aria-live="polite">
           Total: {formatMoney(total)}
         </p>
       </div>
 
-      <div className="space-y-3 border-t border-white/10 pt-4">
+      <div className="space-y-3 border-t border-border pt-4">
         <p className="text-sm font-semibold">Cobro</p>
         <PaymentPartsInput
           total={total}
           payments={paymentParts}
           onChange={onPaymentChange}
           disabled={controlsDisabled}
+          dataTheme="light"
         />
       </div>
 
@@ -344,6 +345,7 @@ export function SalesCart({
         title="Vaciar venta"
         description="Se quitan todos los productos y el pago de la venta actual."
         confirmLabel="Vaciar"
+        dataTheme="light"
         onConfirm={() => {
           setConfirmClearOpen(false);
           onClearCart();
@@ -353,21 +355,23 @@ export function SalesCart({
 
       {itemCount > 0 && (
         <>
-          <div className="h-14 lg:hidden" aria-hidden="true" />
-          <button
-            type="button"
-            data-testid="cart-mobile-bar"
-            onClick={() =>
-              cartRef.current?.scrollIntoView({ behavior: 'smooth' })
-            }
-            className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 text-sm font-medium backdrop-blur lg:hidden"
-          >
-            <span>
-              {itemCount} {itemCount === 1 ? 'ítem' : 'ítems'}
-            </span>
-            <span className="font-mono">{formatMoney(total)}</span>
-            <span className="text-primary">Ver venta</span>
-          </button>
+          {/* Espacio para que la barra fija no tape el contenido en mobile. */}
+          <div className="h-20 lg:hidden" aria-hidden="true" />
+          {/* Pill flotante de marca, igual que la barra "Ver pedido" del
+              catálogo público. */}
+          <div className="fixed inset-x-0 bottom-0 z-40 p-3 lg:hidden">
+            <Button
+              type="button"
+              data-testid="cart-mobile-bar"
+              onClick={() =>
+                cartRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }
+              className="h-12 w-full rounded-full bg-brand-red font-semibold text-white shadow-lg hover:bg-brand-red/90"
+            >
+              Ver venta · {itemCount} {itemCount === 1 ? 'ítem' : 'ítems'} ·{' '}
+              {formatMoney(total)}
+            </Button>
+          </div>
         </>
       )}
     </div>
