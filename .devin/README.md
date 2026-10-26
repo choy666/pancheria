@@ -11,16 +11,11 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Prompt de auditoría y documentación](prompts/auditoria-y-documentacion.md)
 - [Auditoría de cobertura de pruebas y tests](prompts/auditoria-cobertura-de-pruebas.md)
 - [Auditoría QA integral con ejecución de tests](prompts/auditoria-qa-integral.md) — auditoría QA por etapas con tests ejecutables, revisión visual por perfiles e informe con evidencia.
-- [Auditoría de factibilidad — nueva sucursal con inventario y menú](prompts/auditoria-nueva-sucursal-stock.md) — auditoría de solo lectura: alta de sucursal con 59 ítems, 11 promos + extras, trazabilidad por promo y facturación.
 - [Plan de implementación — multi-tenant compartido](prompts/plan-implementacion-multi-tenant.md) — propuesta futura, no implementada.
-- [Análisis del catálogo y comportamiento ante ventas y pedidos](prompts/analisis-catalogo-ventas-pedidos.md) — análisis de solo lectura contra producción (sucursal id 3): catálogo vendible, efectos en stock, cancelaciones y registros en `/ventas`, `/pedidos`, `/pedido` y cron.
-- [Mejora del menú digital `/menu` y reorganización de `/pantalla-config`](prompts/mejora-menu-digital-y-pantalla-config.md) — mejoras visuales de la carta TV, nuevas opciones en `menu_settings` y renombre de la página a "Pantallas" (con addendum auditado pre-ejecución).
-- [Auditoría de sincronización `/ventas` ↔ `/pedido`](prompts/auditoria-sincronizacion-ventas-pedido.md) — auditoría de solo lectura: comparar el POS `/ventas` con el `/pedido` rediseñado (tema claro en página del panel, catálogo en vivo, quick-add) y producir informe con recomendaciones priorizadas.
-- [Implementación — refresco en vivo del catálogo de `/ventas`](prompts/implementacion-refresco-catalogo-ventas.md) — fase 1 de la sincronización: polling silencioso de disponibilidad + recarga del catálogo al reanudar visibilidad; sin cambios visuales ni de selectores.
-- [Implementación — tema claro híbrido en `/ventas`](prompts/implementacion-tema-claro-ventas.md) — Fase 1 de §8.2: contenido del terminal en tema claro con chrome oscuro, portales con `dataTheme`, headers de grupo y estado vacío.
-- [Implementación — quick-add en `/ventas`](prompts/implementacion-quick-add-ventas.md) — Fase 2 restante de §8.2: card sales con botones reales (`add-sale-product`/`customize-sale-product`) y migración de specs.
-- [Implementación — pulido de `/ventas`](prompts/implementacion-pulido-ventas.md) — Fase 3 (opcional): hero en card, diálogo con hero/bottom-sheet, barra móvil pill, precio Anton, documentación del patrón.
+- [Simplificación de `/cierre`](prompts/simplificacion-cierre.md) — quitar las cards "Insumos de recetas" y "Consumo total por insumo" del componente compartido y limpiar el pipeline `recipeSuppliesSummary`/`suppliesSummary` (columna histórica conservada).
+- [Card clickeable en `/ventas` y `/pedido`](prompts/implementacion-card-clickeable.md) — tap-to-add en toda la superficie de la card vía stretched button, badge `+N opcionales` eliminado y "Podés sumar" condicional.
 
+> **Sincronización `/ventas` ↔ `/pedido` resuelta (2026-10-26):** la auditoría y sus cuatro prompts de implementación (refresco, tema claro, quick-add, pulido) se archivaron en `prompts/archivados/` y el informe en `informes/archivados/`; las tres fases están mergeadas (`da0af67`, `c165a42`). También se archivaron los prompts resueltos de menú digital/`/pantalla-config` (`a844e41`), navbar→`/pantalla` (`11cf704`), auditoría de nueva sucursal y análisis de catálogo (informes ejecutados, tickets siguen abiertos en `informes/`).
 > **Rediseño de `/pedido` resuelto (2026-10-02):** los prompts `plan-rediseno-card-y-modal-pedido.md`, `rediseno-pedido-pr2-modal.md` y `mapa-arquitectura.md` se archivaron en `prompts/archivados/`; los informes de los PR 1–3 quedaron en `informes/archivados/`.
 > **Plan de pedidos con múltiples líneas resuelto:** los prompts `plan-pedidos-personalizados-multiples-lineas.md` y `plan-pedidos-personalizados-pendientes.md` se archivaron en `prompts/archivados/` y se actualizó `reporte-estado.md`.
 
@@ -34,7 +29,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Guía de funcionamiento del negocio](informes/guia-funcionamiento-pancheria.md)
 - [Auditoría de factibilidad — nueva sucursal (2026-10-04, abierta)](informes/auditoria-nueva-sucursal-stock-2026-10-04.md) — solo lectura: alta de sucursal con inventario de 59 ítems, menú de 11 promos + extras, trazabilidad por promo y facturación. Veredictos A–D parcialmente preparados; incluye plan por PRs, decisiones del usuario incorporadas (D-1..D-6) y consejos operativos.
 - [Análisis del catálogo y comportamiento ante ventas y pedidos — sucursal id 3 (2026-10-06, abierto)](informes/analisis-comportamiento-ventas-pedidos-2026-10-06.md) — solo lectura contra producción: catálogo real (76 productos, 35 vendibles públicos), qué descuenta stock y cuándo en `/ventas`/`/pedidos`/`/pedido`/cron, cancelaciones UI↔endpoint↔servicio, snapshots históricos y expiración de pedidos (cron externo vía GitHub Actions + lazy).
-- [Auditoría de sincronización `/ventas` ↔ `/pedido` (2026-10-25, abierta)](informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md) — solo lectura: compara el POS con el `/pedido` rediseñado; tema claro con variante híbrida (chrome oscuro + contenido claro), catálogo en vivo con `useVisibilityPolling` + `POST /api/ventas/disponibilidad`, quick-add con `selectedByDefault`, agrupado por tipo, garantías del POS a preservar y mapa de riesgos E2E/tour con fases propuestas.
+- [Auditoría de sincronización `/ventas` ↔ `/pedido` (2026-10-25, archivada)](informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md) — comparó el POS con el `/pedido` rediseñado; sus tres fases quedaron implementadas: tema claro híbrido (chrome oscuro + contenido claro), catálogo en vivo con `useVisibilityPolling` + `POST /api/ventas/disponibilidad`, quick-add con `selectedByDefault` y pulido (hero, diálogo `variant="public"`, barra pill, precio Anton).
 - [Rediseño `/pedido` — PR 3 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr3-2026-10-02.md) — aclaraciones por ítem (`notes` en `order_items`/`sale_items`, editor único en `PromoOptionsDialog`, visible en cocina/historial/chat/seguimiento); migración `0034` aplicada en producción (verificado el 2026-10-02).
 - [Rediseño `/pedido` — PR 2 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr2-2026-10-02.md) — modal de personalización rediseñado (hero, toggles "A tu gusto"/"Sumale", stepper de cantidad, CTA con precio, hoja inferior en mobile); `quantity` genera N líneas del carrito; E2E verificados.
 - [Rediseño `/pedido` — PR 1 (2026-10-02, archivado)](informes/archivados/rediseno-pedido-pr1-2026-10-02.md) — tema claro con scope `[data-theme='light']`, fuentes de marca, nueva card pública (hero, PROMO, quick-add, personalizar) y fallback de imagen.
@@ -81,7 +76,6 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 │   ├── guia-funcionamiento-pancheria.md  # Conceptos de negocio y flujos
 │   ├── auditoria-nueva-sucursal-stock-2026-10-04.md  # Auditoría de factibilidad (solo lectura): nueva sucursal + inventario + menú + trazabilidad + facturación
 │   ├── analisis-comportamiento-ventas-pedidos-2026-10-06.md  # Análisis (solo lectura, producción) del catálogo de la sucursal id 3 y comportamiento de ventas/pedidos/cancelaciones
-│   ├── auditoria-sincronizacion-ventas-pedido-2026-10-25.md  # Auditoría (solo lectura): sincronizar /ventas con el /pedido rediseñado — tema claro, catálogo en vivo, quick-add
 │   ├── arquitectura/             # Mapa de arquitectura vivo: overview, módulos, ER, flujos, servicios externos, stack, salud + diagramas/svg/ (renders .svg; la fuente es el bloque mermaid embebido en cada .md)
 │   ├── shots/                    # Capturas de evidencia de auditorías/QA (NO trackeado — .gitignore)
 │   ├── README.md                 # Índice de informes (tabla de decisión + regla de vida)
@@ -94,16 +88,10 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
     ├── auditoria-y-documentacion.md
     ├── auditoria-cobertura-de-pruebas.md
     ├── auditoria-qa-integral.md  # Auditoría QA por etapas con ejecución de tests
-    ├── auditoria-nueva-sucursal-stock.md  # Auditoría de factibilidad (solo lectura): nueva sucursal + inventario + menú + trazabilidad + facturación
-    ├── analisis-catalogo-ventas-pedidos.md  # Análisis (solo lectura, producción) del catálogo de la sucursal id 3 y comportamiento de ventas/pedidos
-    ├── mejora-menu-digital-y-pantalla-config.md  # Mejoras de /menu, nuevas opciones de menu_settings y renombre de /pantalla-config a "Pantallas"
-    ├── auditoria-sincronizacion-ventas-pedido.md  # Auditoría (solo lectura): sincronizar /ventas con el /pedido rediseñado — tema claro, catálogo en vivo, quick-add
-    ├── implementacion-refresco-catalogo-ventas.md  # Implementación fase 1: refresco en vivo del catálogo del POS (polling silencioso de disponibilidad)
-    ├── implementacion-tema-claro-ventas.md  # Fase 1 §8.2: tema claro híbrido en /ventas (contenido claro + chrome oscuro) + headers de grupo
-    ├── implementacion-quick-add-ventas.md   # Fase 2 §8.2: quick-add con botones reales en la card sales + migración de specs
-    ├── implementacion-pulido-ventas.md      # Fase 3 §8.2 (opcional): hero en card, diálogo POS, barra móvil pill, precio Anton
+    ├── simplificacion-cierre.md             # Quitar cards de insumos del cierre + limpieza del pipeline de resúmenes (sin migración)
+    ├── implementacion-card-clickeable.md    # Tap-to-add en toda la card (stretched button) + depuración de la card sales
     ├── plan-implementacion-multi-tenant.md
-    └── archivados/               # Prompts resueltos (incluye auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, rediseño de /pedido, mapa-arquitectura.md, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
+    └── archivados/               # Prompts resueltos (incluye la suite de sincronización /ventas↔/pedido — auditoría + refresco, tema claro, quick-add y pulido —, mejora-menu-digital-y-pantalla-config.md, pantalla-navbar-multi-sucursal.md, auditoria-nueva-sucursal-stock.md, analisis-catalogo-ventas-pedidos.md, auditoria-masiva.md, auditoria-masiva-resumen.md, plan de pedidos personalizados, rediseño de /pedido, mapa-arquitectura.md, datos-sucursal-y-mapa-en-pedido.md, sucursal-form-validacion-mapa-y-horarios.md, destacar-boton-cierre-caja.md, auditoria-fallos-e2e-caja-y-rate-limit.md y diagnostico-columna-horarios-sucursales.md)
 ```
 
 ## Reglas de uso

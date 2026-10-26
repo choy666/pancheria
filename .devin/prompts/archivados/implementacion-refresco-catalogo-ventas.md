@@ -10,7 +10,7 @@ Documentación de referencia obligatoria:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md`
 - `.devin/informes/checklist-pre-push.md`
-- `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad de esta tarea**: §3 (refresco en vivo, opciones evaluadas), §6 (garantías del POS a preservar), §7 (riesgos E2E/tour), §8.2 (fases propuestas).
+- `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad de esta tarea**: §3 (refresco en vivo, opciones evaluadas), §6 (garantías del POS a preservar), §7 (riesgos E2E/tour), §8.2 (fases propuestas).
 
 Todo el trabajo, comentarios y documentación en español.
 
@@ -142,6 +142,6 @@ Que la disponibilidad visible en `/ventas` se mantenga fresca durante la sesión
 
 ## Cierre de la tarea
 
-- Actualizar el informe `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md`: marcar en §8.2 la Fase de refresco como implementada (o nota breve de estado), manteniendo el informe abierto mientras queden fases pendientes.
+- Actualizar el informe `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md`: marcar en §8.2 la Fase de refresco como implementada (o nota breve de estado), manteniendo el informe abierto mientras queden fases pendientes.
 - Si se mergea un PR, `reporte-estado.md` §0 se actualiza según la convención del proyecto.
 - No archivar el informe de la auditoría ni este prompt hasta completar todas las fases.

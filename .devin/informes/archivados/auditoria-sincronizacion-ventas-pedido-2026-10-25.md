@@ -1,9 +1,9 @@
 # Auditoría de sincronización `/ventas` ↔ `/pedido` — terminal POS vs. flujo público rediseñado
 
-**Estado:** abierto
+**Estado:** implementado (archivado 2026-10-26 — las tres fases de §8.2 están mergeadas en `main`)
 **Fecha de ejecución:** 2026-10-25
 **HEAD:** `3a905ac2018b4687193644c1f46d9640301807a0`
-**Alcance:** auditoría estrictamente de solo lectura. No se modificó código, esquema, configuración ni datos. Las capturas de evidencia se generaron contra la base de desarrollo `neondb_dev` (`.env.local`) navegando en modo lectura; no se abrió caja ni se confirmó ninguna venta. El prompt de origen es `.devin/prompts/auditoria-sincronizacion-ventas-pedido.md`. Todas las afirmaciones citan `archivo:líneas` del `HEAD` indicado.
+**Alcance:** auditoría estrictamente de solo lectura. No se modificó código, esquema, configuración ni datos. Las capturas de evidencia se generaron contra la base de desarrollo `neondb_dev` (`.env.local`) navegando en modo lectura; no se abrió caja ni se confirmó ninguna venta. El prompt de origen es `.devin/prompts/archivados/auditoria-sincronizacion-ventas-pedido.md`. Todas las afirmaciones citan `archivo:líneas` del `HEAD` indicado.
 
 ---
 
@@ -229,21 +229,21 @@ Todo ítem de esta lista es contrato operativo: ninguna recomendación del infor
 
 > **Estado (2026-10-25): todas las fases implementadas.** Resumen: Fase 1 (tema híbrido + grupos + estado vacío), Fase 2 ítems 1–4 (refresco en vivo desde `da0af67` + quick-add + migración de specs/tests) y Fase 3 ítems 1–4 (hero, diálogo `variant="public"`, barra pill, `lecciones-aprendidas`). Detalle por ítem abajo.
 
-**Fase 1 — Tema y estructura** *(prioridad alta, sin cambios funcionales)* — prompt dedicado: `.devin/prompts/implementacion-tema-claro-ventas.md` — ✅ implementada
+**Fase 1 — Tema y estructura** *(prioridad alta, sin cambios funcionales)* — prompt dedicado: `.devin/prompts/archivados/implementacion-tema-claro-ventas.md` — ✅ implementada
 1. ✅ Contenido de `/ventas` envuelto en `data-theme="light"` en `ventas/page.tsx` (sheet `bg-background` + `text-foreground` con `min-h-[calc(100dvh-9rem)]`); el chrome del panel sigue oscuro.
 2. ✅ `border-white/10` → `border-border` en `sales-cart.tsx` (×2). `cash-register-shift-badge.tsx` sumó prop `dataTheme?: 'light'` (clases `green-700`/`amber-700` en claro; `/cierre` sigue oscuro). `payment-parts-input.tsx` igual (`text-amber-700` bajo tema claro).
 3. ✅ Portales con tema explícito: `ConfirmDialog` "Vaciar venta" con `dataTheme="light"`; `PromoOptionsDialog` quedó con `variant="public"` en ambos diálogos del POS (ver decisión Fase 3.2 — cubre el tema claro y el hero sin prop nueva); `CajaStatus` propaga `dataTheme="light"` a los diálogos de abrir/cerrar caja (`cash-register-controls.tsx` sumó la prop en `DialogContent`).
 4. ✅ Headers de grupo: `groupProductsByType(displayProducts, typePriority, criticalSupplyTypePriority)` + `salesProductTypeLabels` (nuevo en `product-style.ts`: "Combos y promos"/"Bebidas"/"Servicios y extras") + `publicProductTypeGroupClasses`; estado vacío `data-testid="sales-catalog-empty"` con mensaje según filtro.
 5. Verificaciones: `lint`, `tsc`, `npm test` (2396), `knip` y `build` en verde; E2E migrados contra base descartable (`neondb_e2e`): **15/15 en verde** en una corrida serial de `flujo-diario`, `paso3`, `ventas-disponibilidad`, `ventas-historial`, `ventas-pago-mixto` y `ventas-stock-compartido` (commit `c165a42`). Lecciones del run: (a) la suite comparte la caja de la sucursal por defecto entre specs — exige `workers: 1` como marca `playwright.config.ts` (un override `--workers=2` produjo falsos fallos por `ensureCashRegisterClosed` concurrente); (b) un fallo masivo de login en frío resultó transitorio (compilación Turbopack + latencia de Neon remota vs el presupuesto de 30 s de `LOGIN_REDIRECT_TIMEOUT`): verificadas credenciales (`bcrypt.compare` directo sobre `neondb_e2e`), seed y merge de `.env.local`+`.env.e2e`, el login funcionó en API y browser contra el mismo servidor recalentado.
 
-**Fase 2 — Funciones** *(prioridad alta, comportamiento)* — ítems 3–4 con prompt dedicado: `.devin/prompts/implementacion-quick-add-ventas.md` — ✅ implementada
+**Fase 2 — Funciones** *(prioridad alta, comportamiento)* — ítems 3–4 con prompt dedicado: `.devin/prompts/archivados/implementacion-quick-add-ventas.md` — ✅ implementada
 
 1. ✅ `NEXT_PUBLIC_VENTAS_REFETCH_INTERVAL_MS` en `src/config/ventas.ts` (default 30000 ms, mínimo 5000 ms, `0` deshabilita).
 2. ✅ `useVisibilityPolling` en `SalesTerminal`: tick silencioso = POST `/api/ventas/disponibilidad` `{items, productIds: todos}`; `onResume` → `fetchProducts({ silent: true })`; `isSubmittingRef` lo pausa durante `confirmSale`.
 3. ✅ Quick-add: variante `sales` de `ProductCardBase` reestructurada a card presentacional (sin `role="button"` ni `aria-disabled` en el contenedor) con botones reales `add-sale-product` (quick-add vía `onAdd` → `useSellableCart.addItem`, selección por defecto de la receta) y `customize-sale-product` (tuerca, solo con opcionales, llama `onCustomize` → `openCustomize` en `SalesTerminal` que conserva `maxQuantity` con `cartAvailability` y `confirmLabel="Agregar a la venta"`). Se conservan `product-card`/`data-product-name`/`data-out-of-stock` en el contenedor.
 4. ✅ Migración mecánica: `sales-terminal.test.tsx` (~20 clicks → `within(card).getByTestId(...)`, `closest<HTMLElement>`), `product-card-base.test.tsx` (sales: presentacional, botones reales, disabled, `onCustomize`), y los specs `ventas-disponibilidad` (2 clicks → `customize-sale-product`, `aria-disabled` → `toBeDisabled` del botón), `ventas-historial`, `ventas-pago-mixto`, `ventas-stock-compartido`, `paso3` y `flujo-diario` (→ `add-sale-product`).
 
-**Fase 3 — Pulido** *(prioridad media/baja, opcionales)* — prompt dedicado: `.devin/prompts/implementacion-pulido-ventas.md` — ✅ implementada
+**Fase 3 — Pulido** *(prioridad media/baja, opcionales)* — prompt dedicado: `.devin/prompts/archivados/implementacion-pulido-ventas.md` — ✅ implementada
 1. ✅ Hero adoptado en card `sales` (mismo `aspect-video` + gradiente marca + pill "Promo" + badge "N en venta" sobre el hero, como `catalog`): paridad visual con `/pedido` sin perder datos operativos (disponibilidad numérica, "Podés sumar", receta incluida quedan en el cuerpo).
 2. ✅ Diálogos del POS con `variant="public"` (hero + bottom-sheet mobile + tema claro); el de edición sumó `imageUrl`/`description`. Esto supera la alternativa "prop `dataTheme` + `variant='sales'`" del prompt de Fase 1: una sola variante cubre tema y hero.
 3. ✅ Barra móvil a pill flotante de marca (`bg-brand-red`, `rounded-full`, texto "Ver venta · N ítems · $total"), conservando `data-testid="cart-mobile-bar"`.

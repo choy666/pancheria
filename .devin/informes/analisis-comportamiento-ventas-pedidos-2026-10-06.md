@@ -3,7 +3,7 @@
 **Estado:** abierto
 **Fecha de ejecución:** 2026-10-06
 **HEAD:** `796031aa69abac767912205fe42cd22d6e12fd90`
-**Alcance:** análisis de solo lectura. El contraste se hizo contra la base de **producción** (`neondb`, credenciales vía `npx vercel env pull .env.production.local --environment=production`) con consultas `SELECT` únicamente, y contra los endpoints públicos de lectura de `https://pancheria-alpha.vercel.app`. No se ejecutaron escrituras, ni endpoints mutantes, ni tests E2E. La evidencia cita `archivo:líneas` contra el `HEAD` indicado. El prompt de origen es `.devin/prompts/analisis-catalogo-ventas-pedidos.md`.
+**Alcance:** análisis de solo lectura. El contraste se hizo contra la base de **producción** (`neondb`, credenciales vía `npx vercel env pull .env.production.local --environment=production`) con consultas `SELECT` únicamente, y contra los endpoints públicos de lectura de `https://pancheria-alpha.vercel.app`. No se ejecutaron escrituras, ni endpoints mutantes, ni tests E2E. La evidencia cita `archivo:líneas` contra el `HEAD` indicado. El prompt de origen es `.devin/prompts/archivados/analisis-catalogo-ventas-pedidos.md`.
 
 ---
 

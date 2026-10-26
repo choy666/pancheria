@@ -10,7 +10,7 @@ Documentación de referencia obligatoria:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md`
 - `.devin/informes/checklist-pre-push.md`
-- `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad**: §4 (quick-add, opciones evaluadas y recomendación A/D), §6 (garantías del POS), §7 (selectores bajo contrato y specs afectados).
+- `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad**: §4 (quick-add, opciones evaluadas y recomendación A/D), §6 (garantías del POS), §7 (selectores bajo contrato y specs afectados).
 
 Todo el trabajo, comentarios y documentación en español.
 
@@ -132,6 +132,6 @@ Que el caso común de mostrador ("promo con sus opcionales por defecto") pase de
 
 ## Cierre de la tarea
 
-- Actualizar `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` §8.2: marcar ítems 3-4 de la Fase 2 como implementados con nota breve de estado.
+- Actualizar `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` §8.2: marcar ítems 3-4 de la Fase 2 como implementados con nota breve de estado.
 - Si se mergea un PR, `reporte-estado.md` §0 se actualiza según la convención del proyecto.
 - No archivar el informe ni los prompts hasta completar todas las fases.

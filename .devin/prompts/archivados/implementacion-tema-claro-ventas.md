@@ -10,7 +10,7 @@ Documentación de referencia obligatoria:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md` — especialmente §18 (overlays portaleados salen del scope de `[data-theme]`; componentes compartidos se bifurcan por prop)
 - `.devin/informes/checklist-pre-push.md`
-- `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad**: §2 (tema claro, inventario de portales y decisión híbrida), §5 (agrupado), §6 (garantías del POS a preservar), §7 (riesgos E2E/tour).
+- `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad**: §2 (tema claro, inventario de portales y decisión híbrida), §5 (agrupado), §6 (garantías del POS a preservar), §7 (riesgos E2E/tour).
 
 Todo el trabajo, comentarios y documentación en español.
 
@@ -126,6 +126,6 @@ Que `/ventas` renderice su contenido en el tema claro de `/pedido` (mismo lengua
 
 ## Cierre de la tarea
 
-- Actualizar `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` §8.2: marcar la Fase 1 (tema y estructura) como implementada con nota breve de estado.
+- Actualizar `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` §8.2: marcar la Fase 1 (tema y estructura) como implementada con nota breve de estado.
 - Si se mergea un PR, `reporte-estado.md` §0 se actualiza según la convención del proyecto.
 - No archivar el informe ni los prompts hasta completar todas las fases.

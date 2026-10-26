@@ -10,7 +10,7 @@ Documentación de referencia obligatoria:
 - `AGENTS.md`
 - `.devin/informes/lecciones-aprendidas.md`
 - `.devin/informes/checklist-pre-push.md`
-- `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad**: §8.2 Fase 3, §8.1 filas de prioridad media/baja, §1.3 (densidad de la card), anexo A (capturas comparativas).
+- `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` — **fuente de verdad**: §8.2 Fase 3, §8.1 filas de prioridad media/baja, §1.3 (densidad de la card), anexo A (capturas comparativas).
 
 Todo el trabajo, comentarios y documentación en español.
 
@@ -81,6 +81,6 @@ Verificado contra `HEAD` `bbcb1b8`; asume la estructura post-Fase 2 (card sales 
 
 ## Cierre de la tarea
 
-- Actualizar `.devin/informes/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` §8.2 con el estado de cada ítem (implementado/descartado + motivo).
+- Actualizar `.devin/informes/archivados/auditoria-sincronizacion-ventas-pedido-2026-10-25.md` §8.2 con el estado de cada ítem (implementado/descartado + motivo).
 - Cuando las tres fases estén cerradas: archivar el informe de la auditoría y los prompts de implementación en `archivados/` según la convención, actualizando `.devin/prompts/README.md`, `.devin/informes/README.md` y el bloque Estructura de `.devin/README.md`.
 - Si se mergea un PR, `reporte-estado.md` §0 se actualiza según la convención del proyecto.

@@ -1,6 +1,6 @@
 # Enlace a `/pantalla` en la navbar + endurecimiento multi-sucursal
 
-Fecha: 2026-10-18. Disparador: `.devin/prompts/pantalla-navbar-multi-sucursal.md`
+Fecha: 2026-10-18. **Estado:** implementado (archivado 2026-10-26). Disparador: `.devin/prompts/archivados/pantalla-navbar-multi-sucursal.md`
 — (A) acceso a la pantalla publicitaria desde el panel pineado a la sucursal
 activa, y (B) verificación de que N TVs con `branchId` distintos operan a la
 vez sin contaminarse.
