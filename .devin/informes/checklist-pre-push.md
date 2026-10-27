@@ -68,7 +68,7 @@ En **Vercel → Environment Variables → Production** debe existir:
 
 > Si falta alguna de estas variables, el build de producción en Vercel **falla** en `next.config.ts` (`assertVercelProductionEnv`): es intencional para evitar deploys rotos. La validación solo corre cuando `VERCEL_ENV=production` y `CI=1`, por lo que no afecta builds locales ni el CI de GitHub.
 >
-> Nota: el cron `expire-orders` ya no vive en `vercel.json`; se dispara desde `.github/workflows/expire-orders.yml` cada 5 minutos.
+> Nota: el cron `expire-orders` ya no vive en `vercel.json`; se dispara desde `.github/workflows/expire-orders.yml` cada 15 minutos (`*/15`; la cadencia real de GitHub Actions es de horas).
 
 ## Documentación viva
 

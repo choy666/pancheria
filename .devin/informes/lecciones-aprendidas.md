@@ -99,7 +99,7 @@ Antes de dar por terminada una tarea, ejecutar los comandos pertinentes según e
 | `npm test` | Cambios en servicios, repositorios o dominio |
 | `npm run test:e2e` (o `npx playwright test`) | Cambios en flujos críticos de UI/E2E |
 | `npx tsc --noEmit` | Cambios de tipos (también cubierto por `npm run build` / `npm run lint`) |
-| `npx drizzle-kit push` | Cambios en esquema de base de datos |
+| `npx drizzle-kit generate` + `npx drizzle-kit migrate` | Cambios en esquema de base de datos (`push` es excepción: desincroniza el journal; si se usa, correr `scripts/drizzle-baseline.ts`) |
 
 > **Nota:** para tests E2E y migraciones de base de datos, usar solo entornos de prueba.
 

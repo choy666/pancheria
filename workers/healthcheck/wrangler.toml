@@ -1,4 +1,4 @@
-# Monitor externo de /api/health: corre cada minuto con Cron Trigger.
+# Monitor externo de /api/health: corre cada 10 minutos con Cron Trigger.
 # Ver README.md para deploy y configuración del secret de notificación.
 name = "pancheria-healthcheck"
 main = "index.js"

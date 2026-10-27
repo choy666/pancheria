@@ -1,7 +1,7 @@
 # Auditoría + plan: activar/desactivar sucursal (opción no destructiva)
 
 **Fecha:** 2026-10-05
-**Estado:** implementado y desplegado — commit `f108ceb`, migración `0038` aplicada a prod (backup `backup-pre-0038-2026-10-05`), sucursal 1 desactivada, deploy `READY` y verificado en vivo
+**Estado:** implementado y desplegado (archivado 2026-10-27) — commit `f108ceb`, migración `0038` aplicada a prod (backup `backup-pre-0038-2026-10-05`), sucursal 1 desactivada, deploy `READY` y verificado en vivo
 
 ## 1. Motivación
 

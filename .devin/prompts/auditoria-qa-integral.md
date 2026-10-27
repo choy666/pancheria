@@ -6,16 +6,16 @@ Actuá como ingeniero senior de QA y arquitecto de pruebas. Tu tarea NO es escri
 
 ## Contexto
 
-Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos con carrito, chat de pedidos (texto, imágenes y ubicación), imágenes ilustrativas de productos/promos y gestión de videos con reproducción y Google Cast.
+Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos con carrito, superficies kiosk `/pantalla`/`/menu`, chat de pedidos (texto, imágenes/PDF y ubicación, con pin de entrega obligatorio en pedidos `delivery`), imágenes ilustrativas de productos/promos y gestión de videos con reproducción y Google Cast.
 
-Stack: Next.js 16.3.3 (App Router + Turbopack), React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon / `pg`), NextAuth v5, Jest 30, Playwright 1.62, axe-core, despliegue en Vercel.
+Stack: Next.js 16.3.3 (App Router + Turbopack), React 19.2.8, TypeScript, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon / `pg`), NextAuth v5, Jest 30, Playwright 1.63, axe-core, despliegue en Vercel.
 
-Arquitectura por capas: `src/app/` (rutas `(auth)`, `(panel)`, `(public)`, `api/`), `src/application/` (casos de uso e `idempotencyService`), `src/repositories/`, `src/db/` (schema Drizzle + seed), `src/domain/` (tipos/errores), `src/components/`, `src/lib/` (helpers), `src/config/` (getters de `process.env`).
+Arquitectura por capas: `src/app/` (rutas `(auth)`, `(panel)`, `(public)`, `(kiosk)`, `api/`), `src/application/` (casos de uso e `idempotencyService`), `src/repositories/`, `src/db/` (schema Drizzle + seed), `src/domain/` (tipos/errores), `src/components/`, `src/lib/` (helpers), `src/config/` (getters de `process.env`).
 
 Reglas de negocio clave para la auditoría:
 
 - Estados de pedido: `pending → in_process → paid → finished`, o `cancelled`. Tipo de entrega: `delivery` / `pickup`.
-- Reserva de stock al crear el pedido (`order_stock_reservations`), descuento definitivo al pagar, reintegro al cancelar. Expiración de `pending` por `ORDER_EXPIRATION_MS` + cron `/api/cron/expire-orders` cada 5 min (disparado por `.github/workflows/expire-orders.yml`, protegido con `CRON_SECRET`).
+- Reserva de stock al crear el pedido (`order_stock_reservations`), descuento definitivo al pagar, reintegro al cancelar. Expiración de `pending` por `ORDER_EXPIRATION_MS` + cron `/api/cron/expire-orders` cada 15 min nominal (`*/15`, disparado por `.github/workflows/expire-orders.yml`, protegido con `CRON_SECRET`; cadencia real de horas, con expiración lazy en las lecturas).
 - Aislamiento multi-sucursal por `branchId`; roles `admin` / `operator`; selector de sucursal activa.
 - Ventas con pago simple o mixto (`sale_payments`), moneda en pesos argentinos vía `dinero.js` y `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`.
 - Productos `simple` / `compound` (promos con recetas e insumos `critical_supply`/`manual_supply`), snapshots en `sale_item_recipes` y `order_item_recipes`.
@@ -44,9 +44,9 @@ Documentación de referencia obligatoria:
 
 ## Estado actual relevante
 
-- Ya existen ~35 specs E2E en `tests/e2e/` que cubren: pedidos (creación, reserva, expiración, cancelación, chat con adjuntos, sucursal cerrada, filtros), concurrencia de stock, rate limit de pedidos, caja (aislamiento, cierre automático, papelera), cierres diarios, ventas (disponibilidad, historial, pago mixto, stock compartido), productos/recetas, sucursales, roles, videos, login, responsive y accesibilidad con axe-core.
+- Ya existen ~50 specs E2E en `tests/e2e/` que cubren: pedidos (creación, reserva, expiración, cancelación, chat con adjuntos, sucursal cerrada, filtros), concurrencia de stock, rate limit de pedidos, caja (aislamiento, cierre automático, papelera), cierres diarios, ventas (disponibilidad, historial, pago mixto, stock compartido), productos/recetas, sucursales, roles, videos, login, responsive y accesibilidad con axe-core.
 - Los tests unitarios (`*.test.ts`) conviven junto a repositorios, servicios y helpers (`src/lib/`).
-- `playwright.config.ts`: `workers: 1`, `fullyParallel: false`, solo proyecto `chromium`, timeout 60 s, `webServer` = `npm run dev:e2e` con health check en `/api/caja/resumen`.
+- `playwright.config.ts`: `workers: 1`, `fullyParallel: false`, proyecto `chromium` por defecto (+ `webkit` opt-in con `E2E_WEBKIT=1`), timeout 60 s, `webServer` = `npm run dev:e2e` con health check en `/api/caja/resumen`.
 - La auditoría de escalabilidad 2026-09-19 ya documentó riesgos futuros (polling, caché, multi-tenant, observabilidad): **no duplicarla**; referenciarla y agregar solo lo nuevo.
 
 ## Reglas innegociables
@@ -110,7 +110,7 @@ Criterios de esta capa:
 
 - **Piso WCAG 2.2 AA** en los tests nuevos. Las tags de axe **no son acumulativas**: `wcag22aa` sola ejecuta 1 regla (`target-size`) — la lista correcta es `withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa'])` (70 reglas con axe-core 4.13). Verificar que la versión instalada soporte la tag antes de usarla. Dato para el informe: el spec existente usa solo `wcag21aa` (3 reglas), así que hoy no está midiendo contraste, labels ni roles — documentarlo como brecha, no degradarlo.
 - **Medir contra build de producción**, no contra `next dev` (que infla tiempos por compilación bajo demanda). Dos trampas: (a) `npm run start` solo carga `.env.local`, **no** `.env.e2e`; (b) las `NEXT_PUBLIC_*` se fijan en `next build`, no en `start` — el build e2e debe correr **con el entorno e2e cargado** (script gemelo de `scripts/dev-e2e.ts` con argv `build`+`start`, o equivalente) o `NEXT_PUBLIC_BRANCH_TIMEZONE`, `NEXT_PUBLIC_PAYMENT_DENOMINATIONS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, etc. quedarán con valores de `.env.local`. El `.next` resultante queda "contaminado" con esos valores: al terminar la medición, reconstruir con `npm run build` normal (o aislar el `distDir`) antes de seguir. Verificar que el servidor use la base descartable y correr Playwright con `NO_WEB_SERVER=1`.
-- **WebKit**: `playwright.config.ts` solo tiene el proyecto `chromium`. Probar `/pedido` en WebKit si el browser está instalado (`npx playwright install webkit` + proyecto ad-hoc o config temporal); si no es posible, reportarlo como "no probado" con el motivo.
+- **WebKit**: `playwright.config.ts` trae el proyecto `webkit` opt-in (`E2E_WEBKIT=1 npx playwright test <spec> --project=webkit`, requiere `npx playwright install webkit` la primera vez). Probar `/pedido` en WebKit si el browser está instalado; si no es posible, reportarlo como "no probado" con el motivo.
 - Separar en el informe **defecto objetivo** (violación medible: contraste insuficiente, foco perdido, error de axe) de **observación subjetiva** (densidad, claridad percibida), marcando cada ítem.
 
 ## Etapa 1 — Plan de auditoría (entregable, sin ejecutar)

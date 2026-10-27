@@ -58,8 +58,8 @@ flowchart TB
 | Pieza | Versión / detalle |
 | --- | --- |
 | PostgreSQL | Neon / Vercel Postgres (serverless) |
-| Drizzle ORM | `^0.45.2` + `drizzle-kit ^0.31.10` (migraciones en `drizzle/`, baseline `scripts/drizzle-baseline.ts`) |
-| Drivers DB | `pg ^8.22.0` y `@neondatabase/serverless ^1.1.0` — elección en runtime por URL (`isNeonDatabase`) |
+| Drizzle ORM | `^0.45.2` + `drizzle-kit ^0.31.11` (migraciones en `drizzle/`, baseline `scripts/drizzle-baseline.ts`) |
+| Drivers DB | `pg ^8.23.1` y `@neondatabase/serverless ^1.1.0` — elección en runtime por URL (`isNeonDatabase`) |
 | bcrypt | `^6.0.0` — hash de contraseñas |
 
 ## Auth y seguridad
@@ -85,8 +85,8 @@ flowchart TB
 | Pieza | Detalle |
 | --- | --- |
 | Tailwind CSS | `^4` (`@tailwindcss/postcss`) + `tw-animate-css` |
-| shadcn/ui | `^4.16.1` (CLI) sobre `@base-ui/react ^1.6.0` — componentes en `src/components/ui/` |
-| Iconos | `lucide-react ^1.28.0` |
+| shadcn/ui | `^4.21.1` (CLI) sobre `@base-ui/react ^1.6.0` — componentes en `src/components/ui/` |
+| Iconos | `lucide-react ^1.51.0` |
 | Utilidades CSS | `class-variance-authority`, `clsx`, `tailwind-merge` |
 | Tour guiado | `driver.js ^1.8.0` (`components/tour/`) |
 | Dinero | `dinero.js ^2.0.2` + `src/lib/money.ts` |
@@ -98,19 +98,19 @@ flowchart TB
 
 | Pieza | Detalle |
 | --- | --- |
-| Jest | `^30.4.2` + `ts-jest`, `jest-environment-jsdom`, `@testing-library/react ^16.3.2` — tests unitarios colocados junto al código (`*.test.ts(x)`) |
-| Playwright | `^1.62.1` — `tests/e2e`, sharding opt-in, `workers: 1`, proyecto `webkit` opt-in |
+| Jest | `^30.5.2` + `ts-jest`, `jest-environment-jsdom`, `@testing-library/react ^16.3.3` — tests unitarios colocados junto al código (`*.test.ts(x)`) |
+| Playwright | `^1.63.0` — `tests/e2e`, sharding opt-in, `workers: 1`, proyecto `webkit` opt-in |
 | Accesibilidad | `@axe-core/playwright ^4.13.0` (`npm run test:accessibility`) |
-| ESLint | `^9` + `eslint-config-next 16.3.3` |
-| Knip | `^6.32.2` — detección de código/dependencias muertas (`npm run knip`) |
-| Bundle analyzer | `@next/bundle-analyzer 16.3.3` (`analyze` / `analyze:webpack`) |
+| ESLint | `^9` + `eslint-config-next 16.4.3` |
+| Knip | `^6.39.0` — detección de código/dependencias muertas (`npm run knip`) |
+| Bundle analyzer | `@next/bundle-analyzer 16.4.3` (`analyze` / `analyze:webpack`) |
 
 ## Infraestructura y despliegue
 
 | Pieza | Detalle |
 | --- | --- |
 | Hosting | Vercel (functions Node.js, `maxDuration=300` en crons, `60` en streams de chat) |
-| Crons | `vercel.json` (2 diarios) + GitHub Actions (expire-orders cada 5 min) |
+| Crons | `vercel.json` (2 diarios) + GitHub Actions (expire-orders `*/15` nominal; cadencia real de horas) |
 | CI | GitHub Actions `ci.yml` — lint, tsc, jest, build, knip, audit, e2e |
 | Observabilidad | logs estructurados propios (`src/lib/logger.ts`), `GET /api/health`, Vercel Analytics opt-in por script |
 | Fonts | `next/font/google` (Geist, Geist Mono) |

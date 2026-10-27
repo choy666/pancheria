@@ -5,6 +5,8 @@ Fecha: 2026-10-15. Disparador: 400 en `POST /api/recetas` en producción
 botones "Quitar"/"Editar" poco visibles en el carrito público y sensación de que
 editar opcionales/preseleccionados "no hace nada".
 
+**Estado:** implementado (archivado 2026-10-27) — fix de código + normalización de filas legacy aplicada en producción (0 inválidas al auditar). Pendiente diferido: endpoint atómico producto+receta (P2), seguimiento en `../reporte-estado.md` §0.
+
 ## Causa raíz del 400 (confirmada contra la base)
 
 Cuatro promos tienen `Vaso de gaseosa` (tipo `service`) persistida con

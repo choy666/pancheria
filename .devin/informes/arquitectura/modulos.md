@@ -25,21 +25,21 @@ Regla observada en código: las **API routes y Server Actions nunca tocan `db` d
 flowchart LR
     subgraph PRES["Presentación — src/app"]
         PUB["(public)<br/>/pedido · /pedido/seguimiento<br/>/pedido/[id]/chat · /sesion-finalizada"]
-        KIOSK["(kiosk)<br/>/pantalla"]
-        PAN["(panel)<br/>/ · /ventas · /pedidos · /cierre<br/>/productos · /stock · /sucursales<br/>/usuarios · /videos · /perfil"]
+        KIOSK["(kiosk)<br/>/pantalla · /menu"]
+        PAN["(panel)<br/>/ · /ventas · /pedidos · /cierre<br/>/productos · /stock · /sucursales<br/>/usuarios · /videos · /perfil<br/>/reportes · /pantalla-config"]
         AUTHG["(auth)<br/>/login"]
         APIR["api/ routes"]
     end
 
     subgraph APP["Aplicación — src/application"]
-        SVC["services/*<br/>14 servicios de dominio<br/>+ 2 transversales"]
+        SVC["services/*<br/>19 servicios de dominio<br/>+ 2 transversales"]
         TX["transactionService<br/>AsyncLocalStorage TX"]
         IDEM["idempotencyService<br/>sha256 + unique key"]
     end
 
     subgraph DATA["Datos"]
-        REPOS["repositories/*<br/>12 repositorios"]
-        SCHEMA["db/schema.ts<br/>18 tablas · 10 enums"]
+        REPOS["repositories/*<br/>15 repositorios"]
+        SCHEMA["db/schema.ts<br/>21 tablas · 12 enums"]
         DBCONN["db/index.ts<br/>pool pg / neon-serverless"]
     end
 
@@ -129,7 +129,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `api/recetas` | `GET /` (insumos para recetas) | `recipeService` |
 | `api/videos` | `upload` (POST, solo local), `[id]/stream` (GET admin: stream local con Range o redirect a URL pública remota) | `videoService`, `storage` |
 | `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado+`settings`/`items` de pantalla), `menu` (snapshot de `/menu`: catálogo+estado+`menu_settings`, sin videos ni playlist), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `menuService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
-| `api/panel` | `resumen` (GET: resumen de sucursal para dashboard) | `cashRegisterService` + `orderService` + `stockService` |
+| `api/panel` | `resumen` (GET: resumen de sucursal para dashboard), `neon-usage` (GET, solo admin: CU-horas usadas/restantes del proyecto Neon; requiere `NEON_API_KEY`+`NEON_PROJECT_ID`, degrada a `invalid_credentials`/`disabled` sin 500) | `cashRegisterService` + `orderService` + `stockService`, `neonUsageService` |
 | `api/cron` | `expire-orders`, `rate-limit-cleanup`, `chat-attachments-cleanup`, `sanity-audit` (GET: auditoría read-only de invariantes del dominio) — todos GET + Bearer; `alert` (POST + Bearer: relay de alertas a ntfy desde la IP de Vercel) | `orderService`, `cleanupService`, `sanityAuditService`, rate-limit stores |
 | `api/chat` | `attachment/[key]` (GET: solo provider `local`; sesión o `?token`) | `chat-storage` |
 | `api/auth` | `[...nextauth]` | NextAuth handlers |
@@ -137,7 +137,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 
 ## 2. Aplicación — `src/application`
 
-18 servicios de dominio en `services/` + 2 servicios transversales en la raíz de `application/` (`transactionService`, `idempotencyService`).
+19 servicios de dominio en `services/` + 2 servicios transversales en la raíz de `application/` (`transactionService`, `idempotencyService`).
 
 | Servicio | Responsabilidad (verificada) |
 | --- | --- |
@@ -148,6 +148,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `chatService` | Mensajes cliente/operador, ubicación de sucursal, estado SSE (`getChatStreamState`/`pollChatStreamTick`), marcas `deliveredAt`/`readAt`, bloqueo en estados terminales/expirados |
 | `cleanupService` | Limpiezas del cron: adjuntos/imágenes/videos huérfanos, retención de mensajes |
 | `menuService` | Config de `/menu` por sucursal: `getSettings` (fila o defaults de env `NEXT_PUBLIC_MENU_*`), `updateSettings` (valida referencias de `hiddenProductIds` contra productos vendibles), `listMenuProducts` (selector del configurador) |
+| `neonUsageService` | Card "Base de datos" del dashboard: `getNeonUsage` consulta la API de Neon (`NEON_API_BASE_URL`, default console.neon.tech) para CU-horas usadas del ciclo del proyecto; distingue `disabled` (sin credenciales), `invalid_credentials` (401/403/404) y `ok` |
 | `orderService` | Ciclo de vida del pedido: `createOrder` (con idempotencia), `receiveOrder` (reservas), `convertOrderToSale`, `cancelOrder`, `finishOrder`, `expirePendingOrders`, `trackOrder` (lazy expiration) |
 | `pantallaService` | Config de `/pantalla` por sucursal: `getSettings` (fila o defaults de env), `updateSettings`, `listPlaylist` (ítems + estado mostrado), `listEnabledItems` (snapshot público), `listCandidates`, `savePlaylist` (reemplazo en TX con validación de referencias) |
 | `productService` | CRUD productos, papelera (soft delete / restore / delete permanente / vaciado), imágenes |

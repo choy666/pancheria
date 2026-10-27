@@ -17,7 +17,7 @@ flowchart TB
 
     subgraph APP["Vercel — Next.js 16 · App Router · Turbopack"]
         direction TB
-        PAGES["Páginas SSR / RSC<br/>(public): /pedido, /pedido/[id]/chat ·<br/>(panel): /, /ventas, /pedidos, /cierre…"]
+        PAGES["Páginas SSR / RSC<br/>(public): /pedido, /pedido/[id]/chat ·<br/>(kiosk): /pantalla, /menu ·<br/>(panel): /, /ventas, /pedidos, /cierre…"]
         SA["Server Actions<br/>colocadas junto a las páginas"]
         API["API Routes<br/>/api/public/* · /api/* · /api/cron/*"]
         SVC["application/services<br/>casos de uso + transacciones"]
@@ -35,7 +35,7 @@ flowchart TB
 
     DB[("PostgreSQL<br/>Neon / Vercel Postgres")]
     ST["Storage de archivos<br/>local · Vercel Blob · S3 · R2"]
-    GHA["GitHub Actions<br/>schedule cada 5 min"]
+    GHA["GitHub Actions<br/>schedule cada 15 min"]
     VCR["Vercel Cron<br/>2 jobs diarios"]
     ANA["Vercel Analytics"]
 

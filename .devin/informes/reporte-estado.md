@@ -1,138 +1,131 @@
 # Reporte de estado — Proyecto Panchería
 
-**Fecha:** 2026-10-02 (actualizado)
+**Fecha:** 2026-10-27 (actualizado)
 **Proyecto:** `pancheria`
 **Histórico:** snapshots anteriores en `.devin/informes/archivados/historico/`
 
 ---
 
-## 0. Estado vigente (revisión 2026-10-02; `main` en `dfb2872`)
+## 0. Estado vigente (revisión 2026-10-27; `main` local en `2e6504d`, `origin/main` en `d6506d7`)
 
-**Baseline Git:** `main`/`origin/main` en `dfb2872` ("feat: detalle de ítems en /pedido/seguimiento"). Working tree: cambios **solo documentales** en `.devin/` de esta sesión de limpieza; `.vscode/` sigue sin trackear. No hay cambios de código pendientes. El §0 anterior quedó congelado en `archivados/historico/reporte-estado-2026-09-24.md`.
+**Baseline Git:** `main` local en `2e6504d` ("feat(pedido): pin de entrega obligatorio en pedidos delivery"), **2 commits adelante de `origin/main`** (`1603df3` + `2e6504d`, sin push ni CI al momento de esta revisión). Working tree: cambios **solo documentales** de esta corrida de higiene documental. El §0 anterior (2026-10-02, `dfb2872`) quedó congelado en `archivados/historico/reporte-estado-2026-10-02.md`.
 
-**Producción:** Vercel `READY` sobre `dfb2872` (`pancheria-alpha.vercel.app`, verificado vía MCP el 10-02). Migración `0034_needy_puppet_master` aplicada en Neon prod: `notes` existe en `order_items` y `sale_items` (verificado vía MCP sobre `br-nameless-sun-avrmz655`; el conteo exacto del journal no se pudo releer por scope de credencial, pero las columnas cubren el riesgo de compatibilidad).
+**Producción:** Vercel `READY` sobre `d6506d7` (deployment `dpl_5nBet2SupdgovdEH4mtVCupWsbJ4`, verificado vía MCP el 10-27). El pin de entrega obligatorio (`2e6504d`) y el fix de ubicación del chat (`1603df3`) **todavía no están deployados** — esperan el push. La migración `0043_delivery-location` (última del journal) se aplica a prod junto a ese deploy vía `drizzle-kit migrate` (procedimiento en `entornos.md`); el código desplegado tolera la columna ausente porque aún no la referencia.
 
-**CI:** run `37075242547` de `3a029e4` en verde (todos los jobs, incluido E2E). Los pushes `f1e684c` y `dfb2872` (docs + detalle de seguimiento) tienen sus runs en curso/pendientes al momento de esta revisión. El cron `Expirar pedidos pendientes` corre `success` periódicamente.
+**CI:** último run de CI con código verde sobre `d6506d7` (incluido el pipeline nocturno completo del 10-27, run `40499969356`, ~13 min). Los 2 commits locales no tienen run todavía. Schedules activos verificados verdes hoy: `uptime-probe`, `expire-orders` y `sanity-audit` diario.
 
-### Commits integrados desde el cierre anterior (post-2026-09-24)
+### Commits integrados desde el cierre anterior (post-2026-10-02, 79 commits)
 
 | Commits | Fecha | Contenido |
 | --- | --- | --- |
-| `5021d81`–`9fc1266` | 09-26/27 | **PR #10** — rediseño UX de `/sucursales` (inventario primero, banner al eliminar) + rutas dedicadas `/sucursales/nueva`, `/sucursales/[id]/editar`, `/usuarios/nuevo`, `/usuarios/[id]/editar` |
-| `a50c1da`, `3114802`, `53cfe63` | 09-27 | Rate limit de login por IP (con índice de cleanup), bcrypt 10→12, seed admin obligatorio en todo entorno (`SEED_RESET_ADMIN_PASSWORD=1` para reset), índices de cleanup (`0033_last_synch` — aplicada a desarrollo, E2E del CI y producción), `npm audit` no bloqueante y unificación de avisos/controles de caja en `/cierre`, `/ventas` e historial |
-| `60acdfd`, `6d32597` | 09-28 | Vista previa del catálogo público en el form de sucursal; bloques de contacto de sucursal compartidos en el flujo público |
-| `fc6cfe9`, `8c76e9b` | 10-01 | **Cobro con medio de pago al confirmar pedido** (`PedidoConfirmDialog` + `PaymentPartsInput`: efectivo/transferencia/mixto — deja de asumirse efectivo). Seed endurecido: `DEFAULT_BRANCH_OPENING_HOURS`/`NEW_BRANCH_OPENING_HOURS` validados y catálogo de muestra detrás de `SEED_SAMPLE_CATALOG=1`. Spec de expiración adaptada al diálogo de cobro |
-| `e6ad216`, `8150ee9` | 10-01 | Mapa de arquitectura en tres niveles (`arquitectura/`) con renders `.svg` (fuentes `.mmd` eliminadas); verificación operativa de `VERCEL_PRODUCTION_URL`, crons, storage y Neon provider |
-| `6a004e1`, `d0ac9dc`, `d116bd6` | 10-01 | Dependencias de `npm audit` actualizadas; CI con solo Chromium en el job E2E y timeout del paso a 35 min |
-| `ccf4e99` | 10-01 | Imágenes de producto en `/pedido` (`resolveProductImage`, `localPatterns`) + `verifyUploadedProductImage` (firma/magic bytes verificada en providers remotos, URL canónica del servidor) |
-| `3a029e4`, `f1e684c`, `dfb2872` | 10-02 | **Rediseño food-delivery de `/pedido` (PRs 1–3, informes en `archivados/`)**: tema claro `[data-theme='light']` en `(public)` con overlays portaleados marcados, card con hero/quick-add, `PromoOptionsDialog` rediseñado (toggles, stepper de cantidad → N líneas idénticas, CTA con precio), **aclaraciones por ítem** (`notes` en `order_items`/`sale_items`, migración `0034`), decisión de negocio sobre extras cobrables (opcionales de receta incluidos en el precio; extras = productos `service` standalone) y detalle de ítems en `/pedido/seguimiento` |
+| `f108ceb`, `54a1b15`, `56bdaaa` | 10-05 | **Sucursal activa `is_active`** (migración `0038`, alternativa al hard delete en superficie pública) + cierre de la auditoría CI: pedido a sucursal eliminada responde `400` (no `404`), gate `docs-only`, `concurrency` por ref, bump de actions a node24 |
+| `2ab73a7`, `10a0c82`, `491ab77`, `69c5336`, `047e3e4` | 10-04/06 | **PRs de nueva sucursal** — carga idempotente del catálogo Panchería Popular, consumo por insumo en cierre, reporte de ventas por período con CSV (`/reportes`), runbook y alta por script |
+| `97fe1a7`, `e6a296a`, `6775d44`, `de45368`, `a710798`, `f7194d6` | 10-05/06 | **Observabilidad** — `uptime-probe` a producción, `/api/cron/sanity-audit` + workflow diario, worker Cloudflare `pancheria-healthcheck`, relay `POST /api/cron/alert` a ntfy |
+| `a4352cf`, `fe837d7` | 10-15 | **Fix editor de promos/carrito** (400 en `POST /api/recetas`): flags de insumos derivados del tipo + validaciones por fila + normalización de filas legacy (informe archivado) |
+| `50e865a`, `6284631` | 10-2x | **Lock de corrida E2E** (`e2e_run_lock`): serializa corridas concurrentes sobre la base compartida; un re-run de CI re-toma su propio lock |
+| `f75d83d`, `e5fbb8a`, `71afb3a`, `409f625`, `fe1e250`, `cf3137d`, `80467b3`, `eaeb250` | 10-1x | **Imágenes de producto** — normalización 16:9 + trim de aire en navegador, imágenes solo por upload/storage (sin URLs externas), script de reencuadre, object-contain |
+| `11cf704`, `84b36d4`, `cff9241` | 10-18 | **`/pantalla` kiosk** publicitaria por sucursal + configurador `/pantalla-config` + acceso multi-sucursal desde el panel |
+| `f39c24e`, `a844e41`, `3b05d32` | 10-2x | **Menú digital `/menu` kiosk** (carta paginada, QR persistente) + `/pantalla-config` renombrada a «Pantallas» con dos secciones |
+| `621c66f` | 10-2x | **Bajar frecuencias por cuota Neon** — `expire-orders` `*/5`→`*/15`, `uptime-probe`→`*/30`, worker healthcheck→`*/10` |
+| `bbcb1b8`, `32171d8` | 10-25 | **Migración Neon** — prod a proyecto `pancheria-db` en `us-east-1` (misma región que functions); base E2E a proyecto dedicado `pancheria-e2e` (`neondb_e2e`/`neondb_e2e2`, sharding activo `[1,2]`) |
+| `e57a168`, `3a905ac`, `d6506d7` | 10-2x | **Card "Base de datos"** en el dashboard admin (`GET /api/panel/neon-usage`): CU-horas del ciclo Neon; degrada `invalid_credentials`/`disabled` sin 500 |
+| `da0af67`, `c165a42`, `7a94e6d`, `09665ad`, `905b236` | 10-26 | **Sincronización `/ventas` ↔ `/pedido`** (refresco en vivo, tema claro híbrido, quick-add), simplificación de `/cierre`, card clickeable y pre-check de puerto en `npm run dev` |
+| `3ce3e17` | 10-27 | **UX del chat** — bienvenida en dos mensajes, badge de leídos corregido (`useSyncExternalStore`), adjuntos con validación temprana + soporte PDF |
+| `1603df3`, `2e6504d` | 10-27 | **Pin de entrega obligatorio en `delivery`** (sin push): `orders.deliveryLocation` (migración `0043`), captura GPS explícita o enlace validado en checkout, normalización `tryBuildLocationUrl`, mensaje automático al chat y "Ubicación de entrega" en el panel |
+| `94e3e2a`, `#11`–`#16`, `b929f1b`, `0184b75` | varias | Seguridad (next `16.4.3` + dedupe zod tras audit, hardening de APIs públicas/chat/cron), bumps de deps (pg `8.23.1`, lucide `1.51.0`, etc.) y fix del selector de insumos (`Combobox` portaleado) |
+| `03e079b`, `0eb6d32`, `f89a45a`, `f7e7181`, `d4ccd18`, `16485c6` | varias | Scripts de carga (catálogo, stock, backfill de snapshots, normalización de recetas), productos eliminables con historial, tope de opcionales + unicidad de nombre por sucursal, resumen del cliente con insumos elegidos, guías en formularios |
 
-### Defectos de pruebas manuales (D1–D10) — re-verificados contra el código
+### Verificaciones locales (2026-10-27)
 
-| # | Defecto | Estado | Evidencia |
-| --- | --- | --- | --- |
-| D1 | Cancelar `paid`/anular con producto eliminado | Resuelto | `buildProductContext` con `includeDeleted: true` en `cancelSale` y `closeCashRegister` |
-| D2 | Pedido público aceptado fuera de horario | Resuelto | `createOrder` evalúa `isBranchOpen` cuando la sucursal tiene `openingHours` |
-| D3 | JWT de usuario eliminado operativo | Resuelto | `revalidateSessionUser` en `requireAuth`/`getCurrentBranchId*` (`src/lib/auth.ts`) |
-| D4 | Reasignación de sucursal sin efecto en sesiones activas | Resuelto | la misma revalidación sincroniza `branchId`/`role` en la sesión |
-| D5 | Cancelación pública anulaba pedidos `paid` | Resuelto | `cancelOrder` rechaza `paid` cuando llega `token` (flujo público); el panel sí puede |
-| D6 | Lockout degradaba a error genérico | Resuelto | `login-form`/`actions` muestran "Demasiados intentos fallidos" |
-| D7 | Duplicados de sucursal por mayúsculas | Resuelto | `findByNameCaseInsensitive` en `createBranch` |
-| D8 | Ajuste de stock con tipos reservados | Resuelto | `stockAdjustmentTypeSchema` = `manual_adjustment`/`restock` |
-| D9 | Ajuste de stock no admin-only | Resuelto (decisión + atribución) | Decisión 09-24: operadores pueden ajustar (sin `admin:true`). Atribución implementada: `stock_movements.performed_by` (migración `0035`) registra el usuario en ajustes `manual_adjustment`/`restock`; visible en la columna "Por" de `/stock` |
-| D10 | Mensajes Zod en inglés / ambigüedad caja-horario | Resuelto | schemas con `message` en español; el error de caja distingue ausencia de caja de fuera de horario |
-
-### Verificaciones locales (2026-10-02)
-
-Cambios de esta sesión: **solo documentales** en `.devin/` (limpieza, archivado y sincronización). Los checks se corrieron por regla de cierre:
+Cambios de esta sesión: **solo documentales** en `.devin/` + `AGENTS.md`/`README.md`/`CONTEXTO.md` (ciclo de higiene documental completo; ningún cambio de código de negocio).
 
 | Comando | Resultado |
 | --- | --- |
-| `npm run lint` | **Pasa** (0 errores; 1 warning preexistente en `sign-out-client.tsx` por `window.location.assign()`). |
+| `npm run lint` | **Pasa** (0 errores; el warning preexistente de `sign-out-client.tsx` por `window.location.assign()`). |
 | `npx tsc --noEmit` | **Pasa** (sin salida). |
-| `npm test` | **Pasa: 178 suites / 2027 tests** en 19.4 s, 0 snapshots. |
-| `npm run build` | **Pasa** con Next.js 16.3.8 (declarado `^16.3.3`); 45 páginas generadas, `/_not-found` sigue `○` estática; aparecen `/sucursales/nueva`, `/sucursales/[id]/editar`, `/usuarios/nuevo`, `/usuarios/[id]/editar`. |
+| `npm test` | **Pasa: 209 suites / 2454 tests** en ~17 s, 0 snapshots. |
+| `npm run build` | **Pasa** con Next.js 16.4.x (declarado `^16.3.3`); todas las rutas `ƒ` dinámicas + proxy middleware; `/reportes`, `/menu`, `/pantalla`, `/pantalla-config` presentes. |
 | `npm run knip` | **Pasa** (sin diagnósticos). |
-| `npx drizzle-kit check` | **Pasa** ("Everything's fine") — journal consistente con `drizzle/` (36 migraciones, `0000`–`0035`; `0035` agrega `stock_movements.performed_by`). |
-| `git diff --check` | **Pasa**; solo aviso de normalización LF→CRLF en el SVG regenerado. |
-| Enlaces Markdown de `.devin/` | **OK**: chequeo automatizado de los `](ruta)` internos sin enlaces rotos tras corregir `../shots/` y `../entornos.md` en los informes archivados del rediseño. |
+| `npx drizzle-kit check` | **Pasa** ("Everything's fine") — journal consistente con `drizzle/` (`0000`–`0043`; `0043` agrega `orders.delivery_location`). |
+| `git diff --check` | **Pasa**; solo avisos de normalización LF→CRLF en los SVG regenerados. |
+| Enlaces Markdown de `.devin/` | **OK**: chequeo automatizado de los `](ruta)` internos sin enlaces rotos (los dos hits residuales son el literal `](ruta)` del propio checklist). |
+| Regeneración de SVG | `overview.svg`, `modulos.svg` y `servicios-externos.svg` regenerados con `mmdc` tras editar sus bloques mermaid. |
 
 ### Estado funcional verificado por módulo
 
-“Verificado” aquí significa que existen las piezas de código y tests indicados, que los checks locales pasaron, que el CI de `main` está verde en el HEAD con código de aplicación (`3a029e4`, run `37075242547`) y que producción quedó `READY` sobre `dfb2872` con `0034` aplicada. No equivale a una prueba de escritura en producción ni a hardware externo.
+"Verificado" significa que existen las piezas de código y tests indicados, que los checks locales pasaron y que el CI de `origin/main` (`d6506d7`) está verde. Los commits `1603df3`/`2e6504d` están verificados localmente pero sin CI ni deploy todavía.
 
 | Módulo | Estado | Evidencia en código y tests |
 | --- | --- | --- |
-| Pedidos públicos | **implementado-verificado** | `/pedido` rediseñado (tema claro, card con hero/quick-add, aclaraciones por ítem), catálogo y rutas `/api/public/pedido`; `orderService`/`orderRepository`; tests unitarios de servicio/rutas y specs `tests/e2e/pedido*.spec.ts`. |
-| Chat de pedidos | **implementado-verificado** | Página pública de chat, rutas públicas y autenticadas, `chatService`/`orderMessageRepository`; tests unitarios de servicio, rutas y componentes; specs E2E de chat y adjuntos. |
-| Ventas | **implementado-verificado** | `/ventas`, `/api/ventas`, `saleService`/`saleRepository`; tests unitarios y specs E2E de disponibilidad, stock compartido, historial y pagos mixtos. |
-| Caja y turnos | **implementado-verificado** | `/cierre`, `/api/caja/*`, `cashRegisterService` y helpers de turno; tests unitarios y specs E2E de cierre automático, caja vacía y contactos/turnos. |
-| Cierre diario | **implementado-verificado**, integrado al cierre de caja | `closeCashRegister`, `/api/caja/cerrar`, `/ventas/historial/[id]` y `tests/e2e/cierres-diarios.spec.ts`. No hay tabla `dailyClosures` ni página `/cierre/historial`; el cierre diario se materializa en `cash_registers`. |
-| Stock | **implementado-verificado** | `/stock`, `/api/stock/*`, `stockService`/repositorios de movimientos; tests unitarios y specs E2E de ajustes, movimientos y concurrencia. |
-| Productos, recetas y promos | **implementado-verificado** | `/productos`, `/api/productos`, `/api/recetas`, `productService`/`recipeService` y repositorios; tests unitarios y E2E de catálogo/stock. |
-| Sucursales | **implementado-verificado** | `/sucursales`, `branchService`/`branchRepository`; tests unitarios y specs E2E de contactos, turnos, eliminación y sesión con sucursal eliminada. |
-| Usuarios y roles | **implementado-verificado** | `/usuarios`, `userService`/`userRepository`, auth; tests unitarios y `tests/e2e/roles-y-sucursales.spec.ts`. |
-| Videos y Google Cast | **implementado-verificado** | Páginas `/videos*`, upload/stream, `videoService`/`videoRepository`; tests unitarios y `tests/e2e/videos.spec.ts`. No se probó un Chromecast físico en esta auditoría. |
-| Imágenes de productos/promos | **implementado-verificado** | Rutas preparar/upload/lectura, `product-image-storage` y configuración; tests unitarios de rutas y almacenamiento. |
+| Pedidos públicos | **implementado-verificado** | `/pedido` rediseñado, catálogo, `/api/public/pedido`, `orderService`/`orderRepository`; tests unitarios + specs `tests/e2e/pedido*.spec.ts`. |
+| Pin de entrega (`delivery`) | **implementado-verificado local (sin deploy)** | `orders.deliveryLocation` (`0043`), `orderSchema` lo exige en `delivery`, captura GPS/enlace en checkout, mensaje automático al chat en la misma transacción, "Ubicación de entrega" en `PedidoInfo`. Pendiente push + E2E del informe. |
+| Chat de pedidos | **implementado-verificado** | Bienvenida en dos mensajes (+ pin en `delivery`), badge de leídos en vivo, adjuntos imagen/**PDF** con validación temprana, SSE opt-in; `chatService`/`orderMessageRepository`; tests unitarios + specs E2E. |
+| Ventas | **implementado-verificado** | `/ventas` con tema claro híbrido, refresco en vivo del catálogo, quick-add, card clickeable; `saleService`/`saleRepository`; tests unitarios + E2E. |
+| Caja y turnos | **implementado-verificado** | `/cierre` simplificado (sin cards de insumos; columna `suppliesSummary` conservada), `cashRegisterService`; tests unitarios + E2E. |
+| Cierre diario | **implementado-verificado**, integrado al cierre de caja | `closeCashRegister`, `/api/caja/cerrar`, `/ventas/historial/[id]`; specs `cierres-diarios.spec.ts`. |
+| Stock | **implementado-verificado** | `/stock`, `stockService`, ajustes con `performed_by`; tests unitarios + E2E de concurrencia. |
+| Productos, recetas y promos | **implementado-verificado** | Editor de promos con flags derivados del tipo de insumo, validaciones por fila, imágenes normalizadas 16:9, tope de opcionales y unicidad de nombre por sucursal; tests unitarios + E2E. |
+| Sucursales | **implementado-verificado** | `/sucursales` con `is_active` (activar/desactivar sin borrado en superficie pública), hard delete en cascada mantenido por decisión; tests unitarios + E2E. |
+| Usuarios y roles | **implementado-verificado** | `/usuarios`, `userService`, auth JWT; `roles-y-sucursales.spec.ts`. |
+| Videos y Google Cast | **implementado-verificado** | `/videos*`, upload/stream, `videoService`; specs `videos.spec.ts`. Sin Chromecast físico probado. |
+| Kiosk `/pantalla` + `/menu` | **implementado-verificado** | `(kiosk)` sin login: pantalla publicitaria por sucursal (`pantalla_settings`/`pantalla_items`, modos `auto`/`custom`) y menú digital (`menu_settings`), configurables desde `/pantalla-config` («Pantallas»); APIs `/api/public/pantalla` y `/api/public/menu`. |
+| Reportes | **implementado-verificado** | `/reportes` + `GET /api/reportes/ventas` (ventas por rango, exportación CSV); `reportService`. |
+| Consumo Neon (card) | **implementado-verificado** | Card "Base de datos" admin vía `GET /api/panel/neon-usage` + `neonUsageService`; degrada `disabled`/`invalid_credentials`. |
+| Observabilidad operativa | **implementado-verificado** | `sanity-audit` diario (GH Actions), `uptime-probe` `*/30`, worker CF `pancheria-healthcheck` `*/10`, relay ntfy `/api/cron/alert`; `/api/health` `SELECT 1`. |
 
 ### Deuda consolidada re-verificada
 
 | Ítem | Severidad | Estado real al cierre | Evidencia |
 | --- | --- | --- | --- |
-| T14 multi-tenant | **mayor** si el objetivo pasa a SaaS; diferido por decisión | **Sigue abierto y no iniciado.** No existe `tenantId`/`tenant_id` en `src/`; el sistema sigue siendo single-tenant con varias sucursales aisladas por `branchId`. No hospedar comercios independientes antes de implementar y probar el aislamiento. | `.devin/prompts/plan-implementacion-multi-tenant.md`; `src/db/schema.ts`; `archivados/auditoria-escalabilidad-2026-09-19.md` §3.9. |
-| D9: ajuste de stock sin rol admin | **menor** | **Resuelto.** Decisión 09-24 mantenida (operadores ajustan, sin `admin:true`); atribución agregada: `stock_movements.performed_by` (`varchar(255)`, migración `0035`) registra `session.user.name` en ajustes manuales — mismo patrón `varchar` que `cash_registers.openedBy/closedBy`. Residual: movimientos de sistema (venta, reserva, cancelación) e históricos quedan `NULL`. | `src/app/api/stock/ajustar/route.ts`; `src/application/services/stockService.ts`; `drizzle/0035_performed_by_stock_movements.sql`. |
-| Flakiness E2E | **menor** | Estable en las corridas recientes: CI verde en `3a029e4` (run `37075242547`, incluido el job E2E). El paso E2E tiene timeout de 35 min desde `d116bd6`. Seguir vigilando recurrencias. | `.github/workflows/ci.yml`; run `37075242547`. |
-| Neon efímera por `run_id` / sharding E2E | **menor** | **Parcial.** Serialización por shard y timeout de 35 min vigentes; `E2E_SHARDS` sigue opt-in con default `[1]` y sin aprovisionamiento efímero. Activarlo solo con una base descartable por shard. | `.github/workflows/ci.yml`; `archivados/ci-e2e-base-compartida.md`. |
-| `/_not-found` estática sin nonce CSP | **menor** | **Sigue abierto como limitación conocida.** El build la marca `○` estática y `src/app/not-found.tsx` no fuerza render dinámico. | `src/app/not-found.tsx`; `archivados/auditoria-qa-ronda-2-2026-09-23.md`. |
-| Limpieza de archivos después de borrar una sucursal | **menor** | El hard delete en cascada se mantiene por decisión del usuario. `deleteBranch` intenta liberar imágenes, adjuntos y videos tras el commit; registra conteos sin keys y el cron elimina archivos huérfanos. Ante una caída persistente, la limpieza puede demorarse. | `src/application/services/branchService.ts`, `src/application/services/cleanupService.ts`, `src/lib/orphaned-files.ts`. |
-| Controles operativos: `VERCEL_PRODUCTION_URL`, crons, consumo Neon/Vercel | **informativo / recurrente** | **Verificado el 2026-10-01** en la sesión del mapa de arquitectura: `VERCEL_PRODUCTION_URL` apunta al dominio productivo real, `CRON_SECRET` coincide (dispatch manual devolvió `{"ok":true}`) y ambos crons de Vercel responden con evidencia de ejecución. Frecuencia real de `expire-orders`: ~4–8 veces/día (throttling de schedules de GH Actions), sin impacto gracias a la expiración lazy. Queda recurrente el consumo Neon/Vercel. | `arquitectura/salud-arquitectura.md` §verificación operativa; `arquitectura/servicios-externos.md`. |
-| Observación del rediseño `/pedido` en producción | **menor** | Deployado el 10-02 sobre `dfb2872`. Revisar runtime errors en una ventana de tráfico real (24–48 h) y, si se autoriza, un smoke de escritura controlado (crear y anular un pedido) para ejercitar el camino completo de idempotencia y `notes` end-to-end. | Deployment `dpl_CCTyXaU4hHEEqLhWJLBqAMoVpP6h`; commits `3a029e4`/`f1e684c`/`dfb2872`. |
-| Verificación del blueprint DRS en Devin Cloud | **informativo / condicional** | **No resuelto en evidencia disponible.** El plan archivado dice que está resuelto, pero su tabla interna conserva la verificación de DRS como pendiente; la existencia de `.devin/environment.yaml` no prueba un build remoto. Confirmar si todavía se usa DRS. | `archivados/plan-de-accion-2026-08-27.md` §2; `.devin/README.md`. |
-
-### Decisión confirmada: eliminación de sucursales
-
-Por pedido explícito del propietario, se mantiene el **hard delete en cascada** y no se implementará soft-delete. `deleteCascade` elimina las tablas principales dentro de una transacción; las tablas hijas dependen de sus FKs `ON DELETE CASCADE`. Después del commit se intentan borrar imágenes, adjuntos y videos. Si fallan storage o el borrado de intentos de login, se registran conteos sin keys/nombres; los crons respectivos hacen la limpieza posterior. La cobertura unitaria verifica tablas eliminadas y ambos caminos de warning; no se borró ninguna sucursal real.
+| T14 multi-tenant | **mayor** si el objetivo pasa a SaaS; diferido por decisión | **Sigue abierto y no iniciado.** No existe `tenantId`/`tenant_id` en `src/`; el sistema sigue siendo single-tenant con sucursales por `branchId`. | `.devin/prompts/plan-implementacion-multi-tenant.md`; `src/db/schema.ts`. |
+| Commits `1603df3`/`2e6504d` sin push + E2E pendiente | **menor** | **Abierto.** Los informes `auditoria-ux-chat-pedido-2026-10-27` y `auditoria-ubicacion-delivery-2026-10-27` quedan en curso hasta el push/PR y la corrida E2E de sus features (chat PDF/leídos, pin de entrega). | `git status` vs `origin/main`; ambos informes en `informes/`. |
+| Endpoint atómico producto+receta (P2) | **menor** | **Abierto (diferido).** Guardar producto y receta son dos requests; el mensaje de fallo parcial mitiga la ventana. Heredado del informe archivado de recetas/carrito. | `archivados/auditoria-recetas-carrito-2026-10-15.md`. |
+| Ticket sucursal nueva (servicio "Paquete") | **menor** | **Abierto.** `auditoria-nueva-sucursal-stock-2026-10-04`: veredictos A–D preparados, plan por PRs y D-1..D-6 incorporadas; pendiente solo definir el servicio "Paquete". | `informes/auditoria-nueva-sucursal-stock-2026-10-04.md`. |
+| Flakiness E2E / sharding | **menor** | Estable: CI verde incluido el pipeline nocturno; `E2E_SHARDS=[1,2]` **activo** con bases `neondb_e2e`/`neondb_e2e2` en `us-east-1` y lock `e2e_run_lock` serializando corridas externas. | `.github/workflows/ci.yml`; `tests/e2e/run-lock.ts`. |
+| `/_not-found` estática sin nonce CSP | **menor** | **Sigue abierto como limitación conocida** (render `○` estático). | `src/app/not-found.tsx`. |
+| Limpieza de archivos post-borrado de sucursal | **menor** | Sin cambios: `deleteBranch` libera archivos post-commit best-effort; los crons limpian huérfanos. | `branchService.ts`, `cleanupService.ts`. |
+| Cadencia real de schedules GH Actions | **informativo** | `expire-orders` declara `*/15` (era `*/5` hasta `621c66f`) y corre ~4–8 veces/día en la práctica; `uptime-probe` `*/30`. La expiración lazy + el worker CF `*/10` cubren la corrección operativa. | `expire-orders.yml`, `uptime-probe.yml`, `wrangler.toml`; `arquitectura/servicios-externos.md`. |
+| Verificación del blueprint DRS en Devin Cloud | **informativo / condicional** | **Sigue sin verificar** (`.devin/environment.yaml` existe y fue resincronizado en esta corrida, pero no se corrió un build remoto). | `.devin/environment.yaml`; `archivados/plan-de-accion-2026-08-27.md` §2. |
 
 ### Prompts, TODOs y pendientes en archivados
 
-- `.devin/prompts/README.md` enumera **7 prompts activos**: `pancheria.prompt.md` (prompt maestro), 4 guías de auditoría reutilizables (`auditoria-cobertura-de-pruebas`, `auditoria-escalabilidad`, `auditoria-pre-release`, `auditoria-qa-integral`, `auditoria-y-documentacion`) y `plan-implementacion-multi-tenant.md` (propuesta T14 sin implementar). Los prompts del rediseño `/pedido` y del mapa de arquitectura quedaron archivados tras su ejecución.
-- Los pendientes y controles de informes archivados (T14, D9, sharding E2E, `/_not-found`, controles operativos y DRS) están reflejados arriba. La retención soft-delete de sucursales quedó descartada por decisión del propietario. SSE sigue opt-in deshabilitado; T16 (réplicas/agregaciones) quedó descartado a la escala actual.
-- `archivados/plan-de-accion-2026-08-27.md` tiene encabezado «resuelto», pero su tabla interna aún lista pendiente la verificación del blueprint DRS; se conserva como condicional y no verificado arriba, porque no se comprobó Devin Cloud.
-- Los snapshots bajo `archivados/historico/` conservan tareas antiguas por regla documental; no se reabren como pendientes vigentes.
+- `.devin/prompts/README.md` enumera **9 prompts activos**: `pancheria.prompt.md` (maestro), 5 guías reutilizables (`auditoria-pre-release`, `auditoria-escalabilidad`, `auditoria-cobertura-de-pruebas`, `auditoria-qa-integral`, `auditoria-y-documentacion`), `auditoria-ux-chat-pedido` y `ubicacion-delivery-requerida` (en curso: implementados, pendientes commit/PR + E2E) y `plan-implementacion-multi-tenant` (T14 sin implementar).
+- En esta corrida se archivaron los prompts `simplificacion-cierre` (`7a94e6d`) e `implementacion-card-clickeable` (`09665ad`), y los informes `auditoria-ci-2026-10-05`, `plan-sucursal-activa-2026-10-05` y `auditoria-recetas-carrito-2026-10-15` (su pendiente P2 queda trackeado arriba).
+- Los snapshots bajo `archivados/historico/` conservan tareas antiguas por regla documental; no se reabren.
 
-### Sincronización documental (sesión 2026-10-02)
+### Sincronización documental (sesión 2026-10-27)
 
-- Se archivaron 7 informes resueltos (`auditoria-ux-sucursales`, `prueba-promo-imagen`, `pruebas-manuales`, `resultados-pruebas`, `rediseno-pedido-pr1/pr2/pr3`) y 3 prompts ejecutados (`plan-rediseno-card-y-modal-pedido`, `rediseno-pedido-pr2-modal`, `mapa-arquitectura`), con marcador `Estado:` y enlaces relativos corregidos.
-- Se eliminaron 11 scripts descartables/de una sola sesión de `.devin/tmp/` (quedaron los helpers genéricos `api.sh`, `env*.ts`, `setup.ts`, `sql.ts`, todos gitignorados y sin credenciales).
-- `arquitectura/base-de-datos.md` se sincronizó con la migración `0034` (`notes` en `order_items`/`sale_items`) y se regeneró `diagramas/svg/base-de-datos.svg`.
-- `guia-funcionamiento-pancheria.md` documenta ahora las aclaraciones por ítem, el cobro efectivo/transferencia/mixto al confirmar pedido y la regla de extras cobrables (productos `service` standalone).
-- Los tres índices (`.devin/README.md`, `informes/README.md`, `prompts/README.md`) reflejan la estructura final.
+- Corrección de crons desfasados en 9 documentos: `expire-orders` `*/5`→`*/15`, `uptime-probe`→`*/30`, worker healthcheck→`*/10` (nómina completa de 5 endpoints de cron incluida en `servicios-externos.md` con `sanity-audit` y el relay ntfy).
+- `AGENTS.md`: deploy `drizzle-kit push` → `migrate` (con baseline script como excepción), chat con pin de entrega + PDF, ruta correcta del MCP maps (`mcp_config.json`).
+- `CONTEXTO.md` regenerado al HEAD: 21 tablas / 12 enums, kiosk `/pantalla`+`/menu`, pin de entrega, lock E2E.
+- `arquitectura/`: `modulos.md` (conteos 19 servicios/15 repos, `/menu`, `neonUsageService`), `stack.md` (versiones actuales de `package.json`), `README.md`/`overview.md` (cron + kiosk), `servicios-externos.md` (+uptime-probe, sanity-audit, worker CF, ntfy, Neon API); 3 SVG regenerados.
+- `README.md`: card Neon, pin de entrega, chat PDF, `NEON_*` y cron `*/15`. `environment.yaml`: `migrate` como flujo, tablas E2E completas, `NEON_*`.
+- `informes/README.md` + índices de `.devin` y `prompts` sincronizados tras los 5 archivados confirmados.
 
 ### Riesgos y recomendaciones priorizadas
 
 | Prioridad | Impacto × esfuerzo | Recomendación accionable |
 | --- | --- | --- |
-| P1 | Alto × bajo, condicional | Mantener producción limitada a un comercio con varias sucursales. No iniciar T14 ni hospedar comercios independientes hasta que el propietario reabra explícitamente ese objetivo y exista un plan de aislamiento/backfill/rollback. |
-| P1 | Alto × bajo | Monitorear producción tras el rediseño `/pedido`: revisar runtime errors en una ventana de tráfico real (24–48 h) y, si se autoriza, un smoke de escritura controlado (crear y anular un pedido con aclaraciones) para ejercitar idempotencia, `notes` y el cobro al confirmar en producción. |
-| P2 | Medio × bajo | Atribución de ajustes implementada (`performed_by`, migración `0035`). Extensión opcional a futuro: vendedor/anulador en `sales` y operador en `orders` (mismo hueco de trazabilidad). |
-| P2 | Medio × medio | Si E2E se acerca al timeout de 35 min o hay presión por concurrencia, provisionar una base Neon distinta por shard y recién entonces habilitar `E2E_SHARDS`; Neon efímera por `run_id` queda para una fase posterior. |
-| P3 | Bajo × bajo | Revisar periódicamente consumo de Neon/Vercel y confirmar si Devin Cloud/DRS sigue en uso. |
+| P1 | Alto × bajo, condicional | Mantener producción single-tenant/multi-sucursal; no iniciar T14 sin decisión explícita + plan de aislamiento/backfill/rollback. |
+| P1 | Medio × bajo | Hacer push de `1603df3`+`2e6504d` (pin de entrega + fixes de chat) tras correr E2E de esas features en base descartable, y aplicar migración `0043` a prod con el deploy (`entornos.md`). |
+| P2 | Medio × bajo | Cerrar el ticket de sucursal nueva definiendo el servicio "Paquete" (único pendiente del inventario). |
+| P2 | Medio × medio | Evaluar el endpoint atómico producto+receta (P2) la próxima vez que se toque el editor de promos. |
+| P3 | Bajo × bajo | Revisar periódicamente consumo Neon/Vercel (la card del dashboard facilita el chequeo) y confirmar si Devin Cloud/DRS sigue en uso. |
 
 ### Próximos pasos concretos
 
-1. Mantener T14 sin iniciar y el alcance single-tenant/multi-sucursal hasta una decisión explícita distinta. Mantener también el hard delete en cascada de sucursales tal como lo pidió el propietario.
-2. Confirmar estabilidad post-rediseño: runtime errors de Vercel en 24–48 h de tráfico real; smoke de escritura solo con autorización.
-3. D9 cerrado con `performed_by` (`0035`); si se quiere trazabilidad completa, evaluar la misma columna en `sales`/`orders`.
-4. Toda corrida futura sobre `.env.e2e` requiere autorización porque `global-setup.ts` vuelve a truncar y reseedear. `0033`/`0034` ya están aplicadas en producción.
-5. En la próxima revisión operativa, comprobar consumo de Neon/Vercel sin registrar valores y confirmar si Devin Cloud/DRS sigue en uso.
+1. Push de `1603df3`+`2e6504d` → CI → deploy con `drizzle-kit migrate` (`0043`); luego archivar los dos informes `2026-10-27` y actualizar este §0.
+2. Correr la corrida E2E pendiente de los informes `2026-10-27` en base descartable (requiere autorización: `global-setup.ts` trunca y reseedea).
+3. Definir el servicio "Paquete" para cerrar `auditoria-nueva-sucursal-stock-2026-10-04`.
+4. Próximo ciclo de higiene documental con el prompt `auditoria-y-documentacion.md` (su "Punto de partida" ya quedó actualizado a esta corrida).
 
 ### Limitaciones y aspectos no verificados
 
-- Esta sesión fue **documental**: no se crearon pedidos ni ventas reales en producción; el camino de escritura (idempotencia 409, `notes`, cobro al confirmar) se verificó en código y tests, no end-to-end en prod.
-- No se inspeccionaron ni mostraron valores de `.env.local`, GitHub Secrets/Variables o Vercel. Siguen sin revisarse las métricas de consumo de Neon/Vercel.
-- No se ejecutó una eliminación real de sucursal ni se probaron proveedores de storage externos; las pruebas de cascada/limpieza son unitarias con mocks.
-- No se validó el blueprint de Devin Cloud (`devin.exe cloud drs build`) ni se probó Google Cast con un dispositivo físico.
-- Los CI runs de `f1e684c` y `dfb2872` estaban en curso/pendientes al momento de esta revisión; el último run verde con código de aplicación es `37075242547` (`3a029e4`).
+- Sesión **documental**: no se crearon pedidos ni ventas reales en producción; el pin de entrega y el chat con PDF se verificaron en código y tests, no end-to-end en prod.
+- No se inspeccionaron ni mostraron valores de `.env.local`, GitHub Secrets/Variables o Vercel.
+- No se corrió E2E ni se tocaron bases de datos; `npx drizzle-kit check` fue la única operación sobre Drizzle (read-only).
+- No se validó el blueprint de Devin Cloud ni Google Cast con dispositivo físico.
+- El comentario de cabecera de `workers/healthcheck/wrangler.toml` ("corre cada minuto") quedó desfasado respecto del trigger real `*/10`; es archivo de config, fuera del alcance documental de esta corrida.
 
 ### Regla documental vigente
 

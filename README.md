@@ -20,7 +20,7 @@ Sistema web para la gestión de stock, ventas, pedidos y contenido audiovisual d
 
 ## Configuración
 
-1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `DEFAULT_BRANCH_NAME`. Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`/`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`), `TRUSTED_PROXY_IP_HEADER`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD`/`NEW_BRANCH_ADDRESS`/`NEW_BRANCH_PHONE`/`NEW_BRANCH_LOCATION`/`NEW_BRANCH_SOCIAL_LINKS`, `DEFAULT_BRANCH_ADDRESS`/`DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_LOCATION`/`DEFAULT_BRANCH_SOCIAL_LINKS`, `NEXT_PUBLIC_BRANCH_TIMEZONE`, `CAJA_OVERDUE_HOURS` y `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` según el entorno.
+1. Copiar `.env.example` a `.env.local` y completar las variables. Las mínimas para levantar son `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING`), `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `DEFAULT_BRANCH_NAME`. Opcionalmente revisar las variables de caja (`CAJA_AUTO_CLOSE_HOURS`/`NEXT_PUBLIC_CAJA_AUTO_CLOSE_HOURS`, `CAJA_AUTO_CLOSED_BY`, `NEXT_PUBLIC_CAJA_CLOCK_INTERVAL_MS`, `CAJA_DEFAULT_HISTORY_DAYS`), `TRUSTED_PROXY_IP_HEADER`, `RATE_LIMIT_STORE_PROVIDER`, `NEXT_PUBLIC_DASHBOARD_REFRESH_INTERVAL_MS`, `NEW_BRANCH_NAME`/`NEW_BRANCH_USERNAME`/`NEW_BRANCH_PASSWORD`/`NEW_BRANCH_ADDRESS`/`NEW_BRANCH_PHONE`/`NEW_BRANCH_LOCATION`/`NEW_BRANCH_SOCIAL_LINKS`, `DEFAULT_BRANCH_ADDRESS`/`DEFAULT_BRANCH_PHONE`/`DEFAULT_BRANCH_LOCATION`/`DEFAULT_BRANCH_SOCIAL_LINKS`, `NEXT_PUBLIC_BRANCH_TIMEZONE`, `CAJA_OVERDUE_HOURS`, `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` y las credenciales de Neon (`NEON_API_KEY`/`NEON_PROJECT_ID`, con `NEON_COMPUTE_QUOTA_CU_HOURS` opcional) para la card "Base de datos" del dashboard según el entorno.
 2. `AUTH_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` en NextAuth v5; usar en producción para que coincida con el dominio de Vercel.
 3. `NEXT_PUBLIC_APP_URL` (opcional) tiene prioridad sobre `NEXTAUTH_URL` para construir URLs locales de videos y adjuntos de chat cuando `STORAGE_PROVIDER=local`.
 4. **Importante para dev/prod idénticos**: `DATABASE_URL` debe apuntar a la misma base de datos que Vercel. Si usás Vercel Postgres, también podés usar `POSTGRES_URL`/`POSTGRES_PRISMA_URL` porque `src/db/index.ts` las resuelve automáticamente.
@@ -95,6 +95,7 @@ La raíz autenticada `/` es el panel de control. Muestra un resumen operativo de
 - Estado de la caja (abierta/cerrada, total, efectivo, transferencia, cantidad de ventas).
 - Pedidos por estado (`pending`, `in_process`, `paid`, `finished`, `cancelled`).
 - Alertas de stock bajo.
+- Card "Base de datos" (solo admin): CU-horas usadas/restantes del ciclo de Neon vía `GET /api/panel/neon-usage`; requiere `NEON_API_KEY` + `NEON_PROJECT_ID` y degrada con instrucciones si las credenciales faltan o son inválidas.
 - Nombre de la sucursal activa y usuario logueado.
 - Accesos rápidos a las secciones principales, filtrados por rol.
 
@@ -136,7 +137,7 @@ El sistema soporta múltiples sucursales con aislamiento de datos:
 - Los insumos manuales y servicios pueden configurarse como opcionales y preseleccionados por defecto; su precio y el de la promo no cambian al quitarlos.
 - El cliente y el operador eligen los complementos desde `PromoOptionsDialog` en `/pedido` y `/ventas`.
 - Cada venta y pedido persiste un snapshot de receta (`sale_item_recipes` / `order_item_recipes`) para descuentos, reintegros, reservas y resúmenes históricos.
-- `orderService.createOrder` inserta un mensaje automático en el chat del pedido con el detalle de preparación.
+- `orderService.createOrder` inserta mensajes automáticos en el chat del pedido: bienvenida + detalle de preparación y, en pedidos `delivery`, un tercero con el pin de entrega.
 - El seed usa `DEFAULT_BRANCH_NAME` para crear la sucursal inicial y asignarle el administrador (`ADMIN_USERNAME`).
 
 ## Roles y permisos
@@ -161,8 +162,9 @@ El sistema expone una ruta pública `/pedido` donde los clientes pueden acceder 
   - **Confirmar pago**: pasa de `pending` o `in_process` a `paid`, libera la reserva (`reserve_release`) y descuenta el stock definitivo, generando la venta.
   - **Finalizar pedido**: pasa de `paid` a `finished` para marcar entrega/retiro.
   - **Cancelar**: libera la reserva si estaba en `in_process`; anula la venta si ya estaba `paid`.
-- Al crear el pedido, el cliente puede ir al chat `/pedido/[id]/chat?token=...` para coordinar con la sucursal. El chat soporta texto, imágenes y ubicación.
-  - El cliente con entrega a domicilio (`delivery`) puede compartir su ubicación actual desde el chat; el enlace se genera con el proveedor de mapas configurado.
+- En el checkout, un pedido `delivery` exige el **pin de entrega**: el cliente lo captura con "Usar mi ubicación actual" (geolocalización explícita) o pega un enlace de mapa; el servidor lo revalida y normaliza (`orderSchema`/`tryBuildLocationUrl`) y lo persiste en `orders.deliveryLocation`. `pickup` no lo pide.
+- Al crear el pedido, el cliente puede ir al chat `/pedido/[id]/chat?token=...` para coordinar con la sucursal. El chat soporta texto, imágenes, PDF (comprobantes de pago) y ubicación. En `delivery`, el pin de entrega ya figura como mensaje automático desde la creación.
+  - El cliente con entrega a domicilio (`delivery`) puede además compartir su ubicación actual desde el chat; el enlace se genera con el proveedor de mapas configurado.
   - El operador con retiro en sucursal (`pickup`) puede enviar la ubicación de la sucursal (`branch.location`) desde el panel a través de `POST /api/pedidos/[id]/chat/ubicacion`.
   - Los enlaces de mapas se detectan y renderizan como "Ver ubicación" en `ChatMessageList`, y `PedidoInfo` convierte la dirección del cliente en un enlace de búsqueda.
   - El proveedor de mapas y la URL base se configuran con `NEXT_PUBLIC_MAPS_PROVIDER` y `NEXT_PUBLIC_MAPS_BASE_URL` (ver `.env.example`).
@@ -208,7 +210,7 @@ Variables de entorno relacionadas:
 
 El cron de expiración de pedidos se dispara desde `.github/workflows/expire-orders.yml`:
 
-- `GET /api/cron/expire-orders` — marca pedidos `pending` vencidos como `cancelled`. Corre cada 5 minutos y está protegido por `CRON_SECRET`. El workflow usa la variable de repositorio `VERCEL_PRODUCTION_URL` para construir la URL de destino; no hay dominio hardcodeado.
+- `GET /api/cron/expire-orders` — marca pedidos `pending` vencidos como `cancelled`. Corre cada 15 minutos (`*/15 * * * *`; la cadencia real de los schedules de GitHub Actions suele ser de horas — la expiración lazy en las lecturas cubre el hueco) y está protegido por `CRON_SECRET`. El workflow usa la variable de repositorio `VERCEL_PRODUCTION_URL` para construir la URL de destino; no hay dominio hardcodeado.
 
 Todos los endpoints de cron están protegidos por `CRON_SECRET`. Los schedules de `vercel.json` no se leen de variables de entorno; el schedule de `expire-orders` se configura en el workflow de GitHub Actions.
 

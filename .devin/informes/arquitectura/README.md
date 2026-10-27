@@ -1,7 +1,7 @@
 # Arquitectura del sistema Panchería
 
 **Estado:** implementado
-**Fecha de verificación:** 2026-10-02 (contra el código en `main`; `base-de-datos.md` incluye `notes` de la migración `0034`)
+**Fecha de verificación:** 2026-10-27 (contra el código en `main` commit `2e6504d`; `base-de-datos.md` incluye `orders.delivery_location` de la migración `0043` y las tablas `pantalla_*`/`menu_settings`)
 **Alcance:** documentación de la arquitectura **real** verificada en código. No modifica comportamiento funcional. Para reglas de negocio detalladas ver [guia-funcionamiento-pancheria.md](../guia-funcionamiento-pancheria.md).
 
 ## Qué es esto
@@ -14,7 +14,7 @@ Un mapa navegable de la arquitectura del proyecto en **tres niveles**, mantenido
 | --- | --- | --- |
 | **1 — Sistema** | [overview.md](overview.md) | Qué es el sistema, quiénes lo usan, con qué servicios externos convive. |
 | **2 — Módulos** | [modulos.md](modulos.md) | Cómo se organiza el código: capas, módulos funcionales, superficie API. |
-| **3 — Detalle** | [base-de-datos.md](base-de-datos.md) | Modelo ER completo: 18 tablas, 10 enums, FKs, índices, borrado. |
+| **3 — Detalle** | [base-de-datos.md](base-de-datos.md) | Modelo ER completo: 21 tablas, 12 enums, FKs, índices, borrado. |
 
 Documentos transversales:
 
@@ -34,7 +34,7 @@ flowchart TB
 
     subgraph APP["Vercel — Next.js 16 · App Router · Turbopack"]
         direction TB
-        PAGES["Páginas SSR / RSC<br/>(public): /pedido, /pedido/[id]/chat ·<br/>(panel): /, /ventas, /pedidos, /cierre…"]
+        PAGES["Páginas SSR / RSC<br/>(public): /pedido, /pedido/[id]/chat ·<br/>(kiosk): /pantalla, /menu ·<br/>(panel): /, /ventas, /pedidos, /cierre…"]
         SA["Server Actions<br/>colocadas junto a las páginas"]
         API["API Routes<br/>/api/public/* · /api/* · /api/cron/*"]
         SVC["application/services<br/>casos de uso + transacciones"]
@@ -52,7 +52,7 @@ flowchart TB
 
     DB[("PostgreSQL<br/>Neon / Vercel Postgres")]
     ST["Storage de archivos<br/>local · Vercel Blob · S3 · R2"]
-    GHA["GitHub Actions<br/>schedule cada 5 min"]
+    GHA["GitHub Actions<br/>schedule cada 15 min"]
     VCR["Vercel Cron<br/>2 jobs diarios"]
     ANA["Vercel Analytics"]
 
@@ -78,7 +78,7 @@ flowchart TB
 - **Multi-sucursal lógico:** toda la data cuelga de `branches`; el scope del operador es su `branchId` de sesión; el admin puede operar sobre cualquier sucursal con una cookie de sucursal activa (`ACTIVE_BRANCH_COOKIE`).
 - **PostgreSQL** con Drizzle ORM; driver dual: `pg.Pool` o `@neondatabase/serverless` según la URL (`src/db/index.ts`).
 - **Pagos:** `cash` y `transfer` únicamente. **Mercado Pago no está implementado** (cero referencias en `src/`).
-- **Crons divididos:** Vercel Cron (2 jobs diarios de limpieza) + GitHub Actions (expiración de pedidos cada 5 min) — ver [servicios-externos.md](servicios-externos.md).
+- **Crons divididos:** Vercel Cron (2 jobs diarios de limpieza) + GitHub Actions (expiración de pedidos cada 15 min nominal; la cadencia real es de horas — ver [servicios-externos.md](servicios-externos.md)).
 
 ## Mantenimiento del mapa
 

@@ -2,7 +2,7 @@
 
 > **Propósito de este archivo:** documento de contexto portable para asistentes de IA (Claude, ChatGPT, etc.). Resume la arquitectura, el dominio y las reglas del proyecto para que las respuestas sean consistentes con el código real y no dupliquen lógica existente.
 >
-> **Generado:** 2026-10-04 · **Commit:** `987bab1` · **Fuente canónica de reglas:** `AGENTS.md`
+> **Generado:** 2026-10-27 · **Commit:** `2e6504d` · **Fuente canónica de reglas:** `AGENTS.md`
 >
 > **Uso recomendado:** subirlo como Knowledge de un Project en Claude.ai. Cuando una pregunta requiera código exacto, adjuntar además el archivo canónico indicado en §10 — este documento es un mapa, no una copia del código.
 
@@ -12,8 +12,8 @@
 
 Sistema de gestión para una panchería (hot dogs / comida rápida) con dos superficies:
 
-- **Panel privado** (`/` con sesión): terminal de ventas, productos, recetas, stock, caja, pedidos, usuarios, sucursales, videos.
-- **Superficie pública** (`/pedido`): catálogo, carrito, pedidos sin login, chat cliente↔operador, seguimiento.
+- **Panel privado** (`/` con sesión): terminal de ventas, productos, recetas, stock, caja, pedidos, usuarios, sucursales, videos, configuración de `/pantalla` y `/menu`.
+- **Superficie pública** (`/pedido`): catálogo, carrito, pedidos sin login, chat cliente↔operador, seguimiento. **Kiosk sin login**: `/pantalla` (cartelera publicitaria) y `/menu` (carta digital).
 
 Todo dato de negocio está aislado por **sucursal** (`branchId`). Es multi-tenant por sucursal, no por cuenta.
 
@@ -52,7 +52,7 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 
 ### Tablas (`src/db/schema.ts`)
 
-`branches`, `users`, `products`, `recipes`, `cash_registers`, `sales`, `sale_payments`, `sale_items`, `orders`, `order_items`, `sale_item_recipes`, `order_item_recipes`, `order_stock_reservations`, `order_messages`, `stock_movements`, `videos`, `login_attempts`, `public_order_rate_limits`.
+`branches`, `users`, `products`, `recipes`, `cash_registers`, `sales`, `sale_payments`, `sale_items`, `orders`, `order_items`, `sale_item_recipes`, `order_item_recipes`, `order_stock_reservations`, `order_messages`, `stock_movements`, `videos`, `pantalla_settings`, `pantalla_items`, `menu_settings`, `login_attempts`, `public_order_rate_limits` (21 tablas; las tres últimas configuran `/pantalla` y `/menu` por sucursal).
 
 ### Enums clave
 
@@ -68,6 +68,9 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 | `cash_register_status` | `open`, `closed` |
 | `delivery_type` | `delivery`, `pickup` |
 | `order_message_sender` | `client`, `operator` |
+| `pantalla_playlist_mode` | `auto`, `custom` |
+| `pantalla_item_kind` | `product`, `video` |
+| `menu_font_scale` / `menu_card_style` / `menu_sort_order` | `normal`/`large` · `image`/`compact` · `catalog`/`price_asc`/`price_desc` |
 
 ### Tipos de producto (regla central del dominio)
 
@@ -86,7 +89,8 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 - **Carrito**: `quantity` se modela como N líneas independientes (una por unidad); solo se fusionan líneas idénticas (producto + receta + nota). El carrito se invalida al cambiar de sucursal.
 - **Caja**: `open`/`closed` con soft delete + papelera (`/api/caja/eliminadas`, restaura stock). Avisos por turnos de `branches.opening_hours` (JSONB, soporta overnight `close < open`, TZ vía `NEXT_PUBLIC_BRANCH_TIMEZONE`): `fuera_de_horario` / `cierre_recomendado` calculados en el servidor.
 - **Soft delete vs hard delete**: productos, cajas y videos = soft delete (`deletedAt`) con papelera; el archivo asociado NO se libera hasta el hard delete. Sucursales = hard delete total en cascada, sin historial.
-- **Chat de pedidos**: `order_messages` con token público (`cancellationToken`), polling con backoff o SSE opt-in. Es el único canal con el cliente — **la integración con WhatsApp fue eliminada, no reintroducirla**.
+- **Chat de pedidos**: `order_messages` con token público (`cancellationToken`), polling con backoff o SSE opt-in; soporta texto, imágenes/PDF y ubicación. Es el único canal con el cliente — **la integración con WhatsApp fue eliminada, no reintroducirla**.
+- **Pin de entrega obligatorio (desde 2026-10-27, migración `0043`)**: todo pedido `delivery` exige `deliveryLocation` válida en el checkout (GPS explícito o enlace de mapa); el servidor la revalida (`orderSchema`), la normaliza con `tryBuildLocationUrl`, la incluye en la huella de idempotencia y la publica como mensaje automático del chat en la misma transacción. `pickup` y pedidos legacy quedan en `null`.
 - **Tokens de URL no autorizan dinero**: la cancelación pública solo toca `pending`/`in_process`; anular un pedido `paid` exige panel autenticado.
 
 ## 6. Reglas duras (no negociables)
@@ -126,12 +130,12 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 - Auth: `AUTH_SECRET` (preferido) o `NEXTAUTH_SECRET` ≥32 bytes; `AUTH_URL` tiene prioridad sobre `NEXTAUTH_URL` y **debe ser el dominio real en producción** (si queda en localhost, los redirects se rompen).
 - `STORAGE_PROVIDER=local` solo en dev — el filesystem de Vercel es efímero. El build de producción lo rechaza.
 - Rate limiting: `memory` en dev/test, `db` recomendado en producción multi-instancia (`login_attempts`, `public_order_rate_limits`).
-- Crons: `rate-limit-cleanup` y `chat-attachments-cleanup` (schedule en `vercel.json`), `expire-orders` (GitHub Actions). Protegidos por `CRON_SECRET`. Los schedules **no** son env vars.
-- **Detalle completo de las ~60 env vars: `.env.example` y `AGENTS.md`** — no asumas una variable que no esté ahí.
+- Crons: `rate-limit-cleanup` y `chat-attachments-cleanup` (schedule en `vercel.json`), `expire-orders` (GitHub Actions, `*/15`; la cadencia real es de horas — la expiración lazy lo cubre). Protegidos por `CRON_SECRET`. Los schedules **no** son env vars.
+- **Detalle completo de las env vars: `.env.example` (mínimas de arranque) y `AGENTS.md` (inventario completo)** — no asumas una variable que no esté ahí.
 
 ## 9. Advertencias de testing
 
-- `tests/e2e/global-setup.ts` **trunca todas las tablas de negocio** y re-seedea. Nunca correr E2E contra una base con datos reales; el nombre de la base debe terminar en `test`/`e2e`/`testing`/`qa`/`staging`.
+- `tests/e2e/global-setup.ts` **trunca todas las tablas de negocio** y re-seedea. Nunca correr E2E contra una base con datos reales; el nombre de la base debe terminar en `test`/`e2e`/`testing`/`qa`/`staging`. Una segunda corrida concurrente sobre la misma base se serializa con el lock `e2e_run_lock` (`tests/e2e/run-lock.ts`).
 - E2E requiere `.env.e2e` (base descartable, credenciales de seed, `DATA_CACHE_REVALIDATE_S=0`).
 - Inserciones bulk en specs se limpian en `finally` — los specs comparten la misma base.
 
@@ -145,6 +149,8 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 | Catálogo / vendibilidad de productos | `src/lib/catalog.ts` |
 | Dinero, formato, validación de montos | `src/lib/money.ts` |
 | Carrito | `src/hooks/useCart.ts`, `src/lib/cart-helpers.ts` |
+| Chat del pedido | `src/application/services/chatService.ts`, `src/components/chat/order-chat.tsx` |
+| Ubicación / URLs de mapas | `src/lib/maps.ts`, `src/config/maps.ts` |
 | Turnos/horarios de sucursal | `src/lib/branch-helpers.ts`, `src/lib/cash-register-helpers.ts` |
 | Env vars | `.env.example` |
 | Reglas completas del proyecto | `AGENTS.md` (este doc es su resumen) |
@@ -155,7 +161,7 @@ Regla de flujo: **ruta API → service → repository → schema**. La lógica d
 
 - Respondé siempre en español y siguiendo las reglas de §6.
 - Si el MCP `graphify` está disponible, usalo para orientarte o medir impacto antes de leer archivos (`query_graph` / `graphify_callers` / `graphify_impact`, siempre con `repository_id: "choy666/pancheria"`): devuelve símbolos con `file:line` del último commit pusheado. Ver la sección "Graphify MCP" de `AGENTS.md` para tools y caveats.
-- Este doc describe el proyecto al commit `987bab1` (2026-10-04). Si tu respuesta depende de un código exacto que podría haber cambiado, **pedime el archivo canónico** en vez de asumir.
+- Este doc describe el proyecto al commit `2e6504d` (2026-10-27). Si tu respuesta depende de un código exacto que podría haber cambiado, **pedime el archivo canónico** en vez de asumir.
 - No propongas helpers/sistemas que ya existen (rate-limit, storage, chat, money, api-handler): revisá la tabla §10 o pedime el archivo.
 - No reintroduzcas integración con WhatsApp ni endpoints de escritura públicos sin rate limit.
 - Cuando sugieras cambios de schema, recordá que requieren migración Drizzle commiteada.

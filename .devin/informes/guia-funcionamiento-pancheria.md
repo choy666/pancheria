@@ -522,7 +522,7 @@ Disponibilidad = infinita.
 | `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` | Refresco del chat del pedido | `5000` ms |
 | `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH` | Longitud máxima de mensaje de chat | `1000` caracteres |
 | `NEXT_PUBLIC_CHAT_PAGE_SIZE` | Mensajes de chat por página | `50` (máximo `100`) |
-| `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño máximo de imagen en chat | `5` MB |
+| `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` | Tamaño máximo de imagen/adjunto en chat | `4` MB |
 | `NEXT_PUBLIC_API_TIMEOUT_MS` | Timeout por defecto de requests al API | `30000` ms |
 | `PUBLIC_CHAT_RATE_LIMIT_*` | Rate limit del chat público | `60s`, `60` req |
 | `CHAT_BRANCH_LOCATION_RATE_LIMIT_*` | Rate limit del envío de ubicación de sucursal por chat | `60s`, `5` envíos |

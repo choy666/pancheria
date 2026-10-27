@@ -58,7 +58,7 @@ stateDiagram-v2
 
 | Trigger | Dónde | Detalle |
 | --- | --- | --- |
-| **Cron activo** | `GET /api/cron/expire-orders` cada 5 min vía **GitHub Actions** (`.github/workflows/expire-orders.yml`), `Bearer CRON_SECRET`, `maxDuration=300` | `expirePendingOrders` procesa por lotes: `FOR UPDATE` y solo cancela si sigue `pending` |
+| **Cron activo** | `GET /api/cron/expire-orders` cada 15 min nominal (`*/15`) vía **GitHub Actions** (`.github/workflows/expire-orders.yml`), `Bearer CRON_SECRET`, `maxDuration=300` — cadencia real de horas | `expirePendingOrders` procesa por lotes: `FOR UPDATE` y solo cancela si sigue `pending` |
 | **Lazy expiration** | `trackOrder`, `receiveOrder`, `convertOrderToSale` | Si el pedido `pending` ya pasó `createdAt + ORDER_EXPIRATION_MS`, se cancela bajo lock antes de continuar |
 | `cancelOrder` | Cliente (`/api/public/pedido/[id]/cancelar` con `cancellationToken`) u operador (`/api/pedidos/[id]/cancelar`) | Transición explícita a `cancelled` |
 

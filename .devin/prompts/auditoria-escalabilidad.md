@@ -2,9 +2,9 @@
 
 ## Contexto
 
-Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos, chat de pedidos (texto, imágenes y ubicación), imágenes de productos/promos y gestión de videos.
+Proyecto: `pancheria` — Sistema de gestión de stock, ventas, productos, recetas, caja, cierre diario, multi-sucursal, catálogo público de pedidos, superficies kiosk `/pantalla`/`/menu`, chat de pedidos (texto, imágenes/PDF y ubicación), imágenes de productos/promos y gestión de videos.
 
-Stack: Next.js 16.3.3 (App Router + Turbopack), React 19.2.8, TypeScript 5.x, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon serverless, con pooler y conexión unpooled), NextAuth v5 (`5.0.0-beta.32`), Jest 30.x, Playwright 1.62.x. Deploy en Vercel.
+Stack: Next.js 16.3.3 (App Router + Turbopack), React 19.2.8, TypeScript 5.x, Tailwind CSS v4, shadcn/ui, Drizzle ORM 0.45.2 con PostgreSQL (Neon serverless, con pooler y conexión unpooled), NextAuth v5 (`5.0.0-beta.32`), Jest 30.x, Playwright 1.63.x. Deploy en Vercel.
 
 Documentación de referencia obligatoria:
 
@@ -36,9 +36,9 @@ Archivos de código de lectura inicial obligatoria (además de los que surjan du
 
 - **Roles:** `admin` / `operator` (no "sucursal"); cada usuario tiene `branchId` y las consultas filtran por sucursal. El aislamiento depende de ese filtro en cada ruta/servicio.
 - **Storage de archivos:** cuatro proveedores — `local`, `vercel-blob`, `s3` y `r2` — seleccionados por `STORAGE_PROVIDER` (videos, adjuntos de chat e imágenes de productos).
-- **Actualización en cliente:** solo polling con intervalos configurables (`NEXT_PUBLIC_*_REFRESH_INTERVAL_MS`); no hay WebSockets ni SSE en `src/`.
+- **Actualización en cliente:** polling con intervalos configurables (`NEXT_PUBLIC_*_REFRESH_INTERVAL_MS`) como default; el chat además tiene **SSE opt-in** (`NEXT_PUBLIC_CHAT_STREAM_ENABLED`, `src/lib/chat-stream.ts`, `maxDuration=60`). No hay WebSockets.
 - **Rate limiting propio:** dos stores independientes — intentos de login (`RATE_LIMIT_STORE_PROVIDER`, tabla `login_attempts`) y pedidos/chat público (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`, tabla `public_order_rate_limits`); ambos soportan `memory` o `db`.
-- **Crons (3):** `rate-limit-cleanup` y `chat-attachments-cleanup` en `vercel.json` (diarios, `0 0 * * *`), `expire-orders` vía GitHub Actions cada 5 minutos (`*/5 * * * *`). Todos protegidos por `CRON_SECRET`.
+- **Endpoints de cron (5):** `rate-limit-cleanup` y `chat-attachments-cleanup` en `vercel.json` (diarios, `0 0 * * *`), `expire-orders` vía GitHub Actions cada 15 minutos (`*/15 * * * *`; cadencia real de horas), `sanity-audit` vía GitHub Actions diario (`0 9 * * *`) y `alert` (POST, relay de alertas a ntfy). Todos protegidos por `CRON_SECRET`.
 - **Arquitectura en capas:** `src/app` (UI/API), `src/application` (servicios, `transactionService`, `idempotencyService`), `src/domain`, `src/repositories`, `src/lib`, `src/config`, `src/db`, `src/components`, `src/hooks`, `src/types`, más `src/proxy.ts`, `src/auth.ts`, `src/auth.config.ts`.
 - **Dependencias sensibles:** `next-auth` en beta, `drizzle-orm` 0.x, overrides de `nanoid` en `package.json`.
 - **Flujo de pedidos:** `pending` → `in_process` → `paid` → `finished`/`cancelled`; las reservas de stock (`order_stock_reservations`) se crean al recibir el pedido (`receiveOrder`), no al crearlo — verificar en código qué recursos retiene un pedido `pending` expirado.
@@ -62,7 +62,7 @@ Emitir un informe objetivo sobre la escalabilidad futura del sistema, con eviden
 - ¿Las rutas de `src/app/api` escalan horizontalmente? Buscar estado en memoria de proceso (Maps, singletons, caches en módulo) que rompa con más de una instancia — empezando por `src/lib/rate-limit-store.ts`, `public-order-rate-limit-store.ts` en modo `memory` y cualquier caché en `src/lib/`.
 - Polling: estimar la carga generada (N clientes × intervalo) en `/api/caja/resumen`, `/api/panel/resumen`, catálogo público y chat, usando los defaults de `src/config/`. Evaluar sostenibilidad a 10/100 operadores concurrentes y según el marco del plan multi-tenant (10–50 comercios). ¿Conviene SSE/WebSocket/Realtime? Estimar el costo de migración (marcar como **estimación**).
 - Serverless: duración de funciones, trabajo pesado en requests (imágenes, agregaciones), ausencia de colas/background jobs fuera de los 3 crons.
-- Expiración de pedidos por cron de 5 min: verificar en código qué pasa con stock reservado y pedidos en estados intermedios si el cron se atrasa o falla (las reservas se crean en `receiveOrder`; un `pending` expirado no debería retener stock — confirmarlo o reportarlo).
+- Expiración de pedidos por cron de 15 min nominal (cadencia real de horas): verificar en código qué pasa con stock reservado y pedidos en estados intermedios si el cron se atrasa o falla (las reservas se crean en `receiveOrder`; un `pending` expirado no debería retener stock — confirmarlo o reportarlo).
 
 ### 3. Frontend
 

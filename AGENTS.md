@@ -145,7 +145,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NO_GLOBAL_SETUP` (opcional) — si se define como `1` u otro valor no vacío, salta el truncate/seed/preheat de `tests/e2e/global-setup.ts` cuando el servidor y la base de datos ya están preparados. Las validaciones de entorno y del servidor (`x-e2e-server`) igualmente se ejecutan.
 - `CRON_SECRET` (opcional) — secreto para proteger `GET /api/cron/rate-limit-cleanup`, `GET /api/cron/chat-attachments-cleanup`, `GET /api/cron/expire-orders` y `GET /api/cron/sanity-audit`. Si no se define, los endpoints rechazan todas las llamadas.
 
-> Los schedules de los cron jobs en `vercel.json` (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`, `0 0 * * *` por defecto) no se leen de variables de entorno; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente). El cron `/api/cron/expire-orders` se dispara desde `.github/workflows/expire-orders.yml` con schedule `*/5 * * * *` y también requiere `CRON_SECRET`. **Verificado 2026-09-19:** la cadencia real del schedule de GitHub Actions es de ~2–5 horas entre corridas (best-effort severo), no 5 minutos — un pedido `pending` tarda en expirar `max(ORDER_EXPIRATION_MS, cadencia real)`; además las lecturas principales (`trackOrder`, `getOrderById`, `getPendingOrders`, `getOrders`) expiran pendings vencidos en el momento (expiración lazy en `orderService`), así que un vencido no se muestra como vigente aunque el cron todavía no haya corrido.
+> Los schedules de los cron jobs en `vercel.json` (`/api/cron/rate-limit-cleanup` y `/api/cron/chat-attachments-cleanup`, `0 0 * * *` por defecto) no se leen de variables de entorno; si se quiere cambiar la frecuencia, editar `vercel.json` (o el cron externo correspondiente). El cron `/api/cron/expire-orders` se dispara desde `.github/workflows/expire-orders.yml` con schedule `*/15 * * * *` (era `*/5` hasta el commit `621c66f`) y también requiere `CRON_SECRET`. **Verificado 2026-09-19:** la cadencia real del schedule de GitHub Actions es de horas entre corridas (best-effort severo), no 15 minutos — un pedido `pending` tarda en expirar `max(ORDER_EXPIRATION_MS, cadencia real)`; además las lecturas principales (`trackOrder`, `getOrderById`, `getPendingOrders`, `getOrders`) expiran pendings vencidos en el momento (expiración lazy en `orderService`), así que un vencido no se muestra como vigente aunque el cron todavía no haya corrido.
 >
 > Las rutas de cron y las rutas pesadas (cierre de caja, vaciado de papelera de cajas y productos) exportan `maxDuration = 300`: el plan Hobby con Fluid Compute (default en proyectos creados desde 2025) permite hasta 300 s por función. Si el proyecto migra a otro plan, revisar el límite antes de subirlo.
 - `ORDER_EXPIRATION_MS` (opcional) — tiempo en milisegundos antes de que un pedido `pending` se marque como cancelado (por defecto 3_600_000 ms = 1 hora; mínimo 60_000 ms). No libera stock; limpia pedidos viejos del panel al listar. Esta misma ventana cierra el **envío** de mensajes: vencida (`createdAt` + ese valor), ni el cliente ni el operador pueden enviar, en cualquier estado; además el cliente no escribe en pedidos `finished`/`cancelled`. La lectura del historial sigue disponible con el token (decisión de negocio vigente: pedidos aceptados o pagados tras 1 h no admiten mensajes).
@@ -205,11 +205,11 @@ Variables cuyo valor, default o comportamiento depende del entorno (detalle comp
 
 ## Monitoreo y automatización de producción
 
-- `.github/workflows/uptime-probe.yml` — probe read-only cada 15 min (`*/15` nominal; GitHub puede demorar schedules) sobre `/api/health` y `/api/public/catalogo`; con `PROBE_BRANCH_ID` agrega checks de la sucursal.
+- `.github/workflows/uptime-probe.yml` — probe read-only cada 30 min (`*/30` nominal; GitHub puede demorar schedules) sobre `/api/health` y `/api/public/catalogo`; con `PROBE_BRANCH_ID` agrega checks de la sucursal.
 - `.github/workflows/sanity-audit.yml` — auditoría diaria (`0 9 * * *`, ~06:00 ART) de `GET /api/cron/sanity-audit`: guarda el JSON como artifact (30 días), falla el job si hay hallazgos `critical` y notifica por webhook si `NOTIFY_WEBHOOK_URL` está definido.
-- `.github/workflows/expire-orders.yml` — expira pedidos `pending` vencidos (`*/5` nominal, cadencia real de horas; la expiración lazy de `orderService` cubre la corrección operativa).
+- `.github/workflows/expire-orders.yml` — expira pedidos `pending` vencidos (`*/15` nominal, cadencia real de horas; la expiración lazy de `orderService` cubre la corrección operativa).
 - `ci.yml` — corre el pipeline completo (incluido E2E) también por schedule diario `0 6 * * *` (~03:00 ART) contra la base descartable de Neon; actúa como E2E nocturno y detecta drift de dependencias/infra.
-- `workers/healthcheck/` — Worker de Cloudflare `pancheria-healthcheck` (cron `* * * * *`, cuenta `pancheria.workers.dev`) que monitorea `/api/health` de producción cada minuto: es el complemento de frecuencia real que GitHub Actions no puede garantizar. Código versionado en el repo; deploy por API de Cloudflare o `wrangler deploy`. Ante un fallo postea al relay propio `POST /api/cron/alert` (bindings `ALERT_URL` + `ALERT_TOKEN` = `CRON_SECRET` de producción), que reenvía a ntfy desde la IP de Vercel — el posteo directo a ntfy.sh recibe 429 persistente porque rate-limita las egress IPs compartidas de Workers; si los bindings no existen, el fallo queda solo en logs de Workers.
+- `workers/healthcheck/` — Worker de Cloudflare `pancheria-healthcheck` (cron `*/10 * * * *`, cuenta `pancheria.workers.dev`) que monitorea `/api/health` de producción cada 10 minutos: es el complemento de frecuencia real que GitHub Actions no puede garantizar. Código versionado en el repo; deploy por API de Cloudflare o `wrangler deploy`. Ante un fallo postea al relay propio `POST /api/cron/alert` (bindings `ALERT_URL` + `ALERT_TOKEN` = `CRON_SECRET` de producción), que reenvía a ntfy desde la IP de Vercel — el posteo directo a ntfy.sh recibe 429 persistente porque rate-limita las egress IPs compartidas de Workers; si los bindings no existen, el fallo queda solo en logs de Workers.
 - `POST /api/cron/alert` — relay autenticado (`withCronAuth`) que reenvía alertas a `NOTIFY_WEBHOOK_URL`/`NTFY_TOKEN` configurados en Vercel. Recorta el payload defensivamente (title/message/tags/click acotados, click solo `https://`). Lo usa el worker de healthcheck; también sirve para otras alertas internas futuras.
 - `.github/dependabot.yml` — PRs semanales de dependencias npm (devDependencies agrupadas) y de actions de GitHub.
 - `PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER` / `RATE_LIMIT_STORE_PROVIDER` — en producción con `DATABASE_URL`/`POSTGRES_URL` definidas el default es `db`; en desarrollo/test el default es `memory`.
@@ -270,7 +270,7 @@ Variables cuyo valor, default o comportamiento depende del entorno (detalle comp
 
 ## Documentación de Google Maps Platform (MCP)
 
-- El MCP `google-maps-platform-code-assist` (oficial de Google, endpoint remoto `https://mapscodeassist.googleapis.com/mcp`, sin API key) está configurado en `.devin/config.json` a nivel proyecto.
+- El MCP `google-maps-platform-code-assist` (oficial de Google, endpoint remoto `https://mapscodeassist.googleapis.com/mcp`, sin API key) está configurado en `.devin/mcp_config.json` a nivel proyecto.
 - Tools: `retrieve-instructions` (llamar **siempre primero**: carga las instrucciones del servidor) y `retrieve-google-maps-platform-docs` (busca en docs oficiales, code samples y repos de Google).
 - Usarlo para cualquier consulta de Google Maps Platform: Maps Embed API, URLs de mapas, Places, Geocoding, Routes. Relevante para el proveedor `google` de `NEXT_PUBLIC_MAPS_PROVIDER`, `src/lib/maps.ts` (`buildMapEmbedUrl`) y los orígenes `frame-src` de la CSP (`getMapsFrameOrigins` en `src/config/maps.ts`).
 
@@ -301,7 +301,7 @@ Variables cuyo valor, default o comportamiento depende del entorno (detalle comp
 - Los insumos manuales y servicios pueden ser opcionales; su precio y el de la promo no cambian al quitarlos.
 - Cada venta y pedido persiste un snapshot de receta en `sale_item_recipes` y `order_item_recipes` para garantizar que futuras ediciones de recetas no afecten transacciones históricas.
 - `PromoOptionsDialog` permite seleccionar complementos en el catálogo público y en el terminal de ventas.
-- `orderService.createOrder` inserta un mensaje automático en el chat del pedido con el detalle de preparación de cada promo.
+- `orderService.createOrder` inserta mensajes automáticos en el chat del pedido: bienvenida + detalle de preparación de cada promo y, en pedidos `delivery`, un tercer mensaje con el pin de entrega.
 - El canal oficial de confirmación y detalle es el chat del pedido. La integración con WhatsApp fue eliminada por completo (código, variables `NEXT_PUBLIC_WHATSAPP_*` y enlaces `wa.me`).
 
 ## Videos, reproducción y Cast
@@ -382,9 +382,9 @@ El sistema permite asociar una imagen ilustrativa a cada promo y a cada producto
    $pass = (Get-Content .env.local | Select-String '^ADMIN_PASSWORD=(.*)').Matches.Groups[1].Value; $pass | vercel env add ADMIN_PASSWORD production
    echo "https://<dominio-produccion>.vercel.app" | vercel env add NEXTAUTH_URL production
    ```
-5. Sincronizar la base de datos de producción:
+5. Aplicar migraciones en la base de producción siguiendo `.devin/informes/entornos.md` (`npx drizzle-kit migrate` con `DATABASE_URL_UNPOOLED` es el flujo recomendado; si se usa `npx drizzle-kit push`, correr después `npx tsx scripts/drizzle-baseline.ts` para registrar el journal) y ejecutar el seed solo si la base está vacía:
    ```bash
-   npx drizzle-kit push
+   npx drizzle-kit migrate
    npx tsx src/db/seeds.ts
    ```
 6. Redeployar para que las variables de entorno formen parte del build:
@@ -402,7 +402,7 @@ El sistema permite asociar una imagen ilustrativa a cada promo y a cada producto
 ### Opción B — deploy automático desde GitHub
 1. Conectar el repositorio de GitHub en el dashboard de Vercel.
 2. Configurar las variables de entorno en Vercel.
-3. Ejecutar `npx drizzle-kit push` y `npx tsx src/db/seeds.ts` en producción.
+3. Aplicar migraciones en producción con `npx drizzle-kit migrate` (procedimiento en `.devin/informes/entornos.md`) y ejecutar `npx tsx src/db/seeds.ts` solo si la base está vacía.
 4. Hacer push a `main` para que Vercel haga el deploy automático.
 
 ## Testing
@@ -549,9 +549,9 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
   - `GET /api/public/pedido/[id]/chat` devuelve `{ messages, status }`; `status` permite al cliente saber si el operador confirmó o canceló el pedido mientras la pestaña sigue abierta.
   - `POST /api/public/pedido/[id]/chat` envía un mensaje de texto.
   - `POST /api/public/pedido/[id]/chat/leido` marca como leídos los mensajes del operador.
-  - `POST /api/public/pedido/[id]/chat/upload` envía un mensaje con imagen.
+  - `POST /api/public/pedido/[id]/chat/upload` envía un mensaje con adjunto (imagen o PDF).
 - Endpoints del panel: equivalentes bajo `/api/pedidos/[id]/chat`, `/api/pedidos/[id]/chat/leido` y `/api/pedidos/[id]/chat/upload`.
-- Adjuntos: soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`. La key interna se guarda en `order_messages.attachmentKey`; las URLs públicas locales usan `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` como base y se sirven por `GET /api/chat/attachment/[key]`, sin exponer paths físicos.
+- Adjuntos (imágenes y PDF): soportan `STORAGE_PROVIDER=local`, `vercel-blob`, `s3` y `r2` a través de `src/lib/chat-storage.ts`. La key interna se guarda en `order_messages.attachmentKey`; las URLs públicas locales usan `NEXT_PUBLIC_APP_URL` o `NEXTAUTH_URL` como base y se sirven por `GET /api/chat/attachment/[key]`, sin exponer paths físicos.
 - Refresco: `OrderChat` hace polling cada `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS` (por defecto 5000 ms), pausa el polling durante el envío de un mensaje para evitar condiciones de carrera, y dispara un poll inmediato al montar, en `pageshow` y en `visibilitychange`. En tests se puede pasar la prop `disablePollingOnMount` para evitar el poll inmediato sin ramificar el código por `NODE_ENV`.
 - Paginación: el historial se carga por páginas de `NEXT_PUBLIC_CHAT_PAGE_SIZE` mensajes (por defecto 50; máximo 100) usando `before` y `after` como cursores. El botón "Cargar mensajes anteriores" trae mensajes previos preservando la posición del scroll.
 - Body en POST: el cliente envía el contenido como JSON body. El upgrade a Next.js 16.3.3 resolvió el bug de `request.body === null` bajo `next dev` con Turbopack. Los handlers usan `request.json()` y no aceptan query params: si el body no es JSON válido, se parsea como objeto vacío y el mensaje se envía vacío. Ver <ref_file file="C:/developer/paginas/pancheria/src/app/api/public/pedido/[id]/chat/route.ts" /> y <ref_file file="C:/developer/paginas/pancheria/src/app/api/pedidos/[id]/chat/route.ts" />.
@@ -560,12 +560,12 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
 - Rate limit del chat: `createRateLimiter` en `src/lib/rate-limit.ts` comparte el mismo store que el rate limit de pedidos públicos (`PUBLIC_ORDER_RATE_LIMIT_STORE_PROVIDER`). La ventana y el máximo se configuran con `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` y `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`.
 - Rate limit de ubicación de sucursal: `POST /api/pedidos/[id]/chat/ubicacion` aplica `createRateLimiter` por `branchId` para evitar spam de ubicaciones. La ventana y el máximo se configuran con `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` y `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS` (por defecto 60 s y 5 envíos).
 - Limpieza de adjuntos huérfanos: el cron `GET /api/cron/chat-attachments-cleanup` (configurado en `vercel.json` y protegido por `CRON_SECRET`) elimina archivos bajo el prefijo `chat/` que no tengan un `attachmentKey` asociado en `order_messages`.
-- Compartir ubicación: el chat soporta compartir ubicaciones sin migrar el esquema.
-  - Cliente con `delivery`: `OrderChat` muestra un botón que usa `navigator.geolocation` para obtener la posición y genera un enlace a mapas usando `src/lib/maps.ts`. El enlace se carga en el textarea para que el usuario lo revise y envíe manualmente.
+- Ubicación y pin de entrega: desde 2026-10-27 (`orders.deliveryLocation`, migración `0043`) todo pedido `delivery` exige un pin de entrega válido en el checkout — el cliente lo captura con "Usar mi ubicación actual" (geolocalización solo tras el clic explícito) o pegando un enlace de mapa; `orderSchema` lo revalida en el servidor y `createOrder` lo normaliza a URL canónica con `tryBuildLocationUrl`, lo incluye en la huella de idempotencia y lo publica como mensaje automático del chat en la misma transacción. `PedidoInfo` lo muestra como "Ubicación de entrega" ("Ver en mapa"). `pickup` y pedidos legacy quedan en `null`.
+  - Complemento por chat: el cliente con `delivery` puede además compartir su ubicación actual desde `OrderChat` (botón → `navigator.geolocation` → enlace de mapas); es un complemento del pin persistido, no un reemplazo.
   - Operador con `pickup`: si la sucursal tiene `branch.location` validada, `OrderChat` muestra un botón que envía la ubicación a través de `POST /api/pedidos/[id]/chat/ubicacion`, implementado en `chatService.sendBranchLocationMessage`.
   - Ambos flujos generan un mensaje de texto con una URL de mapas; `ChatMessageList` detecta URLs conocidas y las renderiza como enlaces "Ver ubicación" con `target="_blank"`.
-  - `PedidoInfo` convierte la dirección de envío del cliente en un enlace de búsqueda de mapas.
-  - El proveedor de mapas y la URL base se configuran con `NEXT_PUBLIC_MAPS_PROVIDER` y `NEXT_PUBLIC_MAPS_BASE_URL` (ver `.env.example`). Los valores por defecto usan dominios públicos (OpenStreetMap, Google Maps, Waze) y pueden sobrescribirse sin modificar el código.
+  - `PedidoInfo` convierte la dirección de envío del cliente en un enlace de búsqueda de mapas (la dirección textual, distinta del pin de entrega).
+  - El proveedor de mapas y la URL base se configuran con `NEXT_PUBLIC_MAPS_PROVIDER` y `NEXT_PUBLIC_MAPS_BASE_URL`. Los valores por defecto usan dominios públicos (OpenStreetMap, Google Maps, Waze) y pueden sobrescribirse sin modificar el código.
   - `src/lib/maps.ts` valida URLs seguras (`http`/`https`), rechaza esquemas inseguros y acepta coordenadas en formato texto convertidas a URL.
 - Variables relacionadas: `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`, `NEXT_PUBLIC_CHAT_MAX_TEXT_LENGTH`, `NEXT_PUBLIC_CHAT_PAGE_SIZE`, `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB`, `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES`, `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS`, `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS`, `CRON_SECRET`, `LOCAL_STORAGE_PATH`, `CHAT_LOCAL_STORAGE_PATH`, `NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`.
 - La integración con WhatsApp fue eliminada; el chat del pedido es el único canal de comunicación con el cliente.
@@ -575,7 +575,7 @@ Cada pedido `pending` dispone de un chat entre cliente y operador. Los mensajes 
 Para evitar duplicación de código al agregar nuevos canales de chat o extender el existente:
 
 - Reutilizar `src/lib/rate-limit.ts` con un scope propio (por ejemplo, `chat:` o `support:`) en lugar de crear un nuevo sistema de rate limit.
-- Reutilizar `src/lib/chat-storage.ts` para cualquier adjunto de imagen; no crear un storage paralelo. Si se requieren tipos de archivo distintos, extender los MIME y la validación de tamaño en `src/config/chat.ts`.
+- Reutilizar `src/lib/chat-storage.ts` para cualquier adjunto de chat (imágenes y PDF — `application/pdf` está habilitado por defecto para comprobantes de pago); no crear un storage paralelo. Si se requieren tipos de archivo distintos, extender los MIME y la validación de tamaño en `src/config/chat.ts`.
 - Extender el esquema `order_messages` (o crear una tabla específica con el mismo patrón de columnas) en lugar de duplicar tablas de mensajes genéricas.
 - Reutilizar `src/components/chat/order-chat.tsx` parametrizando `chatApiUrl`, `readApiUrl`, `uploadApiUrl`, `isClient` y `readOnly`.
 - Seguir el flujo `chatService` → `orderMessageRepository` → endpoints API → componente `OrderChat`. No replicar la lógica de envío/lectura en componentes o páginas.
@@ -631,9 +631,9 @@ Para operar con bases de datos seguir las reglas de `.devin/informes/entornos.md
 
 ### 2. Aplicar migraciones
 
-- Desarrollo: `npx drizzle-kit push` (usar `--force` si pide confirmación por `data-loss`).
+- Desarrollo: `npx drizzle-kit migrate` (flujo recomendado: registra `drizzle.__drizzle_migrations`). `npx drizzle-kit push` queda como excepción de sincronización directa; si se usa, correr después `npx tsx scripts/drizzle-baseline.ts`.
 - Producción: ver el paso a paso en `.devin/informes/entornos.md` usando `npx vercel env pull`.
-- E2E: `tests/e2e/global-setup.ts` maneja el esquema; no usar `npx drizzle-kit push` manualmente salvo que se esté preparando la base por primera vez.
+- E2E: el esquema se aplica con `npx drizzle-kit migrate` (el job de CI lo corre sobre la base descartable); `global-setup.ts` solo trunca y reseedea datos.
 
 ### 3. Correr Playwright
 
