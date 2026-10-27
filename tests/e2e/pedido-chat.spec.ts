@@ -116,11 +116,24 @@ test.describe('Chat anclado a pedidos', () => {
     const customerPhone = '3415555555';
     const address = 'Av. Pellegrini 1234, Rosario';
 
+    // El pin de entrega es obligatorio: el checkout lo captura por GPS.
+    await context.setGeolocation({ latitude: -34.6037, longitude: -58.3816 });
+    await context.grantPermissions(['geolocation']);
+
     await page.getByLabel('Nombre').fill(customerName);
     await page.getByLabel('Teléfono').fill(customerPhone);
     await page.locator('[id="deliveryType"]').click();
     await page.getByRole('option', { name: 'Envío a domicilio' }).click();
     await page.getByLabel('Dirección').fill(address);
+
+    await page.getByTestId('checkout-delivery-location-button').click();
+    await expect(page.getByTestId('delivery-location-granted')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByTestId('delivery-location-input')
+    ).toHaveValue(/openstreetmap\.org/);
+
     await page.getByRole('button', { name: 'Confirmar pedido' }).click();
 
     await expect(page.getByTestId('order-success-title')).toBeVisible();
@@ -128,34 +141,48 @@ test.describe('Chat anclado a pedidos', () => {
 
     await expect(page).toHaveURL(/\/pedido\/\d+\/chat/);
 
-    await context.setGeolocation({ latitude: -34.6037, longitude: -58.3816 });
-    await context.grantPermissions(['geolocation']);
+    // El pin capturado en el checkout ya figura en el chat como mensaje
+    // automático del cliente (chip "Ver ubicación").
+    const autoLocationLink = page
+      .getByTestId('chat-location-link')
+      .filter({ hasText: 'Ver ubicación' });
+    await expect(autoLocationLink.first()).toBeVisible({ timeout: 15000 });
+
+    // El cliente además puede compartir su posición actual desde el chat:
+    // el envío es directo (mensaje dedicado) y no pisa el borrador.
+    const composer = page.getByPlaceholder('Escribí un mensaje...');
+    await composer.fill('Llego en 10 minutos');
 
     const clientLocationButton = page.getByTestId('chat-client-location-button');
     await expect(clientLocationButton).toHaveAttribute(
       'aria-label',
-      'Compartir ubicación'
+      'Compartir mi ubicación actual'
     );
     await expect(clientLocationButton).toHaveAttribute(
       'title',
-      'Compartir ubicación'
+      'Compartir mi ubicación actual'
     );
 
     await clientLocationButton.click();
 
-    await expect(page.getByPlaceholder('Escribí un mensaje...')).toHaveValue(
-      /openstreetmap\.org/,
-      { timeout: 10000 }
-    );
-
-    await page.getByRole('button', { name: 'Enviar mensaje' }).click();
-
     const clientChatLink = page
       .getByTestId('chat-location-link')
       .filter({ hasText: 'Ver ubicación' });
-    await expect(clientChatLink).toBeVisible({ timeout: 15000 });
-    await expect(clientChatLink).toHaveAttribute('target', '_blank');
-    await expect(clientChatLink).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect(clientChatLink.last()).toBeVisible({ timeout: 15000 });
+    await expect(clientChatLink.last()).toHaveAttribute('target', '_blank');
+    await expect(clientChatLink.last()).toHaveAttribute(
+      'rel',
+      'noopener noreferrer'
+    );
+
+    // El borrador sigue intacto y puede enviarse como mensaje de texto.
+    await expect(composer).toHaveValue('Llego en 10 minutos');
+    await page.getByRole('button', { name: 'Enviar mensaje' }).click();
+    await expect(
+      page
+        .getByTestId('chat-message-text')
+        .filter({ hasText: 'Llego en 10 minutos' })
+    ).toBeVisible({ timeout: 15000 });
 
     await login(page);
     await page.goto('/pedidos');
@@ -166,9 +193,108 @@ test.describe('Chat anclado a pedidos', () => {
     await expect(orderRow).toBeVisible({ timeout: 10000 });
     await orderRow.getByRole('link', { name: 'Ver' }).click();
 
+    // Panel: la ubicación persistida se muestra como "Ubicación de entrega".
     await expect(
-      page.getByTestId('chat-location-link').filter({ hasText: 'Ver ubicación' })
+      page.getByTestId('order-delivery-location-link')
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByTestId('order-delivery-location-link')
+    ).toHaveText('Ver en mapa');
+
+    await expect(
+      page.getByTestId('chat-location-link').filter({ hasText: 'Ver ubicación' }).first()
     ).toBeVisible({ timeout: 15000 });
+  });
+
+  test('delivery con permiso denegado crea el pedido con enlace manual', async ({
+    page,
+    context,
+  }) => {
+    const product = await createProductViaApi(page, {
+      name: unique('Chat Delivery Manual'),
+      type: 'service',
+      price: 1000,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    await page.goto('/pedido');
+    await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
+
+    await page.getByTestId(`add-product-${product.id}`).click();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Hacer pedido' }).click();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
+
+    const customerName = unique('Cliente Delivery Manual');
+    const customerPhone = '3415555555';
+    const address = 'Bv. Oroño 500, Rosario';
+
+    // Sin permiso de geolocalización: el botón GPS muestra el error y el
+    // fallback manual permite cargar el pin igual.
+    await context.setGeolocation({ latitude: -34.6037, longitude: -58.3816 });
+
+    await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill(customerPhone);
+    await page.locator('[id="deliveryType"]').click();
+    await page.getByRole('option', { name: 'Envío a domicilio' }).click();
+    await page.getByLabel('Dirección').fill(address);
+
+    await page.getByTestId('checkout-delivery-location-button').click();
+    await expect(page.getByTestId('delivery-location-geo-error')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page
+      .getByTestId('delivery-location-input')
+      .fill('https://maps.app.goo.gl/abc123');
+
+    await page.getByRole('button', { name: 'Confirmar pedido' }).click();
+
+    await expect(page.getByTestId('order-success-title')).toBeVisible();
+  });
+
+  test('delivery sin ubicación muestra error y no crea el pedido', async ({
+    page,
+  }) => {
+    const product = await createProductViaApi(page, {
+      name: unique('Chat Delivery Sin Pin'),
+      type: 'service',
+      price: 1000,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    await page.goto('/pedido');
+    await expect(page.getByTestId(`product-card-${product.id}`)).toBeVisible();
+
+    await page.getByTestId(`add-product-${product.id}`).click();
+    await expect(page.getByTestId('cart-title')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Hacer pedido' }).click();
+    await expect(page.getByTestId('checkout-dialog-title')).toBeVisible();
+
+    const customerName = unique('Cliente Delivery Sin Pin');
+    await page.getByLabel('Nombre').fill(customerName);
+    await page.getByLabel('Teléfono').fill('3415555555');
+    await page.locator('[id="deliveryType"]').click();
+    await page.getByRole('option', { name: 'Envío a domicilio' }).click();
+    await page.getByLabel('Dirección').fill('Calle Falsa 123');
+
+    await page.getByRole('button', { name: 'Confirmar pedido' }).click();
+
+    // El checkout bloquea el submit: no hay pedido creado ni redirección.
+    await expect(page.getByTestId('checkout-error')).toHaveText(
+      'La ubicación de entrega es obligatoria para envío a domicilio.'
+    );
+    await expect(
+      page.getByTestId('order-success-title')
+    ).not.toBeVisible();
   });
 
   test('operador comparte la ubicación de la sucursal en un pedido pickup', async ({ page }) => {

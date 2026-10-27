@@ -79,12 +79,15 @@ export function checkoutSignature(
   address?: string,
   customerName = '',
   customerPhone = '',
-  notes = ''
+  notes = '',
+  deliveryLocation = ''
 ): string {
   return JSON.stringify({
     items: cartSignature(items),
     deliveryType,
     address: deliveryType === 'delivery' ? address?.trim() || null : null,
+    deliveryLocation:
+      deliveryType === 'delivery' ? deliveryLocation.trim() || null : null,
     customerName: customerName.trim(),
     customerPhone: customerPhone.replace(/\s/g, ''),
     notes: notes.trim() || null,

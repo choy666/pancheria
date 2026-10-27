@@ -202,6 +202,8 @@ export type Order = {
   customerPhone: string;
   deliveryType: DeliveryType;
   address: string | null;
+  /** URL canónica del pin de entrega (`delivery`); `null` en pickup/legacy. */
+  deliveryLocation: string | null;
   notes: string | null;
   cancellationToken: string;
   convertedSaleId: number | null;

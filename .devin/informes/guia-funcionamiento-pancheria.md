@@ -288,22 +288,24 @@ Los ajustes manuales (`restock`/`manual_adjustment`) registran además el usuari
 4. Al cambiar de sucursal se limpia el carrito y se recarga el catálogo de esa sucursal.
 5. El cliente agrega productos al carrito. Si el producto es una promo con complementos opcionales, se abre `PromoOptionsDialog` para elegir qué insumos incluir, dejar **aclaraciones por ítem** (texto libre, p. ej. "bien tostado") y elegir la cantidad con el stepper — cada unidad personalizada genera una línea independiente del carrito. Regla de negocio: los opcionales de la receta ya están pagados en el precio de la promo y **no se cobran al activarlos**; los agregados que sí se cobran (vaso de gaseosa, postre) son productos `service` con precio propio que se venden como línea standalone.
 6. El carrito se guarda en `localStorage` (`pancheria-cart-v1`) vinculado a la `branchId`, incluyendo los `selectedRecipeItemIds` y las aclaraciones (`notes`) de cada línea.
-7. El cliente completa nombre, tipo de entrega (`delivery`/`pickup`) y notas del pedido (a nivel pedido, distintas de las aclaraciones por ítem).
+7. El cliente completa nombre, tipo de entrega (`delivery`/`pickup`) y notas del pedido (a nivel pedido, distintas de las aclaraciones por ítem). Si elige `delivery`, además debe cargar la **ubicación de entrega** (`DeliveryLocationField`): puede obtenerla con el botón "Usar mi ubicación actual" (geolocalización del navegador, solo tras el clic explícito del usuario) o pegar un enlace de mapa a mano como fallback — el campo es obligatorio y el checkout no confirma sin un pin válido. `pickup` no muestra ni pide este campo.
 8. Al confirmar:
    - Se valida disponibilidad.
+   - El servidor valida de nuevo la ubicación de entrega (`orderSchema` exige pin válido para `delivery`; un `pickup` no lo necesita) y la normaliza a una URL canónica del proveedor configurado (`NEXT_PUBLIC_MAPS_PROVIDER`/`NEXT_PUBLIC_MAPS_BASE_URL`) antes de persistirla en `orders.deliveryLocation`. Si el cliente esquiva el checkout (llama la API directo) sin pin, el pedido se rechaza.
    - Se crea el pedido con estado `pending`.
    - Se persiste el snapshot de receta en `order_item_recipes` (`selected`/`isOptional`/`selectedByDefault`) y la aclaración de cada línea en `order_items.notes`.
    - **No se reserva ni descuenta stock**.
    - El sistema muestra un resumen del pedido (incluyendo insumos incluidos y quitados, y las aclaraciones por ítem) y un botón para ir al chat de pedidos (`/pedido/{id}/chat?token=...`).
    - Se inserta un mensaje automático en el chat con el detalle de preparación de cada promo, incluyendo las aclaraciones.
+   - Si el pedido es `delivery`, en la misma transacción se inserta un mensaje automático con el pin de entrega (URL canónica), que el chat renderiza como chip "Ver ubicación" — cliente y operador lo ven sin ninguna acción extra.
 9. El cliente coordina con la sucursal por el chat (texto, imágenes y ubicación). El pedido queda `pending` hasta que el operador actúe.
-   - Si el pedido es `delivery`, el cliente puede compartir su ubicación actual desde el chat; el navegador solicita permiso y genera un enlace de mapas usando `NEXT_PUBLIC_MAPS_PROVIDER`.
+   - Si el pedido es `delivery`, el pin de entrega ya figura en el chat desde la creación del pedido; además el cliente puede compartir su ubicación actual desde el chat en cualquier momento (el navegador solicita permiso y genera un enlace de mapas usando `NEXT_PUBLIC_MAPS_PROVIDER`) — útil si el pin del checkout difiere de donde está el cliente en ese momento.
    - El cliente puede cancelar el pedido desde el mismo diálogo usando el `cancellationToken`.
 
 ### 7.2 Flujo del operador
 
 1. El operador/admin ve los pedidos `pending` de su sucursal en `/pedidos`; el listado muestra `unreadCount` de mensajes sin leer. Si se configura `NEXT_PUBLIC_PEDIDOS_REFRESH_INTERVAL_MS` con un valor mayor a 0, el listado hace polling automático; de lo contrario, el operador actualiza manualmente con el botón "Actualizar".
-2. Al abrir un pedido, ve detalle, el chat con el cliente (texto, imágenes y ubicación), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar.
+2. Al abrir un pedido, ve detalle, el chat con el cliente (texto, imágenes y ubicación), el detalle de preparación de cada promo (insumos incluidos y quitados) y las acciones de confirmar o cancelar. En pedidos `delivery` el bloque "Ubicación de entrega" muestra el pin persistido como enlace "Ver en mapa" (además de la dirección textual).
 3. **Recibir y reservar**
    - No requiere caja abierta.
    - Valida disponibilidad considerando reservas ajenas.
@@ -322,11 +324,12 @@ Los ajustes manuales (`restock`/`manual_adjustment`) registran además el usuari
    - Si el pedido está `in_process`, libera la reserva; si está `paid`, anula la venta y reintegra stock.
    - El pedido pasa a `cancelled`.
 
-### 7.2.1 Compartir ubicación en el chat
+### 7.2.1 Ubicación en el chat y en el panel
 
-- El cliente con pedido `delivery` puede enviar su ubicación actual desde el chat público; el enlace se genera con `navigator.geolocation` y el proveedor de mapas configurado (`NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`).
+- **Pin de entrega obligatorio (desde 2026-10-27):** todo pedido `delivery` persiste una ubicación en `orders.deliveryLocation` (URL canónica del mapa). El checkout la captura por geolocalización del navegador (solo tras clic explícito en "Usar mi ubicación actual") o por enlace manual si el GPS falla, es denegado o no está soportado. El servidor vuelve a validarla y normalizarla en `orderSchema`/`orderService`; sin pin válido el pedido no se crea. La URL se incluye en el hash de idempotencia del pedido (cambiar el pin produce otra `Idempotency-Key`). Al crear el pedido se inserta automáticamente un mensaje con el pin en el chat (misma transacción) y `PedidoInfo` lo muestra como "Ubicación de entrega" → "Ver en mapa". Pedidos `pickup` y pedidos viejos siguen con `deliveryLocation = null`.
+- El cliente con pedido `delivery` puede **además** enviar su ubicación actual desde el chat público; el enlace se genera con `navigator.geolocation` y el proveedor de mapas configurado (`NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_MAPS_BASE_URL`). Es un complemento del pin persistido, no un reemplazo — no hay tracking ni stream de posiciones.
 - El operador, para pedidos `pickup`, puede enviar la ubicación de la sucursal (`branch.location`) desde el panel mediante `POST /api/pedidos/[id]/chat/ubicacion`, sujeto a rate limit por `branchId`.
-- El panel (`PedidoInfo`) convierte la dirección de envío del cliente en un enlace de búsqueda de mapas.
+- El panel (`PedidoInfo`) convierte la dirección de envío del cliente en un enlace de búsqueda de mapas — es la dirección textual, distinta del pin de entrega.
 
 ### 7.3 Rate limiting
 

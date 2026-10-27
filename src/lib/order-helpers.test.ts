@@ -7,6 +7,7 @@ import {
   buildRecipeSnapshotMessageContent,
   toPublicCancelledOrder,
 } from './order-helpers';
+import { tryBuildLocationUrl } from './maps';
 
 describe('order-helpers', () => {
   describe('generateOrderNumber', () => {
@@ -76,6 +77,61 @@ describe('order-helpers', () => {
 
       expect(result.address).toBeNull();
       expect(result.notes).toBeNull();
+    });
+
+    it('normaliza coordenadas del pin de entrega a una URL canónica', () => {
+      const result = buildOrderValues({
+        branchId: 1,
+        orderNumber: 'PED-1-123-abc',
+        total: 5000,
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'delivery',
+        address: 'Calle 1',
+        deliveryLocation: '-34.6037,-58.3816',
+        cancellationToken: 'token',
+        idempotencyKey: 'key',
+      });
+
+      // El valor persistido es la URL canónica de `tryBuildLocationUrl`,
+      // nunca el input crudo del cliente.
+      expect(result.deliveryLocation).toBe(
+        tryBuildLocationUrl('-34.6037,-58.3816')
+      );
+      expect(result.deliveryLocation).toMatch(/^https?:\/\//);
+    });
+
+    it('devuelve null si el pin de entrega no normaliza (el refine lo rechaza antes)', () => {
+      const result = buildOrderValues({
+        branchId: 1,
+        orderNumber: 'PED-1-123-abc',
+        total: 5000,
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'delivery',
+        address: 'Calle 1',
+        deliveryLocation: 'no es un enlace ni coordenadas',
+        cancellationToken: 'token',
+        idempotencyKey: 'key',
+      });
+
+      expect(result.deliveryLocation).toBeNull();
+    });
+
+    it('no persiste la ubicación en pedidos pickup aunque el cliente la envíe', () => {
+      const result = buildOrderValues({
+        branchId: 1,
+        orderNumber: 'PED-1-123-abc',
+        total: 5000,
+        customerName: 'Juan',
+        customerPhone: '3415555555',
+        deliveryType: 'pickup',
+        deliveryLocation: '-34.6037,-58.3816',
+        cancellationToken: 'token',
+        idempotencyKey: 'key',
+      });
+
+      expect(result.deliveryLocation).toBeNull();
     });
   });
 

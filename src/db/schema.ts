@@ -394,6 +394,9 @@ export const orders = pgTable(
     customerPhone: varchar('customer_phone', { length: 50 }).notNull(),
     deliveryType: deliveryTypeEnum('delivery_type').notNull(),
     address: text('address'),
+    // Pin de entrega capturado en el checkout (URL canónica de mapa). Solo se
+    // persiste en pedidos `delivery`; los pedidos `pickup` quedan en NULL.
+    deliveryLocation: text('delivery_location'),
     notes: text('notes'),
     cancellationToken: varchar('cancellation_token', { length: 255 }).notNull(),
     convertedSaleId: integer('converted_sale_id').references(() => sales.id, {

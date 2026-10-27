@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatMoney } from '@/lib/money';
+import { DeliveryLocationField } from './delivery-location-field';
 import type { Branch } from '@/domain/types';
 
 interface PedidoCustomerFormProps {
@@ -20,6 +21,8 @@ interface PedidoCustomerFormProps {
   setDeliveryType: (value: 'delivery' | 'pickup') => void;
   address: string;
   setAddress: (value: string) => void;
+  deliveryLocation: string;
+  setDeliveryLocation: (value: string) => void;
   notes: string;
   setNotes: (value: string) => void;
   checkoutError: string | null;
@@ -36,6 +39,8 @@ export function PedidoCustomerForm({
   setDeliveryType,
   address,
   setAddress,
+  deliveryLocation,
+  setDeliveryLocation,
   notes,
   setNotes,
   checkoutError,
@@ -107,15 +112,22 @@ export function PedidoCustomerForm({
       </div>
 
       {deliveryType === 'delivery' && (
-        <div className="space-y-2">
-          <Label htmlFor="address">Dirección</Label>
-          <Input
-            id="address"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Dirección de envío"
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="address">Dirección</Label>
+            <Input
+              id="address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Dirección de envío"
+            />
+          </div>
+
+          <DeliveryLocationField
+            value={deliveryLocation}
+            onChange={setDeliveryLocation}
           />
-        </div>
+        </>
       )}
 
       <div className="space-y-2">

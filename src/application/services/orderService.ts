@@ -48,6 +48,7 @@ import {
   buildRecipeSnapshot,
 } from '@/lib/product-helpers';
 import { prepareCart } from '@/lib/cart-pipeline';
+import { tryBuildLocationUrl } from '@/lib/maps';
 import {
   generateOrderNumber,
   generateCancellationToken,
@@ -74,6 +75,8 @@ export interface CreateOrderInput {
   customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address?: string | null;
+  /** Pin de entrega (URL de mapa o coordenadas `lat,lng`); obligatorio en `delivery`. */
+  deliveryLocation?: string | null;
   notes?: string | null;
   idempotencyKey: string;
 }
@@ -149,6 +152,16 @@ function toSaleItemInputWithSelection(
 
 type CreateOrderPayload = Omit<CreateOrderInput, 'idempotencyKey'>;
 
+// La huella hashea la URL canónica (no el input crudo): el mismo pin enviado
+// como coordenadas o como enlace deduplica, y un cambio real de ubicación con
+// la misma clave responde 409.
+function normalizeDeliveryLocation(input: CreateOrderPayload): string | null {
+  if (input.deliveryType !== 'delivery' || !input.deliveryLocation) {
+    return null;
+  }
+  return tryBuildLocationUrl(input.deliveryLocation);
+}
+
 function createOrderRequestHash(input: CreateOrderPayload): string {
   return idempotencyService.createIdempotencyHash('order.create', {
     branchId: input.branchId,
@@ -157,6 +170,7 @@ function createOrderRequestHash(input: CreateOrderPayload): string {
     customerPhone: input.customerPhone.replace(/\s/g, ''),
     deliveryType: input.deliveryType,
     address: input.address?.trim() || null,
+    deliveryLocation: normalizeDeliveryLocation(input),
     notes: input.notes?.trim() || null,
   });
 }
@@ -189,6 +203,7 @@ function createStoredOrderRequestHash(order: OrderWithItems): string | null {
     customerPhone: order.customerPhone,
     deliveryType: order.deliveryType,
     address: order.address,
+    deliveryLocation: order.deliveryLocation,
     notes: order.notes,
   });
 }
@@ -289,7 +304,7 @@ function buildReservationsForItems(
 export async function createOrder(
   input: CreateOrderInput
 ): Promise<OrderWithItems & { deduplicated?: boolean }> {
-  const { branchId, items, customerName, customerPhone, deliveryType, address, notes, idempotencyKey } = input;
+  const { branchId, items, customerName, customerPhone, deliveryType, address, deliveryLocation, notes, idempotencyKey } = input;
   const requestHash = createOrderRequestHash(input);
 
   const branch = await branchService.getBranchById(branchId);
@@ -354,6 +369,7 @@ export async function createOrder(
         customerPhone,
         deliveryType,
         address,
+        deliveryLocation,
         notes,
         cancellationToken,
         idempotencyKey: branchIdempotencyKey,
@@ -435,6 +451,21 @@ export async function createOrder(
         senderType: 'operator',
         senderName: 'Sistema',
         content: recipeMessage,
+      });
+    }
+
+    // Tercer mensaje automático: el pin de entrega del cliente (solo
+    // `delivery` con ubicación ya normalizada en `orderValues`). Va como
+    // `senderType: 'client'` — representa un dato que aporta el cliente y
+    // cuenta como no leído para el operador; el contenido es solo la URL
+    // canónica, que el chat renderiza como enlace "Ver ubicación". Queda
+    // dentro de la transacción: un submit duplicado no inserta mensajes.
+    if (orderValues.deliveryLocation) {
+      await orderMessageRepository.insertMessage(tx, {
+        orderId: order.id,
+        senderType: 'client',
+        senderName: customerName.trim() || 'Cliente',
+        content: orderValues.deliveryLocation,
       });
     }
 

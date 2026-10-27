@@ -70,6 +70,7 @@ function buildOrder(overrides: Partial<typeof orders.$inferSelect> = {}): typeof
     customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
+    deliveryLocation: null,
     notes: null,
     cancellationToken: 'token',
     convertedSaleId: null,

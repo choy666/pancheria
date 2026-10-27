@@ -23,6 +23,7 @@ import {
   checkoutSignature,
 } from '@/hooks/use-submit-idempotency-key';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
+import { tryBuildLocationUrl } from '@/lib/maps';
 import { cleanupRecentOrdersForBranches } from '@/lib/recent-orders';
 import { BRANCH_STORAGE_KEY } from '@/lib/selected-branch';
 import { routes } from '@/config/routes';
@@ -42,6 +43,7 @@ export interface CreatedOrder {
   customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address: string | null;
+  deliveryLocation: string | null;
   notes: string | null;
   cancellationToken: string;
   branchName: string | null;
@@ -91,6 +93,8 @@ export interface UsePedidoClientResult {
   setDeliveryType: (value: 'delivery' | 'pickup') => void;
   address: string;
   setAddress: (value: string) => void;
+  deliveryLocation: string;
+  setDeliveryLocation: (value: string) => void;
   notes: string;
   setNotes: (value: string) => void;
   isSubmitting: boolean;
@@ -178,6 +182,7 @@ export function usePedidoClient({
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('pickup');
   const [address, setAddress] = useState('');
+  const [deliveryLocation, setDeliveryLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -560,6 +565,19 @@ export function usePedidoClient({
       return;
     }
 
+    // Mismo criterio que `orderSchema`: el pin es obligatorio en `delivery`
+    // y debe normalizar a una URL de mapa canónica.
+    if (
+      deliveryType === 'delivery' &&
+      (!deliveryLocation.trim() ||
+        tryBuildLocationUrl(deliveryLocation) === null)
+    ) {
+      setCheckoutError(
+        'La ubicación de entrega es obligatoria para envío a domicilio.'
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -580,6 +598,8 @@ export function usePedidoClient({
           customerPhone: phoneCleaned,
           deliveryType,
           address: deliveryType === 'delivery' ? address.trim() : undefined,
+          deliveryLocation:
+            deliveryType === 'delivery' ? deliveryLocation.trim() : undefined,
           notes: notes.trim() || undefined,
           idempotencyKey: checkoutKey.resolve(
             checkoutSignature(
@@ -588,7 +608,8 @@ export function usePedidoClient({
               address,
               customerName,
               phoneCleaned,
-              notes
+              notes,
+              deliveryLocation
             )
           ),
         }),
@@ -621,6 +642,7 @@ export function usePedidoClient({
       setCustomerPhone('');
       setDeliveryType('pickup');
       setAddress('');
+      setDeliveryLocation('');
       setNotes('');
     } catch (err) {
       setCheckoutError(
@@ -692,6 +714,8 @@ export function usePedidoClient({
     setDeliveryType,
     address,
     setAddress,
+    deliveryLocation,
+    setDeliveryLocation,
     notes,
     setNotes,
     isSubmitting,

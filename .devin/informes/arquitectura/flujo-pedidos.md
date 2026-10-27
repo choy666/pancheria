@@ -64,7 +64,8 @@ stateDiagram-v2
 
 ## Idempotencia
 
-- **Creación:** `POST /api/public/pedido` acepta `idempotencyKey`; UNIQUE `(branch_id, idempotency_key)` + hash sha256 del payload. Clave repetida con mismo payload → devuelve el pedido original (`deduplicated: true` en la respuesta); con payload distinto → 409.
+- **Creación:** `POST /api/public/pedido` acepta `idempotencyKey`; UNIQUE `(branch_id, idempotency_key)` + hash sha256 del payload (incluye `deliveryLocation` normalizada — el pin forma parte de la huella). Clave repetida con mismo payload → devuelve el pedido original (`deduplicated: true` en la respuesta); con payload distinto → 409.
+- **Pin de entrega:** desde migración `0043`, `orderSchema` exige `deliveryLocation` válida en `delivery` (URL de mapa o `lat,lng`, normalizada a URL canónica con `tryBuildLocationUrl`); `pickup` no la requiere. El checkout la captura por GPS explícito o enlace manual y `createOrder` la persiste en `orders.delivery_location` + la publica como mensaje automático del chat en la misma transacción. `PedidoInfo` la muestra como "Ubicación de entrega".
 - **Conversión a venta:** mismo mecanismo sobre `sales` (reintento seguro del doble click del operador).
 - El cliente genera la clave con `useSubmitIdempotencyKey` (hook).
 

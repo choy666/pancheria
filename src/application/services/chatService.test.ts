@@ -48,6 +48,7 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
+    deliveryLocation: null,
     notes: null,
     total: 1200,
     idempotencyKey: null,

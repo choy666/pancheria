@@ -138,6 +138,7 @@ erDiagram
         varchar customer_phone
         delivery_type delivery_type "delivery|pickup"
         text address
+        text delivery_location "pin de entrega (URL canónica); NULL en pickup/legacy (0043)"
         text notes
         varchar cancellation_token UK
         integer converted_sale_id FK "sales.id set null"
@@ -346,7 +347,7 @@ erDiagram
 | `sale_items` | Línea de venta; `notes` guarda aclaraciones por ítem (migración `0034`); snapshot del producto en `product_name`/`product_type`/`critical_supply_type` (migración `0039`) | cascade a `sales`; `product_id` set null |
 | `sale_payments` | Pagos multi-parte de la venta | cascade a `sales` |
 | `sale_item_recipes` | **Snapshot** de la receta al vender (insumo, qty, selected) | cascade a `sale_items`; `supply_id` set null (0039) |
-| `orders` | Pedido público. `cancellation_token` = credencial del cliente | UNIQUE `cancellation_token`; UNIQUE `(branch_id, order_number)`; UNIQUE `(branch_id, idempotency_key)`; idx `status`, `created_at`, `customer_name`, `customer_phone`, `converted_sale_id` |
+| `orders` | Pedido público. `cancellation_token` = credencial del cliente; `delivery_location` = pin de entrega (URL canónica de mapa) obligatorio en `delivery` desde migración `0043` | UNIQUE `cancellation_token`; UNIQUE `(branch_id, order_number)`; UNIQUE `(branch_id, idempotency_key)`; idx `status`, `created_at`, `customer_name`, `customer_phone`, `converted_sale_id` |
 | `order_items` | Línea de pedido; `notes` guarda aclaraciones por ítem (migración `0034`); snapshot del producto en `product_name`/`product_type`/`critical_supply_type` (migración `0039`) | cascade a `orders`; `product_id` set null |
 | `order_item_recipes` | **Snapshot** de receta en pedido | cascade a `order_items`; `supply_id` set null (0039) |
 | `order_stock_reservations` | Reserva de stock de pedidos `in_process` | cascade a `orders`; idx `(branch_id, product_id)` |

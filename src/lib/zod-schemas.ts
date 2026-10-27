@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getChatMaxTextLength } from '@/config/chat';
 import { ITEM_NOTE_MAX_LENGTH } from '@/lib/cart-helpers';
+import { tryBuildLocationUrl } from '@/lib/maps';
 
 const MAX_ITEMS_PER_LIST = 100;
 const MAX_ITEM_QUANTITY = 999;
@@ -280,20 +281,35 @@ export const orderSchema = z
       }),
     deliveryType: z.enum(['delivery', 'pickup']),
     address: z.string().max(500).optional().nullable(),
+    // Pin de entrega: URL de mapa o coordenadas `lat,lng`. Obligatorio y
+    // válido solo en `delivery` (el superRefine lo exige); en `pickup` se
+    // acepta pero el servidor no lo persiste.
+    deliveryLocation: z.string().max(500).optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
     idempotencyKey: z.string().min(1).max(255),
   })
-  .refine(
-    (data) =>
-      data.deliveryType !== 'delivery' ||
-      (data.address !== undefined &&
-        data.address !== null &&
-        data.address.trim().length > 0),
-    {
-      message: 'La dirección es obligatoria para envío a domicilio.',
-      path: ['address'],
+  .superRefine((data, ctx) => {
+    if (data.deliveryType !== 'delivery') return;
+
+    if (!data.address?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'La dirección es obligatoria para envío a domicilio.',
+        path: ['address'],
+      });
     }
-  );
+
+    if (
+      !data.deliveryLocation?.trim() ||
+      tryBuildLocationUrl(data.deliveryLocation) === null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'La ubicación de entrega es obligatoria para envío a domicilio.',
+        path: ['deliveryLocation'],
+      });
+    }
+  });
 
 export const orderConfirmSchema = z.object({
   payments: paymentPartsSchema,

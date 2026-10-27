@@ -127,6 +127,47 @@ describe('checkoutSignature', () => {
     );
   });
 
+  test('en delivery, cambiar la ubicación de entrega produce otra firma', () => {
+    const base = checkoutSignature(
+      cart,
+      'delivery',
+      'Calle 1',
+      'Ana',
+      '3415551234',
+      '',
+      '-34.6037,-58.3816'
+    );
+
+    expect(
+      checkoutSignature(
+        cart,
+        'delivery',
+        'Calle 1',
+        'Ana',
+        '3415551234',
+        '',
+        '-32.9468,-60.6393'
+      )
+    ).not.toBe(base);
+    expect(
+      checkoutSignature(cart, 'delivery', 'Calle 1', 'Ana', '3415551234')
+    ).not.toBe(base);
+  });
+
+  test('en pickup la ubicación de entrega no altera la firma', () => {
+    expect(
+      checkoutSignature(
+        cart,
+        'pickup',
+        undefined,
+        'Ana',
+        '3415551234',
+        '',
+        '-34.6037,-58.3816'
+      )
+    ).toBe(checkoutSignature(cart, 'pickup', undefined, 'Ana', '3415551234'));
+  });
+
   test('incluye nombre, teléfono y notas normalizados', () => {
     const base = checkoutSignature(
       cart,

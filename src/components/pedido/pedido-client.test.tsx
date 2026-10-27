@@ -32,6 +32,7 @@ interface CreatedOrder {
   customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address: string | null;
+  deliveryLocation: string | null;
   notes: string | null;
   cancellationToken: string;
   branchName: string | null;
@@ -50,6 +51,7 @@ function makeCreatedOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
     customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
+    deliveryLocation: null,
     notes: null,
     cancellationToken: CANCELLATION_TOKEN,
     branchName: 'Sucursal A',
@@ -1162,6 +1164,157 @@ describe('PedidoClient', () => {
         expect(submittedKeys[0]).toBe(submittedKeys[1]);
       }
     );
+
+    async function fillDeliveryCheckout(options: { location?: string } = {}) {
+      // Radix Select: el trigger abre el listbox y la opción se elige con
+      // pointerDown + click (mismo patrón que el selector de sucursal).
+      const trigger = document.querySelector(
+        '#deliveryType'
+      ) as HTMLElement;
+      fireEvent.click(trigger);
+      await waitFor(() =>
+        expect(
+          screen.getByRole('option', { name: 'Envío a domicilio' })
+        ).toBeInTheDocument()
+      );
+      const option = screen.getByRole('option', { name: 'Envío a domicilio' });
+      fireEvent.pointerDown(option, { pointerType: 'mouse' });
+      fireEvent.click(option);
+
+      fireEvent.change(screen.getByPlaceholderText('Tu nombre'), {
+        target: { value: 'Juan Pérez' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Ej: 3415555555'), {
+        target: { value: '3415555555' },
+      });
+      fireEvent.change(screen.getByLabelText('Dirección'), {
+        target: { value: 'Calle Falsa 123' },
+      });
+      if (options.location !== undefined) {
+        fireEvent.change(screen.getByTestId('delivery-location-input'), {
+          target: { value: options.location },
+        });
+      }
+    }
+
+    test('un pedido delivery sin ubicación muestra error y no crea el pedido', async () => {
+      setupFetchMocks();
+      await openCheckoutDialog();
+      await fillDeliveryCheckout();
+
+      // El bloque de ubicación es obligatorio y no acepta vacío.
+      expect(
+        screen.getByTestId('delivery-location-field')
+      ).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Confirmar pedido'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('checkout-error')).toHaveTextContent(
+          'La ubicación de entrega es obligatoria para envío a domicilio.'
+        )
+      );
+
+      const postCalls = (global.fetch as jest.Mock).mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes('/api/public/pedido') &&
+          (init as RequestInit | undefined)?.method === 'POST'
+      );
+      expect(postCalls).toHaveLength(0);
+    });
+
+    test('un pedido delivery con enlace manual envía deliveryLocation en el POST', async () => {
+      setupFetchMocks();
+      await openCheckoutDialog();
+      await fillDeliveryCheckout({
+        location: 'https://maps.app.goo.gl/abc123',
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Confirmar pedido'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
+      );
+
+      const postCalls = (global.fetch as jest.Mock).mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes('/api/public/pedido') &&
+          (init as RequestInit | undefined)?.method === 'POST'
+      );
+      expect(postCalls).toHaveLength(1);
+      const body = JSON.parse(
+        String(postCalls[0][1]?.body)
+      ) as { deliveryType: string; deliveryLocation?: string };
+      expect(body.deliveryType).toBe('delivery');
+      expect(body.deliveryLocation).toBe('https://maps.app.goo.gl/abc123');
+    });
+
+    test('un pedido delivery con ubicación inválida no dispara el POST', async () => {
+      setupFetchMocks();
+      await openCheckoutDialog();
+      await fillDeliveryCheckout({ location: 'texto que no es ubicación' });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Confirmar pedido'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('checkout-error')).toHaveTextContent(
+          'La ubicación de entrega es obligatoria para envío a domicilio.'
+        )
+      );
+
+      const postCalls = (global.fetch as jest.Mock).mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes('/api/public/pedido') &&
+          (init as RequestInit | undefined)?.method === 'POST'
+      );
+      expect(postCalls).toHaveLength(0);
+    });
+
+    test('el checkout pickup no pide ubicación ni la envía', async () => {
+      setupFetchMocks();
+      await openCheckoutDialog();
+
+      // Pickup es el default: el bloque de ubicación no existe.
+      expect(
+        screen.queryByTestId('delivery-location-field')
+      ).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Tu nombre'), {
+        target: { value: 'Juan Pérez' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('Ej: 3415555555'), {
+        target: { value: '3415555555' },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Confirmar pedido'));
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Pedido creado')).toBeInTheDocument()
+      );
+
+      const postCalls = (global.fetch as jest.Mock).mock.calls.filter(
+        ([url, init]) =>
+          String(url).includes('/api/public/pedido') &&
+          (init as RequestInit | undefined)?.method === 'POST'
+      );
+      expect(postCalls).toHaveLength(1);
+      const body = JSON.parse(String(postCalls[0][1]?.body)) as {
+        deliveryLocation?: string;
+      };
+      expect(body.deliveryLocation).toBeUndefined();
+    });
   });
 
   describe('tarjeta de sucursal en el encabezado', () => {

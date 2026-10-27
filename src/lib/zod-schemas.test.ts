@@ -313,6 +313,64 @@ describe('orderSchema', () => {
       orderSchema.parse({ ...orderData, notes: 'a'.repeat(1001) })
     ).toThrow();
   });
+
+  describe('ubicación de entrega (deliveryLocation)', () => {
+    const deliveryData = {
+      ...orderData,
+      deliveryType: 'delivery' as const,
+      address: 'Av. Pellegrini 1234',
+    };
+
+    test('un pedido delivery sin ubicación de entrega falla', () => {
+      const result = orderSchema.safeParse(deliveryData);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe(
+          'La ubicación de entrega es obligatoria para envío a domicilio.'
+        );
+        expect(result.error.issues[0].path).toEqual(['deliveryLocation']);
+      }
+    });
+
+    test('un pedido delivery con un enlace de mapa válido pasa', () => {
+      const result = orderSchema.parse({
+        ...deliveryData,
+        deliveryLocation: 'https://maps.app.goo.gl/abc123',
+      });
+
+      expect(result.deliveryLocation).toBe('https://maps.app.goo.gl/abc123');
+    });
+
+    test('un pedido delivery con coordenadas válidas pasa', () => {
+      const result = orderSchema.parse({
+        ...deliveryData,
+        deliveryLocation: '-34.6037,-58.3816',
+      });
+
+      expect(result.deliveryLocation).toBe('-34.6037,-58.3816');
+    });
+
+    test('un pedido delivery con una ubicación inválida falla', () => {
+      const result = orderSchema.safeParse({
+        ...deliveryData,
+        deliveryLocation: 'no es un enlace ni coordenadas',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe(
+          'La ubicación de entrega es obligatoria para envío a domicilio.'
+        );
+      }
+    });
+
+    test('un pedido pickup sin ubicación pasa', () => {
+      const result = orderSchema.parse(orderData);
+
+      expect(result.deliveryLocation).toBeUndefined();
+    });
+  });
 });
 
 describe('stockAdjustmentSchema', () => {

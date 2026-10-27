@@ -56,6 +56,8 @@ export function PedidoClient({
     setDeliveryType,
     address,
     setAddress,
+    deliveryLocation,
+    setDeliveryLocation,
     notes,
     setNotes,
     isSubmitting,
@@ -189,6 +191,8 @@ export function PedidoClient({
             setDeliveryType={setDeliveryType}
             address={address}
             setAddress={setAddress}
+            deliveryLocation={deliveryLocation}
+            setDeliveryLocation={setDeliveryLocation}
             notes={notes}
             setNotes={setNotes}
             checkoutError={checkoutError}

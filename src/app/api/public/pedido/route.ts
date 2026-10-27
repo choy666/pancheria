@@ -98,6 +98,7 @@ export const POST = withApiErrorHandling(async (request: NextRequest) => {
         customerPhone: order.customerPhone,
         deliveryType: order.deliveryType,
         address: order.address,
+        deliveryLocation: order.deliveryLocation,
         notes: order.notes,
         cancellationToken: order.cancellationToken,
         branchName: order.branch?.name,

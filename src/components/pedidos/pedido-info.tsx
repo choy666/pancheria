@@ -1,7 +1,7 @@
 import { MapPin } from 'lucide-react';
 import { formatDateTime } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
-import { buildMapSearchUrl } from '@/lib/maps';
+import { buildMapSearchUrl, buildMapViewUrl } from '@/lib/maps';
 import type { DeliveryType } from '@/domain/types';
 
 interface OrderInfo {
@@ -9,6 +9,7 @@ interface OrderInfo {
   customerPhone: string;
   deliveryType: DeliveryType;
   address: string | null;
+  deliveryLocation?: string | null;
   notes: string | null;
   total: number;
   createdAt: string;
@@ -29,6 +30,10 @@ export function PedidoInfo({ order }: PedidoInfoProps) {
   const addressMapUrl =
     order.deliveryType === 'delivery' && order.address
       ? buildMapSearchUrl(order.address)
+      : null;
+  const deliveryLocationUrl =
+    order.deliveryType === 'delivery' && order.deliveryLocation
+      ? buildMapViewUrl(order.deliveryLocation)
       : null;
 
   return (
@@ -71,6 +76,21 @@ export function PedidoInfo({ order }: PedidoInfoProps) {
               Ver en mapa
             </a>
           )}
+        </div>
+      )}
+      {deliveryLocationUrl && (
+        <div className="sm:col-span-2">
+          <p className="text-sm text-muted-foreground">Ubicación de entrega</p>
+          <a
+            href={deliveryLocationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            data-testid="order-delivery-location-link"
+          >
+            <MapPin className="size-3" aria-hidden="true" />
+            Ver en mapa
+          </a>
         </div>
       )}
       {order.notes && (

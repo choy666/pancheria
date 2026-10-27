@@ -20,6 +20,7 @@ import * as orderMessageRepository from '@/repositories/orderMessageRepository';
 import * as orderStockReservationRepository from '@/repositories/orderStockReservationRepository';
 import { executeInTransaction } from '@/application/transactionService';
 import { isBranchOpen, getCurrentOrNextOpening } from '@/lib/branch-helpers';
+import { tryBuildLocationUrl } from '@/lib/maps';
 import { logger } from '@/lib/logger';
 import { db } from '@/db';
 import {
@@ -158,6 +159,7 @@ function createOrderRow(overrides: Partial<OrderRow> = {}): OrderRow {
     customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
+    deliveryLocation: null,
     notes: null,
     cancellationToken: 'token',
     convertedSaleId: null,
@@ -607,6 +609,7 @@ describe('orderService', () => {
         customerPhone: '3415555555',
         deliveryType: 'pickup' as const,
         address: null,
+        deliveryLocation: null,
         notes: null,
       };
       const idempotencyHash = idempotencyService.createIdempotencyHash(
@@ -637,6 +640,7 @@ describe('orderService', () => {
         customerPhone: '3415555555',
         deliveryType: 'pickup' as const,
         address: null,
+        deliveryLocation: null,
         notes: null,
       };
       const idempotencyHash = idempotencyService.createIdempotencyHash(
@@ -963,6 +967,7 @@ describe('orderService', () => {
         customerPhone: '3415555555',
         deliveryType: 'pickup' as const,
         address: null,
+        deliveryLocation: null,
         notes: null,
       };
       const idempotencyHash = idempotencyService.createIdempotencyHash(
@@ -994,6 +999,7 @@ describe('orderService', () => {
         customerPhone: '3415555555',
         deliveryType: 'pickup' as const,
         address: null,
+        deliveryLocation: null,
         notes: null,
       };
       const idempotencyHash = idempotencyService.createIdempotencyHash(
@@ -1163,6 +1169,164 @@ describe('orderService', () => {
       spy.mockRestore();
       expect(findCapturedInsert(orderItems)).toHaveLength(0);
       expect(findCapturedInsert(orderMessages)).toHaveLength(0);
+    });
+
+    describe('pin de entrega automático', () => {
+      function setBeverageProduct() {
+        setProducts([
+          {
+            id: 1,
+            name: 'Gaseosa',
+            type: 'critical_supply',
+            criticalSupplyType: 'beverage',
+            stock: 10,
+            price: 1000,
+          },
+        ]);
+        setRecipes([]);
+      }
+
+      test('inserta un mensaje del cliente con la URL canónica en delivery', async () => {
+        setBeverageProduct();
+
+        const result = await createOrder({
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'María',
+          customerPhone: '3416666666',
+          deliveryType: 'delivery',
+          address: 'Calle Falsa 123',
+          deliveryLocation: '-34.6037,-58.3816',
+          idempotencyKey: 'key-delivery-pin',
+        });
+
+        const canonical = tryBuildLocationUrl('-34.6037,-58.3816');
+        expect(result.deliveryLocation).toBe(canonical);
+
+        const insertedOrder = findCapturedInsert(orders)[0]?.data as OrderRow;
+        expect(insertedOrder.deliveryLocation).toBe(canonical);
+
+        const messages = findCapturedInsert(orderMessages).map(
+          (entry) => entry.data as typeof orderMessages.$inferInsert
+        );
+        const pinMessage = messages.find(
+          (message) => message.senderType === 'client'
+        );
+        expect(pinMessage).toBeDefined();
+        expect(pinMessage?.content).toBe(canonical);
+        // El pin representa un dato aportado por el cliente: se identifica
+        // con su nombre y queda sin leer para el operador.
+        expect(pinMessage?.senderName).toBe('María');
+        expect(pinMessage?.readAt ?? null).toBeNull();
+        expect(pinMessage?.deliveredAt ?? null).toBeNull();
+      });
+
+      test('no inserta mensaje de cliente en pedidos pickup', async () => {
+        setBeverageProduct();
+
+        await createOrder({
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'María',
+          customerPhone: '3416666666',
+          deliveryType: 'pickup',
+          deliveryLocation: '-34.6037,-58.3816',
+          idempotencyKey: 'key-pickup-no-pin',
+        });
+
+        const insertedOrder = findCapturedInsert(orders)[0]?.data as OrderRow;
+        expect(insertedOrder.deliveryLocation).toBeNull();
+
+        const messages = findCapturedInsert(orderMessages).map(
+          (entry) => entry.data as typeof orderMessages.$inferInsert
+        );
+        expect(
+          messages.filter((message) => message.senderType === 'client')
+        ).toHaveLength(0);
+      });
+
+      test('deduplica cuando el mismo pin llega como coordenadas y como URL canónica', async () => {
+        const canonical = tryBuildLocationUrl('-34.6037,-58.3816');
+        const baseRequest = {
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'Juan',
+          customerPhone: '3415555555',
+          deliveryType: 'delivery' as const,
+          address: 'Calle Falsa 123',
+          deliveryLocation: canonical,
+          notes: null,
+        };
+        const idempotencyHash = idempotencyService.createIdempotencyHash(
+          'order.create',
+          {
+            ...baseRequest,
+            items: idempotencyService.normalizeIdempotencyItems(
+              baseRequest.items
+            ),
+          }
+        );
+        mockedDb.query.orders.findFirst.mockResolvedValue(
+          createOrderRow({
+            id: 42,
+            deliveryType: 'delivery',
+            address: 'Calle Falsa 123',
+            deliveryLocation: canonical,
+            idempotencyHash,
+          })
+        );
+
+        // El reintento llega con las coordenadas crudas: normalizan a la
+        // misma URL canónica y deduplica en vez de responder 409.
+        const result = await createOrder({
+          ...baseRequest,
+          deliveryLocation: '-34.6037,-58.3816',
+          idempotencyKey: 'key-delivery-same-pin',
+        });
+
+        expect(result.id).toBe(42);
+        expect(result.deduplicated).toBe(true);
+      });
+
+      test('rechaza con conflicto cuando cambia el pin con la misma clave', async () => {
+        const canonicalA = tryBuildLocationUrl('-34.6037,-58.3816');
+        const originalRequest = {
+          branchId: BRANCH_ID,
+          items: [{ productId: 1, quantity: 1 }],
+          customerName: 'Juan',
+          customerPhone: '3415555555',
+          deliveryType: 'delivery' as const,
+          address: 'Calle Falsa 123',
+          deliveryLocation: canonicalA,
+          notes: null,
+        };
+        const idempotencyHash = idempotencyService.createIdempotencyHash(
+          'order.create',
+          {
+            ...originalRequest,
+            items: idempotencyService.normalizeIdempotencyItems(
+              originalRequest.items
+            ),
+          }
+        );
+        mockedDb.query.orders.findFirst.mockResolvedValue(
+          createOrderRow({
+            id: 42,
+            deliveryType: 'delivery',
+            address: 'Calle Falsa 123',
+            deliveryLocation: canonicalA,
+            idempotencyHash,
+          })
+        );
+
+        await expect(
+          createOrder({
+            ...originalRequest,
+            deliveryLocation: '-32.9468,-60.6393',
+            idempotencyKey: 'key-delivery-other-pin',
+          })
+        ).rejects.toBeInstanceOf(ConflictError);
+      });
     });
   });
 

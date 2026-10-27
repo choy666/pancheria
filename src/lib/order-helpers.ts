@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { nowUTC } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
 import { formatRecipeSummary } from '@/lib/recipe-helpers';
+import { tryBuildLocationUrl } from '@/lib/maps';
 import { getChatMaxTextLength } from '@/config/chat';
 import type { SaleItemValue } from '@/lib/sale-helpers';
 import type { orderItems } from '@/db/schema';
@@ -23,6 +24,7 @@ export function buildOrderValues(input: {
   customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address?: string | null;
+  deliveryLocation?: string | null;
   notes?: string | null;
   cancellationToken: string;
   idempotencyKey: string;
@@ -35,6 +37,7 @@ export function buildOrderValues(input: {
   customerPhone: string;
   deliveryType: 'delivery' | 'pickup';
   address: string | null;
+  deliveryLocation: string | null;
   notes: string | null;
   cancellationToken: string;
   idempotencyKey: string;
@@ -49,6 +52,14 @@ export function buildOrderValues(input: {
     customerPhone: input.customerPhone.replace(/\s/g, ''),
     deliveryType: input.deliveryType,
     address: input.address?.trim() || null,
+    // Se persiste la URL canónica (coordenadas o enlace pegado se normalizan
+    // con `tryBuildLocationUrl`), nunca el input crudo del cliente. La
+    // validación de `orderSchema` ya rechazó un pin inválido en `delivery`;
+    // en `pickup` no se guarda ubicación aunque el cliente la envíe.
+    deliveryLocation:
+      input.deliveryType === 'delivery' && input.deliveryLocation
+        ? tryBuildLocationUrl(input.deliveryLocation)
+        : null,
     notes: input.notes?.trim() || null,
     cancellationToken: input.cancellationToken,
     idempotencyKey: input.idempotencyKey,

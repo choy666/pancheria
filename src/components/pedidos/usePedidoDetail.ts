@@ -40,6 +40,7 @@ interface OrderDetail {
   customerPhone: string;
   deliveryType: DeliveryType;
   address: string | null;
+  deliveryLocation: string | null;
   notes: string | null;
   total: number;
   status: OrderStatus;

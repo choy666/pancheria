@@ -29,6 +29,7 @@ function makeOrder(overrides: Partial<CreatedOrder> = {}): CreatedOrder {
     customerPhone: '3415555555',
     deliveryType: 'pickup',
     address: null,
+    deliveryLocation: null,
     notes: null,
     cancellationToken: 'token',
     branchName: 'Sucursal A',
