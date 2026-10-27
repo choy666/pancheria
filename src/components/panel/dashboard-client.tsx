@@ -305,9 +305,21 @@ function NeonUsageCard() {
         )}
         {!error && usage && !usage.configured && (
           <p className="text-base text-muted-foreground">
-            Para ver el consumo de Neon configurá{' '}
-            <span className="font-mono text-sm">NEON_API_KEY</span> y{' '}
-            <span className="font-mono text-sm">NEON_PROJECT_ID</span>.
+            {usage.configError === 'invalid_credentials' ? (
+              <>
+                <span className="font-mono text-sm">NEON_API_KEY</span> no
+                tiene acceso al proyecto de{' '}
+                <span className="font-mono text-sm">NEON_PROJECT_ID</span>{' '}
+                (key vencida, scopeada a otro proyecto o proyecto
+                eliminado). Generá una nueva en console.neon.tech.
+              </>
+            ) : (
+              <>
+                Para ver el consumo de Neon configurá{' '}
+                <span className="font-mono text-sm">NEON_API_KEY</span> y{' '}
+                <span className="font-mono text-sm">NEON_PROJECT_ID</span>.
+              </>
+            )}
           </p>
         )}
         {!error && usage?.configured && (

@@ -69,6 +69,25 @@ describe('GET /api/panel/neon-usage', () => {
     expect(body.configured).toBe(false);
   });
 
+  test('propaga configError cuando las credenciales de Neon no tienen acceso', async () => {
+    mockedService.getNeonUsage.mockResolvedValue({
+      configured: false,
+      configError: 'invalid_credentials',
+    });
+
+    const response = await GET(buildRequest(), {
+      params: Promise.resolve({}),
+    });
+    const body = (await response.json()) as {
+      configured: boolean;
+      configError?: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.configured).toBe(false);
+    expect(body.configError).toBe('invalid_credentials');
+  });
+
   test('devuelve el consumo cuando el servicio responde', async () => {
     mockedService.getNeonUsage.mockResolvedValue({
       configured: true,

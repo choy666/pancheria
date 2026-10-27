@@ -14,6 +14,23 @@ import {
 
 const REQUEST_TIMEOUT_MS = 8000;
 
+/**
+ * Status de la API de Neon que indican configuración inválida: la key no
+ * existe, está vencida, está scopeada a otro proyecto, o el proyecto de
+ * NEON_PROJECT_ID fue eliminado (Neon responde 404 también en ese caso).
+ */
+const NEON_CONFIG_ERROR_STATUSES = new Set([401, 403, 404]);
+
+/** Error HTTP de la API de Neon; conserva el status para degradar config inválida. */
+class NeonApiError extends Error {
+  constructor(
+    public readonly status: number,
+    path: string
+  ) {
+    super(`La API de Neon respondió ${status} al consultar ${path}.`);
+  }
+}
+
 type NeonProjectResponse = {
   name?: string;
   compute_time_seconds?: number;
@@ -32,7 +49,7 @@ type NeonEndpointsResponse = {
 };
 
 export type NeonUsage =
-  | { configured: false }
+  | { configured: false; configError?: 'invalid_credentials' }
   | {
       configured: true;
       projectName: string | null;
@@ -57,9 +74,7 @@ async function neonFetch<T>(path: string, apiKey: string): Promise<T> {
     cache: 'no-store',
   });
   if (!response.ok) {
-    throw new Error(
-      `La API de Neon respondió ${response.status} al consultar ${path}.`
-    );
+    throw new NeonApiError(response.status, path);
   }
   return (await response.json()) as T;
 }
@@ -67,7 +82,10 @@ async function neonFetch<T>(path: string, apiKey: string): Promise<T> {
 /**
  * Devuelve `configured: false` si faltan NEON_API_KEY o NEON_PROJECT_ID:
  * el card del panel muestra entonces cómo habilitar el medidor en vez de
- * un error. Ante un fallo de la API externa lanza Error (502 vía handler).
+ * un error. Si la API responde 401/403/404 (key inválida, scopeada a otro
+ * proyecto o proyecto eliminado) devuelve `configError: 'invalid_credentials'`
+ * para que la card indique cómo regenerar la key en vez de un 500 con stack.
+ * Otros fallos de la API externa lanzan Error (500 vía handler).
  */
 export async function getNeonUsage(): Promise<NeonUsage> {
   const apiKey = getNeonApiKey();
@@ -76,13 +94,28 @@ export async function getNeonUsage(): Promise<NeonUsage> {
     return { configured: false };
   }
 
-  const [projectRes, endpoints] = await Promise.all([
-    neonFetch<{ project?: NeonProjectResponse } | NeonProjectResponse>(
-      `/projects/${projectId}`,
-      apiKey
-    ),
-    neonFetch<NeonEndpointsResponse>(`/projects/${projectId}/endpoints`, apiKey),
-  ]);
+  let projectRes: { project?: NeonProjectResponse } | NeonProjectResponse;
+  let endpoints: NeonEndpointsResponse;
+  try {
+    [projectRes, endpoints] = await Promise.all([
+      neonFetch<{ project?: NeonProjectResponse } | NeonProjectResponse>(
+        `/projects/${projectId}`,
+        apiKey
+      ),
+      neonFetch<NeonEndpointsResponse>(
+        `/projects/${projectId}/endpoints`,
+        apiKey
+      ),
+    ]);
+  } catch (error) {
+    if (
+      error instanceof NeonApiError &&
+      NEON_CONFIG_ERROR_STATUSES.has(error.status)
+    ) {
+      return { configured: false, configError: 'invalid_credentials' };
+    }
+    throw error;
+  }
   // La API de Neon envuelve el recurso: GET /projects/{id} → { project: {...} }.
   const project =
     'project' in projectRes && projectRes.project
