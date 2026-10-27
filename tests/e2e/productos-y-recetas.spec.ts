@@ -539,6 +539,98 @@ test.describe('Edición y eliminación de promos', () => {
     expect(recipeData[0].autoDiscount).toBe(true);
   });
 
+  test('el selector de insumos de la última fila no queda recortado por el card', async ({
+    page,
+  }) => {
+    // Aserción acotada de renderizado/hit-test: la edición de receta completa
+    // por UI se removió de la suite por flakiness (ver test de edición arriba).
+    const pan = await createProductViaApi(page, {
+      name: unique('Pan dropdown E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'bread',
+      price: 400,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 5,
+      isActive: true,
+    });
+
+    const salchicha = await createProductViaApi(page, {
+      name: unique('Salchicha dropdown E2E'),
+      type: 'critical_supply',
+      criticalSupplyType: 'sausage',
+      price: 300,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 5,
+      isActive: true,
+    });
+
+    const promo = await createProductViaApi(page, {
+      name: unique('Promo dropdown E2E'),
+      type: 'compound',
+      price: 1200,
+      unit: 'unidad',
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+    });
+
+    const recipeRes = await page.request.post('/api/recetas', {
+      data: {
+        compoundProductId: promo.id,
+        items: [{ supplyId: pan.id, quantity: 1, autoDiscount: true }],
+      },
+    });
+    expect(recipeRes.status()).toBe(201);
+
+    await page.goto(`/productos/${promo.id}/editar`);
+    await expect(page.getByTestId('promo-form-title')).toHaveText(
+      'Editar promo'
+    );
+
+    // Segunda fila para que el select quede al borde inferior del card.
+    await page.locator('#promo-add-recipe-item').click();
+    const lastIndex =
+      (await page.locator('[data-testid="recipe-item"]').count()) - 1;
+    const lastTrigger = page.getByTestId(`recipe-supply-select-${lastIndex}`);
+    await lastTrigger.scrollIntoViewIfNeeded();
+    await lastTrigger.click();
+
+    const listbox = page.getByRole('listbox');
+    await expect(listbox).toBeVisible();
+
+    // El popup portaleado debe quedar completo dentro del viewport
+    // (antes, el overflow-hidden del Card lo recortaba).
+    const viewport = page.viewportSize();
+    const listboxBox = await listbox.boundingBox();
+    expect(viewport).not.toBeNull();
+    expect(listboxBox).not.toBeNull();
+    expect(listboxBox!.x).toBeGreaterThanOrEqual(0);
+    expect(listboxBox!.y).toBeGreaterThanOrEqual(0);
+    expect(listboxBox!.x + listboxBox!.width).toBeLessThanOrEqual(
+      viewport!.width
+    );
+    expect(listboxBox!.y + listboxBox!.height).toBeLessThanOrEqual(
+      viewport!.height
+    );
+
+    // La opción es clickeable de verdad (hit-test): selecciona y cierra.
+    const option = page.getByRole('option', {
+      name: new RegExp(salchicha.name),
+    });
+    await expect(option).toBeVisible();
+    await option.click();
+    await expect(lastTrigger).toContainText(salchicha.name);
+    await expect(listbox).not.toBeVisible();
+
+    // Escape cierra el popup al reabrir.
+    await lastTrigger.click();
+    await expect(listbox).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(listbox).not.toBeVisible();
+  });
+
   test('elimina una promo que tiene receta', async ({ page }) => {
     const pan = await createProductViaApi(page, {
       name: unique('Pan E2E'),
