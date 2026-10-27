@@ -1,7 +1,7 @@
 # Ubicación obligatoria en pedidos delivery — auditoría e implementación
 
 **Fecha:** 2026-10-27
-**Estado:** en curso — implementado y verificado localmente; pendiente de commit/PR y de la corrida E2E.
+**Estado:** implementado (archivado 2026-10-27) — pusheado en `1603df3`+`2e6504d`, migración `0043_delivery-location` aplicada en producción, CI `40579566454` success (shards E2E 1+2 verdes), deploy `dpl_BYCm3NfPRFXXgakm7J8SnPbv1ZPZ` Ready.
 **Prompt origen:** `.devin/prompts/ubicacion-delivery-requerida.md`
 
 ## Resumen

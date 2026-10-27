@@ -66,11 +66,11 @@ Corrida 2026-10-27 completada contra `main` en `2e6504d` (working tree con los c
 
 **Pendientes heredados (vigencia en `reporte-estado.md` §0):**
 
-- `1603df3` + `2e6504d` sin push al cierre de esta corrida → los informes `auditoria-ux-chat-pedido-2026-10-27` y `auditoria-ubicacion-delivery-2026-10-27` (y sus prompts `auditoria-ux-chat-pedido.md`/`ubicacion-delivery-requerida.md`) se archivan **recién** tras push/PR + corrida E2E de sus features + migración `0043` aplicada en prod.
-- `auditoria-nueva-sucursal-stock-2026-10-04` y `analisis-comportamiento-ventas-pedidos-2026-10-06` siguen abiertos (servicio "Paquete" pendiente; el análisis es referencia viva de producción).
+- ~~`1603df3` + `2e6504d` sin push~~ — **resuelto el mismo 10-27**: push a `b6f182a`, migración `0043` aplicada en prod, CI `40579566454` success (E2E verde), deploy `dpl_BYCm3NfPRFXXgakm7J8SnPbv1ZPZ` Ready; los informes `auditoria-ux-chat-pedido-2026-10-27` y `auditoria-ubicacion-delivery-2026-10-27` y sus prompts ya están archivados.
+- `auditoria-nueva-sucursal-stock-2026-10-04` y `analisis-comportamiento-ventas-pedidos-2026-10-06` siguen abiertos (lanzamiento operativo de la sucursal según `runbook-nueva-sucursal.md`; "Paquete" descartado por D-5; el análisis es referencia viva de producción).
 - P2 diferido: endpoint atómico producto+receta (ver `archivados/auditoria-recetas-carrito-2026-10-15.md`).
-- Comentario de cabecera desfasado en `workers/healthcheck/wrangler.toml` ("corre cada minuto" vs trigger real `*/10`) — archivo de config, quedó fuera del alcance documental; corregirlo en la próxima intervención sobre el worker.
-- Verificación DRS/Devin Cloud sigue pendiente desde 2026-08-27.
+- Comentario de cabecera de `workers/healthcheck/wrangler.toml` corregido el 10-27 (era "corre cada minuto" vs trigger real `*/10`).
+- Verificación DRS/Devin Cloud: intentada el 10-27 y **bloqueada por `devin.exe auth login`** (sin credenciales de Devin Cloud en la máquina); requiere que el usuario se loguee.
 
 **Recordatorios para la próxima corrida:**
 

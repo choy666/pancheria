@@ -1,7 +1,7 @@
 # Auditoría de UX del chat de pedido — informe de implementación
 
 **Fecha:** 2026-10-27
-**Estado:** en curso — implementado y verificado localmente (lint, tsc, jest, build, knip ✓); pendiente de commit/PR y de la corrida E2E.
+**Estado:** implementado (archivado 2026-10-27) — pusheado en `1603df3`, CI `40579566454` success (shards E2E 1+2 verdes), deploy `dpl_BYCm3NfPRFXXgakm7J8SnPbv1ZPZ` Ready en producción.
 **Prompt origen:** `.devin/prompts/auditoria-ux-chat-pedido.md`
 
 ## Resumen

@@ -6,13 +6,13 @@
 
 ---
 
-## 0. Estado vigente (revisión 2026-10-27; `main` local en `2e6504d`, `origin/main` en `d6506d7`)
+## 0. Estado vigente (revisión 2026-10-27; `main` local = `origin/main` en `b6f182a`)
 
-**Baseline Git:** `main` local en `2e6504d` ("feat(pedido): pin de entrega obligatorio en pedidos delivery"), **2 commits adelante de `origin/main`** (`1603df3` + `2e6504d`, sin push ni CI al momento de esta revisión). Working tree: cambios **solo documentales** de esta corrida de higiene documental. El §0 anterior (2026-10-02, `dfb2872`) quedó congelado en `archivados/historico/reporte-estado-2026-10-02.md`.
+**Baseline Git:** `main` en `b6f182a` ("docs: corrida de higiene documental 2026-10-27"), **sincronizado con `origin/main`** — el push del 10-27 integró `1603df3` (fix ubicación chat), `2e6504d` (pin de entrega obligatorio) y `b6f182a` (esta corrida documental). Working tree: limpio salvo los archivados posteriores al push. El §0 anterior (2026-10-02, `dfb2872`) quedó congelado en `archivados/historico/reporte-estado-2026-10-02.md`.
 
-**Producción:** Vercel `READY` sobre `d6506d7` (deployment `dpl_5nBet2SupdgovdEH4mtVCupWsbJ4`, verificado vía MCP el 10-27). El pin de entrega obligatorio (`2e6504d`) y el fix de ubicación del chat (`1603df3`) **todavía no están deployados** — esperan el push. La migración `0043_delivery-location` (última del journal) se aplica a prod junto a ese deploy vía `drizzle-kit migrate` (procedimiento en `entornos.md`); el código desplegado tolera la columna ausente porque aún no la referencia.
+**Producción:** Vercel `READY` sobre `b6f182a` (deployment `dpl_BYCm3NfPRFXXgakm7J8SnPbv1ZPZ`, aliased `pancheria-alpha.vercel.app`). La migración `0043_delivery-location` fue **aplicada a prod antes del push** vía `drizzle-kit migrate` con `DATABASE_URL_UNPOOLED` (verificado: fila en `drizzle.__drizzle_migrations` con hash `1d02c48c…` + columna `orders.delivery_location` presente). Pin de entrega y fixes de chat **ya deployados**.
 
-**CI:** último run de CI con código verde sobre `d6506d7` (incluido el pipeline nocturno completo del 10-27, run `40499969356`, ~13 min). Los 2 commits locales no tienen run todavía. Schedules activos verificados verdes hoy: `uptime-probe`, `expire-orders` y `sanity-audit` diario.
+**CI:** run `40579566454` **success** sobre `b6f182a` — todos los jobs verdes incluidos los shards E2E 1 y 2 (~13 min). Schedules activos verificados verdes hoy: `uptime-probe`, `expire-orders` y `sanity-audit` diario.
 
 ### Commits integrados desde el cierre anterior (post-2026-10-02, 79 commits)
 
@@ -31,7 +31,7 @@
 | `e57a168`, `3a905ac`, `d6506d7` | 10-2x | **Card "Base de datos"** en el dashboard admin (`GET /api/panel/neon-usage`): CU-horas del ciclo Neon; degrada `invalid_credentials`/`disabled` sin 500 |
 | `da0af67`, `c165a42`, `7a94e6d`, `09665ad`, `905b236` | 10-26 | **Sincronización `/ventas` ↔ `/pedido`** (refresco en vivo, tema claro híbrido, quick-add), simplificación de `/cierre`, card clickeable y pre-check de puerto en `npm run dev` |
 | `3ce3e17` | 10-27 | **UX del chat** — bienvenida en dos mensajes, badge de leídos corregido (`useSyncExternalStore`), adjuntos con validación temprana + soporte PDF |
-| `1603df3`, `2e6504d` | 10-27 | **Pin de entrega obligatorio en `delivery`** (sin push): `orders.deliveryLocation` (migración `0043`), captura GPS explícita o enlace validado en checkout, normalización `tryBuildLocationUrl`, mensaje automático al chat y "Ubicación de entrega" en el panel |
+| `1603df3`, `2e6504d`, `b6f182a` | 10-27 | **Pin de entrega obligatorio en `delivery`** (deployado): `orders.deliveryLocation` (migración `0043` aplicada en prod), captura GPS explícita o enlace validado en checkout, normalización `tryBuildLocationUrl`, mensaje automático al chat y "Ubicación de entrega" en el panel + corrida de higiene documental |
 | `94e3e2a`, `#11`–`#16`, `b929f1b`, `0184b75` | varias | Seguridad (next `16.4.3` + dedupe zod tras audit, hardening de APIs públicas/chat/cron), bumps de deps (pg `8.23.1`, lucide `1.51.0`, etc.) y fix del selector de insumos (`Combobox` portaleado) |
 | `03e079b`, `0eb6d32`, `f89a45a`, `f7e7181`, `d4ccd18`, `16485c6` | varias | Scripts de carga (catálogo, stock, backfill de snapshots, normalización de recetas), productos eliminables con historial, tope de opcionales + unicidad de nombre por sucursal, resumen del cliente con insumos elegidos, guías en formularios |
 
@@ -53,12 +53,12 @@ Cambios de esta sesión: **solo documentales** en `.devin/` + `AGENTS.md`/`READM
 
 ### Estado funcional verificado por módulo
 
-"Verificado" significa que existen las piezas de código y tests indicados, que los checks locales pasaron y que el CI de `origin/main` (`d6506d7`) está verde. Los commits `1603df3`/`2e6504d` están verificados localmente pero sin CI ni deploy todavía.
+"Verificado" significa que existen las piezas de código y tests indicados, que los checks locales pasaron y que el CI de `origin/main` (`b6f182a`, run `40579566454`) está verde con los shards E2E incluidos.
 
 | Módulo | Estado | Evidencia en código y tests |
 | --- | --- | --- |
 | Pedidos públicos | **implementado-verificado** | `/pedido` rediseñado, catálogo, `/api/public/pedido`, `orderService`/`orderRepository`; tests unitarios + specs `tests/e2e/pedido*.spec.ts`. |
-| Pin de entrega (`delivery`) | **implementado-verificado local (sin deploy)** | `orders.deliveryLocation` (`0043`), `orderSchema` lo exige en `delivery`, captura GPS/enlace en checkout, mensaje automático al chat en la misma transacción, "Ubicación de entrega" en `PedidoInfo`. Pendiente push + E2E del informe. |
+| Pin de entrega (`delivery`) | **implementado-verificado y deployado** | `orders.deliveryLocation` (`0043` aplicada en prod), `orderSchema` lo exige en `delivery`, captura GPS/enlace en checkout, mensaje automático al chat en la misma transacción, "Ubicación de entrega" en `PedidoInfo`. CI+E2E verde (`40579566454`). |
 | Chat de pedidos | **implementado-verificado** | Bienvenida en dos mensajes (+ pin en `delivery`), badge de leídos en vivo, adjuntos imagen/**PDF** con validación temprana, SSE opt-in; `chatService`/`orderMessageRepository`; tests unitarios + specs E2E. |
 | Ventas | **implementado-verificado** | `/ventas` con tema claro híbrido, refresco en vivo del catálogo, quick-add, card clickeable; `saleService`/`saleRepository`; tests unitarios + E2E. |
 | Caja y turnos | **implementado-verificado** | `/cierre` simplificado (sin cards de insumos; columna `suppliesSummary` conservada), `cashRegisterService`; tests unitarios + E2E. |
@@ -78,9 +78,9 @@ Cambios de esta sesión: **solo documentales** en `.devin/` + `AGENTS.md`/`READM
 | Ítem | Severidad | Estado real al cierre | Evidencia |
 | --- | --- | --- | --- |
 | T14 multi-tenant | **mayor** si el objetivo pasa a SaaS; diferido por decisión | **Sigue abierto y no iniciado.** No existe `tenantId`/`tenant_id` en `src/`; el sistema sigue siendo single-tenant con sucursales por `branchId`. | `.devin/prompts/plan-implementacion-multi-tenant.md`; `src/db/schema.ts`. |
-| Commits `1603df3`/`2e6504d` sin push + E2E pendiente | **menor** | **Abierto.** Los informes `auditoria-ux-chat-pedido-2026-10-27` y `auditoria-ubicacion-delivery-2026-10-27` quedan en curso hasta el push/PR y la corrida E2E de sus features (chat PDF/leídos, pin de entrega). | `git status` vs `origin/main`; ambos informes en `informes/`. |
+| Commits `1603df3`/`2e6504d` sin push + E2E pendiente | **menor** | **Cerrado 2026-10-27.** Push hecho, CI `40579566454` success con shards E2E verdes, migración `0043` aplicada en prod y deploy `dpl_BYCm3NfPRFXXgakm7J8SnPbv1ZPZ` Ready. Los informes `auditoria-ux-chat-pedido-2026-10-27` y `auditoria-ubicacion-delivery-2026-10-27` (y sus prompts) quedaron archivados. | `git log origin/main`; `informes/archivados/`; `prompts/archivados/`. |
 | Endpoint atómico producto+receta (P2) | **menor** | **Abierto (diferido).** Guardar producto y receta son dos requests; el mensaje de fallo parcial mitiga la ventana. Heredado del informe archivado de recetas/carrito. | `archivados/auditoria-recetas-carrito-2026-10-15.md`. |
-| Ticket sucursal nueva (servicio "Paquete") | **menor** | **Abierto.** `auditoria-nueva-sucursal-stock-2026-10-04`: veredictos A–D preparados, plan por PRs y D-1..D-6 incorporadas; pendiente solo definir el servicio "Paquete". | `informes/auditoria-nueva-sucursal-stock-2026-10-04.md`. |
+| Ticket sucursal nueva (lanzamiento operativo) | **menor** | **Abierto.** `auditoria-nueva-sucursal-stock-2026-10-04`: PR-1/2/6/7/8 implementados; el servicio "Paquete" quedó **descartado por D-5** (no figura en el menú real — reincorporar solo si el dueño lo confirma, §9.3). Lo pendiente es la operación de lanzamiento de la sucursal según `runbook-nueva-sucursal.md`. | `informes/auditoria-nueva-sucursal-stock-2026-10-04.md`; `informes/runbook-nueva-sucursal.md`. |
 | Flakiness E2E / sharding | **menor** | Estable: CI verde incluido el pipeline nocturno; `E2E_SHARDS=[1,2]` **activo** con bases `neondb_e2e`/`neondb_e2e2` en `us-east-1` y lock `e2e_run_lock` serializando corridas externas. | `.github/workflows/ci.yml`; `tests/e2e/run-lock.ts`. |
 | `/_not-found` estática sin nonce CSP | **menor** | **Sigue abierto como limitación conocida** (render `○` estático). | `src/app/not-found.tsx`. |
 | Limpieza de archivos post-borrado de sucursal | **menor** | Sin cambios: `deleteBranch` libera archivos post-commit best-effort; los crons limpian huérfanos. | `branchService.ts`, `cleanupService.ts`. |
@@ -89,8 +89,8 @@ Cambios de esta sesión: **solo documentales** en `.devin/` + `AGENTS.md`/`READM
 
 ### Prompts, TODOs y pendientes en archivados
 
-- `.devin/prompts/README.md` enumera **9 prompts activos**: `pancheria.prompt.md` (maestro), 5 guías reutilizables (`auditoria-pre-release`, `auditoria-escalabilidad`, `auditoria-cobertura-de-pruebas`, `auditoria-qa-integral`, `auditoria-y-documentacion`), `auditoria-ux-chat-pedido` y `ubicacion-delivery-requerida` (en curso: implementados, pendientes commit/PR + E2E) y `plan-implementacion-multi-tenant` (T14 sin implementar).
-- En esta corrida se archivaron los prompts `simplificacion-cierre` (`7a94e6d`) e `implementacion-card-clickeable` (`09665ad`), y los informes `auditoria-ci-2026-10-05`, `plan-sucursal-activa-2026-10-05` y `auditoria-recetas-carrito-2026-10-15` (su pendiente P2 queda trackeado arriba).
+- `.devin/prompts/README.md` enumera **7 prompts activos**: `pancheria.prompt.md` (maestro), 5 guías reutilizables (`auditoria-pre-release`, `auditoria-escalabilidad`, `auditoria-cobertura-de-pruebas`, `auditoria-qa-integral`, `auditoria-y-documentacion`) y `plan-implementacion-multi-tenant` (T14 sin implementar).
+- En esta corrida se archivaron los prompts `simplificacion-cierre` (`7a94e6d`), `implementacion-card-clickeable` (`09665ad`), `auditoria-ux-chat-pedido` (`3ce3e17`/`1603df3`) y `ubicacion-delivery-requerida` (`1603df3`/`2e6504d`), y los informes `auditoria-ci-2026-10-05`, `plan-sucursal-activa-2026-10-05`, `auditoria-recetas-carrito-2026-10-15` (su pendiente P2 queda trackeado arriba), `auditoria-ux-chat-pedido-2026-10-27` y `auditoria-ubicacion-delivery-2026-10-27` (estos dos tras push + migración `0043` + E2E verde + deploy Ready).
 - Los snapshots bajo `archivados/historico/` conservan tareas antiguas por regla documental; no se reabren.
 
 ### Sincronización documental (sesión 2026-10-27)
@@ -100,28 +100,29 @@ Cambios de esta sesión: **solo documentales** en `.devin/` + `AGENTS.md`/`READM
 - `CONTEXTO.md` regenerado al HEAD: 21 tablas / 12 enums, kiosk `/pantalla`+`/menu`, pin de entrega, lock E2E.
 - `arquitectura/`: `modulos.md` (conteos 19 servicios/15 repos, `/menu`, `neonUsageService`), `stack.md` (versiones actuales de `package.json`), `README.md`/`overview.md` (cron + kiosk), `servicios-externos.md` (+uptime-probe, sanity-audit, worker CF, ntfy, Neon API); 3 SVG regenerados.
 - `README.md`: card Neon, pin de entrega, chat PDF, `NEON_*` y cron `*/15`. `environment.yaml`: `migrate` como flujo, tablas E2E completas, `NEON_*`.
-- `informes/README.md` + índices de `.devin` y `prompts` sincronizados tras los 5 archivados confirmados.
+- `informes/README.md` + índices de `.devin` y `prompts` sincronizados tras los 9 archivados (5 en la sesión documental + 4 tras el push/CI/deploy).
 
 ### Riesgos y recomendaciones priorizadas
 
 | Prioridad | Impacto × esfuerzo | Recomendación accionable |
 | --- | --- | --- |
 | P1 | Alto × bajo, condicional | Mantener producción single-tenant/multi-sucursal; no iniciar T14 sin decisión explícita + plan de aislamiento/backfill/rollback. |
-| P1 | Medio × bajo | Hacer push de `1603df3`+`2e6504d` (pin de entrega + fixes de chat) tras correr E2E de esas features en base descartable, y aplicar migración `0043` a prod con el deploy (`entornos.md`). |
-| P2 | Medio × bajo | Cerrar el ticket de sucursal nueva definiendo el servicio "Paquete" (único pendiente del inventario). |
+| ~~P1~~ | ~~Medio × bajo~~ | ~~Push + migración `0043` + E2E~~ — **resuelto 2026-10-27**: `b6f182a` en prod con CI/E2E verde y `0043` aplicada. |
+| P2 | Medio × bajo | Operación de lanzamiento de la sucursal nueva según `runbook-nueva-sucursal.md` (decisión "Paquete": descartado por D-5). |
 | P2 | Medio × medio | Evaluar el endpoint atómico producto+receta (P2) la próxima vez que se toque el editor de promos. |
 | P3 | Bajo × bajo | Revisar periódicamente consumo Neon/Vercel (la card del dashboard facilita el chequeo) y confirmar si Devin Cloud/DRS sigue en uso. |
 
 ### Próximos pasos concretos
 
-1. Push de `1603df3`+`2e6504d` → CI → deploy con `drizzle-kit migrate` (`0043`); luego archivar los dos informes `2026-10-27` y actualizar este §0.
-2. Correr la corrida E2E pendiente de los informes `2026-10-27` en base descartable (requiere autorización: `global-setup.ts` trunca y reseedea).
-3. Definir el servicio "Paquete" para cerrar `auditoria-nueva-sucursal-stock-2026-10-04`.
+1. ~~Push de `1603df3`+`2e6504d` → CI → deploy con `drizzle-kit migrate` (`0043`)~~ — **hecho**: `b6f182a` deployado Ready, `0043` aplicada y verificada, CI `40579566454` success con E2E verde; los dos informes `2026-10-27` y sus prompts archivados.
+2. ~~Corrida E2E pendiente de los informes `2026-10-27`~~ — **cubierta**: los shards E2E 1+2 del CI corrieron verdes sobre los commits pusheados.
+3. ~~Definir el servicio "Paquete"~~ — **descartado por D-5** (no figura en el menú real); el ticket queda abierto solo por el lanzamiento operativo de la sucursal (`runbook-nueva-sucursal.md`).
 4. Próximo ciclo de higiene documental con el prompt `auditoria-y-documentacion.md` (su "Punto de partida" ya quedó actualizado a esta corrida).
+5. Verificación DRS/Devin Cloud: bloqueada por `devin.exe auth login` (credenciales de Devin Cloud no cargadas en esta máquina).
 
 ### Limitaciones y aspectos no verificados
 
-- Sesión **documental**: no se crearon pedidos ni ventas reales en producción; el pin de entrega y el chat con PDF se verificaron en código y tests, no end-to-end en prod.
+- El pin de entrega y el chat con PDF quedaron verificados por los shards E2E de CI sobre `b6f182a` y deployados; no se crearon pedidos ni ventas reales a mano en producción.
 - No se inspeccionaron ni mostraron valores de `.env.local`, GitHub Secrets/Variables o Vercel.
 - No se corrió E2E ni se tocaron bases de datos; `npx drizzle-kit check` fue la única operación sobre Drizzle (read-only).
 - No se validó el blueprint de Devin Cloud ni Google Cast con dispositivo físico.
