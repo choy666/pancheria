@@ -28,7 +28,7 @@ export interface SavedChatAttachment {
   name: string;
 }
 
-const CHAT_KEY_PATTERN = /^chat\/\d+\/[A-Za-z0-9_-]+(?:\.(?:jpg|jpeg|png|webp))?$/;
+const CHAT_KEY_PATTERN = /^chat\/\d+\/[A-Za-z0-9_-]+(?:\.(?:jpg|jpeg|png|webp|pdf))?$/;
 
 export function isValidChatAttachmentKey(key: string): boolean {
   if (typeof key !== 'string' || key.length === 0) return false;
@@ -64,6 +64,8 @@ function getExtension(mimeType: string): string {
       return '.png';
     case 'image/webp':
       return '.webp';
+    case 'application/pdf':
+      return '.pdf';
     default:
       return '';
   }
@@ -71,11 +73,11 @@ function getExtension(mimeType: string): string {
 
 async function validateImage(file: File, info: ChatFileInfo): Promise<void> {
   if (!getChatAllowedImageMimeTypes().includes(info.type)) {
-    throw new ValidationError('El tipo de imagen no está permitido.');
+    throw new ValidationError('El tipo de archivo no está permitido.');
   }
 
   if (info.size > getChatImageMaxSizeBytes()) {
-    throw new ValidationError('La imagen excede el tamaño máximo permitido.');
+    throw new ValidationError('El archivo excede el tamaño máximo permitido.');
   }
 
   // Verificar los magic bytes: el Content-Type declarado no es confiable.
@@ -255,6 +257,7 @@ export async function readChatAttachment(
     if (extension === '.jpg' || extension === '.jpeg') mimeType = 'image/jpeg';
     if (extension === '.png') mimeType = 'image/png';
     if (extension === '.webp') mimeType = 'image/webp';
+    if (extension === '.pdf') mimeType = 'application/pdf';
 
     return { buffer, mimeType };
   } catch {

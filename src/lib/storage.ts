@@ -60,6 +60,8 @@ const signatureCheckers: Record<string, (header: Uint8Array) => boolean> = {
   'video/x-msvideo': (h) =>
     matchesBytes(h, [0x52, 0x49, 0x46, 0x46]) &&
     matchesBytes(h, [0x41, 0x56, 0x49, 0x20], 8),
+  // PDF: '%PDF'
+  'application/pdf': (h) => matchesBytes(h, [0x25, 0x50, 0x44, 0x46]),
 };
 
 /**

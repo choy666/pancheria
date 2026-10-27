@@ -151,6 +151,23 @@ describe('POST /api/pedidos/[id]/chat/upload', () => {
     );
   });
 
+  test('borra el adjunto si el mensaje del operador falla', async () => {
+    mockedChatService.sendOperatorMessage.mockRejectedValue(
+      new Error('fallo al insertar')
+    );
+    const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
+
+    const response = await POST(
+      buildRequest(createFormData(file)),
+      { params: Promise.resolve({ id: String(ORDER_ID) }) }
+    );
+
+    expect(response.status).toBe(500);
+    expect(mockedChatStorage.deleteChatAttachment).toHaveBeenCalledWith(
+      'chat/10/abc123.jpg'
+    );
+  });
+
   test('rechaza un contenido que supera el máximo permitido', async () => {
     const file = new File(['imagen'], 'foto.jpg', { type: 'image/jpeg' });
     const formData = createFormData(file, 'a'.repeat(1001));

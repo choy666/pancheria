@@ -43,6 +43,7 @@ const SIGNATURE_PREFIX: Record<string, number[]> = {
   'image/webp': [
     0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
   ], // 'RIFF....WEBP'
+  'application/pdf': [0x25, 0x50, 0x44, 0x46], // '%PDF'
 };
 
 function createFile(name: string, type: string, size: number): File {
@@ -109,7 +110,7 @@ describe('chat-storage', () => {
       delete process.env.CHAT_LOCAL_STORAGE_PATH;
     });
 
-    test('rechaza un tipo de imagen no permitido', async () => {
+    test('rechaza un tipo de archivo no permitido', async () => {
       const file = createFile('foto.gif', 'image/gif', 100);
 
       await expect(saveChatAttachment(file, 10)).rejects.toThrow(
@@ -117,11 +118,27 @@ describe('chat-storage', () => {
       );
     });
 
-    test('rechaza una imagen que excede el tamaño máximo', async () => {
+    test('rechaza un archivo que excede el tamaño máximo', async () => {
       const file = createFile('foto.jpg', 'image/jpeg', 100 * 1024 * 1024);
 
       await expect(saveChatAttachment(file, 10)).rejects.toThrow(
         ValidationError
+      );
+    });
+
+    test('guarda un PDF con extensión .pdf', async () => {
+      const file = createFile('comprobante.pdf', 'application/pdf', 100);
+
+      const result = await saveChatAttachment(file, 10);
+
+      expect(result).toMatchObject({
+        key: 'chat/10/abc123.pdf',
+        mimeType: 'application/pdf',
+        name: 'comprobante.pdf',
+      });
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        expect.stringMatching(/abc123\.pdf$/),
+        expect.any(Buffer)
       );
     });
 
@@ -183,6 +200,17 @@ describe('chat-storage', () => {
       expect(result).toEqual({
         buffer: expect.any(Buffer),
         mimeType: 'image/webp',
+      });
+    });
+
+    test('detecta el MIME de un PDF por extensión', async () => {
+      mockReadFile.mockResolvedValue(Buffer.from('%PDF-1.4'));
+
+      const result = await readChatAttachment('chat/10/abc123.pdf');
+
+      expect(result).toEqual({
+        buffer: expect.any(Buffer),
+        mimeType: 'application/pdf',
       });
     });
 

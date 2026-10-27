@@ -53,6 +53,7 @@ import {
   generateCancellationToken,
   buildOrderValues,
   buildOrderItemValues,
+  buildOrderWelcomeMessageContent,
   buildRecipeSnapshotMessageContent,
 } from '@/lib/order-helpers';
 import {
@@ -409,6 +410,23 @@ export async function createOrder(
     }
 
     await orderRepository.insertItemRecipes(tx, recipeRows);
+
+    // Dos mensajes automáticos: el primero saluda y resume el pedido para el
+    // cliente (va siempre, aunque no haya receta); el segundo lleva el detalle
+    // operativo de preparación cuando corresponde.
+    await orderMessageRepository.insertMessage(tx, {
+      orderId: order.id,
+      senderType: 'operator',
+      senderName: branch.name,
+      content: buildOrderWelcomeMessageContent({
+        customerName,
+        branchName: branch.name,
+        total: orderTotal,
+        deliveryType,
+        address,
+        items: orderItemValues,
+      }),
+    });
 
     const recipeMessage = buildRecipeSnapshotMessageContent(orderItemValues);
     if (recipeMessage) {

@@ -12,6 +12,11 @@ jest.mock('@/config/chat', () => ({
   getChatRefreshIntervalMs: jest.fn().mockReturnValue(100),
   getChatMaxTextLength: jest.fn().mockReturnValue(1000),
   getChatPageSize: jest.fn().mockReturnValue(50),
+  getChatAllowedImageMimeTypes: jest
+    .fn()
+    .mockReturnValue(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  getChatImageMaxSizeBytes: jest.fn().mockReturnValue(4 * 1024 * 1024),
+  getChatImageMaxSizeMb: jest.fn().mockReturnValue(4),
 }));
 
 const mockFetch = jest.fn();
@@ -280,6 +285,100 @@ describe('OrderChat', () => {
 
     expect(screen.getByTestId('chat-location-link')).toBeInTheDocument();
     expect(screen.getByText('Ver ubicación')).toBeInTheDocument();
+  });
+
+  test('limpia el badge de no leídos tras marcar los mensajes como leídos', async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+
+    render(
+      <OrderChat
+        orderId={1}
+        token="token"
+        initialMessages={[
+          buildMessage(1, 'operator', 'Bienvenido'),
+          buildMessage(2, 'operator', 'Detalle'),
+          buildMessage(3, 'operator', 'Otro'),
+        ]}
+        initialTotal={3}
+        initialHasMore={false}
+        unreadCount={3}
+        disablePollingOnMount
+        isClient
+        chatApiUrl="/api/public/pedido/1/chat"
+        readApiUrl="/api/public/pedido/1/chat/leido"
+      />
+    );
+
+    expect(screen.getByText('3')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.queryByText('3')).not.toBeInTheDocument();
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/leido'),
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  test('rechaza un archivo que supera el tamaño máximo antes de subirlo', async () => {
+    render(
+      <OrderChat
+        orderId={1}
+        token="token"
+        initialMessages={[]}
+        initialTotal={0}
+        initialHasMore={false}
+        disablePollingOnMount
+        isClient
+        chatApiUrl="/api/public/pedido/1/chat"
+        uploadApiUrl="/api/public/pedido/1/chat/upload"
+      />
+    );
+
+    const bigFile = new File(
+      [new Uint8Array(5 * 1024 * 1024)],
+      'foto.jpg',
+      { type: 'image/jpeg' }
+    );
+    fireEvent.change(screen.getByTestId('chat-file-input'), {
+      target: { files: [bigFile] },
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('El archivo supera el máximo de 4 MB.')
+      ).toBeInTheDocument();
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('rechaza un tipo de archivo no permitido antes de subirlo', async () => {
+    render(
+      <OrderChat
+        orderId={1}
+        token="token"
+        initialMessages={[]}
+        initialTotal={0}
+        initialHasMore={false}
+        disablePollingOnMount
+        isClient
+        chatApiUrl="/api/public/pedido/1/chat"
+        uploadApiUrl="/api/public/pedido/1/chat/upload"
+      />
+    );
+
+    const textFile = new File(['texto'], 'nota.txt', { type: 'text/plain' });
+    fireEvent.change(screen.getByTestId('chat-file-input'), {
+      target: { files: [textFile] },
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Ese tipo de archivo no está permitido.')
+      ).toBeInTheDocument();
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   test('el cliente comparte su ubicación al hacer clic en el botón', async () => {

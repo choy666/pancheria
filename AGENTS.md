@@ -125,8 +125,8 @@ Copiar `.env.example` a `.env.local` y completar:
 - `NEXT_PUBLIC_CHAT_PAGE_SIZE` (opcional) — cantidad de mensajes de chat por página (por defecto 50; máximo 100).
 - `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit del chat en milisegundos (por defecto 60000 ms).
 - `PUBLIC_CHAT_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de mensajes de chat por IP en la ventana (por defecto 60).
-- `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de imagen en el chat en MB (por defecto 5).
-- `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` (opcional) — tipos MIME de imagen permitidos en el chat separados por coma (por defecto `image/jpeg,image/png,image/webp`).
+- `NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB` (opcional) — tamaño máximo de adjunto del chat en MB (por defecto 4; aplica a imágenes y PDF). En Vercel el body de la request tiene tope duro de 4.5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`); para archivos mayores haría falta upload directo del cliente al storage, no solo subir la variable.
+- `NEXT_PUBLIC_CHAT_ALLOWED_IMAGE_MIME_TYPES` (opcional) — tipos MIME permitidos en los adjuntos del chat separados por coma (por defecto `image/jpeg,image/png,image/webp,application/pdf`; el PDF cubre comprobantes de pago compartidos como documento).
 - `CHAT_BRANCH_LOCATION_RATE_LIMIT_WINDOW_MS` (opcional) — ventana del rate limit de envío de ubicación de sucursal por chat en milisegundos (por defecto 60000 ms). Se aplica por `branchId` en `POST /api/pedidos/[id]/chat/ubicacion`.
 - `CHAT_BRANCH_LOCATION_RATE_LIMIT_MAX_REQUESTS` (opcional) — cantidad máxima de envíos de ubicación de sucursal por ventana (por defecto 5).
 - `NEXT_PUBLIC_CHAT_STREAM_ENABLED` (opcional) — si se define como `true`, los chats abiertos reciben mensajes por SSE (`GET /api/pedidos/[id]/chat/stream` del operador y `GET /api/public/pedido/[id]/chat/stream` del cliente) en lugar del poll de `NEXT_PUBLIC_CHAT_REFRESH_INTERVAL_MS`; ante cualquier falla el cliente vuelve al polling automáticamente. Spike de T13: en Vercel la conexión factura duración de función, evaluar costo antes de producción (`.devin/informes/archivados/spike-sse-chat-2026-09-19.md`).

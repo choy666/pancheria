@@ -1,8 +1,8 @@
 import Image from 'next/image';
-import { Send, X, ImageIcon, MapPin } from 'lucide-react';
+import { Send, X, ImageIcon, MapPin, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { getChatMaxTextLength } from '@/config/chat';
+import { getChatMaxTextLength, getChatAllowedImageMimeTypes } from '@/config/chat';
 
 interface ChatComposerProps {
   orderId: number;
@@ -48,14 +48,23 @@ export function ChatComposer({
           className="relative mb-2 inline-block"
           data-testid={isUploading ? 'chat-attachment-uploading' : undefined}
         >
-          <Image
-            src={previewUrl}
-            alt="Vista previa"
-            width={80}
-            height={80}
-            unoptimized
-            className="h-20 w-20 rounded-lg object-cover"
-          />
+          {selectedFile.type.startsWith('image/') ? (
+            <Image
+              src={previewUrl}
+              alt="Vista previa"
+              width={80}
+              height={80}
+              unoptimized
+              className="h-20 w-20 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-border bg-muted px-1 text-center">
+              <FileText className="size-6" aria-hidden="true" />
+              <span className="w-full truncate text-[10px] text-muted-foreground">
+                {selectedFile.name}
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={onRemoveFile}
@@ -73,8 +82,7 @@ export function ChatComposer({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
-              capture="environment"
+              accept={getChatAllowedImageMimeTypes().join(',')}
               onChange={onFileSelect}
               className="sr-only"
               id={`chat-file-${orderId}`}
@@ -82,7 +90,7 @@ export function ChatComposer({
             />
             <label
               htmlFor={`chat-file-${orderId}`}
-              aria-label="Adjuntar imagen"
+              aria-label="Adjuntar archivo"
               className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <ImageIcon className="size-4" aria-hidden="true" />

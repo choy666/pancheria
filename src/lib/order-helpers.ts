@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from 'crypto';
 import { nowUTC } from '@/lib/date';
+import { formatMoney } from '@/lib/money';
 import { formatRecipeSummary } from '@/lib/recipe-helpers';
+import { getChatMaxTextLength } from '@/config/chat';
 import type { SaleItemValue } from '@/lib/sale-helpers';
 import type { orderItems } from '@/db/schema';
 import type { OrderWithItems, RecipeItemConfig } from '@/domain/types';
@@ -84,6 +86,43 @@ export function toPublicCancelledOrder(
     status: order.status,
     cancelledAt: order.cancelledAt,
   };
+}
+
+/**
+ * Primer mensaje automático del chat del pedido: saludo personalizado y
+ * resumen amigable para el cliente (ítems, total y forma de entrega). El
+ * detalle operativo de preparación va en un segundo mensaje aparte
+ * (`buildRecipeSnapshotMessageContent`).
+ */
+export function buildOrderWelcomeMessageContent(input: {
+  customerName: string;
+  branchName: string;
+  total: number;
+  deliveryType: 'delivery' | 'pickup';
+  address?: string | null;
+  items: Pick<SaleItemValue, 'productName' | 'quantity'>[];
+}): string {
+  const name = input.customerName.trim();
+  const greeting = name ? `¡Hola, ${name}!` : '¡Hola!';
+  const itemLines = input.items.map(
+    (item) => `- ${item.productName} x${item.quantity}`
+  );
+  const deliveryLine =
+    input.deliveryType === 'delivery'
+      ? `Entrega: envío a domicilio${
+          input.address?.trim() ? ` (${input.address.trim()})` : ''
+        }`
+      : `Entrega: retiro en ${input.branchName}`;
+
+  const content = [
+    `${greeting} Recibimos tu pedido en ${input.branchName}:`,
+    ...itemLines,
+    `Total: ${formatMoney(input.total)}`,
+    deliveryLine,
+    'Cualquier cosa que necesites, escribinos por acá. ¡Gracias!',
+  ].join('\n');
+
+  return content.slice(0, getChatMaxTextLength());
 }
 
 export function buildRecipeSnapshotMessageContent(

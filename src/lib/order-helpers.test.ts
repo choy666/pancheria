@@ -3,6 +3,7 @@ import {
   generateCancellationToken,
   buildOrderValues,
   buildOrderItemValues,
+  buildOrderWelcomeMessageContent,
   buildRecipeSnapshotMessageContent,
   toPublicCancelledOrder,
 } from './order-helpers';
@@ -117,6 +118,73 @@ describe('order-helpers', () => {
     it('devuelve array vacio si no hay items', () => {
       const result = buildOrderItemValues([], 1);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('buildOrderWelcomeMessageContent', () => {
+    const baseItems = [
+      { productName: 'Panchuque', quantity: 2 },
+      { productName: 'Gaseosa', quantity: 1 },
+    ];
+
+    it('saluda por nombre, lista los ítems, el total y la forma de entrega', () => {
+      const result = buildOrderWelcomeMessageContent({
+        customerName: 'Juan',
+        branchName: 'Sucursal Centro',
+        total: 4500,
+        deliveryType: 'pickup',
+        items: baseItems,
+      });
+
+      expect(result).toContain('¡Hola, Juan!');
+      expect(result).toContain('Recibimos tu pedido en Sucursal Centro');
+      expect(result).toContain('- Panchuque x2');
+      expect(result).toContain('- Gaseosa x1');
+      expect(result).toContain('Total: $ 4.500');
+      expect(result).toContain('Entrega: retiro en Sucursal Centro');
+    });
+
+    it('incluye la dirección cuando la entrega es a domicilio', () => {
+      const result = buildOrderWelcomeMessageContent({
+        customerName: 'María',
+        branchName: 'Sucursal Centro',
+        total: 1000,
+        deliveryType: 'delivery',
+        address: '  Calle Falsa 123  ',
+        items: baseItems,
+      });
+
+      expect(result).toContain('Entrega: envío a domicilio (Calle Falsa 123)');
+    });
+
+    it('saluda sin nombre cuando el cliente no cargó uno', () => {
+      const result = buildOrderWelcomeMessageContent({
+        customerName: '   ',
+        branchName: 'Sucursal Centro',
+        total: 1000,
+        deliveryType: 'delivery',
+        address: null,
+        items: baseItems,
+      });
+
+      expect(result).toContain('¡Hola!');
+      expect(result).not.toContain('¡Hola,');
+      expect(result).toContain('Entrega: envío a domicilio');
+    });
+
+    it('respeta la longitud máxima de un mensaje de chat', () => {
+      const result = buildOrderWelcomeMessageContent({
+        customerName: 'Juan',
+        branchName: 'Sucursal Centro',
+        total: 1000,
+        deliveryType: 'pickup',
+        items: Array.from({ length: 80 }, (_, index) => ({
+          productName: `Producto ${index}`,
+          quantity: 1,
+        })),
+      });
+
+      expect(result.length).toBeLessThanOrEqual(1000);
     });
   });
 

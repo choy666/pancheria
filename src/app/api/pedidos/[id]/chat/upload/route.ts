@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as chatService from '@/application/services/chatService';
 import { withApiErrorHandling } from '@/lib/api-handler';
-import { saveChatAttachment } from '@/lib/chat-storage';
+import { deleteChatAttachment, saveChatAttachment } from '@/lib/chat-storage';
 import { chatMessageContentSchema } from '@/lib/zod-schemas';
 import { withAuth } from '@/lib/with-auth';
 import { parseId } from '@/lib/id';
@@ -55,19 +55,27 @@ export const POST = withApiErrorHandling(
 
     const attachment = await saveChatAttachment(file, orderId);
 
-    const message = await chatService.sendOperatorMessage(orderId, branchId, {
-      content: content ?? null,
-      attachment: {
-        url: attachment.publicUrl,
-        key: attachment.key,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        name: attachment.name,
-      },
-      senderName: session.user.name || null,
-    });
+    // Si el mensaje falla después de guardar el archivo (pedido finalizado o
+    // expirado), se borra el adjunto para no dejar huérfanos — mismo criterio
+    // que la ruta pública.
+    try {
+      const message = await chatService.sendOperatorMessage(orderId, branchId, {
+        content: content ?? null,
+        attachment: {
+          url: attachment.publicUrl,
+          key: attachment.key,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          name: attachment.name,
+        },
+        senderName: session.user.name || null,
+      });
 
-    return NextResponse.json({ message }, { status: 201 });
+      return NextResponse.json({ message }, { status: 201 });
+    } catch (error) {
+      await deleteChatAttachment(attachment.key);
+      throw error;
+    }
   })
 );
 

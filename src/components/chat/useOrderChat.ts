@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import {
   getChatRefreshIntervalMs,
   getChatPageSize,
+  getChatAllowedImageMimeTypes,
+  getChatImageMaxSizeBytes,
+  getChatImageMaxSizeMb,
 } from '@/config/chat';
 import { buildMapCoordinatesUrl } from '@/lib/maps';
 import type { DeliveryType, OrderMessage, OrderMessageSenderType, OrderStatus } from '@/domain/types';
@@ -92,6 +95,22 @@ function buildUrl(base: string, token?: string): string {
   return `${base}${separator}token=${encodeURIComponent(token)}`;
 }
 
+// `navigator.geolocation` solo existe en el cliente: leerla durante el render
+// diverge del HTML SSR y provocaba hydration mismatch en el botón de ubicación.
+// `useSyncExternalStore` con snapshot de servidor = false mantiene el primer
+// render del cliente idéntico al del servidor (patrón de order-tracker.tsx).
+function subscribeToNothing() {
+  return () => {};
+}
+
+function getGeolocationSnapshot(): boolean {
+  return typeof navigator !== 'undefined' && 'geolocation' in navigator;
+}
+
+function getGeolocationServerSnapshot(): boolean {
+  return false;
+}
+
 function mergeMessages(
   current: OrderMessage[],
   incoming: OrderMessage[],
@@ -106,7 +125,21 @@ function mergeMessages(
       ? [...current, ...incoming]
       : [...incoming, ...current];
   const byId = new Map(combined.map((m) => [m.id, m]));
-  return Array.from(byId.values()).sort((a, b) => a.id - b.id);
+  const currentById = new Map(current.map((m) => [m.id, m]));
+  return Array.from(byId.values())
+    .map((message) => {
+      const prev = currentById.get(message.id);
+      // readAt/deliveredAt son monótonos: una respuesta vieja del poll que
+      // llega antes de que el POST /leido impacte la base traería null y
+      // reactivaría el badge; se conserva el timestamp ya conocido.
+      if (!prev) return message;
+      return {
+        ...message,
+        readAt: message.readAt ?? prev.readAt,
+        deliveredAt: message.deliveredAt ?? prev.deliveredAt,
+      };
+    })
+    .sort((a, b) => a.id - b.id);
 }
 
 export function useOrderChat({
@@ -180,12 +213,17 @@ export function useOrderChat({
     ? 'operator'
     : 'client';
 
+  const isGeolocationSupported = useSyncExternalStore(
+    subscribeToNothing,
+    getGeolocationSnapshot,
+    getGeolocationServerSnapshot
+  );
+
   const canSendClientLocation =
     !isReadOnly &&
     isClient &&
     deliveryType === 'delivery' &&
-    typeof navigator !== 'undefined' &&
-    'geolocation' in navigator;
+    isGeolocationSupported;
 
   const canSendBranchLocation =
     !isReadOnly &&
@@ -452,10 +490,31 @@ export function useOrderChat({
       if (!response.ok) {
         await throwApiError(response, 'Error al marcar como leído');
       }
+
+      // Reflejar el readAt en local: sin esto el badge de no leídos del
+      // encabezado quedaba en N aunque el usuario estuviera mirando el chat.
+      // El intent `preserve` evita que el efecto de scroll lo mande al fondo
+      // si está leyendo mensajes anteriores.
+      if (isMountedRef.current) {
+        const el = scrollRef.current;
+        scrollIntentRef.current = {
+          type: 'preserve',
+          prevHeight: el?.scrollHeight ?? 0,
+          prevTop: el?.scrollTop ?? 0,
+        };
+        const readAt = new Date();
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.senderType === otherSenderType && !message.readAt
+              ? { ...message, readAt }
+              : message
+          )
+        );
+      }
     } catch {
       // No saturar la UI con errores de read receipt.
     }
-  }, [readApiUrl, token, isClient]);
+  }, [readApiUrl, token, isClient, otherSenderType]);
 
   const intervalMs = getChatRefreshIntervalMs();
   const maxBackoffMs = intervalMs * 8;
@@ -622,7 +681,7 @@ export function useOrderChat({
 
   useEffect(() => {
     isMountedRef.current = true;
-    markAsRead();
+    queueMicrotask(() => void markAsRead());
 
     if (initialHasMore === undefined) {
       queueMicrotask(() => void loadInitialMessages());
@@ -665,7 +724,7 @@ export function useOrderChat({
       hasUnreadFromOther &&
       (typeof document === 'undefined' || document.visibilityState === 'visible')
     ) {
-      void markAsRead();
+      queueMicrotask(() => void markAsRead());
     }
   }, [messages, otherSenderType, markAsRead]);
 
@@ -754,13 +813,33 @@ export function useOrderChat({
 
   function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
-    if (file) {
-      setSelectedFile(file);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
+    if (!file) return;
+
+    const resetInput = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
-      setPreviewUrl(URL.createObjectURL(file));
+    };
+
+    // Si el navegador no resolvió el tipo se deja pasar y valida el servidor.
+    if (file.type && !getChatAllowedImageMimeTypes().includes(file.type)) {
+      setError('Ese tipo de archivo no está permitido.');
+      resetInput();
+      return;
     }
+
+    if (file.size > getChatImageMaxSizeBytes()) {
+      setError(`El archivo supera el máximo de ${getChatImageMaxSizeMb()} MB.`);
+      resetInput();
+      return;
+    }
+
+    setError(null);
+    setSelectedFile(file);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(URL.createObjectURL(file));
   }
 
   function handleRemoveFile() {

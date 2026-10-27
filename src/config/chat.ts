@@ -44,9 +44,14 @@ export function getChatRateLimitMaxRequests(): number {
   return parsed;
 }
 
-function getChatImageMaxSizeMb(): number {
+export function getChatImageMaxSizeMb(): number {
   const raw = process.env.NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB;
-  if (!raw) return 5;
+  // Vercel Functions corta el body de la request en 4.5 MB con un 413
+  // (FUNCTION_PAYLOAD_TOO_LARGE) antes de llegar a la ruta: el default
+  // queda por debajo para que la validación propia responda el error.
+  // Superarlo en producción requiere upload directo a storage (p. ej.
+  // @vercel/blob/client), no solo subir esta variable.
+  if (!raw) return 4;
 
   const parsed = Number(raw);
   if (Number.isNaN(parsed) || parsed <= 0) return 5;
@@ -58,10 +63,13 @@ export function getChatImageMaxSizeBytes(): number {
   return getChatImageMaxSizeMb() * 1024 * 1024;
 }
 
+// La lista cubre imágenes y PDF (comprobantes de pago); el nombre de la
+// variable se conserva por compatibilidad con despliegues existentes.
 const DEFAULT_CHAT_ALLOWED_IMAGE_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
+  'application/pdf',
 ] as const;
 
 export function getChatAllowedImageMimeTypes(): string[] {

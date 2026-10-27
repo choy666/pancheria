@@ -4,6 +4,7 @@ import {
   getChatRateLimitWindowMs,
   getChatRateLimitMaxRequests,
   getChatImageMaxSizeBytes,
+  getChatImageMaxSizeMb,
   getChatAllowedImageMimeTypes,
   getChatPageSize,
   getChatStreamMaxPerOrder,
@@ -47,6 +48,11 @@ describe('chat config', () => {
     expect(getChatRateLimitMaxRequests()).toBe(60);
   });
 
+  test('getChatImageMaxSizeMb usa 4 MB por defecto (por debajo del tope de Vercel)', () => {
+    delete process.env.NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB;
+    expect(getChatImageMaxSizeMb()).toBe(4);
+  });
+
   test('getChatImageMaxSizeBytes convierte MB a bytes', () => {
     process.env.NEXT_PUBLIC_CHAT_IMAGE_MAX_SIZE_MB = '10';
     expect(getChatImageMaxSizeBytes()).toBe(10 * 1024 * 1024);
@@ -58,6 +64,7 @@ describe('chat config', () => {
       'image/jpeg',
       'image/png',
       'image/webp',
+      'application/pdf',
     ]);
   });
 
