@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { authenticatedFetch, throwApiError } from '@/lib/fetch';
 import { useVisibilityPolling } from '@/hooks/use-visibility-polling';
 import {
@@ -11,20 +11,12 @@ import {
   getChatImageMaxSizeMb,
 } from '@/config/chat';
 import { buildMapCoordinatesUrl } from '@/lib/maps';
+import {
+  getGeolocationErrorMessage,
+  isGeolocationPositionError,
+  useGeolocationSupport,
+} from '@/lib/geolocation';
 import type { DeliveryType, OrderMessage, OrderMessageSenderType, OrderStatus } from '@/domain/types';
-
-function getGeolocationErrorMessage(error: GeolocationPositionError): string {
-  switch (error.code) {
-    case error.PERMISSION_DENIED:
-      return 'No se concedió permiso para acceder a la ubicación.';
-    case error.POSITION_UNAVAILABLE:
-      return 'La ubicación no está disponible en este momento.';
-    case error.TIMEOUT:
-      return 'Se agotó el tiempo para obtener la ubicación.';
-    default:
-      return 'No se pudo obtener la ubicación.';
-  }
-}
 
 interface ScrollIntent {
   type: 'bottom' | 'preserve';
@@ -61,6 +53,7 @@ export interface UseOrderChatResult {
   content: string;
   setContent: (value: string) => void;
   isSending: boolean;
+  isRequestingLocation: boolean;
   isLoadingOlder: boolean;
   isPolling: boolean;
   isUploading: boolean;
@@ -93,22 +86,6 @@ function buildUrl(base: string, token?: string): string {
   if (!token) return base;
   const separator = base.includes('?') ? '&' : '?';
   return `${base}${separator}token=${encodeURIComponent(token)}`;
-}
-
-// `navigator.geolocation` solo existe en el cliente: leerla durante el render
-// diverge del HTML SSR y provocaba hydration mismatch en el botón de ubicación.
-// `useSyncExternalStore` con snapshot de servidor = false mantiene el primer
-// render del cliente idéntico al del servidor (patrón de order-tracker.tsx).
-function subscribeToNothing() {
-  return () => {};
-}
-
-function getGeolocationSnapshot(): boolean {
-  return typeof navigator !== 'undefined' && 'geolocation' in navigator;
-}
-
-function getGeolocationServerSnapshot(): boolean {
-  return false;
 }
 
 function mergeMessages(
@@ -179,12 +156,16 @@ export function useOrderChat({
   // relevo hasta desmontar. `eventSourceRef` guarda la conexión viva.
   const streamFailedRef = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  // Evita que un doble clic en "Compartir ubicación" dispare dos pedidos de
+  // geolocalización en paralelo mientras el primero sigue en curso.
+  const isRequestingLocationRef = useRef(false);
 
   const [messages, setMessages] = useState<OrderMessage[]>(() =>
     mergeMessages([], initialMessages, 'replace')
   );
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -213,11 +194,7 @@ export function useOrderChat({
     ? 'operator'
     : 'client';
 
-  const isGeolocationSupported = useSyncExternalStore(
-    subscribeToNothing,
-    getGeolocationSnapshot,
-    getGeolocationServerSnapshot
-  );
+  const isGeolocationSupported = useGeolocationSupport();
 
   const canSendClientLocation =
     !isReadOnly &&
@@ -857,16 +834,27 @@ export function useOrderChat({
     return isClient ? senderType === 'client' : senderType === 'operator';
   }
 
+  // Envío directo (simétrico a `sendBranchLocation`): el pin se postea como
+  // mensaje dedicado en cuanto el GPS responde — no pisa el borrador del
+  // compositor, no deja la URL cruda editable y no exige un segundo clic en
+  // "Enviar". `isRequestingLocationRef` bloquea clics paralelos durante la
+  // captura; un envío posterior intencional genera otro mensaje (aceptable:
+  // el chat es el canal de corrección de un pin equivocado).
   async function requestClientLocation() {
-    if (
-      !canSendClientLocation ||
-      typeof navigator === 'undefined' ||
-      !navigator.geolocation
-    ) {
+    if (!canSendClientLocation) {
+      setError('La geolocalización no está disponible.');
+      return;
+    }
+    if (isRequestingLocationRef.current) {
+      return;
+    }
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setError('La geolocalización no está disponible.');
       return;
     }
 
+    isRequestingLocationRef.current = true;
+    setIsRequestingLocation(true);
     setError(null);
 
     try {
@@ -880,14 +868,47 @@ export function useOrderChat({
 
       const { latitude, longitude } = position.coords;
       const url = buildMapCoordinatesUrl(latitude, longitude);
-      setContent(url);
+
+      const apiUrl = buildUrl(chatApiUrl, token);
+      const init = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: url }),
+      };
+      const response = isClient
+        ? await fetch(apiUrl, init)
+        : await authenticatedFetch(apiUrl, init);
+
+      if (!response.ok) {
+        await throwApiError(response, 'Error al enviar la ubicación');
+      }
+
+      const data = (await response.json()) as { message: OrderMessage };
+
+      if (!isMountedRef.current) return;
+
+      addMessages([data.message], 'append', { type: 'bottom' });
+      chatEmptyRef.current = false;
+      void markAsRead();
+
+      if (isMountedRef.current) {
+        consecutiveErrorsRef.current = 0;
+        nextAllowedAtRef.current = 0;
+        void pollNewMessages(data.message.id);
+      }
     } catch (err) {
       if (!isMountedRef.current) return;
-      const message =
-        err instanceof GeolocationPositionError
-          ? getGeolocationErrorMessage(err)
+      const message = isGeolocationPositionError(err)
+        ? getGeolocationErrorMessage(err)
+        : err instanceof Error
+          ? err.message
           : 'No se pudo obtener la ubicación.';
       setError(message);
+    } finally {
+      isRequestingLocationRef.current = false;
+      if (isMountedRef.current) {
+        setIsRequestingLocation(false);
+      }
     }
   }
 
@@ -939,6 +960,7 @@ export function useOrderChat({
     content,
     setContent,
     isSending,
+    isRequestingLocation,
     isLoadingOlder,
     isPolling,
     isUploading,

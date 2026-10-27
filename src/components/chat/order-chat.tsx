@@ -51,6 +51,7 @@ export function OrderChat({
     content,
     setContent,
     isSending,
+    isRequestingLocation,
     isLoadingOlder,
     isPolling,
     isUploading,
@@ -126,6 +127,7 @@ export function OrderChat({
         fileInputRef={fileInputRef}
         canSendClientLocation={canSendClientLocation}
         canSendBranchLocation={canSendBranchLocation}
+        isRequestingLocation={isRequestingLocation}
         onRequestClientLocation={requestClientLocation}
         onSendBranchLocation={sendBranchLocation}
       />

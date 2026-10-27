@@ -116,12 +116,36 @@ export function buildMapSearchUrl(query: string): string {
   });
 }
 
+/**
+ * Detecta contenido que representa una ubicación y debe renderizarse como
+ * chip de mapa (el renderer usa `buildMapViewUrl` para el enlace). Cubre:
+ * - Hosts de los proveedores conocidos (`TEMPLATES`).
+ * - El host de `NEXT_PUBLIC_MAPS_BASE_URL` — la app genera sus propias URLs
+ *   sobre ese origen; sin esto el pin quedaría como texto plano.
+ * - Coordenadas `lat,lng` escritas a mano (false-positive aceptado: un
+ *   mensaje que es solo `numero,numero` dentro de rango se trata como pin).
+ */
 export function isKnownMapUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return false;
 
+  if (tryParseCoordinates(trimmed)) return true;
+
   const providers = Object.values(TEMPLATES);
-  return providers.some((template) => template.isProviderUrl(trimmed));
+  if (providers.some((template) => template.isProviderUrl(trimmed))) {
+    return true;
+  }
+
+  const customBase = getMapsBaseUrl();
+  if (customBase) {
+    try {
+      return isSameHost(trimmed, new URL(customBase).hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function tryParseCoordinates(value: string): { lat: number; lng: number } | null {

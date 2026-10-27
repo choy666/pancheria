@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { Send, X, ImageIcon, MapPin, FileText } from 'lucide-react';
+import { Send, X, ImageIcon, MapPin, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { getChatMaxTextLength, getChatAllowedImageMimeTypes } from '@/config/chat';
@@ -19,6 +19,8 @@ interface ChatComposerProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   canSendClientLocation?: boolean;
   canSendBranchLocation?: boolean;
+  /** `true` mientras la geolocalización del cliente está en curso. */
+  isRequestingLocation?: boolean;
   onRequestClientLocation?: () => Promise<void>;
   onSendBranchLocation?: () => Promise<void>;
 }
@@ -38,6 +40,7 @@ export function ChatComposer({
   fileInputRef,
   canSendClientLocation = false,
   canSendBranchLocation = false,
+  isRequestingLocation = false,
   onRequestClientLocation,
   onSendBranchLocation,
 }: ChatComposerProps) {
@@ -104,12 +107,20 @@ export function ChatComposer({
             variant="outline"
             size="icon"
             onClick={() => void onRequestClientLocation()}
-            disabled={isSending || isUploading}
-            aria-label="Compartir ubicación"
-            title="Compartir ubicación"
+            disabled={isSending || isUploading || isRequestingLocation}
+            aria-label="Compartir mi ubicación actual"
+            title="Compartir mi ubicación actual"
             data-testid="chat-client-location-button"
           >
-            <MapPin className="size-4" />
+            {isRequestingLocation ? (
+              <Loader2
+                className="size-4 animate-spin"
+                aria-hidden="true"
+                data-testid="chat-client-location-spinner"
+              />
+            ) : (
+              <MapPin className="size-4" />
+            )}
           </Button>
         )}
 

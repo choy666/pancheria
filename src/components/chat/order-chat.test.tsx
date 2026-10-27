@@ -381,8 +381,21 @@ describe('OrderChat', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  test('el cliente comparte su ubicación al hacer clic en el botón', async () => {
+  test('el cliente comparte su ubicación al hacer clic en el botón (envío directo, sin pisar el borrador)', async () => {
     mockNavigatorGeolocation({ coords: { latitude: -34.6, longitude: -58.3 } });
+
+    const locationMessage = buildMessage(
+      10,
+      'client',
+      'https://www.openstreetmap.org/?mlat=-34.6&mlon=-58.3#map=18/-34.6/-58.3'
+    );
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ message: locationMessage }),
+      })
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
 
     render(
       <OrderChat
@@ -398,11 +411,77 @@ describe('OrderChat', () => {
       />
     );
 
+    // El borrador queda intacto: la ubicación viaja como mensaje dedicado.
+    fireEvent.change(screen.getByPlaceholderText('Escribí un mensaje...'), {
+      target: { value: 'Llego en 10' },
+    });
+
     fireEvent.click(screen.getByTestId('chat-client-location-button'));
 
     await waitFor(() => {
-      const input = screen.getByPlaceholderText('Escribí un mensaje...');
-      expect((input as HTMLTextAreaElement).value).toContain('openstreetmap.org');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/public/pedido/1/chat'),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('openstreetmap.org'),
+        })
+      );
     });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-location-link')).toHaveTextContent(
+        'Ver ubicación'
+      );
+    });
+
+    expect(
+      (screen.getByPlaceholderText('Escribí un mensaje...') as HTMLTextAreaElement)
+        .value
+    ).toBe('Llego en 10');
+  });
+
+  test('un doble clic en ubicación no dispara dos pedidos de geolocalización', async () => {
+    const getCurrentPosition = jest.fn(
+      (
+        _success: PositionCallback,
+        _error?: PositionErrorCallback | null,
+        _options?: PositionOptions
+      ) => {
+        // La posición queda pendiente: el segundo clic debe ignorarse.
+      }
+    );
+    Object.defineProperty(global, 'navigator', {
+      value: { geolocation: { getCurrentPosition } },
+      writable: true,
+    });
+
+    render(
+      <OrderChat
+        orderId={1}
+        token="token"
+        initialMessages={[]}
+        initialTotal={0}
+        initialHasMore={false}
+        disablePollingOnMount
+        isClient
+        deliveryType="delivery"
+        chatApiUrl="/api/public/pedido/1/chat"
+      />
+    );
+
+    const button = screen.getByTestId('chat-client-location-button');
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    });
+
+    // El botón muestra feedback de carga mientras espera la posición.
+    expect(
+      screen.getByTestId('chat-client-location-spinner')
+    ).toBeInTheDocument();
+    expect(button).toBeDisabled();
   });
 });

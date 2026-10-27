@@ -93,6 +93,25 @@ describe('maps helpers', () => {
     test('rechaza subdominios de terceros', () => {
       expect(isKnownMapUrl('https://openstreetmap.org.evil.com')).toBe(false);
     });
+
+    test('reconoce coordenadas `lat,lng` escritas a mano', () => {
+      expect(isKnownMapUrl('-34.6037,-58.3816')).toBe(true);
+      expect(isKnownMapUrl('-34.6 ; -58.3')).toBe(true);
+      expect(isKnownMapUrl('-91,0')).toBe(false);
+      expect(isKnownMapUrl('200,0')).toBe(false);
+    });
+
+    test('reconoce el host de NEXT_PUBLIC_MAPS_BASE_URL custom', () => {
+      process.env.NEXT_PUBLIC_MAPS_PROVIDER = 'raw';
+      process.env.NEXT_PUBLIC_MAPS_BASE_URL = 'https://maps.ejemplo.com';
+      expect(
+        isKnownMapUrl('https://maps.ejemplo.com/?mlat=-34.6&mlon=-58.3')
+      ).toBe(true);
+      // Y sus subdominios, como hace `isSameHost` con los templates.
+      expect(isKnownMapUrl('https://tiles.maps.ejemplo.com/x')).toBe(true);
+      // Otros hosts siguen siendo desconocidos aunque la base sea custom.
+      expect(isKnownMapUrl('https://example.com/?mlat=-34.6')).toBe(false);
+    });
   });
 
   describe('isValidLocationUrl', () => {
