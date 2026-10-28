@@ -1,0 +1,28 @@
+CREATE TYPE "public"."brand_announcement_variant" AS ENUM('info', 'warning');--> statement-breakpoint
+CREATE TABLE "brand_settings" (
+	"id" smallint PRIMARY KEY DEFAULT 1 NOT NULL,
+	"name" varchar(120),
+	"tagline" varchar(160),
+	"logo_data" "bytea",
+	"logo_mime_type" varchar(100),
+	"logo_updated_at" timestamp,
+	"legal_name" varchar(255),
+	"tax_id" varchar(20),
+	"support_email" varchar(255),
+	"terms_url" text,
+	"privacy_url" text,
+	"footer_about" text,
+	"payment_methods" text,
+	"developed_by" varchar(120),
+	"show_hours" boolean DEFAULT true NOT NULL,
+	"show_map" boolean DEFAULT true NOT NULL,
+	"show_social" boolean DEFAULT true NOT NULL,
+	"faq" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"announcement_text" text,
+	"announcement_enabled" boolean DEFAULT false NOT NULL,
+	"announcement_variant" "brand_announcement_variant" DEFAULT 'info' NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "brand_settings_singleton_check" CHECK ("brand_settings"."id" = 1),
+	CONSTRAINT "brand_settings_logo_size_check" CHECK (octet_length("brand_settings"."logo_data") <= 524288),
+	CONSTRAINT "brand_settings_faq_length_check" CHECK (jsonb_array_length("brand_settings"."faq") <= 8)
+);

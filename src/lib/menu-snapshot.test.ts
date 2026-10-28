@@ -13,6 +13,9 @@ import {
 
 jest.mock('@/application/services/catalogService');
 jest.mock('@/application/services/cashRegisterService');
+jest.mock('@/application/services/brandService', () => ({
+  getBrand: jest.fn(async () => ({ name: 'Pancheria Popular', logoUpdatedAt: null })),
+}));
 jest.mock('@/application/services/menuService');
 jest.mock('@/lib/branch-helpers', () => ({
   isBranchOpen: jest.fn(),

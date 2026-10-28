@@ -48,6 +48,7 @@ Este directorio agrupa la configuración del entorno de Devin, los prompts reuti
 - [Auditoría del carrito de ventas (2026-09-06, resuelta)](informes/archivados/auditoria-carrito-ventas-2026-09-06.md) — auditoría del terminal `/ventas`; el rediseño del carrito ya fue implementado.
 - [Auditoría de ubicación en el chat de pedidos (2026-09-09, resuelta)](informes/archivados/auditoria-chat-ubicacion-2026-09-09.md) — auditoría de compartir ubicación por chat; la funcionalidad ya fue implementada.
 - [Auditoría de sucursales y caja por turnos (2026-09-13, resuelta)](informes/archivados/auditoria-sucursales-y-caja-por-turnos-2026-09-13.md) — contactos de sucursal (`phones`, `social_links`) y avisos de caja por turnos; incluye su plan de observaciones ya implementado (`plan-observaciones-auditoria-sucursales-caja-2026-09-13.md`).
+- [Página de pedido: marca, navegación y pie (2026-10-27, en curso)](informes/pagina-pedido-marca-2026-10-27.md) — marca única administrable en `/pedido-config`, header y pie empresarial en `/pedido`, seguimiento, chat, `/pantalla` y `/menu`, y captación. Migración `0044` aplicada en producción. Desborde del encabezado del panel resuelto (menú "Más" + menú de usuario, breakpoint `xl`). Pendientes: deploy y revisión legal.
 - [Índice de informes](informes/README.md)
 
 > **Plan de acción cerrado:** el plan de acción de 2026-08-27 fue resuelto y se archivó en `informes/archivados/plan-de-accion-2026-08-27.md`.

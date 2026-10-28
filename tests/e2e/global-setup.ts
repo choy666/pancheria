@@ -293,6 +293,7 @@ async function resetAndSeedE2EDatabase(): Promise<void> {
       pantalla_items,
       pantalla_settings,
       menu_settings,
+      brand_settings,
       cash_registers,
       public_order_rate_limits,
       login_attempts,

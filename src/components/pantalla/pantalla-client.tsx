@@ -115,7 +115,11 @@ export function PantallaClient({ initialSnapshot }: PantallaClientProps) {
       data-testid="pantalla-screen"
       className="relative flex h-dvh flex-col overflow-hidden bg-background"
     >
-      <PantallaChrome branch={snapshot.branch} isOpen={snapshot.isOpen} />
+      <PantallaChrome
+        branch={snapshot.branch}
+        brand={snapshot.brand}
+        isOpen={snapshot.isOpen}
+      />
 
       <main className="relative min-h-0 flex-1">
         <div

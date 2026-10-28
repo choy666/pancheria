@@ -10,6 +10,8 @@ interface ChatComposerProps {
   setContent: (value: string) => void;
   onSend: () => void;
   isReadOnly: boolean;
+  /** Texto del campo cuando el chat es de solo lectura (vencido o cerrado). */
+  readOnlyPlaceholder?: string;
   isSending: boolean;
   isUploading?: boolean;
   selectedFile: File | null;
@@ -31,6 +33,7 @@ export function ChatComposer({
   setContent,
   onSend,
   isReadOnly,
+  readOnlyPlaceholder = 'El pedido no está pendiente.',
   isSending,
   isUploading,
   selectedFile,
@@ -148,11 +151,7 @@ export function ChatComposer({
               void onSend();
             }
           }}
-          placeholder={
-            isReadOnly
-              ? 'El pedido no está pendiente.'
-              : 'Escribí un mensaje...'
-          }
+          placeholder={isReadOnly ? readOnlyPlaceholder : 'Escribí un mensaje...'}
           disabled={isReadOnly || isSending}
           maxLength={getChatMaxTextLength()}
           rows={1}

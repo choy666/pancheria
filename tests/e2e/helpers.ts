@@ -133,6 +133,7 @@ export async function loginAs(
   }
 
   await expect(page.getByLabel('Usuario')).toBeVisible({ timeout: 15_000 });
+  await waitForHydratedInput(page, '#username');
   await page.getByLabel('Usuario').fill(username);
   await page.getByLabel('Contraseña').fill(password);
   await page.getByRole('button', { name: 'Ingresar' }).click();

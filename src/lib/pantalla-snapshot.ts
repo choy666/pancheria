@@ -1,5 +1,6 @@
 import * as catalogService from '@/application/services/catalogService';
 import * as videoService from '@/application/services/videoService';
+import * as brandService from '@/application/services/brandService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as pantallaService from '@/application/services/pantallaService';
 import { computeKioskBranchStatus } from '@/lib/kiosk-status';
@@ -63,7 +64,7 @@ function toPantallaVideo(video: VideoRow): PantallaVideo {
 export async function buildPantallaSnapshot(
   branchId: number
 ): Promise<PantallaSnapshot> {
-  const [catalog, videoRows, cashRegister, settings, items] =
+  const [catalog, videoRows, cashRegister, settings, items, brand] =
     await Promise.all([
       catalogService.listPublicCatalogWithAvailability(branchId),
       videoService.listActiveVideos(branchId),
@@ -73,6 +74,7 @@ export async function buildPantallaSnapshot(
       // donde `buildPantallaPlaylist` la ignora.
       pantallaService.getSettings(branchId),
       pantallaService.listEnabledItems(branchId),
+      brandService.getBrand(),
     ]);
 
   const { branch } = catalog;
@@ -85,5 +87,6 @@ export async function buildPantallaSnapshot(
     videos: videoRows.map(toPantallaVideo),
     settings,
     items,
+    brand,
   };
 }

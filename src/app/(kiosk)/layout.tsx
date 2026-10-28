@@ -1,10 +1,15 @@
 import { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import * as brandService from '@/application/services/brandService';
+import { getBrandDisplayName } from '@/lib/brand-helpers';
 
-export const metadata: Metadata = {
-  title: 'Pantalla publicitaria - Panchería',
-  description: 'Pantalla publicitaria para Smart TV: videos, catálogo y QR de pedidos en bucle.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await brandService.getBrand();
+  return {
+    title: `Pantalla publicitaria - ${getBrandDisplayName(brand)}`,
+    description: 'Pantalla publicitaria para Smart TV: videos, catálogo y QR de pedidos en bucle.',
+  };
+}
 
 /**
  * Layout del modo kiosk (`/pantalla`): sin header/footer de `(public)` ni

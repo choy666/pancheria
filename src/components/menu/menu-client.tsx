@@ -110,6 +110,7 @@ export function MenuClient({ initialSnapshot }: MenuClientProps) {
     >
       <PantallaChrome
         branch={snapshot.branch}
+        brand={snapshot.brand}
         isOpen={snapshot.isOpen}
         closedHint="Podés mirar la carta y pedir desde el QR."
       />

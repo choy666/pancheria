@@ -16,6 +16,7 @@ import { PedidoCartSection } from './pedido-cart-section';
 import { PedidoCustomerForm } from './pedido-customer-form';
 import { PedidoSuccessDialog } from './pedido-success-dialog';
 import { CheckoutSummary } from './checkout-summary';
+import { CheckoutLegalNote } from './checkout-legal-note';
 import { BranchInfoCard } from './branch-info-card';
 import { usePedidoClient } from './usePedidoClient';
 import { PromoOptionsDialog } from '@/components/promo/promo-options-dialog';
@@ -30,6 +31,8 @@ interface PedidoClientProps {
   initialProducts: PublicCatalogProduct[];
   initialTotal?: number;
   pageSize?: number;
+  termsUrl?: string | null;
+  privacyUrl?: string | null;
 }
 
 export function PedidoClient({
@@ -38,6 +41,8 @@ export function PedidoClient({
   initialProducts,
   initialTotal,
   pageSize,
+  termsUrl = null,
+  privacyUrl = null,
 }: PedidoClientProps) {
   const {
     error,
@@ -199,6 +204,8 @@ export function PedidoClient({
             total={total}
             activeBranch={activeBranch}
           />
+
+          <CheckoutLegalNote termsUrl={termsUrl} privacyUrl={privacyUrl} />
 
           <DialogFooter>
             <Button

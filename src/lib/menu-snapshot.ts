@@ -1,8 +1,9 @@
 import * as catalogService from '@/application/services/catalogService';
 import * as cashRegisterService from '@/application/services/cashRegisterService';
 import * as menuService from '@/application/services/menuService';
+import * as brandService from '@/application/services/brandService';
 import { computeKioskBranchStatus } from '@/lib/kiosk-status';
-import type { Branch } from '@/domain/types';
+import type { Branch, BrandSettings } from '@/domain/types';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type { MenuSettings } from '@/lib/menu-pages';
 
@@ -17,6 +18,7 @@ import type { MenuSettings } from '@/lib/menu-pages';
  */
 export type MenuSnapshot = {
   branch: Branch;
+  brand: BrandSettings;
   isOpen: boolean;
   currentOpening: string;
   nextOpening: string;
@@ -35,10 +37,11 @@ export type MenuSnapshot = {
 export async function buildMenuSnapshot(
   branchId: number
 ): Promise<MenuSnapshot> {
-  const [catalog, cashRegister, settings] = await Promise.all([
+  const [catalog, cashRegister, settings, brand] = await Promise.all([
     catalogService.listPublicCatalogWithAvailability(branchId),
     cashRegisterService.getOpenCashRegister(branchId),
     menuService.getSettings(branchId),
+    brandService.getBrand(),
   ]);
 
   const { branch } = catalog;
@@ -49,5 +52,6 @@ export async function buildMenuSnapshot(
     ...status,
     products: catalog.products,
     settings,
+    brand,
   };
 }

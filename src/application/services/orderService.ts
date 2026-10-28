@@ -484,6 +484,15 @@ export async function createOrder(
   });
 }
 
+function assertCancellableByClient(status: OrderStatus): void {
+  if (status === 'pending') return;
+  throw new ValidationError(
+    status === 'paid'
+      ? 'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
+      : 'La sucursal ya aceptó el pedido y no puede cancelarse desde la web. Para cambios, escribile por el chat.'
+  );
+}
+
 export async function cancelOrder(
   branchId: number,
   id: number,
@@ -506,13 +515,10 @@ export async function cancelOrder(
     );
   }
 
-  // Con token (vía pública) solo se cancela `pending`/`in_process`: un pedido
-  // `paid` implica anular dinero real y solo puede hacerlo el negocio desde
-  // el panel (sin token).
-  if (token !== undefined && order.status === 'paid') {
-    throw new ValidationError(
-      'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
-    );
+  // Con token (vía pública) solo se cancela `pending`: un pedido aceptado o
+  // pagado se anula desde el panel o con la sucursal por chat.
+  if (token !== undefined) {
+    assertCancellableByClient(order.status);
   }
 
   return executeInTransaction(async (tx) => {
@@ -532,10 +538,8 @@ export async function cancelOrder(
       );
     }
 
-    if (token !== undefined && locked.status === 'paid') {
-      throw new ValidationError(
-        'El pedido ya fue pagado. Para anularlo, comunicate con la sucursal.'
-      );
+    if (token !== undefined) {
+      assertCancellableByClient(locked.status);
     }
 
     if (locked.status === 'in_process') {
@@ -1260,7 +1264,7 @@ export async function trackOrder(
     })),
   };
 
-  if (status === 'pending') {
+  if (status !== 'finished' && status !== 'cancelled') {
     result.cancellationToken = order.cancellationToken;
     result.expiresAt = new Date(
       order.createdAt.getTime() + getOrderExpirationMs()

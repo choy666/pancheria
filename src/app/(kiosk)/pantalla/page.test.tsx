@@ -22,6 +22,14 @@ jest.mock('@/lib/pantalla-snapshot', () => ({
   buildPantallaSnapshot: jest.fn(),
 }));
 
+jest.mock('@/application/services/brandService', () => ({
+  getBrand: jest.fn(async () => ({ name: 'Pancheria Popular', logoUpdatedAt: null })),
+}));
+
+jest.mock('@/application/services/branchService', () => ({
+  getBranchById: jest.fn(async () => undefined),
+}));
+
 jest.mock('@/components/pantalla/pantalla-client', () => ({
   PantallaClient: function PantallaClient() {
     return null;
@@ -61,6 +69,26 @@ const mockedRedirect = redirect as jest.MockedFunction<typeof redirect>;
 
 function makeSnapshot(branchId: number) {
   return {
+    brand: {
+      name: 'Pancheria Popular',
+      tagline: null,
+      logoUpdatedAt: null,
+      legalName: null,
+      taxId: null,
+      supportEmail: null,
+      termsUrl: null,
+      privacyUrl: null,
+      footerAbout: null,
+      paymentMethods: null,
+      developedBy: null,
+      showHours: true,
+      showMap: true,
+      showSocial: true,
+      faq: [],
+      announcementText: null,
+      announcementEnabled: false,
+      announcementVariant: 'info' as const,
+    },
     branch: {
       id: branchId,
       name: 'Sucursal Test',

@@ -357,4 +357,100 @@ describe('OrderTracker', () => {
       progress.querySelector('[aria-current="step"]')
     ).toHaveTextContent('En proceso');
   });
+
+  test('ofrece cancelar solo mientras el pedido está pendiente', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        order: {
+          id: 1,
+          orderNumber: 'PED-1-1234567890-abc',
+          status: 'in_process',
+          total: 1200,
+          customerName: 'Juan Pérez',
+          customerPhone: '3415555555',
+          branchId: 1,
+          branchName: 'Sucursal A',
+          cancellationToken: 'token',
+          expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        },
+      }),
+    });
+
+    render(<OrderTracker />);
+
+    fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
+      target: { value: 'PED-1-1234567890-abc' },
+    });
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
+      target: { value: 'Juan Pérez' },
+    });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/La sucursal ya aceptó tu pedido/)
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('tracker-cancel-button')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Ir al chat del pedido/i })
+    ).toBeInTheDocument();
+  });
+
+  test('cancela un pedido pendiente con su token y lo muestra como cancelado', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          order: {
+            id: 1,
+            orderNumber: 'PED-1-1234567890-abc',
+            status: 'pending',
+            total: 1200,
+            customerName: 'Juan Pérez',
+            customerPhone: '3415555555',
+            branchId: 1,
+            branchName: 'Sucursal A',
+            cancellationToken: 'token',
+            expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ order: { id: 1, status: 'cancelled' } }),
+      });
+
+    render(<OrderTracker />);
+
+    fireEvent.change(screen.getByLabelText(/Número de pedido/i), {
+      target: { value: 'PED-1-1234567890-abc' },
+    });
+    fireEvent.change(screen.getByLabelText(/Tu nombre/i), {
+      target: { value: 'Juan Pérez' },
+    });
+    fireEvent.change(screen.getByLabelText(/Teléfono/i), {
+      target: { value: '3415555555' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Buscar pedido/i }));
+
+    fireEvent.click(await screen.findByTestId('tracker-cancel-button'));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Sí, cancelar pedido' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Este pedido fue cancelado.')).toBeInTheDocument();
+    });
+    const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/public/pedido/1/cancelar?branchId=1');
+    expect(JSON.parse(init.body as string)).toMatchObject({ token: 'token' });
+  });
 });

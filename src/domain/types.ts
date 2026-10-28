@@ -368,3 +368,42 @@ export type MenuSettingsRow = {
   qrStripText: string;
   updatedAt: Date;
 };
+
+export type BrandAnnouncementVariant = 'info' | 'warning';
+
+export type BrandFaqItem = {
+  question: string;
+  answer: string;
+};
+
+/**
+ * Identidad de marca de la plataforma pública (`brand_settings`). `logoUpdatedAt`
+ * versiona la URL del logo para que el navegador no sirva una versión vieja tras
+ * reemplazarlo; `null` significa sin logo. Los bytes del logo no viajan acá.
+ */
+export type BrandSettings = {
+  name: string | null;
+  tagline: string | null;
+  logoUpdatedAt: Date | null;
+  legalName: string | null;
+  taxId: string | null;
+  supportEmail: string | null;
+  termsUrl: string | null;
+  privacyUrl: string | null;
+  footerAbout: string | null;
+  paymentMethods: string | null;
+  developedBy: string | null;
+  showHours: boolean;
+  showMap: boolean;
+  showSocial: boolean;
+  faq: BrandFaqItem[];
+  announcementText: string | null;
+  announcementEnabled: boolean;
+  announcementVariant: BrandAnnouncementVariant;
+};
+
+export type BrandLogo = {
+  data: Buffer;
+  mimeType: string;
+  updatedAt: Date;
+};

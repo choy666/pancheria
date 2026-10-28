@@ -48,6 +48,7 @@ export interface FindMessagesOptions {
 
 export interface ChatContext {
   orderNumber: string;
+  branchId: number;
   branchName: string | null;
   status: OrderWithItems['status'];
   customerName: string;
@@ -174,6 +175,7 @@ export async function getChatContext(
 
   return {
     orderNumber: order.orderNumber,
+    branchId: order.branchId,
     branchName: branch?.name ?? null,
     status: order.status,
     customerName: order.customerName,

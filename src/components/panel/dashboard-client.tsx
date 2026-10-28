@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Database,
   Package,
+  Palette,
   ShoppingCart,
   Store,
   Users,
@@ -442,6 +443,15 @@ function DashboardActions({ isAdmin }: { isAdmin: boolean }) {
         testId: 'dashboard-action-catalogo',
         tour: 'dashboard-catalogo',
         icon: <ShoppingCart className="h-5 w-5" />,
+      },
+      {
+        href: routes.pedidoConfig,
+        label: 'Página de pedido',
+        description: 'Logo, nombre, pie y preguntas de la página de pedido.',
+        testId: 'dashboard-action-pedido-config',
+        tour: 'dashboard-pedido-config',
+        icon: <Palette className="h-5 w-5" />,
+        adminOnly: true,
       },
       {
         href: routes.perfil,

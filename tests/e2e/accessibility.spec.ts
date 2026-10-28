@@ -48,6 +48,7 @@ test.describe('Accesibilidad (axe-core)', () => {
       '/usuarios',
       '/usuarios/nuevo',
       '/videos',
+      '/pedido-config',
     ];
 
     for (const path of panelPaths) {

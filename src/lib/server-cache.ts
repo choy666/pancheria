@@ -2,8 +2,9 @@ import { cache } from 'react';
 import { unstable_cache, revalidateTag } from 'next/cache';
 import * as branchRepository from '@/repositories/branchRepository';
 import * as catalogRepository from '@/repositories/catalogRepository';
+import * as brandRepository from '@/repositories/brandRepository';
 import { getDataCacheRevalidateSeconds } from '@/config/cache';
-import type { Branch, ProductRow } from '@/domain/types';
+import type { Branch, BrandSettings, ProductRow } from '@/domain/types';
 
 /**
  * Capa de caché de servidor (Data Cache de Next.js) sobre las lecturas
@@ -28,6 +29,7 @@ import type { Branch, ProductRow } from '@/domain/types';
 const DATA_CACHE_TAGS = {
   branches: 'branches',
   publicCatalog: 'public-catalog',
+  brand: 'brand',
 } as const;
 
 const REVALIDATE_S = getDataCacheRevalidateSeconds();
@@ -175,8 +177,33 @@ export async function getCachedPublicCatalogBase(
   return { products: (products as ProductRow[]).map(reviveProductRow), total };
 }
 
+function reviveBrandSettings(row: BrandSettings | null): BrandSettings | null {
+  if (!row) return null;
+  return {
+    ...row,
+    logoUpdatedAt: row.logoUpdatedAt ? new Date(row.logoUpdatedAt) : null,
+  };
+}
+
+const cachedBrandSettings = unstable_cache(
+  async () => brandRepository.findSettings(),
+  ['server-cache', 'brand-settings'],
+  { tags: [DATA_CACHE_TAGS.brand], revalidate: REVALIDATE_OPTION }
+);
+
+export async function getCachedBrandSettings(): Promise<BrandSettings | null> {
+  if (isCacheDisabled()) {
+    return brandRepository.findSettings();
+  }
+  return reviveBrandSettings((await cachedBrandSettings()) as BrandSettings | null);
+}
+
 export function invalidateBranchesCache(): void {
   revalidateTag(DATA_CACHE_TAGS.branches, { expire: 0 });
+}
+
+export function invalidateBrandCache(): void {
+  revalidateTag(DATA_CACHE_TAGS.brand, { expire: 0 });
 }
 
 export function invalidatePublicCatalogCache(): void {

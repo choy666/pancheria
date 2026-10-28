@@ -110,6 +110,7 @@ flowchart LR
 | `(panel)/sucursales/actions.ts` | CRUD sucursales + resumen de eliminación (`requireAdmin`) |
 | `(panel)/usuarios/actions.ts` | CRUD usuarios (`requireAdmin`) |
 | `(panel)/videos/actions.ts` | prepareUpload / CRUD / papelera de videos |
+| `(panel)/pedido-config/actions.ts` | `updateBrandSettingsAction` (nombre, lema, legales, pie, FAQ y aviso → `brand_settings`), `updateBrandLogoAction` y `removeBrandLogoAction` (logo en `bytea`, validado por firma y tamaño) — `requireAdmin`, invalidan el tag `brand` |
 | `(panel)/pantalla-config/actions.ts` | `updatePantallaSettingsAction` (duraciones, modo, escenas fijas), `savePantallaPlaylistAction` (reemplazo transaccional de `pantalla_items`), `updateMenuSettingsAction` (paginación, columnas, escala de texto, estilo de tarjeta, orden, franja QR con su CTA, descripciones y curaduría — ocultos y destacados — de `/menu` → `menu_settings`) — `requireAdmin` + sucursal activa |
 | `(panel)/perfil/actions.ts` | `changePassword` |
 | `(auth)/login/actions.ts` | `login` |
@@ -128,7 +129,7 @@ Patrón estándar: `withApiErrorHandling(withAuth(handler))` para rutas del pane
 | `api/stock` | `GET /` (alertas), `ajustar`, `movimientos` | `stockService` |
 | `api/recetas` | `GET /` (insumos para recetas) | `recipeService` |
 | `api/videos` | `upload` (POST, solo local), `[id]/stream` (GET admin: stream local con Range o redirect a URL pública remota) | `videoService`, `storage` |
-| `api/public` | `catalogo`, `disponibilidad`, `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado+`settings`/`items` de pantalla), `menu` (snapshot de `/menu`: catálogo+estado+`menu_settings`, sin videos ni playlist), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `menuService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
+| `api/public` | `catalogo`, `disponibilidad`, `marca/logo` (logo de `brand_settings`, sin bytes en otras lecturas), `pantalla` (snapshot de `/pantalla`: catálogo+videos+estado+`settings`/`items` de pantalla), `menu` (snapshot de `/menu`: catálogo+estado+`menu_settings`, sin videos ni playlist), `pedido` (POST crear), `pedido/seguimiento` (POST), `pedido/[id]/cancelar`, `pedido/[id]/estado`, `pedido/[id]/chat` (GET/POST) + `leido` + `stream` + `upload`, `sucursal/estado` | `catalogService`, `videoService`, `menuService`, `orderService`, `chatService`, `branchService`, `cashRegisterService` |
 | `api/panel` | `resumen` (GET: resumen de sucursal para dashboard), `neon-usage` (GET, solo admin: CU-horas usadas/restantes del proyecto Neon; requiere `NEON_API_KEY`+`NEON_PROJECT_ID`, degrada a `invalid_credentials`/`disabled` sin 500) | `cashRegisterService` + `orderService` + `stockService`, `neonUsageService` |
 | `api/cron` | `expire-orders`, `rate-limit-cleanup`, `chat-attachments-cleanup`, `sanity-audit` (GET: auditoría read-only de invariantes del dominio) — todos GET + Bearer; `alert` (POST + Bearer: relay de alertas a ntfy desde la IP de Vercel) | `orderService`, `cleanupService`, `sanityAuditService`, rate-limit stores |
 | `api/chat` | `attachment/[key]` (GET: solo provider `local`; sesión o `?token`) | `chat-storage` |

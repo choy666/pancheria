@@ -66,6 +66,7 @@ function makeSnapshot({
 }): PantallaSnapshot {
   return {
     branch: { id: 1, name: 'Sucursal' } as Branch,
+    brand: { name: 'Pancheria Popular' } as PantallaSnapshot['brand'],
     isOpen: true,
     currentOpening: 'Hoy de 12:00 a 23:00',
     nextOpening: 'Mañana de 12:00 a 23:00',

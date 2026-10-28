@@ -1513,6 +1513,21 @@ describe('orderService', () => {
       expect(findCapturedUpdate(orders)).toHaveLength(0);
     });
 
+    test('rechaza la cancelación pública (con token) de un pedido ya aceptado por la sucursal', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'in_process' }),
+        items: [createOrderItemRow({ productId: 1, quantity: 1 })],
+      });
+
+      await expect(
+        cancelOrder(BRANCH_ID, 1, 'Motivo', 'token')
+      ).rejects.toThrow(
+        'La sucursal ya aceptó el pedido y no puede cancelarse desde la web. Para cambios, escribile por el chat.'
+      );
+
+      expect(findCapturedUpdate(orders)).toHaveLength(0);
+    });
+
     test('con token inválido sobre pedido pagado responde como pedido inexistente', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({
@@ -1620,12 +1635,7 @@ describe('orderService', () => {
         { branchId: BRANCH_ID, orderId: 1, productId: 1, productName: 'Gaseosa', quantity: 2 },
       ]);
 
-      const result = await cancelOrder(
-        BRANCH_ID,
-        1,
-        'Cancelado por el cliente',
-        'token'
-      );
+      const result = await cancelOrder(BRANCH_ID, 1, 'Cancelado por la sucursal');
 
       expect(result.status).toBe('cancelled');
       expect(
@@ -2476,7 +2486,7 @@ describe('orderService', () => {
       expect(result?.branchName).toBe('Sucursal Test');
     });
 
-    test('no incluye token ni expiresAt cuando el pedido no está pending', async () => {
+    test('incluye token y expiresAt mientras el pedido sigue abierto (paid)', async () => {
       mockedDb.query.orders.findFirst.mockResolvedValue({
         ...createOrderRow({ status: 'paid' }),
         branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
@@ -2492,6 +2502,25 @@ describe('orderService', () => {
 
       expect(result).not.toBeNull();
       expect(result?.status).toBe('paid');
+      expect(result?.cancellationToken).toBe('token');
+      expect(result?.expiresAt).toBeDefined();
+    });
+
+    test('no incluye token ni expiresAt cuando el pedido está finalizado', async () => {
+      mockedDb.query.orders.findFirst.mockResolvedValue({
+        ...createOrderRow({ status: 'finished' }),
+        branch: { id: BRANCH_ID, name: 'Sucursal Test', openingHours: [], createdAt: new Date() },
+        items: [createOrderItemRow()],
+      });
+
+      const result = await trackOrder(
+        BRANCH_ID,
+        'PED-1-1234567890-abcdef',
+        'Juan Pérez',
+        '3415555555'
+      );
+
+      expect(result?.status).toBe('finished');
       expect(result?.cancellationToken).toBeUndefined();
       expect(result?.expiresAt).toBeUndefined();
     });

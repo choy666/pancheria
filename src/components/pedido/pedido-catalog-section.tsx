@@ -14,6 +14,7 @@ import {
 import { ProductCard } from './product-card';
 import { BranchStatusChip } from './branch-status-chip';
 import { BranchInfoCard } from './branch-info-card';
+import { ShareCatalogButton } from './share-catalog-button';
 import {
   publicProductTypeGroupClasses,
   publicProductTypeLabels,
@@ -108,6 +109,12 @@ export function PedidoCatalogSection({
                 ¿Ya hiciste un pedido? Seguilo acá
               </Link>
             </p>
+            <div className="mt-3">
+              <ShareCatalogButton
+                branchId={activeBranch.id}
+                shareTitle={`${activeBranch.name} · Pedí online`}
+              />
+            </div>
           </div>
 
           <div className="w-full space-y-2 sm:w-auto">

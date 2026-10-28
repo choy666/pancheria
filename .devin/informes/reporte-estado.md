@@ -14,6 +14,10 @@
 
 **CI:** run `40579566454` **success** sobre `b6f182a` — todos los jobs verdes incluidos los shards E2E 1 y 2 (~13 min). Schedules activos verificados verdes hoy: `uptime-probe`, `expire-orders` y `sanity-audit` diario.
 
+### En curso (sin commitear, 2026-10-27)
+
+- **Página de pedido con marca única** (`/pedido-config`, migración `0044_brand-settings`): header y pie empresariales en `/pedido`, seguimiento, chat, `/pantalla` y `/menu`; chat accesible desde el seguimiento y captación (Open Graph, JSON-LD y compartir con QR). Informe: `informes/pagina-pedido-marca-2026-10-27.md`. Migración `0044` aplicada en dev, E2E y producción (2026-10-27). E2E: `pedido-marca` 9/9 y suite completa con un caso inestable de `responsive` (ver informe). El desborde del encabezado del panel quedó resuelto con menú "Más" y menú de usuario (breakpoint `xl`). Pendiente: deploy de este código, revisión legal y commit/PR.
+
 ### Commits integrados desde el cierre anterior (post-2026-10-02, 79 commits)
 
 | Commits | Fecha | Contenido |

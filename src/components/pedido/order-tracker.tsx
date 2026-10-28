@@ -10,6 +10,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Card,
   CardContent,
@@ -17,9 +18,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { PUBLIC_PEDIDO_SEGUIMIENTO_API } from '@/config/api';
+import {
+  PUBLIC_PEDIDO_CANCELAR_API,
+  PUBLIC_PEDIDO_SEGUIMIENTO_API,
+} from '@/config/api';
 import { ApiError } from '@/lib/fetch';
-import { addRecentOrder, buildChatUrl } from '@/lib/recent-orders';
+import {
+  addRecentOrder,
+  buildChatUrl,
+  removeRecentOrder,
+} from '@/lib/recent-orders';
 import { formatMoney } from '@/lib/money';
 import {
   getLastCustomerName,
@@ -91,6 +99,9 @@ export function OrderTracker() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<TrackedOrder | null>(null);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -137,7 +148,7 @@ export function OrderTracker() {
         setLastCustomerPhone(tracked.customerPhone);
       }
 
-      if (tracked.status === 'pending' && tracked.cancellationToken && tracked.expiresAt) {
+      if (tracked.cancellationToken && tracked.expiresAt) {
         addRecentOrder({
           id: tracked.id,
           orderNumber: tracked.orderNumber,
@@ -151,6 +162,50 @@ export function OrderTracker() {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (!order?.cancellationToken) return;
+
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      const response = await fetch(
+        `${PUBLIC_PEDIDO_CANCELAR_API(order.id)}?branchId=${order.branchId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason: 'Cancelado por el cliente',
+            token: order.cancellationToken,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new ApiError(
+          data.error ?? 'No se pudo cancelar el pedido.',
+          response.status
+        );
+      }
+
+      removeRecentOrder(order.id);
+      setOrder({
+        ...order,
+        status: 'cancelled',
+        cancellationToken: undefined,
+        expiresAt: undefined,
+      });
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsCancelling(false);
+      setIsCancelConfirmOpen(false);
     }
   }
 
@@ -361,13 +416,50 @@ export function OrderTracker() {
             {order.status !== 'finished' &&
               order.status !== 'cancelled' &&
               order.cancellationToken && (
-                <Link
-                  href={buildChatUrl(order.id, order.cancellationToken)}
-                  className={cn(buttonVariants(), 'w-full')}
-                >
-                  <MessageCircle className="mr-2 size-4" />
-                  Ir al chat del pedido
-                </Link>
+                <div className="space-y-3">
+                  <Link
+                    href={buildChatUrl(order.id, order.cancellationToken)}
+                    className={cn(buttonVariants(), 'w-full')}
+                  >
+                    <MessageCircle className="mr-2 size-4" />
+                    Ir al chat del pedido
+                  </Link>
+                  {order.status === 'pending' ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="w-full"
+                        disabled={isCancelling}
+                        onClick={() => setIsCancelConfirmOpen(true)}
+                        data-testid="tracker-cancel-button"
+                      >
+                        Cancelar pedido
+                      </Button>
+                      <ConfirmDialog
+                        open={isCancelConfirmOpen}
+                        title="¿Cancelar el pedido?"
+                        description="La sucursal no lo va a preparar. Una vez cancelado, no se puede reactivar desde la web."
+                        confirmLabel="Sí, cancelar pedido"
+                        cancelLabel="Volver"
+                        dataTheme="light"
+                        onConfirm={() => void handleCancelOrder()}
+                        onCancel={() => setIsCancelConfirmOpen(false)}
+                      />
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {order.status === 'paid'
+                        ? 'Tu pedido ya está pagado. Para consultas, escribile a la sucursal por el chat.'
+                        : 'La sucursal ya aceptó tu pedido. Para cambios, escribile por el chat.'}
+                    </p>
+                  )}
+                  {cancelError && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {cancelError}
+                    </p>
+                  )}
+                </div>
               )}
 
             {(order.status === 'finished' || order.status === 'cancelled') && (

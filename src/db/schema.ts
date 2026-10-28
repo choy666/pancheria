@@ -15,12 +15,15 @@ import {
   jsonb,
   check,
   primaryKey,
+  smallint,
+  customType,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 // Los shapes de las columnas jsonb de `branches` viven en el dominio
 // (`domain/types.ts`): son el mismo contrato que consumen servicios,
 // helpers y UI — se importan para no duplicarlos acá.
 import type {
+  BrandFaqItem,
   BranchOpeningHours,
   BranchPhone,
   BranchSocialLink,
@@ -781,6 +784,64 @@ export const menuSettings = pgTable(
     check(
       'menu_settings_grid_columns_check',
       sql`${table.gridColumns} between 3 and 5`
+    ),
+  ]
+);
+
+export const brandAnnouncementVariantEnum = pgEnum(
+  'brand_announcement_variant',
+  ['info', 'warning']
+);
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+/**
+ * Identidad de marca única de la plataforma pública (fila singleton `id = 1`):
+ * nombre, lema, logo y footer legal. Los contactos, horarios, mapa y redes
+ * siguen en `branches`. El logo se guarda en la fila para servirse igual con
+ * cualquier `STORAGE_PROVIDER` y sin archivos huérfanos.
+ */
+export const brandSettings = pgTable(
+  'brand_settings',
+  {
+    id: smallint('id').primaryKey().default(1),
+    name: varchar('name', { length: 120 }),
+    tagline: varchar('tagline', { length: 160 }),
+    logoData: bytea('logo_data'),
+    logoMimeType: varchar('logo_mime_type', { length: 100 }),
+    logoUpdatedAt: timestamp('logo_updated_at'),
+    legalName: varchar('legal_name', { length: 255 }),
+    taxId: varchar('tax_id', { length: 20 }),
+    supportEmail: varchar('support_email', { length: 255 }),
+    termsUrl: text('terms_url'),
+    privacyUrl: text('privacy_url'),
+    footerAbout: text('footer_about'),
+    paymentMethods: text('payment_methods'),
+    developedBy: varchar('developed_by', { length: 120 }),
+    showHours: boolean('show_hours').default(true).notNull(),
+    showMap: boolean('show_map').default(true).notNull(),
+    showSocial: boolean('show_social').default(true).notNull(),
+    faq: jsonb('faq').$type<BrandFaqItem[]>().default([]).notNull(),
+    announcementText: text('announcement_text'),
+    announcementEnabled: boolean('announcement_enabled').default(false).notNull(),
+    announcementVariant: brandAnnouncementVariantEnum('announcement_variant')
+      .default('info')
+      .notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    check('brand_settings_singleton_check', sql`${table.id} = 1`),
+    check(
+      'brand_settings_logo_size_check',
+      sql`octet_length(${table.logoData}) <= 524288`
+    ),
+    check(
+      'brand_settings_faq_length_check',
+      sql`jsonb_array_length(${table.faq}) <= 8`
     ),
   ]
 );

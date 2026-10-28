@@ -170,7 +170,9 @@ describe('OrderChat', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText('El pedido no está pendiente.');
+    const input = screen.getByPlaceholderText(
+      'Ya no se pueden enviar mensajes en este pedido. Podés leer el historial.'
+    );
     expect(input).toBeDisabled();
   });
 

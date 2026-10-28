@@ -60,6 +60,7 @@ export function OrderChat({
     previewUrl,
     hasMore,
     isReadOnly,
+    orderStatus,
     canSendClientLocation,
     canSendBranchLocation,
     displayedUnreadCount,
@@ -91,6 +92,12 @@ export function OrderChat({
     disablePollingOnMount,
   });
 
+  const isClosedByStatus =
+    readOnly || orderStatus === 'finished' || orderStatus === 'cancelled';
+  const readOnlyPlaceholder = isClosedByStatus
+    ? 'El pedido ya fue finalizado o cancelado: el chat quedó cerrado.'
+    : 'Ya no se pueden enviar mensajes en este pedido. Podés leer el historial.';
+
   return (
     <div className="flex h-[500px] flex-col rounded-2xl border border-border bg-card">
       <ChatMessageList
@@ -118,6 +125,7 @@ export function OrderChat({
         setContent={setContent}
         onSend={() => void handleSend()}
         isReadOnly={isReadOnly}
+        readOnlyPlaceholder={readOnlyPlaceholder}
         isSending={isSending}
         isUploading={isUploading}
         selectedFile={selectedFile}

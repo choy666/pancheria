@@ -17,6 +17,9 @@ import { getStorageProvider } from '@/config/videos';
 jest.mock('@/application/services/catalogService');
 jest.mock('@/application/services/videoService');
 jest.mock('@/application/services/cashRegisterService');
+jest.mock('@/application/services/brandService', () => ({
+  getBrand: jest.fn(async () => ({ name: 'Pancheria Popular', logoUpdatedAt: null })),
+}));
 jest.mock('@/application/services/pantallaService');
 jest.mock('@/lib/branch-helpers', () => ({
   isBranchOpen: jest.fn(),

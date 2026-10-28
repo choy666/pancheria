@@ -216,6 +216,7 @@ Puntos clave: el provider se elige por `STORAGE_PROVIDER` en runtime (`config/vi
 
 | Dato | Estrategia |
 | --- | --- |
+| `brand_settings` (identidad de marca: `/pedido`, seguimiento, chat, `/pantalla`, `/menu`) | `unstable_cache` tag `brand` — invalida `invalidateBrandCache()` al guardar la página de pedido o cambiar el logo |
 | `branches` (lookup por id/nombre) | `unstable_cache` tag `branches` — invalida `revalidateTag('branches', {expire:0})` al mutar sucursales |
 | Catálogo público base | tag `public-catalog` — invalida al mutar productos/recetas |
 | Stock, reservas, caja, mensajes | **siempre en vivo** (decisión deliberada) |

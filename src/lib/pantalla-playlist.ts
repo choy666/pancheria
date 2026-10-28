@@ -2,6 +2,7 @@ import { groupPublicProductsByType } from '@/lib/catalog';
 import type { PublicCatalogProduct } from '@/application/services/catalogService';
 import type {
   Branch,
+  BrandSettings,
   PantallaItemKind,
   PantallaPlaylistMode,
 } from '@/domain/types';
@@ -52,6 +53,7 @@ export type PantallaPlaylistItem = {
  */
 export type PantallaSnapshot = {
   branch: Branch;
+  brand: BrandSettings;
   isOpen: boolean;
   currentOpening: string;
   nextOpening: string;

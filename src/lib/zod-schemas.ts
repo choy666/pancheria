@@ -2,6 +2,12 @@ import { z } from 'zod';
 import { getChatMaxTextLength } from '@/config/chat';
 import { ITEM_NOTE_MAX_LENGTH } from '@/lib/cart-helpers';
 import { tryBuildLocationUrl } from '@/lib/maps';
+import {
+  BRAND_FAQ_ANSWER_MAX_LENGTH,
+  BRAND_FAQ_MAX_ITEMS,
+  BRAND_FAQ_QUESTION_MAX_LENGTH,
+} from '@/config/brand';
+import { isSafeBrandUrl, isValidCuit, normalizeCuit } from '@/lib/brand-helpers';
 
 const MAX_ITEMS_PER_LIST = 100;
 const MAX_ITEM_QUANTITY = 999;
@@ -420,6 +426,76 @@ export const menuSettingsSchema = z.object({
       message: 'El texto de la franja QR admite hasta 60 caracteres.',
     }),
 });
+
+const brandOptionalTextSchema = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} no puede superar ${max} caracteres.`)
+    .nullable();
+
+const brandUrlSchema = z
+  .string()
+  .trim()
+  .max(500, 'La URL no puede superar 500 caracteres.')
+  .refine(isSafeBrandUrl, 'Usá una URL https:// o una ruta interna que empiece con "/".')
+  .nullable();
+
+export const brandSettingsSchema = z
+  .object({
+    name: brandOptionalTextSchema(120, 'El nombre'),
+    tagline: brandOptionalTextSchema(160, 'El lema'),
+    legalName: brandOptionalTextSchema(255, 'La razón social'),
+    taxId: z
+      .string()
+      .trim()
+      .refine(isValidCuit, 'El CUIT debe tener 11 dígitos, con o sin guiones.')
+      .transform(normalizeCuit)
+      .nullable(),
+    supportEmail: z.email('Ingresá un correo válido.').max(255).nullable(),
+    termsUrl: brandUrlSchema,
+    privacyUrl: brandUrlSchema,
+    footerAbout: brandOptionalTextSchema(400, 'La descripción'),
+    paymentMethods: brandOptionalTextSchema(200, 'Los medios de pago'),
+    developedBy: brandOptionalTextSchema(120, 'El crédito de desarrollo'),
+    showHours: z.boolean(),
+    showMap: z.boolean(),
+    showSocial: z.boolean(),
+    faq: z
+      .array(
+        z.object({
+          question: z
+            .string()
+            .trim()
+            .min(1, 'Cada pregunta necesita un texto.')
+            .max(
+              BRAND_FAQ_QUESTION_MAX_LENGTH,
+              `Las preguntas no pueden superar ${BRAND_FAQ_QUESTION_MAX_LENGTH} caracteres.`
+            ),
+          answer: z
+            .string()
+            .trim()
+            .min(1, 'Cada respuesta necesita un texto.')
+            .max(
+              BRAND_FAQ_ANSWER_MAX_LENGTH,
+              `Las respuestas no pueden superar ${BRAND_FAQ_ANSWER_MAX_LENGTH} caracteres.`
+            ),
+        })
+      )
+      .max(BRAND_FAQ_MAX_ITEMS, `La ayuda admite hasta ${BRAND_FAQ_MAX_ITEMS} preguntas.`),
+    announcementText: brandOptionalTextSchema(280, 'El aviso'),
+    announcementEnabled: z.boolean(),
+    announcementVariant: z.enum(['info', 'warning']),
+  })
+  .superRefine((data, ctx) => {
+    if (data.announcementEnabled && !data.announcementText) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Escribí el texto del aviso o desactivalo.',
+        path: ['announcementText'],
+      });
+    }
+  });
 
 const pantallaPlaylistItemSchema = z.object({
   kind: z.enum(['product', 'video']),

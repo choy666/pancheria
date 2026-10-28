@@ -329,10 +329,11 @@ erDiagram
 | `user_role` | `admin`, `operator` | `users.role` |
 | `pantalla_playlist_mode` | `auto`, `custom` | `pantalla_settings.playlist_mode` |
 | `pantalla_item_kind` | `product`, `video` | `pantalla_items.kind` |
+| `brand_announcement_variant` | `info`, `warning` | `brand_settings.announcement_variant` |
 
 > ⚠️ Histórico: las migraciones `0008`/`0009` mencionan `order`/`order_cancellation` en `stock_movement_type`; el enum fue recreado en `0009` y los valores actuales son solo los 6 listados (la guía ya refleja los valores vigentes).
 
-## Catálogo de tablas (21)
+## Catálogo de tablas (22)
 
 ### Núcleo de negocio
 
@@ -357,6 +358,7 @@ erDiagram
 | `pantalla_settings` | Config de `/pantalla` por sucursal (1:1): modo de playlist, duraciones de escena en ms, tope de productos, toggles de escenas fijas. Sin fila → defaults de env (migración `0040`) | PK `branch_id` → branches (cascade); CHECKs `*_ms >= 1000`, `max_productos >= 1` |
 | `pantalla_items` | Playlist explícita de `/pantalla` (modo `custom`): ítem → producto o video de la sucursal, orden `position` denso, `is_enabled` para ocultar sin borrar (migración `0040`) | idx `(branch_id, position)`; UNIQUE parcial `(branch_id, product_id)` y `(branch_id, video_id)`; CHECK XOR `kind`↔referencia; FKs cascade a `branches`/`products`/`videos` |
 | `menu_settings` | Config de `/menu` por sucursal (1:1): `pagina_ms` (duración de página al rotar), `filas_pagina` (presupuesto de filas de la grilla), `grid_columns` (columnas en landscape, migración `0042`), `font_scale` (`normal`/`large`, escala tipográfica), `show_descriptions` (descripción en la tarjeta), `card_style` (`image`/`compact`), `sort_order` (`catalog`/`price_asc`/`price_desc` dentro de cada categoría), `show_qr_strip` (franja QR fija), `hidden_product_ids` (jsonb: productos vendibles ocultos del tablero — siguen vendiéndose por caja/pedido), `featured_product_ids` (jsonb: destacados que encabezan su categoría con marca "Recomendado"; un ID en ambas listas queda oculto) y `qr_strip_text` (CTA de la franja QR). Sin fila → defaults de env `NEXT_PUBLIC_MENU_*` (migración `0041`; columnas `grid_columns`…`qr_strip_text` agregadas en `0042`) | PK `branch_id` → branches (cascade); CHECKs `pagina_ms >= 1000`, `filas_pagina >= 1`, `grid_columns between 3 y 5` |
+| `brand_settings` | Identidad de marca única de la plataforma pública (fila singleton `id = 1`): nombre, lema, logo (`logo_data` bytea, servido por `/api/public/marca/logo`), datos legales, pie, preguntas frecuentes (jsonb) y aviso destacado. Sin fila → defaults de `brandService`. Migración `0044` | PK `id`; CHECKs `id = 1`, `octet_length(logo_data) <= 524288`, `jsonb_array_length(faq) <= 8` |
 
 ### Tablas de infraestructura (rate limiting)
 
