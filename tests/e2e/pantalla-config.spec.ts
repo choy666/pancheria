@@ -90,7 +90,10 @@ test.describe('Configuración de la pantalla (/pantalla-config)', () => {
     await page.goto('/');
 
     const nav = page.getByTestId('main-nav');
-    const link = nav.getByRole('link', { name: 'Pantallas', exact: true });
+    await nav.getByTestId('nav-more-trigger').click();
+    const link = page
+      .getByTestId('nav-more-menu')
+      .getByRole('menuitem', { name: 'Pantallas', exact: true });
     await expect(link).toHaveAttribute('href', '/pantalla-config');
 
     await link.click();

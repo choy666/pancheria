@@ -7,7 +7,14 @@ import { TourButton } from '@/components/tour/tour-context';
 import { BranchSelector } from './branch-selector';
 import { cn } from '@/lib/utils';
 import { routes } from '@/config/routes';
-import { LayoutGrid, Menu, MonitorPlay, X } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, CircleUser, Ellipsis, LayoutGrid, Menu, MonitorPlay, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface Branch {
@@ -44,14 +51,21 @@ const adminNavItems = [
   { href: routes.productos, label: 'Productos' },
   { href: routes.stock, label: 'Stock' },
   { href: routes.cierre, label: 'Caja' },
-  { href: routes.reportes, label: 'Reportes' },
   { href: routes.pedidos, label: 'Pedidos' },
+  { href: routes.reportes, label: 'Reportes' },
   { href: routes.sucursales, label: 'Sucursales' },
   { href: routes.usuarios, label: 'Usuarios' },
   { href: routes.videos, label: 'Videos' },
   { href: routes.pantallaConfig, label: 'Pantallas' },
   { href: routes.pedido, label: 'Catálogo' },
 ];
+
+/**
+ * Cantidad de ítems de admin que quedan fijos en la barra de escritorio.
+ * El resto se agrupa en el menú "Más": con 13 ítems fijos el encabezado se
+ * desbordaba horizontalmente por debajo de ~1600 px.
+ */
+const ADMIN_PRIMARY_NAV_COUNT = 7;
 
 /**
  * Acceso a una TV kiosk (`/pantalla`, `/menu`) pineado a la sucursal al
@@ -133,7 +147,15 @@ export function PanelHeader({
   const [open, setOpen] = useState(false);
 
   const isAdmin = role === 'admin';
-  const navItems = isAdmin ? adminNavItems : operatorNavItems;
+  const navItems = (isAdmin ? adminNavItems : operatorNavItems).map((item) =>
+    item.href === routes.pedido && activeBranchId !== undefined
+      ? { ...item, href: `${routes.pedido}?branchId=${activeBranchId}` }
+      : item
+  );
+  const primaryNavItems = isAdmin
+    ? navItems.slice(0, ADMIN_PRIMARY_NAV_COUNT)
+    : navItems;
+  const moreNavItems = isAdmin ? navItems.slice(ADMIN_PRIMARY_NAV_COUNT) : [];
   const showBranchSelector = isAdmin && branches && branches.length > 1;
 
   const kioskBranchName =
@@ -184,8 +206,8 @@ export function PanelHeader({
           Panchería
         </Link>
 
-        <nav data-testid="main-nav" data-tour="main-nav" className="hidden items-center gap-1 lg:flex">
-          {navItems.map((item) => (
+        <nav data-testid="main-nav" data-tour="main-nav" className="hidden items-center gap-1 xl:flex">
+          {primaryNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -196,9 +218,36 @@ export function PanelHeader({
               {item.label}
             </Link>
           ))}
+          {moreNavItems.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                data-testid="nav-more-trigger"
+                aria-label="Más secciones"
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'sm' }),
+                  'gap-1'
+                )}
+              >
+                <Ellipsis aria-hidden />
+                Más
+                <ChevronDown aria-hidden className="size-4 text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent data-testid="nav-more-menu">
+                {moreNavItems.map((item) => (
+                  <DropdownMenuItem
+                    key={item.href}
+                    closeOnClick
+                    render={<Link href={item.href} />}
+                  >
+                    {item.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </nav>
 
-        <div className="hidden items-center gap-4 lg:flex">
+        <div className="hidden items-center gap-4 xl:flex">
           {showBranchSelector && activeBranchId !== undefined && (
             <BranchSelector
               key={activeBranchId}
@@ -222,29 +271,45 @@ export function PanelHeader({
           {branchName && !showBranchSelector && (
             <span data-testid="active-branch-name" className="text-sm text-muted-foreground">{branchName}</span>
           )}
-          {userName && (
-            <span className="text-sm text-muted-foreground">{userName}</span>
-          )}
-          <Link
-            href={routes.perfil}
-            data-testid="profile-link"
-            className={cn(
-              buttonVariants({ variant: 'ghost', size: 'sm' })
-            )}
-          >
-            Mi perfil
-          </Link>
-          <form action={signOutAction}>
-            <Button type="submit" variant="outline" size="sm">
-              Cerrar sesión
-            </Button>
-          </form>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              data-testid="user-menu-trigger"
+              aria-label={`Cuenta${userName ? ` de ${userName}` : ''}`}
+              className={cn(
+                buttonVariants({ variant: 'ghost', size: 'sm' }),
+                'max-w-44 gap-1.5'
+              )}
+            >
+              <CircleUser aria-hidden />
+              <span className="truncate">{userName ?? 'Cuenta'}</span>
+              <ChevronDown aria-hidden className="size-4 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                closeOnClick
+                render={<Link href={routes.perfil} data-testid="profile-link" />}
+              >
+                Mi perfil
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <form action={signOutAction}>
+                <DropdownMenuItem
+                  closeOnClick
+                  render={
+                    <button type="submit" data-testid="signout-menu-item" />
+                  }
+                >
+                  Cerrar sesión
+                </DropdownMenuItem>
+              </form>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Button
           variant="ghost"
           size="icon-lg"
-          className="lg:hidden"
+          className="xl:hidden"
           data-tour="mobile-menu-button"
           aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={open}
@@ -257,7 +322,7 @@ export function PanelHeader({
       {open && (
         <div
           data-tour="mobile-nav"
-          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 lg:hidden"
+          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 px-4 pb-4 xl:hidden"
         >
           <nav className="flex flex-col gap-1 pt-2">
             {navItems.map((item) => (

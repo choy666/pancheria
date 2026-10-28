@@ -26,6 +26,7 @@ test.describe('Cambio de contraseña desde el perfil', () => {
   });
 
   test('el usuario puede cambiar su contraseña desde /perfil', async ({ page }) => {
+    await page.getByTestId('user-menu-trigger').click();
     await page.getByTestId('profile-link').click();
     await expect(page).toHaveURL('/perfil', { timeout: 15000 });
     await expect(
@@ -46,7 +47,8 @@ test.describe('Cambio de contraseña desde el perfil', () => {
       'Contraseña actualizada correctamente.'
     );
 
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await page.getByTestId('user-menu-trigger').click();
+    await page.getByTestId('signout-menu-item').click();
     await expect(page).toHaveURL('/login', { timeout: 15000 });
 
     await page.goto('/login');

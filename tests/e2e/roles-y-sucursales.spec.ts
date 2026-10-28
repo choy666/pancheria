@@ -37,10 +37,16 @@ test.describe('Rol administrador', () => {
       ).toBeVisible({ timeout: 10000 });
     }
 
-    // El navbar de admin muestra todas las secciones.
+    // El navbar de admin muestra las secciones principales y agrupa el resto
+    // en el menú "Más".
     const nav = page.locator('nav[data-testid="main-nav"]');
-    for (const label of ['Panel', 'Ventas', 'Historial', 'Productos', 'Stock', 'Caja', 'Sucursales', 'Usuarios']) {
+    for (const label of ['Panel', 'Ventas', 'Historial', 'Productos', 'Stock', 'Caja']) {
       await expect(nav).toContainText(label);
+    }
+    await nav.getByTestId('nav-more-trigger').click();
+    const moreMenu = page.getByTestId('nav-more-menu');
+    for (const label of ['Sucursales', 'Usuarios']) {
+      await expect(moreMenu).toContainText(label);
     }
   });
 

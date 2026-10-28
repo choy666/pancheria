@@ -85,7 +85,8 @@ test.describe('Paso 3 - Login y navegacion completa', () => {
 
     await closeCashRegisterFromUI(page);
 
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await page.getByTestId('user-menu-trigger').click();
+    await page.getByTestId('signout-menu-item').click();
     await expect(page).toHaveURL('/login', { timeout: 10000 });
   });
 });
