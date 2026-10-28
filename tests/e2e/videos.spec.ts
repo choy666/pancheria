@@ -34,7 +34,13 @@ test.describe('Videos', () => {
 
   test('el administrador ve el menú de videos', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Videos' })).toBeVisible();
+    const nav = page.getByTestId('main-nav');
+    await nav.getByTestId('nav-more-trigger').click();
+    await expect(
+      page
+        .getByTestId('nav-more-menu')
+        .getByRole('menuitem', { name: 'Videos', exact: true })
+    ).toBeVisible();
     await page.goto('/videos');
     await expect(page).toHaveURL('/videos');
   });
