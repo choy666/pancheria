@@ -1,5 +1,6 @@
 import {
   productSchema,
+  productUpdateSchema,
   recipeSchema,
   saleSchema,
   orderSchema,
@@ -147,6 +148,53 @@ describe('productSchema', () => {
         })
       ).toThrow();
     }
+  });
+});
+
+describe('productUpdateSchema', () => {
+  // Es un PATCH: los campos ausentes no contradicen reglas; las combinaciones
+  // que dependen del estado guardado las valida updateProduct al mergear.
+  test('acepta un tope de opcionales sin type (el tipo guardado lo decide el servicio)', () => {
+    const result = productUpdateSchema.parse({ maxOptionalSelections: 8 });
+    expect(result.maxOptionalSelections).toBe(8);
+  });
+
+  test('rechaza un tope de opcionales con type no compuesto explícito', () => {
+    expect(() =>
+      productUpdateSchema.parse({
+        type: 'manual_supply',
+        maxOptionalSelections: 8,
+      })
+    ).toThrow(
+      'Solo los productos compuestos pueden tener un tope de opcionales.'
+    );
+  });
+
+  test('acepta criticalSupplyType sin type en un update parcial', () => {
+    const result = productUpdateSchema.parse({ criticalSupplyType: 'bread' });
+    expect(result.criticalSupplyType).toBe('bread');
+  });
+
+  test('rechaza criticalSupplyType con type no crítico explícito', () => {
+    expect(() =>
+      productUpdateSchema.parse({
+        type: 'manual_supply',
+        criticalSupplyType: 'bread',
+      })
+    ).toThrow(
+      'Solo los insumos críticos pueden tener un tipo de insumo crítico.'
+    );
+  });
+
+  test('acepta type manual_supply sin price (el precio guardado lo decide el servicio)', () => {
+    const result = productUpdateSchema.parse({ type: 'manual_supply' });
+    expect(result.type).toBe('manual_supply');
+  });
+
+  test('rechaza precio con type manual_supply explícito', () => {
+    expect(() =>
+      productUpdateSchema.parse({ type: 'manual_supply', price: 150 })
+    ).toThrow('Los insumos manuales no pueden tener precio.');
   });
 });
 

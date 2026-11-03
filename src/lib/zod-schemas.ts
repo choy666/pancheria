@@ -75,31 +75,50 @@ export const productSchema = productBaseSchema
     }
   );
 
+// Es un PATCH: los refines cruzados solo rechazan contradicciones explícitas
+// del payload. Lo que depende del estado guardado (campos ausentes) lo decide
+// updateProduct al revalidar el producto mergeado con estas mismas reglas.
 export const productUpdateSchema = productBaseSchema
   .partial()
   .refine(
-    (data) => !(data.type === 'critical_supply' && !data.criticalSupplyType),
+    (data) =>
+      !(data.type === 'critical_supply' && data.criticalSupplyType === null),
     {
       message: 'Los insumos críticos deben tener un tipo de insumo crítico.',
       path: ['criticalSupplyType'],
     }
   )
   .refine(
-    (data) => !(data.type !== 'critical_supply' && data.criticalSupplyType),
+    (data) =>
+      !(
+        data.type !== undefined &&
+        data.type !== 'critical_supply' &&
+        data.criticalSupplyType != null
+      ),
     {
       message: 'Solo los insumos críticos pueden tener un tipo de insumo crítico.',
       path: ['criticalSupplyType'],
     }
   )
   .refine(
-    (data) => !(data.type === 'manual_supply' && data.price !== 0),
+    (data) =>
+      !(
+        data.type === 'manual_supply' &&
+        data.price != null &&
+        data.price !== 0
+      ),
     {
       message: 'Los insumos manuales no pueden tener precio.',
       path: ['price'],
     }
   )
   .refine(
-    (data) => !(data.type !== 'compound' && data.maxOptionalSelections != null),
+    (data) =>
+      !(
+        data.type !== undefined &&
+        data.type !== 'compound' &&
+        data.maxOptionalSelections != null
+      ),
     {
       message:
         'Solo los productos compuestos pueden tener un tope de opcionales.',

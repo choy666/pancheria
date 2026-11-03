@@ -5,6 +5,7 @@ import {
   createProductViaApi,
   listAllProductsViaApi,
   restockProductViaApi,
+  waitForHydratedInput,
 } from './helpers';
 
 test.describe('Ciclo de vida de productos y recetas', () => {
@@ -505,6 +506,12 @@ test.describe('Edición y eliminación de promos', () => {
       page.locator('[data-testid="recipe-item"]').first()
     ).toHaveAttribute('data-supply-name', salchicha.name);
 
+    // Tope de opcionales en una promo existente: el PUT del formulario no
+    // envía `type` — antes un PATCH parcial con tope caía en el 400 "Solo
+    // los productos compuestos pueden tener un tope de opcionales".
+    await waitForHydratedInput(page, '[data-testid="promo-max-optional-input"]');
+    await page.getByTestId('promo-max-optional-input').fill('8');
+
     await page.getByTestId('promo-submit').click();
 
     await expect(page).toHaveURL('/productos', { timeout: 10000 });
@@ -521,8 +528,12 @@ test.describe('Edición y eliminación de promos', () => {
 
     const productRes = await page.request.get(`/api/productos/${promo.id}`);
     expect(productRes.status()).toBe(200);
-    const productData = (await productRes.json()) as { price: number };
+    const productData = (await productRes.json()) as {
+      price: number;
+      maxOptionalSelections: number | null;
+    };
     expect(productData.price).toBe(newPrice);
+    expect(productData.maxOptionalSelections).toBe(8);
 
     const updatedRecipeRes = await page.request.get(
       `/api/recetas?productId=${promo.id}`

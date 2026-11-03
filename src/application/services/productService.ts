@@ -211,10 +211,22 @@ export async function updateProduct(
       }
     }
 
-    // El tope de opcionales solo aplica a compuestos: si el tipo efectivo
-    // deja de ser `compound` se limpia igual que stock/minStock, en vez de
-    // rechazar la edición por una regla que ya no corresponde.
-    if ((updateData.type ?? current.type) !== 'compound') {
+    // El tope de opcionales solo aplica a compuestos. Un tope explícito
+    // sobre un producto cuyo tipo efectivo no es `compound` se rechaza acá:
+    // la ruta no conoce el tipo guardado para un PATCH parcial. Si el tipo
+    // efectivo deja de ser `compound` sin venir tope en el payload, el valor
+    // guardado se limpia igual que stock/minStock en vez de rechazar la
+    // edición por una regla que ya no corresponde.
+    const effectiveType = updateData.type ?? current.type;
+    if (
+      updateData.maxOptionalSelections != null &&
+      effectiveType !== 'compound'
+    ) {
+      throw new ValidationError(
+        'Solo los productos compuestos pueden tener un tope de opcionales.'
+      );
+    }
+    if (effectiveType !== 'compound') {
       updateData.maxOptionalSelections = null;
     }
 
@@ -249,8 +261,6 @@ export async function updateProduct(
     previousImageKey = current.imageKey ?? null;
     shouldDeletePreviousImage =
       !!previousImageKey && updateData.imageKey !== previousImageKey;
-
-    const effectiveType = updateData.type ?? current.type;
 
     if (effectiveType === 'compound' || effectiveType === 'service') {
       updateData.stock = 0;

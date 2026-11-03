@@ -235,6 +235,45 @@ describe('productos /api/productos/[id]', () => {
       );
     });
 
+    test('acepta maxOptionalSelections sin type (el tipo guardado lo decide el servicio)', async () => {
+      mockedProductService.updateProduct.mockResolvedValue(
+        { id: 1, maxOptionalSelections: 8 } as unknown as Awaited<
+          ReturnType<typeof productService.updateProduct>
+        >
+      );
+
+      const [request, routeParams] = buildRequest('1', {
+        method: 'PUT',
+        body: JSON.stringify({ maxOptionalSelections: 8 }),
+      });
+      const response = await PUT(request, routeParams);
+
+      expect(response.status).toBe(200);
+      expect(mockedProductService.updateProduct).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({ maxOptionalSelections: 8 })
+      );
+    });
+
+    test('devuelve 400 con tope de opcionales y type no compuesto explícito', async () => {
+      const [request, routeParams] = buildRequest('1', {
+        method: 'PUT',
+        body: JSON.stringify({
+          type: 'manual_supply',
+          maxOptionalSelections: 8,
+        }),
+      });
+      const response = await PUT(request, routeParams);
+      const body = (await response.json()) as { error: string };
+
+      expect(response.status).toBe(400);
+      expect(body.error).toContain(
+        'Solo los productos compuestos pueden tener un tope de opcionales.'
+      );
+      expect(mockedProductService.updateProduct).not.toHaveBeenCalled();
+    });
+
     test('devuelve 400 cuando el cuerpo es inválido', async () => {
       const [request, routeParams] = buildRequest('1', {
         method: 'PUT',

@@ -607,6 +607,46 @@ describe('productService', () => {
       );
     });
 
+    test('guarda el tope de opcionales en un producto compuesto sin enviar type', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'compound',
+        branchId: BRANCH_ID,
+      } as ProductRow);
+
+      const data = { maxOptionalSelections: 8 } as unknown as ProductUpdate;
+      mockedProductRepository.update.mockResolvedValue({
+        id: 1,
+        ...data,
+      } as ProductRow);
+
+      await updateProduct(BRANCH_ID, 1, data);
+
+      expect(mockedProductRepository.update).toHaveBeenCalledWith(
+        BRANCH_ID,
+        1,
+        expect.objectContaining({ maxOptionalSelections: 8 }),
+        expect.anything()
+      );
+    });
+
+    test('rechaza el tope de opcionales en un producto no compuesto sin enviar type', async () => {
+      mockedProductRepository.findById.mockResolvedValue({
+        id: 1,
+        type: 'manual_supply',
+        branchId: BRANCH_ID,
+      } as ProductRow);
+
+      await expect(
+        updateProduct(BRANCH_ID, 1, {
+          maxOptionalSelections: 8,
+        } as unknown as ProductUpdate)
+      ).rejects.toThrow(
+        'Solo los productos compuestos pueden tener un tope de opcionales.'
+      );
+      expect(mockedProductRepository.update).not.toHaveBeenCalled();
+    });
+
     test('fuerza stock y minStock a 0 al actualizar un producto compuesto', async () => {
       mockedProductRepository.findById.mockResolvedValue({
         id: 1,
