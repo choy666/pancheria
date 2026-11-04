@@ -9,8 +9,9 @@
  * `POST /api/stock/ajustar`.
  *
  * CARGA DE PRUEBA (2026-10-08): cantidades de prueba para la sucursal
- * Panchería Popular — critical_supply ×20, manual_supply ×5, service ×20
- * (los `compound` no llevan stock: su consumo sale de la receta).
+ * Panchería Popular — critical_supply ×20, manual_supply ×5
+ * (los `compound` no llevan stock: su consumo sale de la receta; los
+ * `service` tampoco manejan stock — `adjustStock` los rechaza).
  * Atención: `restock` es ADITIVO — correr `--apply` dos veces duplica
  * las cantidades. Antes de abrir al público reemplazar por los conteos
  * reales del negocio.
@@ -18,8 +19,9 @@
  * Semántica del dominio (ver `deductStockForItems` en saleService): solo
  * descuenta stock el `critical_supply` (bebidas sueltas) y los insumos
  * `autoDiscount` de las recetas (pan, salchichas, bebidas en promos).
- * `manual_supply` y `service` NUNCA descuentan ni reintegran — su número
- * solo alimenta el panel y la alerta de stock bajo.
+ * `manual_supply` NUNCA descuenta ni reintegra — su número solo alimenta
+ * el panel y la alerta de stock bajo. `service` no maneja stock en
+ * absoluto: una entrada acá sería rechazada por `adjustStock`.
  *
  * `minStock` es opcional: activa la alerta "bajo" del panel
  * (`isLow` = stock <= min_stock) para ese insumo.
@@ -108,10 +110,4 @@ export const STOCK_INICIAL: StockInicialEntry[] = [
   { product: 'Mayonesa provenzal', quantity: 5 },
   { product: 'Tomate', quantity: 5 },
   { product: 'Morrones', quantity: 5 },
-
-  // — Servicios extras (no descuentan stock; queda como referencia) —
-  { product: 'Postre Oreo', quantity: 20 },
-  { product: 'Flan', quantity: 20 },
-  { product: 'Vaso de gaseosa', quantity: 20 },
-  { product: 'Agregado de toppings', quantity: 20 },
 ];

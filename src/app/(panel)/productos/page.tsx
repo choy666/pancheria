@@ -142,7 +142,14 @@ export default async function ProductsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell font-mono">
-                      {product.type === 'compound' ? (
+                      {product.type === 'service' ? (
+                        <span
+                          className="text-muted-foreground"
+                          title="Los servicios no manejan stock"
+                        >
+                          —
+                        </span>
+                      ) : product.type === 'compound' ? (
                         <span
                           className="text-muted-foreground"
                           title="El stock de una promo se calcula a partir de sus insumos críticos"

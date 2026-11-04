@@ -56,7 +56,12 @@ export async function copyCatalogToBranch(
       price: p.price,
       unit: p.unit,
       stock: 0,
-      minStock: p.minStock,
+      // Los servicios y compuestos no manejan stock ni umbral: se copian en
+      // 0 aunque el origen tenga valores residuales.
+      minStock:
+        p.type === 'critical_supply' || p.type === 'manual_supply'
+          ? p.minStock
+          : 0,
       isActive: p.isActive,
     }));
 
@@ -98,7 +103,14 @@ export async function copyCatalogToBranch(
 
     for (const source of sourceProducts) {
       const targetId = oldToNewProductId.get(source.id);
-      if (!targetId || source.stock <= 0) continue;
+      // Solo los insumos manejan stock: `adjustStock` rechaza servicios y
+      // compuestos, cuyo `stock` residual no se propaga de todos modos.
+      if (
+        !targetId ||
+        source.stock <= 0 ||
+        (source.type !== 'critical_supply' && source.type !== 'manual_supply')
+      )
+        continue;
       await stockService.adjustStock(
         targetBranchId,
         targetId,

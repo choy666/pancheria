@@ -86,6 +86,12 @@ export async function adjustStock(
       throw new NotFoundError('Producto', productId);
     }
 
+    if (current.type === 'service' || current.type === 'compound') {
+      throw new ValidationError(
+        'Los servicios y las promos no manejan stock.'
+      );
+    }
+
     const newStock = current.stock + quantity;
     if (newStock < 0) {
       throw new ValidationError(

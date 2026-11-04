@@ -185,6 +185,22 @@ describe('stockService', () => {
     );
   });
 
+  test('adjustStock rechaza productos service porque no manejan stock', async () => {
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
+      createProductRow({ id: 1, name: 'Vaso de gaseosa', type: 'service', stock: 20 })
+    );
+
+    await expect(adjustStock(BRANCH_ID, 1, 5, 'Ajuste de prueba')).rejects.toThrow(ValidationError);
+  });
+
+  test('adjustStock rechaza productos compound porque el stock sale de la receta', async () => {
+    mockedProductRepository.findByIdForUpdate.mockResolvedValue(
+      createProductRow({ id: 1, name: 'Promo doble', type: 'compound', stock: 10 })
+    );
+
+    await expect(adjustStock(BRANCH_ID, 1, 5, 'Ajuste de prueba')).rejects.toThrow(ValidationError);
+  });
+
   test('adjustStock rechaza un tipo inválido', async () => {
     mockedProductRepository.findByIdForUpdate.mockResolvedValue(
       createProductRow({ id: 1, name: 'Pan', stock: 5 })
